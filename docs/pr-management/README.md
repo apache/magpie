@@ -140,7 +140,6 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `pr-stale-sweep` |
 | [`pr-management-triage-ci-check-map.md`](../../plugins/magpie-setup/templates/pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. | `pr-triage` |
 | [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `pr-triage`, `reviewer-routing` |
 | [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `reviewer-routing` |

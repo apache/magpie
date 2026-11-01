@@ -245,22 +245,12 @@ def sweep(
     load_failures: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     load_failures = list(load_failures or [])
-    try:
-        limit = failure_budget.limit(cfg.item_failure_budget, len(loaded) + len(load_failures))
-    except failure_budget.BudgetSpecError as exc:
-        return {"error": str(exc), "warnings": list(cfg.warnings)}
-    budget = failure_budget.Budget(limit=limit)
-    for failure in load_failures:
-        budget.record(failure["number"], failure["reason"])
     filtered = {"draft": 0, "bot": 0, "label": 0, "fresh": 0}
-    items: list[Item] = []
-    unfinished: list[int] = []
-    for index, (pr, raw) in enumerate(loaded):
-        if budget.exhausted:
-            # Stop before the next item; everything not reached is unfinished,
-            # not failed, so a rerun picks it up as simply not done.
-            unfinished = [p.number for p, _raw in loaded[index:]]
-            break
+    # Filter first, so the pool the budget is sized on, and the unfinished
+    # list a stop leaves behind, hold only the PRs this run would classify:
+    # never a draft, a bot PR, one outside the label or the explicit numbers.
+    candidates: list[tuple[PR, list[RawComment]]] = []
+    for pr, raw in loaded:
         if plan.explicit_numbers is not None and pr.number not in plan.explicit_numbers:
             continue
         if pr.is_draft:
@@ -272,6 +262,24 @@ def sweep(
         if plan.label_filter and plan.label_filter not in pr.labels:
             filtered["label"] += 1
             continue
+        candidates.append((pr, raw))
+    if plan.explicit_numbers is not None:
+        load_failures = [f for f in load_failures if f["number"] in plan.explicit_numbers]
+    try:
+        limit = failure_budget.limit(cfg.item_failure_budget, len(candidates) + len(load_failures))
+    except failure_budget.BudgetSpecError as exc:
+        return {"error": str(exc), "warnings": list(cfg.warnings)}
+    budget = failure_budget.Budget(limit=limit)
+    for failure in load_failures:
+        budget.record(failure["number"], failure["reason"])
+    items: list[Item] = []
+    unfinished: list[int] = []
+    for index, (pr, raw) in enumerate(candidates):
+        if budget.exhausted:
+            # Stop before the next item; everything not reached is unfinished,
+            # not failed, so a rerun picks it up as simply not done.
+            unfinished = [p.number for p, _raw in candidates[index:]]
+            break
         try:
             item = classify_one(pr, raw, plan, cfg, people, now)
         except Exception as exc:  # the item's own data made it impossible; count it, carry on

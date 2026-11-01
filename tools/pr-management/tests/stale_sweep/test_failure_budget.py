@@ -127,6 +127,46 @@ def test_exceeding_the_budget_stops_before_the_next_item(monkeypatch: pytest.Mon
     assert result["rerun_selector"] == "1,2,3,4,5"  # exactly the failed and unfinished items
 
 
+def test_unfinished_holds_only_prs_this_run_would_classify(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A draft after the stop point is not "unfinished": a rerun must not pick it up.
+    monkeypatch.setattr(C, "classify_one", lambda *a, **k: (_ for _ in ()).throw(ValueError("bad node")))
+    loaded = _loaded(1, 2, 3)
+    draft = node(9, idle=60, draft=True)
+    loaded.insert(2, (model.from_node(draft), C.raw_comments(draft)))
+    result = _sweep(loaded, spec="1")
+    assert result["unfinished"] == [3]
+    assert result["rerun_selector"] == "1,2,3"
+    assert result["pool"]["filtered"]["draft"] == 1
+
+
+def test_the_recap_lists_failed_and_unreached_prs_and_says_so_first() -> None:
+    from pr_management.stale_sweep import recap as R
+
+    classified = {
+        "proposals": [{"number": 1, "class": "REQUEST-UPDATE"}],
+        "skipped": [],
+        "failed": [{"number": 2, "reason": "could not classify: KeyError: 'labels'"}],
+        "unfinished": [3],
+        "rerun_selector": "2,3",
+    }
+    out = R.recap({"prs": {}}, classified, "apache/myproject")
+    first = out["recap_text"].splitlines()[0]
+    assert first.startswith("1 PR(s) failed and 1 not reached.")
+    assert (
+        "[#2](https://github.com/apache/myproject/pull/2) — FAILED — could not classify" in out["recap_text"]
+    )
+    assert "[#3](https://github.com/apache/myproject/pull/3) — not reached" in out["recap_text"]
+    assert "`stale 2,3`" in out["recap_text"]
+    assert (out["failed_count"], out["unfinished_count"]) == (1, 1)
+
+
+def test_a_clean_recap_has_no_failure_lead() -> None:
+    from pr_management.stale_sweep import recap as R
+
+    out = R.recap({"prs": {}}, {"proposals": [], "skipped": []}, "apache/myproject")
+    assert "failed" not in out["recap_text"].splitlines()[0]
+
+
 def test_unreadable_nodes_count_against_the_budget(tmp_path: Path) -> None:
     good = node(1, idle=60)
     page = {"data": {"search": {"nodes": [good, {"number": 2, "labels": "not-a-connection"}]}}}

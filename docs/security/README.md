@@ -119,7 +119,6 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`distributor-list.md`](../../plugins/magpie-setup/templates/distributor-list.md) | The embargo distributor list a pre-announcement goes to, and what it may contain. Absent, no pre-announcement is proposed. | `issue-sync` |
-| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `issue-triage` |
 | [`naming-conventions.md`](../../plugins/magpie-setup/templates/naming-conventions.md) | Project-specific editorial rules. Keep only the ones that differ from the generic rules in `../../AGENTS.md`. | `issue-sync` |
 | [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `issue-import` |
 

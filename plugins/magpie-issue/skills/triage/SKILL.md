@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:fb90bdc45aec5f8a
 license: Apache-2.0
-measured_tokens: 5851
+measured_tokens: 5873
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -471,8 +471,10 @@ cannot be read or classified (a missing body, an unparsable timestamp, a
 404 or 410 for that item, a classifier that returns no verdict for it twice)
 does not stop the sweep: record it as `failed` with a one-line reason, skip it
 for the rest of the run, and carry on with the next item.
-The budget is `item_failure_budget` in `<project-config>/issue-tracker-config.md`
-(or `project.md` when this skill reads no tracker config): `<n>`, `<p>%` of the
+The budget is `item_failure_budget` in the config file this skill already
+reads: `issue-tracker-config.md` for the issue skills,
+`project.md` for the security skills, `pr-management-config.md` for the PR
+skills. Its value is `<n>`, `<p>%` of the
 pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
 stops the run before the sweep starts, with an error naming the value and no
 fallback: nothing has been read, so no item is failed or unfinished; the
