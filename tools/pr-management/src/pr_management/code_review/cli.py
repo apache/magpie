@@ -58,9 +58,32 @@ def _need(op: str, params: list[str], save: str, why: str) -> dict[str, Any]:
     return {"op": op, "params": params, "save": save, "why": why}
 
 
+def _is_own_fixup(pr: data.PR, head: str, reviewed: str, viewer: str) -> bool:
+    """`head` is one commit on top of `reviewed`, authored by the viewer alone."""
+    if len(pr.commits) < 2:
+        return False
+    last, parent = pr.commits[-1], pr.commits[-2]
+    authors = {a.lower() for a in last.authors}
+    return last.oid == head and parent.oid == reviewed and authors == {viewer.lower()}
+
+
 def _release_runs(args: argparse.Namespace) -> dict[str, Any]:
-    if not _SHA.fullmatch(args.head):
-        raise SystemExit("pr-management: --head must be the full 40-character head SHA")
+    for flag, sha in (("--head", args.head), ("--reviewed-head", args.reviewed_head)):
+        if sha is not None and not _SHA.fullmatch(sha):
+            raise SystemExit(f"pr-management: {flag} must be a full 40-character SHA")
+    pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
+    # Releasing a held run executes the head's code in CI, which is what workflow approval guards.
+    if pr.head_sha != args.head:
+        raise SystemExit(
+            f"pr-management: the saved read of PR {args.pr} is at {pr.head_sha[:12] or 'no head'}, not "
+            f"{args.head[:12]}; refresh gql-cr-pr after the push and re-run"
+        )
+    reviewed = args.reviewed_head or args.head
+    if reviewed != args.head and not _is_own_fixup(pr, args.head, reviewed, args.viewer):
+        raise SystemExit(
+            f"pr-management: {args.head[:12]} is not the reviewed head {reviewed[:12]} nor the viewer's own "
+            "fixup commit on top of it; review the new commits before releasing their runs"
+        )
     save = f"runs-at-head-{args.pr}-{args.head[:12]}.json"
     pages = data.load_json(_file(args.saved_dir, save))
     if pages is None:
@@ -753,6 +776,12 @@ def add_parsers(sub: Any) -> None:
     rel.add_argument("--saved-dir", type=Path, required=True)
     rel.add_argument("--pr", type=int, required=True)
     rel.add_argument("--head", required=True, help="the full head SHA (after any push)")
+    rel.add_argument("--viewer", required=True)
+    rel.add_argument(
+        "--reviewed-head",
+        default=None,
+        help="the head the review approved, when --head is the viewer's fixup commit on top of it",
+    )
 
     rres = commands.add_parser("release-result", help="what one release attempt means, and the next op")
     rres.add_argument("--op", choices=(runs.APPROVE_OP, runs.RERUN_OP), required=True)

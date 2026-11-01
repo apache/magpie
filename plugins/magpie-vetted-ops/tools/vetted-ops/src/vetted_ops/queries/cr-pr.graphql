@@ -97,6 +97,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
               state
               contexts(first: 100) {
                 totalCount
+                pageInfo { hasNextPage }
                 nodes {
                   __typename
                   ... on CheckRun { name conclusion status isRequired(pullRequestNumber: $number) }

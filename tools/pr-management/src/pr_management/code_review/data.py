@@ -133,13 +133,22 @@ def _contexts(rollup: dict[str, Any]) -> tuple[Context, ...]:
     return tuple(found)
 
 
+UNREAD_CHECKS = "checks beyond the first page of the read"
+
+
 def _pending_not_required(rollup: dict[str, Any]) -> tuple[str, ...]:
     """Checks still running that branch protection does not require, so auto-merge would not wait for them.
 
-    A context with no `isRequired` value counts as not required: the safe reading.
+    A context with no `isRequired` value counts as not required: the safe reading. When the
+    read stopped short of every context, the unread ones are unknown, so they count too.
     """
     names: list[str] = []
-    for node in _nodes(rollup.get("contexts")):
+    conn = rollup.get("contexts") or {}
+    nodes = _nodes(conn)
+    total = conn.get("totalCount")
+    if (conn.get("pageInfo") or {}).get("hasNextPage") or (isinstance(total, int) and total > len(nodes)):
+        names.append(UNREAD_CHECKS)
+    for node in nodes:
         if node.get("__typename") == "StatusContext":
             pending = node.get("state") in ("PENDING", "EXPECTED")
             name = node.get("context")
