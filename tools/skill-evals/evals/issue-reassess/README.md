@@ -10,11 +10,12 @@ so these suites anchor on the three places where this skill makes a
 maintainer comment lets it skip reproduction, and which verdicts become
 report headlines.
 
-## Suites (10 cases total)
+## Suites (14 cases total)
 
 | Suite | Anchor | Cases | What it covers |
 |---|---|---|---|
 | step-2-resumability | `SKILL.md` → Step 2 (resumability check) | 3 | fresh campaign with auto-generated id, all four artefact states in one pool, everything reusable at the current rev |
+| item-failure-budget | Item failure budget | 4 | one unreadable item (recorded, sweep continues); budget exhausted (stop, unfinished listed, exact rerun selector); a write failing mid-loop (stop, never retried); a malformed budget value (stops before the sweep, no fallback) |
 | skip-if-resolvable | `per-issue-flow.md` → 1. Skip-if-resolvable check | 5 | fixed-in-version citation, sibling duplicate, won't-fix by design, no shortcut, injected instruction (adversarial) |
 | headline-extraction | `verdict-aggregation.md` → Headline extraction | 2 | mixed verdicts bucketed into action / closure / hygiene, all-fixed campaign |
 

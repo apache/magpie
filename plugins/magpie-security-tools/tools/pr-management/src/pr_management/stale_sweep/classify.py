@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import model
+from .. import failure_budget, model
 from ..config import Config
 from ..model import PR, parse_time
 from ..people import Maintainers, is_bot
@@ -105,13 +105,37 @@ def raw_comments(node: dict[str, Any]) -> list[RawComment]:
 
 def load(paths: list[Path]) -> list[tuple[PR, list[RawComment]]]:
     """PRs from saved pages or single-PR reads, deduplicated by number, with their raw comments."""
+    return load_with_failures(paths)[0]
+
+
+def load_with_failures(
+    paths: list[Path],
+) -> tuple[list[tuple[PR, list[RawComment]]], list[dict[str, Any]]]:
+    """Like `load`, but a PR node that cannot be read is a recorded failure, not a crash.
+
+    One malformed node used to abort the whole sweep. Now it becomes
+    ``{"number": <n or None>, "reason": ...}`` and counts against the item
+    failure budget (docs/batch-failure-budget.md); a later good read of the
+    same PR replaces it.
+    """
     seen: dict[int, tuple[PR, list[RawComment]]] = {}
+    failures: dict[object, dict[str, Any]] = {}
     for path in paths:
         document = json.loads(path.read_text(encoding="utf-8"))
         for node in model._pr_nodes(document):
-            pr = model.from_node(node)
-            seen[pr.number] = (pr, raw_comments(node))
-    return [seen[n] for n in sorted(seen)]
+            number = node.get("number") if isinstance(node, dict) else None
+            try:
+                pr = model.from_node(node)
+                comments = raw_comments(node)
+            except Exception as exc:  # one bad item must not sink the sweep
+                failures[number if number is not None else f"unnumbered-{len(failures)}"] = {
+                    "number": number,
+                    "reason": f"could not read the PR: {type(exc).__name__}: {exc}",
+                }
+                continue
+            seen[pr.number] = (pr, comments)
+            failures.pop(pr.number, None)
+    return [seen[n] for n in sorted(seen)], list(failures.values())
 
 
 def _sweep_comment(comment: RawComment) -> bool:
@@ -218,10 +242,25 @@ def sweep(
     cfg: Config,
     people: Maintainers,
     now: dt.datetime,
+    load_failures: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    load_failures = list(load_failures or [])
+    try:
+        limit = failure_budget.limit(cfg.item_failure_budget, len(loaded) + len(load_failures))
+    except failure_budget.BudgetSpecError as exc:
+        return {"error": str(exc), "warnings": list(cfg.warnings)}
+    budget = failure_budget.Budget(limit=limit)
+    for failure in load_failures:
+        budget.record(failure["number"], failure["reason"])
     filtered = {"draft": 0, "bot": 0, "label": 0, "fresh": 0}
     items: list[Item] = []
-    for pr, raw in loaded:
+    unfinished: list[int] = []
+    for index, (pr, raw) in enumerate(loaded):
+        if budget.exhausted:
+            # Stop before the next item; everything not reached is unfinished,
+            # not failed, so a rerun picks it up as simply not done.
+            unfinished = [p.number for p, _raw in loaded[index:]]
+            break
         if plan.explicit_numbers is not None and pr.number not in plan.explicit_numbers:
             continue
         if pr.is_draft:
@@ -233,7 +272,11 @@ def sweep(
         if plan.label_filter and plan.label_filter not in pr.labels:
             filtered["label"] += 1
             continue
-        item = classify_one(pr, raw, plan, cfg, people, now)
+        try:
+            item = classify_one(pr, raw, plan, cfg, people, now)
+        except Exception as exc:  # the item's own data made it impossible; count it, carry on
+            budget.record(pr.number, f"could not classify: {type(exc).__name__}: {exc}")
+            continue
         if item is None:
             filtered["fresh"] += 1
             continue
@@ -264,6 +307,13 @@ def sweep(
         "over_cap": over_cap,
         "proposals": [_entry(i) for i in acting],
         "skipped": [_entry(i) for i in items if i.cls not in ACTING],
+        "failed": [{"number": f["item"], "reason": f["reason"]} for f in budget.failed],
+        "budget": {"limit": budget.limit, "used": len(budget.failed), "exhausted": budget.exhausted},
+        "unfinished": unfinished,
+        "stopped": "item-failure-budget" if budget.exhausted else None,
+        "rerun_selector": failure_budget.rerun_selector(
+            [int(f["item"]) for f in budget.failed if isinstance(f["item"], int)] + unfinished
+        ),
         "needs": [
             {
                 "op": "upstream-permission",

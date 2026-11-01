@@ -5,7 +5,7 @@
 
 Behavioral evals for the `issue-triage` skill.
 
-## Suites (22 cases total)
+## Suites (26 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -14,6 +14,7 @@ Behavioral evals for the `issue-triage` skill.
 | step-4-compose-comment | Step 4 (compose proposal comment) | 4 | clean proposal, bare issue number, too many handles, injection flagged |
 | step-5-confirm | Step 5 (confirm with user) | 4 | post-all, skip-one, edit-then-confirm, cancel |
 | step-7-recap | Step 7 (recap) | 3 | mixed results, all bugs, only needs-info |
+| item-failure-budget | Item failure budget | 4 | one unreadable item (recorded, sweep continues); budget exhausted (stop, unfinished listed, exact rerun selector); a write failing mid-loop (stop, never retried); a malformed budget value (stops before the sweep, no fallback) |
 
 ## Run
 

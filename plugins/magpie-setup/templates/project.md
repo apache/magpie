@@ -35,6 +35,7 @@
     - [Release process](#release-process)
     - [Roster](#roster)
     - [Product](#product)
+  - [Batch sweeps](#batch-sweeps)
   - [Pointers to sibling files](#pointers-to-sibling-files)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -715,6 +716,16 @@ product:
   # Consumed by: security-issue-sync, generate-cve-json.
   affected_version_extract_prefix: "<ProjectShortName>"
 ```
+
+## Batch sweeps
+
+How many items of one sweep may fail to be read or classified before the
+sweep stops ([batch failure budget](../../../docs/batch-failure-budget.md)).
+A failed post, label or close always stops the run regardless.
+
+| Key | Value |
+|---|---|
+| `item_failure_budget` | `max(3, 10%)` — `<n>`, `<p>%` of the pool, or `max(<n>, <p>%)`. Read by `security-issue-triage`, which reads no tracker config. |
 
 ## Pointers to sibling files
 

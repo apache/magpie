@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:086e859fb8751476
 license: Apache-2.0
-measured_tokens: 3714
+measured_tokens: 4208
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -186,6 +186,7 @@ uv run --project <framework>/tools/pr-management pr-management stale-sweep class
 When `needs` is non-empty, save those reads and classify again.
 Show the pool — `pool.candidates`, `past_close`, `warn_to_close`, the thresholds — and ask *"Proceed with sweep? [yes / cancel]"*.
 When `over_cap` is true, stop and ask the maintainer to narrow with `stale label:` or `stale close:<N>`; nothing was truncated.
+The result applies the item failure budget below: a PR it could not read or classify is in `failed` with its reason, not a crash. When `stopped` is `item-failure-budget`, post nothing this run: show `failed` and `unfinished`, and offer `rerun_selector` once the cause is fixed.
 Read the documents in `load`.
 
 **Step 4 — render:** for each proposal,
@@ -292,6 +293,38 @@ uv run --project <framework>/tools/pr-management pr-management stale-sweep recap
 Print `recap_text` as-is: the counts, a linked line per PR, and the reminders for security-flagged and maintainer-court PRs.
 
 ---
+
+<!-- BEGIN MAGPIE BLOCK: item-failure-budget — generated from tools/dev/blocks/item-failure-budget.md -->
+
+## Item failure budget
+
+This applies to the read and classify phase only. One item whose state
+cannot be read or classified (a missing body, an unparsable timestamp, a
+404 or 410 for that item, a classifier that returns no verdict for it twice)
+does not stop the sweep: record it as `failed` with a one-line reason, skip it
+for the rest of the run, and carry on with the next item.
+The budget is `item_failure_budget` in `<project-config>/issue-tracker-config.md`
+(or `project.md` when this skill reads no tracker config): `<n>`, `<p>%` of the
+pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
+stops the run before the sweep starts, with an error naming the value and no
+fallback: nothing has been read, so no item is failed or unfinished; the
+maintainer fixes the value and reruns the same selector.
+When more items have failed than the budget allows, stop before the next item:
+the pool is likely broken as a whole, not one item.
+
+The **write phase is not budgeted**: a post, label, close or transition that
+fails still stops at once, and is never retried, because a retry can duplicate
+a visible action.
+
+The recap always has three groups, failed items first in the summary line when
+there are any: **completed** (with their dispositions), **failed** (each with
+its reason), and **unfinished** (not reached because the budget ran out or a
+write stopped the run; say which, once). End with the selector that reruns
+exactly the failed and unfinished items. A sweep with no failures does not
+mention the budget. Contract:
+[`docs/batch-failure-budget.md`](../../../../docs/batch-failure-budget.md).
+
+<!-- END MAGPIE BLOCK: item-failure-budget -->
 
 ## Failure modes
 
