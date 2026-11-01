@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 7058
+measured_tokens: 7065
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -393,8 +393,9 @@ uvx --from ~/.claude/magpie/skill-lock skill-lock release security-issue-triage 
 The lock is scoped to this skill and `<upstream>` only; other skills and
 other repositories never contend. It lives in the personal config layer
 (`run/locks/`), never in the working tree, so it serialises runs from one
-clone only. Runs from another clone or another machine are caught by the
-re-read before each write, not by the lock. Details and exit codes:
+clone only. Runs from another clone or another machine are not
+serialised; the re-read before each write narrows that window but does
+not close it. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
 
 <!-- END MAGPIE BLOCK: write-lock -->

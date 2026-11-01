@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:086e859fb8751476
 license: Apache-2.0
-measured_tokens: 3707
+measured_tokens: 3714
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -267,8 +267,9 @@ uvx --from ~/.claude/magpie/skill-lock skill-lock release pr-stale-sweep --repo 
 The lock is scoped to this skill and `<upstream>` only; other skills and
 other repositories never contend. It lives in the personal config layer
 (`run/locks/`), never in the working tree, so it serialises runs from one
-clone only. Runs from another clone or another machine are caught by the
-re-read before each write, not by the lock. Details and exit codes:
+clone only. Runs from another clone or another machine are not
+serialised; the re-read before each write narrows that window but does
+not close it. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
 
 <!-- END MAGPIE BLOCK: write-lock -->

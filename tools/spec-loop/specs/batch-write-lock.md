@@ -41,8 +41,8 @@ ran it at once, both post the same proposal comment on the same issue.
 The lock stops the second run at the door of its write step, tells the
 maintainer who holds it, and lets the first finish. The lock is local, so
 it serialises runs from one clone; a run from another clone or another
-machine, and a run that classified before another posted, are caught by
-the re-read of each item just before its write.
+machine, and a run that classified before another posted, are narrowed,
+not prevented, by the re-read of each item just before its write.
 
 ## Where it lives
 
@@ -155,7 +155,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 - Two linked worktrees that each have their own `.apache-magpie-local/`
   take different locks. Keying the lock on the git common directory
   would join them, but writes under `.git/` of an adopted project are
-  ruled out above; until then the re-read before each write covers it.
+  ruled out above; until then the re-read before each write narrows it.
+- Taking over a stale lock leaves a narrow window with three starters:
+  if a run moves a live lock aside and a third run creates the lock path
+  before it is put back, the put-back fails and the live holder loses its
+  lock. Creating the lock from a populated temporary directory, so an
+  empty lock path never exists, would close it.
 - The lock is advisory for a caller that bypasses the skill prose and
   posts directly with `gh`; a deterministic `agent-guard` check that
   refuses a `gh issue comment` / `gh pr comment` from a batch skill
