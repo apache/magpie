@@ -559,11 +559,15 @@ Rules:
 - **Append only.** Never edit or delete a record. Correct a wrong one by
   appending another and saying so in `notes`. `skill-eval-journal check
   --against <ref>` fails when a committed journal is not a prefix of the
-  working copy, and `render --check` (the `check-eval-run-history` prek
-  hook) fails when a table does not match its journal.
-- **Ref is the commit the run was made at.** A run on a branch other
-  than `main` is journaled with the branch name and the table shows it as
-  `` `sha` (branch) ``; a dirty tree is recorded as `dirty: true`.
+  working copy, or when a journal the ref has was deleted, and `render
+  --check` (the `check-eval-run-history` prek hook) fails when a table
+  does not match its journal. `.gitattributes` merges `runs.jsonl` with
+  `merge=union`, so two PRs that each recorded a run do not conflict.
+- **Ref is the commit the run was made at,** read before the first case
+  so a commit made during a long run is not recorded instead. A run on a
+  branch other than `main` is journaled with the branch name and the
+  table shows it as `` `sha` (branch) ``; a dirty tree is recorded as
+  `dirty: true`.
 - **One table row per batch.** Rendering groups records by date, ref,
   branch and model (the CLI when no model was recorded); *Runs* is the
   number of records in the batch and *Result* is `pass`, `manual` when no

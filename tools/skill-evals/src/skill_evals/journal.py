@@ -551,6 +551,13 @@ def cmd_check(args: argparse.Namespace, evals_root: Path, root: Path) -> int:
     for skill_dir in iter_skill_dirs(args.path, evals_root):
         journal = skill_dir / JOURNAL_NAME
         if not journal.exists():
+            # Deleting a whole journal is the largest edit of all.
+            if args.against and git_text(["show", f"{args.against}:{_repo_relative(journal, root)}"], root):
+                print(
+                    f"{_repo_relative(journal, root)}: removed, but {args.against} has it (journals are append-only)",
+                    file=sys.stderr,
+                )
+                problems += 1
             continue
         try:
             records = read_records(journal)

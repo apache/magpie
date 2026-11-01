@@ -358,6 +358,89 @@ def test_cli_render_check_and_import(tmp_path: Path, capsys: pytest.CaptureFixtu
     assert journal.main(["--evals-root", str(evals_root), "check", str(evals_root)]) == 0
 
 
+def _git(cwd: Path, *args: str) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def _git_evals_tree(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "repo"
+    skill_dir = root / EVALS_REL / "issue-triage"
+    skill_dir.mkdir(parents=True)
+    _git(root, "init", "-q", "-b", "main")
+    return root, skill_dir
+
+
+def test_cli_check_against_flags_a_deleted_journal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, skill_dir = _git_evals_tree(tmp_path)
+    append_record(skill_dir / JOURNAL_NAME, _record())
+    journal.main(["--evals-root", str(root / EVALS_REL), "render", str(skill_dir)])
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "journal")
+    (skill_dir / JOURNAL_NAME).unlink()
+    rc = journal.main(
+        ["--evals-root", str(root / EVALS_REL), "check", str(root / EVALS_REL), "--against", "HEAD"]
+    )
+    assert rc == 1
+    assert "removed" in capsys.readouterr().err
+
+
+def test_union_merge_keeps_both_branches_records(tmp_path: Path) -> None:
+    # The repository's own .gitattributes line, applied to two branches that
+    # each append a run after the same last line.
+    repo_attrs = Path(__file__).resolve().parents[3] / ".gitattributes"
+    line = next(x for x in repo_attrs.read_text().splitlines() if "runs.jsonl" in x and "merge=union" in x)
+    root, skill_dir = _git_evals_tree(tmp_path)
+    (root / ".gitattributes").write_text(line + "\n")
+    append_record(skill_dir / JOURNAL_NAME, _record(timestamp="2026-10-16T09:00:00Z"))
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "base")
+    _git(root, "checkout", "-q", "-b", "a")
+    append_record(skill_dir / JOURNAL_NAME, _record(timestamp="2026-10-16T10:00:00Z"))
+    _git(root, "commit", "-q", "-am", "a")
+    _git(root, "checkout", "-q", "main")
+    _git(root, "checkout", "-q", "-b", "b")
+    append_record(skill_dir / JOURNAL_NAME, _record(timestamp="2026-10-16T11:00:00Z"))
+    _git(root, "commit", "-q", "-am", "b")
+    _git(root, "checkout", "-q", "main")
+    _git(root, "merge", "-q", "a")
+    _git(root, "merge", "-q", "--no-edit", "b")
+    stamps = [r["timestamp"] for r in read_records(skill_dir / JOURNAL_NAME)]
+    assert sorted(stamps) == ["2026-10-16T09:00:00Z", "2026-10-16T10:00:00Z", "2026-10-16T11:00:00Z"]
+
+
+def test_runner_snapshots_the_checkout_before_the_first_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _root, skill_dir = _make_evals_tree(tmp_path, "demo-skill")
+    _make_case(skill_dir, "case-1", {"verdict": "ok"})
+    ran = tmp_path / "ran"
+    cli = f"{shlex.quote(sys.executable)} -c " + shlex.quote(
+        f'import pathlib, sys; sys.stdin.read(); pathlib.Path({str(ran)!r}).touch(); print(\'{{"verdict": "ok"}}\')'
+    )
+    seen: list[bool] = []
+
+    def fake_snapshot(cwd: Path) -> dict:
+        seen.append(ran.exists())
+        return {"ref": "abc1234", "branch": "main", "dirty": False}
+
+    monkeypatch.setattr(journal, "git_snapshot", fake_snapshot)
+    assert runner_main(["--cli", cli, "--exact", str(skill_dir)]) == 0
+    assert seen == [False], "the snapshot must be taken once, before any case ran"
+    (rec,) = read_records(skill_dir / JOURNAL_NAME)
+    assert rec["ref"] == "abc1234"
+    capsys.readouterr()
+
+
 def test_cli_check_reports_a_corrupt_journal(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     root, skill_dir = _make_evals_tree(tmp_path)
     evals_root = root / EVALS_REL

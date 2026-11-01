@@ -1369,6 +1369,11 @@ def main(argv: list[str] | None = None) -> int:
     global _grader_calls
     _grader_calls = 0
     run_started = time.monotonic()
+    # Snapshot the checkout before the first case: a suite takes minutes, and
+    # a commit or branch switch meanwhile must not be recorded as the ref the
+    # prompts were loaded from.
+    journal_target = _resolve_journal(args) if args.cli is not None else None
+    start_snapshot = run_journal.git_snapshot(journal_target[1]) if journal_target else None
 
     for case_dir, fixtures_dir in cases:
         if (args.cli is not None) and args.fail_fast and (failed or errored):
@@ -1591,6 +1596,7 @@ def main(argv: list[str] | None = None) -> int:
             failed_cases=failed_cases,
             errored_cases=errored_cases,
             graded_cases=graded_cases,
+            snapshot=start_snapshot,
             cli_calls=cli_calls,
             grader_calls=_grader_calls,
             wall_seconds=time.monotonic() - run_started,
@@ -1642,6 +1648,7 @@ def _write_run_record(
     failed_cases: list[str],
     errored_cases: list[str],
     graded_cases: list[str],
+    snapshot: dict | None = None,
     cli_calls: int,
     grader_calls: int,
     wall_seconds: float,
@@ -1652,7 +1659,8 @@ def _write_run_record(
         return
     journal, root, skill = resolved
     now = datetime.now(UTC)
-    snapshot = run_journal.git_snapshot(root)
+    if snapshot is None:
+        snapshot = run_journal.git_snapshot(root)
     model = run_journal.model_from_cli(args.cli) or args.journal_model
     try:
         rel_path = str(args.path.resolve().relative_to(root.resolve()))
