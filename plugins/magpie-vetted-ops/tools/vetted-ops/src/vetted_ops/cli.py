@@ -484,9 +484,10 @@ def main_tracker(argv: list[str] | None = None) -> int:
     The `vetted-op-tracker` console script: `main`, with everything but the
     tracker procedures made unreachable.
 
-    It exists so the rollup and body-field writes can run outside the sandbox
-    (where `gh` can verify TLS) without excluding `vetted-op`, which would run
-    the whole write catalogue there. Its writes still keep the harness's
-    confirmation — it belongs in `ask`, never in `allow`.
+    It gives the rollup and body-field writes the narrowest entry point that
+    runs outside the sandbox (where `gh` can verify TLS): every operation but
+    the tracker procedures is unreachable, whatever the policy grants. Its
+    writes still keep the harness's confirmation — like `vetted-op`, it belongs
+    in `ask`, never in `allow`.
     """
     return main(argv, tracker_only=True)

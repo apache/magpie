@@ -592,8 +592,9 @@ anything still invoked directly:
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
+    // The write dispatchers. Excluded from the sandbox below, so never `allow`.
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
-    // The tracker procedures. Excluded from the sandbox below, so never `allow`.
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
   ],
@@ -626,20 +627,25 @@ fails the same way:
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op *"
   ]
 }
 ```
 
-`vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
-`allow` rule. The read dispatcher refuses writes before it consults the policy
-at all, so running it outside the sandbox exposes only the fixed read
-operations; excluding the write dispatcher would run the whole catalogue there.
-`vetted-op-tracker` is the one write-capable exception, and it follows the same
-reasoning: it refuses everything but the tracker procedures before consulting the
-policy, and their runner refuses any `gh` call outside `repos/<tracker>/`, so the
-exclusion exposes those procedures and nothing else. The tracker itself comes from
-the policy, which is why the entry point keeps its `ask`.
+The write dispatchers are excluded too: a sandboxed `vetted-op` cannot even read
+`~/.claude/magpie/` to start, and its `gh` would fail the same TLS check.
+Excluding them is safe for a different reason than the read dispatcher's `allow`.
+`vetted-op-read` refuses writes before it consults the policy, so it can run unprompted.
+`vetted-op` runs the whole write catalogue, but every operation is a fixed `gh`
+argv with no shell, parameters that may not start with `-`, and a body read only
+from the owner-only workspace, so unsandboxed it reaches less than the bare `gh *`
+already excluded. `vetted-op-tracker` is narrower still: it refuses everything but
+the tracker procedures, and their runner refuses any `gh` call outside
+`repos/<tracker>/`. The repositories both write to come from the policy, which is
+why both keep their `ask` (never `allow`); `sandbox-lint` fails an excluded write
+dispatcher that has lost its `ask` rule.
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook

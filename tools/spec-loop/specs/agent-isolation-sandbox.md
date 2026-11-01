@@ -536,18 +536,21 @@ The reference model is four layers, layered:
      TLS, and `tools/github-rollup` / `tools/github-body-field` call `gh`
      from a `uv run` subprocess, so every skill using them failed in the
      sandbox.
-     Excluding this entry point is acceptable where excluding `vetted-op`
-     is not: it refuses every operation except the tracker procedures
+     It refuses every operation except the tracker procedures
      before reading the policy, and their runner refuses any `gh` call
      outside `repos/<tracker>/`.
      It is on `ask` and never `allow`, so each write keeps its
      confirmation.
-     `vetted-op` itself is never excluded, because that would run the
-     whole write catalogue unsandboxed.
-     sandbox-lint's `expected.json` carries both forms in
-     `excludedCommands` and `ask`, and its tests assert the tracker
-     dispatcher is excluded and asked but not allowed, and that
-     `vetted-op` is never excluded.
+   - the vetted-ops write dispatcher `vetted-op`, in both forms (#1952):
+     inside the sandbox it cannot read `~/.claude/magpie/` to start, and
+     its `gh` could not verify TLS.
+     Every operation is a fixed `gh` argv with no shell and bodies read
+     only from the owner-only workspace, so it reaches less than the bare
+     `gh *` exclusion; it too is on `ask` and never `allow`.
+     sandbox-lint's `expected.json` carries both write dispatchers in both
+     forms in `excludedCommands` and `ask`; its tests assert each is
+     excluded and asked but not allowed, and its invariants fail an
+     excluded or allowed write dispatcher that no `ask` rule matches.
    - the adversarial-review tool, in its single-line form
      (`uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`),
      because the reviewer CLIs need network and their own credentials

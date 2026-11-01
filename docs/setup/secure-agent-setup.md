@@ -514,13 +514,13 @@ The full block below is the two merged, annotated.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
-    // The vetted-ops TRACKER dispatcher is excluded for the same reason: the
-    // status-rollup and body-field writes need a gh that can verify TLS. That
-    // is acceptable where excluding `vetted-op` is not, because it refuses
-    // every operation except those tracker procedures before reading policy,
-    // and their runner refuses any gh call outside repos/<tracker>/. It keeps
-    // its `ask` below. Never exclude `vetted-op`: that runs the whole write
-    // catalogue unsandboxed.
+    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, `vetted-op`) are
+    // excluded for the same reason: their writes need a gh that can verify
+    // TLS, and a sandboxed `vetted-op` cannot even read ~/.claude/magpie to
+    // start. Each operation is a fixed gh argv built from the catalogue, with
+    // bodies read only from the workspace, so the exclusion exposes less than
+    // the bare `gh *` above. Both keep their `ask` below, never `allow`: the
+    // prompt is the gate on every write (sandbox-lint enforces the pairing).
     // The adversarial-review tool runs the reviewer CLIs, which need network
     // and their own credentials. Like the vetted-ops entries, it names the
     // fixed link its plugin's SessionStart hook maintains, never a `*` where
@@ -532,6 +532,8 @@ The full block below is the two merged, annotated.
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
@@ -751,7 +753,8 @@ The full block below is the two merged, annotated.
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
-      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, and excluded from the sandbox above, so it keeps a confirmation
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
@@ -937,15 +940,17 @@ If even the read-widening matters for your threat model, keep the
 policy in a path the sandbox does not grant write to and point
 `--config` at it.
 
-`vetted-op-tracker` is the one write-capable entry point excluded from
-the sandbox, and the reasoning is the same shape. It refuses every
-operation except the tracker rollup / body-field procedures before it
-reads the policy, and their runner refuses any `gh` call outside
-`repos/<tracker>/`. `<tracker>` comes from the policy, though, so a
-rewritten policy can re-point those procedures at another repository;
-that is why it stays in `ask` (every write still prompts) and why the
-policy belongs outside the writable root if that matters to you. Excluding `vetted-op` would instead run the whole write
-catalogue unsandboxed, which is why it is not excluded.
+`vetted-op-tracker` and `vetted-op` are the write-capable entry points excluded from the sandbox.
+`vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
+and their runner refuses any `gh` call outside `repos/<tracker>/`.
+`vetted-op` runs the whole write catalogue, but each operation is a fixed `gh` argv with no shell,
+parameters that may not start with `-`, and a body read only from the owner-only workspace,
+so unsandboxed it reaches less than the bare `gh *` the framework already excludes.
+It has to be excluded: inside the sandbox it cannot read `~/.claude/magpie/` to start,
+and a sandboxed `gh` cannot verify TLS anyway.
+`<tracker>` and the repositories both write to come from the policy, though, so a rewritten policy can re-point them;
+that is why both stay in `ask` (every write still prompts, and `sandbox-lint` fails an exclusion without its `ask`)
+and why the policy belongs outside the writable root if that matters to you.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
 isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),
@@ -988,7 +993,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
-5. `sandbox.excludedCommands` keeps the `vetted-op-read` and `vetted-op-tracker` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
+5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
    Without them, an allowed call runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
 6. The agent-guard plugin is installed, so the `vetted-ops-spelling` guard turns an expanded spelling into a refusal instead of a sandboxed call that fails silently.
 
@@ -998,7 +1003,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "excludedCommands": [
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
-    // ...plus the two vetted-op-tracker entries
+    // ...plus the two vetted-op-tracker and two vetted-op entries
   ]
 },
 "permissions": {
@@ -3825,9 +3830,10 @@ never delete it:
      is ✗ and worth stopping for: it grants every operation in
      the catalogue, because the operation's caller name is chosen
      by whoever runs the command.
-   - `vetted-op-tracker` is in `ask` and in
+   - `vetted-op-tracker` and `vetted-op` are each in `ask` and in
      `sandbox.excludedCommands` (both forms), never in `allow`;
-     `vetted-op` is never in `sandbox.excludedCommands`.
+     an exclusion without its `ask` is ✗ (the prompt is the only
+     gate on an unsandboxed write).
    - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the
