@@ -103,6 +103,15 @@ def test_docker_current_context_read_from_the_context_store(tmp_path: Path) -> N
     assert found == [Backend("docker", colima, "host.docker.internal")]
 
 
+def test_docker_current_context_read_from_docker_config(tmp_path: Path) -> None:
+    # DOCKER_CONFIG moves the CLI's config.json and context store out of ~/.docker.
+    colima = Path("/Users/a/.colima/default/docker.sock")
+    _docker_context(tmp_path / "elsewhere", "colima", {"colima": f"unix://{colima}"})
+    env = {"HOME": str(tmp_path), "DOCKER_CONFIG": str(tmp_path / "elsewhere" / ".docker")}
+    found = discover("Darwin", env, _no_docker_cli, lambda p: p == colima, ALL)
+    assert found == [Backend("docker", colima, "host.docker.internal")]
+
+
 def test_docker_context_socket_that_does_not_answer_falls_back(tmp_path: Path) -> None:
     desktop = tmp_path / ".docker" / "run" / "docker.sock"
     _docker_context(tmp_path, "colima", {"colima": "unix:///Users/a/.colima/default/docker.sock"})

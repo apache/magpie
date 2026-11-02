@@ -75,16 +75,17 @@ def _podman_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[P
     return [Path(runtime_dir, "podman", "podman.sock")] if runtime_dir else []
 
 
-def _docker_context_socket(home: str) -> Path | None:
+def _docker_context_socket(home: str, docker_config: str | None = None) -> Path | None:
     """The Unix socket of the docker CLI's current context, read from the CLI's own files.
 
     Not by running `docker context inspect`: the hook pins PATH to the system
     directories, where neither a Homebrew nor a Docker Desktop CLI lives, and
     DOCKER_HOST in a session's environment names the gateway's own socket.
+    The files live in `$DOCKER_CONFIG` when it is set, as for the CLI, else `~/.docker`.
     The context store keeps each context's metadata under the SHA-256 of its
     name. The "default" context has no metadata: it is DOCKER_HOST.
     """
-    config_dir = Path(home, ".docker")
+    config_dir = Path(docker_config) if docker_config else Path(home, ".docker")
     try:
         name = json.loads((config_dir / "config.json").read_text(encoding="utf-8")).get("currentContext")
     except (OSError, ValueError, AttributeError):
@@ -106,7 +107,7 @@ def _docker_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[P
         candidates = []
         home = env.get("HOME")
         if home:
-            context = _docker_context_socket(home)
+            context = _docker_context_socket(home, env.get("DOCKER_CONFIG"))
             if context is not None:
                 candidates.append(context)
             candidates.append(Path(home, ".docker", "run", "docker.sock"))
