@@ -22,15 +22,23 @@
 # this probe runs inside it and only calls the read-only `status` subcommand, so
 # an in-repo copy is safe here and keeps what the probe needs readable narrow.
 # A marketplace install has neither in-repo copy, so fall back to the operator
-# install the hook itself runs, which the reference `allowRead` already covers.
+# install the hook itself runs. The sandbox reads it only when the project's
+# gateway wiring grants `~/.claude/scripts/container-gateway/` in allowRead:
+# without that grant the directory still passes `-d` (its metadata is
+# visible), but python3 cannot read the files, so check a file, not the dir.
 gw_src=".apache-magpie/tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="$HOME/.claude/scripts/container-gateway/src"
 status_json=""
 status_rc=""
+gw_unreadable=""
 if [ -d "$gw_src/container_gateway" ]; then
-  status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
-  status_rc=$?
+  if [ -r "$gw_src/container_gateway/__main__.py" ]; then
+    status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
+    status_rc=$?
+  else
+    gw_unreadable=1
+  fi
 fi
 
 gw_state() {  # $1=backend -> serving | not-serving | not-running | refused | unknown
@@ -99,7 +107,9 @@ for rt in podman docker; do
     unknown)
       # Only `status` can vouch for the socket: a raw daemon socket answers
       # `<rt> info` just as well, so never pass without it.
-      if [ -z "$status_rc" ]; then
+      if [ -n "$gw_unreadable" ]; then
+        why="gateway source at $gw_src is not readable inside the sandbox — grant ~/.claude/scripts/container-gateway/ in sandbox.filesystem.allowRead"
+      elif [ -z "$status_rc" ]; then
         why="no gateway source in .apache-magpie/tools, tools/ or ~/.claude/scripts/container-gateway/src"
       else
         why="status exited rc=$status_rc without a report — is the python3 on PATH older than the gateway needs?"

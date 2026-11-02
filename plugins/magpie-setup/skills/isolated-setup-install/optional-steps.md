@@ -211,9 +211,12 @@ the hooks would never run. If a synced `~/.claude/settings.json` or
 moving them, per "Fixing your other machines".
 
 **L.3 — Project wiring.** Propose the `env` block
-(`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair
+(`CONTAINER_HOST` / `DOCKER_HOST`), the `allowUnixSockets` pair and a
+`sandbox.filesystem.allowRead` entry for `~/.claude/scripts/container-gateway/`
 as a single settings diff into the gitignored
-`.claude/settings.local.json`. The sockets are `podman.sock` and
+`.claude/settings.local.json`. The read grant is what lets the doctor's
+container probe ask the installed gateway for its `status` in a project
+without an `.apache-magpie/` snapshot; it is read-only, and never a write grant. The sockets are `podman.sock` and
 `docker.sock` in the gateway's run directory:
 `<project>/.apache-magpie-local/run/` when the project has adopted
 Magpie (a committed `.apache-magpie.lock`), otherwise
