@@ -95,9 +95,14 @@ and never opens a pull request.
   marker.
 - **Deterministic scope mapping.** When `.last-sync` names a previous sync,
   the runner lists the paths changed since it
-  (`git diff --name-only <prev>..<BASE_HEAD> -- .claude/skills tools docs/modes.md`),
+  (`git diff --name-only <prev>..<BASE_HEAD> -- <SPEC_LOOP_UPDATE_PATHSPEC>`, defined once
+  in `lib.sh`: `plugins skills .claude/skills tools docs projects organizations .github`
+  plus `AGENTS.md` and `README.md`),
   pipes them through `spec-scope`, and appends the specs it returns as
-  likely relevant. The mapping is advisory: a `spec-scope` failure is
+  likely relevant. `spec-scope` maps a skill edit, which git reports under
+  `plugins/<plugin>/skills/<alias>/`, back to `skills/<name>/` through the
+  `skills/` symlinks, so a spec's 'Skill: `<name>`' bullet matches it.
+  The mapping is advisory: a `spec-scope` failure is
   silently skipped and the agent still reads the raw path list.
 - **Plan-size hysteresis.** Build mode switches to one consolidate pass
   when `IMPLEMENTATION_PLAN.md` exceeds `SPEC_LOOP_PLAN_MAX`, then builds
@@ -194,13 +199,3 @@ uv run --project tools/spec-validator --group dev spec-validate
 - Cursor, Antigravity CLI, OpenCode, Kiro, Pi, and Goose rely on external policy/config plus
   the OS sandbox for push/PR denial. Claude Code and Grok Build additionally
   receive per-invocation hard-deny rules from the runner.
-- The deterministic scope helper this bullet used to call missing has
-  shipped: `loop.sh` pipes the incremental diff through
-  `tools/spec-inventory`'s `spec-scope`.
-- The incremental diff's pathspec (`.claude/skills tools docs/modes.md`)
-  no longer covers where skills live. `.claude/skills/magpie-<name>` entries
-  are symlinks (through `.agents/skills/`) into
-  `plugins/magpie-<family>/skills/<alias>/`, so an edit to a skill's content
-  changes nothing under `.claude/skills` and drops out of the scoped list;
-  so do `plugins/magpie-setup/templates/`, `.github/`, `projects/`, and every
-  `docs/` page other than `docs/modes.md`.

@@ -44,6 +44,7 @@ from .core import (
     Finding,
     Verdict,
     cached_project_findings,
+    container_gateway_findings,
     isolated_setup_findings,
     skill_findings,
     verify_findings,
@@ -260,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
             *_delegation(root, args.skill),
             *isolated_setup_findings(root, args.isolated_setup_interval_days),
+            *container_gateway_findings(root, _running_harness(os.environ)[0]),
             *verify_findings(root, args.verify_interval_days),
         ]
     except MalformedLock as exc:

@@ -59,6 +59,7 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 
 ```text
 /plugin install magpie-security@apache-magpie
+/plugin install magpie-security-tools@apache-magpie   # the framework tools the skills run
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in

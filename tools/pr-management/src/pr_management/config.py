@@ -112,6 +112,9 @@ class Config:
     backport_branches: list[str] = field(default_factory=list)
     backport_policy: str = "fixes-only"
     session_history_gist: str = "enabled"
+    #: Per-item failure budget for the read/classify phase of a sweep
+    #: (`item_failure_budget`; docs/batch-failure-budget.md). None = the default.
+    item_failure_budget: str | None = None
 
     real_ci_patterns: list[str] = field(default_factory=list)
     static_check_patterns: list[str] = field(default_factory=lambda: list(STATIC_CHECK_PATTERNS))
@@ -180,6 +183,8 @@ def load(project_root: Path, config_dir: Path | None = None) -> Config:
 
     if _set(values.get("committers_team")):
         cfg.committers_team = values["committers_team"]
+    if _set(values.get("item_failure_budget")):
+        cfg.item_failure_budget = values["item_failure_budget"]
     if "area_label_prefix" in values:
         cfg.area_label_prefix = values["area_label_prefix"]
     for key, attr in (

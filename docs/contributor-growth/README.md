@@ -256,17 +256,16 @@ direct action.
 adopter has run the full contributor-to-committer path end-to-end under
 evaluation conditions.
 
-Known deferred items (each pending a spec-RFC pass that enumerates
-per-project policy knobs before a skill can safely propose anything):
+PMC-member promotion is covered: `contributor-nomination` takes
+`target:pmc`, and `committer-onboarding` handles the `committer-to-pmc` and
+`direct-to-pmc` scenarios.
 
-- **PMC-member nomination** — vote mechanics, quorum rules, and
-  post-vote steps differ from committer promotion and warrant a
-  separate capability-flag variant of `committer-onboarding` or a
-  standalone skill.
-- **Emeritus / inactive-committer handling and contributor offboarding**
-  — these involve project-level governance decisions (roster policy,
-  access removal, farewell communication norms) that need per-project
-  configuration.
+Not built yet: **emeritus / inactive-committer handling and contributor
+offboarding.** These involve project-level governance decisions (roster
+policy, access removal, farewell communication norms), so the
+[proposed spec](../../tools/spec-loop/specs/contributor-offboarding.md)
+requires every policy knob to be configured before anything runs, and keeps
+the read-only inactivity report and the emeritus move strictly apart.
 
 ## Cross-references
 

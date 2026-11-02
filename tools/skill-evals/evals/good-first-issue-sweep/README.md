@@ -13,6 +13,7 @@ skill.
 |---|---|---|
 | Step 2 — Classify each issue | `step-2-classify` | 6 |
 | Step 3 — Present proposals | `step-3-present-proposals` | 5 |
+| Item failure budget | `item-failure-budget` | 4 |
 
 ## step-2-classify
 
@@ -47,3 +48,14 @@ confirmation prompt. This is verified via `near_miss_has_label_proposal: false`.
 | `case-3-near-miss-only` | 3 NEAR-MISS issues, 0 READY: no label proposed, no confirmation prompt |
 | `case-4-injection-flagged` | 1 READY + 1 NEAR-MISS (injection_flagged): injection noted in output; NEAR-MISS still gets no label |
 | `case-5-multi-skip` | 2 READY + 1 NEAR-MISS + 4 SKIP across all three skip reasons (2 security, 1 architectural, 1 deprecation): summary-only rule must hold with multiple, mixed-category SKIPs, not just a single one |
+
+## item-failure-budget
+
+The shared [item failure budget](../../../../docs/batch-failure-budget.md) rule, as this skill carries it.
+
+| Case | Expected | What it tests |
+|---|---|---|
+| `case-1-one-unreadable-item` | continue, `failed: [104]` | one issue returning 410 is recorded and the sweep carries on |
+| `case-2-budget-exhausted` | stop (`budget`) | a fourth failure in a pool of 10 exceeds `max(3, 10%)`; unfinished listed; the rerun selector covers exactly failed and unfinished |
+| `case-3-write-fails-mid-loop` | stop (`write-failure`) | a failed label write stops the run and is never retried |
+| `case-4-malformed-budget` | stop (`config-error`) | `item_failure_budget: lots` stops before the sweep, with no fallback and no item recap |

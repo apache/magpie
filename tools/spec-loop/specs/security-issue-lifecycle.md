@@ -425,6 +425,23 @@ publication, with a human gate and an audit-log entry at every step.
   candidate whose provisional class, read from the root message, is
   never-a-tracker; if Step 3 then classes it as a `Report` (or
   forwarder-relayed), the skipped searches run before Step 4 (#1444).
+- **Import dedup reads an authorised tracker body index.** The recorded
+  mail-thread scan (`dedup-index`) matches an archive thread id before
+  prose, so a trailing note, markdown link, autolink or comma does not hide
+  a tracked thread and a second tracker is not proposed (#1750).
+- **Scan patches attach to new trackers.** `issue-import-from-scan`
+  lists each finding's `patches/<n>.patch` files and
+  `render-patch-comment` posts them as collapsed `diff` blocks under an
+  untested-and-private warning, split across comments under GitHub's
+  limit (#1896). Archive reads never follow a symlink out of the scan
+  folder, and patches open with `O_NOFOLLOW` (#1916).
+- **Invalidate can keep labels.** `invalidate.keep_labels` in `project.md`
+  (`scope`, `pr`, or literal names) drops those labels from the removal
+  command and reports them as `labels_kept`; `needs triage` is always
+  removed (#1909).
+- **Zero-day issue-sync settings hold.** An explicit `0` for
+  `grace_period_days` or `timeout_days` is honoured; only a missing value
+  takes the default, and a non-positive `window_days` stays at 90 (#1911).
 - **Pre-flight declares what each skill cannot run without.** Every
   security skill lists its required `<project-config>` files in
   `requires_config:`, which the generated pre-flight block checks before

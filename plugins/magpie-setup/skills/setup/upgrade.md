@@ -70,10 +70,10 @@ Both paths run the same flow.
 
    (Codex: `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
    `agy plugin install https://github.com/apache/magpie`; Pi: `pi update --extensions`; Goose: `goose plugin update magpie`, then
-   `npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie`.) When `magpie-security` is installed
+   `npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie`.) When any of `magpie-security`, `magpie-setup`, `magpie-pr-management`, `magpie-release-management`, `magpie-contributor-growth` and `magpie-utilities` is installed
    and `magpie-security-tools` is not, add
-   `/plugin install magpie-security-tools@apache-magpie`: the security
-   skills run their framework tools from it. After the plugin refresh,
+   `/plugin install magpie-security-tools@apache-magpie`: those families
+   run their framework tools from it (the name is historical). After the plugin refresh,
    run `setup-isolated-setup-update` for any installed harness profile;
    plugin updates do not merge workspace configuration. The companion
    pointer is the one in [Step 0b](#step-0b--marketplace-method-the-floor-split) — this is the path every no-lock marketplace upgrade

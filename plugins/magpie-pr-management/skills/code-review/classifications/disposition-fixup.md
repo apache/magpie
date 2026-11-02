@@ -16,8 +16,10 @@ Instead of asking the contributor for another round over small, mechanical point
 4. **Show the diff and the commit message; confirm.** The message lists each change; add the project's attribution trailer per [`AGENTS.md`](../../../../../AGENTS.md#commit-and-pr-conventions).
 5. **Push to the PR head on confirmation**: the head repository and branch come from `gh pr view <N> --json headRepository,headRepositoryOwner,headRefName`. Pushing to a contributor's branch is visible to everyone watching the PR.
 6. **Wait for CI on the new head** before approving (Golden rule 8), then re-run `guard` with the pushed SHA.
+   On the `FIXUP+APPROVE+AUTO-MERGE` path there is no wait for CI, but the review state is re-read: save `gql-cr-pr <N>` again, confirm its head is the fixup commit you pushed, and re-run `disposition` (with no findings left) so a failing or never-started run on the new head is caught and `render` pins the merge to the fixup SHA.
+   Then approve the fixup head, re-save `gql-cr-pr`, release the workflow runs the push left held there (`release-runs --head <fixup sha>` — [`disposition-auto-merge.md`](disposition-auto-merge.md) step 3), and enable auto-merge straight away; GitHub holds the merge until the new head's required checks pass.
 7. **Post an `APPROVE`** whose body says what the fixup changed: one bullet per change, with its file and the fixup commit SHA, so the contributor sees exactly what was done to their branch and why.
    No inline comments — the fixup resolved them.
 
-Merging stays a separate, explicitly confirmed action.
+Merging stays a separate, explicitly confirmed action — except that where the repository allows auto-merge, the default is `FIXUP+APPROVE+AUTO-MERGE`: after step 7, enable auto-merge as [`disposition-auto-merge.md`](disposition-auto-merge.md) describes, and GitHub merges once its own required checks pass.
 Never push without the maintainer's yes in step 5, and never approve on the strength of a fixup whose CI has not finished.

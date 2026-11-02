@@ -7,6 +7,7 @@
 
 - [Mail source — backend contract](#mail-source--backend-contract)
   - [Abstract operations](#abstract-operations)
+    - [Thread identity](#thread-identity)
     - [Security draft CC resolution](#security-draft-cc-resolution)
   - [Capability matrix](#capability-matrix)
   - [Adopter declaration in `<project-config>/project.md`](#adopter-declaration-in-project-configprojectmd)
@@ -64,6 +65,36 @@ resolution chain for that op.
 
 A backend's capability set is its supported subset of the operations
 above. The capability matrix below summarises the in-tree adapters.
+
+### Thread identity
+
+Every backend that declares `thread_id_kind: rfc5322-message-id` emits the
+root's `Message-ID` in **one spelling: the bracketed form**,
+`<report@example.org>`, angle brackets included. The brackets are part of
+the identifier, not decoration. The skills match a stored id against a
+freshly read one to answer "is this thread already tracked?", and
+`report@example.org` and `<report@example.org>` are two different strings
+to that comparison: an adopter who switches backends, or configures one as
+a fallback for the other, would miss the match and get a duplicate tracker
+proposed. An id typed without brackets is accepted on input and normalised
+to the bracketed form; it is never emitted.
+
+The root is the first id in the message's `References` header, **even when
+that message is not in the archive**. A snapshot truncated at the start of
+a thread therefore keeps the replies it does hold in one thread, keyed on
+the root they name, instead of turning each of them into its own thread.
+A message whose `References` header is absent is keyed on its first
+`In-Reply-To` id, and a message with neither is its own root. Only
+bracketed tokens count: a comment beside the id (`In-Reply-To: (was:
+report) <r@h>`, which RFC 5322 allows) is not an ancestor, or the thread
+would be keyed on an id that never existed.
+
+A message with no `Message-ID` at all cannot be threaded. A backend must
+still surface it rather than drop it, and must not mislabel it: `maildir`
+reports `thread_id_kind: content-hash` with a `urn:sha256:` id derived from
+the message bytes — which, unlike an mbox line offset, survives a fresh
+snapshot of the same archive. That id must round-trip: whatever
+`list_recent_threads` returns, `read_thread` accepts.
 
 ### Security draft CC resolution
 

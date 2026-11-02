@@ -1,0 +1,12 @@
+{
+  "thread_count": 2,
+  "detail_level": "summary",
+  "candidate_order": ["delta-q", "zed-ops"],
+  "personal_note_prompts": 2,
+  "separator_lines": 0,
+  "links_included": false,
+  "note_written_by_agent": false,
+  "readiness_verdict_present": false,
+  "email_sent": false,
+  "mail_draft_backend": "none"
+}

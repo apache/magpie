@@ -255,7 +255,7 @@ to input.
 | `contributor-identity-map` | One contributor's channel identities | 5K–20K | Number of reachable sources and name-match candidates | Not measured |
 | `contributor-activity-sweep` | Single-contributor activity card | 10K–40K | Activity volume in the configured window | Not measured |
 | `contributor-sentiment` | Full sentiment gate report | 20K–80K | Number of threads and signals sampled | Not measured |
-| `contributor-nomination` | Nomination evidence brief | 20K–70K | Contributor activity breadth read, plus the conversations on up to 50 authored items, 50 comment threads and 20 reviews for the automated-contribution discount, and any project expectation documents | Not measured |
+| `contributor-nomination` | Nomination evidence brief, per candidate | 20K–70K | Contributor activity breadth read, plus the conversations on up to 50 authored items, 50 comment threads and 20 reviews for the automated-contribution discount, and any project expectation documents; several candidates multiply it, and the `[DISCUSS]` email step adds `discuss.md` (~2K) once per run | Not measured |
 
 **Illustrative planning assumption, not a measured average:** assuming 10K-30K
 tokens per item and 50 items per week gives 500K-1.5M tokens/week. The measured

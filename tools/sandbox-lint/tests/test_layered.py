@@ -277,6 +277,8 @@ def test_a_live_local_wholesale_weakening_fails_the_lint(
         "uv --version",
         "gh auth status*",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
         "npm --version",
         "pipx list",

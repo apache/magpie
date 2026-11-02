@@ -18,5 +18,23 @@
 """Maildir backend for ``contract:mail-create`` — local, offline, vendor-neutral."""
 
 from maildir_draft.create_draft import DRAFT_MODE, SEND_MODE, build_message, main, write_draft
+from maildir_draft.read_archive import (
+    KEYLESS_THREAD_ID_KIND,
+    THREAD_ID_KIND,
+    list_recent_threads,
+    read_thread,
+    thread_url,
+)
 
-__all__ = ["DRAFT_MODE", "SEND_MODE", "build_message", "main", "write_draft"]
+__all__ = [
+    "DRAFT_MODE",
+    "KEYLESS_THREAD_ID_KIND",
+    "SEND_MODE",
+    "THREAD_ID_KIND",
+    "build_message",
+    "list_recent_threads",
+    "main",
+    "read_thread",
+    "thread_url",
+    "write_draft",
+]

@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 _MSG_ID = re.compile(r"<[^<>\s]+>")
+_BARE_MSG_ID = re.compile(r"[^<>\s]+@[^<>\s]+")
 
 
 def normalise_message_id(value: str | None) -> str | None:
@@ -43,6 +44,17 @@ def normalise_message_id(value: str | None) -> str | None:
         return None
     match = _MSG_ID.search(value)
     return match.group(0) if match else None
+
+
+def canonical_thread_id(value: str | None) -> str | None:
+    """Return a caller-supplied thread ID in its canonical bracketed form."""
+    canonical = normalise_message_id(value)
+    if canonical:
+        return canonical
+    if value is None:
+        return None
+    bare = value.strip()
+    return f"<{bare}>" if _BARE_MSG_ID.fullmatch(bare) else None
 
 
 @dataclass(frozen=True)

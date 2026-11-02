@@ -109,8 +109,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 |---|---|
 | `governance --config <security-intake-config.md>` | `reporter_acknowledgement_model`, `window_days`, `config_file_found`; `manual` / `90` when the file or the `disclosure_governance` block is absent, a `warnings` entry for a value outside the vocabulary. |
 | `prefilter --threads F` | Per thread: `decision` (`keep` / `drop`), `rule` (1 GHSA relay, 2 CVE-tool bookkeeping, 3 anything else), `class`, `pretag`; `dropped` and `counts`. Every message must match rule 2 to drop; a missing subject or sender keeps; `named_thread_id` is never dropped. |
-| `dedup-queries --thread-ids F [--tracker T]` | `batches` of at most six ids, each a quoted phrase OR'd into `query`, and the shell-quoted `command`; ids are Gmail / PonyMail ids, maildir names or root `Message-ID`s, and any other id exits `2` with `rejected_ids`. |
-| `dedup-attribute --thread-ids F --hits F` | `tracked` (id → hits), `untracked`; at 100 hits `truncated`, no `untracked`, and `rerun` batches; exit `2` with `rejected_ids` as above. |
+| `dedup-index --thread-ids F --issues F [--body-fields F] [--limit N]` | Match identifiers against a bounded, saved tracker issue-body index using the configured `mailing_thread` field. Returns matching issue summaries, `untracked` only when the index is complete, and `undecided`/`truncated` when a negative result is unsafe. Never prints private issue bodies. |
 | `relay-prescreen --message F --forwarders F` | `invoke_subskill`: true only when one enabled adapter's `sender_pattern` AND `preamble_match` (first 400 characters) both match, or an adapter's pattern is unresolved or invalid; `partial` lists adapters where only one signal matched (not a relay, shown to the user). |
 | `keyword --file F [--kind keywords\|email-local]` | `cleaned`, `empty`. |
 | `title --input F` | `title`: the subject without its mail prefixes. |

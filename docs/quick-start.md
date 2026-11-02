@@ -93,7 +93,8 @@ Those four are exactly the **floor** a project commits when it adopts Magpie,
 so taking them is taking what a project would recommend to every contributor.
 
 Then add **one plugin per family you actually want**, against a problem you
-have today; you can install more at any time. Pick them from
+have today; you can install more at any time.
+Add `magpie-security-tools` with the first family: it carries the framework tools the family skills run, and every family that runs one needs it, whatever its name says. Pick them from
 [What each family solves](quick-start/families.md) — the ten families, with the
 problem each one solves.
 

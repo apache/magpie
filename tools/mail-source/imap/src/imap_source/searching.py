@@ -59,9 +59,18 @@ def fetch_window(mailbox: MailSource, folder: str, *, since_days: int) -> list[M
 
 
 def thread_root_of(message: Message) -> str | None:
-    """Thread root = first element of the References chain, else the message's own Message-ID."""
+    """Thread root = first References id, else first In-Reply-To id, else the message's own id.
+
+    The ``In-Reply-To`` step is not redundant: a client may write only that
+    header. The mail-source contract keys such a reply on its parent, and
+    ``maildir`` does the same, so both backends give one thread one
+    ``thread_id``. ``position.in_reply_to`` is already a single bracketed
+    token, so a comment beside the id is never taken as the root.
+    """
     if message.position.references:
         return message.position.references[0]
+    if message.position.in_reply_to:
+        return message.position.in_reply_to
     return message.position.message_id
 
 

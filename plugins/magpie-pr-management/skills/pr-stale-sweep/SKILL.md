@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:086e859fb8751476
 license: Apache-2.0
-measured_tokens: 3163
+measured_tokens: 4230
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -186,6 +186,7 @@ uv run --project <framework>/tools/pr-management pr-management stale-sweep class
 When `needs` is non-empty, save those reads and classify again.
 Show the pool — `pool.candidates`, `past_close`, `warn_to_close`, the thresholds — and ask *"Proceed with sweep? [yes / cancel]"*.
 When `over_cap` is true, stop and ask the maintainer to narrow with `stale label:` or `stale close:<N>`; nothing was truncated.
+The result applies the item failure budget below: a PR it could not read or classify is in `failed` with its reason, not a crash. When `stopped` is `item-failure-budget`, post nothing this run: show `failed` and `unfinished`, and offer `rerun_selector` once the cause is fixed.
 Read the documents in `load`.
 
 **Step 4 — render:** for each proposal,
@@ -230,6 +231,50 @@ confirming `all` in this step.
 
 ## Step 6 — Post sequentially
 
+<!-- BEGIN MAGPIE BLOCK: write-lock — generated from tools/dev/blocks/write-lock.md -->
+
+**Write lock (one write phase per skill per repository).** The read and
+classify steps above have no side effects and may overlap with any other
+run. Posting does: two overlapping runs of this skill over the same
+repository post the same comment or label twice, which is what makes
+contributors distrust the bot. So before the first write of this step,
+take the skill's write lock:
+
+```bash
+uvx --from ~/.claude/magpie/skill-lock skill-lock acquire pr-stale-sweep --repo <upstream> --note "<selector or pool summary>"
+```
+
+- Exit `0` (`status: acquired`): proceed. Keep the `token` from the JSON
+  result for the release below. Then, **just before each write, re-read
+  that item** and skip it if this skill's marker (its proposal comment or
+  label) landed after your classify read: a run that classified before
+  another run posted can reach its write step after that run released
+  the lock. List skipped items in the recap as already handled.
+- Exit `3` (`status: already_running`): **stop here and post nothing.**
+  Show the maintainer the `holder` record (started, expires, note) and
+  say this is not a failure of the sweep: another run of this skill is
+  writing to the same repository. If the maintainer knows that run is
+  dead, they clear it with the `--force` command in the result's `hint`
+  and re-run this step; never clear it on your own.
+- Exit `2`: report the error and stop.
+
+Release it after the recap, and **also on the stop-and-surface path** when
+a post fails, so a failed run never leaves the lock held for its lease:
+
+```bash
+uvx --from ~/.claude/magpie/skill-lock skill-lock release pr-stale-sweep --repo <upstream> --token <token>
+```
+
+The lock is scoped to this skill and `<upstream>` only; other skills and
+other repositories never contend. It lives in the personal config layer
+(`run/locks/`), never in the working tree, so it serialises runs from one
+clone only. Runs from another clone or another machine are not
+serialised; the re-read before each write narrows that window but does
+not close it. Details and exit codes:
+[`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
+
+<!-- END MAGPIE BLOCK: write-lock -->
+
 For each confirmed proposal, run the render result's first `commands` entry — a bare `gh pr comment … --body-file …` — then record it:
 
 ```bash
@@ -248,6 +293,40 @@ uv run --project <framework>/tools/pr-management pr-management stale-sweep recap
 Print `recap_text` as-is: the counts, a linked line per PR, and the reminders for security-flagged and maintainer-court PRs.
 
 ---
+
+<!-- BEGIN MAGPIE BLOCK: item-failure-budget — generated from tools/dev/blocks/item-failure-budget.md -->
+
+## Item failure budget
+
+This applies to the read and classify phase only. One item whose state
+cannot be read or classified (a missing body, an unparsable timestamp, a
+404 or 410 for that item, a classifier that returns no verdict for it twice)
+does not stop the sweep: record it as `failed` with a one-line reason, skip it
+for the rest of the run, and carry on with the next item.
+The budget is `item_failure_budget` in the config file this skill already
+reads: `issue-tracker-config.md` for the issue skills,
+`project.md` for the security skills, `pr-management-config.md` for the PR
+skills. Its value is `<n>`, `<p>%` of the
+pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
+stops the run before the sweep starts, with an error naming the value and no
+fallback: nothing has been read, so no item is failed or unfinished; the
+maintainer fixes the value and reruns the same selector.
+When more items have failed than the budget allows, stop before the next item:
+the pool is likely broken as a whole, not one item.
+
+The **write phase is not budgeted**: a post, label, close or transition that
+fails still stops at once, and is never retried, because a retry can duplicate
+a visible action.
+
+The recap always has three groups, failed items first in the summary line when
+there are any: **completed** (with their dispositions), **failed** (each with
+its reason), and **unfinished** (not reached because the budget ran out or a
+write stopped the run; say which, once). End with the selector that reruns
+exactly the failed and unfinished items. A sweep with no failures does not
+mention the budget. Contract:
+[`docs/batch-failure-budget.md`](../../../../docs/batch-failure-budget.md).
+
+<!-- END MAGPIE BLOCK: item-failure-budget -->
 
 ## Failure modes
 

@@ -59,6 +59,29 @@ spec_loop_assemble_prompt_file() {
     fi
 }
 
+# Paths the update beat diffs since the last sync. Skill content lives under
+# plugins/magpie-<family>/skills/ (skills/<name> and .claude/skills/magpie-<name>
+# are symlinks into it), so an edit to a skill changes nothing under .claude/skills
+# and the old `.claude/skills tools docs/modes.md` scope dropped it. Every place a
+# spec's "Where it lives" can point is listed; paths no spec names are simply not
+# mapped by spec-scope.
+SPEC_LOOP_UPDATE_PATHSPEC=(
+    plugins
+    skills
+    .claude/skills
+    tools
+    docs
+    projects
+    organizations
+    .github
+    AGENTS.md
+    README.md
+)
+
+spec_loop_update_pathspec() {
+    printf '%s\n' "${SPEC_LOOP_UPDATE_PATHSPEC[@]}"
+}
+
 spec_loop_write_last_sync_marker() {
     local marker=$1 base_head=$2
     mkdir -p "$(dirname "$marker")"

@@ -38,5 +38,10 @@
     "pattern": "Reference \\(relaxed\\)|Against the floors|missed floors|floors missed",
     "flags": "i",
     "negate": true
+  },
+  "has_details_links": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "(?s)github\\.com/search\\?type=pullrequests&q=[^)\\s]*is:merged[^)\\s]*author:kshah.*reviewed-by:kshah"
   }
 }

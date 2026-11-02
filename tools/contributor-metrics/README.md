@@ -8,6 +8,7 @@
   - [Prerequisites](#prerequisites)
   - [Invocation](#invocation)
     - [`fetch`](#fetch)
+    - [`active-repos`](#active-repos)
     - [`score`](#score)
     - [`floors`](#floors)
   - [Backends](#backends)
@@ -70,6 +71,12 @@ contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD (-
   Weights, penalty and area prefix are applied by `score`, not cached, so changing them needs no refetch; anything that changes on GitHub after a fetch (a new label, a late comment) is picked up only with `--refresh`, or by deleting the cache directory.
 - `--refresh` — ignore any cached result for this key and fetch again.
 - `--repo` must be `owner/name`; anything else exits `2` before any `gh` call.
+  Repeat it for every repository of the project (`--repo apache/foo --repo apache/foo-site`); the first is the primary.
+  With more than one, each repository is searched on its own and the items are merged:
+  every code-host item id is prefixed `<owner/name>:` (`apache/foo-site:pr-12`) so numbers cannot collide,
+  a stream capped in any repository is listed in `caps_hit`, each note names its repository,
+  a separate tracker (Jira) is still asked once,
+  and the output gains `"repos": [...]` next to `"repo"` (the primary). The cache key includes every repository; a one-repository fetch keeps its existing key.
 
 Every item is dated by the contributor's own activity and must fall inside `[since, end]`:
 
@@ -88,16 +95,33 @@ Item ids are per kind: the same PR can appear as `pr-N`, `review-N`, `thread-N` 
 The search string is written to a tempfile and passed as `-F q=@<file>`, so a handle never reaches a shell argument.
 Rate-limit and transient `gh` errors are retried with exponential backoff (up to six attempts); any other error exits `1`.
 
+### `active-repos`
+
+```bash
+contributor-metrics active-repos --owner <owner> --project <slug> --names-file <file> \
+  --end YYYY-MM-DD (--months 6 | --since YYYY-MM-DD) --out repos.json
+```
+
+Finds which of a project's repositories had activity in the window, so a skill can measure contributors across all of them.
+`--names-file` holds candidate repository names, whitespace-separated — for an ASF project, the names the people directory lists for the project; a `.git` suffix or URL prefix is stripped.
+
+- Only a name equal to `<slug>` or starting with `<slug>-` is kept (case-insensitive); the directory's keyword search also returns other projects' repositories (`nutch-airflow-tools` for `airflow`), and those are listed in `excluded_by_name`.
+- A kept repository is **active** when at least one PR was merged, or one issue or PR opened, in the window — two count-only searches per repository. A name with no repository on the code host searches as empty and is inactive.
+
+Output: `{"owner", "project", "since", "end", "active": [{"repo", "merged_prs", "opened"}], "inactive": [...], "excluded_by_name": [name], "invalid_names": [name]}`, every list sorted by name.
+
 ### `score`
 
 ```bash
 contributor-metrics score --items items.json [--classes classes.json] [--weights weights.json] \
-  [--area-prefix area:] [--since YYYY-MM-DD] [--timeline-kinds pr,issue,review,thread] --out metrics.json
+  [--area-prefix area:] [--repo-area GLOB=AREA ...] [--since YYYY-MM-DD] \
+  [--timeline-kinds pr,issue,review,thread] --out metrics.json
 ```
 
 - `--classes` — `{"<item id>": "P" | "R" | "C"}`, as confirmed by the calling skill; unknown ids and other values are reported in `notes` and ignored.
 - `--weights` — any of `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`; a missing, non-numeric or out-of-range value falls back to its default with a note.
 - `--area-prefix` — the label prefix that marks a PR's area (the project's `area_label_prefix`).
+- `--repo-area` — repeatable `GLOB=AREA`: an item from a repository whose *name* (the `name` of `owner/name`, read from the item URL) matches `GLOB` also counts under `AREA`, labelled or not, and the area counts toward area breadth. Skills pass `contributor_activity.repository_areas` from the project or its organization; the ASF organization maps `*-site` to `website`.
 - `--since` — score only a sub-window of what was fetched, e.g. the 6-month window from a 12-month fetch.
 - `--timeline-kinds` — the item kinds the monthly `timeline` counts, comma-separated; default every kind.
 

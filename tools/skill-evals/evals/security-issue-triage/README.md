@@ -51,6 +51,17 @@ rating a precedent STRONG or MODERATE is judgement.
 
 ---
 
+## Item failure budget (`item-failure-budget`)
+
+The shared [item failure budget](../../../../docs/batch-failure-budget.md) rule; `item_failure_budget` is read from `project.md`.
+
+| Case | Scenario | Key assertions |
+|------|----------|---------------|
+| `case-1-one-unreadable-item` | Tracker issue 104 returns 410 mid-pool | `action="continue"`, `failed=[104]`, `rerun_selector="104"` |
+| `case-2-budget-exhausted` | A fourth read/classify failure in a pool of 10 | `stop_reason="budget"`, `unfinished=[108,109,110]` |
+| `case-3-write-fails-mid-loop` | The triage comment for 202 fails to post | `stop_reason="write-failure"`, `retry_write=false` |
+| `case-4-malformed-budget` | `item_failure_budget: lots` | `stop_reason="config-error"`, no failed or unfinished items |
+
 ## Step 2 — Gather per-tracker state (`step-2-gather-state`)
 
 Extracts a structured state bag from mock `gh issue view`, Gmail thread,

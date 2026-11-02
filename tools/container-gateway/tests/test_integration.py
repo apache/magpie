@@ -182,10 +182,24 @@ def test_home_bind_mount_is_refused(gateway: tuple[Path, str]) -> None:
     assert "container-gateway: bind-mount" in done.stderr
 
 
-def test_writable_project_root_bind_is_refused_and_read_only_is_not(gateway: tuple[Path, str]) -> None:
+def test_writable_project_root_bind_is_split_so_only_protected_paths_stay_read_only(
+    gateway: tuple[Path, str],
+) -> None:
     project, cli = gateway
     image = "docker.io/library/alpine:3"
-    done = _run(cli, project, "run", "--rm", "-v", f"{project}:/p", image, "true")
+    (project / ".claude").mkdir(exist_ok=True)
+    (project / ".claude" / "settings.json").write_text("{}\n")
+    script = (
+        "echo hi > /p/data/split-out"
+        " && ! (echo x > /p/.claude/settings.json) 2>/dev/null"
+        " && ! (echo x > /p/.mcp.json) 2>/dev/null"
+    )
+    done = _run(cli, project, "run", "--rm", "-v", f"{project}:/p", image, "sh", "-c", script)
+    assert done.returncode == 0, done.stderr
+    assert (project / "data" / "split-out").read_text() == "hi\n"
+    assert (project / ".claude" / "settings.json").read_text() == "{}\n"
+    assert not (project / ".mcp.json").exists()
+    done = _run(cli, project, "run", "--rm", "-v", f"{project / '.claude'}:/c", image, "true")
     assert done.returncode != 0
     assert "is writable and covers" in done.stderr
     done = _run(cli, project, "run", "--rm", "-v", f"{project}:/p:ro", image, "true")

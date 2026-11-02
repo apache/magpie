@@ -47,7 +47,11 @@ by swapping the adapter, not the skill.
 - `tools/maildir/` — private-mail drafting to a local Maildir spool
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
-  project with a per-person override.
+  project with a per-person override. It is also the vendor home for the
+  local-files `contract:mail-source` backend: `maildir-source-threads`,
+  `maildir-source-read` and `maildir-source-thread-url` read a static
+  mbox / Maildir / `.eml` directory — forensics, air-gapped triage and
+  compliance exports — with no credentials and no network.
 - `tools/ponymail/` — public mailing-list archive search. Its one local
   write, `save_attachments` (`ponymail-mcp` 1.3.0+), downloads a report's
   attachments into a `PONYMAIL_ATTACHMENT_DIRS` root that the agent can
@@ -62,8 +66,12 @@ by swapping the adapter, not the skill.
   password, that 2FA is still asked on every login, and that a logged-in
   session reads the allowed private lists until it expires or the user logs
   out.
-- `tools/mail-archive/` — static mailing-list archive reader for
-  projects whose list history is in a local mbox/Maildir export.
+- `tools/mail-archive/` — Markdown contract spec for `contract:mail-archive`,
+  the *public*-archive seam (`search_thread_url`, `fetch_thread_by_url`,
+  `list_recent_threads`, `resolve_advisory_announcement_url`,
+  `publication_signal_url`; the ASF default backend is PonyMail). It is not a
+  local-archive reader — a static mbox / Maildir / `.eml` export is
+  `tools/maildir/` above, under `contract:mail-source`.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
   Its `bridge.groovy` refuses a non-HTTPS base URL and does not follow
   redirects (#1862).

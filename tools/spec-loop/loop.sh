@@ -307,14 +307,14 @@ update_scope_context() {
     echo "Scope your inventory to paths touched in that range:"
     echo ""
     echo '```'
-    echo "git diff --name-only $prev..$BASE_HEAD -- .claude/skills tools docs/modes.md"
+    echo "git diff --name-only $prev..$BASE_HEAD -- ${SPEC_LOOP_UPDATE_PATHSPEC[*]}"
     echo '```'
     echo ""
     # Deterministic spec-scope mapping: pipe the diff through spec-scope so the
     # agent receives a pre-computed list of likely-relevant specs rather than
     # deriving the mapping itself.  Failures are non-fatal (mapping is advisory).
     local _changed_files _relevant_specs
-    _changed_files="$(git diff --name-only "$prev..$BASE_HEAD" -- .claude/skills tools docs/modes.md 2>/dev/null)"
+    _changed_files="$(git diff --name-only "$prev..$BASE_HEAD" -- "${SPEC_LOOP_UPDATE_PATHSPEC[@]}" 2>/dev/null)"
     if [ -n "$_changed_files" ]; then
         _relevant_specs="$(printf '%s\n' "$_changed_files" | \
             uv run --project tools/spec-inventory spec-scope 2>/dev/null)" || true
@@ -328,7 +328,7 @@ update_scope_context() {
             echo ""
         fi
     fi
-    echo "Skills, tools, and \`docs/modes.md\` rows untouched in that range are still"
+    echo "Skills, tools, docs, and other paths untouched in that range are still"
     echo "in sync as of the previous run — skip them. Only re-inspect specs whose"
     echo "subjects appear in the diff. If the diff is empty there is nothing to"
     echo "sync; exit without creating a branch or commit."

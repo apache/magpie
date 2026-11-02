@@ -47,7 +47,7 @@ tracker bridge; adopters using GitHub Issues or other trackers
 contribute a parallel `tools/<tracker>/` directory.
 
 The bridge provides both **read** and **write** subcommands.
-The read-only contributor-activity queries of `contract:tracker` run in Python, in the `jira` backend of [`tools/contributor-metrics`](https://github.com/apache/magpie/blob/main/tools/contributor-metrics/README.md#backends), through this package's REST client, `jira_bridge.rest`; the profile lookup of `contract:people` is a single REST read. See [People and contributor-activity reads](#people-and-contributor-activity-reads).
+The read-only contributor-activity queries of `contract:tracker` run in Python, in the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends), through this package's REST client, `jira_bridge.rest`; the profile lookup of `contract:people` is a single REST read. See [People and contributor-activity reads](#people-and-contributor-activity-reads).
 The same package ships `magpie-jira-tracker`, the private-Jira backend of the [security-tracker contract](https://github.com/apache/magpie/blob/main/tools/security-tracker/contract.md), whose reads and writes go through that client too — see [Security tracker](#security-tracker-magpie-jira-tracker).
 Write operations require `JIRA_API_TOKEN` and follow the same
 write-path discipline as the GitHub bridge: every mutation is
@@ -247,7 +247,7 @@ Output:
 ## People and contributor-activity reads
 
 The read-only activity queries of [`contract:tracker`](https://github.com/apache/magpie/blob/main/tools/tracker/README.md) and the profile lookup of [`contract:people`](https://github.com/apache/magpie/blob/main/tools/people/README.md), against the same Jira Data Center REST API v2 the bridge uses and with the same configuration (`ISSUE_TRACKER_URL`, `ISSUE_TRACKER_PROJECT`, `JIRA_API_TOKEN`, `JIRA_AUTH_SCHEME`).
-The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](https://github.com/apache/magpie/blob/main/tools/contributor-metrics/README.md#backends) over `jira_bridge.rest`; the others are plain REST reads a skill makes.
+The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends) over `jira_bridge.rest`; the others are plain REST reads a skill makes.
 
 `jira_bridge.rest` treats the token as the user's personal credential and the URL as project configuration, which anyone with write access can commit:
 

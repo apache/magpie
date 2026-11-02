@@ -18,7 +18,8 @@
 # Everything the pr-management-code-review pass reads about one upstream PR:
 # the node id the review mutation needs, the merge state, every changed file,
 # the commits with their authors (slop signals H3/H4), the reviews, threads and
-# conversation (Golden rule 7), and the check contexts (Golden rule 8).
+# conversation (Golden rule 7), the check contexts (Golden rule 8), and whether
+# the repository and the viewer can enable auto-merge on it (the default action).
 #
 # $owner / $repo are supplied by the dispatcher from policy, never by the
 # caller, so this query cannot be pointed at another repository.
@@ -26,6 +27,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   viewer { login }
   repository(owner: $owner, name: $repo) {
     viewerPermission
+    autoMergeAllowed
     pullRequest(number: $number) {
       id
       number
@@ -43,6 +45,9 @@ query($owner: String!, $repo: String!, $number: Int!) {
       authorAssociation
       mergeable
       mergeStateStatus
+      viewerCanEnableAutoMerge
+      viewerDefaultMergeMethod
+      autoMergeRequest { mergeMethod }
       additions
       deletions
       changedFiles
@@ -69,6 +74,16 @@ query($owner: String!, $repo: String!, $number: Int!) {
           }
         }
       }
+      headCommits: commits(last: 2) {
+        nodes {
+          commit {
+            oid
+            parents(first: 2) { nodes { oid } }
+            signature { isValid signer { login } }
+            authors(first: 5) { nodes { user { login } } }
+          }
+        }
+      }
       latestReviews(first: 30) {
         nodes { author { login } authorAssociation state submittedAt body commit { oid } }
       }
@@ -92,10 +107,11 @@ query($owner: String!, $repo: String!, $number: Int!) {
               state
               contexts(first: 100) {
                 totalCount
+                pageInfo { hasNextPage }
                 nodes {
                   __typename
-                  ... on CheckRun { name conclusion status }
-                  ... on StatusContext { context state }
+                  ... on CheckRun { name conclusion status isRequired(pullRequestNumber: $number) }
+                  ... on StatusContext { context state isRequired(pullRequestNumber: $number) }
                 }
               }
             }

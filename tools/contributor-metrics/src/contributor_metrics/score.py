@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
+from fnmatch import fnmatchcase
 from typing import Any
+from urllib.parse import urlparse
 
 from contributor_metrics.model import CLASSES, Item, Weights
 
@@ -39,6 +41,18 @@ def _r(x: float) -> float:
     return round(x, 3)
 
 
+def repo_name(url: str) -> str:
+    """The repository name (`name` of `owner/name`) an item's URL points into, or ""."""
+    parts = [p for p in urlparse(url).path.split("/") if p]
+    return parts[1] if len(parts) >= 2 else ""
+
+
+def repo_areas_of(url: str, repo_areas: Sequence[tuple[str, str]]) -> list[str]:
+    """The areas whose repository-name glob matches the repository `url` points into."""
+    name = repo_name(url)
+    return [area for pattern, area in repo_areas if name and fnmatchcase(name, pattern)]
+
+
 def score(
     items: Iterable[Item],
     classes: Mapping[str, str],
@@ -47,11 +61,15 @@ def score(
     since: str,
     end: str,
     area_prefix: str = "area:",
+    repo_areas: Sequence[tuple[str, str]] = (),
     caps_hit: Iterable[str] = (),
     timeline_kinds: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Apply weights and the pushback penalty to the items inside [since, end].
 
+    `repo_areas` maps repository-name globs to an area: an item from a matching
+    repository also counts under that area, whatever its labels (for example an
+    ASF project's `*-site` repository is website work).
     `timeline_kinds`, when given, limits the monthly timeline to those item kinds.
     """
     in_window = [i for i in items if since <= i.created_at[:10] <= end]
@@ -99,6 +117,7 @@ def score(
             continue
         totals[bucket] += w(i)
         labelled = [a for a in i.areas if a.startswith(area_prefix)]
+        labelled += [a for a in repo_areas_of(i.url, repo_areas) if a not in labelled]
         for a in labelled or [UNLABELLED]:
             per_area[a][bucket].append(w(i))
     areas = []

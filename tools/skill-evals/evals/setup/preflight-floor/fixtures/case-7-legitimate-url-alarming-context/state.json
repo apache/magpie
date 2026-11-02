@@ -25,6 +25,10 @@
     [
       "magpie-vetted-ops",
       "0.6.0"
+    ],
+    [
+      "magpie-security-tools",
+      "0.6.0"
     ]
   ]
 }

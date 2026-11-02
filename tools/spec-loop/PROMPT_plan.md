@@ -37,10 +37,32 @@ Steps:
 4. For each spec, identify the **gaps**: a `proposed` area with no skill,
    a documented step that drifted from the code, a missing test, a
    `Known gaps` item. Each gap is a candidate work item.
+
+   **Evidence before queuing.** A gap becomes a work item only with one of
+   three kinds of evidence, gathered in this pass, that it is still open,
+   written into the item as a `*Verified open:*` line:
+
+   - **Call site**: `file:line` where the behaviour is or is not wired (e.g.
+     "no call to `validate_x` in `run_validation`").
+   - **File content**: current text, or its absence, at a named path (e.g.
+     "`audit-record-schema.md` does not exist").
+   - **Counted value**: a number derived from the tree (e.g. "6 skills carry
+     `family: repo-health`").
+
+   The presence of a name is **not** evidence. A function defined but never
+   called, a hook named in a comment but not wired, and a grep hit inside a
+   docstring all match a name while the gap stays open or closed regardless;
+   where that distinction matters, cite the call site, not the definition.
+   A `Known gaps` bullet you cannot verify either way is neither queued nor
+   deleted: list it under **Notes & discoveries** as unverified, so the next
+   beat sees the check was attempted. A bullet that carries
+   `<!-- gap-closes-when: … -->` is checked by `spec-validate`; trust a
+   passing validator over a reading of the prose.
 5. Rewrite `tools/spec-loop/IMPLEMENTATION_PLAN.md` as a prioritised list
    of work items. Each work item names: the change, the spec it serves,
-   its **Validation** command, and a branch slug (`<slug>`, the bare
-   slug — **no `spec/` or other prefix, no numbers**).
+   its `*Verified open:*` evidence (step 4), its **Validation** command,
+   and a branch slug (`<slug>`, the bare slug — **no `spec/` or other
+   prefix, no numbers**).
 6. Do NOT create work items against an `off` spec (e.g. Agentic Autonomous) —
    that would skip the proof MISSION requires.
 

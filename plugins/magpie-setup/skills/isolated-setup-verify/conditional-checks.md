@@ -75,6 +75,15 @@ reading this file; read the section for a check whose condition holds.
      any other, the remediation is `git config --local --unset
      core.hooksPath` in that repository, run by the operator; the
      dispatcher still chains to the repository's own `.git/hooks/`.
+   - ⚠ for a repository that uses CaptainHook
+     ([detection](../../../../tools/hook-manager/README.md#detection)) while
+     `composer.json` requires `captainhook/hook-installer` or
+     `captainhook/plugin-composer` without `extra.captainhook.disable-plugin:
+     true` (or an `allow-plugins` entry that turns it off): the plugin
+     installs on every `composer install` / `composer update` outside the
+     shim and replaces the dispatcher in the shared directory. Remediation:
+     add the flag and re-run `~/.claude/bin/captainhook install`, per
+     [troubleshooting](../../../../docs/setup/sandbox-troubleshooting.md#captainhooks-composer-plugin-replaced-the-shared-hook-directory).
 
    If `core.hooksPath` is unset (or points elsewhere), the
    operator is in **per-project** scope (the default). No further
@@ -103,15 +112,16 @@ reading this file; read the section for a check whose condition holds.
    caller name in an example constrains nothing. Verify by
    inspection, not by trusting a comment next to the rule.
 
-   `vetted-op` in `ask` (or absent) is correct.
-
-   `vetted-op-tracker` belongs in `ask` and in
-   `sandbox.excludedCommands`, never in `allow` — it writes. Its
-   exclusion is correct: it refuses every operation except the
-   tracker rollup / body-field procedures before reading the policy,
-   and their runner refuses any `gh` call outside `repos/<tracker>/`.
-   `vetted-op` itself in `sandbox.excludedCommands` is ✗ — it would
-   run the whole write catalogue unsandboxed.
+   `vetted-op` and `vetted-op-tracker` each belong in `ask` and in
+   `sandbox.excludedCommands` (both launcher forms), never in
+   `allow` — they write. The exclusion is correct: every operation
+   is a fixed `gh` argv with bodies read only from the workspace, so
+   it reaches less than the bare `gh *` exclusion, and a sandboxed
+   `vetted-op` cannot even read `~/.claude/magpie/` to start.
+   An excluded write dispatcher with no matching `ask` rule is ✗ —
+   the prompt is the only gate on its unsandboxed writes.
+   A missing `vetted-op` exclusion is ✗ too: every write op fails
+   with *"Project directory … does not exist"*.
 
    A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
    that spells the versioned plugin-cache path with a `*`
@@ -129,6 +139,19 @@ reading this file; read the section for a check whose condition holds.
    - `~/.claude/magpie/**` — the fixed path the rules name, which
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
+   - `//**/.apache-magpie-overrides/tools/vetted-ops/**` — the same
+     path under any directory, since discovery starts from the
+     working directory.
+   - `~/.config/apache-magpie/vetted-ops/**` — the approved policies,
+     the only ones the write dispatchers act on.
+
+   **9c — the approved copy.** The project's policy has a
+   byte-for-byte regular-file copy (not a symlink) in
+   `~/.config/apache-magpie/vetted-ops/`. Missing or stale is ✗:
+   every `vetted-op` / `vetted-op-tracker` write is refused with
+   *"not an approved copy"*. The fix is the user's to run in their
+   own terminal after reviewing the policy — never propose writing
+   that directory from the agent.
    - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
      and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
      maintainer's personal layer.
@@ -284,11 +307,22 @@ reading this file; read the section for a check whose condition holds.
     them **n/a**. 12e has its own condition, so with no container
     runtime check 12 reports 12e alone. Five sub-checks:
 
-    - **12a — hooks wired.** User-scope `~/.claude/settings.json`
-      or `~/.claude/settings.local.json` has a `SessionStart` hook
+    - **12a — hooks wired.** The managed-settings drop-in
+      `managed-settings.d/50-magpie-container-gateway.json` (macOS
+      `/Library/Application Support/ClaudeCode/`, Linux
+      `/etc/claude-code/`), another managed settings file, or user-scope
+      `~/.claude/settings.json` has a `SessionStart` hook
       running `container-gateway-hook.sh start` and a `SessionEnd`
       hook running `container-gateway-hook.sh stop`. Either missing is
-      ✗, and so is a registered absolute path that does not exist on
+      ✗. Entries found only in `~/.claude/settings.local.json` are ✗
+      too: Claude Code does not load that file, so they never run. A
+      managed entry must run the dispatcher `<managed-settings dir>/magpie/container-gateway-dispatch`, which
+      must exist, be root-owned and be writable by root alone, as must
+      every directory from `/` down to it (a user-writable ancestor such
+      as Homebrew's `/usr/local` lets that user swap it); a managed
+      entry that names a script in a user's home is ✗ (every account on
+      the machine would run it). So
+      is a registered absolute path that does not exist on
       this machine (synced from another one, e.g. `/Users/...` on
       Linux): point at the setup guide's "Fixing your other machines".
       An absolute path in a `~/.claude/settings.json` that links into a
@@ -305,7 +339,15 @@ reading this file; read the section for a check whose condition holds.
       container commands fail until the next session. The same
       path, `~` and `bash`/`sh` rules apply to it.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
-      exists and is executable. Missing or non-executable is ✗.
+      exists and is executable. Missing or non-executable is ✗. When the
+      hooks run through the managed-settings dispatcher, the script
+      must be a plain file, not a symlink (✗ otherwise; remedy: `rm` the
+      link and copy the framework's), and the script,
+      `~/.claude/scripts` and `~/.claude` must each be owned by the
+      account, not group- or world-writable, and carry no ACL that lets
+      another account write them (macOS `ls -le`; remove with `chmod -N`); otherwise the dispatcher
+      refuses it and the gateway never starts, which is ✗ (remedy:
+      `chmod go-w` on them and on the home directory).
     - **12c — project wiring.** The gitignored
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in

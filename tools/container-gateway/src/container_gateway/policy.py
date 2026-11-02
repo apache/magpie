@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import copy
 import os
+import posixpath
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -418,19 +419,23 @@ def _same_or_ancestor(a: Path, b: Path) -> bool:
     return False
 
 
-def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
-    """The first write-protected path the bind source `src` is, contains or sits under."""
-    try:
-        real = Path(src).resolve(strict=False)
-    except (OSError, RuntimeError):
-        return Path(src)  # cannot tell where it is: treat it as covering
-    protected = dict.fromkeys(
+def _protected_set(ctx: PolicyContext) -> dict[Path, None]:
+    return dict.fromkeys(
         (
             *ctx.write_protected,
             *write_protected_paths(ctx.project_root, *ctx.bind_roots),
             *ctx.excluded_bind_roots,
         )
     )
+
+
+def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
+    """The first write-protected path the bind source `src` is, contains or sits under."""
+    try:
+        real = Path(src).resolve(strict=False)
+    except (OSError, RuntimeError):
+        return Path(src)  # cannot tell where it is: treat it as covering
+    protected = _protected_set(ctx)
     for path in protected:
         if _same_or_ancestor(real, path) or _same_or_ancestor(path, real):
             return path
@@ -487,12 +492,127 @@ def _worktree_component_hit(real: Path) -> Path | None:
     return None
 
 
-def _write_protected_deny(src: str, read_only: bool, ctx: PolicyContext) -> Deny | None:
-    """Refuse a writable bind whose source covers or sits under a protected path."""
+def _is_or_under_protected(real: Path, ctx: PolicyContext) -> bool:
+    """Whether `real` is a write-protected path or sits under one (not merely contains one)."""
+    if any(_same_or_ancestor(path, real) for path in _protected_set(ctx)):
+        return True
+    hit = _worktree_component_hit(real)
+    return hit is not None and _same_or_ancestor(hit, real)
+
+
+def _is_checkout_root(real: Path, ctx: PolicyContext) -> bool:
+    """The project root, another bind root, or any directory holding a `.git` (a checkout or worktree)."""
+    roots = [ctx.project_root, *ctx.bind_roots]
+    if any(real == root.resolve(strict=False) for root in roots):
+        return True
+    return (real / ".git").exists() or (real / ".git").is_symlink()
+
+
+# A writable bind of a checkout root covers that checkout's protected entries, so on
+# its own it is refused. It is split instead: the root read-only, and a writable bind
+# of every child that covers nothing protected, descending into a child that still
+# does. Protected children stay read-only under their read-only parent, and since the
+# root is read-only a container cannot create a protected path that is missing today
+# (`.mcp.json`, a new `.claude/worktrees/<wt>`). Only checkout roots are split: a
+# writable bind of `.claude`, `.git` or any other subdirectory that covers a protected
+# path is still refused.
+_SPLIT_MAX_DEPTH = 6
+_SPLIT_MAX_MOUNTS = 512
+
+
+def split_writable_bind(src: str, ctx: PolicyContext) -> list[tuple[Path, bool]] | None:
+    """The `(host path, read_only)` mounts that replace a writable bind of checkout root `src`.
+
+    `None` when the bind is not a checkout root, has nothing to split, sits under a
+    protected path, or exceeds the depth or mount limits; the caller then refuses it.
+    Every writable entry returned is a path `_write_protected_hit` accepts on its own.
+    """
+    try:
+        real = Path(src).resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    if not real.is_dir() or not _is_checkout_root(real, ctx) or _is_or_under_protected(real, ctx):
+        return None
+    if _write_protected_hit(str(real), ctx) is None:
+        return None
+    plan: list[tuple[Path, bool]] = []
+
+    def expand(directory: Path, depth: int) -> bool:
+        plan.append((directory, True))
+        if depth >= _SPLIT_MAX_DEPTH:
+            return False
+        try:
+            children = sorted(directory.iterdir())
+        except OSError:
+            return False
+        for child in children:
+            # A symlink would be followed by the daemon to wherever it points; it stays
+            # read-only inside its parent instead. So does anything that is not a plain
+            # file or directory.
+            if child.is_symlink() or not (child.is_dir() or child.is_file()):
+                continue
+            if _write_protected_hit(str(child), ctx) is None:
+                plan.append((child, False))
+            elif _is_or_under_protected(child, ctx) or not child.is_dir():
+                continue
+            elif not expand(child, depth + 1):
+                return False
+            if len(plan) > _SPLIT_MAX_MOUNTS:
+                return False
+        return True
+
+    return plan if expand(real, 0) else None
+
+
+# Bind specs the split reproduces faithfully on every sub-mount. Anything else (a
+# propagation mode, `U`, `BindOptions`, an overlay) keeps the plain refusal.
+_SPLITTABLE_BINDS_OPTIONS = frozenset({"rw", "z", "Z", "cached", "delegated", "consistent"})
+_SPLITTABLE_COMPAT_MOUNT_KEYS = frozenset({"Type", "Source", "Target", "ReadOnly", "Consistency"})
+_SPLITTABLE_LIBPOD_MOUNT_KEYS = frozenset({"type", "source", "destination", "options"})
+_SPLITTABLE_LIBPOD_OPTIONS = frozenset({"rw", "bind", "rbind", "z", "Z"})
+
+
+def _splittable_binds_spec(spec: str) -> bool:
+    parts = spec.split(":")
+    if len(parts) not in (2, 3) or not parts[0] or not parts[1].startswith("/"):
+        return False
+    return len(parts) == 2 or set(parts[2].split(",")) <= _SPLITTABLE_BINDS_OPTIONS
+
+
+def _splittable_compat_mount(entry: dict[str, Any]) -> bool:
+    return (
+        set(entry) <= _SPLITTABLE_COMPAT_MOUNT_KEYS
+        and entry.get("ReadOnly") in (None, False)
+        and str(entry.get("Target", "")).startswith("/")
+    )
+
+
+def _splittable_libpod_mount(entry: dict[str, Any]) -> bool:
+    options = entry.get("options")
+    return (
+        set(entry) <= _SPLITTABLE_LIBPOD_MOUNT_KEYS
+        and (
+            options is None
+            or (isinstance(options, list) and {str(o) for o in options} <= _SPLITTABLE_LIBPOD_OPTIONS)
+        )
+        and str(entry.get("destination", "")).startswith("/")
+    )
+
+
+def _write_protected_deny(
+    src: str, read_only: bool, ctx: PolicyContext, *, splittable: bool = False
+) -> Deny | None:
+    """Refuse a writable bind whose source covers or sits under a protected path.
+
+    With `splittable`, a writable bind of a checkout root that `split_writable_bind`
+    can split is allowed: `apply_create_rewrites` replaces it with the split mounts.
+    """
     if read_only:
         return None
     hit = _write_protected_hit(src, ctx)
     if hit is None:
+        return None
+    if splittable and split_writable_bind(src, ctx) is not None:
         return None
     return Deny(
         f"bind-mount: {src} is writable and covers {hit}, which configures or runs code "
@@ -827,9 +947,11 @@ def _mount_type_deny(
             return _bind_deny(source, ctx)
         if type_key == "Type":
             read_only = entry.get("ReadOnly") is True
+            splittable = _splittable_compat_mount(entry)
         else:
             read_only = _options_read_only(entry.get("options"))
-        return _write_protected_deny(source, read_only, ctx)
+            splittable = _splittable_libpod_mount(entry)
+        return _write_protected_deny(source, read_only, ctx, splittable=splittable)
     if mtype == "volume":
         if _volume_driver_config(entry):
             return Deny(_VOLUME_DRIVER_DENY_REASON)
@@ -853,7 +975,9 @@ def _mounts_deny(
             if src and _is_path_like(src):
                 if not resolve_bind_source(src, ctx):
                     return _bind_deny(src, ctx)
-                denial = _write_protected_deny(src, _binds_spec_read_only(str(spec)), ctx)
+                denial = _write_protected_deny(
+                    src, _binds_spec_read_only(str(spec)), ctx, splittable=_splittable_binds_spec(str(spec))
+                )
                 if denial is not None:
                     return denial
 
@@ -1232,6 +1356,192 @@ def check_update(body: Any) -> Deny | None:
         return Deny("malformed: unexpected request shape")
 
 
+def _split_target(target: str, root: Path, path: Path) -> str:
+    rel = path.relative_to(root).as_posix()
+    return target if rel == "." else f"{target.rstrip('/')}/{rel}"
+
+
+def _split_plan_for(src: str, ctx: PolicyContext) -> tuple[Path, list[tuple[Path, bool]]] | None:
+    """The resolved root and split plan, or `None` when a fail-safe read-only bind must replace it."""
+    plan = split_writable_bind(src, ctx)
+    if plan is None:
+        return None
+    return plan[0][0], plan
+
+
+def _normalised_destination(dest: str) -> str:
+    """`dest` as the daemon resolves it: repeated separators, `.` and `..` folded away."""
+    return "/" + posixpath.normpath(dest).lstrip("/") if dest.startswith("/") else dest
+
+
+def _explicit_destinations(out: dict[str, Any], *, libpod: bool) -> list[str]:
+    """Every container path the request mounts something at, before any split."""
+    dests: list[str] = []
+    if libpod:
+        for entry in out.get("mounts") or []:
+            if isinstance(entry, dict):
+                dests.append(str(entry.get("destination", "")))
+        for entry in out.get("volumes") or []:
+            if isinstance(entry, dict):
+                dests.append(str(entry.get("Dest", "")))
+        for entry in out.get("image_volumes") or []:
+            if isinstance(entry, dict):
+                dests.append(str(entry.get("Destination", "")))
+    else:
+        hc = out.get("HostConfig") or {}
+        for spec in hc.get("Binds") or []:
+            parts = str(spec).split(":")
+            if len(parts) >= 2:
+                dests.append(parts[1])
+        for entry in hc.get("Mounts") or []:
+            if isinstance(entry, dict):
+                dests.append(str(entry.get("Target", "")))
+        tmpfs = hc.get("Tmpfs")
+        if isinstance(tmpfs, dict):
+            dests.extend(str(t) for t in tmpfs)
+        # Anonymous volumes: a generated bind at one of these would replace the volume
+        # and send the container's writes into the checkout instead.
+        volumes = out.get("Volumes")
+        if isinstance(volumes, dict):
+            dests.extend(str(v) for v in volumes)
+    return [_normalised_destination(d) for d in dests if d.startswith("/")]
+
+
+def _shadow_filter(target: str, explicit: list[str]) -> Any:
+    """A predicate: whether a generated mount at a path stays, given the request's other mounts.
+
+    A generated mount at or below another mount the request names under the split's own
+    target is dropped: that explicit mount applies there, and the check has vetted it on
+    its own. Docker would otherwise refuse the duplicate destination.
+    """
+    own = _normalised_destination(target)
+    nested = [d for d in explicit if d != own and d.startswith(own.rstrip("/") + "/")]
+
+    def keep(dest: str) -> bool:
+        path = _normalised_destination(dest)
+        return not any(path == d or path.startswith(d.rstrip("/") + "/") for d in nested)
+
+    return keep
+
+
+def _split_binds_spec(
+    spec: str, ctx: PolicyContext, explicit: list[str]
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """The `Binds` entries and structured `Mounts` entries that replace `spec`.
+
+    A generated entry whose path or target holds a `:` cannot be a `Binds` string, so
+    it becomes a structured mount, which cannot carry SELinux relabelling or a
+    consistency hint; with such options it is left out, and the path stays read-only
+    under its read-only parent.
+    """
+    parts = spec.split(":")
+    src = parts[0]
+    if (
+        not src
+        or not _is_path_like(src)
+        or _binds_spec_read_only(spec)
+        or not _splittable_binds_spec(spec)
+        or _write_protected_hit(src, ctx) is None
+    ):
+        return [spec], []
+    target = parts[1]
+    options = [o for o in (parts[2].split(",") if len(parts) == 3 else []) if o and o != "rw"]
+
+    def render(path: str, dest: str, read_only: bool) -> str:
+        opts = [*options, "ro"] if read_only else options
+        return f"{path}:{dest}:{','.join(opts)}" if opts else f"{path}:{dest}"
+
+    found = _split_plan_for(src, ctx)
+    if found is None:
+        return [render(src, target, True)], []  # the tree changed since the check: fail safe
+    root, plan = found
+    keep = _shadow_filter(target, explicit)
+    binds: list[str] = []
+    mounts: list[dict[str, Any]] = []
+    for path, read_only in plan:
+        dest = _split_target(target, root, path)
+        if path == root:
+            # The read-only root keeps the source as the request spelled it, which the
+            # spec parse proved is colon-free, so it is never lost to a resolved path
+            # that holds a `:` (a symlink pointing at such a checkout).
+            binds.append(render(src, target, True))
+            continue
+        if not keep(dest):
+            continue
+        if ":" not in str(path) and ":" not in dest:
+            binds.append(render(str(path), dest, read_only))
+        elif not options:
+            mounts.append({"Type": "bind", "Source": str(path), "Target": dest, "ReadOnly": read_only})
+    return binds, mounts
+
+
+def _split_mount_entry(entry: Any, ctx: PolicyContext, explicit: list[str], *, libpod: bool) -> list[Any]:
+    if not isinstance(entry, dict):
+        return [entry]
+    type_key, source_key, target_key = (
+        ("type", "source", "destination") if libpod else ("Type", "Source", "Target")
+    )
+    if str(entry.get(type_key, "")).casefold() != "bind":
+        return [entry]
+    source = str(entry.get(source_key, ""))
+    if libpod:
+        writable = not _options_read_only(entry.get("options")) and _splittable_libpod_mount(entry)
+    else:
+        writable = entry.get("ReadOnly") is not True and _splittable_compat_mount(entry)
+    if not writable or _write_protected_hit(source, ctx) is None:
+        return [entry]
+    base_options = [o for o in (entry.get("options") or []) if str(o) != "rw"] if libpod else []
+
+    def render(path: str, dest: str, read_only: bool) -> dict[str, Any]:
+        out = {**entry, source_key: path, target_key: dest}
+        if libpod:
+            out["options"] = [*base_options, "ro"] if read_only else list(base_options)
+        else:
+            out["ReadOnly"] = read_only
+        return out
+
+    target = str(entry.get(target_key, ""))
+    found = _split_plan_for(source, ctx)
+    if found is None:
+        return [render(source, target, True)]  # the tree changed since the check: fail safe
+    root, plan = found
+    keep = _shadow_filter(target, explicit)
+    rendered = []
+    for path, read_only in plan:
+        dest = _split_target(target, root, path)
+        if keep(dest):
+            rendered.append(render(str(path), dest, read_only))
+    return rendered
+
+
+def _apply_bind_splits(out: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> None:
+    explicit = _explicit_destinations(out, libpod=libpod)
+    if libpod:
+        mounts = out.get("mounts")
+        if isinstance(mounts, list):
+            out["mounts"] = [
+                m for entry in mounts for m in _split_mount_entry(entry, ctx, explicit, libpod=True)
+            ]
+        return
+    hc = out.get("HostConfig") or {}
+    extra_mounts: list[dict[str, Any]] = []
+    binds = hc.get("Binds")
+    if isinstance(binds, list):
+        new_binds: list[str] = []
+        for spec in binds:
+            spec_binds, spec_mounts = _split_binds_spec(str(spec), ctx, explicit)
+            new_binds.extend(spec_binds)
+            extra_mounts.extend(spec_mounts)
+        hc["Binds"] = new_binds
+    mounts = hc.get("Mounts")
+    if isinstance(mounts, list) or extra_mounts:
+        existing = mounts if isinstance(mounts, list) else []
+        hc["Mounts"] = [
+            *(m for entry in existing for m in _split_mount_entry(entry, ctx, explicit, libpod=False)),
+            *extra_mounts,
+        ]
+
+
 def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool) -> dict[str, Any]:
     """Apply the label / HostIp / proxy-env rewrites.
 
@@ -1275,4 +1585,5 @@ def apply_create_rewrites(body: dict[str, Any], ctx: PolicyContext, *, libpod: b
             ]
             env_list.extend(f"{k}={v}" for k, v in ctx.proxy_env.items())
             out["Env"] = env_list
+    _apply_bind_splits(out, ctx, libpod=libpod)
     return out

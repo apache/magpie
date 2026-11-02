@@ -23,6 +23,7 @@ import pytest
 from conftest import make_config
 from imap_source.archive_url import thread_url
 from imap_source.config import ConfigError, ImapConfig
+from imap_source.thread_url import resolve_thread_url
 
 BASE_ENV = {
     "IMAP_SOURCE_HOST": "imap.example.org",
@@ -76,6 +77,18 @@ def test_thread_url_uses_the_template_when_declared() -> None:
     )
     url = thread_url(config, "<report-1@lists.example.org>")
     assert url == "https://lists.example.org/hyperkitty/list/x@y/message/report-1%40lists.example.org/"
+
+
+def test_thread_url_canonicalises_bare_root_id() -> None:
+    config = make_config(
+        archive_template="https://lists.example.org/hyperkitty/list/x@y/message/{message_id}/"
+    )
+
+    bracketed = resolve_thread_url(config, "<report-1@lists.example.org>")
+    bare = resolve_thread_url(config, "report-1@lists.example.org")
+
+    assert bare == bracketed
+    assert bare["thread_id"] == "<report-1@lists.example.org>"
 
 
 def test_thread_url_falls_back_to_imap_scheme() -> None:

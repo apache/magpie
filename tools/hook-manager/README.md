@@ -69,12 +69,14 @@ A manager's install must put its hook in the repository's own `$(git rev-parse -
 The fix is an **install strategy**, applied by [`hook-manager-shim.sh`](../agent-isolation/hook-manager-shim.sh), installed as `~/.claude/bin/<tool>` ahead of the real binary on `PATH`.
 The shim takes the tool from the name it is installed under, rewrites only the install action, and passes every other invocation through unchanged.
 A positional action (`prek install`) is only the first argument; a flag-style action (`overcommit --install`) and its registry aliases (`overcommit -i`) are found anywhere in argv, including a single-letter alias inside a bundle of short switches (`-fi`) and any shortening of a long flag (`--inst`).
+An adapter sets `install.match: prefix` for a manager whose option parser takes global options before the command and resolves a prefix of it, so `captainhook -n install` and `captainhook inst` count as well; any non-option argument that prefixes the action matches, and rewriting a run only points `core.hooksPath` at the repository's own hooks, which is harmless.
+An adapter sets `install.vendor_bin` for a manager that Composer installs into a project's `vendor/bin`, which is not on `PATH`; when the `PATH` walk finds no real binary the shim runs `<repository root>/vendor/bin/<tool>`, and a symlink back to the shim is refused rather than exec'd. A global binary on `PATH` always wins over the project's pinned one.
 It leaves the install alone when the caller already chose a target, asked for help, or is not in a git work tree.
 
 | Strategy | What the shim does | Status |
 |---|---|---|
 | `git-dir-flag` | Inserts `<flag> <common dir>` after the install subcommand (prek: `--git-dir`; prek refuses a bare install while a global `core.hooksPath` is set). | implemented |
-| `hide-global-config` | Runs the install with `GIT_CONFIG_GLOBAL=/dev/null`, for a manager that writes to the common dir but refuses while a global `core.hooksPath` is set (pre-commit, lefthook). | planned |
+| `hide-global-config` | Runs the install with `GIT_CONFIG_GLOBAL=/dev/null` whenever the global config holds a `core.hooksPath`, for a manager that writes to the common dir but refuses while one is set (pre-commit, lefthook); a host without one keeps its global `credential.helper` / `url.*.insteadOf` settings. The override also applies to an install carrying `--force` or `--reset-hooks-path`, so neither can reach the shared directory through the shim; run the real binary to do that. | implemented |
 | `hooks-path-env` | Runs the install with `core.hooksPath=<common dir>/hooks` in the next free `GIT_CONFIG_*` slot, preserving a caller's existing entries, for a manager that writes into whatever `core.hooksPath` names (overcommit, CaptainHook). The value must be that absolute path: git treats an empty `core.hooksPath` as set, and hooks then resolve against the filesystem root. The run-time override is exported, so git commands the chained hook starts inherit it, including ones aimed at another repository; only the manager's self-check needs it, so that leak is a known limitation. | implemented |
 | `none` | The manager already writes to the repository's own hooks directory whatever the global value (simple-git-hooks, cargo-husky, the JGit-based Maven plugins). | implemented |
 
@@ -116,6 +118,24 @@ Detection decides what the setup configures *for a repository*; it never decides
 How prek configures itself, from its source (v0.5.7): it reads one project config per directory, `prek.toml`, then `.pre-commit-config.yaml`, then `.pre-commit-config.yml` (`crates/prek-consts/src/lib.rs`); searches upward from the current directory to the git root for the workspace root, and below it for nested project configs, honouring `.gitignore` and `.prekignore` (`crates/prek/src/workspace.rs`); takes `--config <path>` instead, which disables discovery and is baked into the installed hook; and reads a user-level `prek.toml` under the platform config directory that holds only update and display options, so it says nothing about whether a repository uses prek.
 The two YAML names are shared with pre-commit, so a repository with one uses both managers as far as detection goes; configuring a home the repository's hooks do not end up using is harmless.
 
+How lefthook configures itself, from its source (v2.2.2): it reads `lefthook`, `.lefthook` or `.config/lefthook` with one of `.yml`, `.yaml`, `.json`, `.jsonc`, `.toml`, and the same three names with a `-local` suffix as the repository's local override (`internal/config/loader.go`).
+Only the bare root names are in the registry: the contract's `detect.config_files` holds file names, not directories, so a `.config/lefthook.yml` at the repository root is not detected by rule 1; the installed hook's `call_lefthook` marker still catches it by rule 3.
+`lefthook install` writes to `$(git rev-parse --git-path hooks)` and refuses while a scoped `git config --local` or `--global` read returns any `core.hooksPath` (`internal/command/install.go`).
+`GIT_CONFIG_GLOBAL=/dev/null` hides the global value from that read, and the path then resolves to the common directory, linked worktrees included.
+Remote configs are cloned into `<git info>/lefthook-remotes`, inside `.git`, so the registry omits `home`.
+
+How CaptainHook configures itself, from its source (v5.29.2): it reads `captainhook.json` at the repository root, or the path given with `--configuration`.
+`Repository::getHooksDir()` reads `git config --get core.hooksPath` (`Command/Config/Get.php:53`), uses an absolute value as-is, and refuses only `/dev/null` (`Installer.php:291-296`), so under the whole-user setup an unshimmed install writes into the shared dispatcher directory.
+A relative value is joined to the repository root; in a linked worktree with no `core.hooksPath` the hooks dir is built from the worktree's absolute gitdir, which does not exist (`Repository.php:88-101`).
+The `hooks-path-env` override fixes both, because the install then reads the common dir's `hooks` as an absolute value.
+Its CLI is a Symfony Console application, so `install` may follow global options (`captainhook -n install`) or be an unambiguous prefix (`captainhook inst`); that is what `install.match: prefix` covers.
+Composer keeps the binary in `vendor/bin`, which is not on `PATH`, so `install.vendor_bin` lets the shim fall back to `<repository root>/vendor/bin/captainhook`; `~/.claude/bin/captainhook install` therefore works from anywhere in the repository, including a linked worktree.
+The `captainhook/hook-installer` and `captainhook/plugin-composer` Composer plugins still install on every `composer install` and `composer update`, outside the shim.
+The documented path is one explicit `~/.claude/bin/captainhook install` from the repository root after a clone, with `extra.captainhook.disable-plugin` set to `true` in `composer.json` so the plugin does not install into the shared directory behind the shim's back.
+An install through the shim warns when `composer.json` requires either plugin and neither that key nor `config.allow-plugins` turns it off; the check reads the keys with `python3` rather than matching text, so a `disable-plugin` under another package's `extra` cannot silence it, and is skipped when `python3` is not on `PATH`.
+The generated shell and PHP templates run the binary and configuration through repository-relative paths and rely on git running hooks from the top level, which the dispatcher keeps; the PHP template additionally derives `.git` from the hook file's location (`Local/PHP.php:84`), so check it from the common dir in a linked worktree.
+`CAPTAINHOOK_SKIP_HOOKS=1` skips a run.
+
 ## Registry
 
 [`registry.json`](registry.json) holds one adapter per manager under `adapters.<binary name>`:
@@ -131,6 +151,8 @@ The two YAML names are shared with pre-commit, so a repository with one uses bot
 | `install.aliases` | Other spellings of a flag-style subcommand (`overcommit`: `-i`), matched anywhere in argv. |
 | `install.strategy` | One of the install strategies above. |
 | `install.flag` | For `git-dir-flag`: the long option that takes the git directory. |
+| `install.match` | How a positional subcommand is recognised: `exact` (the default, argv[0] is the action) or `prefix` (any non-option argument that prefixes it, for a Symfony Console app that takes global options before the command). |
+| `install.vendor_bin` | `true` for a manager Composer installs into a project's `vendor/bin`: the shim falls back to `<repository root>/vendor/bin/<tool>` when `PATH` holds no real binary. |
 | `install.runtime_env` | For `hooks-path-env`: also give every hook run the same `core.hooksPath` override, so a manager that re-checks its install at run time accepts the chained hook. |
 | `home` | Omitted for a manager that keeps nothing outside the repository. |
 | `home.env` | The environment variable that relocates the home. |
@@ -153,7 +175,7 @@ Its operations are carried out by the scripts generated from the registry:
 
 | Operation | Run by | Invocation | Behaviour |
 |---|---|---|---|
-| Install rewrite | [`hook-manager-shim.sh`](../agent-isolation/hook-manager-shim.sh), installed as `~/.claude/bin/<tool>` | `<tool> <install.subcommand> [args…]`, e.g. `prek install` or `overcommit --install` (also `-i`, or after other options) | Applies the adapter's install strategy — for prek, runs `prek install --git-dir <absolute common dir> [args…]`; for overcommit, runs `overcommit --install` or `-i` with `core.hooksPath` pointed at `<absolute common dir>/hooks`, appending to any existing `GIT_CONFIG_*` entries. Left unchanged when `args` already carry the target flag or `-h` / `--help`, or outside a git work tree. Every other subcommand passes through to the real binary, the next `<tool>` on `PATH` that is not the shim. Exits 127 when the name it is installed under has no adapter or no real binary is found. |
+| Install rewrite | [`hook-manager-shim.sh`](../agent-isolation/hook-manager-shim.sh), installed as `~/.claude/bin/<tool>` | `<tool> [args…]`, e.g. `prek install`, `lefthook install`, `overcommit --install` (also `-i`, or after other options) or `captainhook -n install` (also `inst`) | Applies the adapter's install strategy: `git-dir-flag` runs `prek install --git-dir <absolute common dir> [args…]`; `hooks-path-env` runs `overcommit --install` or `-i`, or `captainhook install` in any of its spellings, with `core.hooksPath` pointed at `<absolute common dir>/hooks`, appending to any existing `GIT_CONFIG_*` entries; `hide-global-config` runs the install with `GIT_CONFIG_GLOBAL=/dev/null` when the global config holds a `core.hooksPath`. Left unchanged when `args` already carry the target flag or ask for `-h` / `--help`, or outside a git work tree; a `hide-global-config` install carrying `--force` or `--reset-hooks-path` still gets the override, so neither reaches the shared directory through the shim. Every other subcommand passes through to the real binary, the next `<tool>` on `PATH` that is not the shim, or `<repository root>/vendor/bin/<tool>` for an adapter with `install.vendor_bin`. Exits 127 when the name it is installed under has no adapter or no real binary is found. |
 | Host home and run-time override | [`git-hook-dispatcher.sh`](../agent-isolation/git-hook-dispatcher.sh), from `~/.claude/git-hooks/` | Every hook git runs, before it chains to the repository's own hook | Outside the sandbox (no `SANDBOX_RUNTIME`), exports `<home.env>=~/.local/share/<home.host>` for every registered manager unless the operator's value lies outside `~/.cache`, and moves `XDG_CACHE_HOME` to `~/.local/share/prek-host/cache` by the same rule. Sandboxed hooks keep their values. Before chaining to a hook whose marker matches an adapter with `install.runtime_env`, exports the same `core.hooksPath` override the shim used, so the manager's own run-time check accepts the hook. |
 | Home check | [`sandbox-lint`](../sandbox-lint/) | `uv run --project tools/sandbox-lint sandbox-lint` | Fails a settings file whose `permissions.deny` lacks `Edit(<home.default>/**)` for any registered manager, and, for a project that uses a manager (see [Detection](#detection)), one whose `env.<home.env>` is missing or overlaps the default home. |
 | Registry sync | [`tools/dev/sync-hook-managers.py`](../dev/sync-hook-managers.py) | `tools/dev/sync-hook-managers.py [--check]`; the `sync-hook-managers` prek hook | Validates `registry.json`, rewrites the generated blocks of the three scripts above, and checks the committed settings and the sandbox-lint baseline. Exits 1 when a block changed (re-stage and commit), or, with `--check`, when one would. |
@@ -176,9 +198,11 @@ What a repository or an operator configures is where each manager's environments
 
 | Adapter | Language | Install strategy | Home | Status |
 |---|---|---|---|---|
+| `captainhook` | PHP | `hooks-path-env` (`install`, matched as a prefix at any non-option argument); detected by `captainhook.json` or a hook mentioning `CaptainHook`; `vendor/bin` fallback | none (no external home) | shipping (verified: v5.29.2 on PHP 8.5.12 with Composer 2.11.1; the install through the shim uses the `vendor/bin` fallback and writes the repository's own hooks, and a bare install replaces the shared dispatcher) |
 | `cargo-husky` | Rust | `none`; detected by a hook mentioning `cargo-husky` | none (no external home) | shipping (in linked worktrees `build.rs` skips hook install: searches for a `.git` directory) |
 | `git-build-hook` | Java | `none`; detected by `pom.xml` (nested too) or a hook mentioning `git-build-hook` | none (no external home) | shipping (JGit `getGitDir()` targets `<worktree>/hooks` in linked worktrees; `configure` goal can set repo-local `core.hooksPath`) |
 | `git-code-format-maven-plugin` | Java | `none`; detected by `pom.xml` (nested too) or a hook mentioning `git-code-format-maven-plugin` | none (no external home) | shipping (JGit `getCommonDirectory()` targets common hooks dir, coexisting cleanly in linked worktrees) |
+| `lefthook` | Go | `hide-global-config`; detected by `lefthook.yml`, `lefthook.yaml`, `lefthook.json`, `lefthook.jsonc`, `lefthook.toml`, their `.lefthook` and `-local` variants, or a hook mentioning `call_lefthook` | none: remote configs live under `<git info>/lefthook-remotes`, inside `.git` | shipping |
 | `prek` | Rust | `git-dir-flag` (`--git-dir`); detected by `prek.toml`, `.pre-commit-config.yaml` or `.pre-commit-config.yml` (nested too) or a hook mentioning `prek` | `PREK_HOME`: `~/.cache/prek` → sandbox `~/.cache/prek-sandbox`, host `~/.local/share/prek-host` | shipping |
 | `overcommit` | Ruby | `hooks-path-env` (`--install`, alias `-i`, found anywhere in argv); detected by `.overcommit.yml` or a hook mentioning `overcommit` | none — it keeps its own state in git config and the repository | shipping |
 | `simple-git-hooks` | JavaScript | `none`; detected by `package.json`, `.simple-git-hooks.{js,cjs,json}`, `simple-git-hooks.{js,cjs,json}` or a hook mentioning `simple-git-hooks` | none (no external home) | shipping |
@@ -204,13 +228,18 @@ What a repository or an operator configures is where each manager's environments
     `AbstractMavenGitCodeFormatMojo.getOrCreateHooksDirectory()` uses `gitRepository().getCommonDirectory().toPath().resolve(HOOKS_DIR)`.
     Because it targets the common directory, hooks land in `$(git rev-parse --git-common-dir)/hooks/` and coexist cleanly in linked worktrees.
     Installs a bash wrapper invoking `mvn git-code-format-maven-plugin:format-code`.
+  - `lefthook` (v2.2.2, verified against the release binary through the shim):
+    Refuses a bare install while a scoped `git config --global` read returns any `core.hooksPath`; the shim's `GIT_CONFIG_GLOBAL=/dev/null` hides it, and the install then writes to `$(git rev-parse --git-path hooks)`, the common hooks directory.
+    `--force` and `--reset-hooks-path` still get the override through the shim, so neither reaches the shared directory or unsets the setup.
+    In a linked worktree the same install lands in the main checkout's `.git/hooks/`.
+    npm's `postinstall` runs `node_modules/.bin/lefthook` ahead of `~/.claude/bin`, so the shim does not cover it: that install refuses, and the repository needs one run through the shim.
+    A fix would be the session-start hook noticing hooks in the shared directory that are not the dispatcher; the shim cannot reach an npm-run child ahead of it on `PATH`.
 - **JGit in linked worktrees (Maven):**
   The linked-worktree limitation applies only to `git-build-hook` (`InstallMojo`), which uses `getGitDir()` and creates hooks under `<commondir>/worktrees/<name>/hooks/`.
   Because C-git commits read hooks exclusively from `$(git rev-parse --git-common-dir)/hooks/`, hooks installed by `git-build-hook` from within a worktree are ignored by Git.
   Conversely, `git-code-format-maven-plugin` explicitly calls `getCommonDirectory()`, so its hooks populate the common directory and function across worktrees.
 - **Gradle & Go hook tools:**
-  Standard Gradle plugins and Go hook utilities remain unadapted and unregistered until someone tests them under the dispatcher.
-  `lefthook` (Go) refuses install when a global `core.hooksPath` is set and is reserved for the planned `hide-global-config` install strategy.
+  Standard Gradle plugins and other Go hook utilities remain unadapted and unregistered until someone tests them under the dispatcher.
 
 ### Verified runs
 
@@ -218,11 +247,13 @@ An install strategy is written from the manager's source. Where a run against th
 
 - **`overcommit`, v0.73.0 on Ruby 3.2.3, Ubuntu 24.04, whole-user dispatcher.** `overcommit --install` through the shim wrote `<common dir>/hooks/` (a hook carrying the `overcommit` marker) and left `~/.claude/git-hooks/` identical — no `overcommit-hook` in it, no `old-hooks/`, the global `core.hooksPath` unchanged, and no repository-level `core.hooksPath` left behind. A commit behind the dispatcher ran the repository's own `.overcommit.yml`: its `PreCommit` `TrailingWhitespace` hook rejected a trailing-whitespace commit, and a clean commit went through with no self-update failure.
   Both controls fail without the adapter, which is why it needs a strategy of its own. A bare `overcommit --install` (no shim) installs *into* the shared dir and moves the dispatcher's symlinks aside — `Hook '…/pre-commit' already exists and was not installed by Overcommit. Moving to '…/.claude/git-hooks/old-hooks'` — and a correct install under a dispatcher that does not export the run-time override dies in overcommit's own check with `No such file or directory @ rb_file_s_size - ~/.claude/git-hooks/overcommit-hook` (`installer.rb:59`, `compare_file`).
+- **`captainhook`, v5.29.2 on PHP 8.5.12, Composer 2.11.1 and git 2.54.0 in a `composer:2` container, whole-user dispatcher.** The global `core.hooksPath` named a shared dir with `git-hook-dispatcher.sh` symlinked under every hook name; the repository required `captainhook/captainhook` through Composer, so its binary was only at `vendor/bin/captainhook`. `~/.claude/bin/captainhook install` exited 0 through the shim: it found the binary with the `vendor/bin` fallback, installed `pre-commit` (525 bytes, carrying the CaptainHook marker) and the other hooks in the repository's own `.git/hooks/`, left every shared symlink and the global `core.hooksPath` unchanged, and created no `old-hooks/`. A commit behind the dispatcher ran the repository's own `captainhook.json`: its `pre-commit` `Exists` action failed on the missing file, printed `Error: 1 file(s) could not be found`, and the commit was rejected.
+  The control fails without the adapter. A bare `vendor/bin/captainhook install` with the shim removed from `PATH` wrote through the shared dispatcher symlinks, so `git-hook-dispatcher.sh` became CaptainHook's last-installed hook instead of the dispatcher. The next commit did not run the repository's own hook and died inside the wrong CaptainHook subcommand.
 
 ## Adding an adapter
 
 1. Read the manager's source for the answers the registry needs — where its install writes and whether it honours, refuses or sets `core.hooksPath`; whether a `PATH` shim can reach the install; the home variable, its default, and whether it expands `~`; whether a hook run executes code from the home.
-2. Add the adapter to `registry.json`. If it needs an install strategy the shim does not implement, add the strategy to the shim and to `STRATEGIES` in the generator in the same change.
+2. Add the adapter to `registry.json`. If it needs an install strategy the shim does not implement, add the strategy to the shim and to `STRATEGIES` in the generator in the same change. A positional action a manager accepts after global options or in shortened form sets `install.match: prefix`; one Composer installs into `vendor/bin` sets `install.vendor_bin`.
 3. Give the detection rules: the config file names, whether nested configs count, and a marker every hook it installs contains.
 4. Deny the default home in `.claude/settings.json` and `tools/sandbox-lint/expected.json`, and, if this repository uses the manager, give the sandbox home in their `env`.
 5. Run `tools/dev/sync-hook-managers.py`, then the agent-isolation, sandbox-lint and dev tests, and add shim and dispatcher tests for the new strategy.

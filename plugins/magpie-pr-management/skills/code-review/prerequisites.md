@@ -131,7 +131,7 @@ exit — never widen the search silently.
 `context` reports the PR's rollup state and whether real CI ran (`ci`), and `disposition` applies them:
 
 - `SUCCESS` with real CI — `APPROVE` stays on the table.
-- `PENDING` — flag it in the headline ("CI still running"); the maintainer may defer with `[S]kip-for-now`.
+- `PENDING` — flag it in the headline ("CI still running"). Where the repository allows auto-merge and real CI is running, `APPROVE` stays on the table as `APPROVE+AUTO-MERGE`: GitHub holds the merge until the checks pass ([`classifications/disposition-auto-merge.md`](classifications/disposition-auto-merge.md)). Otherwise the maintainer may defer with `[S]kip-for-now`.
 - `FAILURE` / `ERROR` — `APPROVE` is off the table (Golden rule 8); `COMMENT`, or `REQUEST_CHANGES` when you judge the failure diff-caused.
 - `EXPECTED` (workflow approval pending) — recommend `pr-management-triage pr:<N>` for the workflow-approval flow first; do not review a PR whose CI has not run.
 

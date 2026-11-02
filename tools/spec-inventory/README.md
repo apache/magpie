@@ -39,7 +39,10 @@ reads or code search before declaring behaviour present or absent.
 ## `spec-scope`
 
 Maps a list of changed file paths to the spec files most likely relevant
-to those changes. Used by the spec-loop `update` beat to focus the agent
+to those changes. A skill edit, which `git diff` reports under the skill's
+real directory (`plugins/<plugin>/skills/<alias>/…`), is mapped back to
+`skills/<name>/…` through the repository's `skills/` symlinks, so a spec's
+'Skill: `<name>`' bullet matches it. Used by the spec-loop `update` beat to focus the agent
 on the specs whose subjects appear in the diff, rather than requiring
 the agent to derive the mapping itself.
 
@@ -67,7 +70,8 @@ uv run --project tools/spec-inventory spec-inventory --brief --max-where 1 --max
 uv run --project tools/spec-inventory spec-inventory --json
 
 # Scope mapper — pipe changed paths from git diff, get relevant specs back
-git diff --name-only HEAD~1..HEAD -- .claude/skills tools docs/modes.md | \
+# (the update beat uses the pathspec in tools/spec-loop/lib.sh, SPEC_LOOP_UPDATE_PATHSPEC)
+git diff --name-only HEAD~1..HEAD -- plugins skills .claude/skills tools docs | \
     uv run --project tools/spec-inventory spec-scope
 
 # Or pass paths as positional arguments

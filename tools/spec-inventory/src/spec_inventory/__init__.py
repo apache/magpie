@@ -424,12 +424,38 @@ def extract_path_patterns(where_bullets: list[str]) -> frozenset[str]:
     return frozenset(patterns)
 
 
-def _changed_path_candidates(changed: str) -> list[str]:
+def skill_dir_aliases(repo_root: Path) -> dict[str, str]:
+    """``plugins/<plugin>/skills/<alias>`` -> ``<name>``, from the ``skills/`` symlinks.
+
+    ``git diff`` reports a skill edit under the directory the
+    ``skills/<name>`` symlink points at, not under ``skills/<name>``, so a
+    'Skill: `<name>`' pattern never sees it without this reverse map.
+    """
+    aliases: dict[str, str] = {}
+    skills = repo_root / "skills"
+    if not skills.is_dir():
+        return aliases
+    root = repo_root.resolve()
+    for entry in sorted(skills.iterdir()):
+        if not entry.is_symlink():
+            continue
+        try:
+            target = entry.resolve().relative_to(root)
+        except (OSError, ValueError):
+            continue
+        aliases[target.as_posix()] = entry.name
+    return aliases
+
+
+def _changed_path_candidates(changed: str, aliases: dict[str, str] | None = None) -> list[str]:
     """Expand a changed path into one or more patterns to test against spec patterns.
 
     For ``.claude/skills/magpie-<name>`` symlink entries the runner records,
     also synthesise a ``skills/<name>`` alias so that skill-name patterns
-    extracted from 'Skill: `<name>`' bullets resolve correctly.
+    extracted from 'Skill: `<name>`' bullets resolve correctly. With
+    ``aliases`` (from :func:`skill_dir_aliases`), a path under a skill's real
+    directory, ``plugins/<plugin>/skills/<alias>/...``, gets the same
+    ``skills/<name>/...`` alias.
     """
     normalised = changed.lstrip("/")
     candidates = [normalised]
@@ -437,6 +463,10 @@ def _changed_path_candidates(changed: str) -> list[str]:
     if len(parts) >= 3 and parts[0] == ".claude" and parts[1] == "skills" and parts[2].startswith("magpie-"):
         skill_name = parts[2][len("magpie-") :]
         candidates.append("/".join(["skills", skill_name, *parts[3:]]))
+    if aliases and len(parts) >= 4 and parts[0] == "plugins" and parts[2] == "skills":
+        name = aliases.get("/".join(parts[:4]))
+        if name:
+            candidates.append("/".join(["skills", name, *parts[4:]]))
     return candidates
 
 
@@ -457,9 +487,10 @@ def scope_map(changed_paths: list[str], repo_root: Path) -> list[str]:
     spec_patterns: list[tuple[str, frozenset[str]]] = [
         (spec.file, extract_path_patterns(spec.where)) for spec in specs
     ]
+    aliases = skill_dir_aliases(repo_root)
     relevant: set[str] = set()
     for changed in changed_paths:
-        for candidate in _changed_path_candidates(changed):
+        for candidate in _changed_path_candidates(changed, aliases):
             for spec_file, patterns in spec_patterns:
                 if spec_file in relevant:
                     continue

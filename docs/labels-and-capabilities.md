@@ -82,7 +82,7 @@ every install; the other eight are opt-in (see
 | `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
 | `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `contributor-candidate-screen`, `committer-onboarding`, `contributor-identity-map`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
 
-Three further `family:*` labels cover parts of the repository that are
+Five further `family:*` labels cover parts of the repository that are
 **not** a skill family. They exist only as issue / PR labels and never
 appear in a `family:` frontmatter key — the validator would reject them:
 
@@ -91,6 +91,8 @@ appear in a `family:` frontmatter key — the validator would reject them:
 | `family:tools` | Substrate tools and capability adapters under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
 | `family:ci` | `.github/` workflows, prek hooks, validators |
 | `family:docs` | `docs/`, `MISSION.md`, READMEs |
+| `family:dev` | Repository development that ships nothing: `.asf.yaml`, the spec-loop specs and their sync marker, the root `package.json` / `package-lock.json`, the repository's own `.claude/settings.json` |
+| `family:cross-family` | A cross-cutting sweep that touches so much it would gain more labels than the labeler's limit (licence headers, renames, dependency bumps across every tool); applied instead of those labels |
 
 A change that spans both dimensions carries both labels — a new
 mentoring skill and its guide is `family:mentoring` + `family:docs`.
@@ -363,6 +365,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/vetted-ops`](../tools/vetted-ops/) | `substrate:sandbox` | Fixed, policy-scoped forge operations — a closed catalogue whose parameters can never become commands or flags, so one `allow` entry replaces the wildcard Layer 3 `ask` rules |
 | [`tools/contributor-metrics`](../tools/contributor-metrics/) | `substrate:analytics` | Deterministic contributor activity counts, per-area shares and automated-work weighting for the contributor-growth skills |
 | [`tools/pr-management`](../tools/pr-management/) | `substrate:analytics` | Deterministic core of the `pr-management` skills: classifies a saved PR sweep (pre-filters, decision table, stale sweeps), guards each mutation on fresh reads, renders every contributor-facing body, and builds the whole PR-backlog dashboard |
+| [`tools/skill-lock`](../tools/skill-lock/) | `substrate:action-guard` | Per-skill write lock for the batch skills: one write phase per skill per repository, taken before the first post / label / close and released after the recap; a second run stops with `already_running` and the holder, so overlapping sweeps never double-comment. Lease-based, lives in the personal config layer |
 | [`tools/security-management`](../tools/security-management/) | `substrate:analytics` | Deterministic core of the `security-*` skills: the Step 1 pre-filter, batched `threadId` dedup, forwarder pre-screen, the sanitised tracker body, rollup entry, rejections-ledger record and fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap; runs nothing. Used by `security-issue-import` Steps 0–8 `security-issue-import-from-pr` Steps 0–8 (PR reference, scope detection, milestone check, duplicate query, body, labels, rollup, recap), `security-issue-import-from-md` Steps 0–6 (findings parser, keyword, body, rollup, proposal, recap), `security-issue-import-via-forwarder` Steps 0–3 (preflight, adapter detection, credit kind, routing) and `security-issue-import-from-scan` Steps C–F (bucket rule, report, decision, scrub) |
 | [`tools/preflight-audit`](../tools/preflight-audit/) | `substrate:analytics` | Dry-run the bulk-mode pre-flight classifier; measure skip-rate before / after any rule edit in the security-issue-sync skill |
 | [`tools/privacy-llm`](../tools/privacy-llm/) | `substrate:privacy` | Privacy-LLM PII-scrubbing gate |
@@ -389,7 +392,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/skill-reconciler-diff`](../tools/skill-reconciler-diff/) | `substrate:framework-dev` | Deterministic structural diff between two skill trees — parses frontmatter, section headings, step inventory, placeholders, support files, and safety-baseline clauses into a JSON diff object for the `skill-reconciler` skill |
 | [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git, Mercurial (Hg), Fossil, and Subversion (SVN) backends |
 | [`tools/sourcehut`](../tools/sourcehut/) | `contract:tracker` + `contract:source-control` + `contract:mail-archive` | SourceHut (sr.ht) forge bridge: todo.sr.ht, lists.sr.ht, builds.sr.ht, and git/hg repository reads |
-| [`tools/hook-manager`](../tools/hook-manager/) | `contract:hook-manager` | Contract for git-hook managers under the secure agent setup: the install-target and home rules, and the registry of adapters (prek and overcommit) that the hook-manager shim, the whole-user dispatcher and `sandbox-lint` are generated from |
+| [`tools/hook-manager`](../tools/hook-manager/) | `contract:hook-manager` | Contract for git-hook managers under the secure agent setup: the install-target and home rules, and the registry of adapters (prek, overcommit, lefthook and captainhook today) that the hook-manager shim, the whole-user dispatcher and `sandbox-lint` are generated from |
 | [`tools/tracker`](../tools/tracker/) | `contract:tracker` | Interface spec for the tracker contract's read-only contributor-activity queries (issues filed, triaged and commented on; issues created; first maintainer reply). Pure interface spec; GitHub and Jira implement it, and the rest of the contract is described by `tools/github/tool.md` |
 | [`tools/body-field-contract`](../tools/body-field-contract/) | `contract:body-field` | The body-field contract: how every reader and writer finds a tracker body's `### <Name>` fields, with a language-neutral conformance suite run against every implementation. Pure interface spec; implementations: `tools/github-body-field/` (reference), `tools/vetted-ops/`, `tools/local-tracker/`, `tools/jira/` |
 | [`tools/security-tracker`](../tools/security-tracker/) | `contract:security-tracker` | Adapter contract for the security tracker the `security-*` skills read and write, selected by `tracker.platform`. Pure interface spec; backends: `tools/github/` (default), `tools/local-tracker/`, `tools/jira/` |
@@ -479,7 +482,9 @@ and applies the rules in [`.github/labeler.yml`](../.github/labeler.yml), which
 generates from the repository's own declarations:
 the `family:` and `capability:` frontmatter of every skill (covering its directory and its eval suite),
 the `**Capability:**` line of every tool README,
-and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`).
+and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`, `family:dev`).
+A PR that would gain more than the limit of 20 path labels gets none from the labeler;
+[`tools/dev/labeler-cliff.py`](../tools/dev/labeler-cliff.py) then marks it `family:cross-family`.
 The same labels are passed on to the issues the PR closes,
 and, for a project member's PR, to issues its description introduces with a reference phrase
 ("Part of #N", "Refs #N", "Related to #N", "Relates to #N", "Follow-up to #N"); a passing `#N` is not a reference.

@@ -113,6 +113,9 @@ verified fetch — lives in [`docs/skill-sources/`](../docs/skill-sources/README
 Copy [`_template/`](_template/) to fill in the governance vocabulary, the
 capability→adapter bundle, and the identity (incl. `logo`), then point a
 project at it with `organization: <org>`.
+Every identity and governance-vocabulary key the template declares is
+required (`null` is a value), and `organization_identity.id` must match the
+directory name; `skill-and-tool-validate` checks both.
 
 An organization can live in any of three homes (see
 [`docs/extending.md`](../docs/extending.md) for the full model):

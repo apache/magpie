@@ -125,6 +125,10 @@ CODEX_FAMILY_HOOKS = {
             ]
         },
     },
+    "magpie-pr-management": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
     "magpie-security": {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
@@ -298,6 +302,8 @@ AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
 # the installed plugin tree rather than in a consumer repository.
 VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
 VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
+# The write lock the posting batch skills take, shipped beside the dispatcher.
+SKILL_LOCK_ENTRY = "tools/skill-lock/src/skill_lock/__init__.py"
 # Adversarial review runs other models' CLIs outside the sandbox (they need
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
@@ -324,6 +330,20 @@ SECURITY_TOOLS = {
     # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
     "tools/local-tracker": "magpie_local_tracker",
     "tools/jira": "jira_bridge",
+    # Every other family's `<framework>/tools/<tool>`. The plugin keeps its
+    # historical name, since renaming it would break installs; it is the
+    # framework-tools companion of every family that runs one of these
+    # (setup_preflight COMPANIONS).
+    "tools/pr-management": "pr_management",
+    "tools/typed-decision": "typed_decision",
+    "tools/release-config": "release_config",
+    "tools/release-management": "release_management",
+    "tools/release-verify": "release_verify",
+    # rc-cut looks for it beside the framework root (rc_cut/render.py REPRO_TOOL).
+    "tools/reproducible-archive": "reproducible_archive",
+    "tools/contributor-metrics": "contributor_metrics",
+    "tools/permission-audit": "permission_audit",
+    "tools/privacy-llm/redactor": "redactor",
 }
 SECURITY_STATS_DASHBOARD_FILES = (
     "run.sh",
@@ -353,6 +373,9 @@ def _security_tool_copies() -> dict[str, str]:
         "tools/forwarder-relay/README.md",
         "tools/gmail/asf-relay.md",
         "tools/scan-format/README.md",
+        # audit-report's default schema, read framework-relative
+        # (release_management/audit_report/record.py DEFAULT_SCHEMA).
+        "plugins/magpie-release-management/skills/audit-report/audit-record-schema.md",
     ):
         copies[path] = path
     for name in SECURITY_STATS_DASHBOARD_FILES:
@@ -419,10 +442,18 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/local-tracker/src/magpie_local_tracker": "tools/local-tracker/src/magpie_local_tracker",
             "tools/local-tracker/pyproject.toml": "tools/local-tracker/pyproject.toml",
             "tools/local-tracker/README.md": "tools/local-tracker/README.md",
+            # The write lock every posting batch skill takes. It ships here, not
+            # in magpie-security-tools, because this plugin is on every install;
+            # the hook links ~/.claude/magpie/skill-lock and skills run it with
+            # `uvx --from` (the plugin cache is read-only).
+            "tools/skill-lock/src/skill_lock": "tools/skill-lock/src/skill_lock",
+            "tools/skill-lock/pyproject.toml": "tools/skill-lock/pyproject.toml",
+            "tools/skill-lock/README.md": "tools/skill-lock/README.md",
         },
-        # The entry point skills invoke, and the hook that keeps the fixed path
-        # permission rules name (~/.claude/magpie/vetted-ops) on this version.
-        "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
+        # The entry points skills invoke, and the hook that keeps the fixed paths
+        # permission rules name (~/.claude/magpie/vetted-ops, ~/.claude/magpie/skill-lock)
+        # on this version.
+        "must_resolve": (VETTED_OPS_ENTRY, SKILL_LOCK_ENTRY, VETTED_OPS_LINK_HOOK),
         "hook_config": {
             "description": "Apache Magpie vetted operations",
             "hooks": {
@@ -442,9 +473,11 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
     },
     "magpie-security-tools": {
         "description": (
-            "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup "
-            "edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace "
-            "install needs no framework checkout."
+            "Apache Magpie \u2014 the framework tools the skills run as <framework>/tools/<tool> "
+            "(security tracker edits and CVE JSON, PR and release management, contributor "
+            "metrics, the privacy gate, setup's permission audit), shipped so a marketplace "
+            "install needs no framework checkout. The name is historical: every family that "
+            "runs one of these tools needs this plugin."
         ),
         "links": {},
         "copies": _security_tool_copies(),
@@ -588,11 +621,21 @@ def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
     deps = tomllib.loads(text).get("project", {}).get("dependencies", [])
     names = [re.split(r"[\s<>=!~;\[]", dep, maxsplit=1)[0] for dep in deps]
     local = {n: shipped[n] for n in names if n in shipped}
-    if local and "[tool.uv.sources]" not in text:
+    if local:
         rel = {n: os.path.relpath(path, src.parent) for n, path in local.items()}
-        text += "\n[tool.uv.sources]\n" + "".join(
-            f'{n} = {{ path = "{p}" }}\n' for n, p in sorted(rel.items())
-        )
+        # A tool that declares its own `[tool.uv.sources]` names a sibling as
+        # `{ workspace = true }`, which resolves only inside the workspace the
+        # plugin does not ship. Drop that line for every shipped dependency;
+        # the path source below replaces it.
+        for name in rel:
+            text = re.sub(rf"(?m)^{re.escape(name)}\s*=\s*\{{\s*workspace\s*=\s*true\s*\}}[ \t]*\n", "", text)
+        lines = "".join(f'{n} = {{ path = "{p}" }}\n' for n, p in sorted(rel.items()))
+        if re.search(r"(?m)^\[tool\.uv\.sources\][ \t]*$", text):
+            text = re.sub(
+                r"(?m)^(\[tool\.uv\.sources\][ \t]*\n)", lambda m: m.group(1) + lines, text, count=1
+            )
+        else:
+            text += "\n[tool.uv.sources]\n" + lines
     return text.encode()
 
 

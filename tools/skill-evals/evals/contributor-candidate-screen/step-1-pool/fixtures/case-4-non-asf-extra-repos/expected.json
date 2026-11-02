@@ -1,0 +1,16 @@
+{
+  "project_repositories": [
+    "example-org/widget",
+    "example-org/widget-docs",
+    "other-org/widget-helm-chart"
+  ],
+  "pool": [
+    "gh-dana",
+    "gh-eli"
+  ],
+  "excluded_as_committers": [
+    "gh-maintainer"
+  ],
+  "unmapped_roster_ids": [],
+  "truncated_silently": false
+}

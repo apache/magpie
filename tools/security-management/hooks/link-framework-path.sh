@@ -54,6 +54,11 @@ if [ ! -f "$target/.complete" ]; then
   if [ ! -f "$target/.complete" ]; then
     staging="$(mktemp -d "$base/.staging.XXXXXX")"
     cp -R "$root/tools" "$staging/tools"
+    # Framework files a tool reads framework-relative (audit-report's default
+    # schema under plugins/magpie-release-management/) ship at the same path.
+    if [ -d "$root/plugins" ]; then
+      cp -R "$root/plugins" "$staging/plugins"
+    fi
     # The plugin cache may be read-only; uv writes a .venv and uv.lock beside each project.
     chmod -R u+w "$staging"
     touch "$staging/.complete"

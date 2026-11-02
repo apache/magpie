@@ -56,24 +56,35 @@
     - [Symptom](#symptom-9)
     - [Root cause](#root-cause-9)
     - [Fix](#fix-9)
+    - [Notes](#notes-9)
   - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
     - [Symptom](#symptom-10)
     - [Root cause](#root-cause-10)
     - [Fix](#fix-10)
-    - [Notes](#notes-9)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+    - [Notes](#notes-10)
+  - [`lefthook install` refuses with "Custom hooks paths are not supported by default"](#lefthook-install-refuses-with-custom-hooks-paths-are-not-supported-by-default)
     - [Symptom](#symptom-11)
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
-    - [Notes](#notes-10)
-  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+    - [Notes](#notes-11)
+  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
-  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Notes](#notes-12)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
     - [Fix](#fix-13)
+    - [Notes](#notes-13)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+    - [Symptom](#symptom-14)
+    - [Root cause](#root-cause-14)
+    - [Fix](#fix-14)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Symptom](#symptom-15)
+    - [Root cause](#root-cause-15)
+    - [Fix](#fix-15)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1166,6 +1177,25 @@ The same switch moved sandboxed prek to its own home, `~/.cache/prek-sandbox`
 (`env.PREK_HOME`), so the first sandboxed `prek run` after it rebuilds its hook
 environments once; that is expected, not a failure.
 
+### Notes
+
+- **Path variants.** uv keeps this state under `$XDG_DATA_HOME/uv/` when
+  `XDG_DATA_HOME` is set, and under `UV_PYTHON_INSTALL_DIR` or `UV_TOOL_DIR`
+  when those are; the error then names that directory instead, and the fix is
+  the same. The error text differs by platform only: `Operation not permitted`
+  from Seatbelt on macOS, `Read-only file system` from bubblewrap on Linux.
+- **The interpreter download path.** A sandboxed `uv run` or `prek run` hits
+  this too when the project asks for a Python that is not installed, because
+  uv tries to download one into the same directory. Install that version from
+  a terminal (the one the project's `requires-python` or `.python-version`
+  names) and re-run.
+- **Do not work around it by moving the directory.** Pointing
+  `UV_PYTHON_INSTALL_DIR` or `UV_TOOL_DIR` at a path the sandbox can write
+  recreates the problem the restriction prevents: interpreters and tools that
+  run outside the sandbox would again be writable from inside it.
+- **The hint hook recognises it.** `sandbox-error-hint.sh` matches a write
+  failure under `share/uv/` and points here.
+
 ---
 
 ## Git hooks silently skipped for commits made inside the sandbox
@@ -1233,6 +1263,103 @@ resolved path. Confirm with `git hook run pre-commit` from the agent.
   point here. The doctor skill's *git-hooks* probe and
   `setup-isolated-setup-verify` check 8 look at the directory from
   inside the sandbox instead.
+
+---
+
+## `lefthook install` refuses with "Custom hooks paths are not supported by default"
+
+### Symptom
+
+A repository that uses lefthook has no working hooks, and `lefthook install` fails:
+
+```console
+$ lefthook install
+core.hooksPath is set globally to '/Users/<you>/.claude/git-hooks'
+Custom hooks paths are not supported by default.
+...
+```
+
+### Root cause
+
+Whole-user scope sets a global `core.hooksPath`, and lefthook refuses to install while a scoped `git config --global` read returns one.
+That is the safe failure: the alternative, `--force`, writes lefthook's hook into the shared directory and replaces the framework's dispatcher for every repository on the host.
+
+### Fix
+
+Run `lefthook install` through the framework shim, which hides the global config from that read and leaves the hook in the repository's own `$(git rev-parse --git-common-dir)/hooks/`:
+
+```bash
+~/.claude/bin/lefthook install
+```
+
+With `~/.claude/bin` ahead of the real binary on PATH, plain `lefthook install` does that already.
+The setup installs the shim only for a repository that uses lefthook: a root `lefthook.*`, `.lefthook.*` or `-local` config, or an installed hook mentioning `call_lefthook`.
+
+### Notes
+
+- Do not run `lefthook install --reset-hooks-path` or `--force` to get past the error: the first unsets the whole-user setup, and the second overwrites the dispatcher for every repository.
+  The agent-guard `lefthook-hooks-path` guard blocks both, in the `--flag` and `--flag=true` spellings, and needs `MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH=1` to proceed deliberately.
+- An npm `postinstall` runs `node_modules/.bin/lefthook`, which the shim does not cover; that install refuses for the same reason, and the repository needs one run through the shim.
+- The shim hides the global config only while it holds a `core.hooksPath`, so on a host without one the install keeps the operator's `credential.helper`, `url.*.insteadOf` and `safe.directory`.
+- Per-project scope has no global `core.hooksPath`, so the refusal does not happen there.
+
+---
+
+## CaptainHook's Composer plugin replaced the shared hook directory
+
+### Symptom
+
+After a `composer install` or `composer update`, commits stop running the
+repository's own hooks, or a repository that never had CaptainHook starts
+failing on hooks it did not configure.
+`~/.claude/git-hooks/` holds a CaptainHook-generated `pre-commit` and an
+`old-hooks/` directory instead of the framework's dispatcher symlinks.
+
+### Root cause
+
+The `captainhook/hook-installer` Composer plugin (or the older
+`captainhook/plugin-composer`) runs the install on every dependency update.
+It does not go through `~/.claude/bin/captainhook`, so the shim cannot
+point it at the repository's own hooks, and it writes into the shared
+`core.hooksPath` directory behind the dispatcher.
+
+### Fix
+
+Disable the plugin in the repository's `composer.json`, reinstall the
+dispatcher, and run CaptainHook's install through the shim once:
+
+```jsonc
+// composer.json
+"extra": {
+  "captainhook": { "disable-plugin": true }
+}
+```
+
+```bash
+# restore the dispatcher symlinks, then install into the repo's own hooks
+cd ~/.claude/git-hooks
+for h in post-checkout pre-commit prepare-commit-msg commit-msg \
+         post-commit pre-push post-merge post-rewrite \
+         pre-rebase pre-merge-commit; do
+  ln -sf git-hook-dispatcher.sh "$h"
+done
+~/.claude/bin/captainhook install
+```
+
+The shim falls back to `<repository root>/vendor/bin/captainhook` when the
+binary is not on `PATH`, so the last command works from anywhere in the
+Composer project. A global `captainhook` on `PATH` wins over the project's
+pinned one.
+
+### Notes
+
+- An install through the shim warns on stderr when `composer.json` requires
+  either plugin and neither `extra.captainhook.disable-plugin` nor
+  `config.allow-plugins` turns it off, so the next update does not undo the
+  fix silently.
+- `setup-isolated-setup-verify` check 8 reports a repository with the
+  plugin enabled as a warning, and install Step P.3b offers to add
+  `disable-plugin` before installing the shim.
 
 ---
 

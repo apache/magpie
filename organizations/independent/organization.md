@@ -14,6 +14,7 @@
   - [Forwarders / mail / archive / metadata — all off](#forwarders--mail--archive--metadata--all-off)
   - [Release process](#release-process)
   - [Roster / tracker](#roster--tracker)
+  - [Contributor activity](#contributor-activity)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -133,4 +134,11 @@ tracker:
   platform: github   # github | local-files | jira — see tools/security-tracker/
   visibility: private
   board: none
+```
+
+## Contributor activity
+
+```yaml
+contributor_activity:
+  repository_areas: {}   # repository-name glob -> area, e.g. "*-docs": docs; passed as contributor-metrics --repo-area
 ```

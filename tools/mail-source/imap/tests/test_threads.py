@@ -19,8 +19,8 @@
 from __future__ import annotations
 
 from conftest import build_message
-from imap_source.searching import parse_message
-from imap_source.threads import draft_subject, normalise_message_id, summarise
+from imap_source.searching import Message, parse_message, thread_root_of
+from imap_source.threads import canonical_thread_id, draft_subject, normalise_message_id, summarise
 
 ROOT = "<report-1@lists.example.org>"
 REPLY = "<reply-1a@example.org>"
@@ -31,6 +31,13 @@ def test_normalise_message_id_extracts_single_token() -> None:
     assert normalise_message_id("  <x@y>  ") == "<x@y>"
     assert normalise_message_id(None) is None
     assert normalise_message_id("not-a-message-id") is None
+
+
+def test_canonical_thread_id_accepts_bare_or_bracketed_form() -> None:
+    assert canonical_thread_id("<a@b>") == "<a@b>"
+    assert canonical_thread_id("  a@b  ") == "<a@b>"
+    assert canonical_thread_id(None) is None
+    assert canonical_thread_id("not-a-message-id") is None
 
 
 def test_summarise_walks_references_chain() -> None:
@@ -46,6 +53,33 @@ def test_in_reply_to_alone_reaches_the_root() -> None:
     raw = build_message(REPLY, "Re: report", "dev@example.org", in_reply_to=ROOT)
     position = summarise(parse_message(raw))
     assert position.references_thread(ROOT)
+
+
+def _thread_root(raw: bytes) -> str | None:
+    return thread_root_of(Message(uid=1, position=summarise(parse_message(raw)), raw_headers=raw))
+
+
+def test_thread_root_takes_the_in_reply_to_step() -> None:
+    """A reply carrying only In-Reply-To is keyed on its parent, as maildir keys it."""
+    raw = build_message(REPLY, "Re: report", "dev@example.org", in_reply_to=ROOT)
+    assert _thread_root(raw) == ROOT
+
+
+def test_thread_root_prefers_references_over_in_reply_to() -> None:
+    raw = build_message(
+        REPLY,
+        "Re: report",
+        "dev@example.org",
+        references=f"{ROOT} <mid@example.org>",
+        in_reply_to="<mid@example.org>",
+    )
+    assert _thread_root(raw) == ROOT
+
+
+def test_thread_root_ignores_a_comment_beside_the_id() -> None:
+    """RFC 5322 allows `In-Reply-To: (was: report) <r@h>`; the comment is not a root."""
+    raw = build_message(REPLY, "Re: report", "dev@example.org", in_reply_to=f"(was: report) {ROOT}")
+    assert _thread_root(raw) == ROOT
 
 
 def test_summarise_survives_malformed_dates_and_from() -> None:

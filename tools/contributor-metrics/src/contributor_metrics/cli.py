@@ -27,6 +27,7 @@ from contributor_metrics.fetch import (
 )
 from contributor_metrics.floors import DEFAULT_RELAXATION, propose_floors
 from contributor_metrics.model import Item, Weights
+from contributor_metrics.repos import active_repos
 from contributor_metrics.score import score
 
 
@@ -46,8 +47,11 @@ def _cache_file(
     maintainers: list[str],
     substantive: tuple[int, int] = (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS),
     backends: dict[str, Any] | None = None,
+    extra_repos: Sequence[str] = (),
 ) -> Path:
     parts: list[Any] = [sorted(phrases), sorted(maintainers)]
+    if extra_repos:
+        parts.append(sorted(r.lower() for r in extra_repos))  # one-repository fetches keep their keys
     if substantive != (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS):
         parts.append(list(substantive))  # default thresholds keep the keys of existing caches
     if backends:
@@ -95,9 +99,9 @@ def _resolve_tracker(args: argparse.Namespace) -> tuple[str, str, str]:
             raise InvalidJiraConfig(
                 "a Jira tracker needs a URL and a project key (config file, flags or environment)"
             )
-    elif cfg.get("project_key") and cfg["project_key"].lower() != args.repo.lower():
+    elif cfg.get("project_key") and cfg["project_key"].lower() != args.repo[0].lower():
         raise InvalidJiraConfig(
-            f"GitHub issues on {cfg['project_key']!r} differ from --repo {args.repo!r}; not supported"
+            f"GitHub issues on {cfg['project_key']!r} differ from --repo {args.repo[0]!r}; not supported"
         )
     return kind, url, project
 
@@ -113,7 +117,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="contributor-metrics")
     sub = p.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch", help="fetch a contributor's activity items from the code host and tracker")
-    f.add_argument("--repo", required=True, help="the code-host repository, owner/name")
+    f.add_argument(
+        "--repo",
+        required=True,
+        action="append",
+        help="a code-host repository, owner/name; repeat for every repository of the project (the first is the primary)",
+    )
     f.add_argument("--login", required=True, help="the contributor's code-host handle")
     f.add_argument(
         "--code-host",
@@ -168,6 +177,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--classes")
     s.add_argument("--weights")
     s.add_argument("--area-prefix", default="area:")
+    s.add_argument(
+        "--repo-area",
+        action="append",
+        default=[],
+        metavar="GLOB=AREA",
+        help="count items from repositories whose name matches GLOB under AREA too "
+        "(repeatable; e.g. '*-site=website')",
+    )
     s.add_argument("--since", help="score only items on or after this date (a sub-window of the fetched one)")
     s.add_argument(
         "--timeline-kinds",
@@ -188,7 +205,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="scale the elected p25 down by this factor, in (0, 1]; deliberately surfaces more people",
     )
     fl.add_argument("--out", required=True)
+    ar = sub.add_parser(
+        "active-repos", help="keep the project's repositories that had activity in the window"
+    )
+    ar.add_argument("--owner", required=True, help="the code-host owner, e.g. apache")
+    ar.add_argument("--project", required=True, help="the project slug; keeps <slug> and <slug>-*")
+    ar.add_argument("--names-file", required=True, help="candidate repository names, whitespace-separated")
+    ar.add_argument("--end", required=True)
+    ar.add_argument("--months", type=int, default=6)
+    ar.add_argument("--since", help="window start YYYY-MM-DD; overrides --months")
+    ar.add_argument("--out", required=True)
     args = p.parse_args(argv)
+
+    if args.cmd == "active-repos":
+        try:
+            end_day = date.fromisoformat(args.end)
+            since = (
+                date.fromisoformat(args.since).isoformat() if args.since else _since(args.end, args.months)
+            )
+        except ValueError as exc:
+            print(f"invalid date (expected YYYY-MM-DD): {exc}", file=sys.stderr)
+            return 2
+        if since > end_day.isoformat():
+            print(f"--since {since} is after --end {args.end}", file=sys.stderr)
+            return 2
+        if not re.match(r"^[A-Za-z0-9_.-]+$", args.owner) or not re.match(r"^[A-Za-z0-9_.-]+$", args.project):
+            print("invalid --owner or --project", file=sys.stderr)
+            return 2
+        try:
+            found = active_repos(
+                args.owner, args.project, Path(args.names_file).read_text().split(), since=since, end=args.end
+            )
+        except GhError as exc:
+            print(f"gh failed: {exc}", file=sys.stderr)
+            return 1
+        Path(args.out).write_text(json.dumps(found, indent=2))
+        return 0
 
     if args.cmd == "floors":
         rows = json.loads(Path(args.rows).read_text())
@@ -246,9 +298,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "tracker_login": tracker_login,
                 "tracker_maintainers": tracker_maintainers,
             }
+        repos = list(dict.fromkeys(args.repo))
         cached = _cache_file(
             args.cache_dir,
-            args.repo,
+            repos[0],
             args.login,
             since,
             args.end,
@@ -256,13 +309,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             maintainers,
             substantive,
             {**backends, "tracker_maintainers": sorted(tracker_maintainers or [])} if backends else None,
+            extra_repos=repos[1:],
         )
         if cached.exists() and not args.refresh:
             Path(args.out).write_text(cached.read_text())
             return 0
         try:
             items, caps, fetch_notes = fetch_items(
-                args.repo,
+                repos[0] if len(repos) == 1 else repos,
                 args.login,
                 since=since,
                 end=args.end,
@@ -289,13 +343,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         payload: dict[str, Any] = {
             "login": args.login,
-            "repo": args.repo,
+            "repo": repos[0],
             "since": since,
             "end": args.end,
             "caps_hit": caps,
             "notes": fetch_notes,
             "items": [i.to_json() for i in items],
         }
+        if len(repos) > 1:
+            payload["repos"] = repos
         if backends:
             payload["backends"] = backends
         text = json.dumps(payload, indent=2)
@@ -310,6 +366,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("weights file must hold a JSON object of setting names to numbers", file=sys.stderr)
         return 2
     weights, notes = Weights.from_mapping(raw_weights)
+    repo_areas: list[tuple[str, str]] = []
+    for spec in args.repo_area:
+        pattern, sep, area = spec.partition("=")
+        if not sep or not pattern.strip() or not area.strip():
+            print(f"--repo-area must be GLOB=AREA, got {spec!r}", file=sys.stderr)
+            return 2
+        repo_areas.append((pattern.strip(), area.strip()))
     result = score(
         [Item.from_json(d) for d in data["items"]],
         _read(args.classes),
@@ -317,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         since=args.since or data["since"],
         end=data["end"],
         area_prefix=args.area_prefix,
+        repo_areas=repo_areas,
         caps_hit=data.get("caps_hit", []),
         timeline_kinds=tuple(k.strip() for k in args.timeline_kinds.split(",") if k.strip())
         if args.timeline_kinds

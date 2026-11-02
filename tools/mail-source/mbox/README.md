@@ -5,25 +5,26 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Mail-source adapter — mbox / local archive (stub)](#mail-source-adapter--mbox--local-archive-stub)
+- [Mail-source adapter — mbox / local archive](#mail-source-adapter--mbox--local-archive)
   - [When this adapter makes sense](#when-this-adapter-makes-sense)
   - [Capability claim](#capability-claim)
   - [Auth + setup](#auth--setup)
   - [What an adopter declares in `project.md`](#what-an-adopter-declares-in-projectmd)
-  - [Why this is a stub](#why-this-is-a-stub)
+  - [Why this shipped before its first adopter](#why-this-shipped-before-its-first-adopter)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Mail-source adapter — mbox / local archive (stub)
+# Mail-source adapter — mbox / local archive
 
 Reference adapter for a static `mbox` (or `Maildir`, or a directory
 of `.eml` files) as a read-only backend for the
-`security-issue-import` family of skills. **Stub status** — this
-document describes the contract; the concrete CLI wiring lands when
-an adopter actually wires a local archive in.
+`security-issue-import` family of skills. **Implemented** — the
+concrete reader and its three operations live in
+[`tools/maildir/`](../../maildir/README.md#contractmail-source--local-archive-reads),
+the vendor home for this local-files backend.
 
 See [`../contract.md`](../contract.md) for the abstract
 mail-source-backend operations + capability matrix + adopter
@@ -55,13 +56,13 @@ directions, the way `tools/gmail` does for Google.
 
 | Operation | Supported? | Notes |
 |---|:---:|---|
-| `list_recent_threads(list, since)` | ✓ (offline) | Parse the mbox, group messages by `References:` / `In-Reply-To:` chain, filter by message `Date:` newer than `since`. The `list` parameter is *advisory* — the mbox is whatever the operator pointed the adapter at, no remote subscription is checked |
+| `list_recent_threads(list, since)` | ✓ (offline) | Parse the mbox, group messages under the thread root the `References:` / `In-Reply-To:` chain names (first ID wins, whether or not that message is in the archive), filter by message `Date:` newer than `since`. The `list` parameter is *advisory* — the mbox is whatever the operator pointed the adapter at, no remote subscription is checked |
 | `read_thread(thread_id)` | ✓ | Same parser; return all messages in the thread |
 | `list_drafts(thread_id)` | ✗ | A static archive has no concept of pending drafts |
 | `list_sent_since(thread_id, since)` | ✗ (or limited) | Only if the archive includes the team's outbound mail (some exports do; many don't). The adapter declares this op as `unsupported` by default; an adopter with an outbound-included archive may upgrade the claim per-deployment |
 | `create_draft(thread_id, body, …)` | ✗ | Read-only by construction |
 | `thread_url(thread_id)` | depends | If the project has a public archive (PonyMail, Pipermail), construct the URL from the thread root's Message-ID. Otherwise return `file://<archive-path>#<message-id>` which only works in the operator's local environment |
-| `thread_id_kind` | `rfc5322-message-id` | Same as IMAP — root Message-ID is the stable identifier |
+| `thread_id_kind` | `rfc5322-message-id` | Same as IMAP, and in the same bracketed form (`<root@host>`) — the root Message-ID is the stable identifier. A message with no `Message-ID` is keyed by a hash of its bytes instead and reported under the `content-hash` kind |
 
 ## Auth + setup
 
@@ -97,9 +98,12 @@ declares:
 | `mbox`  | fallback | no  | 2024-Q4 snapshot at `/srv/snapshots/security-list-2024-Q4.mbox`; used when Gmail history is incomplete |
 ```
 
-## Why this is a stub
+## Why this shipped before its first adopter
 
-No adopter is currently using it. The stub documents the contract
-shape so a forensics / compliance team can wire the adapter
-without re-designing the read interface; concrete parsing code
-lands alongside this README when the first such adopter materialises.
+No adopter is using it yet. The contract shape is small and stable
+enough — three read operations over a file the adopter already has —
+that wiring it now costs less than re-deriving the read interface
+from a forensics / compliance team's requirements later. The reader
+is deliberately whole-archive and stateless: these are snapshots
+measured in tens of megabytes, not live mailboxes, so an index would
+be a second thing to keep consistent for no gain.

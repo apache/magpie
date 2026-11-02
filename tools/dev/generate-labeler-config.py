@@ -31,9 +31,14 @@ new tool or skill needs no hand-edit of the labeler config:
   paths: `family:tools` (tools, and plugins that only package a tool),
   `family:ci` (`.github/`, the pre-commit config, `tools/dev/`, root tooling
   files such as `pyproject.toml` and `.gitignore`), `family:setup` (Magpie's
-  own `.apache-magpie-overrides/` and pin) and
-  `family:docs` (`docs/`, `MISSION.md`, every `README.md` and root `*.md`).
+  own `.apache-magpie-overrides/` and pin),
+  `family:docs` (`docs/`, `MISSION.md`, every `README.md` and root `*.md`) and
+  `family:dev` (`.asf.yaml`, the spec-loop specs, the root Node manifests and
+  `.claude/settings.json`).
   A family's guide under `docs/<family>/` also gets that family.
+- `family:cross-family` has no path rule: `tools/dev/labeler-cliff.py` applies
+  it to a pull request over the changed-files label limit, which
+  `actions/labeler` leaves with no labels at all.
 
 Only labels the taxonomy doc defines are emitted, so a typo in frontmatter
 cannot create a label. Files that live under a tool directory but belong to
@@ -78,7 +83,12 @@ _CONFIG_LABEL_RE = re.compile(r"^([a-z]+:[a-z0-9-]+):$", re.MULTILINE)
 
 # Taxonomy labels that are deliberately applied by hand, never from paths.
 # Each needs a reason; an entry here is the only way a label may lack a rule.
-UNMAPPED: dict[str, str] = {}
+UNMAPPED: dict[str, str] = {
+    "family:cross-family": (
+        "no path rule can express it: tools/dev/labeler-cliff.py applies it when a pull request "
+        "would gain more changed-files labels than LABELS_LIMIT, so actions/labeler applies none"
+    ),
+}
 _TAXONOMY_RE = re.compile(r"^\| `((?:family|capability):[a-z0-9-]+)` \|", re.MULTILINE)
 
 # The non-skill families and the paths they cover.
@@ -98,6 +108,17 @@ PATH_FAMILIES: dict[str, tuple[str, ...]] = {
     # Magpie's own adoption of the framework: the committed overrides and pin.
     "family:setup": (".apache-magpie-overrides/**", ".apache-magpie.lock"),
     "family:docs": ("docs/**", "MISSION.md", "*.md", "**/README.md"),
+    # Repository development that ships nothing: the ASF repository settings, the
+    # spec-loop specs and their sync marker, the root Node manifests, and the
+    # repository's own Claude Code settings.
+    "family:dev": (
+        ".asf.yaml",
+        ".claude/settings.json",
+        "package.json",
+        "package-lock.json",
+        "tools/spec-loop/specs/**",
+        "tools/spec-loop/.last-sync",
+    ),
 }
 
 HEADER = """\

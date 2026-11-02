@@ -74,6 +74,17 @@ def test_create_draft_appends_thread_attached_draft_and_never_sends() -> None:
     assert "thanks for the report" in parsed.get_payload()
 
 
+def test_create_draft_accepts_a_bare_root_id() -> None:
+    config = make_config()
+    box = box_with_thread()
+    bare = ROOT.removeprefix("<").removesuffix(">")
+    result = create_draft(box, config, bare, body="x", to=[], cc=[], from_address=None)
+    assert result["thread_id"] == ROOT
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["In-Reply-To"] == REPLY
+    assert parsed["References"] == f"{ROOT} {REPLY}"
+
+
 def test_create_draft_defaults_to_the_reporter_address() -> None:
     config = make_config()
     box = box_with_thread()

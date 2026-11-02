@@ -134,6 +134,14 @@ def _search(q: str) -> tuple[list[dict[str, Any]], bool]:
     return nodes, total > len(nodes)
 
 
+COUNT_GQL = """query($q: String!) { search(query: $q, type: ISSUE, first: 1) { issueCount } }"""
+
+
+def search_count(q: str) -> int:
+    """The total number of issues and PRs a search matches; fetches no nodes."""
+    return int(_gh_graphql(COUNT_GQL, search=q)["data"]["search"]["issueCount"])
+
+
 def _labels(node: dict[str, Any]) -> tuple[str, ...]:
     return tuple(n["name"] for n in (node.get("labels") or {}).get("nodes", []))
 

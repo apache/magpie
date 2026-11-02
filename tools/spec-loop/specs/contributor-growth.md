@@ -97,7 +97,15 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   named contributor: activity breadth, consistency, vendor-neutrality
   context, and factual evidence prose for a committer or PMC thread;
   never rates the contributor or says whether they are ready.
-  Read-only; never posts to any list. Ships `mode: Triage`
+  Takes one or more candidates, each with its own target, and then
+  drafts one `[DISCUSS]` email for all of them by default (one per
+  candidate on request): governance-body candidates first, then
+  alphabetical by handle; dashed separators between candidate blocks;
+  a per-candidate personal note the nominator writes, asked one
+  candidate at a time; a nominator-chosen detail level (`names`,
+  `summary`, `links`, `full`).
+  Read-only; never posts to any list, and creates a plain-text mail
+  draft only on an explicit yes. Ships `mode: Triage`
   + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-nomination/`.
 - Skill: `contributor-calibrate` — derives committer and PMC
@@ -109,7 +117,11 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   keeps per-nominee data in the session scratch directory. Ships
   `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-calibrate/`.
-- Skill: `contributor-candidate-screen` — cuts the long tail of recent
+- Skill: `contributor-candidate-screen` — covers every repository of the
+  project active in the window (for ASF projects, the people directory's
+  `<project>` / `<project>-*` repositories, filtered by
+  `contributor-metrics active-repos`; any organization adds more with
+  `screen_extra_repos`), cuts the long tail of recent
   contributors with a deterministic pre-filter against the floors (every
   drop logged; the only place the floors are used; configurable as `any`
   or `all` counts, for the committer pool or both pools, plus a
@@ -119,7 +131,8 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   alphabetically by handle, never scored, ranked, shortlisted or judged —
   and writes a report (the list linked to details, plus a
   one-or-two-paragraph summary of findings) with activity data, areas, community signals and verified
-  real names; commits it only to a repository the GitHub API reports as
+  real names, each person's section opening with links to live code-host
+  searches of their full activity in the window; commits it only to a repository the GitHub API reports as
   private, checked twice, after the maintainer confirms; no
   `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-candidate-screen/`.
@@ -183,7 +196,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `real-names.md` (how people are named in briefs and reports),
   alongside the step files `fetch.md`, `assess.md`, and `render.md`.
 - Tool: `tools/contributor-metrics` (`substrate:analytics`,
-  stdlib-only plus the `jira-bridge` workspace client) with three
+  stdlib-only plus the `jira-bridge` workspace client) with four
   subcommands.
   `fetch` collects five streams through a backend seam: change-request
   activity (PRs authored, reviews, PR threads) from the code host and
@@ -198,11 +211,18 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   rule (thresholds overridable per caller), flags pushback candidates,
   and caches by repository, handle, window, phrases, roster and
   thresholds (`--refresh` bypasses the cache); `--since` sets a window
-  that is not a whole number of months.
+  that is not a whole number of months. `--repo` repeats for every
+  repository of the project, merging items with repository-prefixed ids.
+  `active-repos` keeps the `<slug>` / `<slug>-*` names from a candidate
+  list that had a PR merged or an issue or PR opened in the window.
   `score` applies weights and the penalty and returns per-area shares
   (with an `(unlabelled)` row), merge rate, a monthly timeline, and
   which streams hit their search cap; `--since` scores a sub-window
   and `--timeline-kinds` limits the timeline to some item kinds.
+  `--repo-area GLOB=AREA` (repeatable) counts work from repositories
+  whose name matches under that area too; the skills pass
+  `contributor_activity.repository_areas` from the project or its
+  organization, and the ASF organization maps `*-site` to `website`.
   `floors` computes recency-weighted nearest-rank percentiles for
   calibration.
   Unit tests under `tools/contributor-metrics/tests/`.
@@ -347,15 +367,11 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
 
 ## Out of scope
 
-- **PMC-member nomination** (distinct from committer-to-PMC path):
-  not yet specced; the vote mechanics, quorum rules, and post-vote
-  steps differ enough to warrant a separate spec-RFC pass that
-  enumerates the option set and per-project policy knobs.
 - **Emeritus / inactive-committer handling and contributor
-  offboarding**: intentionally deferred pending scope agreement —
-  these involve project-level governance decisions (roster policy,
-  communication norms) that no skill can safely generalise without
-  per-project configuration.
+  offboarding**: specced separately, in
+  [contributor-offboarding.md](contributor-offboarding.md), because the
+  roster policy and communication norms it needs are per-project
+  configuration this family does not carry.
 - Auto-promoting a contributor: all promotion decisions stay with the
   PMC; the skills prepare evidence and checklists, never act on the
   vote outcome without the nominator's explicit direction.
@@ -386,7 +402,8 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
    `tools/skill-evals/evals/contributor-candidate-screen/step-2-pre-filter/`).
 8. `contributor-candidate-screen` reports everyone who passes the
    pre-filter, alphabetically, with no floor comparison, floors-met
-   count or shortlist (#1587;
+   count or shortlist, and links each person to live searches of their
+   merged PRs, reviews, issues and comments in the window (#1587;
    `tools/skill-evals/evals/contributor-candidate-screen/step-3-measure/`,
    `step-4-write-report/`).
 9. Community signals never attribute a list message to an address the
@@ -403,20 +420,15 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **PMC-member nomination is not yet specced.** The committer-to-PMC
-  promotion has different vote mechanics (full-PMC vote, different
-  quorum) and post-vote steps from committer promotion. Defining it as
-  a capability-flag variant of `committer-onboarding` or as a
-  standalone skill requires a spec-RFC pass that enumerates the option
-  set and documents defaults. Candidate work item for a future plan
-  pass.
 - **Emeritus / inactive-committer handling and contributor offboarding
-  are intentionally deferred.** Both involve project-level policy
-  (when to move to emeritus, how to handle access removal, whether to
-  send a farewell announcement) that needs per-project configuration
-  before a skill can safely propose anything. These are candidate work
-  items once the active-path skills stabilise and an adopter pilot
-  surfaces the concrete policy knobs needed.
+  are specced, not built.** [contributor-offboarding.md](contributor-offboarding.md)
+  (`proposed`) names the per-project policy knobs and splits the work into
+  a read-only inactivity report and a propose-then-confirm emeritus move
+  that never chains from the report. PMC-member nomination, once listed
+  here too, is covered: `contributor-nomination` takes `target:pmc`, and
+  `committer-onboarding` carries `committer-to-pmc` and `direct-to-pmc`
+  scenarios with their own vote bars and roster steps.
+  <!-- gap-closes-when: path-exists:plugins/magpie-contributor-growth/skills/emeritus/SKILL.md -->
 - **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Five
   family skills (`mentoring-welcome`, `good-first-issue-author`,
   `contributor-to-committer`, `good-first-issue-sweep`,

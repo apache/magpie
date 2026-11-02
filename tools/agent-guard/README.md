@@ -136,6 +136,7 @@ way — see [Contributing guards](#contributing-guards)):
 | `mention` | `pr-management-triage` | `gh pr comment` / `gh issue comment` that `@`-mentions anyone other than the PR/issue author; **any** `@`-mention in `gh pr edit --body[-file]` | denoise: author-directed feedback never pings maintainers; body edits stay silent. Exempt: the operator commenting on their **own** PR/issue (author == authenticated `gh` user), and the `MAGPIE_ALLOW_MENTIONS=1` override |
 | `mark-ready` | `pr-management-triage` | adding `ready for maintainer review` while the PR head SHA has GitHub Actions runs awaiting approval | Golden rule 1b |
 | `security-language` | `security-issue-fix` | a CVE id / security-fix language in a **public** `gh pr create`/`gh pr edit` title/body (not comments) | public-PR scrubbing |
+| `lefthook-hooks-path` | `setup-isolated-setup-install` | `lefthook install --force` / `-f` or `--reset-hooks-path` / `-r` while the global `core.hooksPath` is the framework's | the first writes over the dispatcher for every repository, the second unsets the whole-user setup; the shim hides the global path, so a plain `lefthook install` is all that is needed. Override: `MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH=1` |
 
 A denied command is **not** posted/run; the model is shown the reason and the
 deterministic fix (e.g. "use a backtick `` `login` `` instead of `@login`").
@@ -223,6 +224,7 @@ MAGPIE_ALLOW_MENTIONS=1     gh pr comment 123 --body "@reviewer please take anot
 MAGPIE_ALLOW_COAUTHOR=1     git commit -m "…"            # not for AI co-authorship
 MAGPIE_ALLOW_MARK_READY=1   gh pr edit 123 --add-label "ready for maintainer review"
 MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "…"    # disclosure already public
+MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH=1 lefthook install --reset-hooks-path  # whole-user setup is being removed on purpose
 MAGPIE_ALLOW_EMPTY_PUSH=1   git push --force …
 MAGPIE_ALLOW_VETTED_PATH=1  uv run --project tools/vetted-ops vetted-op-read …  # developing the dispatcher
 ```

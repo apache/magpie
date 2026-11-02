@@ -514,13 +514,13 @@ The full block below is the two merged, annotated.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
-    // The vetted-ops TRACKER dispatcher is excluded for the same reason: the
-    // status-rollup and body-field writes need a gh that can verify TLS. That
-    // is acceptable where excluding `vetted-op` is not, because it refuses
-    // every operation except those tracker procedures before reading policy,
-    // and their runner refuses any gh call outside repos/<tracker>/. It keeps
-    // its `ask` below. Never exclude `vetted-op`: that runs the whole write
-    // catalogue unsandboxed.
+    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, `vetted-op`) are
+    // excluded for the same reason: their writes need a gh that can verify
+    // TLS, and a sandboxed `vetted-op` cannot even read ~/.claude/magpie to
+    // start. Each operation is a fixed gh argv built from the catalogue, with
+    // bodies read only from the workspace, so the exclusion exposes less than
+    // the bare `gh *` above. Both keep their `ask` below, never `allow`: the
+    // prompt is the gate on every write (sandbox-lint enforces the pairing).
     // The adversarial-review tool runs the reviewer CLIs, which need network
     // and their own credentials. Like the vetted-ops entries, it names the
     // fixed link its plugin's SessionStart hook maintains, never a `*` where
@@ -532,6 +532,8 @@ The full block below is the two merged, annotated.
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
@@ -742,6 +744,8 @@ The full block below is the two merged, annotated.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",  // any directory discovery could start from, not only this project
+      "Edit(~/.config/apache-magpie/vetted-ops/**)",  // the approved policies the write dispatchers act on
       "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
@@ -751,7 +755,8 @@ The full block below is the two merged, annotated.
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
-      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, and excluded from the sandbox above, so it keeps a confirmation
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
@@ -913,7 +918,12 @@ adopter repo, which is sandbox-writable by design. Under Claude Code its
 `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny — and the
 personal-layer ones for a maintainer whose project has not adopted
 Magpie — is also merged into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
-heredoc redirect) is refused as well. Harnesses without that merge have
+heredoc redirect) is refused as well. The absolute
+`Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` extends that to every
+directory, since discovery starts from whatever directory a dispatcher runs in;
+a symlink on the path is refused outright. A deny glob cannot stop a directory
+being *renamed* into place, though, so the write dispatchers do not trust
+discovery alone (see below). Harnesses without that merge have
 only the tool-level deny, and must deny writes to that path in their
 sandbox configuration explicitly.
 
@@ -935,17 +945,32 @@ belongs to whoever runs the command.
 
 If even the read-widening matters for your threat model, keep the
 policy in a path the sandbox does not grant write to and point
-`--config` at it.
+`vetted-op-read --config` at it.
 
-`vetted-op-tracker` is the one write-capable entry point excluded from
-the sandbox, and the reasoning is the same shape. It refuses every
-operation except the tracker rollup / body-field procedures before it
-reads the policy, and their runner refuses any `gh` call outside
-`repos/<tracker>/`. `<tracker>` comes from the policy, though, so a
-rewritten policy can re-point those procedures at another repository;
-that is why it stays in `ask` (every write still prompts) and why the
-policy belongs outside the writable root if that matters to you. Excluding `vetted-op` would instead run the whole write
-catalogue unsandboxed, which is why it is not excluded.
+`vetted-op-tracker` and `vetted-op` are the write-capable entry points excluded from the sandbox.
+`vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
+and their runner refuses any `gh` call outside `repos/<tracker>/`.
+`vetted-op` runs the whole write catalogue, but each operation is a fixed `gh` argv with no shell,
+parameters that may not start with `-`, and a body read only from the owner-only workspace,
+so unsandboxed it reaches less than the bare `gh *` the framework already excludes.
+It has to be excluded: inside the sandbox it cannot read `~/.claude/magpie/` to start,
+and a sandboxed `gh` cannot verify TLS anyway.
+The policy decides the workspace and the repositories both write to, so neither takes `--config` when an operation runs:
+an agent-written policy could set `workspace` to `~/.ssh` (yours, mode 0700, so it passes the workspace check)
+and post a key from it to a repository it chose.
+Nor do they trust what discovery finds: the agent picks the working directory,
+and could build a policy under another name and rename its directory into place, which no deny glob catches.
+So they act only on a discovered policy that is **byte-for-byte a copy you placed in `~/.config/apache-magpie/vetted-ops/`**:
+outside every sandbox-writable root and `Edit`-denied, so no sandboxed command and none of the agent's file tools can put one there.
+A planted copy of an approved policy gains nothing; anything else is refused with the command to approve it.
+Approve a policy yourself, in your own terminal, after reviewing it, and again after every change to it:
+
+```bash
+mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
+```
+
+The home directory comes from the password database, not `$HOME`, so `HOME=… vetted-op …` cannot move it.
+Both also stay in `ask`, so every write still prompts, and `sandbox-lint` fails an exclusion without its `ask`.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
 isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),
@@ -980,15 +1005,17 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
    With it on, every call prompts (*"uvx names '~/.claude/magpie/vetted-ops', which cannot be checked against the read block"*): the read check cannot resolve the literal `~` that the commands spell, and the skills and agents spell it that way because the `~` exclusions are written that way.
    No `allow` rule overrides that check, and listing `$HOME/.claude/magpie` in `permissions.additionalDirectories` must not be tried: it makes the checkout sandbox-writable (see [Working directories](#working-directories-under-the-read-outside-working-directories-block)).
    Turning the setting off does not unsandbox anything: sandboxed Bash still reads only what `sandbox.filesystem` allows, and the agent's `Read` tool keeps its `permissions.deny` rules on credential paths.
-4. `permissions.deny` carries all three tamper-protection rules:
+4. `permissions.deny` carries all the tamper-protection rules:
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
    - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
    - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy;
+   - `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` — the same path under any directory, since discovery starts from the working directory;
+   - `Edit(~/.config/apache-magpie/vetted-ops/**)` — the approved policies, the only ones the write dispatchers act on;
    - `Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)`, `Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)` and `Edit(//**/.apache-magpie-local/tools/vetted-ops/**)` — the same policy kept in a maintainer's personal layer, for a project that has not adopted Magpie.
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
-5. `sandbox.excludedCommands` keeps the `vetted-op-read` and `vetted-op-tracker` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
+5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
    Without them, an allowed call runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
 6. The agent-guard plugin is installed, so the `vetted-ops-spelling` guard turns an expanded spelling into a refusal instead of a sandboxed call that fails silently.
 
@@ -998,7 +1025,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "excludedCommands": [
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
-    // ...plus the two vetted-op-tracker entries
+    // ...plus the two vetted-op-tracker and two vetted-op entries
   ]
 },
 "permissions": {
@@ -1010,6 +1037,8 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(~/.config/apache-magpie/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
@@ -1428,24 +1457,43 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The hook-manager PATH shim.** prek and overcommit honour `core.hooksPath`,
-so a bare install under whole-user scope would write its hook into the
-*shared* dir, not the repo. The framework ships a transparent shim
+**The hook-manager PATH shim.** prek, overcommit and CaptainHook honour
+`core.hooksPath`, so a bare install under whole-user scope would write its
+hook into the *shared* dir, not the repo. The framework ships a transparent
+shim
 ([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
 installed as `~/.claude/bin/<tool>` with `~/.claude/bin` prepended to
-PATH) that rewrites **only** the install subcommand — for prek, injecting
-`--git-dir "$(git rev-parse --git-common-dir)"`; for overcommit, setting
-`core.hooksPath` to `<absolute common dir>/hooks` — so the hook lands
-in the repo-local `.git/hooks/` where the dispatcher finds it.
+PATH) that rewrites **only** the install action — for prek, injecting
+`--git-dir "$(git rev-parse --git-common-dir)"`; for overcommit and
+CaptainHook, setting `core.hooksPath` to `<absolute common dir>/hooks` —
+so the hook lands in the repo-local `.git/hooks/` where the dispatcher
+finds it.
+CaptainHook's Symfony Console CLI also accepts the command after global
+options (`captainhook -n install`) or as an abbreviation (`captainhook
+inst`), so the shim matches the action at any non-option argument that
+prefixes it.
 Every other command passes straight through, and the shim is
 a no-op on hosts with no global `core.hooksPath`.
+Composer keeps CaptainHook in `vendor/bin`, which is not on `PATH`, so
+when the shim finds no real binary there it runs
+`<repository root>/vendor/bin/captainhook`; a global binary on `PATH` wins
+over the project's pinned one, and a `vendor/bin` symlink back to the shim
+is refused instead of exec'd.
+CaptainHook's `captainhook/hook-installer` and `captainhook/plugin-composer`
+Composer plugins still run outside the shim, so its install is one explicit
+`~/.claude/bin/captainhook install` with `extra.captainhook.disable-plugin`
+set to `true` in `composer.json`; an install through the shim warns when a
+plugin is enabled.
 When the dispatcher chains into an overcommit hook, it exports the same
 `core.hooksPath` override so overcommit's run-time self-check accepts the
 hook instead of looking for its hook in the shared dir.
+lefthook refuses to install at all while a global `core.hooksPath` is set, so the same shim installed as `~/.claude/bin/lefthook` runs `lefthook install` with `GIT_CONFIG_GLOBAL=/dev/null` whenever the global config holds one, and lefthook then resolves its own target to the common dir.
+`lefthook install --force` and `--reset-hooks-path` would still get that override through the shim (they cannot reach the shared dir or unset the setup), and the agent-guard `lefthook-hooks-path` guard blocks an agent from trying.
+The shim covers the CLI only: an npm `postinstall` runs `node_modules/.bin/lefthook`, ahead of `~/.claude/bin` on PATH.
 The shim, the host-only homes and the sandbox-lint checks all follow the
 [hook-manager contract](../../tools/hook-manager/README.md):
 one script serves every adapter in its registry, keyed by the name it is
-installed under, and other hook managers (pre-commit, lefthook, husky, …)
+installed under, and other hook managers (pre-commit, husky, …)
 join by adding an adapter there.
 
 Validated behaviour under this flavour (`core.hooksPath` global +
@@ -1455,6 +1503,7 @@ dispatchers + hook-manager shim):
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
 | overcommit hook in `.git/hooks/` (installed via the shim) | dispatcher → overcommit runs that repo's `.overcommit.yml`; its self-check sees the repo's hooks path |
+| CaptainHook hook in `.git/hooks/` (installed via the shim) | dispatcher → CaptainHook runs that repo's `captainhook.json`; the shared dir keeps its dispatcher symlinks |
 | local hook installed by a manager requiring no install fix (`simple-git-hooks`, `cargo-husky`, `git-code-format-maven-plugin`, `git-build-hook`) | dispatcher → local hook runs natively (installs straight to `.git/hooks/` ignoring global `core.hooksPath`) |
 | hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |
@@ -2954,11 +3003,17 @@ This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) P
 
 ```bash
 mkdir -p ~/.claude/scripts
+# Always a plain copy, never a symlink into a sync repo: the managed-settings dispatcher
+# refuses links. `rm` first, since `cp` onto an existing link writes through it.
+rm -f ~/.claude/scripts/container-gateway-hook.sh
 cp /path/to/magpie/tools/agent-isolation/container-gateway-hook.sh ~/.claude/scripts/
 chmod +x ~/.claude/scripts/container-gateway-hook.sh
 mkdir -p ~/.claude/scripts/container-gateway/src
 cp -r /path/to/magpie/tools/container-gateway/src/container_gateway \
     ~/.claude/scripts/container-gateway/src/container_gateway
+# The managed-settings dispatcher runs the hook only when you alone can write it and
+# the directories holding it; a umask of 0002 would leave them group-writable.
+chmod go-w ~ ~/.claude ~/.claude/scripts ~/.claude/scripts/container-gateway-hook.sh
 ```
 
 The hook executes only code from a location the operator installed or
@@ -2988,7 +3043,15 @@ records which main checkout it confirmed the first time, under
 sandbox-writable; a later session that derives a different one is refused
 until you delete that record (the log line names it).
 
-Wire it in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files.
+Wire it **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it does not belong in a `~/.claude/settings.json` that is [synced across machines](#syncing-user-scope-config-across-machines): a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there.
+
+Put the hooks in a **managed-settings drop-in** on each machine: `/Library/Application Support/ClaudeCode/managed-settings.d/50-magpie-container-gateway.json` on macOS, `/etc/claude-code/managed-settings.d/50-magpie-container-gateway.json` on Linux. Claude Code merges every `*.json` file in that directory into its managed settings, and managed hooks run alongside your user and project hooks. The file is per machine, never synced, and root-owned, so no sandboxed command can rewrite it.
+
+Managed settings apply to **every account** on the machine, so the drop-in never names your script: another account starting Claude Code would run code you can rewrite. It runs a root-owned dispatcher instead (`tools/agent-isolation/container-gateway-dispatch.sh`), installed as `<managed-settings dir>/magpie/container-gateway-dispatch`: `/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch` on macOS, `/etc/claude-code/magpie/container-gateway-dispatch` on Linux. That directory's ancestors must already be root-owned for managed settings to mean anything, so no other account can swap the dispatcher; a location such as `/usr/local`, which Homebrew makes user-writable, would let it. The dispatcher takes the invoking account's home from the account database, not `$HOME`, and runs that account's own `~/.claude/scripts/container-gateway-hook.sh` only when the script, `~/.claude/scripts` and `~/.claude` are owned by that account, are not symlinks and are not group- or world-writable; otherwise it does nothing. Installing the two files needs `sudo` once per machine.
+
+An organization that deploys Claude Code policy through MDM or server-managed settings may rank that source above the file-based one, and Claude Code then ignores `managed-settings.d/`. Ask that policy's owner to add the three hooks, or register them in your own unsynced `~/.claude/settings.json`.
+
+Do **not** use `~/.claude/settings.local.json`: Claude Code does not load a `settings.local.json` from your home directory (only a project's `.claude/settings.local.json`), so hooks there never run and the gateway never starts. Without a synced `settings.json`, the hooks may also go in `~/.claude/settings.json` itself.
 
 Three events, one script:
 
@@ -3007,30 +3070,39 @@ Three events, one script:
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" } ] }
+      { "hooks": [ { "type": "command", "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' start" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
+      { "hooks": [ { "type": "command", "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' stop" } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" } ] }
+      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' ensure" } ] }
     ]
   }
 }
 ```
 
-**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
+**Fixing your other machines.** If `~/.claude/scripts/container-gateway-hook.sh` is a symlink (a sync-repo layout), first replace it with a plain copy as in the install recipe above (`rm -f` the link, then `cp`); the dispatcher refuses links. If the hooks are registered in a synced `~/.claude/settings.json` or in `~/.claude/settings.local.json`, move them: delete the `container-gateway-hook.sh` entries from those files (from the synced one once, on any machine), then on **every** machine install the dispatcher and write the drop-in, from a framework checkout:
 
 ```bash
-jq --arg h "$(cd ~ && pwd -P)" '
-  ($h+"/.claude/scripts/container-gateway-hook.sh") as $s
-  | .hooks.SessionStart += [{"hooks":[{"type":"command","command":($s+" start")}]}]
-  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($s+" stop")}]}]
-  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","timeout":30,"command":($s+" ensure")}]}]
-' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
+case "$(uname -s)" in
+  Darwin) d="/Library/Application Support/ClaudeCode/managed-settings.d" ;;
+  *) d=/etc/claude-code/managed-settings.d ;;
+esac
+x="$(dirname "$d")/magpie/container-gateway-dispatch"
+sudo install -d -m 0755 "$(dirname "$x")" "$d"
+sudo install -m 0755 tools/agent-isolation/container-gateway-dispatch.sh "$x"
+jq -n --arg x "$x" '($x | @sh) as $q | {hooks: {
+  SessionStart: [{hooks: [{type: "command", command: ($q + " start")}]}],
+  SessionEnd: [{hooks: [{type: "command", command: ($q + " stop")}]}],
+  PreToolUse: [{matcher: "Bash", hooks: [{type: "command", timeout: 30, command: ($q + " ensure")}]}]
+}}' | sudo tee "$d/50-magpie-container-gateway.json" > /dev/null
+sudo chmod 0644 "$d/50-magpie-container-gateway.json"
 ```
 
-A machine wired before `ensure` existed already has the first two; add only the `PreToolUse` entry there.
+Re-run the `install` line after a framework upgrade that changes the dispatcher; `setup-isolated-setup-update` reports when it does.
+
+Start a new session afterwards: settings are read at session start, and `/status` lists the managed source among the loaded settings.
 
 `setup-isolated-setup-verify` (check 12a) and `setup-isolated-setup-update` flag a hook whose registered path does not exist on the machine they run on.
 
@@ -3212,6 +3284,9 @@ A minimal repo layout:
 
 Each tracked artifact lives in the repo; the path under `~/.claude/`
 is a symlink pointing at the repo. Editing either side updates both.
+The one exception is `~/.claude/scripts/container-gateway-hook.sh`: it
+stays a plain copy on every host (see [Container gateway](#container-gateway)),
+because the managed-settings dispatcher that runs it refuses symlinks.
 
 ### Setting up a fresh host
 
@@ -3421,7 +3496,7 @@ Three reasons make this non-negotiable:
 Public dotfile repos are fine for shell aliases and editor configs;
 they are the wrong shape for agent-runtime files.
 
-**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
+**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep the gateway hooks in each machine's managed-settings drop-in (see [Container gateway](#container-gateway)) and socket paths in the project's gitignored `.claude/settings.local.json`. `~/.claude/settings.local.json` is not an option: Claude Code does not load a `settings.local.json` from your home directory.
 
 ## Adopter setup
 
@@ -3796,14 +3871,17 @@ never delete it:
      is ✗ and worth stopping for: it grants every operation in
      the catalogue, because the operation's caller name is chosen
      by whoever runs the command.
-   - `vetted-op-tracker` is in `ask` and in
+   - `vetted-op-tracker` and `vetted-op` are each in `ask` and in
      `sandbox.excludedCommands` (both forms), never in `allow`;
-     `vetted-op` is never in `sandbox.excludedCommands`.
+     an exclusion without its `ask` is ✗ (the prompt is the only
+     gate on an unsandboxed write).
    - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the
      rules name) and
-     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy), and
+     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy) and
+     `//**/.apache-magpie-overrides/tools/vetted-ops/**` (the same
+     path under any directory discovery could start from), and
      the personal-layer copies `//**/.git/**/apache-magpie/tools/vetted-ops/**`,
      `//**/.svn/apache-magpie/tools/vetted-ops/**` and
      `//**/.apache-magpie-local/tools/vetted-ops/**`.
@@ -3863,8 +3941,12 @@ never delete it:
     and the `gh tofile` alias workaround).
 12. **Container gateway wired.** Only meaningful when `podman` or
     `docker` is on `PATH`; report n/a otherwise. Four things:
-    - User-scope `~/.claude/settings.json` or
-      `~/.claude/settings.local.json` has a `SessionStart` hook
+    - The managed-settings drop-in
+      `managed-settings.d/50-magpie-container-gateway.json`, running the
+      root-owned `<managed-settings dir>/magpie/container-gateway-dispatch` (or another
+      managed settings file, or a `~/.claude/settings.json` that is not
+      synced) has a `SessionStart` hook — not `~/.claude/settings.local.json`,
+      which Claude Code does not load —
       running `container-gateway-hook.sh start` and a `SessionEnd`
       hook running `container-gateway-hook.sh stop`, by an absolute
       path that exists on this machine (✗ if it names another

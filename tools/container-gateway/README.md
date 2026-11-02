@@ -113,7 +113,12 @@ The create-time rules below apply to containers and pods (the same fields under 
 
 **Write-protected paths.**
 The agent harness refuses sandboxed writes to the files that configure or run code outside the sandbox, but a container is started by the daemon, which the sandbox does not confine.
-So a bind that is writable is refused when its source is, contains, or sits under any of:
+So a bind that is writable is refused when its source is, contains, or sits under any of the paths below —
+except a writable bind of a **checkout root** (the project root, an extra bind root, or any directory holding a `.git`, which covers every worktree), which is split instead:
+the root is mounted read-only, every child that covers none of these paths gets a writable bind of its own, a child that still covers one is split the same way one level down, and a child that is one of them (or a symlink) stays read-only under its read-only parent.
+Because the root stays read-only, a container cannot create a protected path that is missing today either.
+Only binds whose options the split reproduces on every sub-mount are split (`rw`, `z`, `Z`, `cached`, `delegated`, `consistent`; libpod `rbind` / `bind`); a split deeper than 6 levels or larger than 512 mounts is refused, and a split that can no longer be computed when the request is rewritten becomes a read-only bind.
+The protected paths are:
 
 - `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`, `.claude/commands`, `.claude/agents` and `.mcp.json` under the project root, under every `--extra-bind-root`, and under the main checkout of a linked worktree, and inside each worktree under any of those roots' `.claude/worktrees/`;
 - the other harnesses' workspace config in the same places, where each keeps its hooks, MCP servers, plugins, rules or skills ([`docs/adapters/`](../../docs/adapters/)): `.agents/`, `.agent/`, `.codex/`, `.github/hooks/`, `.github/copilot/`, `.github/skills/`, `.gemini/`, `.grok/`, `.junie/`, `.kiro/`, `.opencode/`, `opencode.json`, `opencode.jsonc`, `.pi/`, `.cursor/`, `.aider.conf.yml`, and `.env` (Aider loads it from the git root, and its `AIDER_LINT_CMD` / `AIDER_TEST_CMD` run commands);
@@ -129,8 +134,8 @@ A bind is read-only when it says so exactly: `ro` in a `Binds` entry's options, 
 A libpod mount's options go to the runtime as written, and runc reads `ro=true` or `readonly` as filesystem data rather than as the read-only flag, so those spellings count as writable.
 So does `U` beside `ro`: podman changes the source's ownership on the host before mounting, read-only or not.
 Overlay mounts (`O`, `upperdir=`, `workdir=`) are refused on every bind and volume: their writes land in a host directory the bind rules never see.
-In practice: `-v "$PWD":/src` is refused, while `-v "$PWD":/src:ro` and `-v "$PWD/build":/out` are allowed.
-The gateway refuses rather than rewriting the request with read-only overlay mounts, for the same reason it refuses a bind of the run directory: an overlay would have to cover paths that do not exist yet, and a container could rename an unmasked parent such as `.claude/` or `.git/` and recreate it.
+In practice: `-v "$PWD":/src` is split (the container can write `src/`, `build/` and everything else that exists, but not `/src/.claude/settings.json`, not `/src/.git`, and it cannot create `/src/.mcp.json`), while `-v "$PWD":/src:ro` and `-v "$PWD/build":/out` pass through unchanged and `-v "$PWD/.claude":/c` is refused.
+The split does not mask protected paths with overlay mounts, which would have to cover paths that do not exist yet and could be undone by renaming an unmasked parent such as `.claude/` or `.git/`. It keeps the checkout root itself read-only instead, so nothing can be created, renamed or removed directly under it, and only children that cover no protected path become writable. A mount the request itself names below the split's target wins over the generated ones, and a child whose name holds a `:` is mounted through a structured `Mounts` entry (or, with relabelling options a structured mount cannot carry, left read-only).
 
 `POST /build` gets the same treatment: `volume`, `remote`, `securityopt`, `cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`, podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside the keyword set above, an `nsoptions` entry joining a host namespace other than `user`, and an `output` / `outputs` that names a filesystem destination — a path-shaped bare value, a `local` / `tar` / `oci` exporter, any `dest=` attribute, anything but `type=image` / `type=registry` in the JSON or comma form — are all refused, as is any parameter the gateway has not learned.
 A build also gets the egress proxy merged into its `buildargs`, so `RUN` obeys the same allow-list a container does.
@@ -185,8 +190,9 @@ Known and accepted, in the order you are likely to meet them:
   An agent able to write files can still forge a complete layout of that shape inside directories it can already write, and the check cannot tell it from a real worktree.
   The consequences are bounded: sockets only land where the agent could already create files, they are reachable only if that exact path is allowlisted in settings the agent cannot edit, and container binds stay limited to the worktree's own bind roots.
   To remove the residual risk, pass `--run-dir` explicitly, or adopt Magpie, which puts the run directory in the worktree itself (`.apache-magpie-local/run/`).
-- **A writable bind of the whole project root is refused.**
-  It covers `.claude/` and `.git`; bind it read-only, or bind the subdirectory the container needs to write.
+- **A writable bind of a checkout root is split, not passed through.**
+  The container can write everything that exists below the root except the protected paths, but cannot create or delete entries directly under the root, nor anything under a protected directory such as `.claude/` or `.git`.
+  A writable bind of `.claude`, `.git` or any other subdirectory that covers a protected path is still refused.
   Only the listed paths are protected, compared by path and file identity: the target of a symlink inside a protected directory, a hard link to a protected file, a `.claude/worktrees/<name>` created after the request, other files under `.claude/`, and other in-tree files that a tool runs later — a `Makefile`, a git hook directory named by `core.hooksPath` inside the tree — are as writable through a subdirectory bind as they are to the sandboxed shell.
 - **A bind source is checked on the host at decision time and re-resolved by the daemon at mount time.**
   A symlink swapped between those two moments is not caught — the check and the mount are two separate resolutions of the same path, and the gateway holds no lock on the filesystem in between.

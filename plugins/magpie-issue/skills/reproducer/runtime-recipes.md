@@ -32,7 +32,8 @@ the build output for the user to inspect.
 
 ## Running with bounded resources
 
-Invoke `<runtime>` on the adapted reproducer file per
+Invoke the runtime Step 2 resolved (a *Runtimes by language* row, or the
+default `<runtime>`) on the adapted reproducer file per
 [`<project-config>/runtime-invocation.md`](../../../magpie-setup/templates/runtime-invocation.md)'s
 *Run a single file* recipe.
 

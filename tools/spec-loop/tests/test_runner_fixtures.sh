@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+# Run from a git hook (prek's spec-validate during a commit), git exports
+# GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE; a `git init` in a scratch repo
+# would then re-initialise the real repository instead. Drop them.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_PREFIX
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=tools/spec-loop/lib.sh
 . "$ROOT/tools/spec-loop/lib.sh"
@@ -271,8 +276,64 @@ test_last_sync_marker_helpers() {
     [ "$branch" = "advance-last-sync-abcdef1" ] || fail "unexpected marker branch: $branch"
 }
 
+# The plan and update beats must not queue or keep a Known gap on a name
+# match (spec-gap-staleness.md acceptance 1 and 2). Pin the rule's three
+# evidence kinds in both prompts so a rewrite cannot drop it unnoticed.
+test_prompts_carry_the_evidence_rule() {
+    local prompt kind
+    for prompt in "$ROOT/tools/spec-loop/PROMPT_plan.md" "$ROOT/tools/spec-loop/PROMPT_update.md"; do
+        for kind in "call site" "file content" "counted value"; do
+            grep -Fiq -- "$kind" "$prompt" || fail "expected '$prompt' to name the evidence kind: $kind"
+        done
+        assert_contains "$prompt" "gap-closes-when"
+    done
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_plan.md" "*Verified open:*"
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_plan.md" "The presence of a name is **not** evidence"
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_update.md" "A name match is not evidence"
+}
+
+# The update beat's incremental diff must see a skill edit. Skill content lives
+# under plugins/magpie-<family>/skills/; skills/<name> is a symlink into it, so an
+# edit there changes nothing under .claude/skills and the old pathspec missed it.
+test_update_pathspec_sees_skill_and_doc_edits() {
+    command -v git >/dev/null 2>&1 || { echo "skip: git not on PATH"; return 0; }
+    local repo="$TMPDIR_TEST/pathspec-repo"
+    mkdir -p "$repo/plugins/magpie-issue/skills/triage" "$repo/docs/setup" "$repo/skills"
+    printf 'v1\n' > "$repo/plugins/magpie-issue/skills/triage/SKILL.md"
+    printf 'v1\n' > "$repo/docs/setup/guide.md"
+    ln -s ../plugins/magpie-issue/skills/triage "$repo/skills/issue-triage"
+    git -C "$repo" init -q -b main
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid add -A
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -q -m one
+    local prev; prev="$(git -C "$repo" rev-parse HEAD)"
+    printf 'v2\n' > "$repo/plugins/magpie-issue/skills/triage/SKILL.md"
+    printf 'v2\n' > "$repo/docs/setup/guide.md"
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -qam two
+
+    local pathspec=()
+    while IFS= read -r p; do pathspec+=("$p"); done < <(spec_loop_update_pathspec)
+    local changed
+    changed="$(git -C "$repo" diff --name-only "$prev..HEAD" -- "${pathspec[@]}")"
+    printf '%s\n' "$changed" > "$TMPDIR_TEST/pathspec.out"
+    assert_contains "$TMPDIR_TEST/pathspec.out" "plugins/magpie-issue/skills/triage/SKILL.md"
+    assert_contains "$TMPDIR_TEST/pathspec.out" "docs/setup/guide.md"
+
+    # The old pathspec is the regression: it saw neither edit.
+    local old
+    old="$(git -C "$repo" diff --name-only "$prev..HEAD" -- .claude/skills tools docs/modes.md)"
+    [ -z "$old" ] || fail "fixture is wrong: the old pathspec should have missed both edits, got: $old"
+
+    # loop.sh must use the shared pathspec, not a literal list of its own.
+    ! grep -Fq -- '-- .claude/skills tools docs/modes.md' "$ROOT/tools/spec-loop/loop.sh" \
+        || fail "loop.sh still carries the old literal pathspec"
+    grep -Fq 'SPEC_LOOP_UPDATE_PATHSPEC' "$ROOT/tools/spec-loop/loop.sh" \
+        || fail "loop.sh does not use SPEC_LOOP_UPDATE_PATHSPEC"
+}
+
 test_prompt_assembly_build
 test_prompt_assembly_update
+test_prompts_carry_the_evidence_rule
+test_update_pathspec_sees_skill_and_doc_edits
 test_harness_command_construction
 test_last_sync_marker_helpers
 

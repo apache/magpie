@@ -78,6 +78,7 @@ in the agent you already use. Nothing is written to your repository.
 /plugin install magpie-agent-guard@apache-magpie     # the baseline:
 /plugin install magpie-utilities@apache-magpie       #   take all four
 /plugin install magpie-pr-management@apache-magpie   # + the families you need
+/plugin install magpie-security-tools@apache-magpie  # + the framework tools the families run
 ```
 
 Those first four are the **baseline** — and the same set a project commits as

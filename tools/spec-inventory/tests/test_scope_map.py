@@ -132,6 +132,25 @@ def test_scope_map_matches_skill_symlink(tmp_path: Path) -> None:
     assert "tools/spec-loop/specs/pr-management-family.md" in result
 
 
+def test_scope_map_maps_a_plugin_skill_edit_through_the_skills_symlink(tmp_path: Path) -> None:
+    specs_dir = tmp_path / "tools" / "spec-loop" / "specs"
+    specs_dir.mkdir(parents=True)
+    (specs_dir / "issue-family.md").write_text(_spec_text("- Skill: `issue-triage` — triage.\n"))
+    (specs_dir / "other.md").write_text(_spec_text("- Skill: `issue-stale-sweep` — sweep.\n"))
+    real = tmp_path / "plugins" / "magpie-issue" / "skills" / "triage"
+    real.mkdir(parents=True)
+    (tmp_path / "skills").mkdir()
+    (tmp_path / "skills" / "issue-triage").symlink_to(
+        Path("..") / "plugins" / "magpie-issue" / "skills" / "triage"
+    )
+
+    result = scope_map(["plugins/magpie-issue/skills/triage/SKILL.md"], tmp_path)
+
+    assert result == ["tools/spec-loop/specs/issue-family.md"]
+    # A plugin path no skills/ symlink points at maps to nothing.
+    assert scope_map(["plugins/magpie-issue/skills/unlinked/SKILL.md"], tmp_path) == []
+
+
 def test_scope_map_empty_paths(tmp_path: Path) -> None:
     specs_dir = tmp_path / "tools" / "spec-loop" / "specs"
     specs_dir.mkdir(parents=True)

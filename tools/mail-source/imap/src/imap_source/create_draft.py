@@ -38,7 +38,7 @@ from imap_source.cli import CapabilityDeclined, eprint, with_mailbox
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
 from imap_source.searching import fetch_window
-from imap_source.threads import draft_subject, sort_key
+from imap_source.threads import canonical_thread_id, draft_subject, sort_key
 
 
 def create_draft(
@@ -51,6 +51,7 @@ def create_draft(
     cc: list[str],
     from_address: str | None,
 ) -> dict[str, Any]:
+    thread_id = canonical_thread_id(thread_id) or thread_id
     if config.drafts_folder is None:
         raise CapabilityDeclined(
             "IMAP_SOURCE_DRAFTS_FOLDER is unset/none — this account cannot create drafts"

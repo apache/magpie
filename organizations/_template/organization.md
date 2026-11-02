@@ -21,7 +21,11 @@ projects at it with `organization: <org>` in their `project.md`.
 Only declare keys that are **the same for every project under this
 organization**. Per-project values (security-list address, scope labels,
 product name, roster) belong in each project's `project.md`, not here.
-Any key you omit falls through to the framework default. Start from
+The organization identity and governance vocabulary keys below are
+**required**: declare every one, with `null` where the organization has no
+value, or `skill-and-tool-validate` fails. Only the commented-out capability
+bundle is optional; a bundle key you omit falls through to the framework
+default. Start from
 [`organizations/independent/organization.md`](../independent/organization.md)
 (the generic baseline) and change only what your organization mandates;
 [`organizations/ASF/organization.md`](../ASF/organization.md) is a fully

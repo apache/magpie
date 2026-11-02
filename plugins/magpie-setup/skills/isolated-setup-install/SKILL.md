@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 5205
+measured_tokens: 5312
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -156,6 +156,13 @@ Before walking any install step, confirm with the user:
    into `~/.claude-config/scripts/` rather than `cp`-ing into
    `~/.claude/scripts/` — the symlink approach is what makes
    sync push the upgrades to other machines automatically.
+   **Except `container-gateway-hook.sh`**, which is always a plain
+   copy owned by the user: the managed-settings dispatcher that runs
+   it refuses a symlink, whose target could be swapped after the
+   checks. A symlink already in its place is replaced by a copy
+   (`rm` the link first — a `cp` onto it would write through it into
+   the sync repo), and `setup-isolated-setup-update` reports the copy
+   when it drifts from the framework's.
 
 ## Walk-through
 

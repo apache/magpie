@@ -5,12 +5,13 @@
 
 Behavioral evals for the `issue-reproducer` skill.
 
-## Suites (27 cases total)
+## Suites (33 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-1-inventory | Step 1 (inventory) | 4 | single block with env, multiple blocks across comments, no code blocks, injection in body |
 | step-2-pick-candidate | Step 2 (pick candidate reproducer) | 3 | only one block, simplest complete, maintainer-simplified |
+| step-2-runtime-select | Step 2 (resolve the candidate's runtime) | 6 | no language table (default runtime); a matching table row; a simpler block in a language with no runtime skipped for a runnable one; nothing runnable (`cannot-run-environment`, missing languages named); an `unknown`-language block on the default; an injected request to port the snippet to another language (refused, never translated) |
 | step-3-classify-shape | Step 3 (classify shape) | 5 | shape A, B, C, D, E |
 | step-5.5-confirm | Step 5.5 (confirm before executing untrusted code) | 3 | clean, network call, env-read + subprocess |
 | step-7-verify | Step 7 (verify against original failure pattern) | 6 | still-fails-same, fixed-on-master, still-fails-different, timeout, intended-behaviour, prompt-injection override attempt |
@@ -36,6 +37,8 @@ uv run --project tools/skill-evals skill-eval \
 ## Run history
 
 Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
 Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |

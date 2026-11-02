@@ -21,9 +21,9 @@ when_to_use: |
   calibrate. Skip for one named person — use nomination.
 argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
-surface_hash: sha256:a1767d466ee963d1
+surface_hash: sha256:683e09570311f09a
 license: Apache-2.0
-measured_tokens: 4273
+measured_tokens: 4804
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -137,7 +137,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 | `window:Nm` | the configured window, else `6m` | Activity window |
 | `end:YYYY-MM-DD` | today | Last day of the window |
 
-From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `screen_prefilter_require` (`any` or `all`, default `any`), `screen_prefilter_targets` (`committer` or `both`, default `committer`), `screen_recent_activity_months` (default `4`; `0` turns the check off).
+From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `screen_prefilter_require` (`any` or `all`, default `any`), `screen_prefilter_targets` (`committer` or `both`, default `committer`), `screen_recent_activity_months` (default `4`; `0` turns the check off), `screen_extra_repos` (default none; `owner/name` entries).
 A `shortlist_max_missing` left over from an earlier version is ignored; say so once at the start of the run.
 Floors come from `<project-config>/committer-readiness.md`, else `contributor-nomination-config.md`, resolved as `contributor-to-committer` Step 1 does.
 Both files are personal configuration, read from the personal layer first and from `.apache-magpie-overrides/` only as a fallback; [they belong in the personal layer](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
@@ -159,6 +159,21 @@ Both files are personal configuration, read from the personal layer first and fr
 ---
 
 ## Step 1 — Pool
+
+**Project repositories.**
+Contributors work across all of a project's repositories — its website, clients, CI actions — not only `<upstream>`, so the screen covers every repository of the project that was active in the window.
+
+- **ASF projects:** list the project's repositories from the people directory (`mcp__apache-projects__get_repositories(<project>)`), write their names to `<scratch>/candidate-screen/repo-names.txt`, and run
+  `uv run --directory <framework>/tools/contributor-metrics contributor-metrics active-repos --owner <owner of <upstream>> --project <project> --names-file <that file> --end <end> --since <window start> --out <scratch>/candidate-screen/repos.json`.
+  It keeps only `<project>` and `<project>-*` names (the directory's search also returns other projects' repositories) and, of those, the ones with a PR merged or an issue or PR opened in the window.
+- **Other organizations:** there is no directory to discover them from, so the project lists them in `screen_extra_repos`.
+
+The project repositories are `<upstream>`, every `active` entry, every `screen_extra_repos` entry, and any repository the maintainer names at invocation, without duplicates.
+`screen_extra_repos` serves every organization — an ASF project uses it for a repository outside the `<project>-*` naming or under another owner.
+Its entries are included as configured, without the activity check; one with nothing in the window adds nothing.
+An entry that is not `owner/name` is reported and skipped.
+Show the active, inactive and excluded-by-name lists once, with their counts, and carry on; the maintainer may add or remove a repository there.
+Every step below — pool, pre-filter, measurement, Details links — covers all the project repositories, and "landed in `<upstream>`" below means landed in any of them.
 
 - **Committer target:** everyone who authored a change landed in `<upstream>` in the window — every change listed by `contract:change-request` → `list_authored(state: landed, since, end)` with no person, collecting authors — minus bots and minus current committers.
 - **`<governance-body>` target:** current committers minus current members.
@@ -191,6 +206,7 @@ With `screen_prefilter_require: any`, keep the person when either count reaches 
 A floor of `0` (an evidence-only metric) is ignored here: it never keeps anyone by itself, and with `all` it is not required.
 The count check applies to the committer target, and to the `<governance-body>` target too when `screen_prefilter_targets` is `both`; otherwise the `<governance-body>` pool — the current committers who are not members — is small enough to measure in full and only the recent-activity check applies to it.
 
+Each count covers all the project repositories: one query with a `repo:` qualifier per repository (GitHub search matches any of them), or one query per repository, summed.
 Only these counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
 Log everyone dropped, with both counts, the landed count for the recent months when it was checked, and which check dropped them, in `dropped`; nobody leaves the pool silently.
 
@@ -200,7 +216,7 @@ Log everyone dropped, with both counts, the landed count for the recent months w
 
 For each person who survived the pre-filter:
 
-1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
+1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning, with one `--repo` per project repository, `<upstream>` first.
    `score` computes adjusted counts — data about the person's own activity, not a score of the person.
 2. A metric fed by a stream in `caps_hit` is a minimum; the report says so.
 3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md), including its step that asks the maintainer for the addresses people post from ([Ask the maintainer for addresses](../nomination/community-signals.md#ask-the-maintainer-for-addresses)) — ask once for everyone, after measuring — and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
@@ -215,6 +231,7 @@ Do not compare anyone's counts with the floors, count floors met or missed, or s
 Write the report per [`report.md`](report.md) to `<scratch>/candidate-screen/<end>-candidate-screen.md`.
 The report opens with everyone measured, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
 Each person's section, in the same order, holds two or three paragraphs of details: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
+Each section starts with a **Details** line of links to live code-host searches of the person's full activity in the window — changes landed, changes reviewed, issues filed, threads commented — per [`report.md` → Details links](report.md#details-links), so a reader can open everything behind the counts.
 Nothing in the report compares people with each other or with the floors, orders them by any measure, scores them, counts floors met, or says or implies that anyone is ready, close, or not ready.
 Every claim links to its evidence.
 Handles appear as plain profile links, never as `@`-mentions.

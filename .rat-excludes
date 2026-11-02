@@ -56,6 +56,12 @@ package-lock.json
 # read them carry the ASF/SPDX header.
 tools/body-field-contract/**/*.jsonl
 
+# Eval run journals: append-only JSON Lines, one record per live run
+# (tools/skill-evals/README.md § Recording runs). JSON carries no comment
+# syntax, so a header cannot be added; the generated Run history tables
+# next to them are Markdown and carry the SPDX line.
+tools/skill-evals/evals/*/runs.jsonl
+
 # Third-party-licence detection fixtures — these deliberately contain
 # non-Apache (GPL / EPL / …) licence text as eval input, so RAT must not
 # treat them as source files needing an Apache header.
