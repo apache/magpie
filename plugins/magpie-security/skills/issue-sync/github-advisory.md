@@ -69,9 +69,9 @@ gh api "/repos/<upstream>/security-advisories?per_page=100"
 
 Fetch an advisory individually (`gh api /repos/<upstream>/security-advisories/<GHSA>`) only when its id is not in that list — it is older than the first 100 — and record each one. Surface drift in the Step 2 proposal:
 
-- **cve_id drift** — advisory `cve_id` ≠ the tracker's CVE (or empty).
-- **field drift** — `credits` / `severity` / `cwe_ids` / `vulnerabilities` (affected ranges) differ between advisory and tracker.
-  The tracker + CVE record is **authoritative**; the advisory is the mirror.
+- **field drift, both directions** — computed by `<sm> ghsa-fields`, below; never by hand.
+  The tracker + CVE record is **authoritative**; the advisory is the mirror,
+  but an advisory value the tracker still lacks is proposed **for the tracker**.
 - **state drift** — advisory `state` vs the tracker's process step (e.g. tracker `announced` + CVE published while the advisory is still `triage`).
   Informational at the collaborator tier (state changes are an admin hand-off).
 
@@ -88,6 +88,55 @@ Fetch an advisory individually (`gh api /repos/<upstream>/security-advisories/<G
   (the collaborator list fetched once per run, see [`gather.md`](gather.md#step-1--gather-the-current-state))
   missing from the advisory's `collaborating_users`.
   Informational at the collaborator tier (adding collaborators is an admin hand-off).
+
+### Mirror the fields — `<sm> ghsa-fields`
+
+Write `{advisory, tracker, resolution}` to a file and run `<sm> ghsa-fields --input <file>`:
+`advisory` is the record from the list call;
+`tracker` holds the body fields `cve_id`, `severity`, `cwe`, `affected_versions`, `pr_with_fix`, `public_advisory_url`,
+the `package` (`{ecosystem, name}`, GitHub's ecosystem names, from the scope label's package),
+`pr_author_logins` and `pr_approver_logins` (from `gh pr view <N> --repo <upstream> --json author,reviews` for **every** PR in *PR with the fix*, the `APPROVED` reviews),
+and `cve_title` once the CVE title is normalised.
+It returns:
+
+- **`patch`** — the smallest `PATCH` body that brings the advisory in line, with `changes` (each field's from, to and why) and `skipped` (each field it left alone, and why).
+  It covers `cve_id`, `severity` (the team's score, never the reporter's), `cwe_ids`,
+  `vulnerabilities` (`vulnerable_version_range` and `patched_versions` from *Affected versions*, on the tracker package's entry; other entries kept; a single entry naming another package — often the repository slug — takes the tracker's),
+  `credits` (existing ones kept, plus every fix PR's author as `remediation_developer` and their approvers as `remediation_reviewer`; bots left out),
+  and `summary` (the CVE title).
+  It never writes `state` or the collaborator lists.
+- **`conflicts`** — a different CVE already on the advisory: never overwritten, surfaced for the team.
+- **`drift`** — both sides hold a value and they differ; the tracker's wins the patch, and the advisory's is shown so an edit by the reporter is seen before it is overwritten.
+- **`tracker_proposals`** — the other direction: a tracker field still empty where the advisory holds a value (`cve-id`, `cwe`, `affected-versions`) is proposed as a tracker body-field update, confirmed per field.
+  The advisory's severity is **never** proposed (the team scores independently), and other credits come back in `observed` for the *Reporter credited as* decision.
+- **`resolution: true`** (opt-in, at close-out) — appends a *Resolution* block (CVE, fix PR, fixed version, public advisory URL) to `description`, below the reporter's text and a `---` rule, behind a hidden marker.
+  It waits for the *Public advisory URL*: before the advisory ships, the security framing stays embargoed.
+  A re-run replaces only the block.
+
+The patch is one Step 4 proposal item per advisory; apply it with
+`gh api --method PATCH repos/<upstream>/security-advisories/<GHSA> --input <patch-file>`.
+
+### Two-way comment sync — `<sm> ghsa-mirror`
+
+The reporter's conversation lives on the advisory, the team's on the tracker. The sync keeps both readable from the tracker and lets the team answer from it:
+
+- **Advisory → tracker: every comment.** Each advisory comment is copied into the tracker as one comment —
+  the body quoted, the author in backticks (never an `@`-mention) with their role, a link to the `#advisory-comment-<id>` anchor,
+  and a hidden `<!-- magpie: ghsa-comment v1 <GHSA> <id> <updated_at> -->` marker that makes the copy idempotent; an edited comment rewrites its copy.
+- **Tracker → advisory: only comments marked for the reporter.** A team member writes a tracker comment starting `To reporter:`, or containing a `<!-- to-reporter -->` line.
+  The sync proposes it for the advisory with the prefix or marker removed and a hidden `<!-- magpie: from-tracker <id> -->` appended,
+  so it is neither posted twice nor copied back. Editing the tracker comment after it was posted proposes an edit of the advisory comment.
+  A marked comment by someone not on the tracker collaborator roster is ignored and reported; every other tracker comment stays on the tracker.
+
+Write `{ghsa_id, advisory_comments, tracker_comments, reporter_login, team_logins}` to a file —
+the advisory comments from the read above (in full, without `since`), the tracker's comments (`issue-comments <N>`),
+`reporter_login` the advisory's `author.login`, `team_logins` the tracker collaborator roster —
+and run `<sm> ghsa-mirror --input <file>`.
+It returns `to_tracker` (`create`, or `update` with the `tracker_comment_id`) and `to_advisory` (`create`, or `update` with the `advisory_comment_id`), each with its exact body.
+Both are proposals: the tracker copies are one Step 4 item, and **each** advisory post is its own item showing the exact text,
+since it reaches the reporter at once and cannot be deleted through the API.
+Apply the copies with `gh issue comment <N> --repo <tracker> --body-file <file>` or the `comment-update` vetted op,
+and the advisory posts with the `advisory-comment` vetted op (or `gh api --method POST …/comments -F body=@<file>`; an edit is `--method PATCH …/comments/<id>`).
 
 ### Read the advisory discussion
 
@@ -134,10 +183,12 @@ Populate it on every GHSA-sourced tracker (retroactively on first touch).
 
 Each is a separate confirmable proposal item (SKILL Golden rule 1).
 
-1. **Link cve_id + reconcile fields — collaborator tier, sync performs it.**
-   `gh api -X PATCH /repos/<upstream>/security-advisories/<GHSA> -f cve_id=<CVE>`,
-   and where they diverge, mirror the tracker's authoritative `severity` / `cwe_ids` / `vulnerabilities` / `credits` onto the advisory.
-   **Never** copy an advisory-supplied CVSS back into the tracker's severity field (the project's severity rule governs the tracker; the advisory mirrors *it*).
+1. **Mirror the fields — collaborator tier, sync performs it.**
+   Apply the `ghsa-fields` patch ([above](#mirror-the-fields--sm-ghsa-fields)) as one item per advisory,
+   and its `tracker_proposals` as tracker body-field updates, one item per field.
+   **Never** copy an advisory-supplied CVSS or severity back into the tracker's severity field (the project's severity rule governs the tracker; the advisory mirrors *it*).
+   At the close-out apply (the *Public advisory URL* captured), re-run it with `resolution: true` to append the *Resolution* block.
+   **Sync the comments** in the same pass: apply the `ghsa-mirror` copies and each confirmed reporter-marked post ([above](#two-way-comment-sync--sm-ghsa-mirror)).
 2. **Mirror state (publish / close) — admin tier, HAND OFF.** Do not PATCH `state` at the collaborator tier.
    Route it through the [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team) below;
    many foundation advisories stay `triage` by design (the CVE ships through the foundation's own CVE tool, not GitHub's advisory flow), so publishing is often not even desirable.
@@ -145,6 +196,23 @@ Each is a separate confirmable proposal item (SKILL Golden rule 1).
    [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team).
 
 ---
+
+## Backfill sweep — `sync ghsa backfill`
+
+Trackers that closed before the mirror existed leave their advisories without a CVE, a fixed version or the fix's credits.
+On *"sync ghsa backfill"* (optionally `open` / `closed` / `all`, default `all`):
+
+1. Take the advisories from the one list call above (paginate past 100).
+2. Find each one's tracker with one read of the tracker issues with their bodies (`issue-list-with-bodies`, or `gh issue list --repo <tracker> --state all --search GHSA --json number,title,body`),
+   matching the `GHSA-…` ids; an advisory with no tracker is listed, never guessed.
+3. For each matched tracker, read its body fields and the fix PR's author and approvers as in *Mirror the fields*.
+4. Write `{items: [{advisory, tracker, tracker_number}], resolution}` and run `<sm> ghsa-backfill --input <file>`
+   (`resolution: true` only for trackers whose *Public advisory URL* is set — the tool skips the rest).
+   It returns `plans` (one `ghsa-fields` result per advisory that needs a change, a conflict or a tracker proposal) and `unchanged`.
+5. Present **one proposal per advisory** — the patch, the drift, the tracker proposals — and apply only the confirmed ones, one `PATCH` each.
+   Never batch several advisories into one confirmation.
+
+The comment mirror can run in the same sweep (one `ghsa-mirror` per tracker); it is off unless asked, since it writes one tracker comment per historical advisory comment.
 
 ## Admin hand-off — relay the needed change to the advisory-admin team
 
@@ -233,6 +301,7 @@ path.
 
 - **Propose-then-confirm every advisory write** (Golden rule 1), comments included — the advisory is a surface on a public project, and a comment reaches the reporter at once.
 - **Comments cannot be deleted through the API** — a wrong post can only be edited (`PATCH …/comments/<id>`) or removed in the web UI, so confirm the exact text first.
+- **Only marked tracker comments leave the tracker** — never summarise, paraphrase or forward unmarked tracker discussion onto the advisory, even when it would answer the reporter; draft a reply for the team to mark instead.
 - **Confidentiality** — private-advisory content never lands on a public surface.
 - **Source of truth** — the tracker + CVE record is authoritative for CVE fields; the advisory is reconciled *to* it.
 - **No blind state writes** — never PATCH `state`/publish speculatively; a success is permanent and public.
