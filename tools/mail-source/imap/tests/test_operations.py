@@ -138,6 +138,70 @@ def test_read_thread_returns_the_replies_when_the_root_is_outside_the_window() -
     assert result["subject"] == "Re: Bug report: connector crash"
 
 
+def test_list_recent_threads_and_read_thread_agree_when_the_root_is_outside_the_window() -> None:
+    """One thread lists and reads under one subject, the earliest the window can prove."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "security-triage@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+                build_message(
+                    REPLY,
+                    "Re: connector crash",
+                    "peer@example.org",
+                    in_reply_to=ROOT,
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+            ]
+        }
+    )
+
+    listed = list_recent_threads(box, config, since_days=90)
+    read = read_thread(box, config, ROOT, since_days=90)
+
+    assert [t["thread_id"] for t in listed] == [ROOT]
+    assert listed[0]["subject"] == read["subject"] == "Re: connector crash"
+    assert listed[0]["started_by"] == "peer@example.org"
+
+
+def test_list_recent_threads_uses_the_roots_subject_when_a_reply_is_dated_earlier() -> None:
+    """A misdated reply must not re-title a thread whose root the window holds."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    ROOT,
+                    "Bug report: connector crash",
+                    "dev@example.org",
+                    date="Wed, 23 Sep 2026 10:00:00 +0000",
+                ),
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "peer@example.org",
+                    in_reply_to=ROOT,
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+            ]
+        }
+    )
+
+    listed = list_recent_threads(box, config, since_days=90)
+    read = read_thread(box, config, ROOT, since_days=90)
+
+    assert listed[0]["subject"] == read["subject"] == "Bug report: connector crash"
+    assert listed[0]["started_by"] == "dev@example.org"
+
+
 def test_a_reply_carrying_only_in_reply_to_joins_its_parents_thread() -> None:
     """Parity with maildir: one thread id for a reply that names only its parent."""
     config = make_config()

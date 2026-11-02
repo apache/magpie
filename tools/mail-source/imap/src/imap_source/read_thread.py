@@ -29,7 +29,7 @@ from typing import Any
 from imap_source.cli import add_since_argument, eprint, with_mailbox
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
-from imap_source.searching import Message, fetch_window
+from imap_source.searching import Message, fetch_window, thread_start_message
 from imap_source.threads import canonical_thread_id, sort_key
 
 
@@ -52,10 +52,8 @@ def read_thread(
     # reference the id are the thread, so they are returned rather than
     # refused; the thread then lists under the earliest subject the window can
     # prove, as `maildir` does.
-    root_subject = next(
-        (m.position.subject for m in ordered if m.position.message_id == thread_id),
-        ordered[0].position.subject,
-    )
+    start = thread_start_message(ordered, thread_id)
+    root_subject = start.position.subject if start is not None else ""
     bodies = mailbox.fetch([m.uid for m in ordered], headers_only=False) if with_body else []
     body_by_uid = {entry.uid: entry.raw for entry in bodies}
     return {

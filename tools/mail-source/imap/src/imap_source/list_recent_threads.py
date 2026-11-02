@@ -24,7 +24,7 @@ from typing import Any
 from imap_source.cli import add_since_argument, eprint, with_mailbox
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
-from imap_source.searching import fetch_window, thread_root_of
+from imap_source.searching import Message, fetch_window, thread_root_of, thread_start_message
 
 
 def list_recent_threads(
@@ -34,29 +34,35 @@ def list_recent_threads(
     since_days: int,
 ) -> list[dict[str, Any]]:
     messages = fetch_window(mailbox, config.list_folder, since_days=since_days)
-    threads: dict[str, dict[str, Any]] = {}
+    grouped: dict[str, list[Message]] = {}
     for message in messages:
         root = thread_root_of(message)
         if root is None:
             continue
-        thread = threads.setdefault(
-            root,
-            {
-                "thread_id": root,
-                "subject": message.position.subject,
-                "started_by": message.position.from_address,
-                "message_count": 0,
-                "last_date": None,
-                "uids": [],
-            },
-        )
-        thread["message_count"] += 1
-        thread["uids"].append(message.uid)
-        if message.position.date is not None:
-            iso_date = message.position.date.isoformat()
-            if thread["last_date"] is None or iso_date > str(thread["last_date"]):
-                thread["last_date"] = iso_date
-    return sorted(threads.values(), key=lambda entry: str(entry["last_date"]) or "", reverse=True)
+        grouped.setdefault(root, []).append(message)
+
+    threads: list[dict[str, Any]] = []
+    for root, members in grouped.items():
+        # The subject and the sender come from the root when the window holds
+        # it, else from the earliest message the window can prove - the same
+        # message `read_thread` reports the thread under, so a thread that is
+        # listed, read and replied to always carries one subject.
+        start = thread_start_message(members, root)
+        thread: dict[str, Any] = {
+            "thread_id": root,
+            "subject": start.position.subject if start is not None else "",
+            "started_by": start.position.from_address if start is not None else None,
+            "message_count": len(members),
+            "last_date": None,
+            "uids": [m.uid for m in members],
+        }
+        for message in members:
+            if message.position.date is not None:
+                iso_date = message.position.date.isoformat()
+                if thread["last_date"] is None or iso_date > str(thread["last_date"]):
+                    thread["last_date"] = iso_date
+        threads.append(thread)
+    return sorted(threads, key=lambda entry: str(entry["last_date"]) or "", reverse=True)
 
 
 def main(argv: list[str] | None = None) -> int:

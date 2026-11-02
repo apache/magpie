@@ -21,6 +21,7 @@ from __future__ import annotations
 import email
 import email.message
 import email.policy
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC
 
@@ -72,6 +73,30 @@ def thread_root_of(message: Message) -> str | None:
     if message.position.in_reply_to:
         return message.position.in_reply_to
     return message.position.message_id
+
+
+def thread_start_message(messages: Sequence[Message], thread_id: str) -> Message | None:
+    """The message a thread's subject and sender are taken from.
+
+    That is the root itself whenever the window holds it, and otherwise the
+    thread's earliest dated message (undated last) - the oldest evidence a
+    window that starts inside a thread can offer. ``maildir`` picks the same
+    message for its ``_thread_subject``, so a thread the archive only partly
+    holds still lists, reads and replies under one subject.
+
+    Returns ``None`` only for an empty ``messages``.
+    """
+    ordered = sorted(messages, key=lambda message: sort_key(message.position))
+    for message in ordered:
+        if message.position.message_id == thread_id:
+            return message
+    return ordered[0] if ordered else None
+
+
+def thread_subject_of(messages: Sequence[Message], thread_id: str) -> str:
+    """The subject a thread is listed under: the root's, else its earliest dated message's."""
+    start = thread_start_message(messages, thread_id)
+    return start.position.subject if start is not None else ""
 
 
 def _since_date(days: int) -> str:
