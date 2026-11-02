@@ -325,13 +325,14 @@ class Segment:
         #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
         #: for the rules that care how a command is spelled, not just its name.
         self.head = argv[0] if argv else ""
-        # Normalise the command head to its basename so a path-qualified
-        # invocation (`/usr/bin/git`, `./git`) is guarded identically to the
-        # bare name. Guard rules only inspect argv[0] as a command *name*; the
-        # real execution path is untouched (exec_main hands the original argv
-        # to os.execvp).
+        # Normalise the command head to its name so a path-qualified invocation
+        # (`/usr/bin/git`, `./git`, `C:\Git\cmd\git.exe`) is guarded identically
+        # to the bare name. Guard rules only inspect argv[0] as a command *name*;
+        # the real execution path is untouched (exec_main hands the original
+        # argv to os.execvp).
         if argv:
-            argv[0] = os.path.basename(argv[0])
+            argv[0] = command_name(argv[0])
+            argv = _package_runner_target(argv) or argv
         self.argv: list[str] = argv
         self.raw = raw
         #: The whole command line as written, before tokenising: the one place
@@ -2598,6 +2599,74 @@ class GuardContext:
         return _run(args, cwd=self.cwd)
 
 
+_WINDOWS_EXECUTABLE_SUFFIXES = (".exe", ".cmd", ".bat")
+
+
+def command_name(head: str) -> str:
+    """The name a command head runs: its basename on any platform, without a
+    Windows executable suffix (``.exe``, and the ``.cmd`` / ``.bat`` shims npm
+    installs, e.g. ``npx.cmd``).
+
+    :class:`Segment` stores ``argv[0]`` in this form, so the rules that key on
+    a literal ``argv[0] == "git"`` see the same name :func:`guarded_head` does.
+    """
+    base = head.replace("\\", "/").rsplit("/", 1)[-1]
+    if base.lower().endswith(_WINDOWS_EXECUTABLE_SUFFIXES):
+        base = base[:-4]
+    return base
+
+
+# Package runners that reach a package's binary without it being on PATH
+# (`npx lefthook`, `pnpm exec lefthook`, `yarn dlx lefthook`, `bunx lefthook`,
+# `corepack pnpm exec lefthook`).
+_PACKAGE_RUNNERS = frozenset({"npx", "pnpx", "bunx", "npm", "pnpm", "yarn", "bun", "corepack"})
+_RUNNER_TARGETS = frozenset({"lefthook"})
+# Runner options whose next word is a command line run by a shell
+# (`npx -c '<cmd>'`, `npm exec --call '<cmd>'`, `pnpm exec --shell-mode '<cmd>'`).
+_RUNNER_SCRIPT_FLAGS = frozenset({"-c", "--call", "--shell-mode"})
+_RUNNER_TARGET_WORD_RE = re.compile(r"\b(?:" + "|".join(sorted(_RUNNER_TARGETS)) + r")\b")
+
+
+def _package_runner_target(argv: list[str]) -> list[str] | None:
+    """The guarded command a package runner launches, or None.
+
+    Fails closed: the first word naming a guarded package (``lefthook``,
+    ``lefthook@1.11``, ``@evilmartians/lefthook``) is taken as the command, so
+    the runner's own options and subcommand never need parsing. Only package
+    managers whose CLI can run a package's binary are looked through.
+
+    A command line the runner hands to a shell comes back as a shell ``-c``
+    call, so :func:`split_segments` splits it like any other: the value of
+    ``-c`` / ``--call`` / ``--shell-mode`` (``npx -c 'lefthook install'``),
+    and a shell the runner launches (``pnpm exec bash -c '…'``). A ``-c``
+    value that names no guarded package and holds no expansion is skipped
+    instead, since another runner reads ``-c`` as an option of its own
+    (``bun -c bunfig.toml x lefthook …``).
+    """
+    if not argv or argv[0] not in _PACKAGE_RUNNERS:
+        return None
+    index = 1
+    while index < len(argv):
+        token = argv[index]
+        flag, eq, value = token.partition("=")
+        if flag in _RUNNER_SCRIPT_FLAGS:
+            if not eq:
+                index += 1
+                value = argv[index] if index < len(argv) else ""
+            unquoted = _QUOTING_RE.sub("", value)
+            if _RUNNER_TARGET_WORD_RE.search(unquoted) or _EXPANSION_RE.search(value):
+                return ["sh", "-c", value]
+        elif not token.startswith("-"):
+            name = command_name(token)
+            if name in _SHELLS and _shell_script([name, *argv[index + 1 :]]) is not None:
+                return [name, *argv[index + 1 :]]
+            package = token.rsplit("/", 1)[-1].split("@", 1)[0]
+            if package in _RUNNER_TARGETS:
+                return [package, *argv[index + 1 :]]
+        index += 1
+    return None
+
+
 def guarded_head(argv: list[str]) -> str | None:
     """The guarded command family a segment runs, or None.
 
@@ -2607,13 +2676,8 @@ def guarded_head(argv: list[str]) -> str | None:
     """
     if not argv:
         return None
-    head = argv[0]
-    if head in GUARDED_HEADS:
-        return head
-    base = head.replace("\\", "/").rsplit("/", 1)[-1]
-    if base.lower().endswith(".exe"):
-        base = base[:-4]
-    return base if base in GUARDED_HEADS else None
+    name = command_name(argv[0])
+    return name if name in GUARDED_HEADS else None
 
 
 def command_kinds(seg: Segment) -> set[str]:
@@ -2637,10 +2701,14 @@ def command_kinds(seg: Segment) -> set[str]:
         sub = gh_subcommand(seg.argv)
         kinds.add(f"{head}:{sub[0] if sub else seg.argv[1]}")
     elif head == "lefthook":
-        # lefthook accepts global flags before the subcommand.
+        # lefthook accepts global flags before the subcommand, and one can take
+        # its value as a separate word (`--colors off install`), so the first
+        # bare word is not always the subcommand. Fail closed on `install`.
         lefthook_sub = next((tok for tok in seg.argv[1:] if not tok.startswith("-")), None)
         if lefthook_sub:
             kinds.add(f"lefthook:{lefthook_sub}")
+        if "install" in seg.argv[1:]:
+            kinds.add("lefthook:install")
     return kinds
 
 
