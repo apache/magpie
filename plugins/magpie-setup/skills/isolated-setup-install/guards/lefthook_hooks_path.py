@@ -32,12 +32,14 @@ FRAMEWORK_HOOKS_PATHS = ("~/.claude/git-hooks", "~/.claude-config/git-hooks")
 
 
 def _install_arguments(argv):
-    """The arguments after the ``install`` subcommand, or an empty list."""
-    for index, token in enumerate(argv[1:], start=1):
-        if token.startswith("-"):
-            continue
-        return argv[index + 1 :] if token == "install" else []
-    return []
+    """Every argument of a ``lefthook install``, or an empty list.
+
+    A global option can take its value as a separate word (`lefthook --colors
+    off install --force`), so the first bare word is not always the subcommand.
+    Fail closed: any ``install`` word makes this an install, and every argument
+    is checked for a destructive flag.
+    """
+    return argv[1:] if "install" in argv[1:] else []
 
 
 def _destructive_flag(argument):

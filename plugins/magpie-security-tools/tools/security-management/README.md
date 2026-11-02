@@ -255,7 +255,8 @@ Every command takes `--input F`, a JSON file.
 | `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects when `organization` is `ASF`, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
 | `security-cc` | `security_cc`, `cc_fallback`, `warning` and `warning_text`, `draft_blocked`, `cc`, `search_list`, through the project / organization / framework layers. |
 | `draft-backend` | `backend` (`maildir`, `oauth_curl`, `claude_ai_mcp`), `decided_by` (`user.md`, `project.md`, `default`); no credential with links in the body exits `2`. |
-| `ghsa-route` | `access_tier`, `action`, `channel`, and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
+| `ghsa-route` | `access_tier`, `action` (`direct-write`, `api-post`, `relay-draft`, `browser-paste`), `channel`, for a reporter reply through the comments API its `visibility` and `claims_reply_posted_on` (`201`), and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
+| `ghsa-discussion` | The advisory comments new or edited since `last_seen_at`, each with `role` (`reporter`, `team` — the tracker collaborator roster only — or `other`) and `body` for the team or `body_untrusted` otherwise; `new_from_reporter`, `awaiting_team_reply`, `next_seen_at`, `marker_changed`. |
 | `push-decision` | `action` (`skip`, `block`, `hand-off`, `push`, `pending` with the `next` command or gate), `gate_failed`, `handoff_variant`, `state_advance`, `recap_blocker`. |
 | `disclosure` | `issue_age_days`, `overdue_for_disclosure`, `approaching_window_end`, `grace_period_expired`, `distributor_notify_pending`, `expected_disclosure_by`. |
 | `staleness` | `stale` and `days`: the team's latest message older than the timeout with no reporter reply since. |
