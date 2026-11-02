@@ -220,7 +220,12 @@ publication, with a human gate and an audit-log entry at every step.
   through the advisory comments API when it answers, a browser paste when
   it does not), sorts the advisory discussion since the `ghsa-discussion`
   rollup marker by author role (team only from the tracker collaborator
-  roster), and walks the Step 5b push flow,
+  roster), computes the advisory field mirror (the minimal `PATCH`, never
+  `state` or collaborators, plus advisory values proposed for empty tracker
+  fields, never severity) and its backfill plans, and the two-way comment
+  sync (every advisory comment copied into the tracker; only comments the
+  team marks for the reporter proposed for the advisory), and walks the
+  Step 5b push flow,
   checking the title, upgrade-target and CWE gates itself and taking the
   four judged gates as the model's verdicts. The Step 1 observations
   that are arithmetic are code too: the disclosure-window flags, reporter

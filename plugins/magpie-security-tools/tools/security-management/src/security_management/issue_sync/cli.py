@@ -30,7 +30,17 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cli import emit, read_object, refuse
-from security_management.issue_sync import advisory, bulk, preflight, push, render, select, state
+from security_management.issue_sync import (
+    advisory,
+    bulk,
+    ghsa_fields,
+    ghsa_mirror,
+    preflight,
+    push,
+    render,
+    select,
+    state,
+)
 from security_management.shared import drafting, numbered, recipients
 
 FAMILY = "issue-sync"
@@ -48,6 +58,9 @@ COMMANDS = {
     "draft-backend": "Drafts: Gmail or Maildir, then the Gmail backend (JSON: user_backend, project_backend, oauth_credentials)",
     "ghsa-route": "GHSA trackers: the access tier and how a change is delivered",
     "ghsa-discussion": "GHSA trackers: the advisory comments new or edited since the last sync",
+    "ghsa-fields": "GHSA trackers: the PATCH that mirrors the tracker's fields onto its advisory",
+    "ghsa-backfill": "GHSA trackers: one ghsa-fields plan per advisory, for a backfill sweep",
+    "ghsa-mirror": "GHSA trackers: the two-way comment sync between the advisory and the tracker",
     "push-decision": "Step 5b: skip, block, hand-off or push, and the next command",
     "disclosure": "Step 1a: the issue's age and the disclosure-window flags",
     "staleness": "Step 1c: whether the reporter thread is stale (JSON: now, messages, timeout_days)",
@@ -97,6 +110,9 @@ def dispatch(args: argparse.Namespace) -> int:
         "draft-backend": _backend,
         "ghsa-route": advisory.route,
         "ghsa-discussion": advisory.discussion,
+        "ghsa-fields": ghsa_fields.fields,
+        "ghsa-backfill": ghsa_fields.backfill,
+        "ghsa-mirror": ghsa_mirror.mirror,
         "push-decision": push.decide,
         "disclosure": state.disclosure,
         "staleness": state.staleness,
