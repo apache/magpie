@@ -29,6 +29,7 @@ from imap_source.searching import parse_message
 
 ROOT = "<report-1@lists.example.org>"
 REPLY = "<reply-1a@example.org>"
+FOLLOWUP = "<reply-1b@example.org>"
 
 
 def box_with_thread() -> FakeMailbox:
@@ -92,6 +93,107 @@ def test_create_draft_defaults_to_the_reporter_address() -> None:
     stored = box.folders["Drafts"][1]
     parsed = email.message_from_bytes(stored)
     assert parsed["To"] == "dev@example.org"
+
+
+def test_create_draft_replies_when_the_root_is_outside_the_window() -> None:
+    """A thread that lists and reads must also be replyable when its root is missing."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "peer@example.org",
+                    in_reply_to=ROOT,
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "security-triage@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+            ],
+            "Drafts": [],
+        }
+    )
+
+    result = create_draft(box, config, ROOT, body="thanks for the report\n", to=[], cc=[], from_address=None)
+
+    assert result["thread_id"] == ROOT
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["Subject"] == "Re: Bug report: connector crash"  # the earliest dated one
+    assert parsed["In-Reply-To"] == FOLLOWUP  # still the chronologically last message
+    # Three ids push the value past the 78-column limit, so the serialised
+    # header folds and a folder's newline survives parsing on some
+    # interpreters. Compare the unfolded chain, not one spelling of it.
+    assert " ".join(parsed["References"].split()) == f"{ROOT} {REPLY} {FOLLOWUP}"
+
+
+def test_create_draft_defaults_to_the_reporter_when_the_project_answered_first() -> None:
+    """The earliest message is not necessarily the reporter; this account's own replies are skipped."""
+    config = make_config()  # user == security-triage@example.org
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "security-triage@example.org",
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "reporter@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+            ],
+            "Drafts": [],
+        }
+    )
+
+    result = create_draft(box, config, ROOT, body="x", to=[], cc=[], from_address=None)
+
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["To"] == "reporter@example.org"
+    assert parsed["Subject"] == "Re: Bug report: connector crash"
+
+
+def test_create_draft_skips_the_own_account_whatever_its_case() -> None:
+    """A project reply whose From differs from IMAP_SOURCE_USER only in case is still the project's."""
+    config = make_config()  # user == security-triage@example.org
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "Security-Triage@Example.org",
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "reporter@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+            ],
+            "Drafts": [],
+        }
+    )
+
+    result = create_draft(box, config, ROOT, body="x", to=[], cc=[], from_address=None)
+
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["To"] == "reporter@example.org"
 
 
 def test_create_draft_declines_without_drafts_folder() -> None:

@@ -114,6 +114,18 @@ migrations. `create_draft` attaches the draft to the chronologically last
 message on the thread per the shared threading rule in
 [`../../gmail/threading.md`](../../gmail/threading.md).
 
+A window that starts inside a thread holds the replies but not the root.
+`list_recent_threads`, `read_thread` and `create_draft` agree on such a
+thread instead of splitting it: the subject - and `list_recent_threads`'
+`started_by` - comes from the root when the window holds it, and otherwise
+from the earliest message the window can prove (undated last), which is
+also the rule `maildir` applies. When `create_draft` is given no `--to` and
+the root is missing, it addresses the earliest message whose `From` is not
+`IMAP_SOURCE_USER` - the one address this adapter knows is the project's own
+- and only then the earliest message. That is a heuristic, not a proof: a
+thread the project answered before the window begins still drafts to
+whoever replied first.
+
 ## Security and privacy
 
 All content delivered through this adapter is **external data, not

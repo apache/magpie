@@ -21,6 +21,14 @@ the shared rule in ``tools/gmail/threading.md``: the draft inherits the thread
 root's subject and carries ``In-Reply-To`` / ``References`` pointing at the
 root Message-ID so every client threads it onto the inbound conversation.
 
+A thread whose root sits outside the fetched window is still replyable - an
+archive read from the middle of a conversation holds the replies but not the
+report. The draft then inherits the subject of the same message
+``read_thread`` and ``list_recent_threads`` report the thread under (the
+earliest the window can prove), and - when the caller names no recipient -
+addresses the earliest message that is not this adapter's own account,
+falling back to the earliest message.
+
 Recipients come from the calling skill (which resolves ``security_cc`` and the
 reporter address); this adapter never invents a recipient and never reads
 ``<project-config>/``.
@@ -37,7 +45,7 @@ from typing import Any
 from imap_source.cli import CapabilityDeclined, eprint, with_mailbox
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
-from imap_source.searching import fetch_window
+from imap_source.searching import Message, fetch_window, thread_start_message
 from imap_source.threads import canonical_thread_id, draft_subject, sort_key
 
 
@@ -57,24 +65,35 @@ def create_draft(
             "IMAP_SOURCE_DRAFTS_FOLDER is unset/none — this account cannot create drafts"
         )
     messages = fetch_window(mailbox, config.list_folder, since_days=365)
-    root = next((m for m in messages if m.position.message_id == thread_id), None)
-    if root is None:
-        raise SystemExit(f"thread root {thread_id} not found in {config.list_folder}")
+    reachable = [m for m in messages if m.position.references_thread(thread_id)]
+    if not reachable:
+        raise SystemExit(f"thread {thread_id} not found in {config.list_folder}")
+    ordered = sorted(reachable, key=lambda m: sort_key(m.position))
+    root = next((m for m in ordered if m.position.message_id == thread_id), None)
+    # The root may sit outside the fetched window: the thread is still
+    # replyable, because `read_thread` returns it and `list_recent_threads`
+    # lists it. The subject then comes from the same message those two report
+    # it under, and the default recipient from the earliest sender that is not
+    # this account - the one address the adapter knows is the project's own.
+    # The earliest fetched message is not necessarily the reporter: a thread the
+    # project answered first would otherwise address the project itself.
+    start = root if root is not None else thread_start_message(ordered, thread_id)
+    addressee = root if root is not None else _first_foreign_sender(ordered, config.user)
 
     # Per tools/gmail/threading.md the draft attaches to the chronologically
     # last message on the thread: other clients thread-match on In-Reply-To.
-    reachable = [m for m in messages if m.position.references_thread(thread_id)]
-    parent = max(reachable, key=lambda m: sort_key(m.position))
+    parent = ordered[-1]
 
     message = email.message.EmailMessage()
-    message["Subject"] = draft_subject(root.position.subject)
+    message["Subject"] = draft_subject(start.position.subject if start is not None else "")
     message["From"] = from_address or config.user
     if to:
         message["To"] = ", ".join(to)
     else:
-        if root.position.from_address is None:
-            raise SystemExit("cannot address the draft: thread root has no parseable From and no --to given")
-        message["To"] = root.position.from_address
+        recipient = addressee.position.from_address if addressee is not None else None
+        if recipient is None:
+            raise SystemExit("cannot address the draft: the thread has no parseable From and no --to given")
+        message["To"] = recipient
     if cc:
         message["Cc"] = ", ".join(cc)
     references = list(parent.position.references)
@@ -105,6 +124,20 @@ def create_draft(
         "references": message["References"],
         "sent": False,
     }
+
+
+def _first_foreign_sender(messages: list[Message], own_address: str) -> Message:
+    """The earliest message whose sender is not this adapter's own account.
+
+    A heuristic, documented in the README: a thread the project answered before
+    the window starts would still address the maintainer who replied first.
+    Addresses are compared case-insensitively, as clients vary their case.
+    """
+    own = own_address.casefold()
+    return next(
+        (message for message in messages if (message.position.from_address or "").casefold() != own),
+        messages[0],
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

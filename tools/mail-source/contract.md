@@ -96,6 +96,15 @@ the message bytes — which, unlike an mbox line offset, survives a fresh
 snapshot of the same archive. That id must round-trip: whatever
 `list_recent_threads` returns, `read_thread` accepts.
 
+A window that starts inside a thread holds the replies but not the root.
+That is not a reason to refuse the thread, and not a reason for the
+operations to disagree about it: the subject - and `started_by`, and
+`create_draft`'s default recipient when the caller names none - comes from
+the root when the window holds it, and otherwise from the earliest message
+the window can prove (undated last), the message `maildir` uses for the same
+purpose. A default recipient is the earliest message whose sender is not the
+adapter's own account, falling back to the earliest message.
+
 ### Security draft CC resolution
 
 Before proposing a security-related draft, resolve its security CC once
