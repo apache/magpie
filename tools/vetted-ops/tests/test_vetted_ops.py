@@ -490,6 +490,29 @@ def test_body_file_content_may_contain_anything(policy: config.Config) -> None:
     assert sent == b"`id` $(whoami) && rm -rf / ; drop table\n"
 
 
+def test_advisory_comment_posts_to_the_upstream_advisory_from_stdin(policy: config.Config) -> None:
+    body = policy.workspace / "reply.md"
+    body.write_text("Thanks for the report.\n")
+    op = ops.resolve("advisory-comment")
+    assert op.writes
+    params, sent = cli._validate_params(op, ["GHSA-q8mz-5tdc-w2jh", str(body)], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert any(a.endswith("/security-advisories/GHSA-q8mz-5tdc-w2jh/comments") for a in argv)
+    assert argv[-2:] == ["-F", "body=@-"] and "POST" in argv
+    assert sent == b"Thanks for the report.\n"
+
+
+def test_advisory_comments_read_is_paginated_and_validates_the_id(policy: config.Config) -> None:
+    op = ops.resolve("advisory-comments")
+    assert not op.writes
+    params, _ = cli._validate_params(op, ["GHSA-q8mz-5tdc-w2jh"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list) and "--paginate" in argv
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["GHSA-../../x"], policy)
+
+
 def test_issue_edit_body_sends_the_body_on_stdin(policy: config.Config) -> None:
     """
     Editing a body replaces the whole issue text, so it takes the same

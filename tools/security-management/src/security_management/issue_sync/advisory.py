@@ -32,9 +32,21 @@ admin* signal: never retried.
   the originating `<security-list>` thread when there is one, in three
   parts, recorded with the `ghsa-admin-handoff` rollup marker; never a
   tracker comment @-mentioning anyone.
-- `reporter_reply`: the advisory discussion has no API, so a collaborator
-  opens the advisory and pastes the printed reply (nothing is claimed as
-  posted); without access it falls back to the email relay.
+- `reporter_reply`: a collaborator posts it through the advisory comments
+  API (`POST …/security-advisories/<GHSA>/comments`) after confirmation, when
+  this run's `GET …/comments` answered `200`; the comment is a regular one,
+  which the reporter and every advisory collaborator see. When the comments
+  API does not answer for the advisory (a private repository, which the
+  preview does not cover), the collaborator opens the advisory and pastes the
+  printed reply instead, and nothing is claimed as posted. Without access it
+  falls back to the email relay.
+
+`discussion` reads the advisory's discussion from the comments API: which
+comments are new or edited since the last sync (the `ghsa-discussion` rollup
+marker's timestamp), who wrote each (the reporter, the team, or someone
+else, where the team is the tracker collaborator roster), and the timestamp
+the next marker records. Bodies of comments not written by the team come back
+as `body_untrusted`.
 """
 
 from __future__ import annotations
@@ -44,6 +56,10 @@ from typing import Any
 
 KINDS = ("field_edit", "collaborators", "state", "reporter_reply")
 HANDOFF_PARTS = ["already-done", "admin-only-change-and-why", "ask"]
+VISIBILITY = (
+    "regular comment: the reporter and every advisory collaborator see it; "
+    "the API cannot post a confidential (write-access-only) comment"
+)
 
 
 def tier(data: Mapping[str, Any]) -> str:
@@ -84,13 +100,24 @@ def route(data: Mapping[str, Any]) -> dict[str, Any]:
     if kind == "reporter_reply":
         if level == "not-collaborator":
             return relay("not a collaborator on the advisory: fall back to the email relay, as a draft")
+        if int(data.get("comments_api_status") or 0) == 200:
+            return {
+                **out,
+                "action": "api-post",
+                "channel": "advisory-comments-api",
+                "open_url": data.get("html_url"),
+                "visibility": VISIBILITY,
+                "claims_reply_posted_on": 201,
+                "rationale": "the advisory comments API answered: post the confirmed reply through it",
+            }
         return {
             **out,
             "action": "browser-paste",
             "channel": "advisory-web-ui",
             "requires_confirmation": None,
             "open_url": data.get("html_url"),
-            "rationale": "the advisory discussion has no API: open the advisory and paste the printed reply",
+            "rationale": "the advisory comments API did not answer for this advisory: "
+            "open the advisory and paste the printed reply",
         }
     if kind == "field_edit":
         if level == "not-collaborator":
@@ -124,4 +151,57 @@ def route(data: Mapping[str, Any]) -> dict[str, Any]:
         "rationale": f"{kind} is admin-only"
         + (" and the PATCH returned 403 (not retried)" if got_403 else "")
         + ": hand it off as a draft to the advisory-admin team, never as a tracker comment",
+    }
+
+
+def _role(comment: Mapping[str, Any], reporter: str, team: set[str]) -> str:
+    """`team` only for a login on the tracker collaborator roster: an
+    `author_association` of `MEMBER` means any member of the org, not the team."""
+    login = str((comment.get("user") or {}).get("login") or "").lower()
+    if login and login == reporter:
+        return "reporter"
+    if login and login in team:
+        return "team"
+    return "other"
+
+
+def discussion(data: Mapping[str, Any]) -> dict[str, Any]:
+    """The advisory discussion since the last sync, from `GET …/comments`."""
+    comments = data.get("comments")
+    if not isinstance(comments, list):
+        return {"ok": False, "refused": "comments must be the list `GET …/comments` returned"}
+    seen = str(data.get("last_seen_at") or "")
+    reporter = str(data.get("reporter_login") or "").lower()
+    team = {str(login).lower() for login in data.get("team_logins") or []}
+    latest = seen
+    new: list[dict[str, Any]] = []
+    last_role = None
+    for comment in sorted(comments, key=lambda c: (str(c.get("created_at") or ""), int(c.get("id") or 0))):
+        created = str(comment.get("created_at") or "")
+        updated = str(comment.get("updated_at") or created)
+        latest = max(latest, updated)
+        role = _role(comment, reporter, team)
+        last_role = role
+        if seen and updated <= seen:
+            continue
+        entry: dict[str, Any] = {
+            "id": comment.get("id"),
+            "author": (comment.get("user") or {}).get("login"),
+            "role": role,
+            "created_at": created,
+            "updated_at": updated,
+            "edited": bool(seen) and created <= seen,
+            "html_url": comment.get("html_url"),
+        }
+        entry["body" if role == "team" else "body_untrusted"] = comment.get("body") or ""
+        new.append(entry)
+    from_reporter = [c for c in new if c["role"] == "reporter"]
+    return {
+        "ok": True,
+        "total": len(comments),
+        "new": new,
+        "new_from_reporter": len(from_reporter),
+        "awaiting_team_reply": last_role not in (None, "team"),
+        "next_seen_at": latest or None,
+        "marker_changed": bool(latest) and latest != seen,
     }

@@ -829,6 +829,20 @@ _register(
     )
 )
 
+_register(
+    Op(
+        name="advisory-comments",
+        params=("ghsa",),
+        summary="Read every comment on one upstream GitHub Security Advisory (no confidential ones).",
+        build=lambda cfg, ghsa: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/security-advisories/{ghsa}/comments",
+            "--paginate",
+        ],
+    )
+)
+
 # ---- writes ---------------------------------------------------------------
 
 _register(
@@ -947,6 +961,25 @@ _register(
             _tracker(cfg),
             "--body-file",
             body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="advisory-comment",
+        params=("ghsa", "body"),
+        writes=True,
+        summary="Post a regular comment, which the reporter sees, on an upstream GitHub Security Advisory.",
+        body_files=("body",),
+        build=lambda cfg, ghsa, body: [
+            "gh",
+            "api",
+            "--method",
+            "POST",
+            f"repos/{_upstream(cfg)}/security-advisories/{ghsa}/comments",
+            "-F",
+            f"body=@{body}",
         ],
     )
 )
