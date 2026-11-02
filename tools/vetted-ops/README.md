@@ -231,12 +231,12 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 #   local-files: same as jira, plus tracker-pending, tracker-publish
 #
 # security-issue-import-from-md:
-#   jira: tracker-doctor, issue-search, issue-create,
+#   jira: tracker-doctor, issue-search, issue-view, issue-create,
 #         issue-body, issue-attach
 #   local-files: same as jira, plus tracker-pending, tracker-publish
 #
 # security-issue-import-from-pr:
-#   jira: tracker-doctor, issue-search, issue-create,
+#   jira: tracker-doctor, issue-search, issue-view, issue-create,
 #         issue-set-milestone, issue-body, issue-attach
 #   local-files: same as jira, plus tracker-pending, tracker-publish
 #
