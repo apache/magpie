@@ -19,7 +19,7 @@
 
 // Self-contained ambient declaration required by strict plugin validation.
 // Companion TypeScript runtime definitions live in types.ts. Both type declarations
-// must be kept in sync, and review-findings.test.ts asserts contract parity.
+// must be kept in sync when modifying the state shape.
 
 declare module 'claude-code' {
   interface PluginState {

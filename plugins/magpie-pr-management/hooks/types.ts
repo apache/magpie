@@ -19,7 +19,7 @@
 
 // Companion ambient declaration lives in types.d.ts for Claude Code mod plugin
 // validation. Any property added to ReviewFindingsState or ReviewFinding must be
-// kept in sync across both files, and review-findings.test.ts asserts contract parity.
+// kept in sync across both files.
 
 export type FindingSeverity = 'blocking' | 'major' | 'minor' | 'nit';
 

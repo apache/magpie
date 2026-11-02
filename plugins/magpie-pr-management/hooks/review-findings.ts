@@ -33,22 +33,15 @@ export const reviewFindingsState = atom(
   null as ReviewFindingsState | null
 );
 
-let currentFindingsState: ReviewFindingsState | null = null;
-
 export async function setReviewFindingsState(
   $: any,
   state: ReviewFindingsState | null
 ): Promise<void> {
-  currentFindingsState = state;
-  try {
-    await update($, reviewFindingsState, () => state);
-  } catch {
-    // In test harness where atom state map is not bound to test runner $, module state serves as fallback
-  }
+  await update($, reviewFindingsState, () => state);
   try {
     $.ui.invalidate('ui.render');
   } catch {
-    // In environments where invalidate is not available, state update is sufficient
+    // UI invalidation optional in non-interactive / headless contexts
   }
 }
 
@@ -56,10 +49,9 @@ export async function getReviewFindingsState(
   $: any
 ): Promise<ReviewFindingsState | null> {
   try {
-    const val = await read($, reviewFindingsState);
-    return val ?? currentFindingsState;
+    return (await read($, reviewFindingsState)) ?? null;
   } catch {
-    return currentFindingsState;
+    return null;
   }
 }
 
@@ -131,6 +123,7 @@ export function sanitizeFindingText(input: string | unknown): string {
     .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '')
     .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
     .replace(/\x1b[@-Z\\-_]/g, '')
+    .replace(/[\r\n\t]+/g, ' ')
     .replace(/[\x00-\x1f\x7f-\x9f]/g, '');
 }
 
@@ -148,55 +141,6 @@ export function formatFindingDescription(
     full = cleanRule || cleanBody || '';
   }
   return truncateText(full, maxLength);
-}
-
-export function formatFindingsTerminalFallback(state: ReviewFindingsState): string {
-  const findings = state.findings || [];
-  if (findings.length === 0) {
-    return 'No review findings to display.';
-  }
-
-  const lines: string[] = [];
-  const prPrefix = state.prNumber ? `PR #${state.prNumber} ` : '';
-  lines.push(
-    `${prPrefix}Review findings (${state.summary.anchoredCount} inline, ${state.summary.unanchoredCount} general):`
-  );
-
-  const anchored = findings.filter(isAnchored);
-  if (anchored.length > 0) {
-    lines.push('');
-    lines.push('  Proposed inline comments:');
-    for (let i = 0; i < anchored.length; i += 1) {
-      const f = anchored[i];
-      const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
-      const badge = formatSeverityBadge(f.severity).label;
-      const cleanPath = sanitizeFindingText(f.file);
-      const pathStr = `${cleanPath}:${f.line}`;
-      const desc = formatFindingDescription(f.rule, f.body, 120);
-      lines.push(`    ${actionLabel} ${i + 1}. ${badge} ${pathStr} \u2014 ${desc}`);
-    }
-  }
-
-  const unanchored = findings.filter((f) => !isAnchored(f));
-  if (unanchored.length > 0) {
-    lines.push('');
-    lines.push('  General observations (unanchored):');
-    for (const f of unanchored) {
-      const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
-      const badge = formatSeverityBadge(f.severity).label;
-      const cleanPath = sanitizeFindingText(f.file);
-      const desc = formatFindingDescription(f.rule, f.body, 120);
-      lines.push(`    ${actionLabel} \u2022 ${badge} ${cleanPath} \u2014 ${desc}`);
-    }
-  }
-
-  lines.push('');
-  const s = state.summary;
-  lines.push(
-    `  Summary: ${s.blockingCount} blocking, ${s.majorCount} major, ${s.minorCount} minor, ${s.nitCount} nit (${s.total} total)`
-  );
-
-  return lines.join('\n');
 }
 
 export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): any {
@@ -748,9 +692,6 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
   } catch {
     state = null;
   }
-  if (!state) {
-    state = currentFindingsState;
-  }
 
   if (!state || !state.findings || state.findings.length === 0) {
     if (typeof next === 'function') {
@@ -793,7 +734,17 @@ export function register(on: any): void {
           selectedIndex: 0,
         });
       } catch {
-        // Safe no-op on parsing error
+        try {
+          await setReviewFindingsState($, null);
+        } catch {
+          // Safe no-op
+        }
+      }
+    } else {
+      try {
+        await setReviewFindingsState($, null);
+      } catch {
+        // Safe no-op
       }
     }
     if (typeof next === 'function') {

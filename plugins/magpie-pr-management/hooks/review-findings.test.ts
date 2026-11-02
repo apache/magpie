@@ -22,7 +22,6 @@ import {
   calculateSummary,
   formatActionIndicator,
   formatFindingDescription,
-  formatFindingsTerminalFallback,
   formatKeepAnswer,
   formatSeverityBadge,
   getReviewFindingsState,
@@ -56,6 +55,32 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
       message || `Expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`
     );
   }
+}
+
+function createMockEngine(overrides: any = {}): any {
+  const store = new Map<string, any>();
+  return {
+    state: {
+      get: (atom: any) => {
+        return { isSet: store.has(atom.key), value: store.has(atom.key) ? store.get(atom.key) : null };
+      },
+      set: (atom: any, wrapped: any) => {
+        const prev = store.has(atom.key) ? store.get(atom.key) : null;
+        const nextVal =
+          typeof wrapped === 'function'
+            ? wrapped(prev)
+            : wrapped && typeof wrapped === 'object' && 'value' in wrapped
+              ? wrapped.value
+              : wrapped;
+        store.set(atom.key, nextVal);
+        return { isSet: true, value: nextVal };
+      },
+    },
+    ui: {
+      invalidate: () => {},
+    },
+    ...overrides,
+  };
 }
 
 function assertDeepStrictEqual(actual: any, expected: any): void {
@@ -176,7 +201,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
         'Click here'
       );
       // C0 and C1 control characters (null, bell, backspace, newlines, DEL)
-      assertStrictEqual(sanitizeFindingText('Line1\r\nLine2\u0000\u0007\u007f'), 'Line1Line2');
+      assertStrictEqual(sanitizeFindingText('Line1\r\nLine2\u0000\u0007\u007f'), 'Line1 Line2');
       // Empty input
       assertStrictEqual(sanitizeFindingText(''), '');
       assertStrictEqual(sanitizeFindingText(null as any), '');
@@ -541,51 +566,6 @@ End of observations.
       );
     });
 
-    test('formatFindingsTerminalFallback formats clean representation for terminal output', () => {
-      const findings: ReviewFinding[] = [
-        {
-          id: '1',
-          file: 'providers/foo/hook.py',
-          line: 142,
-          severity: 'major',
-          body: 'Resource leak',
-          rule: 'leak',
-          action: 'accept',
-        },
-        {
-          id: '2',
-          file: 'providers/foo/general.py',
-          line: null,
-          severity: 'nit',
-          body: 'Unanchored note',
-          action: 'skip',
-        },
-      ];
-      const state: ReviewFindingsState = {
-        prNumber: 1234,
-        findings,
-        summary: calculateSummary(findings),
-        selectedIndex: 0,
-      };
-
-      const fallback = formatFindingsTerminalFallback(state);
-      assert(fallback.includes('PR #1234 Review findings (1 inline, 1 general):'));
-      assert(fallback.includes('Proposed inline comments:'));
-      assert(fallback.includes('[x] 1. [MAJOR] providers/foo/hook.py:142 \u2014 leak \u2014 Resource leak'));
-      assert(fallback.includes('General observations (unanchored):'));
-      assert(fallback.includes('[ ] \u2022 [NIT] providers/foo/general.py \u2014 Unanchored note'));
-      assert(fallback.includes('Summary: 0 blocking, 1 major, 0 minor, 1 nit (2 total)'));
-    });
-
-    test('formatFindingsTerminalFallback handles empty state gracefully', () => {
-      const state: ReviewFindingsState = {
-        findings: [],
-        summary: calculateSummary([]),
-        selectedIndex: 0,
-      };
-      assertStrictEqual(formatFindingsTerminalFallback(state), 'No review findings to display.');
-    });
-
     test('renderFindingsPane returns null when findings are empty or ui resolution fails', () => {
       const state: ReviewFindingsState = {
         findings: [],
@@ -757,13 +737,13 @@ End of observations.
 
       let invalidatedSurface: string | null = null;
       let nextCalled = false;
-      const fake$ = {
+      const test$ = createMockEngine({
         ui: {
           invalidate: (surface: string) => {
             invalidatedSurface = surface;
           },
         },
-      };
+      });
       const fakePayload = {
         prNumber: 555,
         prTitle: 'Sample PR',
@@ -784,14 +764,44 @@ End of observations.
         return payload;
       };
 
-      await registered[0].handler(fake$, fakePayload, fakeNext);
+      await registered[0].handler(test$, fakePayload, fakeNext);
       assert(nextCalled, 'Handler should chain to next(e)');
       assertStrictEqual(invalidatedSurface, 'ui.render', 'Expected session.start to invalidate ui.render');
 
-      const currentState = await getReviewFindingsState(fake$);
+      const currentState = await getReviewFindingsState(test$);
       assert(currentState !== null, 'State should be populated from fixture payload');
       assertStrictEqual(currentState?.prNumber, 555);
       assertStrictEqual(currentState?.findings.length, 1);
+    });
+
+    test('session.start clears state when event has no findings', async () => {
+      const registered: Array<{ event: string; handler: Function }> = [];
+      const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
+        if (typeof optsOrHandler === 'function') {
+          registered.push({ event, handler: optsOrHandler });
+        }
+      };
+      register(fakeOn);
+
+      const test$ = createMockEngine();
+      await setReviewFindingsState(test$, {
+        prNumber: 123,
+        findings: [],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      });
+
+      let nextCalled = false;
+      const fakeNext = (payload: any) => {
+        nextCalled = true;
+        return payload;
+      };
+
+      await registered[0].handler(test$, { surface: 'terminal' }, fakeNext);
+      assert(nextCalled, 'Handler should chain to next(e)');
+
+      const currentState = await getReviewFindingsState(test$);
+      assertStrictEqual(currentState, null, 'State should be cleared to null when event has no findings');
     });
 
     test('ui.render mounts Pane on terminal and desktop surfaces when findings exist', async ($: any, on: any) => {
@@ -852,7 +862,6 @@ End of observations.
       on('session.start', () => ({ cwd: '/work' }));
 
       await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' });
-      await setReviewFindingsState($, null);
 
       for (const surface of ['terminal', 'desktop'] as const) {
         const ui = await $.ui.mount({
@@ -871,73 +880,4 @@ End of observations.
     });
   });
 
-  describe('type contract synchronization', () => {
-    test('types.ts and types.d.ts declare matching field structures', () => {
-      const sampleState: ReviewFindingsState = {
-        prNumber: 10,
-        prTitle: 'Title',
-        findings: [
-          {
-            id: '1',
-            file: 'src/main.py',
-            line: 42,
-            severity: 'blocking',
-            body: 'Flaw',
-            rule: 'sec',
-            source: 'primary',
-            fixup: 'fix',
-            action: 'accept',
-            raw: {},
-          },
-        ],
-        summary: {
-          blockingCount: 1,
-          majorCount: 0,
-          minorCount: 0,
-          nitCount: 0,
-          total: 1,
-          anchoredCount: 1,
-          unanchoredCount: 0,
-        },
-        selectedIndex: 0,
-      };
-
-      const findingKeys = Object.keys(sampleState.findings[0]).sort();
-      const expectedFindingKeys = [
-        'action',
-        'body',
-        'file',
-        'fixup',
-        'id',
-        'line',
-        'raw',
-        'rule',
-        'severity',
-        'source',
-      ].sort();
-      assertDeepStrictEqual(findingKeys, expectedFindingKeys);
-
-      const summaryKeys = Object.keys(sampleState.summary).sort();
-      const expectedSummaryKeys = [
-        'anchoredCount',
-        'blockingCount',
-        'majorCount',
-        'minorCount',
-        'nitCount',
-        'total',
-        'unanchoredCount',
-      ].sort();
-      assertDeepStrictEqual(summaryKeys, expectedSummaryKeys);
-
-      const stateKeys = Object.keys(sampleState).sort();
-      const expectedStateKeys = [
-        'findings',
-        'prNumber',
-        'prTitle',
-        'selectedIndex',
-        'summary',
-      ].sort();
-      assertDeepStrictEqual(stateKeys, expectedStateKeys);
-    });
-  });
 });
