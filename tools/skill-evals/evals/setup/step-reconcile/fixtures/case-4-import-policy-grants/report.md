@@ -30,7 +30,7 @@ Tracker backend: `github`.
 The framework's vetted-ops README provides this example:
 
 [callers]
-"security-issue-import" = ["rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "rollup-append"]
 "security-issue-import-from-md" = ["rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
 

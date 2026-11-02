@@ -220,15 +220,35 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-import-from-md" = ["rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
 
-# Backend-specific additions for EACH of the three security-issue-import
-# callers above (keep all operations already listed for that caller):
-#   github:      no backend-specific additions
-#   jira:        tracker-doctor, issue-body, issue-attach
-#   local-files: tracker-doctor, issue-body, issue-attach,
-#                tracker-pending, tracker-publish
-# These are conditional additions, not permissions for every backend.
-# Derive setup/reconcile proposals from this single example, preserving
-# existing grants and never creating a second TOML key for a caller.
+# Non-GitHub tracker additions, per import caller.
+# Add these to the corresponding existing caller array; preserve base grants.
+#
+# security-issue-import:
+#   jira: tracker-doctor, issue-search, issue-list, issue-list-label,
+#         issue-view, issue-comments, issue-comment, issue-create,
+#         issue-body, issue-attach
+#   local-files: same as jira, plus tracker-pending, tracker-publish
+#
+# security-issue-import-from-md:
+#   jira: tracker-doctor, issue-search, issue-create,
+#         issue-body, issue-attach
+#   local-files: same as jira, plus tracker-pending, tracker-publish
+#
+# security-issue-import-from-pr:
+#   jira: tracker-doctor, issue-search, issue-create,
+#         issue-set-milestone, issue-body, issue-attach
+#   local-files: same as jira, plus tracker-pending, tracker-publish
+#
+# These are conditional additions, not universal grants.
+# issue-list-with-bodies works only with GitHub. The email importer must
+# stop on Jira/local-files when this deduplication step is unsupported;
+# never bypass the refusal or assume that unmatched reports are new.
+#
+# Other security callers (sync, fix, CVE allocation, deduplication,
+# triage and invalidation) also require their own backend grants.
+# Setup derives those from each workflow and the security-tracker contract,
+# preserving existing grants and requesting explicit confirmation.
+# Do not duplicate TOML keys or grant every operation to every caller.
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]

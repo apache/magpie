@@ -4,7 +4,7 @@
       "kind": "policy",
       "skill": "security-issue-import",
       "override_file": null,
-      "detail": "Missing caller security-issue-import in .apache-magpie-overrides/tools/vetted-ops/config.toml; propose rollup-append only."
+      "detail": "Missing caller security-issue-import in .apache-magpie-overrides/tools/vetted-ops/config.toml; propose issue-list-with-bodies and rollup-append."
     },
     {
       "kind": "policy",

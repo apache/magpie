@@ -325,7 +325,7 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 `platform`, and `root` or the `jira_*` target (the backend's code comes from the tool installed beside vetted-ops, never from the policy)
 ([vetted-ops → Tracker backends](../../../../tools/vetted-ops/README.md#tracker-backends)) —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
-For caller permissions, use the canonical [vetted-ops `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including only the operations applicable to the selected backend. Do not grant all tracker operations to every security caller.
+For **every configured security caller** (not only the three import callers), inspect the tracker operations its workflow actually uses through the [security-tracker command mapping](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations). Use the canonical [vetted-ops `[callers]` example](../../../../tools/vetted-ops/README.md#configuration) for its existing base grants, then propose the missing backend-specific operations for that caller only. Include applicable `tracker-doctor`, `issue-view`, `issue-comments`, `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, and, for local-files writes, `tracker-pending` and `tracker-publish`. This is an operation checklist, not a blanket permission grant. Show the exact per-caller diff and require confirmation; preserve existing operations and unrelated callers.
 
 ### Personal tool configs, for a project that has not adopted Magpie
 
@@ -344,7 +344,7 @@ and the sandbox profile denies the agent's writes to it (`Edit(//**/.git/**/apac
 So the user saves it themselves, from the draft; never route around that deny to write it.
 The CVE JSON config is ordinary configuration: write it on the user's yes.
 
-### Import caller grants — independent of tracker selection
+## Import caller grants — independent of tracker selection
 
 When any security issue-import workflow is configured, check its caller grants
 even when `tracker.platform` is already configured. Do not make this check

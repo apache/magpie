@@ -251,9 +251,16 @@ operator abandons mid-flow deliberately leaves nothing recorded, so the
 proposal correctly returns on the next run instead of being silently
 suppressed by a write that never happened.
 
-- **Confirmed and applied** — the skill's configuration now resolves
-  cleanly. Its entry in the stamp's `skills:` map is written (or
-  refreshed) with its **current** `surface_hash`.
+- **Confirmed and applied** — verify the resulting configuration
+  before writing the skill's clean stamp. For import caller policy
+  findings, re-read and parse the saved vetted-ops policy and confirm
+  that every required operation for the selected backend is present.
+  User confirmation of a draft alone is not proof of application.
+  If the policy is unchanged, missing a grant, or cannot be verified,
+  leave the finding unresolved and do not stamp that skill clean.
+  Only after all applicable checks pass may its entry in the stamp's
+  `skills:` map be written (or refreshed) with its **current**
+  `surface_hash`.
 - **Declined** — nothing about the project changes. Write
   `acknowledged.skills["<skill name>"]: <current surface_hash>` to the
   local file so the per-skill pre-flight does not re-propose the exact
