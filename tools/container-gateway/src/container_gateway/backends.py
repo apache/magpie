@@ -19,6 +19,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import socket
+import stat
 import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -71,17 +75,60 @@ def _podman_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[P
     return [Path(runtime_dir, "podman", "podman.sock")] if runtime_dir else []
 
 
+def _docker_context_socket(home: str) -> Path | None:
+    """The Unix socket of the docker CLI's current context, read from the CLI's own files.
+
+    Not by running `docker context inspect`: the hook pins PATH to the system
+    directories, where neither a Homebrew nor a Docker Desktop CLI lives, and
+    DOCKER_HOST in a session's environment names the gateway's own socket.
+    The context store keeps each context's metadata under the SHA-256 of its
+    name. The "default" context has no metadata: it is DOCKER_HOST.
+    """
+    config_dir = Path(home, ".docker")
+    try:
+        name = json.loads((config_dir / "config.json").read_text(encoding="utf-8")).get("currentContext")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(name, str) or not name or name == "default":
+        return None
+    meta = config_dir / "contexts" / "meta" / hashlib.sha256(name.encode()).hexdigest() / "meta.json"
+    try:
+        host = json.loads(meta.read_text(encoding="utf-8"))["Endpoints"]["docker"]["Host"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if isinstance(host, str) and host.startswith("unix://"):
+        return Path(host[len("unix://") :])
+    return None
+
+
 def _docker_socket(platform: str, env: Mapping[str, str], run: Runner) -> list[Path]:
     if platform == "Darwin":
         candidates = []
-        out = run(["docker", "context", "inspect", "--format", '{{(index .Endpoints "docker").Host}}'])
-        if out and out.startswith("unix://"):
-            candidates.append(Path(out[len("unix://") :]))
         home = env.get("HOME")
         if home:
+            context = _docker_context_socket(home)
+            if context is not None:
+                candidates.append(context)
             candidates.append(Path(home, ".docker", "run", "docker.sock"))
         return candidates
     return [Path("/var/run/docker.sock")]
+
+
+def socket_answers(path: Path, timeout: float = 1.0) -> bool:
+    """Whether something accepts connections on the Unix socket at `path`.
+
+    A daemon that stopped can leave its socket file behind: it exists, but
+    every connection is refused, and serving it would fail every request.
+    """
+    try:
+        if not stat.S_ISSOCK(path.stat().st_mode):
+            return False
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+            probe.settimeout(timeout)
+            probe.connect(str(path))
+    except OSError:
+        return False
+    return True
 
 
 def discover(

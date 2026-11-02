@@ -772,8 +772,10 @@ The user decides, for example to run the tool from their own terminal.
 
 ### Notes
 
-- The gateway's `docker`-backend discovery on macOS reads the current `docker context`.
+- The gateway's `docker`-backend discovery on macOS reads the current `docker context` from the CLI's own files (`~/.docker/config.json` and the context store), so it works with a `docker` CLI from Homebrew or Docker Desktop, neither of which is on the hook's fixed `PATH`.
   Colima's socket lives under `~/.colima/<profile>/docker.sock`, and a Colima context already set as active is picked up the same way as Docker Desktop's, with no Colima-specific configuration.
+  A socket file is used only when something answers on it: a Docker Desktop socket left behind after Desktop stopped is skipped rather than served.
+  If the gateway log names a backend you did not expect, check `docker context ls` from your own terminal and restart the gateway after switching.
 - The gateway's `podman`-backend discovery on Linux reads `$XDG_RUNTIME_DIR/podman/podman.sock` directly, which is rootless Podman's default socket location, again with no separate configuration.
 - Do **not** widen `allowRead` to `~/.docker/**`.
   The directory holds auth tokens and saved contexts, and the whole point of the framework's `Read(~/.docker/**)` denial is to keep those out of the agent's reach.

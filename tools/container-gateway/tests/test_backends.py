@@ -19,9 +19,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import socket
+import tempfile
 from pathlib import Path
 
-from container_gateway.backends import Backend, discover, egress_proxy_env, host_alias
+import pytest
+
+from container_gateway.backends import Backend, discover, egress_proxy_env, host_alias, socket_answers
 
 ALL = frozenset({"podman", "docker"})
 
@@ -67,18 +73,94 @@ def test_rootless_podman_on_linux() -> None:
     assert found == [Backend("podman", sock, "10.88.0.1")]
 
 
-def test_docker_desktop_context_then_fallback() -> None:
-    ctx_sock = Path("/Users/a/.docker/run/docker.sock")
+def _docker_context(home: Path, current: str | None, contexts: dict[str, str]) -> None:
+    """Lay out the docker CLI's config and context store the way the CLI writes them."""
+    config_dir = home / ".docker"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config = {} if current is None else {"currentContext": current}
+    (config_dir / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    for name, host in contexts.items():
+        meta = config_dir / "contexts" / "meta" / hashlib.sha256(name.encode()).hexdigest()
+        meta.mkdir(parents=True)
+        body = {"Name": name, "Metadata": {}, "Endpoints": {"docker": {"Host": host, "SkipTLSVerify": False}}}
+        (meta / "meta.json").write_text(json.dumps(body), encoding="utf-8")
 
-    def run(argv: list[str]) -> str | None:
-        if argv[:3] == ["docker", "context", "inspect"]:
-            return f"unix://{ctx_sock}"
-        return None
 
-    found = discover("Darwin", {"HOME": "/Users/a"}, run, lambda p: p == ctx_sock, ALL)
-    assert found == [Backend("docker", ctx_sock, "host.docker.internal")]
-    fallback = discover("Darwin", {"HOME": "/Users/a"}, lambda a: None, lambda p: p == ctx_sock, ALL)
-    assert fallback == [Backend("docker", ctx_sock, "host.docker.internal")]
+def _no_docker_cli(argv: list[str]) -> str | None:
+    assert argv[0] != "docker", "discovery must not depend on a docker CLI on PATH"
+    return None
+
+
+def test_docker_current_context_read_from_the_context_store(tmp_path: Path) -> None:
+    # Colima, or any non-default context: its socket is not Docker Desktop's.
+    colima = Path("/Users/a/.colima/default/docker.sock")
+    _docker_context(
+        tmp_path,
+        "colima",
+        {"colima": f"unix://{colima}", "desktop-linux": f"unix://{tmp_path}/.docker/run/docker.sock"},
+    )
+    found = discover("Darwin", {"HOME": str(tmp_path)}, _no_docker_cli, lambda p: p == colima, ALL)
+    assert found == [Backend("docker", colima, "host.docker.internal")]
+
+
+def test_docker_context_socket_that_does_not_answer_falls_back(tmp_path: Path) -> None:
+    desktop = tmp_path / ".docker" / "run" / "docker.sock"
+    _docker_context(tmp_path, "colima", {"colima": "unix:///Users/a/.colima/default/docker.sock"})
+    found = discover("Darwin", {"HOME": str(tmp_path)}, _no_docker_cli, lambda p: p == desktop, ALL)
+    assert found == [Backend("docker", desktop, "host.docker.internal")]
+
+
+@pytest.mark.parametrize(
+    "current, contexts",
+    [
+        ("default", {}),  # the default context is DOCKER_HOST, which names the gateway in a session
+        (None, {}),  # no currentContext key
+        ("gone", {}),  # current context without metadata
+        ("remote", {"remote": "tcp://10.0.0.1:2376"}),  # not a Unix socket
+    ],
+)
+def test_docker_without_a_usable_context_uses_the_desktop_socket(
+    tmp_path: Path, current: str | None, contexts: dict[str, str]
+) -> None:
+    desktop = tmp_path / ".docker" / "run" / "docker.sock"
+    _docker_context(tmp_path, current, contexts)
+    found = discover("Darwin", {"HOME": str(tmp_path)}, _no_docker_cli, lambda p: p == desktop, ALL)
+    assert found == [Backend("docker", desktop, "host.docker.internal")]
+
+
+def test_docker_config_that_is_not_json_uses_the_desktop_socket(tmp_path: Path) -> None:
+    desktop = tmp_path / ".docker" / "run" / "docker.sock"
+    (tmp_path / ".docker").mkdir()
+    (tmp_path / ".docker" / "config.json").write_text("{not json", encoding="utf-8")
+    found = discover("Darwin", {"HOME": str(tmp_path)}, _no_docker_cli, lambda p: p == desktop, ALL)
+    assert found == [Backend("docker", desktop, "host.docker.internal")]
+
+
+def test_socket_answers_rejects_what_is_not_a_socket(tmp_path: Path) -> None:
+    regular = tmp_path / "file.sock"
+    regular.write_text("", encoding="utf-8")
+    assert not socket_answers(regular)
+    assert not socket_answers(tmp_path / "missing.sock")
+
+
+def test_socket_answers_only_while_something_listens() -> None:
+    # A short directory: pytest's tmp_path overflows the AF_UNIX path limit on macOS.
+    with tempfile.TemporaryDirectory(prefix="cg") as d:
+        live = Path(d, "live.sock")
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+            try:
+                server.bind(str(live))
+            except PermissionError:
+                pytest.skip("sandbox denies unix bind; runs in CI")
+                # Unreachable: pytest.skip() raises. The bare re-raise tells a
+                # static analyser the except branch never falls through.
+                raise
+            server.listen(1)
+            assert socket_answers(live)
+
+        # The listener is gone but its socket file stays, as after a daemon stops.
+        assert live.exists()
+        assert not socket_answers(live)
 
 
 def test_dockerd_on_linux_and_wanted_filter() -> None:
