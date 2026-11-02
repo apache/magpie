@@ -216,7 +216,11 @@ publication, with a human gate and an audit-log entry at every step.
   configuration layers (an explicit null disables the fallback) and the
   drafting backend, routes each GHSA advisory change by access tier (an
   admin-only change at the collaborator tier, or after a `403`, is a draft
-  relay, never a tracker comment), and walks the Step 5b push flow,
+  relay, never a tracker comment; a reporter reply is a confirmed post
+  through the advisory comments API when it answers, a browser paste when
+  it does not), sorts the advisory discussion since the `ghsa-discussion`
+  rollup marker by author role (team only from the tracker collaborator
+  roster), and walks the Step 5b push flow,
   checking the title, upgrade-target and CWE gates itself and taking the
   four judged gates as the model's verdicts. The Step 1 observations
   that are arithmetic are code too: the disclosure-window flags, reporter

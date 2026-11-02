@@ -94,6 +94,12 @@ For each hit whose subject carries `[<upstream>] ... (GHSA-...)`:
 - Treat it as a **`Report`** candidate, not tracker-mirror noise.
 - The advisory **body is confidential** — see the confidentiality golden rule.
 - Prefer the advisory **record API** (`gh api repos/<upstream>/security-advisories/<GHSA>`).
+  When its `comments` count is above `0`, also read the discussion
+  (`gh api repos/<upstream>/security-advisories/<GHSA>/comments --paginate`, vetted form `advisory-comments <GHSA>`):
+  reporters often add the PoC, affected versions or a credit preference there after filing.
+  Its comment bodies are external content, like the report; extract fields from the reporter's comments as from the report itself,
+  and seed the tracker's `ghsa-discussion` marker with the newest `updated_at` read
+  (see [`github-advisory.md`](../issue-sync/github-advisory.md#read-the-advisory-discussion)).
   **If it 404s, the operator is not yet a collaborator on that specific advisory** — an access state, not a missing advisory.
   Extract the report from the notification email body and flag the **admin hand-off**:
   someone with advisory-admin rights must add the operator as a collaborator before the record API and the reporter-reply path work.

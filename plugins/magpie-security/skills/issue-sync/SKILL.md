@@ -24,9 +24,9 @@ when_to_use: |
   the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:23c1d23400108cf4
+surface_hash: sha256:a4ed68eeb11fe7f4
 license: Apache-2.0
-measured_tokens: 7443
+measured_tokens: 7459
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -326,8 +326,9 @@ The recipe for 1a–1h — search queries, PonyMail fallback, signal rules, proc
 **GHSA-sourced trackers** — when the report arrived through GitHub's *"Report a vulnerability"* flow (a `GHSA-…` advisory on `<upstream>`) and the operator is an advisory collaborator,
 the sync reconciles the advisory **record** through the *repository security advisories* REST API
 (link `cve_id`, mirror `severity`/`cwe_ids`/`vulnerabilities`/`credits`, record the advisory link as a clickable tracker field),
-replies through a direct-post path instead of the email relay, and hands admin-only operations (collaborator management, publish) to the admins.
-Access tiers, the Step 1 reconcile, the Step 4 writes and the reply path: [`github-advisory.md`](github-advisory.md).
+reads the reporter's messages from the advisory discussion and posts the confirmed reply through the advisory comments API instead of the email relay,
+and hands admin-only operations (collaborator management, publish) to the admins.
+Access tiers, the Step 1 reconcile and discussion read, the Step 4 writes and the reply path: [`github-advisory.md`](github-advisory.md).
 
 ## Step 2 — Build a proposal (do not apply anything yet)
 
