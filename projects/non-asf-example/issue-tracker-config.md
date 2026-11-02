@@ -9,6 +9,7 @@
   - [URL and project key](#url-and-project-key)
   - [Authentication](#authentication)
   - [Default query templates](#default-query-templates)
+  - [Batch sweeps](#batch-sweeps)
   - [Tracker-specific notes](#tracker-specific-notes)
   - [Cross-references](#cross-references)
 
@@ -56,6 +57,16 @@ is:open is:issue label:"needs triage" repo:velox-community/velox-stream
 # Reassess pool — issues with no maintainer response in 60 days
 is:open is:issue -label:"confirmed-bug" -label:"blocked" repo:velox-community/velox-stream
 ```
+
+## Batch sweeps
+
+How many items of one sweep may fail to be read or classified before the
+sweep stops ([batch failure budget](../../docs/batch-failure-budget.md)).
+A failed post, label or close always stops the run regardless.
+
+| Key | Value |
+|---|---|
+| `item_failure_budget` | `max(3, 10%)` |
 
 ## Tracker-specific notes
 
