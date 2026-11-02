@@ -5,12 +5,12 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (28 cases total)
+## Suites (29 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | `runtime-routing` | Runtime routing | 4 | Codex, Antigravity, Pi and Goose route to their native adapters and never require Claude files |
-| `interpret-probes` | Probe interpretation (`## The probes`) | 19 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST, scratch-on-shared-session-root, dev-tools-not-granted, git-hooks-unreadable, working-dirs glob entry not matched, working-dirs listing the vetted-ops checkout (✗) |
+| `interpret-probes` | Probe interpretation (`## The probes`) | 20 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST/source-unreadable, scratch-on-shared-session-root, dev-tools-not-granted, git-hooks-unreadable, working-dirs glob entry not matched, working-dirs listing the vetted-ops checkout (✗) |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
 ## Run
@@ -93,6 +93,10 @@ The fifteen cases span:
   `core.hooksPath` dir is hidden inside the sandbox, so sandboxed git
   skips every hook. Expected `git_hooks_status: "fail"`,
   `has_failures: true`.
+- **case-20-gateway-source-unreadable**: `docker-runtime` ✗ because the
+  operator install of the gateway is not readable inside the sandbox, so
+  `status` cannot confirm the socket is the gateway's; a socket exists.
+  Expected `docker_status: "fail"`, `has_failures: true`.
 
 ### after-report
 

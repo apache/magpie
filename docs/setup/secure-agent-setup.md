@@ -3129,10 +3129,17 @@ use its absolute path in place of `<project>/.apache-magpie-local` in the block 
         "<project>/.apache-magpie-local/run/podman.sock",
         "<project>/.apache-magpie-local/run/docker.sock"
       ]
+    },
+    "filesystem": {
+      "allowRead": ["~/.claude/scripts/container-gateway/"]
     }
   }
 }
 ```
+
+The `allowRead` entry lets the doctor's container probe (`setup-isolated-setup-doctor` Probe 3) ask the installed gateway for its `status` from inside the sandbox, in a project with no `.apache-magpie/` snapshot of its own.
+It grants reads only: the directory is in no `allowWrite`, and the hook refuses a gateway source a sandboxed command could write.
+Without it the probe reports the source as not readable, and cannot confirm the socket is the gateway's.
 
 **Do not use a project-relative `unix://./…` value**, even though it would be worktree-portable and this guide recommended it until recently.
 The CLIs do not resolve it against the cwd: a `unix://` URL's authority is parsed as a host component, so `unix://./.apache-magpie-local/run/podman.sock` dials `/.//.apache-magpie-local/run/podman.sock` and `unix://.apache-magpie-local/run/podman.sock` dials `/.apache-magpie-local//run/podman.sock`, neither of which exists (verified against podman 6.1.0).

@@ -792,6 +792,9 @@ The user decides, for example to run the tool from their own terminal.
   `DOCKER_HOST` points at the gateway's `docker.sock`, which relays to whichever backend it found, so `docker ps` and friends work through Podman's Docker-compatible API alone.
 - For CI / image-build workflows that run inside an adopter repo and need a wider gateway configuration than the reference default (e.g. `--extra-bind-root` on `container-gateway serve`, or any other project-specific sandbox allowance), prefer project scope (`.claude/settings.local.json` in the adopter) over user scope.
   That keeps the framework's user-scope reference minimal and makes the widening visible to whoever audits the adopter's repo — a rule that holds for any workflow-specific sandbox widening, not just this one.
+- If the doctor's container probe reports `gateway source at ~/.claude/scripts/container-gateway/src is not readable inside the sandbox`, the gateway may well be running: the probe cannot ask it for its `status`.
+  That happens in a project with no `.apache-magpie/` snapshot when its gateway wiring lacks the read grant; add `~/.claude/scripts/container-gateway/` to `sandbox.filesystem.allowRead` in `.claude/settings.local.json`, alongside the `allowUnixSockets` entries.
+  It is a read grant only; never add that directory to `allowWrite`, which would make the hook refuse the source.
 
 ---
 

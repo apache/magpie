@@ -23,6 +23,7 @@ variable rather than redirecting to a file under /tmp.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import stat
 import sys
@@ -168,6 +169,28 @@ class ProbeThreeContainerGateway(unittest.TestCase):
             out,
         )
         self.assertNotIn("refused", out)
+
+    def test_unreadable_operator_install_is_named(self) -> None:
+        # Inside the sandbox the operator install's directory is visible but
+        # its files are not, unless allowRead grants them: python3 then fails
+        # to import, which must not read as an old python3.
+        root = self.tmp / ".claude" / "scripts" / "container-gateway" / "src"
+        self.setup_stub_gateway(["docker"], root=root)
+        main = root / "container_gateway" / "__main__.py"
+        main.chmod(0)
+        self.addCleanup(main.chmod, 0o644)
+        if os.access(main, os.R_OK):
+            self.skipTest("running as a user that can read a mode-000 file")
+        self.fake_cmd("docker")
+        workdir = self.tmp / "project"
+        workdir.mkdir()
+        out = self.run_probe(
+            {"DOCKER_HOST": "unix:///var/run/docker.sock"},
+            cwd=workdir,
+        )
+        self.assertIn("PROBE: docker-runtime → ✗ (gateway status unavailable — gateway source at", out)
+        self.assertIn("is not readable inside the sandbox", out)
+        self.assertNotIn("older than the gateway needs", out)
 
     def test_status_refusal_is_reported(self) -> None:
         # `status` refusing the run directory must not fall back to the
