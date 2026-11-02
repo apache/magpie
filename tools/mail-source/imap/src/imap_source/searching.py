@@ -93,12 +93,6 @@ def thread_start_message(messages: Sequence[Message], thread_id: str) -> Message
     return ordered[0] if ordered else None
 
 
-def thread_subject_of(messages: Sequence[Message], thread_id: str) -> str:
-    """The subject a thread is listed under: the root's, else its earliest dated message's."""
-    start = thread_start_message(messages, thread_id)
-    return start.position.subject if start is not None else ""
-
-
 def _since_date(days: int) -> str:
     from datetime import datetime, timedelta
 

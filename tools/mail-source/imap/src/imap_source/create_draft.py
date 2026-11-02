@@ -131,9 +131,11 @@ def _first_foreign_sender(messages: list[Message], own_address: str) -> Message:
 
     A heuristic, documented in the README: a thread the project answered before
     the window starts would still address the maintainer who replied first.
+    Addresses are compared case-insensitively, as clients vary their case.
     """
+    own = own_address.casefold()
     return next(
-        (message for message in messages if message.position.from_address != own_address),
+        (message for message in messages if (message.position.from_address or "").casefold() != own),
         messages[0],
     )
 
