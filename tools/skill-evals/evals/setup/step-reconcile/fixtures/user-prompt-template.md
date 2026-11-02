@@ -5,4 +5,4 @@
 
 {report}
 
-Apply the sweep's two checks and return JSON only.
+Apply the reconciliation sweep checks, including applicable vetted-ops import caller grants, and return JSON only.
