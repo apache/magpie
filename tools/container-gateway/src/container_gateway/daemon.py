@@ -696,7 +696,7 @@ async def run(
 
     try:
         found = discover_fn(
-            platform, os.environ, _backends.default_runner, lambda x: x.exists(), frozenset(cfg.backends)
+            platform, os.environ, _backends.default_runner, _backends.socket_answers, frozenset(cfg.backends)
         )
         if not found:
             log.info("no podman or docker backend found; nothing to serve")

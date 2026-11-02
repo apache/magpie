@@ -284,7 +284,7 @@ Discovery, in order, all optional:
 |---|---|---|
 | Podman machine (macOS) | `podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}'` of the default machine, run by the gateway outside the sandbox | podman.sock (libpod + compat) and docker.sock (compat) when no docker backend exists |
 | Rootless podman (Linux) | `$XDG_RUNTIME_DIR/podman/podman.sock`; when absent and `podman` is installed, `podman system service --time=0` is started as a child | same as above |
-| Docker Desktop (macOS) | `docker context inspect --format '{{(index .Endpoints "docker").Host}}'`, else `~/.docker/run/docker.sock` | docker.sock (compat) |
+| Docker Desktop, Colima or another docker context (macOS) | the current context's Unix endpoint, read from `~/.docker/config.json` and the context store (`~/.docker/contexts/meta/<sha256 of the name>/meta.json`) rather than by running `docker`, which is not on the hook's PATH; else `~/.docker/run/docker.sock` | docker.sock (compat) |
 | dockerd (Linux) | `/var/run/docker.sock` | docker.sock (compat) |
 
 The podman CLI needs the libpod API and therefore only ever talks to a
@@ -294,9 +294,10 @@ gateway logs one line and exits 0; nothing else in the setup depends on
 it running.
 
 The gateway never reads the Podman machine's ssh identity, never uses
-the `ssh://` connection, and never reads `~/.docker/config.json` or
-`~/.config/containers/auth.json`: registry credentials stay outside the
-sandbox and pulls are anonymous.
+the `ssh://` connection, and never reads `~/.config/containers/auth.json`.
+From `~/.docker/config.json` it takes the `currentContext` name and
+nothing else, never `auths`, `credsStore` or `credHelpers`: registry
+credentials stay outside the sandbox and pulls are anonymous.
 
 ### Request policy
 
