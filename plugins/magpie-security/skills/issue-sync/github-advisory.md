@@ -95,14 +95,14 @@ Write `{advisory, tracker, resolution}` to a file and run `<sm> ghsa-fields --in
 `advisory` is the record from the list call;
 `tracker` holds the body fields `cve_id`, `severity`, `cwe`, `affected_versions`, `pr_with_fix`, `public_advisory_url`,
 the `package` (`{ecosystem, name}`, GitHub's ecosystem names, from the scope label's package),
-`pr_author_login` and `pr_approver_logins` (from `gh pr view <N> --repo <upstream> --json author,reviews`, the `APPROVED` reviews),
+`pr_author_logins` and `pr_approver_logins` (from `gh pr view <N> --repo <upstream> --json author,reviews` for **every** PR in *PR with the fix*, the `APPROVED` reviews),
 and `cve_title` once the CVE title is normalised.
 It returns:
 
 - **`patch`** — the smallest `PATCH` body that brings the advisory in line, with `changes` (each field's from, to and why) and `skipped` (each field it left alone, and why).
   It covers `cve_id`, `severity` (the team's score, never the reporter's), `cwe_ids`,
-  `vulnerabilities` (`vulnerable_version_range` and `patched_versions` from *Affected versions*, on the tracker package's entry; other entries kept),
-  `credits` (existing ones kept, plus the fix PR's author as `remediation_developer` and its approvers as `remediation_reviewer`; bots left out),
+  `vulnerabilities` (`vulnerable_version_range` and `patched_versions` from *Affected versions*, on the tracker package's entry; other entries kept; a single entry naming another package — often the repository slug — takes the tracker's),
+  `credits` (existing ones kept, plus every fix PR's author as `remediation_developer` and their approvers as `remediation_reviewer`; bots left out),
   and `summary` (the CVE title).
   It never writes `state` or the collaborator lists.
 - **`conflicts`** — a different CVE already on the advisory: never overwritten, surfaced for the team.

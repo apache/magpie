@@ -305,3 +305,38 @@ def test_other_advisory_credits_are_observed_not_proposed(capsys, tmp_path):
     )
     out = plan(capsys, tmp_path, adv=adv)
     assert any("`pal` as `finder`" in o for o in out["observed"])
+
+
+def test_a_single_entry_naming_the_repository_takes_the_trackers_package(capsys, tmp_path):
+    adv = advisory(
+        vulnerabilities=[
+            {
+                "package": {"ecosystem": "", "name": "apache/airflow"},
+                "patched_versions": "none",
+                "vulnerable_version_range": "no fixed release exists as of 2026-10-03",
+            }
+        ]
+    )
+    out = plan(capsys, tmp_path, adv=adv)
+    [vuln] = out["patch"]["vulnerabilities"]
+    assert vuln["package"] == {"ecosystem": "pip", "name": "apache-airflow"}
+    assert {
+        "field": "package",
+        "advisory": {"ecosystem": "", "name": "apache/airflow"},
+        "tracker": TRACKER["package"],
+    } in out["drift"]
+
+
+def test_every_fix_pr_author_is_credited_once(capsys, tmp_path):
+    tracker = {
+        **TRACKER,
+        "pr_author_login": "",
+        "pr_author_logins": ["fixer", "second", "fixer"],
+        "pr_approver_logins": ["second", "reviewer", "reviewer"],
+    }
+    out = plan(capsys, tmp_path, tracker=tracker)
+    assert out["patch"]["credits"][1:] == [
+        {"login": "fixer", "type": "remediation_developer"},
+        {"login": "second", "type": "remediation_developer"},
+        {"login": "reviewer", "type": "remediation_reviewer"},
+    ]

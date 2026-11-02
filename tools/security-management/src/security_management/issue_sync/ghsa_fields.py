@@ -29,10 +29,12 @@ every skip:
 - `cwe_ids` — the `CWE-<n>` ids in the tracker's CWE field.
 - `vulnerabilities` — `vulnerable_version_range` and `patched_versions`
   from *Affected versions* (`>= X, < Y`, `< Y`, `<= Y`), on the entry for the
-  tracker's package; other entries and `vulnerable_functions` are kept.
-- `credits` — the advisory's credits kept as they are, plus the fix PR's
-  author as `remediation_developer` and its approvers as
-  `remediation_reviewer`; the API replaces the list, so the whole list is sent.
+  tracker's package; other entries and `vulnerable_functions` are kept. A
+  single entry naming another package (often the repository slug) takes the
+  tracker's package, shown as `drift`.
+- `credits` — the advisory's credits kept as they are, plus the authors of
+  every fix PR (`pr_author_logins`) as `remediation_developer` and their
+  approvers as `remediation_reviewer`; the API replaces the list, so the whole list is sent.
   Bot or AI accounts are left out, per the bot/AI credit policy.
 - `summary` — the normalised CVE title, only when one is given.
 - `description` — opt-in: a *Resolution* block appended below the reporter's
@@ -263,9 +265,15 @@ def fields(data: Mapping[str, Any]) -> dict[str, Any]:
         else:
             entry = entries[index]
             package = dict(entry.get("package") or {})
-            if want_name and not package.get("name"):
-                package["name"] = want_name
-            if want_eco and package.get("ecosystem") in (None, "", "other") and want_eco != "other":
+            if want_name and package.get("name") != want_name:
+                # One entry that names something else (a reporter often types the
+                # repository slug): the tracker's package replaces it, ecosystem
+                # included, and the old one is shown as drift. A name and a foreign
+                # ecosystem never get combined into a package that does not exist.
+                if package.get("name"):
+                    drift.append({"field": "package", "advisory": dict(package), "tracker": dict(pkg)})
+                package = {"ecosystem": want_eco or package.get("ecosystem") or "other", "name": want_name}
+            elif want_eco and package.get("ecosystem") in (None, "", "other") and want_eco != "other":
                 package["ecosystem"] = want_eco
             package_name = package.get("name")
             updated = {
@@ -298,12 +306,15 @@ def fields(data: Mapping[str, Any]) -> dict[str, Any]:
     have = {(c["login"].lower(), c["type"]) for c in credits}
     added: list[dict[str, str]] = []
     bots: list[str] = []
-    author = _text(tracker.get("pr_author_login"))
-    wanted = [(author, "remediation_developer")] if author else []
+    authors = [_text(tracker.get("pr_author_login"))] + [
+        _text(a) for a in tracker.get("pr_author_logins") or []
+    ]
+    authors = list(dict.fromkeys(a for a in authors if a))
+    wanted = [(a, "remediation_developer") for a in authors]
     wanted += [
         (login, "remediation_reviewer")
-        for login in tracker.get("pr_approver_logins") or []
-        if login and login != author
+        for login in dict.fromkeys(tracker.get("pr_approver_logins") or [])
+        if login and login not in authors
     ]
     for login, kind in wanted:
         if login.endswith("[bot]") or reuse.is_bot_credit(login):
