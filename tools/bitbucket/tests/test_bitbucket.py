@@ -36,6 +36,7 @@ from magpie_bitbucket.client import (
     NoAuthRedirectHandler,
     SameHostRedirectHandler,
     _require_https,
+    get_json_with_header,
     load_config,
     make_auth_header,
 )
@@ -256,6 +257,37 @@ def test_make_auth_header_rejects_unknown_scheme(cloud_env: None, monkeypatch: p
 def test_make_auth_header_bearer(datacenter_env: None) -> None:
     config = load_config()
     assert make_auth_header(config) == "Bearer token-123"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_get_json_with_header_returns_json_and_requested_header(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    body = {"values": [], "isLastPage": True}
+
+    response = make_mock_response(
+        body,
+        headers={"X-AUSERNAME": "alice"},
+    )
+    context = MagicMock(
+        __enter__=MagicMock(return_value=response),
+        __exit__=MagicMock(return_value=None),
+    )
+    mock_build_opener.return_value.open.return_value = context
+
+    parsed, username = get_json_with_header(
+        "https://bitbucket.example.test/rest/api/1.0/users",
+        load_config(),
+        "X-AUSERNAME",
+    )
+
+    assert parsed == body
+    assert username == "alice"
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+    assert request.full_url == "https://bitbucket.example.test/rest/api/1.0/users"
+    assert request.get_method() == "GET"
 
 
 @patch("urllib.request.build_opener")
@@ -3244,6 +3276,67 @@ def test_datacenter_current_user_slug_requires_slug(
         match="authenticated user did not include a user slug",
     ):
         datacenter._current_user_slug(load_config())
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        datacenter.approve_pull_request,
+        datacenter.unapprove_pull_request,
+        datacenter.request_pull_request_changes,
+        datacenter.remove_pull_request_changes_request,
+    ],
+)
+@patch("magpie_bitbucket.datacenter.write_request")
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_participant_status_lookup_failure_does_not_write(
+    mock_build_opener: MagicMock,
+    mock_write_request: MagicMock,
+    operation: Any,
+    datacenter_env: None,
+) -> None:
+    username_response = make_mock_response(
+        {"values": [], "isLastPage": True},
+        headers={"X-AUSERNAME": "alice"},
+    )
+    search_response = make_mock_response(
+        {
+            "size": 0,
+            "limit": 25,
+            "isLastPage": True,
+            "values": [],
+            "start": 0,
+        }
+    )
+
+    opener = MagicMock()
+    opener.open.side_effect = [
+        MagicMock(
+            __enter__=MagicMock(return_value=username_response),
+            __exit__=MagicMock(return_value=None),
+        ),
+        MagicMock(
+            __enter__=MagicMock(return_value=search_response),
+            __exit__=MagicMock(return_value=None),
+        ),
+    ]
+    mock_build_opener.return_value = opener
+
+    with pytest.raises(
+        BitbucketError,
+        match="could not resolve authenticated user",
+    ):
+        operation(load_config(), "9")
+
+    mock_write_request.assert_not_called()
+
+    requests = [call.args[0] for call in opener.open.call_args_list]
+
+    assert [request.full_url for request in requests] == [
+        "https://bitbucket.example.test/rest/api/1.0/users",
+        "https://bitbucket.example.test/rest/api/1.0/users?filter=alice",
+    ]
+    assert [request.get_method() for request in requests] == ["GET", "GET"]
 
 
 def test_normalize_pull_request_approval_approved() -> None:
