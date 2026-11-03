@@ -97,9 +97,10 @@ not widen the internet egress surface — that is now the gateway's job.
 
 ## The allowlist
 
-Defaults mirror the sandbox's curated `sandbox.network.allowedDomains`
-(ASF infra, GitHub, Google APIs, PyPI), suffix-matched so every
-`*.apache.org` project site is covered. Extend without editing code:
+Defaults cover general-purpose services such as GitHub, Google APIs,
+PyPI and vulnerability registries. ASF hosts are deliberately denied
+by default, including `issues.apache.org` and `*.apache.org`.
+Extend without editing code:
 
 ```bash
 EGRESS_ALLOW_EXTRA="bedrock.example.com,.internal.corp" \
@@ -108,6 +109,12 @@ EGRESS_ALLOW_EXTRA="bedrock.example.com,.internal.corp" \
 
 Entries starting with `.` are treated as suffixes; everything else is an
 exact host. Loopback (`localhost`, `127.0.0.1`, `::1`) is always allowed.
+
+**Security scope:** `EGRESS_ALLOW_EXTRA` applies to the entire gateway
+process, not just one project. Do not use a shared gateway with ASF
+overrides as evidence of project-specific network isolation. The
+project-local ASF sandbox fragment does not change this gateway's
+allowlist automatically.
 
 ## Test
 

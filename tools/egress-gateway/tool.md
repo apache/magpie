@@ -38,11 +38,11 @@ that enforces a **default-deny host allowlist** in the
 `before_upstream_connection` hook: a CONNECT / request to any host not on the
 allowlist is rejected with `403` before an upstream socket is opened.
 
-The default allowlist mirrors the curated host set the secure sandbox already
-trusts (`sandbox.network.allowedDomains`): ASF infra (`*.apache.org`), GitHub,
-Google APIs, PyPI — suffix-matched. Loopback is always allowed. Adopters
-extend it via the `EGRESS_ALLOW_EXTRA` environment variable without editing
-code.
+The default allowlist covers general-purpose services such as GitHub,
+Google APIs and PyPI, but **not** ASF-specific hosts such as
+`issues.apache.org` or `*.apache.org`. Loopback is always allowed.
+Adopters can extend it via `EGRESS_ALLOW_EXTRA`, but that override
+applies to the entire gateway process, not a single project.
 
 ## Why this is its own tool
 
@@ -80,7 +80,7 @@ that claim:
   sandbox's network layer and permission rules, not this tool.
 - **The allowlist includes general-purpose write hosts.** The default set
   admits `github.com`, `api.github.com`, `*.githubusercontent.com` and
-  `*.googleapis.com` (plus `*.apache.org` and the package hosts). Data can be
+  `*.googleapis.com` (plus package hosts). Data can be
   written to those hosts (a gist, an issue, a file in a cloud document), so
   the gateway limits *which services* receive egress, not *what* is sent to
   them or *on whose account*.
@@ -97,9 +97,11 @@ redactor and the gate. See RFC-AI-0003 §4.4.
 3. Allow loopback in `sandbox.network.allowedDomains` so sandboxed tools can
    reach it (loopback-only; does not widen the internet egress surface).
 
-The gateway's allowlist should be kept in sync with the adopter's
-`sandbox.network.allowedDomains` — they encode the same egress policy at two
-layers.
+The gateway and sandbox enforce separate allowlists. Project-local ASF
+sandbox permissions do not automatically extend the shared gateway.
+Requests to ASF hosts remain blocked by the default gateway even for
+ASF projects. Do not use a process-wide `EGRESS_ALLOW_EXTRA` override
+on a shared gateway as a project-isolation mechanism.
 
 ## What this tool is NOT for
 

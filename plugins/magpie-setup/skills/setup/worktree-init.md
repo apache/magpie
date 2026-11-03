@@ -291,11 +291,18 @@ install, nothing seeded per worktree`.
 `.claude/settings.json` holds only the shared floor; without the local file
 `gh` loses its sandbox exclusion and every read-only allow prompts. Run
 [`setup upgrade` → Reconcile the local agent settings](upgrade.md#reconcile-the-local-agent-settings)
-for this worktree: the template and registry entries only. Do not copy the
-main checkout's `.claude/settings.local.json`: it holds that checkout's own
-absolute paths (Step 1c writes this worktree's), and copying them would let
-this worktree's sandbox write to the main checkout. As there, stage the
-result and hand the user the copy command.
+for this worktree, including the
+[ASF network fragment selection](upgrade.md#asf-network-fragment-selection).
+Resolve `project.md` with the existing personal-first precedence and
+main-checkout fallback, but select and propose the fragment for **this
+worktree's** `.claude/settings.local.json` only when ASF is explicitly
+declared. A non-ASF worktree must not receive those grants.
+
+Do not copy the main checkout's `.claude/settings.local.json`: it holds
+that checkout's own absolute paths (Step 1c writes this worktree's), and
+copying them would let this worktree's sandbox write to the main checkout.
+Preserve existing worktree-local settings, stage the proposal and hand
+the user the copy command. Do not silently apply network permissions.
 
 ## Step 2 — Recap
 

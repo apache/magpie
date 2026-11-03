@@ -1,0 +1,8 @@
+{
+  "asf_overlay": "propose",
+  "target_scope": "project-local",
+  "review_historical_grants": true,
+  "approval_required": true,
+  "stop_reconciliation": false,
+  "preserve_unrelated_settings": true
+}

@@ -47,12 +47,6 @@
         "uploads.github.com",
         "pypi.org",
         "files.pythonhosted.org",
-        "lists.apache.org",
-        "dist.apache.org",
-        "repository.apache.org",
-        "downloads.apache.org",
-        "archive.apache.org",
-        "cveprocess.apache.org",
         "cve.org",
         "www.cve.org",
         "cveawg.mitre.org",
@@ -130,8 +124,7 @@
       "mcp__apache-projects__list_committees",
       "mcp__apache-projects__search_projects",
       "WebFetch(domain:cveawg.mitre.org)",
-      "WebFetch(domain:pypi.org)",
-      "WebFetch(domain:lists.apache.org)"
+      "WebFetch(domain:pypi.org)"
     ],
     "deny": [
       "Read(~/.aws/**)",

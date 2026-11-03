@@ -142,6 +142,8 @@ marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
 here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
 the companion page is where they find one.
 
+Before reconciling, [refresh the pre-flight checker](#refresh-the-pre-flight-checker) from the newly updated, trusted `magpie-setup` plugin. Follow its marketplace source and cache installation rules, including the user-run terminal step when the plugin cache is inaccessible inside the sandbox. Verify that `setup_preflight.organization_network` and its bundled ASF fragment are present in the refreshed checker. If refresh fails, stop the ASF reconciliation rather than falling back to a stale checker.
+
 Then [reconcile the local agent settings](#reconcile-the-local-agent-settings).
 
 Then split on whether the project has adopted Magpie:
@@ -516,7 +518,8 @@ and lives in the gitignored `.claude/settings.local.json`, which Claude
 Code layers on top. An upgrade can move what belongs there, so bring it
 up to date:
 
-1. **Build the proposed local entries** from two sources:
+1. **Build the proposed local entries** from applicable sources:
+   First apply the [ASF network fragment selection](#asf-network-fragment-selection) below. Add its validated entries to the proposal only for ASF projects; otherwise use the neutral sources listed here.
    - in the framework checkout, the template
      `tools/agent-isolation/claude-settings.local.template.json` (the
      `gh` read allows, the remaining sandbox exclusions, network domains
@@ -525,11 +528,14 @@ up to date:
      [`family-mcp-allows.json`](family-mcp-allows.json) for each family
      installed on this machine **but not** in the lock's `plugins`
      (an adopted family's tools are already committed).
+
 2. **Compare with `.claude/settings.local.json`.** Drop any proposed
    entry the committed `.claude/settings.json` already contains (in the
    framework checkout that is every family's MCP tools), then add every
-   remaining one the local file lacks. Once the user confirms the copy,
-   record the template and registry entries you applied under
+   remaining one the local file lacks. Before finalising the proposal,
+   perform the [historical ASF grant migration](#historical-asf-grant-migration)
+   for existing entries as well as new ones. Once the user confirms the copy,
+   record the template, selected ASF fragment and registry entries under
    `local_settings`, keyed by this worktree's root
    (`git rev-parse --show-toplevel`), in the personal layer's
    `reconciled.json`; an entry recorded there that
@@ -546,6 +552,74 @@ up to date:
    user to run, and confirm the file afterwards.
 
 Skip it, and say nothing, when there is nothing to add or remove.
+
+### ASF network fragment selection
+
+During local settings reconciliation, select the ASF network fragment
+in addition to the existing template and MCP entries only when the
+project explicitly declares ASF.
+
+Use `setup_preflight.organization_network` from the current trusted
+setup skill or refreshed preflight checker. The reviewed ASF fragment is
+bundled alongside that module; the framework source also retains a copy
+under `tools/agent-isolation/`.
+
+Resolve the target project's `project.md` using Magpie's existing
+personal-first configuration precedence. Never infer ASF membership
+from the repository name or Git remote.
+
+Run the read-only selector using the trusted installed checker:
+
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root /absolute/path/to/target`
+
+The default fragment is bundled beside `organization_network.py` inside the trusted installed `setup_preflight` package. Use the installed preflight checker's parent directory as `PYTHONPATH` (or the trusted setup skill's parent directory when invoking it directly). On a pinned snapshot, refresh the checker before running the selector. Do not resolve the fragment from the adopter's working tree.
+
+An empty JSON object means no ASF additions. A nonzero exit means
+the proposed settings must not be applied.
+
+Merge the selected ASF entries into the proposed project-local
+`.claude/settings.local.json`, not user-scope or committed settings.
+Keep the existing reconciliation rules: preserve user-owned entries,
+record applied entries in `reconciled.json`, request approval before
+removing previously recorded entries, and stage the result for the
+user to install.
+
+Never put ASF grants into the shared egress gateway's default
+allowlist. Explicit gateway environment overrides are process-wide,
+not project-scoped.
+
+### Historical ASF grant migration
+
+When upgrading from a version that supplied ASF network permissions
+unconditionally, inspect the existing effective Claude Code settings
+before proposing an update. Removing an entry from a template does not
+remove an older copy already installed on the machine.
+
+Check the committed `.claude/settings.json`, the current worktree's
+`.claude/settings.local.json`, and applicable user-scope settings for
+the six ASF hosts in the reviewed network fragment and
+`WebFetch(domain:lists.apache.org)`. Perform this inspection for both
+ASF and non-ASF projects.
+
+For **non-ASF projects**, propose removal of historical ASF grants.
+For **ASF projects**, retain or propose only the reviewed project-local
+fragment; flag copies in shared or user-scope settings for migration
+to project-local scope. A committed grant requires a separate,
+explicitly approved repository change, not just a local-file update.
+
+Use existing `reconciled.json` provenance to identify entries previously
+applied by Magpie. For grants without provenance, distinguish a likely
+historical template entry from a deliberate project/user exception,
+and request the operator's decision. Never silently delete an
+untracked permission or assume it is safe merely because it matches
+a former default.
+
+Show the affected files, exact proposed additions/removals, and the
+resulting effective permissions before requesting approval. Preserve
+unrelated settings. For settings Claude prevents the agent from writing,
+stage the changes and provide the user-run copy command as usual.
+If approval is withheld, keep the entry unchanged, explicitly report
+the remaining network exposure, and do not claim that migration finished.
 
 ## Step 6 — Refresh framework-skill symlinks
 

@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 5312
+measured_tokens: 5393
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -326,6 +326,13 @@ its template (`tools/agent-isolation/claude-settings.local.template.json`).
 Never stage that template into another project: it would widen that
 project's sandbox beyond what its maintainers configured. An agent
 cannot write that file, so stage it and give the user the copy command.
+
+**ASF network fragment selection:** Follow
+[`setup upgrade` → ASF network fragment selection](../setup/upgrade.md#asf-network-fragment-selection)
+when building the proposed local settings. Select the reviewed ASF
+fragment only for an explicitly declared ASF project. Preserve the
+existing staged-copy and user-approval process. Never install ASF
+network grants in user-scope settings or the shared gateway baseline.
 
 ### Steps K, L, M and B — optional extras
 

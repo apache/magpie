@@ -584,13 +584,16 @@ The full block below is the two merged, annotated.
         // for a project that has not adopted Magpie)
         // never the daemon socket itself: that is host access, see sandbox-troubleshooting.md
       ],
-      "allowedDomains": [          // every host the framework legitimately reaches
+      "allowedDomains": [
+        // ASF-only domains are not generic defaults. The reviewed
+        // claude-settings.asf.fragment.json is selected through
+        // setup_preflight.organization_network for explicit ASF projects.
+        // General-purpose hosts the framework legitimately reaches
         "github.com", "api.github.com", "api.bitbucket.org",
         "raw.githubusercontent.com",
         "objects.githubusercontent.com", "codeload.github.com", "uploads.github.com",
         "pypi.org", "files.pythonhosted.org",
-        "lists.apache.org", "dist.apache.org", "repository.apache.org", "downloads.apache.org", "archive.apache.org",
-        "cveprocess.apache.org", "cve.org", "www.cve.org", "cveawg.mitre.org", "api.osv.dev",
+        "cve.org", "www.cve.org", "cveawg.mitre.org", "api.osv.dev",
         // `*.crates.io` + `static.rust-lang.org` let the `lychee` rust
         // hook bootstrap a rustup toolchain and `cargo install` lychee
         // on first run: prek downloads `rustup-init` from
@@ -710,8 +713,8 @@ The full block below is the two merged, annotated.
       "mcp__apache-projects__get_repositories", "mcp__apache-projects__list_committees",
       "mcp__apache-projects__search_projects",
       // Read-only fetches of public registries the skills consult: cve.org
-      // publication state, PyPI release detection, the public ASF list archive.
-      "WebFetch(domain:cveawg.mitre.org)", "WebFetch(domain:pypi.org)", "WebFetch(domain:lists.apache.org)"
+      // publication state and PyPI release detection.
+      "WebFetch(domain:cveawg.mitre.org)", "WebFetch(domain:pypi.org)"
     ],
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
@@ -3544,6 +3547,32 @@ sub-section that follows.
    - The `permissions.ask` list — add any project-specific
      write-side commands you want to confirm explicitly (e.g. a
      custom release-publishing CLI).
+   **ASF-only network access:** For a tracker that explicitly declares
+   `organization: ASF` in its resolved `project.md`, first establish a
+   trusted `setup_preflight` package. A fresh manual installation must
+   not assume the checker has already been installed. Either follow
+   [setup `config` Step 2a](../../plugins/magpie-setup/skills/setup/config.md)
+   to install the pre-flight checker from the trusted framework, or run
+   the selector directly from the trusted framework checkout using
+   `PYTHONPATH=<framework-root>/plugins/magpie-setup/skills/setup`
+   (the directory containing `setup_preflight/`).
+
+   Use `setup_preflight.organization_network` from that trusted source
+   before finalising network permissions. Never import a package from
+   the adopter's own working tree. Run
+   `python3 -P -m setup_preflight.organization_network --project-root
+   <absolute-tracker-path>` with `PYTHONPATH` set to the trusted
+   preflight checker installation directory (not the tracker's files).
+   A `{}` result means no additional permissions; a nonzero exit means
+   stop rather than guessing.
+
+   Merge only the returned `sandbox.network.allowedDomains` and
+   `permissions.allow` entries into the tracker's **gitignored**
+   `.claude/settings.local.json`, keeping the committed floor neutral.
+   Show the proposed diff and obtain explicit approval before
+   installing it. Preserve existing local settings. Do not copy the
+   fragment into user-scope settings or widen the shared egress gateway.
+
 3. Make `claude-iso` available on your shell — either per-repo
    (sourcing the script from the framework snapshot) or globally
    (copying the script to `~/.claude/agent-isolation/` and

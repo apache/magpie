@@ -1,0 +1,19 @@
+{
+  "sandbox": {
+    "network": {
+      "allowedDomains": [
+        "lists.apache.org",
+        "dist.apache.org",
+        "repository.apache.org",
+        "downloads.apache.org",
+        "archive.apache.org",
+        "cveprocess.apache.org"
+      ]
+    }
+  },
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:lists.apache.org)"
+    ]
+  }
+}
