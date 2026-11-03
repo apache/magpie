@@ -2195,12 +2195,15 @@ footer cannot stall.
 
 The script walks the same precedence Claude Code itself uses for
 `sandbox.enabled` — project `settings.local.json` first, then
-project `settings.json`, then `~/.claude/settings.local.json`,
-then `~/.claude/settings.json` — and stops at the first file
-that sets the key (to `true` *or* `false`). The `/sandbox`
-slash-command toggle persists to project `settings.local.json`,
-so flipping it mid-session is reflected in the prefix on the
-next render.
+project `settings.json`, then `~/.claude/settings.json` — and
+stops at the first file that sets the key (to `true` *or*
+`false`). The `/sandbox` slash-command toggle persists to project
+`settings.local.json`, so flipping it mid-session is reflected in
+the prefix on the next render.
+`~/.claude/settings.local.json` is not read: Claude Code does not
+load a `settings.local.json` from the home directory, so an
+`enabled` there sandboxes nothing, and the footer must not claim
+otherwise.
 
 **Linked worktrees.** Claude Code scopes the project of a linked
 git worktree to the **main checkout**: that is where `/sandbox`
@@ -2223,7 +2226,6 @@ root ahead of user scope:
 <cwd>/.claude/settings.json
 <worktree-root>/.claude/settings.local.json
 <worktree-root>/.claude/settings.json
-~/.claude/settings.local.json
 ~/.claude/settings.json
 ```
 

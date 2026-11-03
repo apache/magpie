@@ -170,6 +170,27 @@ class TestSandboxTag:
         repo = _init_repo(tmp_path / "repo")
         assert _run(repo, home, tmp_path).startswith("[sandbox] ")
 
+    # Claude Code never loads ~/.claude/settings.local.json, so an
+    # `enabled` there must not decide the tag.
+
+    def test_home_settings_local_is_not_read(self, tmp_path: Path) -> None:
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "settings.json").write_text(json.dumps({"sandbox": {}}))
+        _settings(home, {"enabled": True, "autoAllowBashIfSandboxed": True})
+        repo = _init_repo(tmp_path / "repo")
+        assert _run(repo, home, tmp_path).startswith("[NO SANDBOX] ")
+
+    def test_home_settings_local_does_not_shadow_settings_json(self, tmp_path: Path) -> None:
+        home = tmp_path / "home"
+        (home / ".claude").mkdir(parents=True)
+        (home / ".claude" / "settings.json").write_text(
+            json.dumps({"sandbox": {"enabled": False}})
+        )
+        _settings(home, {"enabled": True})
+        repo = _init_repo(tmp_path / "repo")
+        assert _run(repo, home, tmp_path).startswith("[NO SANDBOX] ")
+
     def test_non_git_directory_still_renders(self, tmp_path: Path, home: Path) -> None:
         plain = tmp_path / "plain"
         plain.mkdir()

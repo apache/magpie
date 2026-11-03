@@ -71,8 +71,12 @@
 #   4. <cwd>/.claude/settings.json
 #   5. <worktree-root>/.claude/settings.local.json
 #   6. <worktree-root>/.claude/settings.json
-#   7. ~/.claude/settings.local.json
-#   8. ~/.claude/settings.json
+#   7. ~/.claude/settings.json
+# `~/.claude/settings.local.json` is deliberately not in the walk:
+# Claude Code loads a `settings.local.json` only from a project's
+# `.claude/`, never from the home directory, so an `enabled: true`
+# there sandboxes nothing. Reading it painted `[sandbox]` /
+# `[sandbox-auto]` over sessions that had no sandbox at all.
 # First file with `.sandbox.enabled` set (true *or* false) wins. The
 # `/sandbox` slash-command toggle persists to project-scope
 # `settings.local.json`, so reading that file is what makes the prefix
@@ -322,7 +326,8 @@ fi
 # ---------------------------------------------------------------------------
 # 5. Sandbox state — green [sandbox] / yellow [sandbox-auto] / bold-red
 #    [NO SANDBOX] suffix. Walks settings.local.json + settings.json in
-#    project then user scope. First file with `.sandbox.enabled` set
+#    project scope, then `~/.claude/settings.json` (user scope has no
+#    loaded `settings.local.json`). First file with `.sandbox.enabled` set
 #    (true *or* false) wins — `/sandbox` writes to project
 #    `settings.local.json`, so that is the file that flips when the user
 #    toggles in-session. In a linked worktree that project scope is the
@@ -347,7 +352,6 @@ for f in \
     "${cwd:+$cwd/.claude/settings.json}" \
     "${wt_root:+$wt_root/.claude/settings.local.json}" \
     "${wt_root:+$wt_root/.claude/settings.json}" \
-    "$HOME/.claude/settings.local.json" \
     "$HOME/.claude/settings.json"; do
     [ -n "$f" ] && [ -f "$f" ] || continue
     v=$(python3 -c 'import json,sys
