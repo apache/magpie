@@ -244,6 +244,28 @@ def test_an_inline_comment_carries_the_finding_text_not_just_its_rule() -> None:
     )
 
 
+def test_a_finding_with_both_keeps_its_explanation_and_its_suggestion() -> None:
+    finding = {
+        "file": "hook.py",
+        "line": 12,
+        "severity": "major",
+        "rule_id": "style",
+        "explanation": "This breaks imports.",
+        "suggestion": "Read the title from a file.",
+    }
+    thread = body.inline_comments([finding], [1], diff.parse(DIFF))["threads"][0]
+    assert "This breaks imports. Read the title from a file." in thread["body"]
+
+    folded = {**finding, "line": 11, "severity": "nit"}
+    text = body.compose(
+        summary="S",
+        findings=[folded],
+        inline_kept=[],
+        footer_text=body.footer("request-changes", "Foo", URL),
+    )
+    assert "- `hook.py:11` — This breaks imports. Read the title from a file." in text
+
+
 def test_a_folded_finding_keeps_its_suggestion() -> None:
     finding = {
         "file": "hook.py",

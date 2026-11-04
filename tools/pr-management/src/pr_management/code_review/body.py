@@ -180,8 +180,9 @@ def _title(finding: dict[str, Any]) -> str:
 
 
 def _text(finding: dict[str, Any]) -> str:
-    """What the finding asks for: the explanation, else the suggestion, else its rule."""
-    return str(finding.get("explanation") or finding.get("suggestion") or _title(finding)).strip()
+    """What the finding asks for: its explanation and its suggestion, else its rule."""
+    parts = [str(finding.get(key) or "").strip() for key in ("explanation", "suggestion")]
+    return " ".join(part for part in parts if part) or _title(finding)
 
 
 def _block(finding: dict[str, Any], prefix: str) -> str:
