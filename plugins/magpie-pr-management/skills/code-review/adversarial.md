@@ -82,25 +82,33 @@ plugins or scan installed extensions.
 The agent runs the reviewers itself, at Step 5 of
 [`review-flow.md`](review-flow.md), after its own findings are drafted.
 
-1. **Once per session, an empty temporary directory** — created as its own
-   command — becomes `--repo-dir`. This skill reads PRs through `gh` and
-   has no checkout of the PR's head, and the reviewers can read every file
-   in `--repo-dir`: the maintainer's own checkout would show them the wrong
-   code and any private file sitting in it (and the tool refuses a tracker
-   checkout outright). With an empty directory the reviewers see the PR's
-   diff, title and body, and nothing else.
+1. **Per PR, an export of the PR's head** in a new temporary directory becomes `--repo-dir`.
+   The reviewers can read every file in `--repo-dir`.
+   The maintainer's own checkout would show them the wrong code and any private file sitting in it, and the tool refuses a tracker checkout outright.
+   An empty directory leaves them only the diff, title and body, and they reply without findings.
+   Fetch the head, then export it, each as its own command:
+
+   ```bash
+   git fetch https://github.com/<upstream>.git pull/<N>/head:refs/review/pr-<N>
+   git archive refs/review/pr-<N> -- . ':(exclude).apache-magpie-overrides/tools/vetted-ops' | tar -x -C <export-dir>
+   ```
+
+   Keep the exclusion: the secure setup denies writes to the vetted-ops policy path wherever it appears, so a full export fails partway through.
+   Do not relax that rule to complete the export.
+   The reviewers therefore never see the policy, and `export-ignore` paths are missing too.
+   When a PR changes the policy, review that file yourself.
 2. **Per PR, one line**, unquoted with a literal `~` — the form the sandbox
    exclusion matches:
 
    ```bash
-   uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
+   uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <export-dir>
    ```
 
    The plugin points `~/.claude/magpie/adversarial-review` at its installed version
    at the start of every session. Omit
    `--reviewers` when the list came from `adversarial-review.md`.
 
-- **What leaves the machine.** The PR's diff, title and body go to each
+- **What leaves the machine.** The PR's diff, title, body and exported tree go to each
   reviewer's model provider. For a public repository that is already
   published. When `<upstream>` is **private**
   (`gh repo view <upstream> --json visibility`), ask before the first run
