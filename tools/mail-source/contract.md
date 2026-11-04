@@ -102,8 +102,9 @@ operations to disagree about it: the subject - and `started_by`, and
 `create_draft`'s default recipient when the caller names none - comes from
 the root when the window holds it, and otherwise from the earliest message
 the window can prove (undated last), the message `maildir` uses for the same
-purpose. A default recipient is the earliest message whose sender is not the
-adapter's own account, falling back to the earliest message.
+purpose. When the root is missing, a backend that defaults the recipient
+addresses the earliest message whose sender is not its own account, falling
+back to the earliest message.
 
 ### Security draft CC resolution
 

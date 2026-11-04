@@ -77,7 +77,7 @@ def create_draft(
     # this account - the one address the adapter knows is the project's own.
     # The earliest fetched message is not necessarily the reporter: a thread the
     # project answered first would otherwise address the project itself.
-    start = root if root is not None else thread_start_message(ordered, thread_id)
+    start = thread_start_message(ordered, thread_id)
     addressee = root if root is not None else _first_foreign_sender(ordered, config.user)
 
     # Per tools/gmail/threading.md the draft attaches to the chronologically
@@ -90,7 +90,7 @@ def create_draft(
     if to:
         message["To"] = ", ".join(to)
     else:
-        recipient = addressee.position.from_address if addressee is not None else None
+        recipient = addressee.position.from_address
         if recipient is None:
             raise SystemExit("cannot address the draft: the thread has no parseable From and no --to given")
         message["To"] = recipient
@@ -127,15 +127,21 @@ def create_draft(
 
 
 def _first_foreign_sender(messages: list[Message], own_address: str) -> Message:
-    """The earliest message whose sender is not this adapter's own account.
+    """The earliest message with a sender that is not this adapter's own account.
 
     A heuristic, documented in the README: a thread the project answered before
     the window starts would still address the maintainer who replied first.
-    Addresses are compared case-insensitively, as clients vary their case.
+    Addresses are compared case-insensitively, as clients vary their case. A
+    message with no parseable ``From`` is skipped, so it never wins over a
+    later message that can be addressed.
     """
     own = own_address.casefold()
     return next(
-        (message for message in messages if (message.position.from_address or "").casefold() != own),
+        (
+            message
+            for message in messages
+            if message.position.from_address is not None and message.position.from_address.casefold() != own
+        ),
         messages[0],
     )
 

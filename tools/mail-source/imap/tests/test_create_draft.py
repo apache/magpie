@@ -196,6 +196,37 @@ def test_create_draft_skips_the_own_account_whatever_its_case() -> None:
     assert parsed["To"] == "reporter@example.org"
 
 
+def test_create_draft_skips_a_message_without_a_parseable_from() -> None:
+    """A sender-less earliest message must not stop the draft reaching a later, addressable sender."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "",
+                    references=ROOT,
+                    date="Tue, 22 Sep 2026 09:00:00 +0000",
+                ),
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "reporter@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+            ],
+            "Drafts": [],
+        }
+    )
+
+    result = create_draft(box, config, ROOT, body="x", to=[], cc=[], from_address=None)
+
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["To"] == "reporter@example.org"
+
+
 def test_create_draft_declines_without_drafts_folder() -> None:
     config = make_config(drafts_folder=None)
     box = box_with_thread()
