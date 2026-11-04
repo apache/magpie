@@ -8,7 +8,7 @@ Checks that every plugin is properly defined:
 
 - every ecosystem manifest that declares the framework version
   (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
-  `.codex-plugin/plugin.json`, `apm.yml`) mirrors
+  `.codex-plugin/plugin.json`) mirrors
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
   hook (which must exist) -- it rides on the one plugin the recommended floor
@@ -253,9 +253,7 @@ ECOSYSTEM_MANIFESTS = (
     ROOT_MANIFEST,
     AP1_MANIFEST,
     ROOT_CODEX_MANIFEST,
-    Path("apm.yml"),
 )
-APM_VERSION_RE = re.compile(r"^(version:[ \t]*)(\S+)[ \t]*$", re.M)
 # Substituted rather than re-serialised: these manifests are hand-authored, and a
 # json.dumps() round-trip would reformat them (escaping em-dashes, expanding
 # inline objects) far beyond the one string being bumped.
@@ -855,13 +853,7 @@ def pyproject_version() -> tuple[str | None, list[str]]:
 
 
 def manifest_version(path: Path) -> tuple[str | None, str | None]:
-    """Read the version out of a manifest in whichever format it uses."""
-    if path.suffix in (".yml", ".yaml"):
-        try:
-            m = APM_VERSION_RE.search(path.read_text(encoding="utf-8"))
-        except OSError as exc:
-            return None, f"{path}: cannot read ({exc})"
-        return (m.group(2) if m else None), None
+    """Read the version out of a manifest."""
     data, err = load_json(path)
     if err:
         return None, err
@@ -870,13 +862,8 @@ def manifest_version(path: Path) -> tuple[str | None, str | None]:
 
 def write_manifest_version(path: Path, version: str) -> list[str]:
     """Rewrite a manifest's version in place, touching nothing else."""
-    pattern = APM_VERSION_RE if path.suffix in (".yml", ".yaml") else JSON_VERSION_RE
     text = path.read_text(encoding="utf-8")
-    new, n = pattern.subn(
-        (rf"\g<1>{version}" if pattern is APM_VERSION_RE else rf"\g<1>{version}\g<2>"),
-        text,
-        count=1,
-    )
+    new, n = JSON_VERSION_RE.subn(rf"\g<1>{version}\g<2>", text, count=1)
     if n != 1:
         return [f"{path}: no 'version' declaration to rewrite"]
     path.write_text(new, encoding="utf-8")

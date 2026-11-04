@@ -76,7 +76,7 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 | `git_upstream_remote` | `upstream` |
 | `release_planning_issue_template` | *(none — uses the `release-prepare` default template)* |
 | `release_branch_base` | `main` |
-| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `plugin.json` (Agent Plugins 1.0), `.codex-plugin/plugin.json`, `apm.yml`, the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests, and the generated Codex manifests `plugins/magpie-setup/.codex-plugin/plugin.json` and `plugins/magpie-utilities/.codex-plugin/plugin.json` |
+| `version_manifest_files` | `pyproject.toml`, `uv.lock`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `plugin.json` (Agent Plugins 1.0), `.codex-plugin/plugin.json`, the ten generated `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests, and the generated Codex manifests `plugins/magpie-setup/.codex-plugin/plugin.json` and `plugins/magpie-utilities/.codex-plugin/plugin.json` |
 
 `pyproject.toml`'s `project.version` is the **single authority** for the
 framework version; every other file above mirrors it verbatim, including a
@@ -112,9 +112,9 @@ because it locks this workspace's own package, and it is refreshed by
 
 The version flows outward in two hops, neither of them hand-edited:
 
-1. `pyproject.toml` → the five ecosystem manifests
+1. `pyproject.toml` → the three ecosystem manifests
    (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
-   `.codex-plugin/plugin.json`, `apm.yml`);
+   `.codex-plugin/plugin.json`);
 2. `.claude-plugin/plugin.json` → the ten generated
    `plugins/magpie-<family>/.claude-plugin/plugin.json` manifests, the two
    generated `plugins/magpie-{setup,utilities}/.codex-plugin/plugin.json`

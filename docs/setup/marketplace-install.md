@@ -205,13 +205,26 @@ Cursor's plugin/skill install flow (Customize → Plugins/Skills) pointing at
 From your project root:
 
 ```bash
-apm install apache/magpie
+apm install apache/magpie --target copilot
 ```
 
-`apm` deploys the skills into each supported agent's directory and writes an
-`apm.lock.yaml`; commit it to pin the resolved commit. There is no auto-update
-here by design — the lockfile is the point. Move deliberately by re-running
-`apm install` and committing the changed lockfile.
+`apm` installs Magpie for GitHub Copilot only; every other target refuses the package, so use that agent's own section.
+It registers the plugin with Copilot and writes an `apm.lock.yaml`; commit it to pin the resolved commit.
+There is no auto-update here by design — the lockfile is the point.
+Move deliberately by re-running `apm install` and committing the changed lockfile.
+
+To have Dependabot propose updates, pin a release in your own `apm.yml` (`apache/magpie#<tag>`) and enable its beta `apm` ecosystem.
+Pin a release newer than 0.1.0, which predates the root `plugin.json`.
+
+```yaml
+version: 2
+enable-beta-ecosystems: true
+updates:
+  - package-ecosystem: "apm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+```
 
 ## Kiro CLI
 
