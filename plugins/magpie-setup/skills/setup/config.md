@@ -356,6 +356,15 @@ applicable required operations from the canonical
 Select the configured tracker backend and each distinct import caller.
 Do not maintain another fixed caller-to-operation list here.
 
+For GitHub security imports using `issue-create-labeled`, also check
+the policy's `[values] labels` allowlist against the exact labels
+required by each configured importer: intake labels (`needs triage`,
+`security issue`) and, for PR imports, the configured scope and
+PR-state labels. Propose only missing entries, using the project's
+actual configured label names. Obtain explicit user approval before
+the user applies the policy change. Missing labels must fail closed;
+never bypass the vetted operation or relax its validation.
+
 Show each missing caller or operation as a proposed policy diff. Preserve
 existing permissions and unrelated callers; do not duplicate TOML keys.
 Never add unrelated permissions. If the policy is missing, do not create it

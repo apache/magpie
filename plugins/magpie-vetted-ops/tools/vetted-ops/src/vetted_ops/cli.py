@@ -118,6 +118,8 @@ def _validate_params(
             resolved[name] = ops_mod.login(raw)
         elif name == "team":
             resolved[name] = ops_mod.team(raw)
+        elif name == "labels":
+            resolved[name] = raw  # Validated against policy by the operation builder.
         elif name == "title":
             resolved[name] = ops_mod.title(raw)
         elif name == "query":

@@ -18,9 +18,9 @@ when_to_use: |
   `security-issue-import`.
 argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
-surface_hash: sha256:c746e4aecc3cf315
+surface_hash: sha256:26be912ca52168e5
 license: Apache-2.0
-measured_tokens: 7730
+measured_tokens: 7869
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -449,14 +449,39 @@ and the explicit confirmation lets the user catch a wrong scope before any track
 
 Sequenced. Each step depends on the previous one's output.
 
-### 7a — Create the tracker via `gh api`
+### 7a — Create the tracker through vetted-ops
 
-Create it per the safe-create recipe in [`tools/github/operations.md`](../../../../tools/github/operations.md#create) (`-F title=@<file>`, never inline text):
-title file `<scratch>/import-pr-<N>-title.txt` holding the confirmed title (it derives from the attacker-controlled PR title),
-body file `<scratch>/import-pr-<N>-body.md` holding the confirmed `render-body` `text` (layout: [`tracker-body-template.md`](tracker-body-template.md)),
-and one `labels[]` per Step 5c label.
+Use `issue-create-labeled` instead of raw GitHub issue creation.
 
-Capture `number`, `node_id`, `html_url` from the response.
+Write the confirmed title to `<scratch>/import-pr-<N>-title.txt`
+and the confirmed `render-body` text to
+`<scratch>/import-pr-<N>-body.md`.
+
+Serialize the exact Step 5c labels into a JSON array in
+`<scratch>/import-pr-<N>-labels.json`. Do not invent or discard
+scope, PR-state, or security-marker labels.
+
+For a GitHub tracker:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op \
+  --caller security-issue-import-from-pr \
+  issue-create-labeled \
+  "$(cat <scratch>/import-pr-<N>-title.txt)" \
+  <scratch>/import-pr-<N>-body.md \
+  "$(cat <scratch>/import-pr-<N>-labels.json)"
+```
+
+The title is passed as one validated argument. The report body
+travels through stdin. All labels must be approved by the
+vetted-ops policy and are applied at creation.
+
+Capture `number`, `node_id`, and `url` from the JSON response.
+
+Stop on failure; never fall back to raw GitHub creation.
+
+For non-GitHub trackers, use the existing `issue-create`
+backend operation.
 
 ### 7b — Apply labels
 

@@ -101,6 +101,7 @@ SAMPLE = {
     "login": "alice",
     "reason": "not planned",
     "title": "Path traversal in upload",
+    "labels": '["needs triage"]',
     "query": "upload traversal",
     "attachment": "CVE-2026-1.json",
     "action": "Sync",

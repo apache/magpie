@@ -189,7 +189,7 @@ tracker  = "acme/tracker"   # optional — see below
 upstream = "acme/product"
 
 [values]
-labels        = ["needs triage", "cve allocated", "pr merged"]
+labels        = ["needs triage", "security issue", "cve allocated", "pr merged"]
 upstream_labels = ["ready for maintainer review", "area:scheduler"]  # issues *and* PRs
 milestones    = ["1.2.3", "1.3.0"]
 assignees     = ["alice", "bob"]
@@ -217,9 +217,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
-"security-issue-import" = ["issue-list-with-bodies", "rollup-append"]
-"security-issue-import-from-md" = ["rollup-append"]
-"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append"]
+"security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
 # Non-GitHub tracker additions, per import caller.
 # Add these to the corresponding existing caller array; preserve base grants.
@@ -619,6 +619,7 @@ Ten operations exist for it:
 
 | Operation | Kind | Parameters | Notes |
 |---|---|---|---|
+| `issue-create-labeled` | write | `title body labels` | GitHub only: create a private tracker with a JSON array of policy-approved labels, applied atomically. Body travels on stdin; returns `number`, `node_id`, and `url`. |
 | `issue-create` | write | `title body` | GitHub: `gh api …/issues -f title=… -F body=@-`. |
 | `issue-reopen` | write | `number` | |
 | `issue-list-label` | read | `state label` | `issue-list` filtered by one configured label. |
