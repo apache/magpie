@@ -366,6 +366,36 @@ def test_reviewers_case_4_excludes_who_already_reviewed() -> None:
     assert result["includes_committer"]
 
 
+def test_reviewers_make_no_committer_claim_without_a_roster() -> None:
+    result = reviewers.suggest(
+        paths=["docs/x.md"],
+        rules=[],
+        path_commits={"docs/x.md": _commits(("zed-maint", 2))},
+        prior_reviewers=[],
+        exclude=set(),
+        committers=set(),
+        now=NOW,
+    )
+    suggestion = result["suggestions"][0]
+    assert suggestion["committer"] is None
+    assert "committer" not in suggestion["reason"]
+
+
+def test_reviewers_say_not_a_committer_only_against_a_roster() -> None:
+    result = reviewers.suggest(
+        paths=["docs/x.md"],
+        rules=[],
+        path_commits={"docs/x.md": _commits(("zed-maint", 2))},
+        prior_reviewers=[],
+        exclude=set(),
+        committers={"someone-else"},
+        now=NOW,
+    )
+    suggestion = result["suggestions"][0]
+    assert suggestion["committer"] is False
+    assert "not a committer" in suggestion["reason"]
+
+
 # --- dependency ledger ----------------------------------------------------------------------------------
 
 

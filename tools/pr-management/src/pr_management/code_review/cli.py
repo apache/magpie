@@ -497,7 +497,12 @@ def _reviewers(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     committers = set(data.load_lines(_file(saved, "committers.txt")))
     team_slug = cfg.committers_team_slug
     if team_slug:
-        committers |= set(data.load_lines(_file(saved, f"team-{team_slug}.txt")))
+        roster = _file(saved, f"team-{team_slug}.txt")
+        if roster is None:
+            needs.append(
+                _need("team-members", [team_slug], f"team-{team_slug}.txt", "who the committers are")
+            )
+        committers |= set(data.load_lines(roster))
     result = reviewers.suggest(
         paths=list(pr.files),
         rules=rules,
