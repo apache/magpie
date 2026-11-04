@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/good-first-issue-sweep/SKILL.md",
-  "step_heading": "## Item failure budget"
+  "step_heading": "## Item failure budget",
+  "also_include": [
+    "skills/good-first-issue-sweep/item-failure-budget.md"
+  ]
 }

@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/issue-reassess/SKILL.md",
-  "step_heading": "## Item failure budget"
+  "step_heading": "## Item failure budget",
+  "also_include": [
+    "skills/issue-reassess/item-failure-budget.md"
+  ]
 }

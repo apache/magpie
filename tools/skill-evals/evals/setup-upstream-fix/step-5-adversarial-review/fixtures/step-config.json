@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-upstream-fix/SKILL.md",
-  "step_heading": "## Step 5 — Implement + open one PR per quirk"
+  "step_heading": "## Step 5 \u2014 Implement + open one PR per quirk",
+  "also_include": [
+    "skills/setup-upstream-fix/pre-pr-adversarial-review.md"
+  ]
 }
