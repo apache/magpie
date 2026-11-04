@@ -82,6 +82,17 @@ def test_merge_filters(raw: str | None, expected_labels: list[str]) -> None:
         assert merged["status"] == ["running"]
 
 
+def test_merge_filters_emits_every_key_in_list_form() -> None:
+    # The Docker CLI sends the map form, and the daemon rejects a mix of the two as `invalid filter`.
+    merged = json.loads(merge_filters('{"name":{"web":true,"db":false}}', "-x"))
+    assert merged == {"name": ["web"], "label": ["org.apache.magpie.project=-x"]}
+
+
+def test_merge_filters_rejects_a_scalar_filter_value() -> None:
+    with pytest.raises(ValueError, match=r"filters\.name"):
+        merge_filters('{"name":"web"}', "-x")
+
+
 def test_merge_filters_rejects_garbage() -> None:
     with pytest.raises(ValueError):
         merge_filters("{not json", "-x")
