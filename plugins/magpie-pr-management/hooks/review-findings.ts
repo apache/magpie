@@ -151,10 +151,12 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
 
   let Box: any;
   let Text: any;
+  let Button: any;
   try {
     const resolved = $.ui.resolve(e);
     Box = resolved.Box;
     Text = resolved.Text;
+    Button = typeof resolved.Button === 'function' ? resolved.Button : undefined;
   } catch {
     return null;
   }
@@ -210,16 +212,35 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
       const shortPath = truncateFilePath(cleanPath);
       const desc = formatFindingDescription(f.rule, f.body, 80);
 
+      const globalIdx = findings.indexOf(f);
+      const isSelected = globalIdx === state.selectedIndex;
+      const cursor = isSelected ? '> ' : '  ';
+      const actionNode = Button
+        ? Button({
+            key: `toggle-${i + 1}`,
+            label: actionSpec.label.slice(0, 3),
+            onPress: async () => {
+              const updated = toggleFindingActionInState(state, globalIdx);
+              await setReviewFindingsState($, updated);
+            },
+          })
+        : Text({
+            children: [actionSpec.label.slice(0, 3)],
+            color: actionSpec.color,
+            bold: actionSpec.bold,
+          });
+
       anchoredRows.push(
         Box({
           children: [
             Text({
-              children: [`  ${actionSpec.label.slice(0, 3)} `],
-              color: actionSpec.color,
-              bold: actionSpec.bold,
+              children: [cursor],
+              color: isSelected ? 'info' : 'dim',
+              bold: isSelected,
             }),
+            actionNode,
             Text({
-              children: [`${i + 1}. `],
+              children: [` ${i + 1}. `],
               color: 'dim',
             }),
             Text({
@@ -267,16 +288,35 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
       const shortPath = truncateFilePath(cleanPath);
       const desc = formatFindingDescription(f.rule, f.body, 80);
 
+      const globalIdx = findings.indexOf(f);
+      const isSelected = globalIdx === state.selectedIndex;
+      const cursor = isSelected ? '> ' : '  ';
+      const actionNode = Button
+        ? Button({
+            key: `toggle-general-${unanchored.indexOf(f) + 1}`,
+            label: actionSpec.label.slice(0, 3),
+            onPress: async () => {
+              const updated = toggleFindingActionInState(state, globalIdx);
+              await setReviewFindingsState($, updated);
+            },
+          })
+        : Text({
+            children: [actionSpec.label.slice(0, 3)],
+            color: actionSpec.color,
+            bold: actionSpec.bold,
+          });
+
       unanchoredRows.push(
         Box({
           children: [
             Text({
-              children: [`  ${actionSpec.label.slice(0, 3)} `],
-              color: actionSpec.color,
-              bold: actionSpec.bold,
+              children: [cursor],
+              color: isSelected ? 'info' : 'dim',
+              bold: isSelected,
             }),
+            actionNode,
             Text({
-              children: ['\u2022 '],
+              children: [' \u2022 '],
               color: 'dim',
             }),
             Text({
@@ -313,6 +353,65 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
           Text({
             children: [
               `... showing ${visibleCount} of ${findings.length} findings`,
+            ],
+            color: 'dim',
+          }),
+        ],
+      })
+    );
+  }
+
+  if (Button) {
+    contentBoxes.push(
+      Box({
+        paddingTop: 1,
+        children: [
+          Button({
+            key: 'accept-all',
+            label: '[All]',
+            onPress: async () => {
+              const updated = setBulkActionInState(state, 'accept');
+              await setReviewFindingsState($, updated);
+            },
+          }),
+          Text({ children: [' '] }),
+          Button({
+            key: 'skip-all',
+            label: '[None]',
+            onPress: async () => {
+              const updated = setBulkActionInState(state, 'skip');
+              await setReviewFindingsState($, updated);
+            },
+          }),
+          Text({ children: [' '] }),
+          Button({
+            key: 'prev-finding',
+            label: '[Prev]',
+            onPress: async () => {
+              const updated = updateSelectedIndexInState(state, 'up');
+              await setReviewFindingsState($, updated);
+            },
+          }),
+          Text({ children: [' '] }),
+          Button({
+            key: 'next-finding',
+            label: '[Next]',
+            onPress: async () => {
+              const updated = updateSelectedIndexInState(state, 'down');
+              await setReviewFindingsState($, updated);
+            },
+          }),
+        ],
+      })
+    );
+  } else {
+    contentBoxes.push(
+      Box({
+        paddingTop: 1,
+        children: [
+          Text({
+            children: [
+              'Commands: /magpie-findings [all|none|keep <indices>|drop <indices>|status]',
             ],
             color: 'dim',
           }),
@@ -529,6 +628,162 @@ export function formatKeepAnswer(findings: readonly ReviewFinding[]): string {
   return keptIndices.join(',');
 }
 
+/**
+ * Deterministically cycles finding action between accept, skip, and edit.
+ */
+export function cycleFindingAction(action: FindingAction): FindingAction {
+  switch (action) {
+    case 'accept':
+      return 'skip';
+    case 'skip':
+      return 'edit';
+    case 'edit':
+      return 'accept';
+  }
+}
+
+/**
+ * Resolves a 0-based finding index from a string ID or 1-based index identifier.
+ */
+export function resolveFindingIndex(
+  state: ReviewFindingsState,
+  identifier: string | number
+): number {
+  const anchored = state.findings.filter(isAnchored);
+
+  if (typeof identifier === 'number') {
+    if (identifier >= 1) {
+      if (anchored.length > 0 && identifier <= anchored.length) {
+        const target = anchored[identifier - 1];
+        return state.findings.indexOf(target);
+      }
+      if (identifier <= state.findings.length) {
+        return identifier - 1;
+      }
+    }
+    if (identifier === 0 && state.findings.length > 0) {
+      return 0;
+    }
+    return -1;
+  }
+  const trimmed = identifier.trim();
+  const byId = state.findings.findIndex((f) => f.id === trimmed);
+  if (byId !== -1) {
+    return byId;
+  }
+  if (/^\d+$/.test(trimmed)) {
+    const parsed = Number.parseInt(trimmed, 10);
+    if (parsed >= 1) {
+      if (anchored.length > 0 && parsed <= anchored.length) {
+        const target = anchored[parsed - 1];
+        return state.findings.indexOf(target);
+      }
+      if (parsed <= state.findings.length) {
+        return parsed - 1;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Updates a finding at the specified 0-based index immutably and recalculates summary.
+ */
+export function updateFindingInState(
+  state: ReviewFindingsState,
+  findingIndex: number,
+  updates: Partial<ReviewFinding>
+): ReviewFindingsState {
+  if (
+    !Number.isInteger(findingIndex) ||
+    findingIndex < 0 ||
+    findingIndex >= state.findings.length
+  ) {
+    return state;
+  }
+  const current = state.findings[findingIndex];
+  if (!current) {
+    return state;
+  }
+  const updated: ReviewFinding = {
+    ...current,
+    ...updates,
+    raw: current.raw,
+  };
+  const newFindings = [...state.findings];
+  newFindings[findingIndex] = updated;
+  return {
+    ...state,
+    findings: newFindings,
+    summary: calculateSummary(newFindings),
+  };
+}
+
+/**
+ * Toggles a finding action at index cycling accept -> skip -> edit -> accept.
+ */
+export function toggleFindingActionInState(
+  state: ReviewFindingsState,
+  findingIndex: number
+): ReviewFindingsState {
+  if (
+    !Number.isInteger(findingIndex) ||
+    findingIndex < 0 ||
+    findingIndex >= state.findings.length
+  ) {
+    return state;
+  }
+  const current = state.findings[findingIndex];
+  const nextAction = cycleFindingAction(current.action);
+  return updateFindingInState(state, findingIndex, { action: nextAction });
+}
+
+/**
+ * Sets bulk action across all findings or anchored findings only.
+ */
+export function setBulkActionInState(
+  state: ReviewFindingsState,
+  action: 'accept' | 'skip',
+  anchoredOnly = false
+): ReviewFindingsState {
+  const newFindings = state.findings.map((f) => {
+    if (anchoredOnly && !isAnchored(f)) {
+      return f;
+    }
+    return { ...f, action };
+  });
+  return {
+    ...state,
+    findings: newFindings,
+    summary: calculateSummary(newFindings),
+  };
+}
+
+/**
+ * Updates selected finding index with boundary clamping.
+ */
+export function updateSelectedIndexInState(
+  state: ReviewFindingsState,
+  deltaOrIndex: 'up' | 'down' | number
+): ReviewFindingsState {
+  const count = state.findings.length;
+  if (count === 0) {
+    return { ...state, selectedIndex: 0 };
+  }
+  let next = state.selectedIndex ?? 0;
+  if (deltaOrIndex === 'up') {
+    next = Math.max(0, next - 1);
+  } else if (deltaOrIndex === 'down') {
+    next = Math.min(count - 1, next + 1);
+  } else if (typeof deltaOrIndex === 'number' && Number.isInteger(deltaOrIndex)) {
+    next = Math.max(0, Math.min(count - 1, deltaOrIndex));
+  }
+  return {
+    ...state,
+    selectedIndex: next,
+  };
+}
+
 // Alias keys the parser accepts that render never reads; the serialised
 // file carries the canonical key instead, so the two cannot disagree.
 const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'action'];
@@ -554,7 +809,10 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     for (const key of ALIAS_KEYS) {
       delete base[key];
     }
-    if (base.explanation === undefined && base.suggestion === undefined && f.body) {
+    if (
+      (f.action === 'edit' && f.body) ||
+      (base.explanation === undefined && base.suggestion === undefined && f.body)
+    ) {
       base.explanation = f.body;
     }
     if (base.rule_id === undefined && base.category === undefined && f.rule) {
@@ -721,8 +979,346 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
  * - session.start: lifecycle hook for test fixture hydration in PR-2 (PR-3 wires the live session feed).
  * - ui.render (Pane): renders the interactive review findings pane when state is populated.
  */
+/**
+ * UI press event handler for Claude Code mod.
+ *
+ * Handles button presses and hotkey triggers from the interactive review findings pane:
+ * - toggle-<N>: cycles action of finding at index N (accept -> skip -> edit -> accept)
+ * - accept-all: marks all findings as accepted
+ * - skip-all: marks all findings as skipped
+ * - prev-finding: decrements selectedIndex
+ * - next-finding: increments selectedIndex
+ */
+export async function handleUiPress($: any, e: any, next: any): Promise<any> {
+  if (!e || typeof e.element !== 'string') {
+    if (typeof next === 'function') {
+      return next(e);
+    }
+    return;
+  }
+
+  let state: ReviewFindingsState | null = null;
+  try {
+    state = await read($, reviewFindingsState);
+  } catch {
+    state = null;
+  }
+
+  if (!state || !state.findings || state.findings.length === 0) {
+    if (typeof next === 'function') {
+      return next(e);
+    }
+    return;
+  }
+
+  const element = e.element.trim();
+
+  if (element.startsWith('toggle-general-')) {
+    const numStr = element.slice('toggle-general-'.length);
+    const parsed = Number.parseInt(numStr, 10);
+    const unanchored = state.findings.filter((f) => !isAnchored(f));
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= unanchored.length) {
+      const target = unanchored[parsed - 1];
+      const targetIdx = state.findings.indexOf(target);
+      if (targetIdx !== -1) {
+        const updated = toggleFindingActionInState(state, targetIdx);
+        await setReviewFindingsState($, updated);
+        return { handled: true };
+      }
+    }
+  } else if (element.startsWith('toggle-')) {
+    const idOrNum = element.slice(7);
+    const targetIdx = resolveFindingIndex(state, idOrNum);
+    if (targetIdx !== -1) {
+      const updated = toggleFindingActionInState(state, targetIdx);
+      await setReviewFindingsState($, updated);
+      return { handled: true };
+    }
+  } else if (element === 'accept-all') {
+    const updated = setBulkActionInState(state, 'accept');
+    await setReviewFindingsState($, updated);
+    return { handled: true };
+  } else if (element === 'skip-all') {
+    const updated = setBulkActionInState(state, 'skip');
+    await setReviewFindingsState($, updated);
+    return { handled: true };
+  } else if (element === 'prev-finding') {
+    const updated = updateSelectedIndexInState(state, 'up');
+    await setReviewFindingsState($, updated);
+    return { handled: true };
+  } else if (element === 'next-finding') {
+    const updated = updateSelectedIndexInState(state, 'down');
+    await setReviewFindingsState($, updated);
+    return { handled: true };
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
+
+
+/**
+ * Extracts findings file path from a CLI command string (--findings <path>).
+ */
+export function extractFindingsPathFromCommand(command: string): string | null {
+  const normalized = command.replace(/\\(?:\r?\n|\r)\s*/g, ' ');
+  const match = normalized.match(/--findings(?:[=\s]+)(?:"([^"]+)"|'([^']+)'|([^\s]+))/);
+  if (!match) return null;
+  return match[1] ?? match[2] ?? match[3] ?? null;
+}
+
+/**
+ * Extracts PR number from a CLI command string (--pr <N>).
+ */
+export function extractPrNumberFromCommand(command: string): number | undefined {
+  const match = command.match(/--pr(?:[=\s]+)(\d+)/);
+  if (!match) return undefined;
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/**
+ * Resolves a file path relative to a base directory without requiring node:path.
+ */
+export function resolveRelativePath(baseDir: string, filePath: string): string {
+  if (!baseDir || filePath.startsWith('/') || /^[A-Za-z]:[\/\\]/.test(filePath)) {
+    return filePath.replace(/\\/g, '/');
+  }
+  const cleanBase = baseDir.replace(/\\/g, '/').replace(/\/+$/, '');
+  const cleanPath = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  return `${cleanBase}/${cleanPath}`;
+}
+
+/**
+ * Bash tool.call event handler for Claude Code mod (Fail-Open).
+ *
+ * Intercepts pr-management code-review disposition command executions,
+ * reads the findings file from disk via $.fs.read, parses the findings,
+ * and hydrates reviewFindingsState so the interactive pane mounts live findings.
+ * Always delegates to next(e) to ensure tool execution proceeds normally.
+ */
+export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+  if (e && typeof e.command === 'string') {
+    try {
+      const command = e.command;
+      const isDisposition =
+        /code-review(?:\.cli)?\s+disposition\b/.test(command) &&
+        /--findings[=\s]/.test(command);
+
+      if (isDisposition) {
+        const rawPath = extractFindingsPathFromCommand(command);
+        if (rawPath) {
+          let sessionRoot: string | undefined;
+          try {
+            sessionRoot = await $.session.root();
+          } catch {
+            sessionRoot = undefined;
+          }
+
+          let sessionCwd: string | undefined;
+          try {
+            sessionCwd = await $.session.cwd();
+          } catch {
+            sessionCwd = undefined;
+          }
+
+          const base = sessionCwd || sessionRoot || '';
+          const candidatePath = base ? resolveRelativePath(base, rawPath) : rawPath;
+
+          let fileContent: string | null = null;
+          try {
+            fileContent = await $.fs.read(candidatePath);
+          } catch {
+            try {
+              fileContent = await $.fs.read(rawPath);
+            } catch {
+              fileContent = null;
+            }
+          }
+
+          if (fileContent && typeof fileContent === 'string') {
+            const parsed = parseFindings(fileContent);
+            if (parsed.findings.length > 0) {
+              const prNumber = extractPrNumberFromCommand(command);
+              await setReviewFindingsState($, {
+                prNumber,
+                findings: parsed.findings,
+                summary: parsed.summary,
+                selectedIndex: 0,
+              });
+            } else {
+              await setReviewFindingsState($, null);
+            }
+          }
+        }
+      }
+    } catch {
+      // Safe no-op on any parsing or I/O failure (fail-open)
+    }
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
+
+/**
+ * Slash command handler for /magpie-findings (zero-token).
+ *
+ * Allows inspecting and curating review findings directly from the terminal prompt:
+ * - /magpie-findings status (or empty): prints current findings status & keep answer
+ * - /magpie-findings all: accepts all findings
+ * - /magpie-findings none: skips all findings
+ * - /magpie-findings keep <indices>: marks specified 1-based indices as accepted, others skipped
+ * - /magpie-findings drop <indices>: marks specified 1-based indices as skipped
+ * - /magpie-findings edit <index> <note>: marks finding at index as edit with updated body
+ */
+export async function handleFindingsCommand($: any, e: any): Promise<{ text: string }> {
+  let state: ReviewFindingsState | null = null;
+  try {
+    state = await read($, reviewFindingsState);
+  } catch {
+    state = null;
+  }
+
+  if (!state || !state.findings || state.findings.length === 0) {
+    return {
+      text: 'No active PR review findings in session. Run code-review Step 6 (disposition) first.',
+    };
+  }
+
+  const rawArgs = (e?.args || '').trim();
+  if (!rawArgs || rawArgs === 'status') {
+    const s = state.summary;
+    const lines: string[] = [
+      state.prNumber
+        ? `PR #${state.prNumber}: Review Findings Status`
+        : 'Review Findings Status',
+      `Summary: ${s.anchoredCount} inline, ${s.unanchoredCount} general (${s.blockingCount} blocking, ${s.majorCount} major, ${s.minorCount} minor, ${s.nitCount} nit)`,
+      `Keep parameter (--keep): ${formatKeepAnswer(state.findings)}`,
+      '',
+    ];
+
+    const anchored = state.findings.filter(isAnchored);
+    if (anchored.length > 0) {
+      lines.push('Inline comments:');
+      for (let i = 0; i < anchored.length; i += 1) {
+        const f = anchored[i];
+        const indicator = formatActionIndicator(f.action);
+        lines.push(`  ${indicator.label.slice(0, 3)} ${i + 1}. [${f.severity.toUpperCase()}] ${f.file}:${f.line} - ${truncateText(f.body, 60)}`);
+      }
+    }
+    return { text: lines.join('\n') };
+  }
+
+  if (rawArgs === 'all') {
+    const updated = setBulkActionInState(state, 'accept');
+    await setReviewFindingsState($, updated);
+    return {
+      text: `Accepted all review findings. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+    };
+  }
+
+  if (rawArgs === 'none') {
+    const updated = setBulkActionInState(state, 'skip');
+    await setReviewFindingsState($, updated);
+    return {
+      text: 'Skipped all review findings. Keep parameter: NONE',
+    };
+  }
+
+  const keepMatch = rawArgs.match(/^keep\s+([0-9,\s]+)$/i);
+  if (keepMatch) {
+    const parts = keepMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
+    const indicesToKeep = new Set(
+      parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
+    );
+
+    const anchored = state.findings.filter(isAnchored);
+    const newFindings = state.findings.map((f) => {
+      if (!isAnchored(f)) return f;
+      const anchoredIndex = anchored.indexOf(f) + 1;
+      return {
+        ...f,
+        action: indicesToKeep.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
+      };
+    });
+
+    const updated: ReviewFindingsState = {
+      ...state,
+      findings: newFindings,
+      summary: calculateSummary(newFindings),
+    };
+    await setReviewFindingsState($, updated);
+    return {
+      text: `Curated findings. Kept: ${Array.from(indicesToKeep).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+    };
+  }
+
+  const dropMatch = rawArgs.match(/^drop\s+([0-9,\s]+)$/i);
+  if (dropMatch) {
+    const parts = dropMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
+    const indicesToDrop = new Set(
+      parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
+    );
+
+    const anchored = state.findings.filter(isAnchored);
+    const newFindings = state.findings.map((f) => {
+      if (!isAnchored(f)) return f;
+      const anchoredIndex = anchored.indexOf(f) + 1;
+      return {
+        ...f,
+        action: indicesToDrop.has(anchoredIndex) ? ('skip' as const) : f.action,
+      };
+    });
+
+    const updated: ReviewFindingsState = {
+      ...state,
+      findings: newFindings,
+      summary: calculateSummary(newFindings),
+    };
+    await setReviewFindingsState($, updated);
+    return {
+      text: `Dropped findings: ${Array.from(indicesToDrop).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+    };
+  }
+
+  const editMatch = rawArgs.match(/^edit\s+(\d+)\s+([\s\S]+)$/i);
+  if (editMatch) {
+    const idOrNum = editMatch[1];
+    const newNote = editMatch[2].trim();
+    const targetIdx = resolveFindingIndex(state, idOrNum);
+    if (targetIdx !== -1) {
+      const updated = updateFindingInState(state, targetIdx, {
+        action: 'edit',
+        body: newNote,
+      });
+      await setReviewFindingsState($, updated);
+      return {
+        text: `Updated finding #${idOrNum} (marked edit with custom note). Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+      };
+    }
+    return { text: `Finding #${idOrNum} not found in active review findings.` };
+  }
+
+  return {
+    text: 'Usage: /magpie-findings [all|none|keep <1,3>|drop <2>|edit <idx> <note>|status]',
+  };
+}
+
 export function register(on: any): void {
   on('session.start', async ($: any, e: any, next: any) => {
+    try {
+      await $.command.register({
+        name: 'magpie-findings',
+        description: 'Inspect and curate PR review findings (zero-token)',
+        argumentHint: '[all|none|keep <indices>|drop <indices>|edit <idx> <note>|status]',
+      });
+    } catch {
+      // Safe no-op on command register exception
+    }
+
     if (e && e.findings) {
       try {
         const parsed = parseFindings(e.findings);
@@ -753,6 +1349,9 @@ export function register(on: any): void {
   });
 
   on('ui.render', { component: 'Pane' }, handleRenderPane);
+  on('ui.press', handleUiPress);
+  on('tool.call', { tool: 'Bash' }, handleBashToolCall);
+  on('command.run', { command: 'magpie-findings' }, handleFindingsCommand);
 }
 
 export default register;
