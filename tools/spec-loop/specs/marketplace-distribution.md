@@ -9,7 +9,7 @@ mode: infra
 source: >
   docs/setup/marketplace.md. The manifest set at .claude-plugin/,
   .codex-plugin/, .agents/plugins/, plugins/magpie-*/, and the repo-root
-  plugin.json / marketplace.json / apm.yml.
+  plugin.json / marketplace.json.
   Hook wiring in plugins/magpie-setup/hooks/ and
   plugins/magpie-agent-guard/hooks/.
   Enforced by tools/dev/check-family-plugins.py.
@@ -58,8 +58,8 @@ Two manifest families, because the ecosystems have not converged:
 - **Client-specific** — `.claude-plugin/plugin.json` + `marketplace.json`
   (Claude Code, the only family that carries `hooks` and per-family plugins),
   `.codex-plugin/plugin.json` with `.agents/plugins/marketplace.json` (Codex),
-  the root `marketplace.json` (Copilot / VS Code legacy catalog),
-  and `apm.yml` (`microsoft/apm`, schema v0.1).
+  and the root `marketplace.json` (Copilot / VS Code legacy catalog).
+  There is no `apm.yml`: `microsoft/apm` reads the AP1 root `plugin.json`, and an `apm.yml` carrying the same identity fields makes it refuse the install.
   Antigravity CLI reads the AP1 root `plugin.json` and the root `skills/` tree
   (`agy plugin install https://github.com/apache/magpie`); it needs no file of its own.
   Pi reads the root `package.json`, whose `pi` key names the `skills/` tree and the Magpie extension
@@ -300,12 +300,12 @@ For the Claude Code family, `claude plugin validate . --strict`.
 ## Known gaps
 
 - **Only the Claude Code manifests are verified against a live install.** The
-  rest — AP1 root `plugin.json`, the Codex pair, the Copilot catalog,
-  `apm.yml` — conform to their vendors' published
+  rest — AP1 root `plugin.json`, the Codex pair, the Copilot catalog —
+  conform to their vendors' published
   documentation but have not been exercised end-to-end. Re-check each against
   current vendor docs before a marketplace publish.
-- **`apm.yml` targets `microsoft/apm` schema v0.1**, pre-1.0 and the most
-  likely of the set to churn.
+- **`microsoft/apm` installs Magpie for Copilot only.** A live `apm install` registers the plugin with Copilot, but whether its skills then load is unverified.
+  Every other target refuses an Agent Plugins package, and a single skill cannot be installed by subpath, because the root `skills/` entries are symlinks.
 - **Antigravity is checked only with `agy plugin validate .`** (1.3.6 reports the
   root's skills); an end-to-end `agy plugin install` has not been exercised.
 - **Pi was exercised with `pi install git:` from a branch** (Pi 1.4.0, macOS): the package installed its

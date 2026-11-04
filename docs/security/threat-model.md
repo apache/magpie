@@ -145,7 +145,7 @@ A maintainer running a Magpie skill in a supported harness against their own pro
 |---|---|---|
 | `git-branch` install method | WIP only, no cryptographic anchor | `documented` ([docs/skill-sources/README.md](../skill-sources/README.md)) |
 | Stub backends (mbox reader, maildir reader) | Not functional | `documented` (their READMEs) |
-| Experimental modes (Mentoring, Pairing) and pre-1.0 manifests (`apm.yml`, root `marketplace.json`) | Experimental | `documented` ([docs/modes.md](../modes.md), [docs/setup/marketplace.md](../setup/marketplace.md)) |
+| Experimental modes (Mentoring, Pairing) and pre-1.0 manifests (root `marketplace.json`) | Experimental | `documented` ([docs/modes.md](../modes.md), [docs/setup/marketplace.md](../setup/marketplace.md)) |
 
 Framework-development tools (`tools/skill-evals`, `tools/spec-loop`) are **not** in this list.
 They run on contributors' machines, some outside the sandbox, so a defect in them is in scope.

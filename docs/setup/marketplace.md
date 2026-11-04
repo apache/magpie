@@ -15,7 +15,7 @@
     - [VS Code and GitHub Copilot](#vs-code-and-github-copilot)
     - [Google Antigravity](#google-antigravity)
     - [Cursor](#cursor)
-    - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
+    - [microsoft/apm (Copilot only)](#microsoftapm-copilot-only)
     - [Kiro (AWS)](#kiro-aws)
     - [OpenCode](#opencode)
     - [Pi](#pi)
@@ -112,7 +112,6 @@ predate the standard still read their own:
 | [`plugin.json`](../../plugin.json) (root) | VS Code, GitHub Copilot (CLI + app + SDK), Google Antigravity | The AP1 manifest. VS Code auto-detects the format from the root manifest and treats the `$schema` value as the AP1 marker |
 | [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) | Claude Code (also read by VS Code) | Claude Code documents only this path, and AP1's schema is closed — it has no place for the `hooks` block or the `skills` path |
 | [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) | OpenAI Codex CLI | Codex documents this as its plugin entry point, with its own `interface` / `apps` / `hooks` fields |
-| [`apm.yml`](../../apm.yml) | `microsoft/apm` | A cross-client compiler, not a client — its own package schema |
 | [`package.json`](../../package.json) (root, `pi` key) | Pi | A Pi package manifest: it names the `skills/` tree and the Magpie extension (guard, permission rules, OS sandbox), and carries the extension's one runtime dependency. Private — Magpie is not published to npm |
 | [`.goose-plugin/plugin.json`](../../.goose-plugin/plugin.json) | Goose | Goose reads this path before the root `plugin.json`. It lists the family `plugins/*/skills` directories, because Goose's installer does not copy the root `skills/` symlinks |
 | [`hooks/hooks.json`](../../hooks/hooks.json) (root) | Goose | The plugin's `PreToolUse` hook: Magpie's guard and the baseline's deny rules. Antigravity reads only a root `hooks.json`, so it ignores this file |
@@ -298,7 +297,7 @@ Quick reference:
 | **VS Code / GitHub Copilot** | install straight from the repo URL `https://github.com/apache/magpie`, or add it as a plugin marketplace | root `plugin.json` (AP1), `marketplace.json` (repo root) |
 | **Google Antigravity** | `agy plugin install https://github.com/apache/magpie` | root `plugin.json` + `skills/` |
 | **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
-| **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
+| **microsoft/apm** | `apm install apache/magpie --target copilot` (Copilot only) | root `plugin.json` (AP1) |
 | **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
 | **OpenCode** | no marketplace: the pinned snapshot's `.agents/skills/` (project), or skills linked into `~/.agents/skills/` (personal) | native `skills/<name>/SKILL.md` |
 | **Pi** | `pi install git:github.com/apache/magpie` (once per user) | root `package.json` (`pi` key) + `skills/` |
@@ -445,18 +444,18 @@ TSC), so it reads the root [`plugin.json`](../../plugin.json).
 > Confirm the exact add flow in Cursor's current docs — its self-serve
 > marketplace surface is evolving.
 
-### microsoft/apm (multiplexer)
+### microsoft/apm (Copilot only)
 
-`apm` compiles one package to several agents at once (Claude, Cursor, Codex,
-Copilot, Gemini).
+`apm` reads the root `plugin.json`, and it installs an Agent Plugins package natively only for GitHub Copilot.
+Every other target refuses the package, so use that agent's own install instead.
 
 Commands: [**Prerequisite → microsoft/apm**](marketplace-install.md#microsoftapm).
 
-The install reads `apm.yml` (`type: skill`), deploys the skills into each
-supported agent's directory, and writes an `apm.lock.yaml` — commit it to pin
-the exact resolved commit.
+The install registers the plugin with Copilot and writes an `apm.lock.yaml` — commit it to pin the exact resolved commit.
+Magpie ships no `apm.yml`: `plugin.json` owns the package's identity, and an `apm.yml` repeating those fields makes `apm` refuse the install.
+A single skill cannot be installed by subpath, because the entries in the root `skills/` are symlinks.
 
-> `apm` schema is **v0.1** and may change; verify verbs with `apm --help`.
+> Registration was checked with a live install; whether the skills then load in Copilot was not.
 
 ### Kiro (AWS)
 
@@ -831,7 +830,6 @@ documentation**; what varies is whether it has also been exercised against a
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
 | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note the root `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself, while a family plugin's `.codex-plugin/plugin.json` is the whole manifest. The `magpie-setup` upgrade hook was checked live with the app server's `hooks/list` against codex 0.154.0: it loads from `hooks/codex-hooks.json` with no warning, untrusted until reviewed, where the Claude Code `hooks/hooks.json` failed with ``unknown field `$schema` ``. See the hook-trust note above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
-| `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |
 
 The skills themselves are checked against the
 [Agent Skills specification](https://agentskills.io/specification), which AP1
