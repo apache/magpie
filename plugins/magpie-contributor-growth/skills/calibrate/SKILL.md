@@ -161,7 +161,7 @@ The relaxation factor comes from `calibration_relaxation` in the same file, defa
 ## Step 1 — Find nominations
 
 Search `<private-list>` through the `mail-archive` contract for threads whose subject marks a committer or `<governance-body>` nomination — `[DISCUSS]`, `[VOTE]` and `[RESULT]` threads — from `since` up to `holdout` (or today).
-Bound the archive query itself to that date range (PonyMail: `timespan: dfr=<since> dto=<holdout>`), so threads after the holdout do not even appear in the listing.
+Bound the archive query itself to that date range (PonyMail: `timespan: dfr=<since>|dto=<holdout>`), so threads after the holdout do not even appear in the listing.
 
 - A thread whose id is in `exclude-thread` is dropped **without being opened**; record it in `skipped_threads` with reason `excluded`.
 - A thread or message dated after `holdout` is dropped **without being opened**; record the thread with reason `after-holdout`.

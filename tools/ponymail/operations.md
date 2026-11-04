@@ -243,7 +243,9 @@ field is optional.
 - `yyyy-mm` — exact calendar month (e.g. `2026-04`).
 - `lte=Nd` — last *N* days (e.g. `lte=30d`).
 - `gte=Nd` — older than *N* days (inverted window).
-- `dfr=yyyy-mm-dd dto=yyyy-mm-dd` — explicit date range.
+- `dfr=yyyy-mm-dd|dto=yyyy-mm-dd` — explicit date range.
+  The separator is a pipe: with a space the search reports 0 hits and no error,
+  so an empty result from a date range is worth checking against this form.
 
 **`list: "*"`** — search every list under the given `domain`.
 Useful when a report's subject tokens are distinctive enough to
