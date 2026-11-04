@@ -24,9 +24,9 @@ when_to_use: |
   the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:26b6e89dc19cfaa8
+surface_hash: sha256:3ee6236a0b32e928
 license: Apache-2.0
-measured_tokens: 7528
+measured_tokens: 7527
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
