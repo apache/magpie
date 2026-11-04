@@ -18,9 +18,9 @@ when_to_use: |
   `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
-surface_hash: sha256:079bd7106b8b78ef
+surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8610
+measured_tokens: 8686
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -383,6 +383,16 @@ Each `keep` thread the Step 1 pre-filter dropped runs Steps 2 to 5; re-present i
 ---
 
 ## Step 7 — Apply confirmed imports
+
+### Policy-scoped tracker creation requirement
+
+GitHub imports require the vetted-ops `issue-create-labeled`
+operation, caller permission for `security-issue-import`, and
+policy-approved `needs triage` and `security issue` labels.
+
+An existing installation with old caller grants or an incomplete
+label allowlist must undergo policy reconciliation before creation.
+Never fall back to raw GitHub issue creation.
 
 Full procedure: [`apply.md`](apply.md).
 

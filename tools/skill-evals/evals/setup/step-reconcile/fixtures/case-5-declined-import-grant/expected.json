@@ -4,7 +4,7 @@
       "kind": "policy",
       "skill": "security-issue-import-from-md",
       "override_file": null,
-      "detail": "Caller security-issue-import-from-md lacks rollup-append. The operator declined the grant; preserve issue-view and leave the policy finding unresolved."
+      "detail": "Caller security-issue-import-from-md lacks rollup-append and issue-create-labeled. The operator declined the grants; preserve issue-view and leave the policy finding unresolved."
     }
   ],
   "unchecked": [],

@@ -375,13 +375,13 @@ user save it after explicit confirmation, as described under
 [Personal tool configs](#personal-tool-configs-for-a-project-that-has-not-adopted-magpie).
 Do not bypass sandbox write restrictions.
 
-A declined, unapplied, or unchecked import-grant proposal remains unresolved
+A declined, unapplied, or unchecked import permission or label-allowlist proposal remains unresolved
 and must not produce a clean reconciliation stamp for the affected skill.
 
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
-resolves **and whose applicable import caller grants have been verified**,
+resolves **and whose applicable import caller grants and required labels have been verified**,
 record that fact, keyed by that skill's frontmatter `name:`
 (e.g. `code-review`). **Everything this step writes
 stays inside the personal layer's `reconciled.json` — never the

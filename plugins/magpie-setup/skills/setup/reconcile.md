@@ -157,6 +157,25 @@ baseline required.
 
    Derive required operations from the canonical [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including backend-specific operations where applicable. Do not use a second hard-coded mapping.
 
+   For GitHub security imports using `issue-create-labeled`, also
+   validate the policy's `[values] labels` allowlist against the
+   labels required by each configured workflow:
+
+   - Email and Markdown imports: `needs triage` and `security issue`.
+   - PR imports: the configured scope, PR-state, and security-marker
+     labels from Step 5c of `security-issue-import-from-pr`.
+
+   Resolve project-specific label names from the adopter's current
+   configuration. Do not assume every project uses the same names.
+
+   Missing labels are findings even when all caller grants exist.
+   Propose only the missing labels, preserving existing policy values.
+   Never automatically modify or weaken the approved security policy.
+
+   If the required label values or the policy cannot be verified,
+   report the check as unchecked, not clean. Declined, unapplied, or
+   unverified changes prevent a clean reconciliation stamp.
+
    A missing caller or missing required operation is a finding. Name the
    caller, the missing operations, and the existing policy path. Propose
    adding only those grants; do not grant `body-field-set`, which these
@@ -206,7 +225,7 @@ baseline required.
 ## Step 1 — Present the findings
 
 List every finding from checks 2–3a as a numbered proposal, one item per
-override, `requires_config` gap, or missing import caller policy grant:
+override, `requires_config` gap, or missing import caller grant or required label:
 
 ```text
 1. .apache-magpie-overrides/issue-triage.md anchors to
@@ -219,7 +238,7 @@ override, `requires_config` gap, or missing import caller policy grant:
 ```
 
 No findings → say so plainly (*"every configured skill's anchors,
-`requires_config` entries and applicable vetted-ops caller grants resolve"*), name any `unchecked` skills from
+`requires_config` entries, applicable vetted-ops caller grants and required labels resolve"*), name any `unchecked` skills from
 check 4, and go straight to Step 2 with nothing to confirm — writing
 the stamp needs no confirmation when nothing is changing.
 
@@ -238,7 +257,7 @@ or let the user save the drafted policy; do not directly write the
 security-control file from reconcile. A refusal does
 not authorize a policy edit or a clean reconciliation stamp for that
 unresolved configuration. Do not treat resolved `requires_config` files
-alone as proof of a clean skill when its required caller grants are missing.
+alone as proof of a clean skill when its required caller grants or labels are missing.
 Preserve existing policy content not covered by the confirmed change.
 
 Both `acknowledged` writes below fire **on decline**, not on show — unlike
@@ -254,9 +273,9 @@ suppressed by a write that never happened.
 - **Confirmed and applied** — verify the resulting configuration
   before writing the skill's clean stamp. For import caller policy
   findings, re-read and parse the saved vetted-ops policy and confirm
-  that every required operation for the selected backend is present.
+  that every required operation for the selected backend is present and all applicable GitHub import labels are policy-approved.
   User confirmation of a draft alone is not proof of application.
-  If the policy is unchanged, missing a grant, or cannot be verified,
+  If the policy is unchanged, missing a required grant or label, or cannot be verified,
   leave the finding unresolved and do not stamp that skill clean.
   Only after all applicable checks pass may its entry in the stamp's
   `skills:` map be written (or refreshed) with its **current**

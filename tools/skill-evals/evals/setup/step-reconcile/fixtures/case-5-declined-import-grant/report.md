@@ -16,10 +16,11 @@ The policy is valid TOML. Its caller entry is:
     "security-issue-import-from-md" = ["issue-view"]
 
 The vetted-ops README configuration example contains:
-    "security-issue-import-from-md" = ["rollup-append"]
+    "security-issue-import-from-md" = ["rollup-append", "issue-create-labeled"]
 
 During confirmation, the operator declined the proposal
-to add `rollup-append` to this caller.
+to add `rollup-append` and `issue-create-labeled` to this caller.
 The policy remains unchanged.
+Its label allowlist already contains `needs triage` and `security issue`.
 
 The current reconciliation stamp contains no entry for this skill.

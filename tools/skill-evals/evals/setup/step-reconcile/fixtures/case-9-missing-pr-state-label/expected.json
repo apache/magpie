@@ -1,0 +1,12 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "security-issue-import-from-pr",
+      "override_file": null,
+      "detail": "Caller grants are complete, but pr merged is missing from the label allowlist. Propose only that label; do not stamp clean."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}
