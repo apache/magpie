@@ -22,6 +22,8 @@ candidate carries the evidence that produced it; PR text is never a source.
 Excluded: the PR author, the viewer, anyone already requested or already
 reviewing. At least one suggestion must be a committer when any candidate is;
 otherwise the strongest contributor stays with an explicit "not a committer".
+That claim needs a roster: with none loaded, a candidate's role is unknown and
+the reason says nothing about it.
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ class Candidate:
     last_commit: dt.datetime | None = None
     reviewed: int = 0
     committer: bool = False
+    roster_known: bool = True
 
     def score(self) -> tuple[int, int, int, float]:
         recency = self.last_commit.timestamp() if self.last_commit else 0.0
@@ -58,7 +61,10 @@ class Candidate:
             parts.append(f"{self.commits} recent commit(s) on the changed paths")
         if self.reviewed:
             parts.append(f"reviewed {self.reviewed} prior merged PR(s) on these paths")
-        parts.append("committer" if self.committer else "frequent contributor, not a committer")
+        if self.committer:
+            parts.append("committer")
+        elif self.roster_known:
+            parts.append("frequent contributor, not a committer")
         return " — ".join(parts[:1]) + (f" ({', '.join(parts[1:])})" if len(parts) > 1 else "")
 
 
@@ -97,6 +103,7 @@ def suggest(
     lowered_committers = {c.lower() for c in committers}
     for key, candidate in pool.items():
         candidate.committer = bool(candidate.owner_of) or key in lowered_committers
+        candidate.roster_known = bool(lowered_committers)
     excluded = {e.lower().lstrip("@") for e in exclude}
     ranked = [c for k, c in pool.items() if k not in excluded and "/" not in k]
     teams = [c for k, c in pool.items() if k not in excluded and "/" in k]
@@ -112,5 +119,12 @@ def suggest(
     return {
         "section_present": bool(picked),
         "includes_committer": any(c.committer for c in picked),
-        "suggestions": [{"login": c.login, "reason": c.reason(), "committer": c.committer} for c in picked],
+        "suggestions": [
+            {
+                "login": c.login,
+                "reason": c.reason(),
+                "committer": c.committer if c.committer or c.roster_known else None,
+            }
+            for c in picked
+        ],
     }

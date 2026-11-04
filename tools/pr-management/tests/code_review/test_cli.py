@@ -258,6 +258,38 @@ def test_guard_needs_the_liveness_read_then_checks_the_head(
     assert not out["proceed"] and "new commits" in out["reason"]
 
 
+def test_reviewers_ask_for_the_configured_committers_team(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    (project / "pr-management-config.md").write_text(
+        "| Key | Default | Notes |\n|---|---|---|\n"
+        "| `real_ci_patterns` | `Tests` | x |\n"
+        "| `committers_team` | `acme/product-committers` | x |\n"
+    )
+    argv = [
+        "--config-dir",
+        str(project),
+        "code-review",
+        "reviewers",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--viewer",
+        "viewer",
+    ]
+    needs = _run(capsys, *argv)["needs"]
+    assert {
+        "op": "team-members",
+        "params": ["product-committers"],
+        "save": "team-product-committers.txt",
+        "why": "who the committers are",
+    } in needs
+
+    (saved / "team-product-committers.txt").write_text("alice\n")
+    assert not [n for n in _run(capsys, *argv)["needs"] if n["op"] == "team-members"]
+
+
 def test_session_summary(capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path) -> None:
     ses = tmp_path / "session.json"
     for pr, outcome in ((1, "APPROVE"), (2, "COMMENT"), (3, "skipped")):
