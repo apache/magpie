@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-override-upstream/SKILL.md",
-  "step_heading": "### Step 6 — Open the PR"
+  "step_heading": "### Step 6 \u2014 Open the PR",
+  "also_include": [
+    "skills/setup-override-upstream/pre-pr-adversarial-review.md"
+  ]
 }

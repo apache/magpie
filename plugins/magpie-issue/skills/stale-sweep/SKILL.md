@@ -26,7 +26,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:65673690910c37f0
 license: Apache-2.0
-measured_tokens: 5801
+measured_tokens: 5325
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -463,45 +463,14 @@ presenting it.
 
 ## Item failure budget
 
-This applies to the read and classify phase only. One item whose state
-cannot be read or classified (a missing body, an unparsable timestamp, a
-404 or 410 for that item, a classifier that returns no verdict for it twice)
-does not stop the sweep: record it as `failed` with a one-line reason, skip it
-for the rest of the run, and carry on with the next item.
-The budget is `item_failure_budget` in the config file this skill already
-reads: `issue-tracker-config.md` for the issue skills,
-`project.md` for the security skills, `pr-management-config.md` for the PR
-skills. Its value is `<n>`, `<p>%` of the
-pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
-stops the run before the sweep starts, with an error naming the value and no
-fallback: nothing has been read, so no item is failed or unfinished; the
-maintainer fixes the value and reruns the same selector.
-When more items have failed than the budget allows, stop before the next item:
-the pool is likely broken as a whole, not one item.
-
-The **write phase is not budgeted**: a post, label, close or transition that
-fails still stops at once, and is never retried, because a retry can duplicate
-a visible action.
-
-The recap always has three groups, failed items first in the summary line when
-there are any: **completed** (with their dispositions), **failed** (each with
-its reason), and **unfinished** (not reached because the budget ran out or a
-write stopped the run; say which, once). End with the selector that reruns
-exactly the failed and unfinished items. A sweep with no failures does not
-mention the budget. Contract:
-[`docs/batch-failure-budget.md`](../../../../docs/batch-failure-budget.md).
+If the config file this skill already reads sets `item_failure_budget`, read [item-failure-budget.md](item-failure-budget.md) before the sweep starts.
+Otherwise read it the moment an item cannot be read or classified, or a write fails, and follow it for the rest of the run.
 
 <!-- END MAGPIE BLOCK: item-failure-budget -->
 
 ## Failure modes
 
-| Symptom | Likely cause | Remediation |
-|---|---|---|
-| Pool returns 0 candidates | Thresholds too high or tracker genuinely healthy | Surface and stop; suggest reducing `warn_days` or widening the filter |
-| Pool exceeds 50 | Very large stale backlog | Stop; ask user to narrow with component/label filter or smaller threshold |
-| Timestamp unavailable for an issue | Tracker API doesn't return `updated_at` for this issue type | Skip the issue, mark `SKIP-NO-TIMESTAMPS`, surface in recap |
-| Second close confirmation refused | User changed their mind after seeing the comment posted | Leave the issue open; it already has the pre-close notice |
-| Post call fails mid-loop | Transient rate-limit or auth expiry | Stop, surface the failed item, instruct the user to retry remaining items |
+Read [failure-modes.md](failure-modes.md) on any of these: an empty pool, a pool over 50, an issue with no timestamp, a refused second close confirmation, or a failed post.
 
 ---
 

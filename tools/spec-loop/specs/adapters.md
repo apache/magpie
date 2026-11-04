@@ -83,7 +83,9 @@ by swapping the adapter, not the skill.
   confidentiality guard every backend applies before writing, and a publish
   step for working-copy backends. `tracker.platform` selects the backend:
   `github` (default, the existing recipes), `local-files`, or `jira`.
-  Skills switch through the shared `tracker-backend` block, which maps each
+  Skills switch through the shared `tracker-backend` block, a pointer that
+  sends any other backend to the `tracker-backend-detail` block in the
+  skill's sibling `tracker-backend.md`, which maps each
   tracker `gh` command to a vetted operation; `tools/vetted-ops/` translates
   those operations for the backend its `[tracker]` policy names (fixed program,
   policy-pinned target, bodies on stdin) and refuses by name the ones with no

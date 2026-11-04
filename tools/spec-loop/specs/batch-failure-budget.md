@@ -78,8 +78,11 @@ exclusion, has not.
 
 - `docs/batch-failure-budget.md`: the shared contract: the two phases, what
   counts as an item failure, the budget values, the recap.
-- `tools/dev/blocks/item-failure-budget.md`: the shared prose block
-  (`## Item failure budget`) that `check-shared-blocks.py` propagates into
+- `tools/dev/blocks/item-failure-budget.md` and
+  `item-failure-budget-detail.md`: the shared prose blocks that
+  `check-shared-blocks.py` propagates. The first is a pointer under
+  `## Item failure budget` saying when to load the rule; the second is the
+  rule, in each skill's sibling `item-failure-budget.md`. Both go into
   the batch skills: `issue-triage`, `security-issue-triage`,
   `issue-stale-sweep`, `pr-stale-sweep`, `issue-reassess` (each before its
   *Failure modes* section) and `good-first-issue-sweep` (before its write

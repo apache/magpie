@@ -72,7 +72,8 @@ with no failures does not mention the budget at all.
 
 ## Where it is implemented
 
-- The prose rule is the shared block `tools/dev/blocks/item-failure-budget.md`,
+- The prose rule is the shared block `tools/dev/blocks/item-failure-budget-detail.md`,
+  loaded through the pointer block `tools/dev/blocks/item-failure-budget.md`, both
   propagated into `issue-triage`, `security-issue-triage`, `issue-stale-sweep`,
   `pr-stale-sweep`, `issue-reassess` and `good-first-issue-sweep`.
 - `pr-stale-sweep`'s sweep is deterministic code, so the budget is code there:
