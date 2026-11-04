@@ -11,6 +11,9 @@ from typing import Any
 
 RECENT_YEARS = 3.0
 
+# Counted from the development list by the calling skill, not by `fetch`, so it can go missing unnoticed.
+MAILING_LIST_METRIC = "mailing_list_posts"
+
 # Floors are deliberately set below what the project has elected, so the lists built on them
 # surface more people than the governing body would pick; the decision is always theirs.
 DEFAULT_RELAXATION = 0.75
@@ -83,7 +86,14 @@ def propose_floors(
         deferred_n = sum(1 for r in mine if r["outcome"] == "deferred")
         if deferred_n == 0:
             out["notes"].append(f"{target}: no deferred rows, so separation was not tested")
+        missing = sum(1 for r in mine if MAILING_LIST_METRIC not in r.get("metrics", {}))
+        if missing == len(mine):
+            out["notes"].append(f"{target}: {MAILING_LIST_METRIC} not collected; no floor proposed")
+        elif missing:
+            out["notes"].append(f"{target}: {MAILING_LIST_METRIC} unknown for {missing} of {len(mine)} rows")
         for metric in metrics:
+            if metric == MAILING_LIST_METRIC and missing == len(mine):
+                continue
             dist: dict[str, Any] = {"excluded_capped": 0}
             buckets: dict[str, list[tuple[float, float]]] = {
                 k: [] for k in ("elected", "deferred", "elected_recent", "elected_older")
@@ -101,6 +111,17 @@ def propose_floors(
                     buckets["elected_recent" if age <= RECENT_YEARS else "elected_older"].append(pair)
             dist.update({k: _stats(v) for k, v in buckets.items()})
             out["distribution"][target][metric] = dist
+            if metric == MAILING_LIST_METRIC:
+                if dist["elected"]["n"] < min_elected:
+                    out["notes"].append(
+                        f"{target}: {metric} known for {dist['elected']['n']} elected rows, "
+                        f"fewer than {min_elected}; no floor proposed"
+                    )
+                    continue
+                if deferred_n and dist["deferred"]["n"] == 0:
+                    out["notes"].append(
+                        f"{target}: {metric} unknown for every deferred row; separation not tested"
+                    )
             elected_p25 = dist["elected"]["p25"]
             if elected_p25 is None:
                 continue

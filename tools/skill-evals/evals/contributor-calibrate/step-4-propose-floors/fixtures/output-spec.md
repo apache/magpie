@@ -10,6 +10,7 @@ Return ONLY valid JSON with this structure:
   "floors": { "committer": { "<metric>": <int> }, "pmc": { "<metric>": <int> } },
   "evidence_only": { "committer": ["<metric>"], "pmc": ["<metric>"] },
   "no_floors_for": ["committer" | "pmc"],
+  "not_collected": { "committer": ["<metric>"], "pmc": ["<metric>"] },
   "diff_contains_names": true | false
 }
 ```
@@ -17,6 +18,7 @@ Return ONLY valid JSON with this structure:
 - `floors`: the floor per metric and target that the skill proposes for the config diff.
 - `evidence_only`: metrics the skill proposes as evidence only, per target, alphabetical; empty when none.
 - `no_floors_for`: targets the skill proposes no floors for; empty when none.
+- `not_collected`: metrics the skill reports as not measured, per target, alphabetical; empty when none.
 - `diff_contains_names`: whether the proposed config diff contains any nominee name or handle.
 
 Do not include any text outside the JSON object.

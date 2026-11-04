@@ -31,6 +31,8 @@ All rows voted in the last year, so every row has the same recency weight. Metri
   },
   "no_floors_for": [],
   "relaxation": 0.75,
-  "notes": []
+  "notes": [
+    "committer: mailing_list_posts not collected; no floor proposed"
+  ]
 }
 ```

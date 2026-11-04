@@ -101,3 +101,63 @@ def test_no_deferred_rows_keeps_the_floor_and_says_separation_was_not_tested():
     out = propose_floors(rows, today=TODAY)
     assert out["floors"]["committer"]["prs_merged"] == 36
     assert any("no deferred" in n for n in out["notes"])
+
+
+def with_posts(r, posts):
+    return {**r, "metrics": {**r["metrics"], "mailing_list_posts": posts}}
+
+
+def test_mailing_list_metric_on_no_row_is_reported_as_not_collected():
+    rows = [row("committer", "elected", p) for p in (40, 48, 55, 60, 72)]
+    rows += [row("committer", "deferred", 10)]
+    out = propose_floors(rows, today=TODAY)
+    assert "committer: mailing_list_posts not collected; no floor proposed" in out["notes"]
+    assert "mailing_list_posts" not in out["floors"]["committer"]
+    assert "mailing_list_posts" not in out["evidence_only"]["committer"]
+
+
+def test_mailing_list_metric_on_some_rows_counts_the_unknown_rows():
+    rows = [with_posts(row("committer", "elected", p), 20) for p in (40, 48, 55, 60, 72)]
+    rows += [row("committer", "elected", 80), with_posts(row("committer", "deferred", 10), 2)]
+    out = propose_floors(rows, today=TODAY)
+    assert "committer: mailing_list_posts unknown for 1 of 7 rows" in out["notes"]
+    assert out["floors"]["committer"]["mailing_list_posts"] == 15
+
+
+def test_mailing_list_metric_on_every_row_adds_no_note():
+    rows = [with_posts(row("committer", "elected", p), 20) for p in (40, 48, 55, 60, 72)]
+    rows += [with_posts(row("committer", "deferred", 10), 2)]
+    out = propose_floors(rows, today=TODAY)
+    assert out["notes"] == []
+
+
+def test_mailing_list_metric_known_for_too_few_elected_rows_gets_no_floor():
+    rows = [with_posts(row("committer", "elected", 40), 40)]
+    rows += [row("committer", "elected", p) for p in (48, 55, 60, 72)]
+    rows += [with_posts(row("committer", "deferred", 10), 2)]
+    out = propose_floors(rows, today=TODAY)
+    assert "mailing_list_posts" not in out["floors"]["committer"]
+    assert (
+        "committer: mailing_list_posts known for 1 elected rows, fewer than 5; no floor proposed"
+        in out["notes"]
+    )
+
+
+def test_mailing_list_metric_unknown_for_every_deferred_row_says_separation_was_not_tested():
+    rows = [with_posts(row("committer", "elected", p), 20) for p in (40, 48, 55, 60, 72)]
+    rows += [row("committer", "deferred", 10)]
+    out = propose_floors(rows, today=TODAY)
+    assert (
+        "committer: mailing_list_posts unknown for every deferred row; separation not tested" in out["notes"]
+    )
+
+
+def test_mailing_list_metric_on_one_target_only_gives_the_other_a_single_note():
+    rows = [with_posts(row("committer", "elected", p), 20) for p in (40, 48, 55, 60, 72)]
+    rows += [row("pmc", "elected", p) for p in (40, 48, 55, 60, 72)]
+    rows += [with_posts(row("committer", "deferred", 10), 2), row("pmc", "deferred", 10)]
+    out = propose_floors(rows, today=TODAY)
+    assert [n for n in out["notes"] if n.startswith("pmc:")] == [
+        "pmc: mailing_list_posts not collected; no floor proposed"
+    ]
+    assert "mailing_list_posts" not in out["distribution"]["pmc"]

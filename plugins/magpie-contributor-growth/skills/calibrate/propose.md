@@ -28,6 +28,10 @@ For each metric and each target, over the configured assessment window:
    Say plainly that it does not separate.
 4. A target with fewer than five elected rows gets no proposed floors; say so and leave its thresholds unchanged.
 5. A value that was capped is left out of that metric's distribution; with no deferred rows, separation cannot be tested and the note says so.
+6. `mailing_list_posts` missing from every row of a target is **not collected**, which is not the same as evidence only: leave its threshold unchanged and say it was not measured.
+   Missing from some rows, the unknown counts are left out of its distribution, and the tool's note says how many.
+   With fewer known elected values than the five rule 4 asks for, it gets no proposed floor; with no known deferred value, separation is untested and the note says so.
+   When this run's window differs from `calibrated_window_months`, reset that threshold to its default instead of keeping it: it was measured over another window, and the new stamp would hide that.
 
 ## Mapping to configuration
 

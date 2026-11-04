@@ -49,6 +49,8 @@ and community work; factual flags. Every claim links to its evidence.>
 
 | Dimension | Raw | Discounted | Penalty | Adjusted |
 |-----------|-----|------------|---------|----------|
+| <one row per `metrics.json` dimension> | N | N | N | N |
+| Mailing-list posts | <N, or *not collected*> | — | — | <N, or *not collected*> |
 
 ### Community
 
@@ -65,6 +67,7 @@ and community work; factual flags. Every claim links to its evidence.>
 - A handle is always a plain link, `[handle](https://github.com/handle)` — never `@handle`, so no one is notified.
 - Names follow [`real-names.md`](../nomination/real-names.md); a person with no verified name is listed by handle.
 - Shares are percentages with one decimal.
+- The Activity table has a *Mailing-list posts* row for everyone: the count in Raw and Adjusted when the person has a confirmed address, otherwise *not collected*, never `0`; Discounted and Penalty hold an em dash, because the count comes from the list search and not from `metrics.json`.
 - A count fed by a capped stream is written `≥ N` and footnoted *"at least N — the search returned more than was fetched"*; any `notes` from `metrics.json` are listed under the candidate.
 - Every list and table of people — measured or dropped — is in alphabetical order of GitHub handle, case-insensitive; never by floors met, counts, or any other measure.
 - No threshold or reference column, no count of floors met, no score, and no wording that says or implies someone is ready, close, or not ready.
