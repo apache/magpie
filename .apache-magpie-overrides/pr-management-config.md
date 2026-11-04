@@ -33,7 +33,7 @@ existing conventions.
 
 | Key | Value | Used by |
 |---|---|---|
-| `committers_team` | `<github-org>/<committers-team-slug>` | `pr-management triage classify` — pre-filters F5b / F5c and every maintainer test (team membership). Used to recognise PR comments that `@`-mention the project's committers as a maintainer-to-maintainer ping. Example: `apache/airflow-committers`. |
+| `committers_team` | `apache/magpie-committers` | `pr-management triage classify` — pre-filters F5b / F5c and every maintainer test (team membership). Used to recognise PR comments that `@`-mention the project's committers as a maintainer-to-maintainer ping. Example: `apache/airflow-committers`. |
 | `area_label_prefix` | `area:` | `pr-management triage classify`, `pr-management-stats` — area-label grouping. Adjust to the prefix your project uses for area labels (e.g. `comp:`, `module:`), or leave blank if your project doesn't group PRs by area. |
 
 ## Project-specific labels
