@@ -25,9 +25,9 @@ when_to_use: |
   anchor the import on (`security-issue-import-from-pr`).
 argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
-surface_hash: sha256:e2437e84cdf98aa5
+surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 6282
+measured_tokens: 6272
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -185,7 +185,7 @@ Only on the user's confirmation run `tracker-publish` with that message file
 Before running, the skill needs:
 
 - **`gh` CLI authenticated** with collaborator access to
-  `<tracker>`. The skill calls `gh api repos/<tracker>/issues`,
+  `<tracker>`. The skill uses vetted-op `issue-create-labeled`,
   `gh search issues`, and vetted-ops' `rollup-append`.
 - **Project-board write access** for the `addProjectV2ItemById` /
   `updateProjectV2ItemFieldValue` mutations from
@@ -343,30 +343,35 @@ skill must not stream per-finding confirmations.
 For each finding the user did not `skip`, run Steps 5a-5f.
 The batch is a serial loop, **not** parallel, so the `gh` calls and board mutations stay within GitHub rate limits.
 
-### 5a — Create the tracker via `gh api`
+### 5a — Create the tracker through vetted-ops
 
-Bypasses the form so the `Security mailing list thread` required-field check does not fire.
-Same pattern as [`security-issue-import-from-pr`'s](../issue-import-from-pr/SKILL.md#7a--create-the-tracker-via-gh-api) Step 7a.
+For each confirmed finding, use `issue-create-labeled`
+instead of raw `gh api` or `gh issue create`.
 
-Write the confirmed `render-body` `text` (laid out as in [`tracker-body-template.md`](tracker-body-template.md)) to the body file.
+Write the confirmed title, with the Write tool, to
+`<scratch>/import-md-<basename>-<index>-title.txt`
+and confirmed rendered body to
+`<scratch>/import-md-<basename>-<index>-body.md`.
 
-Create it per the safe-create recipe in
-[`tools/github/operations.md`](../../../../tools/github/operations.md#create) — the finding title is attacker-controlled.
-Title file `<scratch>/import-md-<basename>-<index>-title.txt` with the finding's `tracker_title`;
-body file `<scratch>/import-md-<basename>-<index>-body.md`; `labels[]` set to the Step 3c labels in the same call:
+For a GitHub tracker:
 
 ```bash
-gh api repos/<tracker>/issues \
-  -F title=@<scratch>/import-md-<basename>-<index>-title.txt \
-  -F body=@<scratch>/import-md-<basename>-<index>-body.md \
-  -f 'labels[]=needs triage' \
-  -f 'labels[]=security issue' \
-  --jq '.number, .node_id, .html_url'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-md issue-create-labeled <scratch>/import-md-<basename>-<index>-title.txt <scratch>/import-md-<basename>-<index>-body.md '["needs triage","security issue"]'
 ```
 
-No scope label, no `pr created` / `pr merged` — those come later in the lifecycle.
+The finding title is attacker-controlled, so it travels as a file: the dispatcher reads and validates it, and the shell never sees it.
+Keep the command bare, with no `$(…)`, or it runs inside the sandbox and fails.
+The body travels through stdin.
+The configured security labels are validated and applied atomically at creation.
 
-Capture `number`, `node_id`, `html_url` from the response.
+Capture `number`, `node_id`, and `url` from the JSON response.
+
+If creation fails, record the failure for this finding as
+required by the existing Step 5 workflow. Never retry using
+raw GitHub commands.
+
+For non-GitHub trackers, preserve the existing `issue-create`
+backend operation.
 
 ### 5b — Apply labels
 
@@ -388,7 +393,8 @@ Without the secure setup, see [`backends/vetted-ops.md`](backends/vetted-ops.md)
 
 ### 5e — Cleanup (per finding)
 
-Delete `<scratch>/import-md-<basename>-<index>-body.md` and
+Delete `<scratch>/import-md-<basename>-<index>-title.txt`,
+`<scratch>/import-md-<basename>-<index>-body.md`, and
 `<scratch>/import-md-<basename>-<index>-rollup.md` so they do not accumulate.
 
 ### 5f — Loop progress
@@ -400,7 +406,7 @@ see progress on long batches:
 [K/N] <tracker>#NNN — <finding title>
 ```
 
-If a finding's `gh api` call fails (rate limit, transient network error, schema mismatch), surface the failure with the finding's index and continue.
+If a finding's vetted issue-creation operation fails (rate limit, transient network error, schema mismatch), surface the failure with the finding's index and continue.
 Do **not** abort the batch on the first failure — the user re-invokes for the failed indices once the cause is fixed.
 
 ---

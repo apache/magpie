@@ -12,7 +12,7 @@ Return ONLY valid JSON with this structure:
       "kind": "reanchor" | "config" | "policy",
       "skill": "<skill name>",
       "override_file": "<relative path, or null for config/policy findings>",
-      "detail": "<free text — the heading that moved, or the file that is missing>"
+      "detail": "<free text — the unresolved anchor, configuration file, caller grant, or required label>"
     }
   ],
   "unchecked": ["anchor-resolution" | "requires_config" | "policy-grants"],
@@ -24,16 +24,19 @@ Return ONLY valid JSON with this structure:
   when an override's referenced anchor no longer resolves in the target
   skill's current `SKILL.md`; `kind: "config"` when a `requires_config`
   entry does not resolve through the lookup chain; `kind: "policy"` when
-  an applicable import caller or required operation is absent from an
+  an applicable import caller, required operation, or required label is absent from an
   existing vetted-ops policy. Use the caller name as `skill` and name
-  the exact missing operations in `detail`. Empty when all applicable
+  the exact missing operations or labels in `detail`.
+  Policy findings may group missing grants and labels for the same caller.
+  Required labels include intake labels and the configured PR scope, PR-state, and security-marker labels, as applicable.
+  Empty when all applicable
   checks pass cleanly for everything in scope.
 - `unchecked` — which check(s) could not be completed for at least one
   skill in scope, because that skill's `SKILL.md` was not readable this
   session (a marketplace install's plugin cache, denied under the
   sandbox). `requires_config` resolution needs only files already in the
   repository, so it is never unchecked. Use `policy-grants` when an
-  existing vetted-ops policy cannot be read or parsed. A missing
+  existing vetted-ops policy or its required label values cannot be verified. A missing
   policy is not applicable, not unchecked. Empty when nothing was skipped.
 - `stamp_written` is `true` only when `proposals` and `unchecked` are both
   empty — nothing changed, so the stamp is written immediately with no

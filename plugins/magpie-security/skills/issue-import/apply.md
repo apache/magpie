@@ -35,15 +35,33 @@ For each confirmed `Report` or forwarder-relayed candidate:
    If `fields_ok` is false, stop and show `extra_fields`: the body would not parse back into the form's fields.
    The callout is the per-instance warning; the AGENTS.md rule remains the defence for downstream skills reading the body.
 
-2. Create the issue with the `needs triage` and `security issue` labels,
-   per the safe-create recipe in
-   [`tools/github/operations.md`](../../../../tools/github/operations.md#create).
-   The title comes from an attacker-controlled email subject: title
-   file `<scratch>/issue-title-<threadId>.txt`, body file
-   `<scratch>/issue-body-<threadId>.md`, `labels[]=needs triage` and
-   `labels[]=security issue`. Capture the new issue's `number`.
-   The recipe's rule covers every `gh` call this skill makes with
-   attacker-controlled text as an argument.
+2. **Create the tracker using the vetted operation.**
+
+   Never use raw `gh api` or `gh issue create` for confidential
+   security report content. The agent guard blocks those commands.
+
+   Write the confirmed title to `<scratch>/issue-title-<threadId>.txt`
+   with the Write tool, and use the body file rendered in item 1.
+
+   For a GitHub tracker:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-create-labeled <scratch>/issue-title-<threadId>.txt <scratch>/issue-body-<threadId>.md '["needs triage","security issue"]'
+   ```
+
+   The title comes from an attacker-controlled email subject, so it
+   travels as a file: the dispatcher reads and validates it, and the
+   shell never sees it. Keep the command bare, with no `$(…)`, or it
+   runs inside the sandbox and fails.
+   The body travels on stdin, never in command arguments.
+
+   Capture `number`, `node_id`, and `url` from the JSON output.
+   Both labels are applied atomically at creation.
+
+   Stop if the vetted operation fails. Never fall back to raw `gh`.
+
+   For non-GitHub trackers, continue using the existing
+   `issue-create` operation through the configured backend.
 
 3. **Set the project-board `Status` to `Needs triage`.**
    The *Auto-add to project* workflow may already have added the issue

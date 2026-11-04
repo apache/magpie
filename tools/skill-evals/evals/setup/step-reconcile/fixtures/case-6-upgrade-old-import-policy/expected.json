@@ -1,0 +1,12 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "security-issue-import",
+      "override_file": null,
+      "detail": "Existing caller lacks issue-create-labeled and the label allowlist lacks security issue. Do not stamp clean."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}

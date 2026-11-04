@@ -11,9 +11,10 @@ The original saved caller entry was:
 
     "security-issue-import-from-md" = ["issue-view"]
 
-The applicable canonical requirement is `rollup-append`.
-The proposed diff adds only that operation.
+The applicable canonical requirements are `rollup-append` and `issue-create-labeled`.
+The proposed diff adds only those operations.
+The saved label allowlist already contains `needs triage` and `security issue`.
 
-The operator declined the proposed rollup-append grant. The saved policy remains unchanged.
+The operator declined the proposed grants. The saved policy remains unchanged.
 
 The current stamp has no entry for this skill.

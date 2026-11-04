@@ -1,0 +1,12 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "security-issue-import-from-md",
+      "override_file": null,
+      "detail": "Caller grants are complete, but security issue is missing from the label allowlist. Propose the missing label; do not stamp clean."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}

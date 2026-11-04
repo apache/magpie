@@ -38,6 +38,7 @@ import stat as stat_mod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 from . import procedures
 from .procedures import Plan
@@ -436,6 +437,20 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
     return root / SAVED_DIR / name
 
 
+def read_title(value: str, *, workspace: Path) -> str:
+    """
+    Read a title from a workspace file, under the same checks as an inline one.
+
+    A refusal never quotes the file: a dry run accepts any `--config`, so its
+    workspace can be one the agent chose, and this runs outside the sandbox.
+    """
+    data = read_body(value, workspace=workspace)
+    try:
+        return title(data.decode("utf-8").strip())
+    except (UnicodeDecodeError, ParamError):
+        raise ParamError(f"title file must hold one UTF-8 line of 1 to 256 characters: {value!r}") from None
+
+
 def read_body(value: str, *, workspace: Path) -> bytes:
     """
     Validate and read body text, returning its **content**.
@@ -516,6 +531,9 @@ class Op:
     enums: dict[str, str] = field(default_factory=dict)
     #: Parameters holding a path to body content.
     body_files: tuple[str, ...] = ()
+    #: Parameters holding a path to a title, for one too untrusted to write on a
+    #: command line: the agent saves it verbatim, and the dispatcher reads it.
+    title_files: tuple[str, ...] = ()
     #: Admitted on `vetted-op-tracker` although not a `procedure` — a tracker
     #: write that must run outside the sandbox (the local tracker's push).
     tracker_entry: bool = False
@@ -1070,6 +1088,55 @@ _register(
     )
 )
 
+
+def _issue_create_labeled(cfg: dict[str, str], title: str, body: str, labels: str) -> list[str]:
+    """Create a tracker with policy-approved labels in the same API request."""
+    tracker = _tracker(cfg)
+    allowed = cast(object, cfg.get("labels"))
+    if not isinstance(allowed, (list, dict)):
+        raise ParamError("issue-create-labeled requires configured labels")
+
+    try:
+        selected = json.loads(labels)
+    except (ValueError, TypeError) as exc:
+        raise ParamError("labels must be a JSON array") from exc
+
+    if (
+        not isinstance(selected, list)
+        or not 1 <= len(selected) <= 20
+        or any(not isinstance(label, str) for label in selected)
+    ):
+        raise ParamError("labels must be a non-empty JSON array of up to 20 strings")
+
+    if len(selected) != len(set(selected)):
+        raise ParamError("duplicate labels are not allowed")
+
+    if any(label not in allowed for label in selected):
+        raise ParamError("labels contain a value not approved by policy")
+
+    argv = [
+        "gh",
+        "api",
+        f"repos/{tracker}/issues",
+        "--method",
+        "POST",
+        "-f",
+        f"title={title}",
+        "-F",
+        "body=@-",
+    ]
+    for label in selected:
+        argv.extend(["-f", f"labels[]={label}"])
+
+    argv.extend(
+        [
+            "--jq",
+            "{number: .number, node_id: .node_id, url: .html_url}",
+        ]
+    )
+    return argv
+
+
 _register(
     Op(
         name="issue-create",
@@ -1096,6 +1163,19 @@ _register(
         ],
     )
 )
+
+_register(
+    Op(
+        name="issue-create-labeled",
+        params=("title", "body", "labels"),
+        writes=True,
+        summary="Create a GitHub tracker with policy-approved labels atomically.",
+        body_files=("body",),
+        title_files=("title",),
+        build=_issue_create_labeled,
+    )
+)
+
 
 _register(
     Op(

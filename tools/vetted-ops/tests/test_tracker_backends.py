@@ -101,6 +101,7 @@ SAMPLE = {
     "login": "alice",
     "reason": "not planned",
     "title": "Path traversal in upload",
+    "labels": '["needs triage"]',
     "query": "upload traversal",
     "attachment": "CVE-2026-1.json",
     "action": "Sync",
@@ -113,7 +114,7 @@ SAMPLE = {
 
 
 def _args(op: ops.Op, policy: Path) -> list[str]:
-    return [(_body(policy) if p in op.body_files else SAMPLE[p]) for p in op.params]
+    return [(_body(policy) if p in op.body_files + op.title_files else SAMPLE[p]) for p in op.params]
 
 
 # --- the mapping is complete -------------------------------------------------
@@ -133,7 +134,8 @@ def test_every_operation_that_addresses_the_tracker_is_mapped(tmp_path: Path) ->
     addressing = set()
     for name, op in ops.OPS.items():
         params = {
-            p: (str(workspace / "b.md") if p in op.body_files else SAMPLE.get(p, "1")) for p in op.params
+            p: (str(workspace / "b.md") if p in op.body_files + op.title_files else SAMPLE.get(p, "1"))
+            for p in op.params
         }
         try:
             op.build(trackerless, **params)

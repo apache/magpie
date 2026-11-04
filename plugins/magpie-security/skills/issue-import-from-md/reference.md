@@ -23,7 +23,7 @@
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | File parse yields zero findings | The file uses a different heading level or no `**Severity:**` metadata block | Stop; surface the expected shape from Step 1 and ask the user to reformat. |
-| `gh api repos/<tracker>/issues` returns 422 | Title or body field shape doesn't match the issue template | Re-check the body against the eleven `### <field>` headings; the heading text is case-sensitive. |
+| `issue-create-labeled` returns a GitHub 422 error | Title or body field shape doesn't match the issue template | Re-check the body against the eleven `### <field>` headings; the heading text is case-sensitive. |
 | `addProjectV2ItemById` returns `not found` for the project | Project-board node ID changed in `<project-config>/project.md` | Re-run the introspection query in [`project-board.md`](../../../../tools/github/project-board.md) and update `<project-config>/project.md`. |
 | Many possible-duplicate hits surfaced for every finding | The file is a re-scan against an already-triaged branch | Pause; consider whether the right action is `skip` for every finding (the existing trackers cover this) rather than landing duplicates. |
 | `gh api` rate-limits mid-batch | Large file (50+ findings) hits the per-minute limit | The skill surfaces the partial-success recap from Step 6; re-invoke against the same file later for the failed indices (the duplicate-guard at Step 2 will catch the already-imported ones). |

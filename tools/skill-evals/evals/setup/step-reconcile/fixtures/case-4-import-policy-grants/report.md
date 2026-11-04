@@ -30,8 +30,12 @@ Tracker backend: `github`.
 The framework's vetted-ops README provides this example:
 
 [callers]
-"security-issue-import" = ["issue-list-with-bodies", "rollup-append"]
-"security-issue-import-from-md" = ["rollup-append"]
-"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "rollup-append", "issue-create-labeled"]
+"security-issue-import-from-md" = ["rollup-append", "issue-create-labeled"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append", "issue-create-labeled"]
+
+The PR importer is configured for `scope:core` and a merged PR.
+The existing `[values] labels` contains `needs triage`, `security issue`,
+`scope:core`, and `pr merged`; all applicable required labels are approved.
 
 No policy changes have been confirmed during this run.
