@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 6243
+measured_tokens: 6272
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -348,7 +348,7 @@ The batch is a serial loop, **not** parallel, so the `gh` calls and board mutati
 For each confirmed finding, use `issue-create-labeled`
 instead of raw `gh api` or `gh issue create`.
 
-Write the confirmed title to
+Write the confirmed title, with the Write tool, to
 `<scratch>/import-md-<basename>-<index>-title.txt`
 and confirmed rendered body to
 `<scratch>/import-md-<basename>-<index>-body.md`.
@@ -356,17 +356,13 @@ and confirmed rendered body to
 For a GitHub tracker:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op \
-  --caller security-issue-import-from-md \
-  issue-create-labeled \
-  "$(cat <scratch>/import-md-<basename>-<index>-title.txt)" \
-  <scratch>/import-md-<basename>-<index>-body.md \
-  '["needs triage","security issue"]'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-md issue-create-labeled <scratch>/import-md-<basename>-<index>-title.txt <scratch>/import-md-<basename>-<index>-body.md '["needs triage","security issue"]'
 ```
 
-The title is passed as one validated argument. The body travels
-through stdin. The configured security labels are validated and
-applied atomically at creation.
+The finding title is attacker-controlled, so it travels as a file: the dispatcher reads and validates it, and the shell never sees it.
+Keep the command bare, with no `$(…)`, or it runs inside the sandbox and fails.
+The body travels through stdin.
+The configured security labels are validated and applied atomically at creation.
 
 Capture `number`, `node_id`, and `url` from the JSON response.
 

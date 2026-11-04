@@ -615,11 +615,11 @@ The guarantees above carry over, because the translation lives in reviewed code
 The full mapping, from the `gh` shape in the skills to the vetted operation to
 the backend subcommand, is in the contract's
 [skill-command table](../security-tracker/contract.md#from-skill-commands-to-vetted-operations).
-Ten operations exist for it:
+Eleven operations exist for it:
 
 | Operation | Kind | Parameters | Notes |
 |---|---|---|---|
-| `issue-create-labeled` | write | `title body labels` | GitHub only: create a private tracker with a JSON array of policy-approved labels, applied atomically. Body travels on stdin; returns `number`, `node_id`, and `url`. |
+| `issue-create-labeled` | write | `title body labels` | GitHub only: create a private tracker with a JSON array of policy-approved labels, applied atomically. `title` and `body` are paths to workspace files: the title is read and validated here, and the body travels on stdin. Returns `number`, `node_id`, and `url`. |
 | `issue-create` | write | `title body` | GitHub: `gh api …/issues -f title=… -F body=@-`. |
 | `issue-reopen` | write | `number` | |
 | `issue-list-label` | read | `state label` | `issue-list` filtered by one configured label. |

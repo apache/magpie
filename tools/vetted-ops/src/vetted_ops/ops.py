@@ -437,6 +437,20 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
     return root / SAVED_DIR / name
 
 
+def read_title(value: str, *, workspace: Path) -> str:
+    """
+    Read a title from a workspace file, under the same checks as an inline one.
+
+    A refusal never quotes the file: a dry run accepts any `--config`, so its
+    workspace can be one the agent chose, and this runs outside the sandbox.
+    """
+    data = read_body(value, workspace=workspace)
+    try:
+        return title(data.decode("utf-8").strip())
+    except (UnicodeDecodeError, ParamError):
+        raise ParamError(f"title file must hold one UTF-8 line of 1 to 256 characters: {value!r}") from None
+
+
 def read_body(value: str, *, workspace: Path) -> bytes:
     """
     Validate and read body text, returning its **content**.
@@ -517,6 +531,9 @@ class Op:
     enums: dict[str, str] = field(default_factory=dict)
     #: Parameters holding a path to body content.
     body_files: tuple[str, ...] = ()
+    #: Parameters holding a path to a title, for one too untrusted to write on a
+    #: command line: the agent saves it verbatim, and the dispatcher reads it.
+    title_files: tuple[str, ...] = ()
     #: Admitted on `vetted-op-tracker` although not a `procedure` — a tracker
     #: write that must run outside the sandbox (the local tracker's push).
     tracker_entry: bool = False
@@ -1154,6 +1171,7 @@ _register(
         writes=True,
         summary="Create a GitHub tracker with policy-approved labels atomically.",
         body_files=("body",),
+        title_files=("title",),
         build=_issue_create_labeled,
     )
 )

@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:26be912ca52168e5
 license: Apache-2.0
-measured_tokens: 7869
+measured_tokens: 7895
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -453,28 +453,24 @@ Sequenced. Each step depends on the previous one's output.
 
 Use `issue-create-labeled` instead of raw GitHub issue creation.
 
-Write the confirmed title to `<scratch>/import-pr-<N>-title.txt`
+Write the confirmed title, with the Write tool, to `<scratch>/import-pr-<N>-title.txt`
 and the confirmed `render-body` text to
 `<scratch>/import-pr-<N>-body.md`.
 
-Serialize the exact Step 5c labels into a JSON array in
-`<scratch>/import-pr-<N>-labels.json`. Do not invent or discard
-scope, PR-state, or security-marker labels.
+Serialize the exact Step 5c labels into a JSON array, `<labels-json>` below.
+Do not invent or discard scope, PR-state, or security-marker labels.
 
 For a GitHub tracker:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op \
-  --caller security-issue-import-from-pr \
-  issue-create-labeled \
-  "$(cat <scratch>/import-pr-<N>-title.txt)" \
-  <scratch>/import-pr-<N>-body.md \
-  "$(cat <scratch>/import-pr-<N>-labels.json)"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-pr issue-create-labeled <scratch>/import-pr-<N>-title.txt <scratch>/import-pr-<N>-body.md '<labels-json>'
 ```
 
-The title is passed as one validated argument. The report body
-travels through stdin. All labels must be approved by the
-vetted-ops policy and are applied at creation.
+The title derives from the attacker-controlled PR title, so it travels as a file: the dispatcher reads and validates it, and the shell never sees it.
+The labels come from configuration, so they are written in the command.
+Keep the command bare, with no `$(…)`, or it runs inside the sandbox and fails.
+The report body travels through stdin.
+All labels must be approved by the vetted-ops policy and are applied at creation.
 
 Capture `number`, `node_id`, and `url` from the JSON response.
 

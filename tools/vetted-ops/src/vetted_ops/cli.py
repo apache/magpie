@@ -101,6 +101,8 @@ def _validate_params(
                 )
             body = ops_mod.read_body(raw, workspace=config.workspace)
             resolved[name] = "-"
+        elif name in op.title_files:
+            resolved[name] = ops_mod.read_title(raw, workspace=config.workspace)
         elif (
             name == "number"
             and config.tracker_backend is not None
@@ -151,6 +153,14 @@ def _validate_params(
         else:  # pragma: no cover - guarded by the catalogue test
             raise ops_mod.ParamError(f"operation {op.name!r} declares unknown parameter {name!r}")
     return resolved, body
+
+
+def _without_file_titles(op: ops_mod.Op, params: dict[str, str], command: list[str]) -> list[str]:
+    """A dry run's argv for display: like a body, a title read from a file shows only as its size."""
+    hidden = {
+        f"title={params[name]}": f"title=<from file, {len(params[name])} chars>" for name in op.title_files
+    }
+    return [hidden.get(argument, argument) for argument in command]
 
 
 def build_argv(
@@ -333,7 +343,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         if op.backend == "gh":
             if not isinstance(command, list):
                 raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
-            print(" ".join(command))
+            print(" ".join(_without_file_titles(op, params, command)))
         else:
             if not isinstance(command, dict):
                 raise ops_mod.ParamError(f"operation {op.name!r} produced invalid request descriptor")

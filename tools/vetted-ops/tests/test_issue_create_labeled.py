@@ -45,6 +45,12 @@ def policy(tmp_path: Path) -> Path:
     return cfg
 
 
+def _title_file(policy: Path, text: str) -> str:
+    path = policy.parent / "scratch" / "title.txt"
+    path.write_text(text)
+    return str(path)
+
+
 def test_creation_is_pinned_to_private_tracker(policy: Path) -> None:
     command = ops.OPS["issue-create-labeled"].build(
         config.load(policy).as_mapping(),
@@ -101,7 +107,7 @@ def test_unapproved_label_refused(policy: Path, capsys: pytest.CaptureFixture[st
             "security-issue-import",
             "--dry-run",
             "issue-create-labeled",
-            "Security report",
+            _title_file(policy, "Security report\n"),
             str(body),
             json.dumps(["public-disclosure"]),
         ]
@@ -135,7 +141,7 @@ def test_sensitive_body_uses_stdin(policy: Path, monkeypatch: pytest.MonkeyPatch
             "--caller",
             "security-issue-import",
             "issue-create-labeled",
-            "Private security report",
+            _title_file(policy, "Private security report\n"),
             str(body),
             '["needs triage","security issue"]',
         ]
@@ -149,6 +155,76 @@ def test_sensitive_body_uses_stdin(policy: Path, monkeypatch: pytest.MonkeyPatch
     assert "repos/apache/public/issues" not in observed["argv"]
     assert "labels[]=needs triage" in observed["argv"]
     assert "labels[]=security issue" in observed["argv"]
+    assert "title=Private security report" in observed["argv"]
+
+
+@pytest.mark.parametrize("title", ["", "   \n", "two\nlines"])
+def test_a_title_file_gets_the_title_checks(
+    policy: Path, title: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    body = policy.parent / "scratch" / "body.md"
+    body.write_text("Report\n")
+    code = cli.main(
+        [
+            "--config",
+            str(policy),
+            "--caller",
+            "security-issue-import",
+            "--dry-run",
+            "issue-create-labeled",
+            _title_file(policy, title),
+            str(body),
+            '["needs triage"]',
+        ]
+    )
+    assert code != cli.EXIT_OK
+    assert "title" in capsys.readouterr().err.lower()
+
+
+@pytest.mark.parametrize("secret", ["hunter2", "hunter2\nsecond line", "hunter2" * 50])
+def test_a_title_file_is_never_echoed(policy: Path, secret: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """A dry run takes any --config, so its output must not disclose a file it read."""
+    body = policy.parent / "scratch" / "body.md"
+    body.write_text("Report\n")
+    cli.main(
+        [
+            "--config",
+            str(policy),
+            "--caller",
+            "security-issue-import",
+            "--dry-run",
+            "issue-create-labeled",
+            _title_file(policy, secret),
+            str(body),
+            '["needs triage"]',
+        ]
+    )
+    captured = capsys.readouterr()
+    assert "hunter2" not in captured.out + captured.err
+
+
+def test_a_title_file_must_live_in_the_workspace(
+    policy: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside = tmp_path / "title.txt"
+    outside.write_text("Report\n")
+    body = policy.parent / "scratch" / "body.md"
+    body.write_text("Report\n")
+    code = cli.main(
+        [
+            "--config",
+            str(policy),
+            "--caller",
+            "security-issue-import",
+            "--dry-run",
+            "issue-create-labeled",
+            str(outside),
+            str(body),
+            '["needs triage"]',
+        ]
+    )
+    assert code != cli.EXIT_OK
+    assert "workspace" in capsys.readouterr().err.lower()
 
 
 def test_github_failure_returns_command_error(policy: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -173,7 +249,7 @@ def test_github_failure_returns_command_error(policy: Path, monkeypatch: pytest.
             "--caller",
             "security-issue-import",
             "issue-create-labeled",
-            "Private security report",
+            _title_file(policy, "Private security report\n"),
             str(body),
             '["needs triage","security issue"]',
         ]

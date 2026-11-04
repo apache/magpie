@@ -41,21 +41,19 @@ For each confirmed `Report` or forwarder-relayed candidate:
    security report content. The agent guard blocks those commands.
 
    Write the confirmed title to `<scratch>/issue-title-<threadId>.txt`
-   and use the body file rendered in item 1.
+   with the Write tool, and use the body file rendered in item 1.
 
    For a GitHub tracker:
 
    ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op \
-     --caller security-issue-import \
-     issue-create-labeled \
-     "$(cat <scratch>/issue-title-<threadId>.txt)" \
-     <scratch>/issue-body-<threadId>.md \
-     '["needs triage","security issue"]'
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-create-labeled <scratch>/issue-title-<threadId>.txt <scratch>/issue-body-<threadId>.md '["needs triage","security issue"]'
    ```
 
-   The title is one validated argv argument, never evaluated as
-   shell code. The body travels on stdin, never in command arguments.
+   The title comes from an attacker-controlled email subject, so it
+   travels as a file: the dispatcher reads and validates it, and the
+   shell never sees it. Keep the command bare, with no `$(…)`, or it
+   runs inside the sandbox and fails.
+   The body travels on stdin, never in command arguments.
 
    Capture `number`, `node_id`, and `url` from the JSON output.
    Both labels are applied atomically at creation.
