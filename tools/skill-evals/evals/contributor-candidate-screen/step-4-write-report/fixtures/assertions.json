@@ -43,5 +43,16 @@
     "type": "regex",
     "field": "report",
     "pattern": "(?s)github\\.com/search\\?type=pullrequests&q=[^)\\s]*is:merged[^)\\s]*author:kshah.*reviewed-by:kshah"
+  },
+  "unconfirmed_list_count_not_collected": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "(?i)mailing.list posts[^\\n]*not collected"
+  },
+  "unconfirmed_list_count_never_zero": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "(?i)mailing.list posts \\| 0 \\|",
+    "negate": true
   }
 }

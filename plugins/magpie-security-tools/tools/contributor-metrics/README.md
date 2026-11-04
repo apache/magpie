@@ -140,6 +140,7 @@ Proposes threshold floors from measured past nominations, for `contributor-calib
   The relaxation is deliberate: the floors sit well below what the project has elected, so the lists built on them surface more people than the governing body would pick, and the decision stays with that body.
 - When the unrelaxed weighted 25th percentile, rounded down, is at or below the weighted median of deferred rows, the metric is *evidence only* (floor `0`).
 - A target with fewer than `--min-elected` elected rows gets no floors.
+- `mailing_list_posts` comes from the calling skill, so its absence is reported in `notes`: *not collected* when no row of a target has it, otherwise how many rows are unknown.
 - A capped value is left out of that metric's distribution and counted in `excluded_capped`.
 
 Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}, "no_floors_for": [target], "distribution": {...}, "relaxation": float, "notes": [...]}`.

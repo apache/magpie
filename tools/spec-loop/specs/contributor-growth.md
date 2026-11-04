@@ -303,6 +303,12 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   outcome, coarse deferral category), never votes, opinions or quotes.
   It bounds the archive query at the holdout date and never opens an
   excluded thread.
+  The development-list count is required whenever a development list is
+  configured; a nominee with no confirmed address has an unknown count,
+  left out of the row rather than written as `0`, and addresses accepted
+  during calibration stay in scratch. `floors` reports the metric as not
+  collected, or how many rows are unknown, and proposes no floor from
+  fewer known elected values than `--min-elected`.
   `contributor-metrics floors` computes the floors; a metric that does
   not separate elected from deferred nominees is evidence-only, and
   capped counts are left out of a metric's distribution.
