@@ -417,8 +417,13 @@ HEAD = "0123456789abcdef0123456789abcdef01234567"
 
 def _with_auto_merge(saved: Path, *, author: str = "nina", method: str = "SQUASH", **node_kw: Any) -> None:
     full = node(7, author=author, files=["scheduler/job.py"], head=HEAD, **node_kw)
-    full |= {"viewerCanEnableAutoMerge": True, "viewerDefaultMergeMethod": method, "autoMergeRequest": None}
-    repository = {"viewerPermission": "WRITE", "autoMergeAllowed": True, "pullRequest": full}
+    full |= {"viewerCanEnableAutoMerge": True, "autoMergeRequest": None}
+    repository = {
+        "viewerPermission": "WRITE",
+        "autoMergeAllowed": True,
+        "viewerDefaultMergeMethod": method,
+        "pullRequest": full,
+    }
     (saved / "cr-pr-7.json").write_text(
         json.dumps({"data": {"viewer": {"login": "alice"}, "repository": repository}})
     )
