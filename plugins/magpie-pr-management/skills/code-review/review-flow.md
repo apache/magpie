@@ -323,9 +323,12 @@ Pick which to post: [A]ll (default), [N]one, 1,3 (keep), -2 (drop), [E 2] (edit)
 
 The answer is passed to `render --keep`; dropped comments fold into the body's *Smaller observations*. The picker is skipped when there is nothing anchored, or under `inline:off`.
 
-Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt. Maintainers can toggle actions (`accept`, `skip`, `edit`) using hotkeys (`1`–`9`, `a`, `n`, `k`, `j`), interactive buttons, or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`). The curated actions deterministically translate to the `--keep` argument passed to `render`.
+Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt as an interactive visual overview during review triage.
+Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`).
+The resulting keep recommendation is displayed in the pane footer and in `/magpie-findings status` for easy entry into the picker prompt.
 
-Per the vendor-neutral additive-only contract (`docs/when-to-use-mods.md`), this mod is entirely additive. In Codex, Antigravity, Cursor, and headless CI environments where mod hooks are unsupported or absent, the skill seamlessly continues using the standard sequential text picker prompt above.
+Per the vendor-neutral additive-only contract (`docs/when-to-use-mods.md`), this mod is entirely additive.
+In Codex, Antigravity, Cursor, and headless CI environments where mod hooks are unsupported or absent, the skill seamlessly continues using the standard sequential text picker prompt above.
 
 ---
 

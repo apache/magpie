@@ -650,39 +650,45 @@ export function resolveFindingIndex(
   identifier: string | number
 ): number {
   const anchored = state.findings.filter(isAnchored);
+  const unanchored = state.findings.filter((f) => !isAnchored(f));
 
   if (typeof identifier === 'number') {
-    if (identifier >= 1) {
-      if (anchored.length > 0 && identifier <= anchored.length) {
-        const target = anchored[identifier - 1];
-        return state.findings.indexOf(target);
-      }
-      if (identifier <= state.findings.length) {
-        return identifier - 1;
-      }
-    }
-    if (identifier === 0 && state.findings.length > 0) {
-      return 0;
+    if (identifier >= 1 && identifier <= anchored.length) {
+      const target = anchored[identifier - 1];
+      return state.findings.indexOf(target);
     }
     return -1;
   }
+
   const trimmed = identifier.trim();
+
+  // 1. Direct ID match (e.g. 'gen-1', 'inline-1')
   const byId = state.findings.findIndex((f) => f.id === trimmed);
   if (byId !== -1) {
     return byId;
   }
+
+  // 2. General finding identifier prefix: g<N> or G<N> (e.g. 'g1', 'g2')
+  const generalMatch = trimmed.match(/^[gG](\d+)$/);
+  if (generalMatch) {
+    const generalIndex = Number.parseInt(generalMatch[1], 10);
+    if (generalIndex >= 1 && generalIndex <= unanchored.length) {
+      const target = unanchored[generalIndex - 1];
+      return state.findings.indexOf(target);
+    }
+    return -1;
+  }
+
+  // 3. Digit string strictly addresses 1-based inline comments (1..anchored.length)
   if (/^\d+$/.test(trimmed)) {
     const parsed = Number.parseInt(trimmed, 10);
-    if (parsed >= 1) {
-      if (anchored.length > 0 && parsed <= anchored.length) {
-        const target = anchored[parsed - 1];
-        return state.findings.indexOf(target);
-      }
-      if (parsed <= state.findings.length) {
-        return parsed - 1;
-      }
+    if (parsed >= 1 && parsed <= anchored.length) {
+      const target = anchored[parsed - 1];
+      return state.findings.indexOf(target);
     }
+    return -1;
   }
+
   return -1;
 }
 
@@ -809,9 +815,15 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     for (const key of ALIAS_KEYS) {
       delete base[key];
     }
-    if (
-      (f.action === 'edit' && f.body) ||
-      (base.explanation === undefined && base.suggestion === undefined && f.body)
+    if (f.action === 'edit') {
+      delete base.suggestion;
+      if (f.body) {
+        base.explanation = f.body;
+      }
+    } else if (
+      base.explanation === undefined &&
+      base.suggestion === undefined &&
+      f.body
     ) {
       base.explanation = f.body;
     }
@@ -982,8 +994,9 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
 /**
  * UI press event handler for Claude Code mod.
  *
- * Handles button presses and hotkey triggers from the interactive review findings pane:
- * - toggle-<N>: cycles action of finding at index N (accept -> skip -> edit -> accept)
+ * Handles button click actions from the interactive review findings pane:
+ * - toggle-<N>: cycles action of anchored finding at index N (accept -> skip -> edit -> accept)
+ * - toggle-general-<N>: cycles action of unanchored general observation at index N
  * - accept-all: marks all findings as accepted
  * - skip-all: marks all findings as skipped
  * - prev-finding: decrements selectedIndex
@@ -1137,7 +1150,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             }
           }
 
-          if (fileContent && typeof fileContent === 'string') {
+          if (fileContent && typeof fileContent === 'string' && fileContent.trim().length > 0) {
             const parsed = parseFindings(fileContent);
             if (parsed.findings.length > 0) {
               const prNumber = extractPrNumberFromCommand(command);
@@ -1150,6 +1163,8 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             } else {
               await setReviewFindingsState($, null);
             }
+          } else {
+            await setReviewFindingsState($, null);
           }
         }
       }
@@ -1207,6 +1222,19 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
         const f = anchored[i];
         const indicator = formatActionIndicator(f.action);
         lines.push(`  ${indicator.label.slice(0, 3)} ${i + 1}. [${f.severity.toUpperCase()}] ${f.file}:${f.line} - ${truncateText(f.body, 60)}`);
+      }
+    }
+
+    const unanchored = state.findings.filter((f) => !isAnchored(f));
+    if (unanchored.length > 0) {
+      if (anchored.length > 0) {
+        lines.push('');
+      }
+      lines.push('General observations (unanchored):');
+      for (let i = 0; i < unanchored.length; i += 1) {
+        const f = unanchored[i];
+        const indicator = formatActionIndicator(f.action);
+        lines.push(`  ${indicator.label.slice(0, 3)} g${i + 1}. [${f.severity.toUpperCase()}] ${f.file} - ${truncateText(f.body, 60)}`);
       }
     }
     return { text: lines.join('\n') };
@@ -1284,7 +1312,7 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
     };
   }
 
-  const editMatch = rawArgs.match(/^edit\s+(\d+)\s+([\s\S]+)$/i);
+  const editMatch = rawArgs.match(/^edit\s+([a-zA-Z0-9_-]+)\s+([\s\S]+)$/i);
   if (editMatch) {
     const idOrNum = editMatch[1];
     const newNote = editMatch[2].trim();

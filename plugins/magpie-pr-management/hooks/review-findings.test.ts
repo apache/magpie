@@ -934,8 +934,9 @@ End of observations.
       assertStrictEqual(resolveFindingIndex(state, 2), 1);
       assertStrictEqual(resolveFindingIndex(state, 3), -1);
 
-      // 0-based edge case
-      assertStrictEqual(resolveFindingIndex(state, 0), 0);
+      // 0-based or out-of-range returns -1 (1-based only)
+      assertStrictEqual(resolveFindingIndex(state, 0), -1);
+      assertStrictEqual(resolveFindingIndex(state, 3), -1);
 
       // String ID
       assertStrictEqual(resolveFindingIndex(state, 'finding-first'), 0);
@@ -1137,6 +1138,7 @@ End of observations.
             line: 42,
             severity: 'blocking',
             explanation: 'Original unedited stale text',
+            suggestion: '`python\n# Stale code suggestion\n`',
             rule_id: 'sec-rule-1',
             custom_metadata: 'preserved',
           },
@@ -1178,8 +1180,9 @@ End of observations.
 
       assertStrictEqual(parsed.length, 3);
 
-      // Item 1 (edited): explanation MUST be the updated body, not the stale raw explanation
+      // Item 1 (edited): explanation MUST be updated, suggestion deleted
       assertStrictEqual(parsed[0].explanation, 'Customized explanation by maintainer');
+      assertStrictEqual(parsed[0].suggestion, undefined);
       assertStrictEqual(parsed[0].custom_metadata, 'preserved');
 
       // Item 2 (accepted): explanation preserved from raw
@@ -1583,6 +1586,15 @@ End of observations.
       assertStrictEqual(resolveFindingIndex(mixedState, 2), 2);
       assertStrictEqual(resolveFindingIndex(mixedState, '2'), 2);
 
+      // Out-of-range inline numbers strictly return -1 without falling back to unanchored findings
+      assertStrictEqual(resolveFindingIndex(mixedState, 3), -1);
+      assertStrictEqual(resolveFindingIndex(mixedState, '3'), -1);
+
+      // General observations addressed by g1, G1
+      assertStrictEqual(resolveFindingIndex(mixedState, 'g1'), 0);
+      assertStrictEqual(resolveFindingIndex(mixedState, 'G1'), 0);
+      assertStrictEqual(resolveFindingIndex(mixedState, 'g2'), -1);
+
       // Resolving by string ID directly
       assertStrictEqual(resolveFindingIndex(mixedState, 'gen-1'), 0);
       assertStrictEqual(resolveFindingIndex(mixedState, 'inline-1'), 1);
@@ -1631,6 +1643,59 @@ End of observations.
       const multiline = 'uv run disposition \\\n  --findings \\\n  saved/findings-1887.json \\\n  --pr 1887';
       const extracted = extractFindingsPathFromCommand(multiline);
       assertStrictEqual(extracted, 'saved/findings-1887.json');
+    });
+
+    test('handleBashToolCall resets atom to null when file read fails or content is empty', async () => {
+      const failingTest$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+        fs: {
+          read: async () => {
+            throw new Error('ENOENT: file not found');
+          },
+        },
+      });
+
+      await setReviewFindingsState(failingTest$, {
+        prNumber: 1887,
+        findings: [{ id: 'old', file: 'a.py', line: 10, severity: 'minor', body: 'Old', action: 'accept' }],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      });
+
+      await handleBashToolCall(
+        failingTest$,
+        { command: 'uv run pr-management code-review disposition --findings saved/missing.json' },
+        () => {}
+      );
+      assertStrictEqual(await getReviewFindingsState(failingTest$), null);
+
+      // Empty string content
+      const emptyContentTest$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+        fs: {
+          read: async () => '',
+        },
+      });
+
+      await setReviewFindingsState(emptyContentTest$, {
+        prNumber: 1887,
+        findings: [{ id: 'old', file: 'a.py', line: 10, severity: 'minor', body: 'Old', action: 'accept' }],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      });
+
+      await handleBashToolCall(
+        emptyContentTest$,
+        { command: 'uv run pr-management code-review disposition --findings saved/empty.json' },
+        () => {}
+      );
+      assertStrictEqual(await getReviewFindingsState(emptyContentTest$), null);
     });
 
     test('handleBashToolCall resets atom to null when findings payload is empty', async () => {
