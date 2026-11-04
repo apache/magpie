@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (162 cases total)
+## Suites (168 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
