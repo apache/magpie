@@ -20,7 +20,11 @@
 import { describe, test } from 'claude-code/testing';
 import {
   calculateSummary,
+  formatActionIndicator,
+  formatFindingDescription,
   formatKeepAnswer,
+  formatSeverityBadge,
+  getReviewFindingsState,
   isAnchored,
   normalizeAction,
   normalizeFilePath,
@@ -29,9 +33,15 @@ import {
   normalizeSource,
   parseFindings,
   register,
+  renderFindingsPane,
+  reviewFindingsState,
+  sanitizeFindingText,
   serializeFindingsForRender,
+  setReviewFindingsState,
+  truncateFilePath,
+  truncateText,
 } from './review-findings.ts';
-import type { ReviewFinding } from './types.ts';
+import type { ReviewFinding, ReviewFindingsState } from './types.ts';
 
 function assert(condition: any, message?: string): void {
   if (!condition) {
@@ -47,6 +57,32 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
   }
 }
 
+function createMockEngine(overrides: any = {}): any {
+  const store = new Map<string, any>();
+  return {
+    state: {
+      get: (atom: any) => {
+        return { isSet: store.has(atom.key), value: store.has(atom.key) ? store.get(atom.key) : null };
+      },
+      set: (atom: any, wrapped: any) => {
+        const prev = store.has(atom.key) ? store.get(atom.key) : null;
+        const nextVal =
+          typeof wrapped === 'function'
+            ? wrapped(prev)
+            : wrapped && typeof wrapped === 'object' && 'value' in wrapped
+              ? wrapped.value
+              : wrapped;
+        store.set(atom.key, nextVal);
+        return { isSet: true, value: nextVal };
+      },
+    },
+    ui: {
+      invalidate: () => {},
+    },
+    ...overrides,
+  };
+}
+
 function assertDeepStrictEqual(actual: any, expected: any): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
@@ -55,7 +91,7 @@ function assertDeepStrictEqual(actual: any, expected: any): void {
   }
 }
 
-describe('magpie-pr-management review findings mod (PR-1)', () => {
+describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
   describe('normalization helpers', () => {
     test('normalizeSeverity maps known severities and synonyms case-insensitively', () => {
       assertStrictEqual(normalizeSeverity('blocking'), 'blocking');
@@ -116,18 +152,17 @@ describe('magpie-pr-management review findings mod (PR-1)', () => {
     });
 
     test('numeric non-integer or negative lines and non-string severities are recorded', () => {
-      const errors: string[] = [];
-      assertStrictEqual(normalizeLine(12.5, errors), null);
-      assertStrictEqual(normalizeLine(-3, errors), null);
-      assertStrictEqual(normalizeLine(0, errors), null);
-      assertStrictEqual(errors.length, 2);
-      assert(errors[1].includes("Malformed line number '-3'"));
+      const lineErrors: string[] = [];
+      assertStrictEqual(normalizeLine(12.5, lineErrors), null);
+      assertStrictEqual(normalizeLine(-3, lineErrors), null);
+      assertStrictEqual(lineErrors.length, 2);
+      assert(lineErrors[0].includes("Malformed line number '12.5'"));
+      assert(lineErrors[1].includes("Malformed line number '-3'"));
 
-      const sevErrors: string[] = [];
-      assertStrictEqual(normalizeSeverity(3, sevErrors), 'minor');
-      assertStrictEqual(normalizeSeverity(undefined, sevErrors), 'minor');
-      assertStrictEqual(sevErrors.length, 1);
-      assert(sevErrors[0].includes("Invalid severity type 'number'"));
+      const severityErrors: string[] = [];
+      assertStrictEqual(normalizeSeverity(42, severityErrors), 'minor');
+      assertStrictEqual(severityErrors.length, 1);
+      assert(severityErrors[0].includes("Invalid severity type 'number'"));
     });
 
     test('normalizeSource validates reviewer source attributes', () => {
@@ -153,6 +188,45 @@ describe('magpie-pr-management review findings mod (PR-1)', () => {
       assertStrictEqual(normalizeAction(123 as any, errors), 'skip');
       assertStrictEqual(errors.length, 3);
       assert(errors[0].includes("Unrecognized action 'reject'"));
+    });
+
+    test('sanitizeFindingText strips ANSI CSI, OSC sequences, and C0/C1 control characters', () => {
+      // ANSI color / style CSI sequences
+      assertStrictEqual(sanitizeFindingText('\u001b[31;1mSecurity alert\u001b[0m'), 'Security alert');
+      // Cursor movements and screen clear
+      assertStrictEqual(sanitizeFindingText('\u001b[2K\u001b[1Aclean text'), 'clean text');
+      // OSC 8 hyperlinks (keeping visible text, dropping escape target)
+      assertStrictEqual(
+        sanitizeFindingText('\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007'),
+        'Click here'
+      );
+      // C0 and C1 control characters (null, bell, backspace, newlines, DEL)
+      assertStrictEqual(sanitizeFindingText('Line1\r\nLine2\u0000\u0007\u007f'), 'Line1 Line2');
+      // Empty input
+      assertStrictEqual(sanitizeFindingText(''), '');
+      assertStrictEqual(sanitizeFindingText(null as any), '');
+    });
+
+    test('formatFindingDescription harmonizes rule and body with length truncation', () => {
+      // Both rule and body present
+      assertStrictEqual(
+        formatFindingDescription('security-rule', 'Check input buffer'),
+        'security-rule \u2014 Check input buffer'
+      );
+      // Only body present
+      assertStrictEqual(formatFindingDescription(undefined, 'Unanchored note'), 'Unanchored note');
+      // Only rule present
+      assertStrictEqual(formatFindingDescription('rule-only', ''), 'rule-only');
+      // Truncation when exceeding maxLength
+      const longBody = 'A'.repeat(100);
+      const formatted = formatFindingDescription('rule', longBody, 30);
+      assertStrictEqual(formatted.length, 30);
+      assert(formatted.endsWith('...'));
+      // Strips ANSI escapes from both rule and body
+      assertStrictEqual(
+        formatFindingDescription('\u001b[31mrule\u001b[0m', '\u001b[32mclean body\u001b[0m'),
+        'rule \u2014 clean body'
+      );
     });
   });
 
@@ -302,68 +376,54 @@ describe('magpie-pr-management review findings mod (PR-1)', () => {
 
     test('round-trips a full Step-4 finding with every key render reads', () => {
       const step4 = {
-        file: './src/hook.py',
-        line_number: '142',
+        file: 'providers/foo/hook.py',
+        line: 142,
+        rule_source: '<project-config>/criteria.md',
+        rule_section: '#code-quality-rules',
+        rule_id: 'Flag imports inside a function body',
+        quoted_rule: 'Never import inside a function.',
+        excerpt: 'def get_client():\n    import boto3\n',
+        severity: 'major',
+        suggestion: 'Move import to file header.',
+        suggestion_block: 'import boto3\n',
         side: 'RIGHT',
-        level: 'major',
-        category: 'Code quality',
-        rule_id: 'no in-function imports',
-        quoted_rule: 'Flag any import inside a function body',
-        excerpt: 'def f():\n    import boto3',
-        explanation: 'The import runs on every call.',
-        suggestion: 'Move the import to module level.',
-        suggestion_block: '    import boto3',
-        reviewers: ['codex', 'copilot'],
-        comment: 'edited comment text',
-        action: 'edit',
+        reviewers: ['alice'],
       };
-      const decoded = JSON.parse(serializeFindingsForRender(parseFindings([step4]).findings))[0];
-      assertStrictEqual(decoded.file, 'src/hook.py');
-      assertStrictEqual(decoded.line, 142);
-      assertStrictEqual(decoded.severity, 'major');
-      for (const key of [
-        'side',
-        'category',
-        'rule_id',
-        'quoted_rule',
-        'excerpt',
-        'explanation',
-        'suggestion',
-        'suggestion_block',
-        'comment',
-      ]) {
-        assertStrictEqual(decoded[key], (step4 as Record<string, unknown>)[key], `key ${key}`);
-      }
-      assertDeepStrictEqual(decoded.reviewers, ['codex', 'copilot']);
-      for (const alias of ['line_number', 'level', 'action']) {
-        assertStrictEqual(alias in decoded, false, `alias ${alias} dropped`);
+
+      const parsed = parseFindings([step4]);
+      assertStrictEqual(parsed.errors.length, 0);
+      assertStrictEqual(parsed.findings.length, 1);
+
+      const serialized = serializeFindingsForRender(parsed.findings);
+      const roundTripped = JSON.parse(serialized)[0];
+
+      for (const [key, value] of Object.entries(step4)) {
+        assertDeepStrictEqual(roundTripped[key], value);
       }
     });
 
     test('render numbering over the serialised file matches formatKeepAnswer', () => {
-      // Inputs where the raw keys and render's rule diverge: aliases render
-      // never reads, the string "0" (truthy in Python), a non-object item.
-      const rawDataset: unknown[] = [
-        { file: 'a.py', lineNumber: 12, body: 'alias lineNumber', action: 'accept' },
-        { file: 'b.py', line: '0', body: 'string zero', action: 'accept' },
+      const raw = [
+        { file: 'a.py', lineNumber: '12', body: 'Valid line 12', action: 'accept' },
+        { file: 'b.py', line_number: '14', body: 'Valid line 14', action: 'edit' },
+        { file: 'c.py', line: '0', body: 'Zero string unanchored', action: 'accept' },
         'not an object',
-        { file: 'c.py', line_number: 7, body: 'alias line_number', action: 'skip' },
-        { file: 'd.py', line: 30, body: 'plain line', action: 'edit' },
-        { file: 'e.py', line: null, body: 'unanchored', action: 'accept' },
+        { file: 'd.py', line: 55, body: 'Valid line 55', action: 'skip' },
+        { file: 'e.py', line: 99, body: 'Valid line 99', action: 'edit' },
       ];
-      const parsed = parseFindings(rawDataset);
-      const serialised = JSON.parse(serializeFindingsForRender(parsed.findings)) as Array<
-        Record<string, unknown>
-      >;
-      // render: anchored = [f for f in findings if f.get("line")]
-      const renderAnchored = serialised.filter((f) => Boolean(f.line));
+
+      const parsed = parseFindings(raw);
+      const serialized = serializeFindingsForRender(parsed.findings);
+      const consumedByRender: Array<Record<string, unknown>> = JSON.parse(serialized);
+
+      const renderAnchored = consumedByRender.filter((f) => Boolean(f.line));
       const actions = parsed.findings.filter(isAnchored).map((f) => f.action);
       assertStrictEqual(renderAnchored.length, actions.length);
       const renderKept = renderAnchored
         .map((_, i) => i + 1)
         .filter((i) => actions[i - 1] === 'accept' || actions[i - 1] === 'edit');
       assertStrictEqual(formatKeepAnswer(parsed.findings), renderKept.join(','));
-      assertStrictEqual(formatKeepAnswer(parsed.findings), '1,3');
+      assertStrictEqual(formatKeepAnswer(parsed.findings), '1,2,4');
     });
   });
 
@@ -455,16 +515,281 @@ End of observations.
     });
   });
 
-  describe('mod hook registration', () => {
-    test('registers session.start lifecycle hook cleanly', async () => {
-      const registered: Array<{ event: string; handler: Function }> = [];
-      const fakeOn = (event: string, handler: Function) => {
-        registered.push({ event, handler });
+  describe('PR-2 UI formatters and helpers', () => {
+    test('formatSeverityBadge maps severities to labels, colors, and emphasis', () => {
+      const blocking = formatSeverityBadge('blocking');
+      assertStrictEqual(blocking.label, '[BLOCKING]');
+      assertStrictEqual(blocking.color, 'error');
+      assertStrictEqual(blocking.bold, true);
+
+      const major = formatSeverityBadge('major');
+      assertStrictEqual(major.label, '[MAJOR]');
+      assertStrictEqual(major.color, 'error');
+      assertStrictEqual(major.bold, false);
+
+      const minor = formatSeverityBadge('minor');
+      assertStrictEqual(minor.label, '[MINOR]');
+      assertStrictEqual(minor.color, 'warning');
+      assertStrictEqual(minor.bold, false);
+
+      const nit = formatSeverityBadge('nit');
+      assertStrictEqual(nit.label, '[NIT]');
+      assertStrictEqual(nit.color, 'dim');
+      assertStrictEqual(nit.bold, false);
+    });
+
+    test('formatActionIndicator maps actions to indicator labels and styles', () => {
+      const accept = formatActionIndicator('accept');
+      assertStrictEqual(accept.label, '[x] Accept');
+      assertStrictEqual(accept.color, 'success');
+      assertStrictEqual(accept.bold, true);
+
+      const skip = formatActionIndicator('skip');
+      assertStrictEqual(skip.label, '[ ] Skip');
+      assertStrictEqual(skip.color, 'dim');
+      assertStrictEqual(skip.bold, false);
+
+      const edit = formatActionIndicator('edit');
+      assertStrictEqual(edit.label, '[E] Edit');
+      assertStrictEqual(edit.color, 'info');
+      assertStrictEqual(edit.bold, true);
+    });
+
+    test('truncateFilePath preserves short paths and abbreviates long deep paths', () => {
+      assertStrictEqual(truncateFilePath('short/path.py', 36), 'short/path.py');
+      assertStrictEqual(
+        truncateFilePath(
+          'plugins/magpie-security-tools/tools/security-management/src/state.py',
+          30
+        ),
+        '.../src/state.py'
+      );
+    });
+
+    test('renderFindingsPane returns null when findings are empty or ui resolution fails', () => {
+      const state: ReviewFindingsState = {
+        findings: [],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+      assertStrictEqual(renderFindingsPane({}, {}, state), null);
+
+      const populatedState: ReviewFindingsState = {
+        findings: [
+          { id: '1', file: 'a.py', line: 10, severity: 'minor', body: 'Note', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+      assertStrictEqual(renderFindingsPane({}, {}, populatedState), null);
+    });
+
+    test('renderFindingsPane builds UI Box tree using resolved components', () => {
+      const findings: ReviewFinding[] = [
+        {
+          id: '1',
+          file: 'src/a.py',
+          line: 12,
+          severity: 'blocking',
+          body: 'Flaw',
+          rule: 'security',
+          action: 'accept',
+        },
+        {
+          id: '2',
+          file: 'docs/b.md',
+          line: null,
+          severity: 'nit',
+          body: 'Grammar',
+          action: 'skip',
+        },
+      ];
+      const state: ReviewFindingsState = {
+        prNumber: 42,
+        findings,
+        summary: calculateSummary(findings),
+        selectedIndex: 0,
+      };
+
+      const mockBox = (props: any) => ({ type: 'Box', ...props });
+      const mockText = (props: any) => ({ type: 'Text', ...props });
+      const fake$ = {
+        ui: {
+          resolve: () => ({ Box: mockBox, Text: mockText }),
+        },
+      };
+
+      const pane = renderFindingsPane(fake$, {}, state);
+      assertStrictEqual(pane.type, 'Box');
+      assertStrictEqual(Array.isArray(pane.children), true);
+    });
+
+    test('renderFindingsPane displays clean overflow indicator without roadmap text', () => {
+      const findings: ReviewFinding[] = [];
+      for (let i = 1; i <= 14; i += 1) {
+        findings.push({
+          id: String(i),
+          file: `src/file${i}.py`,
+          line: i,
+          severity: 'minor',
+          body: `Finding ${i}`,
+          rule: 'style',
+          action: 'accept',
+        });
+      }
+      const state: ReviewFindingsState = {
+        prNumber: 99,
+        findings,
+        summary: calculateSummary(findings),
+        selectedIndex: 0,
+      };
+
+      const collectedTexts: string[] = [];
+      const mockBox = (props: any) => ({ type: 'Box', ...props });
+      const mockText = (props: any) => {
+        if (props.children) {
+          collectedTexts.push(...props.children);
+        }
+        return { type: 'Text', ...props };
+      };
+      const fake$ = {
+        ui: {
+          resolve: () => ({ Box: mockBox, Text: mockText }),
+        },
+      };
+
+      renderFindingsPane(fake$, {}, state);
+      const overflowText = collectedTexts.find((t) => t.includes('showing'));
+      assert(overflowText, 'Expected overflow indicator text');
+      assertStrictEqual(overflowText, '... showing 10 of 14 findings');
+      assert(!overflowText.includes('PR-3'), 'Must not contain PR-3 delivery plan text');
+      assert(!overflowText.includes('scroll or select'), 'Must not contain scroll hint');
+    });
+
+    test('renderFindingsPane sanitizes ANSI and control characters in file, rule, and body', () => {
+      const findings: ReviewFinding[] = [
+        {
+          id: '1',
+          file: '\u001b[31msrc/dangerous.py\u001b[0m',
+          line: 10,
+          severity: 'blocking',
+          body: '\u001b]8;;https://malicious.link\u0007Dangerous body\u001b]8;;\u0007',
+          rule: '\u001b[1;33mrule-injection\u001b[0m',
+          action: 'accept',
+        },
+      ];
+      const state: ReviewFindingsState = {
+        prNumber: 100,
+        findings,
+        summary: calculateSummary(findings),
+        selectedIndex: 0,
+      };
+
+      const collectedTexts: string[] = [];
+      const mockBox = (props: any) => ({ type: 'Box', ...props });
+      const mockText = (props: any) => {
+        if (props.children) {
+          collectedTexts.push(...props.children);
+        }
+        return { type: 'Text', ...props };
+      };
+      const fake$ = {
+        ui: {
+          resolve: () => ({ Box: mockBox, Text: mockText }),
+        },
+      };
+
+      renderFindingsPane(fake$, {}, state);
+      const combined = collectedTexts.join(' ');
+      assert(!combined.includes('\u001b'), 'Rendered text must not contain ANSI escape bytes');
+      assert(combined.includes('src/dangerous.py'), 'Expected clean file path');
+      assert(combined.includes('rule-injection'), 'Expected clean rule');
+      assert(combined.includes('Dangerous body'), 'Expected clean body');
+    });
+  });
+
+  describe('mod hook registration and Pane UI mounting', () => {
+    test('registers session.start and ui.render (Pane) lifecycle hooks cleanly', () => {
+      const registered: Array<{ event: string; opts?: any; handler: Function }> = [];
+      const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
+        if (typeof optsOrHandler === 'function') {
+          registered.push({ event, handler: optsOrHandler });
+        } else {
+          registered.push({ event, opts: optsOrHandler, handler: handler! });
+        }
       };
 
       register(fakeOn);
-      assertStrictEqual(registered.length, 1);
+      assertStrictEqual(registered.length, 2);
       assertStrictEqual(registered[0].event, 'session.start');
+      assertStrictEqual(registered[1].event, 'ui.render');
+      assertStrictEqual(registered[1].opts?.component, 'Pane');
+    });
+
+    test('session.start fixture hydration routes through setReviewFindingsState and invalidates UI', async () => {
+      const registered: Array<{ event: string; handler: Function }> = [];
+      const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
+        if (typeof optsOrHandler === 'function') {
+          registered.push({ event, handler: optsOrHandler });
+        }
+      };
+      register(fakeOn);
+
+      let invalidatedSurface: string | null = null;
+      let nextCalled = false;
+      const test$ = createMockEngine({
+        ui: {
+          invalidate: (surface: string) => {
+            invalidatedSurface = surface;
+          },
+        },
+      });
+      const fakePayload = {
+        prNumber: 555,
+        prTitle: 'Sample PR',
+        findings: [
+          {
+            id: '1',
+            file: 'src/app.py',
+            line: 20,
+            severity: 'major',
+            body: 'Unused import',
+            rule: 'lint',
+            action: 'accept',
+          },
+        ],
+      };
+      const fakeNext = (payload: any) => {
+        nextCalled = true;
+        return payload;
+      };
+
+      await registered[0].handler(test$, fakePayload, fakeNext);
+      assert(nextCalled, 'Handler should chain to next(e)');
+      assertStrictEqual(invalidatedSurface, 'ui.render', 'Expected session.start to invalidate ui.render');
+
+      const currentState = await getReviewFindingsState(test$);
+      assert(currentState !== null, 'State should be populated from fixture payload');
+      assertStrictEqual(currentState?.prNumber, 555);
+      assertStrictEqual(currentState?.findings.length, 1);
+    });
+
+    test('session.start clears state when event has no findings', async () => {
+      const registered: Array<{ event: string; handler: Function }> = [];
+      const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
+        if (typeof optsOrHandler === 'function') {
+          registered.push({ event, handler: optsOrHandler });
+        }
+      };
+      register(fakeOn);
+
+      const test$ = createMockEngine();
+      await setReviewFindingsState(test$, {
+        prNumber: 123,
+        findings: [],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      });
 
       let nextCalled = false;
       const fakeNext = (payload: any) => {
@@ -472,8 +797,87 @@ End of observations.
         return payload;
       };
 
-      await registered[0].handler({}, { id: 'session-1' }, fakeNext);
+      await registered[0].handler(test$, { surface: 'terminal' }, fakeNext);
       assert(nextCalled, 'Handler should chain to next(e)');
+
+      const currentState = await getReviewFindingsState(test$);
+      assertStrictEqual(currentState, null, 'State should be cleared to null when event has no findings');
+    });
+
+    test('ui.render mounts Pane on terminal and desktop surfaces when findings exist', async ($: any, on: any) => {
+      on('ui.render', () => ({ type: 'Box', children: [] }));
+      on('session.start', () => ({ cwd: '/work' }));
+
+      const testFindings: ReviewFinding[] = [
+        {
+          id: '1',
+          file: 'src/core.py',
+          line: 42,
+          severity: 'blocking',
+          body: 'Security breach detected',
+          rule: 'sec-rule',
+          action: 'accept',
+        },
+        {
+          id: '2',
+          file: 'README.md',
+          line: null,
+          severity: 'nit',
+          body: 'Typo in readme',
+          action: 'skip',
+        },
+      ];
+
+      await $.session.start({
+        surface: 'terminal',
+        isInteractive: true,
+        cwd: '/work',
+        prNumber: 1920,
+        findings: testFindings,
+      });
+
+      for (const surface of ['terminal', 'desktop'] as const) {
+        const ui = await $.ui.mount({
+          plugin: 'magpie-pr-management',
+          surface,
+          component: 'Pane',
+          props: {},
+        });
+        const header = await ui.find({ type: 'Text', text: /PR #1920: Review Findings/ });
+        assert(header, "Expected header rendered on " + surface);
+
+        const blockingBadge = await ui.find({ type: 'Text', text: /\[BLOCKING\]/ });
+        assert(blockingBadge, "Expected blocking badge rendered on " + surface);
+
+        const inlineSection = await ui.find({
+          type: 'Text',
+          text: /Proposed inline comments:/,
+        });
+        assert(inlineSection, "Expected inline comments section on " + surface);
+      }
+    });
+
+    test('ui.render passes through unchanged when state is null or empty', async ($: any, on: any) => {
+      on('ui.render', () => ({ type: 'Box', children: [] }));
+      on('session.start', () => ({ cwd: '/work' }));
+
+      await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' });
+
+      for (const surface of ['terminal', 'desktop'] as const) {
+        const ui = await $.ui.mount({
+          plugin: 'magpie-pr-management',
+          surface,
+          component: 'Pane',
+          props: {},
+        });
+        const found = await ui.find({ type: 'Text', text: /Review Findings/ });
+        assertStrictEqual(
+          found,
+          undefined,
+          "Pane should not render findings on " + surface + " when state is null"
+        );
+      }
     });
   });
+
 });
