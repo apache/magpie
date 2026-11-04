@@ -86,7 +86,7 @@ Announce the result once at session start:
 
 > *Adversarial reviewers configured: codex, copilot (run by me through
 > the adversarial-review tool after my own review of each PR; each
-> PR's diff, title and body go to those models' providers).*
+> PR's diff, title, body and head tree go to those models' providers).*
 
 > *Adversarial reviewer configured: `<COMMAND>`. After my review of each
 > PR I'll propose typing it so we get a second read.*
