@@ -161,7 +161,7 @@ repos:
   # (broken anchors via MD051, dangling link references via MD053);
   # style choices the existing docs already settled stay off.
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.23.3
+    rev: v0.24.0
     hooks:
       - id: markdownlint-cli2
         name: markdownlint
@@ -392,7 +392,7 @@ repos:
         name: check-claude-mods (claude plugin validate --strict / test)
         language: node
         entry: tools/dev/check-claude-mods.sh
-        additional_dependencies: ["@anthropic-ai/claude-code@2.1.316"]
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.317"]
         files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
         stages: [manual]
