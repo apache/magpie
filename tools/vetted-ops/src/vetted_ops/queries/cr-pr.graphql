@@ -28,6 +28,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     viewerPermission
     autoMergeAllowed
+    viewerDefaultMergeMethod
     pullRequest(number: $number) {
       id
       number
@@ -46,7 +47,6 @@ query($owner: String!, $repo: String!, $number: Int!) {
       mergeable
       mergeStateStatus
       viewerCanEnableAutoMerge
-      viewerDefaultMergeMethod
       autoMergeRequest { mergeMethod }
       additions
       deletions

@@ -245,7 +245,6 @@ def from_node(node: dict[str, Any]) -> PR:
         mergeable=str(node.get("mergeable") or "UNKNOWN"),
         merge_state=node.get("mergeStateStatus"),
         viewer_can_enable_auto_merge=bool(node.get("viewerCanEnableAutoMerge")),
-        default_merge_method=node.get("viewerDefaultMergeMethod"),
         auto_merge_enabled=node.get("autoMergeRequest") is not None,
         additions=int(node.get("additions") or 0),
         deletions=int(node.get("deletions") or 0),
@@ -322,6 +321,7 @@ def load_pr(path: Path) -> PR:
     pr.viewer = (data.get("viewer") or {}).get("login")
     pr.viewer_permission = repo.get("viewerPermission")
     pr.auto_merge_allowed = bool(repo.get("autoMergeAllowed"))
+    pr.default_merge_method = repo.get("viewerDefaultMergeMethod")
     return pr
 
 
