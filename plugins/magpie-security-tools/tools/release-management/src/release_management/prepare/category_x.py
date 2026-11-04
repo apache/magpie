@@ -47,7 +47,9 @@ TOKEN_CHARS = r"A-Za-z0-9_.\-"
 def pattern_for(term: str) -> re.Pattern[str]:
     pieces = re.split(SEPARATORS, term)
     body = SEPARATORS.join(re.escape(p) for p in pieces)
-    return re.compile(rf"(?<![{TOKEN_CHARS}:/]){body}(?![A-Za-z0-9_\-:]|\.[A-Za-z0-9])", re.IGNORECASE)
+    # A full coordinate can be followed by :version or :type:version.
+    suffix_chars = r"A-Za-z0-9_\-" if ":" in term else r"A-Za-z0-9_\-:"
+    return re.compile(rf"(?<![{TOKEN_CHARS}:/]){body}(?![{suffix_chars}]|\.[A-Za-z0-9])", re.IGNORECASE)
 
 
 def terms(identifier: str) -> list[str]:

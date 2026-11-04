@@ -427,6 +427,27 @@ def test_category_x_cli_names_the_hard_stop_file(tmp_path: Path, capsys: pytest.
     assert out["read"] == ["classifications/category-x-hit.md"]
 
 
+@pytest.mark.parametrize("deny", ["org.example:blocked-lib", "blocked-lib"])
+def test_category_x_cli_reports_versioned_coordinate(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], deny: str
+) -> None:
+    manifest = tmp_path / "build.gradle.kts"
+    manifest.write_text('\nimplementation("org.example:blocked-lib:1.2.3")\n' * 2, encoding="utf-8")
+    shown = "app/build.gradle.kts"
+    assert main(["prepare", "category-x", "--deny", deny, f"{shown}={manifest}"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    if deny == "blocked-lib":
+        assert out == {"category_x_hit": False, "category_x_violations": [], "files_scanned": [shown]}
+    else:
+        assert out == {
+            "category_x_hit": True,
+            "category_x_violations": [{"identifier": deny, "found_in": shown}],
+            "handoff_reason": category_x.HANDOFF,
+            "first_match_lines": [{"identifier": deny, "found_in": shown, "line": 2}],
+            "read": ["classifications/category-x-hit.md"],
+        }
+
+
 def test_versions_per_manifest(tmp_path: Path) -> None:
     files = {
         "pyproject.toml": '[project]\nname = "foo"\nversion = "1.0.0.dev0"\n',
