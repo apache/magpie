@@ -46,12 +46,21 @@ def with_label(labels: Mapping[str, str] | None, slug: str) -> dict[str, str]:
     return out
 
 
+def _to_filter_list(key: str, value: object) -> list[str]:
+    if isinstance(value, dict):
+        return [k for k, v in value.items() if v]
+    if isinstance(value, list):
+        return [str(x) for x in value]
+    raise ValueError(f"filters.{key} must be a list or an object")
+
+
 def merge_filters(raw: str | None, slug: str) -> str:
     """Add the project label to a Docker ``filters`` query value.
 
     Accepts the list form ``{"label": ["k=v"]}`` and the legacy map form
-    ``{"label": {"k=v": true}}``; always emits the list form. Filters use
-    AND logic by the daemon, so a client-supplied label for another project
+    ``{"label": {"k=v": true}}``; always emits the list form, for every key,
+    because the daemon rejects a mix of the two as ``invalid filter``. Filters
+    use AND logic by the daemon, so a client-supplied label for another project
     simply matches nothing.
     """
     filters: dict[str, object] = {}
@@ -63,15 +72,9 @@ def merge_filters(raw: str | None, slug: str) -> str:
         if not isinstance(parsed, dict):
             raise ValueError("filters must be a JSON object")
         filters = parsed
-    existing = filters.get("label", [])
-    if isinstance(existing, dict):
-        labels = [k for k, v in existing.items() if v]
-    elif isinstance(existing, list):
-        labels = [str(x) for x in existing]
-    else:
-        raise ValueError("filters.label must be a list or an object")
+    normalised = {key: _to_filter_list(key, value) for key, value in filters.items()}
+    labels = normalised.setdefault("label", [])
     wanted = label_filter_value(slug)
     if wanted not in labels:
         labels.append(wanted)
-    filters["label"] = labels
-    return json.dumps(filters, separators=(",", ":"))
+    return json.dumps(normalised, separators=(",", ":"))
