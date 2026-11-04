@@ -271,6 +271,26 @@ uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate
 That alone is enough: the script reads every template field from the issue body, emits the full CVE 5.x record, and patches (or appends to) the tracking issue body in place.
 When any of the report's `normalisation_changes`, `missing_required` or `needs_decision` is non-empty (`needs_decision` exits 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
 
+### A record that is already public
+
+When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change.
+For Vulnogram:
+
+```bash
+uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch --cve-id <CVE-ID> --state-only
+```
+
+If the state is `PUBLIC`, save the live record and pass it as the baseline:
+
+```bash
+uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
+uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json --baseline <scratch>/cve-live-<N>.json
+```
+
+The body still wins for every value it owns; everything else keeps its published value.
+If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
+Never regenerate a `PUBLIC` record without its baseline.
+
 ### Remediation-developer credit comes from the body field
 
 The *Remediation developer* body field is the **single source of truth** for the `type: "remediation developer"` credits in the regenerated JSON.
