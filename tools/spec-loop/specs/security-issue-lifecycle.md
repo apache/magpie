@@ -231,6 +231,9 @@ publication, with a human gate and an audit-log entry at every step.
   the push is a recap blocker that posts nothing about the hand-off that run.
   The stage-specific Step 2b bullets live in `release-manager-comments.md`
   and `post-advisory-records.md`, read when `signals-to-actions.md` says so.
+  The conditional Step 1 sub-steps live in `cve-record-comments.md` (1e),
+  `closed-tracker-check.md` (1g) and `release-vote-detection.md` (1h), read
+  when `gather.md` says so.
   The Step 1 observations
   that are arithmetic are code too: the disclosure-window flags, reporter
   staleness, the closed-`announced` cve.org move with the security-pages
