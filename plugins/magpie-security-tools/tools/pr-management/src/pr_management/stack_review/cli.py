@@ -108,7 +108,10 @@ def add_parsers(sub: Any) -> None:
     rsd.add_argument("--prefix", required=True, help="magpie-stack/<S>")
     rsd.add_argument("--size", type=int, required=True)
     rsd.add_argument(
-        "--variant", action="append", required=True, help="one spelling of a retired token (regex)"
+        "--variant",
+        action="append",
+        required=True,
+        help="one spelling of a retired token (POSIX ERE for git grep -E; must not match the empty string)",
     )
     rsd.add_argument("--exclude-glob", action="append", default=[], help="an extra glob to exclude")
 
@@ -117,7 +120,10 @@ def residue_command(clone: str, prefix: str, size: int, variants: list[str], ext
     if not _PREFIX.match(prefix):
         raise SystemExit(f"pr-management: --prefix must be magpie-stack/<number>, got {prefix!r}")
     for variant in variants:
-        re.compile(variant)
+        compiled = re.compile(variant)
+        # This Python precheck catches common mistakes, not every ERE empty match.
+        if compiled.search("") is not None:
+            raise SystemExit(f"pr-management: --variant must not match the empty string, got {variant!r}")
     pattern = "|".join(f"({v})" for v in variants)
     excludes = [f":(glob,exclude){g}" for g in (*RESIDUE_EXCLUDES, *extra)]
     return shlex.join(

@@ -264,6 +264,9 @@ def test_residue_command_is_one_quoted_git_grep() -> None:
         ([r"Python 3\.10", "py310"], ["1:# Python 3.10", "2:# PY310"]),
         ([r"^# (Python 3\.10|py310)$"], ["1:# Python 3.10", "2:# PY310"]),
         (["py999"], []),
+        (["-x"], ["4:# -x"]),
+        (["py3[0-9][0-9]"], ["2:# PY310"]),
+        ([r"py310\|"], []),
     ],
 )
 def test_residue_command_runs_with_git(
@@ -292,7 +295,7 @@ def test_residue_command_runs_with_git(
     clone = tmp_path / "clone with spaces"
     clone.mkdir()
     files = {
-        "src/compat.py": "# Python 3.10\n# PY310\n# Python 3X10\n",
+        "src/compat.py": "# Python 3.10\n# PY310\n# Python 3X10\n# -x\n",
         "generated/compat.py": "# Python 3.10\n",
         "versions.lock": "Python 3.10\n",
         "pyproject.toml": "# Python 3.10\n",
@@ -337,10 +340,34 @@ def test_residue_command_runs_with_git(
         "**/vendor/**",
     ]
     for variant in variants:
-        cli_args.extend(["--variant", variant])
+        cli_args.append(f"--variant={variant}")
     assert main(cli_args) == 0
     command = json.loads(capsys.readouterr().out)["command"]
     result = subprocess.run(shlex.split(command), shell=False, capture_output=True, text=True)
     assert result.returncode == (0 if matches else 1), result.stderr
     assert result.stderr == ""
     assert result.stdout.splitlines() == [f"refs/magpie-stack/120/4:src/compat.py:{hit}" for hit in matches]
+
+
+@pytest.mark.parametrize("variants", [[""], ["py310|"], ["x*"], ["[0-9]*"], ["(py310)?"], ["py310", "x*"]])
+def test_residue_command_rejects_empty_matching_variants(
+    variants: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "stack-review",
+                "residue-command",
+                "--clone",
+                "/unused",
+                "--prefix",
+                "magpie-stack/120",
+                "--size",
+                "4",
+                *(f"--variant={variant}" for variant in variants),
+            ]
+        )
+    message = str(exc.value)
+    assert "--variant" in message and "empty string" in message
+    assert repr(variants[-1]) in message
+    assert capsys.readouterr().out == ""
