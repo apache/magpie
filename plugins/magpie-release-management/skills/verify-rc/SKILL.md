@@ -21,9 +21,9 @@ when_to_use: |
   it. Runs standalone.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:68f688faf6363ba7
+surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 6529
+measured_tokens: 6686
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -438,6 +438,20 @@ the comment carries the attestation block `release-promote` Step 0 looks for:
 
 Without `--trusted-hardware`, or with any non-`identical` result, the
 comment carries no attestation and says why.
+
+---
+
+## Interactive verification checklist pane (Claude Code)
+
+When running under Claude Code with the `magpie-release-management` plugin enabled,
+the companion `verify-rc-pane` mod renders an interactive verification checklist
+above the prompt. As the skill executes mechanical checks (`release-config preflight`
+and `release-verify` subcommands), the mod intercepts the tool calls, updates each
+step's live status badge (`[✓] PASS`, `[✗] FAIL`, `[!] WARN`, `[*] RUNNING`, `[-] SKIP`),
+and displays concise findings inline for any warning or failure.
+
+On other agent harnesses (such as Codex, Antigravity, Cursor, or headless CI),
+standard sequential command-line text output continues to run without modification.
 
 ---
 

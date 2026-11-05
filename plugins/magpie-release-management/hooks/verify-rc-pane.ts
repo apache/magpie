@@ -18,9 +18,11 @@
 // under the License.
 
 import { atom, read, update } from 'claude-code';
+import { createDefaultVerifySteps } from './types.ts';
 import type {
   VerifyRcState,
   VerifyRcStep,
+  VerifyStepId,
   StepStatus,
   OverallVerifyStatus,
 } from './types.ts';
@@ -311,10 +313,365 @@ export function renderVerifyRcPane($: any, e: any, state: VerifyRcState | null):
 }
 
 /**
+ * Extracts a release candidate tag from a shell command string.
+ */
+export function extractRcTag(command: string): string | null {
+  if (!command || typeof command !== 'string') return null;
+  const match =
+    command.match(/(?:verify-rc|--rc-tag|--tag)[=\s]+([0-9A-Za-z_.\-]+-rc\d+)/i) ||
+    command.match(/\b([0-9A-Za-z_.\-]+-rc\d+)\b/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Derives the base release version from a candidate tag (e.g. '2.11.0-rc1' -> '2.11.0').
+ */
+export function deriveVersionFromRcTag(rcTag: string): string {
+  if (!rcTag || typeof rcTag !== 'string') return '';
+  return rcTag.replace(/-rc\d+$/i, '');
+}
+
+/**
+ * Maps a verify-rc or release-verify CLI invocation to a canonical VerifyStepId or 'all'.
+ */
+export function mapCliSubcommandToStepId(command: string): VerifyStepId | 'all' | null {
+  if (!command || typeof command !== 'string') return null;
+
+  // Batch runner
+  if (/\brelease-verify(?:\.py|\.cli)?\s+all\b/.test(command)) {
+    return 'all';
+  }
+
+  // Preflight check & config load
+  if (/\brelease-config(?:\.py|\.cli)?\s+(?:preflight|load)\b/.test(command)) {
+    return 'preflight';
+  }
+
+  // Subcommands matching canonical steps
+  if (/\brelease-verify(?:\.py|\.cli)?\s+inventory\b/.test(command)) {
+    return 'inventory';
+  }
+  if (/\brelease-verify(?:\.py|\.cli)?\s+signatures\b/.test(command)) {
+    return 'signatures';
+  }
+  if (/\brelease-verify(?:\.py|\.cli)?\s+checksums\b/.test(command)) {
+    return 'checksums';
+  }
+  if (/\b(?:release-verify(?:\.py|\.cli)?\s+rat|verify-rc\s+rat)\b/.test(command)) {
+    return 'rat-license-headers';
+  }
+  if (/\brelease-verify(?:\.py|\.cli)?\s+notice-license\b/.test(command)) {
+    return 'notice-license';
+  }
+  if (/\brelease-verify(?:\.py|\.cli)?\s+binaries\b/.test(command)) {
+    return 'binary-exclusion';
+  }
+  if (/\b(?:verify-rc\s+jvm|maven-artifact-verify)\b/.test(command)) {
+    return 'jvm-artefacts';
+  }
+  if (/\bverify-rc\s+nexus\b/.test(command)) {
+    return 'nexus-staging';
+  }
+  if (/\b(?:release-verify(?:\.py|\.cli)?\s+symlinks|verify-rc\s+source-tree)\b/.test(command)) {
+    return 'source-tree-integrity';
+  }
+  if (/\brelease-verify(?:\.py|\.cli)?\s+version\b/.test(command)) {
+    return 'version-consistency';
+  }
+  if (/\b(?:verify-rc\s+repro|repro-archive(?:\.py|\.cli)?\s+compare)\b/.test(command)) {
+    return 'reproducibility';
+  }
+  if (/\b(?:release-verify(?:\.py|\.cli)?\s+verdict|verify-rc\s+report)\b/.test(command)) {
+    return 'verdict';
+  }
+
+  return null;
+}
+
+/**
+ * Extracts and parses the first JSON payload found in a tool's output string.
+ */
+export function extractJsonFromOutput(output: unknown): any | null {
+  if (!output) return null;
+  const str = typeof output === 'string' ? output : JSON.stringify(output);
+  const start = str.indexOf('{');
+  const end = str.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+  try {
+    return JSON.parse(str.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalizes tool exit/status strings to the StepStatus union.
+ */
+export function normalizeStepStatus(status: unknown): StepStatus {
+  if (typeof status !== 'string') return 'pending';
+  const clean = status.trim().toUpperCase();
+  switch (clean) {
+    case 'PASS':
+    case 'PASSED':
+    case 'OK':
+    case 'SUCCESS':
+    case 'PROCEED':
+      return 'passed';
+    case 'FAIL':
+    case 'FAILED':
+    case 'ERROR':
+    case 'BLOCKED':
+      return 'failed';
+    case 'WARN':
+    case 'WARNING':
+    case 'REVIEW':
+      return 'warning';
+    case 'SKIP':
+    case 'SKIPPED':
+      return 'skipped';
+    case 'RUNNING':
+      return 'running';
+    default:
+      return 'pending';
+  }
+}
+
+/**
+ * Calculates the overall status rollup across all verification steps.
+ */
+export function calculateOverallStatus(steps: VerifyRcStep[]): OverallVerifyStatus {
+  if (steps.some((s) => s.status === 'failed')) {
+    return 'failed';
+  }
+  const isComplete = steps.every(
+    (s) => s.status === 'passed' || s.status === 'warning' || s.status === 'skipped'
+  );
+  if (isComplete) {
+    return steps.some((s) => s.status === 'warning') ? 'passed-with-warnings' : 'passed';
+  }
+  return 'running';
+}
+
+/**
+ * Extracts concise detail text from structured tool JSON payloads.
+ */
+export function extractDetailFromPayload(payload: any): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+
+  if (typeof payload.detail === 'string' && payload.detail.trim().length > 0) {
+    return sanitizeText(payload.detail);
+  }
+  if (typeof payload.diff_summary === 'string' && payload.diff_summary.trim().length > 0) {
+    return sanitizeText(payload.diff_summary);
+  }
+  if (Array.isArray(payload.unapproved_files) && payload.unapproved_files.length > 0) {
+    return sanitizeText(`Unapproved headers: ${payload.unapproved_files.length} file(s)`);
+  }
+  if (Array.isArray(payload.missing) && payload.missing.length > 0) {
+    return sanitizeText(`Missing: ${payload.missing.join(', ')}`);
+  }
+  if (Array.isArray(payload.prohibited_found) && payload.prohibited_found.length > 0) {
+    return sanitizeText(`Prohibited: ${payload.prohibited_found.join(', ')}`);
+  }
+  if (payload.deprecated_md5_present) {
+    return 'Deprecated md5 digest staged';
+  }
+  if (Array.isArray(payload.dangling_symlinks) && payload.dangling_symlinks.length > 0) {
+    return sanitizeText(`Dangling symlink: ${payload.dangling_symlinks[0]}`);
+  }
+  if (Array.isArray(payload.validator_failures) && payload.validator_failures.length > 0) {
+    const f = payload.validator_failures[0];
+    return sanitizeText(f.detail || f.validator || 'Validator failed');
+  }
+  if (Array.isArray(payload.blockers) && payload.blockers.length > 0) {
+    return sanitizeText(payload.blockers[0]);
+  }
+  return null;
+}
+
+/**
+ * Applies skip rules for non-applicable steps (Potiuk feedback):
+ * - If staged inventory contains no JVM artifacts (.jar, .pom, .war), mark steps 6b and 6c as skipped.
+ * - If --skip-repro was passed, mark reproducibility (step 9) as skipped.
+ */
+export function applyJvmAndReproSkipRules(
+  steps: VerifyRcStep[],
+  inventoryPayload?: any,
+  command?: string
+): void {
+  const inv =
+    inventoryPayload && Array.isArray(inventoryPayload.steps)
+      ? inventoryPayload.steps.find(
+          (s: any) => s.step === 'inventory' || s.id === 'inventory'
+        )
+      : inventoryPayload;
+
+  if (inv && Array.isArray(inv.found)) {
+    const hasJvm = inv.found.some((f: string) =>
+      /\.(?:jar|war|ear|pom)$/i.test(f)
+    );
+    if (!hasJvm) {
+      const jvmStep = steps.find((s) => s.id === 'jvm-artefacts');
+      if (jvmStep && jvmStep.status === 'pending') {
+        jvmStep.status = 'skipped';
+        jvmStep.detail = 'No JVM artefacts staged';
+      }
+      const nexusStep = steps.find((s) => s.id === 'nexus-staging');
+      if (nexusStep && nexusStep.status === 'pending') {
+        nexusStep.status = 'skipped';
+        nexusStep.detail = 'No JVM artefacts staged';
+      }
+    }
+  }
+
+  if (command && /--skip-repro\b/.test(command)) {
+    const reproStep = steps.find((s) => s.id === 'reproducibility');
+    if (reproStep && reproStep.status === 'pending') {
+      reproStep.status = 'skipped';
+      reproStep.detail = 'Skipped via --skip-repro';
+    }
+  }
+}
+
+/**
+ * Bash tool.call middleware interceptor for release candidate verification.
+ *
+ * Passively observes release-config and release-verify commands:
+ * 1. Initializes or updates the verifyRcState atom before command execution.
+ * 2. Invokes next(e) to run the CLI tool.
+ * 3. Parses stdout / result JSON to update step status, details, and overall rollup.
+ * 4. Fails open on any error so command execution is never obstructed.
+ */
+export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+  const command = e && typeof e.command === 'string' ? e.command : '';
+  if (!command) {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+
+  const stepId = mapCliSubcommandToStepId(command);
+  let state = await getVerifyRcState($);
+
+  // Initialize state if starting verify-rc and state is not yet populated
+  if (!state && stepId) {
+    const rcTag = extractRcTag(command) || 'RC';
+    state = {
+      rcTag,
+      version: deriveVersionFromRcTag(rcTag),
+      overallStatus: 'running',
+      currentStepId: stepId === 'all' ? 'inventory' : stepId,
+      steps: createDefaultVerifySteps(),
+      startedAt: Date.now(),
+    };
+    if (stepId !== 'all') {
+      const target = state.steps.find((s) => s.id === stepId);
+      if (target) {
+        target.status = 'running';
+      }
+    }
+    await setVerifyRcState($, state);
+  } else if (state && stepId) {
+    // Mark target step as running
+    state.currentStepId = stepId === 'all' ? 'inventory' : stepId;
+    if (stepId !== 'all') {
+      const target = state.steps.find((s) => s.id === stepId);
+      if (target && target.status === 'pending') {
+        target.status = 'running';
+      }
+    }
+    await setVerifyRcState($, state);
+  }
+
+  const stepStartTime = Date.now();
+
+  let res: any;
+  try {
+    res = typeof next === 'function' ? await next(e) : undefined;
+  } catch (err) {
+    if (state && stepId && stepId !== 'all') {
+      const target = state.steps.find((s) => s.id === stepId);
+      if (target) {
+        target.status = 'failed';
+        target.detail = sanitizeText(err instanceof Error ? err.message : String(err));
+        target.durationMs = Date.now() - stepStartTime;
+      }
+      state.overallStatus = calculateOverallStatus(state.steps);
+      await setVerifyRcState($, state);
+    }
+    throw err;
+  }
+
+  if (state && stepId) {
+    try {
+      const rawOutput =
+        res?.output ?? res?.stdout ?? res?.content ?? res?.text ?? (typeof res === 'string' ? res : '');
+      const json = extractJsonFromOutput(rawOutput);
+
+      if (stepId === 'all' && json && Array.isArray(json.steps)) {
+        for (const batchStep of json.steps) {
+          const matchedId = mapCliSubcommandToStepId(`release-verify ${batchStep.step || batchStep.name}`);
+          if (matchedId && matchedId !== 'all') {
+            const target = state.steps.find((s) => s.id === matchedId);
+            if (target) {
+              target.status = normalizeStepStatus(batchStep.status);
+              target.detail = extractDetailFromPayload(batchStep);
+            }
+          }
+        }
+        applyJvmAndReproSkipRules(state.steps, json, command);
+        state.currentStepId = null;
+      } else if (stepId !== 'all') {
+        const target = state.steps.find((s) => s.id === stepId);
+        if (target) {
+          target.durationMs = Date.now() - stepStartTime;
+          if (json && json.status) {
+            target.status = normalizeStepStatus(json.status);
+            target.detail = extractDetailFromPayload(json);
+          } else if (res?.exitCode === 0 || (typeof res === 'object' && !res.isError)) {
+            target.status = 'passed';
+          } else {
+            target.status = 'failed';
+            target.detail = truncateText(sanitizeText(rawOutput || 'Check failed'), 60);
+          }
+        }
+
+        if (stepId === 'inventory' && json) {
+          applyJvmAndReproSkipRules(state.steps, json, command);
+        }
+
+        if (/--skip-repro\b/.test(command)) {
+          const repro = state.steps.find((s) => s.id === 'reproducibility');
+          if (repro && repro.status === 'pending') {
+            repro.status = 'skipped';
+            repro.detail = 'Skipped via --skip-repro';
+          }
+        }
+      }
+
+      if (
+        stepId === 'verdict' ||
+        state.steps.every((s) => s.status !== 'pending' && s.status !== 'running')
+      ) {
+        state.completedAt = Date.now();
+      }
+
+      state.overallStatus = calculateOverallStatus(state.steps);
+      await setVerifyRcState($, state);
+    } catch {
+      // Fail-open
+    }
+  }
+
+  return res;
+}
+
+/**
  * Registers the magpie-release-management verify-rc checklist mod hooks.
  *
  * 1. session.start - Initializes or resets the verifyRcState atom to null
  * 2. ui.render (component=Pane) - Renders the verification checklist pane
+ * 3. tool.call (tool=Bash) - Passively feeds CLI check progress to the atom
  */
 export function register(hooks: any): void {
   hooks('session.start', async ($: any, e: any, next: any) => {
@@ -340,4 +697,6 @@ export function register(hooks: any): void {
     }
     return next(e);
   });
+
+  hooks('tool.call', { tool: 'Bash' }, handleBashToolCall);
 }
