@@ -134,8 +134,23 @@ around that through the body file.
 **Where it runs.** `--repo-dir` is a checkout of the code under review —
 the reviewers can read every file in it. Never the project's private
 tracker: the tool refuses that checkout. With `--target pr:<number>` and
-no such checkout, create an empty temporary directory first, as its own
-command, and pass its path. When the change is not a committed local
+no such checkout, export the PR's head into a new temporary directory and
+pass that: an empty directory leaves the reviewers only the diff, so they
+cannot check a claim against the surrounding code, and no findings from them
+is not a clean review. Run each line as its own command, in a throwaway
+repository so nothing lands in the current one:
+
+```bash
+git init -q <scratch>/pr-<number>
+git -C <scratch>/pr-<number> fetch --depth=1 https://github.com/<owner/name>.git pull/<number>/head
+git -C <scratch>/pr-<number> archive FETCH_HEAD -- . ':(exclude).apache-magpie-overrides/tools/vetted-ops' | tar -x -C <export-dir>
+```
+
+Keep the exclusion: the secure setup denies writes to that path wherever it
+appears, so a full export fails partway through. The exported tree reaches
+the reviewers' providers, so export only a PR that is already public.
+
+When the change is not a committed local
 branch — a helper builds it elsewhere, or the skill applies file diffs
 through the API — save the diff to a file in a temporary directory and
 review it with `--target diff:<file>`.

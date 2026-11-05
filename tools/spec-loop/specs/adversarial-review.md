@@ -219,9 +219,11 @@ before the PR is created, through one shared block.
   plugin skips with one line.
   A `security`-family skill runs whenever at least one reviewer is listed,
   whatever `mode` says; any other skill runs only on `mode: on-pr-create`.
-  `--repo-dir` is never the tracker (an empty temporary directory for
-  `pr:<N>` with no checkout), and a change that is not a committed local
-  branch is reviewed as a diff file.
+  `--repo-dir` is never the tracker (an export of the PR's head in a
+  temporary directory for `pr:<N>` with no checkout), and a change that is
+  not a committed local branch is reviewed as a diff file.
+  An empty `--repo-dir` adds a report warning, because reviewers given only
+  the diff cannot read the code around it, so no findings is not a clean review.
   The findings are shown as untrusted, advisory data, never block the flow,
   and add nothing to a step's structured output; a finding the human wants
   fixed sends the flow back to the fix, the skill's own checks, and a fresh
