@@ -20,6 +20,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | D4 | Dashboard-mode proposals | 3 | A dashboard-triage finding beside an untracked report; two findings for the ASF Security team; an untriaged case that may be a standing label |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
 | Pointer routing | `signals-to-actions.md` alone, no sibling text | 8 | The agent finds `release-manager-comments.md` and `post-advisory-records.md` from the pointers alone, including from an existing marker comment with no transition, and opens neither on a routine pass; the output spec names no file, so removing a pointer fails the case |
+| Pointer routing (gather) | Step 1 alone, no sibling text | 7 | The agent finds `cve-record-comments.md`, `closed-tracker-check.md` and `release-vote-detection.md` from their conditions alone, and opens none for an open tracker with no CVE or a closed one without `announced`; the output spec names no file, so removing a pointer fails the case |
 
 ## Hard rules exercised
 
