@@ -1,0 +1,7 @@
+{
+  "$schema": "https://code.claude.com/schemas/hooks.json",
+  "description": "Apache Magpie — Claude Code mod for live verification checklist in verify-rc.",
+  "modules": [
+    "./verify-rc-pane.ts"
+  ]
+}
