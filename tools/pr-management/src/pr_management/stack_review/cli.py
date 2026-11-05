@@ -118,7 +118,7 @@ def residue_command(clone: str, prefix: str, size: int, variants: list[str], ext
         raise SystemExit(f"pr-management: --prefix must be magpie-stack/<number>, got {prefix!r}")
     for variant in variants:
         re.compile(variant)
-    pattern = "|".join(f"(?:{v})" for v in variants)
+    pattern = "|".join(f"({v})" for v in variants)
     excludes = [f":(glob,exclude){g}" for g in (*RESIDUE_EXCLUDES, *extra)]
     return shlex.join(
         [

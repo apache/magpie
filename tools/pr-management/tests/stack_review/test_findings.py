@@ -22,9 +22,17 @@
 
 from __future__ import annotations
 
+import json
+import os
 import shlex
+import shutil
+import subprocess
+from pathlib import Path
 from typing import Any
 
+import pytest
+
+from pr_management.cli import main
 from pr_management.stack_review import findings as F
 from pr_management.stack_review.cli import residue_command
 
@@ -242,6 +250,97 @@ def test_residue_command_is_one_quoted_git_grep() -> None:
     argv = shlex.split(
         residue_command("/c", "magpie-stack/120", 4, ["Python 3\\.10", "py310"], ["**/vendor/**"])
     )
-    assert argv[:9] == ["git", "-C", "/c", "grep", "-n", "-I", "-i", "-E", "(?:Python 3\\.10)|(?:py310)"]
+    assert argv[:9] == ["git", "-C", "/c", "grep", "-n", "-I", "-i", "-E", "(Python 3\\.10)|(py310)"]
     assert argv[9:12] == ["refs/magpie-stack/120/4", "--", "."]
     assert argv[-1] == ":(glob,exclude)**/vendor/**"
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+@pytest.mark.parametrize(
+    ("variants", "matches"),
+    [
+        ([r"Python 3\.10"], ["1:# Python 3.10"]),
+        (["py310"], ["2:# PY310"]),
+        ([r"Python 3\.10", "py310"], ["1:# Python 3.10", "2:# PY310"]),
+        ([r"^# (Python 3\.10|py310)$"], ["1:# Python 3.10", "2:# PY310"]),
+        (["py999"], []),
+    ],
+)
+def test_residue_command_runs_with_git(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    variants: list[str],
+    matches: list[str],
+) -> None:
+    # A hook's Git environment and a contributor's config must not redirect
+    # the fixture or run their hooks, templates or signing commands.
+    for name in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_PREFIX",
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_TEMPLATE_DIR",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    clone = tmp_path / "clone with spaces"
+    clone.mkdir()
+    files = {
+        "src/compat.py": "# Python 3.10\n# PY310\n# Python 3X10\n",
+        "generated/compat.py": "# Python 3.10\n",
+        "versions.lock": "Python 3.10\n",
+        "pyproject.toml": "# Python 3.10\n",
+        "CHANGELOG.md": "Python 3.10\n",
+        "vendor/compat.py": "# Python 3.10\n",
+    }
+    for name, content in files.items():
+        path = clone / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8", newline="\n")
+    for args in (
+        ["init", "--quiet"],
+        ["add", "."],
+        [
+            "-c",
+            "user.name=Tester",
+            "-c",
+            "user.email=tester@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        ["update-ref", "refs/magpie-stack/120/4", "HEAD"],
+    ):
+        subprocess.run(["git", "-C", str(clone), *args], check=True, capture_output=True, text=True)
+
+    # The emitted command searches the stack ref, not the current worktree.
+    (clone / "src/compat.py").write_text("# updated worktree\n", encoding="utf-8", newline="\n")
+    cli_args = [
+        "stack-review",
+        "residue-command",
+        "--clone",
+        str(clone),
+        "--prefix",
+        "magpie-stack/120",
+        "--size",
+        "4",
+        "--exclude-glob",
+        "**/vendor/**",
+    ]
+    for variant in variants:
+        cli_args.extend(["--variant", variant])
+    assert main(cli_args) == 0
+    command = json.loads(capsys.readouterr().out)["command"]
+    result = subprocess.run(shlex.split(command), shell=False, capture_output=True, text=True)
+    assert result.returncode == (0 if matches else 1), result.stderr
+    assert result.stderr == ""
+    assert result.stdout.splitlines() == [f"refs/magpie-stack/120/4:src/compat.py:{hit}" for hit in matches]
