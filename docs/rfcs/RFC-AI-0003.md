@@ -247,7 +247,7 @@ The egress-allowlist gateway closes that gap at the network layer. It is a local
 | Property | Value |
 |---|---|
 | Layer | Network egress (host-level), below the application-layer LLM controls |
-| Policy | Default-deny; allowlist mirrors `sandbox.network.allowedDomains` (ASF infra, GitHub, Google APIs, PyPI), suffix-matched; loopback always allowed; adopter extends via `EGRESS_ALLOW_EXTRA` |
+| Policy | Default-deny; allowlist of general-purpose services (GitHub, Google APIs, PyPI), suffix-matched; an ASF project adds the ASF hosts on a gateway of its own; loopback always allowed; adopter extends via `EGRESS_ALLOW_EXTRA` |
 | Granularity | Host only — HTTPS is tunnelled via CONNECT, so no URL-path or payload inspection (no TLS interception) |
 | Relationship | Defence-in-depth. Layered *under* mechanisms 1 + 2, never a replacement: the redactor still strips third-party PII, the gate still bounds which LLM may receive a body, and the gateway additionally bounds which host *any* tool may reach. |
 
@@ -258,7 +258,7 @@ This mechanism is **optional and provisional**: it ships as a tool with a docume
 The same pattern, a per-project policy proxy outside the sandbox whose socket is the only one the sandbox may reach,
 is reused by [`tools/container-gateway/`](../../tools/container-gateway/) for the container daemon socket.
 That gateway also hands every container it creates this egress gateway as its HTTP proxy,
-so container traffic that honours proxy variables is bound by the same host allow-list.
+so container traffic that honours proxy variables is bound by the gateway's host allow-list.
 RFC-AI-0004 Principle 2 lists both as the *socket gateways* layer.
 
 ## 5. Data flow

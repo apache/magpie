@@ -23,9 +23,9 @@ third-party imports, so it is cheap to unit-test in isolation. The
 is not on the allowlist is rejected with a 403 before any upstream socket is
 opened. The gateway — not the sandbox — becomes the egress-control point.
 
-The default allowlist mirrors the curated host set the framework's secure
-sandbox already trusts (`sandbox.network.allowedDomains`): ASF infra, GitHub,
-Google APIs, PyPI. Adopters extend it without editing code via the
+The default allowlist covers general-purpose services (GitHub, Google APIs,
+PyPI, vulnerability registries). It is separate from the sandbox's
+`sandbox.network.allowedDomains`. Adopters extend it without editing code via the
 ``EGRESS_ALLOW_EXTRA`` environment variable (comma-separated hosts; a leading
 dot means "this suffix and all sub-hosts").
 """
@@ -49,13 +49,11 @@ ALLOW_EXACT: frozenset[str] = frozenset(
         # OSV.dev REST API (tools/osv). The osv.dev web UI is a browser
         # destination, not a tool egress, so it is deliberately not listed.
         "api.osv.dev",
-        "issues.apache.org",
     }
 )
 
 # Any host ending in one of these suffixes is allowed.
 ALLOW_SUFFIXES: tuple[str, ...] = (
-    ".apache.org",  # whimsy, lists, projects, issues, every project site
     ".googleapis.com",  # sheets / gmail / oauth2
     ".githubusercontent.com",  # raw / objects / codeload
     ".pythonhosted.org",  # uv / pip wheel downloads

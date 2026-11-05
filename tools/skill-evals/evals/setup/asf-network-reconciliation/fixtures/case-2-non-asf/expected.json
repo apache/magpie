@@ -1,0 +1,8 @@
+{
+  "asf_overlay": "none",
+  "target_scope": "none",
+  "review_historical_grants": true,
+  "approval_required": false,
+  "stop_reconciliation": false,
+  "preserve_unrelated_settings": true
+}

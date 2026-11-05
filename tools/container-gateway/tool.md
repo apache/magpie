@@ -54,7 +54,7 @@ policy:
    worlds.
 3. **Same egress policy as the shell.** Containers get the egress gateway as
    their HTTP proxy, so tools that honour proxy variables are bound by the
-   same host allow-list as sandboxed commands.
+   gateway's host allow-list.
 
 ## Why this is its own tool
 

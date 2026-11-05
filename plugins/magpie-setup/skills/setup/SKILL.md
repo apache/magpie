@@ -20,9 +20,9 @@ when_to_use: >-
   to the `welcome-guide` skill.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:cfae279d2c143532
+surface_hash: sha256:3cbe3d8c3f0ff0bc
 license: Apache-2.0
-measured_tokens: 5306
+measured_tokens: 5311
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
