@@ -701,9 +701,11 @@ python3 tools/dev/check-family-plugins.py
 
 - The flow is `stable`; gaps surface as drift between a skill's documented
   steps and the adapters it calls — the loop's plan pass catches those.
+  <!-- gap-closes-when: none (narrative) -->
 - The generic rollup recipe in `tools/github/status-rollup.md` still
   spells only the `uv run --directory … github-rollup` CLI and does not
   mention `vetted-op-tracker`, although the security skills themselves
   switched to it in #1451.
   An adopter following that recipe under the secure setup hits the
   sandboxed-`gh` failure the entry point exists to avoid.
+  <!-- gap-closes-when: none (narrative) -->

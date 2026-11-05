@@ -655,6 +655,13 @@ The reference model is four layers, layered:
    `releases.astral.sh` for the node and python hook environments
    (#1565). sandbox-lint's `expected.json` carries all five, and the
    update skill reports any of them missing as drift.
+   Apache-specific hosts are not in those shared defaults (#1978).
+   `tools/agent-isolation/claude-settings.asf.fragment.json` carries them,
+   and setup adds it only for a project whose resolved `project.md` holds one
+   explicit `organization: ASF` declaration:
+   `setup_preflight/organization_network.py` ignores comments, fences and
+   examples, treats anything else as not ASF, and refuses a fragment whose
+   grants differ from the reviewed set.
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
@@ -754,9 +761,11 @@ uv run --project tools/setup-preflight --group dev pytest \
 
 - `stable`; drift shows up when a new state-mutating command is added to a
   skill without a matching `ask` rule — the plan pass flags it.
+  <!-- gap-closes-when: none (narrative) -->
 - **`tools/agent-guard/` and `tools/egress-gateway/` are new additions**
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
+  <!-- gap-closes-when: none (narrative) -->
 
 ## Antigravity setup lifecycle
 

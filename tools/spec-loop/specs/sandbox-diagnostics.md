@@ -313,26 +313,34 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- The doctor runs 9 probes over the catalog's 12 entries: the two
-  touch-overlay entries (`cannot exec` of the wrapper, and the
-  runtime-state directory) have no live probe. Verify check 10 covers
-  the wrapper's `allowRead` grant statically; the runtime-state entry
-  is reached only through the hint hook.
-- The `uv python install` / `uv tool install` entry (#1785) has neither a
-  hint-hook branch nor a doctor probe, and has no **Notes** section at all
-  (acceptance 1's four sections), so it breaks the "catalog entry first,
-  hook branch beside it" rule; the session-start hook's grant cleanup and `isolated-setup-update`'s
-  must-fix report are its only other surfaces.
+- The doctor runs 9 probes over the catalog's 16 entries. Probe 5's
+  `signing-program` half reaches the `cannot exec` wrapper entry, and verify
+  check 10 covers the wrapper's `allowRead` grant statically. Six entries have
+  no live probe: the touch-overlay runtime-state entry, reached only through
+  the hint hook, and the `uv python install`, lefthook, CaptainHook, `bwrap`
+  and `git status` placeholder entries. The lefthook, CaptainHook and
+  `git status` entries have no hint-hook branch either, and are not among the
+  two exceptions acceptance 1 allows.
+  <!-- gap-closes-when: none (narrative) -->
+- The `uv python install` / `uv tool install` entry (#1785) has no doctor
+  probe; its other surfaces are the hint hook's `share/uv/` branch, the
+  session-start hook's grant cleanup, `isolated-setup-update`'s must-fix report
+  and verify check 19.
+  <!-- gap-closes-when: none (narrative) -->
 - Probes 2, 4 and 6–9 still have no script tests.
+  <!-- gap-closes-when: none (narrative) -->
 - A command that spells a working directory with a literal `~` still
   prompts under the read block even when the directory is listed. For
   the vetted-ops commands the setup closes this by requiring the read
   block off (verify check 16); for any other such command it stays open.
+  <!-- gap-closes-when: none (narrative) -->
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the
   catalog entry, the probe text and the verify check all need the same
   edit on that day.
+  <!-- gap-closes-when: none (narrative) -->
 - Linux / bubblewrap is not measured for the `gh` entry: Go uses its
   own root store there, so the TLS half may not apply while the keyring
   half still can.
+  <!-- gap-closes-when: none (narrative) -->

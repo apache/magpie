@@ -90,9 +90,12 @@ CLIs speak. Three properties fall out of the policy:
    creates is labelled with the project; every read or act call is
    filtered to that label. Two projects on one machine share a daemon
    and see disjoint worlds.
-3. **Same egress policy as the shell.** Containers get the egress
+3. **Egress through the gateway.** Containers get the egress
    gateway as their HTTP proxy, so tools that honour proxy variables
-   are bound by the same host allow-list as sandboxed commands. This is
+   are bound by the gateway's host allow-list, which is separate from the
+   sandbox's: the project-local ASF fragment does not extend it, so an ASF
+   project runs its own gateway with those hosts in `EGRESS_ALLOW_EXTRA`
+   (#1978). This is
    a friction layer, not a wall: a raw socket from inside a container
    bypasses it, exactly as RFC-AI-0004 says of the permission layer.
 
@@ -619,6 +622,7 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   block by hand, or takes the settings diff
   `setup-isolated-setup-install` Step L proposes. Automating it in
   `/magpie-setup:setup config` is the follow-up.
+  <!-- gap-closes-when: none (narrative) -->
 - **Residual risk — a forged worktree layout.** In a linked worktree
   of a project that has not adopted Magpie, the run directory's anchor
   (the git common directory) is located from the worktree's `.git`
@@ -639,18 +643,23 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   path is allowlisted in settings the agent cannot edit, and container
   binds remain limited to the worktree's bind roots. Mitigation: pass
   `--run-dir` explicitly, or adopt (per-worktree in-tree run dir).
+  <!-- gap-closes-when: none (narrative) -->
 - A create, exec or build field the gateway has not learned is refused,
   so a daemon feature that arrives after this table is unavailable
   through the gateway until the allow-list learns it. The refusal names
   the field, which is the signal to add it.
+  <!-- gap-closes-when: none (narrative) -->
 - The egress alias for Linux depends on the backend's bridge
   configuration and on the egress gateway listening on a non-loopback
   address; it binds loopback by default, so Linux adopters start it
   with `--host <bridge address>`.
+  <!-- gap-closes-when: none (narrative) -->
 - Docker Desktop's file-sharing settings, not the gateway, decide
   which host paths the VM can see; a project root outside the shared
   set fails at mount time with Docker's own error.
+  <!-- gap-closes-when: none (narrative) -->
 - `podman compose` shells out to an external compose provider whose
   own socket handling (e.g. `docker-compose` reading `DOCKER_HOST`) is
   outside the gateway's control; the labels the gateway injects
   coexist with compose's own.
+  <!-- gap-closes-when: none (narrative) -->

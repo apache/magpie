@@ -28,7 +28,7 @@ acceptance:
     project's merged mention_allowlist; the agent-guard mention guard
     refuses the rest on every posting surface.
   - All family skills validate under skill-and-tool-validate with no errors.
-  - docs/pr-management/README.md lists all five family skills.
+  - docs/pr-management/README.md lists the family's skills.
 ---
 
 # PR management family
@@ -563,20 +563,11 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 ## Known gaps
 
 - **`experimental` — no adopter pilot has run the full family end-to-end.**
-  All five skills are on main with eval suites; no maintainer has exercised
+  All nine skills are on main with eval suites; no maintainer has exercised
   the triage → stats → code-review → quick-merge → mentor pipeline
   end-to-end under evaluation conditions. Shape may change as pilot
   evaluations surface real-world usage patterns.
-- **`pr-management-code-review` now has a full eval suite** at
-  `tools/skill-evals/evals/pr-management-code-review/` covering 60 cases
-  across 16 suites, with the 13 scripted suites moved to
-  `tools/pr-management/tests/code_review`: per-finding risk classification,
-  AI-generated-code signal handling, prompt-injection resistance across PR
-  body / code comments / commit messages, and the confirmation-gate handoff
-  (post / dry-run-skip / re-draft), plus evidence-gated dependency compatibility
-  across transitive paths, empty intersections, partial metadata, environment
-  markers, and adopter-specific remediation. The SOFT eval-coverage validator
-  warning is cleared. Acceptance criteria 6 and 7 are met.
+  <!-- gap-closes-when: none (narrative) -->
 - **Stale-PR handling lives in two places.** Stale sweeps
   (`stale-draft`, `inactive-open`, `stale-review-ping`) run as Step 5 of
   the triage flow and can be invoked standalone via `triage stale`.
@@ -584,7 +575,4 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   (draft-or-close proposals on confirmation), so the earlier note that no
   separate stale-sweep skill was planned is superseded; how the two divide
   the surface is not written down in one place.
-- **`pr-management-mentor` is documented under Mentoring mode** and is
-  listed in `docs/mentoring/README.md`. The PR management README
-  cross-references it as a companion skill; adopters wanting PR-thread
-  mentoring enable it alongside the triage suite.
+  <!-- gap-closes-when: none (narrative) -->

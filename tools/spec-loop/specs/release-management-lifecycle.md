@@ -221,6 +221,11 @@ code lands.
   integrity, version consistency, and the optional reproducibility step)
   and `release-audit-report` make no state change; voters can run
   verification in their own dev loop before posting `+1`.
+- **The verify-rc pane is additive.** Under Claude Code,
+  `plugins/magpie-release-management/hooks/verify-rc-pane.ts` draws a live
+  checklist of the skill's 13 steps, JVM artefacts and Nexus staging included.
+  Nothing fills it yet, so it renders nothing and the skill is unchanged;
+  the tool-call interceptor that feeds it is the next part of #2006 (#2007).
 - **The source artefact is a reproducible export of the tag.** With
   `release-build.md § Source archive` at its default
   (`source_archive_method: git-archive`), `release-rc-cut` emits
