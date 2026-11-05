@@ -3174,7 +3174,7 @@ Deny `/run/user/<uid>` whole: the user manager answers on `systemd/private` even
 One channel stays open whatever `denyRead` says: on Linux the flag also unblocks `AF_VSOCK` sockets (per Claude Code's settings schema), which have no path to deny. On WSL2 that is a channel to the Windows host. Treat it as residual risk.
 
 ```jsonc
-// per machine: ~/.claude/settings.local.json, or the project's .claude/settings.local.json
+// per machine: the project's .claude/settings.local.json
 {
   "sandbox": {
     "network": { "allowAllUnixSockets": true },

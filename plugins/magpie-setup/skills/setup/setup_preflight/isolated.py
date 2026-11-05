@@ -168,9 +168,11 @@ def configured(root: Path, home: Path | None = None) -> bool:
 
     The stamp the install and update skills write, or a sandbox the project's
     or the user's Claude Code settings enable. The install offers a whole-user
-    scope, which leaves no trace in the project, hence the user settings,
-    `settings.local.json` included as `sandbox-status-line.sh` reads it. A
-    file that cannot be read counts as not configured: inside the sandbox the
+    scope, which leaves no trace in the project, hence the user settings:
+    `~/.claude/settings.json` alone, as Claude Code loads a
+    `settings.local.json` only from a project's `.claude/`, so an
+    `enabled: true` in the home directory's one sandboxes nothing. A file
+    that cannot be read counts as not configured: inside the sandbox the
     user's settings are read-denied, so callers that run there see `False` and
     must treat it as "not known to be configured", never as proof of absence.
     """
@@ -178,9 +180,7 @@ def configured(root: Path, home: Path | None = None) -> bool:
     if isinstance(block, dict) and block:
         return block.get("enabled") is not False
     user = (home if home is not None else Path.home()) / ".claude"
-    return sandbox_enabled_in_project(root) or _sandbox_enabled(
-        [user / name for name in ("settings.json", "settings.local.json")]
-    )
+    return sandbox_enabled_in_project(root) or _sandbox_enabled([user / "settings.json"])
 
 
 #: Shown to the user once per session, at session start, while the isolated
