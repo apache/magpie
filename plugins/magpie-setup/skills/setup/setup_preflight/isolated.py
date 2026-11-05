@@ -147,20 +147,32 @@ def current(root: Path) -> str | None:
     return shipped()
 
 
-def _sandbox_enabled(paths: list[Path]) -> bool:
+def _sandbox_settings(paths: list[Path]) -> list[bool]:
+    """Every explicit `sandbox.enabled` in `paths`, in the order given."""
+    settings = []
     for path in paths:
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         sandbox = loaded.get("sandbox") if isinstance(loaded, dict) else None
-        if isinstance(sandbox, dict) and sandbox.get("enabled") is True:
-            return True
-    return False
+        enabled = sandbox.get("enabled") if isinstance(sandbox, dict) else None
+        if isinstance(enabled, bool):
+            settings.append(enabled)
+    return settings
+
+
+def _project_settings(root: Path) -> list[Path]:
+    return [root / ".claude" / name for name in ("settings.local.json", "settings.json")]
 
 
 def sandbox_enabled_in_project(root: Path) -> bool:
-    return _sandbox_enabled([root / ".claude" / name for name in ("settings.json", "settings.local.json")])
+    """Whether any project settings file enables the sandbox.
+
+    This asks whether the project uses the setup at all, so a `/sandbox`
+    toggle-off in `settings.local.json` does not hide a shared `true`.
+    """
+    return True in _sandbox_settings(_project_settings(root))
 
 
 def configured(root: Path, home: Path | None = None) -> bool:
@@ -175,12 +187,16 @@ def configured(root: Path, home: Path | None = None) -> bool:
     that cannot be read counts as not configured: inside the sandbox the
     user's settings are read-denied, so callers that run there see `False` and
     must treat it as "not known to be configured", never as proof of absence.
+
+    The most specific explicit setting wins, as it does for Claude Code and
+    `sandbox-status-line.sh`: `/sandbox` writes `false` to the project's
+    `settings.local.json`, and that switches off a sandbox a wider scope enables.
     """
     block = _load_stamp(root).get(BLOCK)
     if isinstance(block, dict) and block:
         return block.get("enabled") is not False
     user = (home if home is not None else Path.home()) / ".claude"
-    return sandbox_enabled_in_project(root) or _sandbox_enabled([user / "settings.json"])
+    return next(iter(_sandbox_settings([*_project_settings(root), user / "settings.json"])), False)
 
 
 #: Shown to the user once per session, at session start, while the isolated
