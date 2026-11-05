@@ -129,6 +129,10 @@ CODEX_FAMILY_HOOKS = {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
     },
+    "magpie-release-management": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
     "magpie-security": {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
