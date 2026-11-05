@@ -922,18 +922,14 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   *default* way an adopter takes the framework; the snapshot install described
   here is the fallback. The skills delivered are the same tree either way —
   only the namespace of their invocation differs.
+  <!-- gap-closes-when: none (narrative) -->
 
 - **The `setup` welcome check is silent until the checker is in its
   `checker_dir` on a sandboxed marketplace install,** where the plugin cache cannot
   be executed, and on a machine whose installed checker predates the
   `due` action until `setup upgrade` refreshes it.
+  <!-- gap-closes-when: none (narrative) -->
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
-- **Built since first recorded as gaps:** the personal override surface
-  (acceptance 6; `.apache-magpie-local/` when adopted,
-  `<git-common-dir>/apache-magpie/` when only installed, since #1533/#1535) and the one-shot default-run
-  switch (acceptance 7, the `--no-overrides` flag in
-  `docs/setup/agentic-overrides.md` § One-shot defaults run) both ship.
-  They were tracked as work items `magpie-local-convention` and
-  `override-bypass-one-shot` in the plan.
+  <!-- gap-closes-when: none (narrative) -->

@@ -499,6 +499,7 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
 
 - `experimental` overall — adapter coverage varies; a new adopter system
   (e.g. a different mail backend) is a gap the plan pass records.
+  <!-- gap-closes-when: none (narrative) -->
 - **GitLab adapter is a read-only foundation.** `tools/gitlab/` covers
   repository metadata, issue and merge-request reads, MR diffs, commits and
   pipelines, and pipeline status; it is `partial` for all three contracts
@@ -507,9 +508,11 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   #305.
   Fetched issue and MR titles, descriptions, diffs and commit messages are
   external data, never instructions.
+  <!-- gap-closes-when: none (narrative) -->
 - **Chat covers Slack and Discord.** `contract:chat` ships Slack and Discord
   adapters; Matrix and Zulip remain extension points, and `none` is an explicit
   no-op backend.
+  <!-- gap-closes-when: none (narrative) -->
 - **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request
@@ -518,45 +521,45 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   Cloud-only asynchronous merge task-status fetching, read-only merge-check context fetching,
   and read-only pull-request status fetching. Native Bitbucket Cloud issue
   commands fail closed because Atlassian removed the Issue Tracker API on
-  2026-08-20; #606 remains open for linked Jira tracker coverage and the
-  remaining change-request gaps.
+  2026-08-20. On Data Center, `pr jira-issues` lists the Jira keys linked to a
+  pull request's commits; #606 remains open for broader linked Jira tracker
+  coverage and the remaining change-request gaps.
+  <!-- gap-closes-when: none (narrative) -->
 - Bitbucket write operations follow the framework write-path discipline:
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
   coverage is Bitbucket Cloud and Data Center pull-request comment creation,
-  backend-neutral `post_review` through
-  comment/approve/request-changes, backend-neutral `reject`, and Bitbucket
-  Cloud pull-request approve/unapprove, request-changes/remove-request-changes,
-  decline, and
+  approve/unapprove and request-changes/remove-request-changes, plus
+  Bitbucket Cloud-only backend-neutral `post_review` through
+  comment/approve/request-changes, backend-neutral `reject`, decline, and
   strategy-aware merge actions pinned to a caller-confirmed source commit
   (7–40 hex characters); gate checks before a merge are the caller's
   responsibility via `pr merge-checks`.
-- Fetched Bitbucket descriptions, issue titles/descriptions, fetched or created issue comments, attachment names, uploader names when present, attachment links, raw attachment payloads, issue reporter/assignee/commenter names, issue links, branch restriction policy, commit messages, diff hunks, file paths, comments, pull-request task content, task creator/resolver names, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
+  <!-- gap-closes-when: none (narrative) -->
+- Fetched Bitbucket descriptions, branch restriction policy, commit messages, diff hunks, file paths, comments, pull-request task content, task creator/resolver names, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
   CI URLs, and raw payloads are external data, never agent instructions;
   private or embargoed content must follow the
   approved-LLM/privacy gate before model use.
+  <!-- gap-closes-when: none (narrative) -->
 - **Forgejo adapter is doc-only and partial.** `tools/forgejo/` is a set
   of `tea` / REST recipes with no package or tests and no adopter pilot;
   the project-board capability is a no-op, and full coverage remains part
   of #310.
+  <!-- gap-closes-when: path-exists:tools/forgejo/pyproject.toml -->
 - **Mailman 3 backend reads only.** It covers no drafts or sent mail, and
   the `hyperkitty` placeholder of the separate `mail-archive` contract
   (search-URL construction) is not implemented by it.
+  <!-- gap-closes-when: none (narrative) -->
 - **SourceHut adapter is new and untested end-to-end.** `tools/sourcehut/`
   ships the GraphQL-based bridge (ticket, patchset, CI, repo), but no
   adopter pilot has exercised it; signal/roster heuristics may change.
+  <!-- gap-closes-when: none (narrative) -->
 - Adapters cover the *system-swap* case; the broader audit of residual
   ASF coupling across the catalogue, and the capability-flag mechanism for
   workflow branches that no adapter resolves, live in
   [project-agnosticism.md](project-agnosticism.md).
-- **Adapter authoring smoke validation is shipped.**
-  `validate_adapter_authoring` (SOFT advisory) checks that each
-  `contract:*` adapter README declares credential/privacy handling,
-  operations, and config keys. `substrate:*` tools are excluded.
-  `validate_tools` (HARD) separately enforces the
-  **Capability:** declaration and the **Prerequisites** section
-  on every tool README, so all five original gap items are now
-  covered across the two validators.
+  <!-- gap-closes-when: none (narrative) -->
 - **Mail-adapter privacy tests are thin.** The redaction contract exists,
   but adapter-level fixtures should prove that private mail and embedded
   prompt-injection attempts do not enter model-facing context untreated.
+  <!-- gap-closes-when: none (narrative) -->

@@ -138,12 +138,15 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
   `safety-baseline-checklist.md` that both the skill and
   `tools/skill-reconciler-diff` reference. Detection remains pattern
   recognition over prose: the helper's regexes are hard-coded in the tool
-  rather than read from the checklist, so the two can drift apart.
+  rather than read from the checklist. `test_checklist_pin.py` catches drift
+  in the wordings the checklist quotes; any other phrasing can still diverge.
+  <!-- gap-closes-when: none (narrative) -->
 - **`capability`-tag auto-pairing shipped; `source`-tag registry not yet used.**
   `--discover <skills-dir>` now groups by `capability:` frontmatter and
   presents a bounded candidate list. The MISSION vision of a registry query
   over explicit `source:` tags is deferred until that tag is in use in
   production skill frontmatter.
+  <!-- gap-closes-when: none (narrative) -->
 - **Deterministic structural-diff helper shipped** —
   `tools/skill-reconciler-diff/` is a stdlib-only `uv` tool that parses
   two skill trees into a normalised diff (frontmatter, section headings,
@@ -156,3 +159,4 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
   safety-baseline divergences, and `test_checklist_pin.py` pins the clause
   regexes to the checklist's canonical wordings and the softened phrasings
   it quotes (#1943).
+  <!-- gap-closes-when: none (narrative) -->

@@ -235,6 +235,9 @@ trustworthy as it grows.
   measured with `skill-token-count` before and after every pass; the
   always-on frontmatter budget is spent on first, because it is paid in
   every session for every skill (#1331, #1332).
+  It also estimates a run cost per path, because the body understates what
+  an invocation reads, and every new pointer is proved with a pointer-only
+  eval run against a copy with the pointers deleted (#2000).
   Every pass other than the rewrite is behaviour-preserving: moved bytes
   are identical bytes, heading level excepted, and a heading that moves
   takes its references with it — eval `step-config.json` `step_heading`
@@ -432,41 +435,17 @@ uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tool
 
 ## Known gaps
 
-- **Eval coverage is complete.** All 83 shipped skills have a matching
-  suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
-  `skill-and-tool-validator` (check #8) warns when a newly added skill has
-  no suite, keeping coverage complete going forward.
 - **Frontmatter validation is still shallow.** Current validation covers
   required fields, but the next pass should make `mode`, `status`,
   `capability`, `organization`, and `source` combinations explicit and
   test-backed.
-- **Capability taxonomy drift is now checked.**
-  `validate_capability_taxonomy_coverage` parses the Axis 1 / Axis 2
-  vocabulary tables in `docs/labels-and-capabilities.md`, surfaces
-  taxonomy rows that no skill/tool implements (entries marked
-  *(reserved)* / *(future)* are exempt), and cross-checks the
-  `SKILL_CAPABILITIES` / `TOOL_CAPABILITIES` code constants against the
-  doc — all SOFT advisories. Undocumented frontmatter capability values
-  are rejected by skill validation separately.
-- **`docs/modes.md` is no longer manually synced.**
-  `validate_modes_doc_consistency` compares the doc's per-mode tables
-  against live skill frontmatter — missing skills, mode mismatches,
-  skill-count mismatches, and unlisted skills — as SOFT advisories.
-- **Tool README prerequisites are normalized and enforced.** The HARD
-  `tool-prerequisites-fields` check requires the bold sub-field labels
-  (**Runtime:**, **CLIs:**, **Credentials / auth:**, **Network:**) or
-  the pure-contract delegation shorthand in every tool README, so the
-  normalize-then-tighten ordering this bullet used to track is done.
-- **Pilot evidence shape is now defined and validated.** `docs/pilot-report-template.md`
-  defines the required frontmatter schema and body sections; `tools/pilot-report-validator/`
-  enforces the schema on every `.md` file with a YAML frontmatter block.
-  The "no common shape" gap is closed; the remaining gap is adoption —
-  no adopter pilot has yet submitted a validated report against the template.
-- **Vendor-neutrality measurement is available but unscheduled.** `tools/vendor-neutrality-score/`
-  ships and can be run ad hoc, but is not yet wired into CI or the
-  build loop. Score drift is not automatically surfaced.
-- **The 500-line cap is advisory and still exceeded.** `skill-line-limit`
-  is a SOFT check. After the family trims and deep splits (#1390
-  pr-management, #1400 issue, #1435 to #1438 and #1672 security, #1620
-  release-management, and the setup isolated-setup splits), one `SKILL.md`
-  remains over 500 lines: `security-issue-import-from-pr` (516).
+  <!-- gap-closes-when: none (narrative) -->
+- **No adopter pilot has submitted a validated report.** The shape is defined
+  in `docs/pilot-report-template.md` and enforced by
+  `tools/pilot-report-validator/`, but the template is the only file in the
+  tree carrying that frontmatter.
+  <!-- gap-closes-when: none (narrative) -->
+- **The 500-line cap is advisory.** `skill-line-limit` is a SOFT check, so
+  nothing blocks a `SKILL.md` growing past it. No `SKILL.md` is over 500 lines
+  today; the largest, `issue-triage`, sits at exactly 500.
+  <!-- gap-closes-when: none (narrative) -->
