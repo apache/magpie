@@ -543,7 +543,7 @@ Group them by category:
   Re-read [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
   before posting, and do not indent entries for "readability".
 
-- **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged` or `pr merged` → `fix released`, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
+- **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged`, on any open tracker labelled `pr merged` or `fix released`, even when a gate blocks the next label, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
 
 - **Advisory-records update and security-pages reminder comment** — on a closed-`announced` tracker from the Step 1g scan, read [`post-advisory-records.md`](post-advisory-records.md) before proposing anything.
 

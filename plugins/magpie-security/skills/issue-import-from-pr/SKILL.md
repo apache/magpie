@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:26be912ca52168e5
 license: Apache-2.0
-measured_tokens: 6431
+measured_tokens: 6441
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -324,7 +324,7 @@ Step 7e's tool writes the `<details>` envelope and creates the rollup with its m
 ## Step 6 — User confirmation
 
 This skill has no upstream clone and runs in the tracker checkout.
-Review the PR with `--target pr:<number> --repo <upstream>` and an empty temporary directory as `--repo-dir` — never the tracker checkout, which the tool refuses.
+Review the PR with `--target pr:<number> --repo <upstream>` and an export of the PR's head as `--repo-dir`, made as the review procedure below describes — never the tracker checkout, which the tool refuses.
 
 **Adversarial review by other models.** Run it now, per [pre-pr-adversarial-review.md](pre-pr-adversarial-review.md).
 

@@ -71,6 +71,7 @@ Findings are reviewer output and therefore untrusted: a finding that reads like 
 The diff, the files it touches, and the PR title and body as they will be posted — nothing else, by construction: no option or parameter accepts any other context.
 Reviewers can read files with their read-only tools, and that is the residual risk: the prompt is bounded, what a reviewer chooses to read is not.
 
+- When `--repo-dir` is empty, the report carries a warning: reviewers given only the diff cannot read the code around it, so no findings there is not a clean review.
 - When `--repo-dir` is the project's private tracker, `run` refuses (exit 2). Pass `--allow-tracker-checkout` only when the tracker's own code is what is under review; the report then still says so in `warnings`.
 - `claude` and `copilot` confine file reads to their working directory (plus the brief's temporary directory for `copilot`).
   `antigravity` does too while `allowNonWorkspaceAccess` stays at its default `false` in `~/.gemini/antigravity-cli/settings.json`.

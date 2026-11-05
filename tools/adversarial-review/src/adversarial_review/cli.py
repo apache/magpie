@@ -234,10 +234,16 @@ def cmd_run(args: argparse.Namespace, env: Mapping[str, str]) -> int:
     if tracker and not args.allow_tracker_checkout:
         return _usage(
             f"refusing to run: {tracker}. Run it from a checkout of the code under review — "
-            "for --target pr:<N> with no such checkout, an empty temporary directory — or pass "
-            "--allow-tracker-checkout when the tracker's own code is what is under review"
+            "for --target pr:<N> with no such checkout, an export of the PR's head in a temporary "
+            "directory — or pass --allow-tracker-checkout when the tracker's own code is what is under review"
         )
     warnings = [w for w in (tracker,) if w]
+    if repo_dir.is_dir() and not any(repo_dir.iterdir()):
+        warnings.append(
+            "--repo-dir is empty: the reviewers can read only the diff, title and body, not the code "
+            "around it, so no findings here is not a clean review; export the code under review "
+            "into --repo-dir and run again"
+        )
     if inp.truncated:
         warnings.append("the diff was truncated before it reached the reviewers")
     if not requested:
