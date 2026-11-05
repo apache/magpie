@@ -64,6 +64,13 @@ def test_a_sandboxed_project_never_recorded_is_asked_to_run_the_update(project: 
     assert finding.facts["recorded"] is None
 
 
+def test_a_sandbox_toggled_off_locally_still_gets_the_update_findings(project: Path) -> None:
+    framework_tree(project)
+    enable_sandbox(project)
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": false}}')
+    assert codes(isolated_setup_findings(project, today=TODAY)) == ["isolated-setup-changed"]
+
+
 def test_an_upgrade_that_changes_setup_files_proposes_the_update(project: Path) -> None:
     framework_tree(project)
     before = isolated.current(project)
@@ -239,6 +246,35 @@ def test_a_sandbox_in_the_project_settings_is_configured(project: Path) -> None:
     (project / ".claude").mkdir()
     (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": true}}')
     assert isolated.configured(project) is True
+
+
+@pytest.mark.parametrize(
+    ("local", "shared", "user", "expected"),
+    [
+        (False, None, True, False),  # /sandbox switched off, whole-user install on
+        (None, False, True, False),
+        (False, True, None, False),
+        (True, False, None, True),
+        (None, None, True, True),  # the project says nothing, so the user file decides
+    ],
+)
+def test_the_most_specific_sandbox_setting_wins(
+    project: Path,
+    isolated_home: Path,
+    local: bool | None,
+    shared: bool | None,
+    user: bool | None,
+    expected: bool,
+) -> None:
+    (project / ".claude").mkdir()
+    (isolated_home / ".claude").mkdir()
+    for path, enabled in (
+        (project / ".claude" / "settings.local.json", local),
+        (project / ".claude" / "settings.json", shared),
+        (isolated_home / ".claude" / "settings.json", user),
+    ):
+        path.write_text(json.dumps({} if enabled is None else {"sandbox": {"enabled": enabled}}))
+    assert isolated.configured(project) is expected
 
 
 def test_unreadable_user_settings_are_not_configured(project: Path, isolated_home: Path) -> None:
