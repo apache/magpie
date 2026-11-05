@@ -33,7 +33,9 @@ previous one printed (`next` names the command to run and pass back):
 4. the push — a non-zero exit is a manual-paste `hand-off` with the error
    as a blocker, never retried this run;
 5. the verify — a push carrying `review-ready` onto an `allocated` record is
-   confirmed with `fetch_current_state`; `allocated` after it is a blocker.
+   confirmed with `fetch_current_state`; `allocated` after it is a blocker
+   that fires the fill-fields comment, and a fetch that failed or came back
+   `unknown` is a blocker that posts nothing about the hand-off this run.
 """
 
 from __future__ import annotations
@@ -185,10 +187,16 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
                 handoff_variant="oauth-pushed",
                 state_advance="allocated->review-ready",
             )
+        if fetched == "allocated":
+            return out(
+                "push",
+                "pushed, but the record is still allocated: do not post the RM hand-off; fire the fill-fields comment",
+                handoff_variant="oauth-pushed",
+                recap_blocker=True,
+            )
         return out(
             "push",
-            f"pushed, but the record is still {fetched}: do not post the RM hand-off; fire the fill-fields comment",
-            handoff_variant="oauth-pushed",
+            f"pushed, but the state fetch returned {fetched}: surface it as a blocker, post nothing on the RM hand-off front, and retry the verification on the next sync",
             recap_blocker=True,
         )
     return out("push", "pushed; the record's state did not change", handoff_variant="oauth-pushed")

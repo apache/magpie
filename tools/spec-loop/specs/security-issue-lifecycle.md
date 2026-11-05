@@ -227,7 +227,11 @@ publication, with a human gate and an audit-log entry at every step.
   team marks for the reporter proposed for the advisory), and walks the
   Step 5b push flow,
   checking the title, upgrade-target and CWE gates itself and taking the
-  four judged gates as the model's verdicts. The Step 1 observations
+  four judged gates as the model's verdicts. A state fetch that fails after
+  the push is a recap blocker that posts nothing about the hand-off that run.
+  The stage-specific Step 2b bullets live in `release-manager-comments.md`
+  and `post-advisory-records.md`, read when `signals-to-actions.md` says so.
+  The Step 1 observations
   that are arithmetic are code too: the disclosure-window flags, reporter
   staleness, the closed-`announced` cve.org move with the security-pages
   markers and the advisory-records step, and the release-vote match; mining signals, gathering
