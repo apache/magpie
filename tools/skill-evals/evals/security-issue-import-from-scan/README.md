@@ -3,13 +3,14 @@
 
 # security-issue-import-from-scan eval suite
 
-4 cases on the disposition-bucketing step.
+6 cases across 2 steps: disposition bucketing and pointer routing.
 
 ## Steps covered
 
 | Step | Directory | Cases | Notes |
 |---|---|---|---|
 | Step C — bucket by disposition | `step-c-bucket/` | 4 | Medium-but-by-design, CVE-worthy, PR-worth (no tracker), already-fixed |
+| Pointer routing | `pointer-routing/` | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Hard rules exercised
 

@@ -22,3 +22,5 @@ honest:
 
 Each case feeds a `report.md` to the model against the named step
 of `SKILL.md` and asserts the JSON in `expected.json`.
+
+`pointer-routing/` (2 cases, whole body with no sibling text): the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case.

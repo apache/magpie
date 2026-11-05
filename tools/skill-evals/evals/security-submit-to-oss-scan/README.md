@@ -3,13 +3,14 @@
 
 # security-submit-to-oss-scan eval suite
 
-2 cases on the threat-model derivation step.
+4 cases across 2 steps: threat-model derivation and pointer routing.
 
 ## Steps covered
 
 | Step | Directory | Cases | Notes |
 |---|---|---|---|
 | Step 5 — derive `threat_model.md` from the security model | `step-5-derive/` | 2 | A statement the model supports; a reasonable statement the model lacks (a gap) |
+| Pointer routing | `pointer-routing/` | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Hard rules exercised
 
