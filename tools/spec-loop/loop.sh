@@ -49,7 +49,20 @@
 # Stop gracefully: press Ctrl+C, or `touch STOP` (exits after the current
 # iteration finishes).
 #
+# SINGLE FLIGHT: one loop per checkout. The runner takes a lock
+# (tools/spec-loop/.lock/, gitignored) before its first iteration and
+# releases it on exit. A second loop started while the first is running
+# prints one `already_running …` line and exits 0 — zero, not an error, so
+# a cron or CI scheduler records a skipped run rather than a failure. A
+# lock whose owning pid has died on this host is stale and is taken over.
+# SPEC_LOOP_LOCK=off disables it for a run that is known to be safe to
+# overlap (the lock is per checkout, so two checkouts never contend).
+#
 # Env overrides:
+#   SPEC_LOOP_LOCK   lock directory (default: tools/spec-loop/.lock under the
+#                    repo root), or `off` to run without the single-flight
+#                    lock. Point it at a shared path to serialise several
+#                    checkouts of the same repository.
 #   SPEC_LOOP_BASE   branch to fork work items from (default: main)
 #   SPEC_LOOP_AGENT  agent CLI to run (default: claude). Any supported
 #                    headless agent CLI works; the invocation convention is
@@ -75,7 +88,26 @@
 
 set -uo pipefail
 
-trap 'echo -e "\nStopping loop..."; exit 0' INT TERM
+# Released on every exit path (normal end, STOP file, error break, Ctrl+C
+# via the INT trap's `exit`). LOCK_HELD stays false until acquired so an
+# early exit (bad argument, missing agent) never removes another loop's lock.
+# On INT/TERM (Ctrl+C, a scheduler timeout, `kill`) the backgrounded agent is
+# stopped first; if it does not exit, the lock is kept so the next start does
+# not run a second loop over a tree the agent is still editing.
+LOCK_HELD=false
+AGENT_PID=""
+SPINNER_PID=""
+on_stop() {
+    echo -e "\nStopping loop..."
+    [ -n "$SPINNER_PID" ] && kill "$SPINNER_PID" 2>/dev/null
+    if [ -n "$AGENT_PID" ] && ! spec_loop_stop_agent "$AGENT_PID" 10; then
+        echo "spec-loop: agent pid $AGENT_PID is still running; keeping the lock $LOCK_DIR" >&2
+        LOCK_HELD=false
+    fi
+    exit 0
+}
+trap on_stop INT TERM
+trap '[ "$LOCK_HELD" = true ] && spec_loop_lock_release "$LOCK_DIR"' EXIT
 
 # Operate from the repo root so the agent sees the whole tree.
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
@@ -86,6 +118,8 @@ LOOP_DIR="tools/spec-loop"
 PLAN="$LOOP_DIR/IMPLEMENTATION_PLAN.md"
 # shellcheck source=tools/spec-loop/lib.sh
 . "$LOOP_DIR/lib.sh"
+
+LOCK_DIR="${SPEC_LOOP_LOCK:-$ROOT/$LOOP_DIR/.lock}"
 
 current_branch() {
     local branch
@@ -208,6 +242,18 @@ if ! command -v "$AGENT" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Single flight: acquire after validation (so `--help` and a bad argument
+# never touch the lock) and before any work. `already_running` exits 0 on
+# purpose — see the SINGLE FLIGHT note in the header.
+if [ "$LOCK_DIR" != off ]; then
+    spec_loop_lock_acquire "$LOCK_DIR"
+    case $? in
+        0) LOCK_HELD=true ;;
+        1) exit 0 ;;
+        *) exit 1 ;;
+    esac
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Mode:   $MODE"
 echo "Prompt: $PROMPT_FILE"
@@ -217,6 +263,11 @@ if [ -n "$MODEL" ]; then echo "Model:  $MODEL"; else echo "Model:  (agent defaul
 if [ -n "$EFFORT" ]; then echo "Effort: $EFFORT"; fi
 if [ "$MAX_ITERATIONS" -gt 0 ]; then echo "Max:    $MAX_ITERATIONS iterations"; else echo "Max:    unlimited"; fi
 echo "Stop:   Ctrl+C  or  touch STOP"
+if [ "$LOCK_DIR" = off ]; then
+    echo "Lock:   off  (SPEC_LOOP_LOCK=off; overlapping loops are NOT prevented)"
+else
+    echo "Lock:   $LOCK_DIR  (one loop per checkout; a second start exits 0)"
+fi
 echo "Note:   this loop never pushes and never opens a PR."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 

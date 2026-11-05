@@ -78,6 +78,10 @@ commit.
 - **No `.claude/settings.json` edits** (it is in the `deny` list).
 - **No new network/filesystem allowances.** Run inside the existing
   sandbox.
+- **One loop per checkout.** The runner holds `tools/spec-loop/.lock/`
+  for the whole run; a second start exits 0 with `already_running`. Never
+  remove another run's lock from inside an iteration, and never commit the
+  lock directory (it is gitignored).
 
 ## Commits
 

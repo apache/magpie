@@ -183,6 +183,17 @@ the per-call gate back can drop the flag and pre-authorise the loop's
 tools with `--allowedTools` instead — at the cost of the loop pausing on
 anything it was not pre-authorised to do.
 
+**Only one loop per checkout.** Running the loop from cron or CI makes an
+overlap routine: a slow iteration outlives the schedule interval and a
+second loop starts while the first is still checking out branches. Two
+agents in one working tree pull files out from under each other, so the
+runner holds a lock (`tools/spec-loop/.lock/`) for the whole run. A
+second start prints one `already_running` line and exits 0, so the
+scheduler records a skipped run rather than a failure; a lock whose owner
+has died is taken over. `SPEC_LOOP_LOCK=off` turns the lock off for a run
+the operator knows is safe to overlap. Details in
+[`tools/spec-loop/README.md`](../tools/spec-loop/README.md#one-loop-per-checkout-single-flight).
+
 ## Keeping specs honest: the update beat
 
 Not every contribution comes through the loop — people land new skills and
