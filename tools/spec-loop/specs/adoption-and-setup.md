@@ -516,7 +516,7 @@ committed version with drift detection.
 - **The isolated-setup warning is shown once per session, in adopted repos
   only.** `magpie-setup`'s `SessionStart` hook warns while the machine has no
   isolated setup (its stamp, or a sandbox enabled in the project's or the
-  user's `settings.json` or `settings.local.json`, #1763): optional for a trial, recommended for longer use, the
+  user's `settings.json`; the home directory's `settings.local.json` is not loaded and does not count): optional for a trial, recommended for longer use, the
   consequences of running without it, and a warning against pointing skills
   at untrusted content. A project opts out with `isolation_warning: off` in
   the committed `.apache-magpie-overrides/project.md`, which `adopt` asks

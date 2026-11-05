@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:bf83981a9df27d35
 license: Apache-2.0
-measured_tokens: 6240
+measured_tokens: 6230
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -134,7 +134,7 @@ It mentions `/magpie-setup:setup adopt` as information only, one line saying ado
 **No isolated setup.**
 When `python3 -P -m setup_preflight.isolated configured` prints `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`:
 inside the sandbox the user-scope settings are read-denied, so `false` there means *not known*, not *absent*.
-Put a `[bypass]` *Check* item in the plan that reads `~/.claude/settings.json` and `~/.claude/settings.local.json` for `sandbox.enabled`, with the harness's own file-read tool (not Bash) or with the system `/usr/bin/jq` in one bypassed call.
+Put a `[bypass]` *Check* item in the plan that reads `~/.claude/settings.json` for `sandbox.enabled`, with the harness's own file-read tool (not Bash) or with the system `/usr/bin/jq` in one bypassed call.
 Never run the personal layer's `setup_preflight` outside the sandbox: it is code the sandbox can rewrite.
 Make the offer only once that read confirms no sandbox is enabled.
 The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.

@@ -8,6 +8,8 @@ Suggest the matching follow-up skill without invoking it:
 
 - ✗ on checks 1 / 2 / 3 / 4 → `setup-isolated-setup-install` (missing install pieces).
   For a missing `denyRead` home entry, name the settings file to add it to.
+- ✗ on check 6 (`sandbox.enabled` set only in `~/.claude/settings.local.json`) → the operator moves `sandbox.enabled` into `~/.claude/settings.json` and any per-host `sandbox` entries into the project's `.claude/settings.local.json` (settings changes are never applied from a skill), then starts a new session.
+  This replaces the check 1 route above for the same missing `sandbox.enabled`: nothing needs installing.
 - **Unchecked — no framework checkout** on 10a, 13c or check 5's `bubblewrap`/`socat` pins, or ⚠ on check 5 because the `claude-code` floor could not be read without a checkout → not a failure, but check 5 stays a warn until then; re-run `setup-isolated-setup-verify` with the path of the user's `magpie` clone, cloning one first if they have none ([install item 2](../isolated-setup-install/SKILL.md)).
 - Inconclusive 7a (no sentinel) → the user runs `ls` on the candidate credential paths from their own terminal; one that exists there while the sandbox cannot see it is ✓.
 - ⚠ on check 7b (an IDE-launched session, or credential-shaped names in the environment) → no skill fixes it: start the session through `claude-iso` from a terminal, or keep secrets out of the shell that starts the IDE and rely on `sandbox.credentials` ([The clean-env wrapper](../../../../docs/setup/secure-agent-setup.md#the-clean-env-wrapper)).

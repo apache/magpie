@@ -135,7 +135,8 @@ error, and two skills that probe or verify the setup on demand.
   sandbox, whose unreadability is ✗), the vetted-ops split, the touch
   overlay and signing key (check 10), the `gh` exclusion (check 11),
   the container gateway (check 12; 12a accepts the hooks in
-  `~/.claude/settings.json` or `~/.claude/settings.local.json`, fails a
+  the managed drop-in or `~/.claude/settings.json`, fails entries found
+  only in `~/.claude/settings.local.json`, fails a
   registered absolute path that does not exist on this machine, and marks
   one in a `settings.json` linked into a synced config repo as ◐, #1797),
   the eval-harness exclusion

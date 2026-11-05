@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:4866c98daeb1e5c4
 license: Apache-2.0
-measured_tokens: 6525
+measured_tokens: 6616
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -123,7 +123,10 @@ Check 5 still reports the running `claude --version` beside that verdict.
        Stop, tell the operator to upgrade (`npm install -g --no-save @anthropic-ai/claude-code@latest`), and re-run.
      - **Below the floor, under another harness** that cannot introspect a claude-code version → ⚠, noting the floor could not be enforced as a hard gate here.
 6. Status-line prefix in this session is `[sandbox]`, not `[NO SANDBOX]`.
-   Resolve the precedence `<cwd>/.claude/settings.local.json` → `<cwd>/.claude/settings.json` → `~/.claude/settings.local.json` → `~/.claude/settings.json`, and report the `sandbox.enabled` value from each.
+   Resolve the precedence `<cwd>/.claude/settings.local.json` → `<cwd>/.claude/settings.json` → `~/.claude/settings.json`, and report the `sandbox.enabled` value from each.
+   `~/.claude/settings.local.json` is not in the walk: Claude Code does not load it, so an `enabled: true` there sandboxes nothing.
+   Read it only to diagnose: `enabled: true` there is ✗ when no file Claude Code loads sets `sandbox.enabled`, the session then having no sandbox.
+   Those files are the walk, check 1's managed settings and, in a linked worktree, the main checkout's `.claude/settings*.json`.
 7. Denial commands actually deny.
    **Important: run each as a standalone Bash invocation**, not as a chained pipeline.
    `permissions.deny` patterns match only the *first* command of a Bash tool call, so a chained `curl` later in the pipeline can slip past on macOS (which has no socat network proxy as a backstop).

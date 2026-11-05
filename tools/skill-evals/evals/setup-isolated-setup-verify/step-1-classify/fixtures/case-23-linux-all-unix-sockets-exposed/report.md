@@ -41,7 +41,7 @@ cat .claude/settings.json:
 Platform: Linux. uname -s → Linux; id -u → 1000
 command -v podman → /usr/bin/podman
 
-~/.claude/settings.local.json hooks:
+~/.claude/settings.json hooks:
   SessionStart → /home/alice/.claude/scripts/container-gateway-hook.sh start
   SessionEnd → /home/alice/.claude/scripts/container-gateway-hook.sh stop
   PreToolUse (matcher Bash) → /home/alice/.claude/scripts/container-gateway-hook.sh ensure

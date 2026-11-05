@@ -219,12 +219,20 @@ def test_nothing_configured_is_not_configured(project: Path) -> None:
     assert isolated.configured(project) is False
 
 
-@pytest.mark.parametrize("name", ["settings.json", "settings.local.json"])
-def test_a_sandbox_in_the_user_settings_is_configured(project: Path, isolated_home: Path, name: str) -> None:
+def test_a_sandbox_in_the_user_settings_is_configured(project: Path, isolated_home: Path) -> None:
     """The whole-user install scope leaves no trace in the project."""
     (isolated_home / ".claude").mkdir()
-    (isolated_home / ".claude" / name).write_text('{"sandbox": {"enabled": true}}')
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
     assert isolated.configured(project) is True
+
+
+def test_a_sandbox_only_in_the_user_settings_local_is_not_configured(
+    project: Path, isolated_home: Path
+) -> None:
+    """Claude Code never loads that file, so such a session runs with no sandbox."""
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": true}}')
+    assert isolated.configured(project) is False
 
 
 def test_a_sandbox_in_the_project_settings_is_configured(project: Path) -> None:
