@@ -326,7 +326,7 @@ The answer is passed to `render --keep`; dropped comments fold into the body's *
 Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt as an interactive visual overview during review triage.
 Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`).
 The resulting keep recommendation is displayed in the pane footer and in `/magpie-findings status` for easy entry into the picker prompt.
-The pane and the command do not change what is posted: only the answer typed at the picker reaches `render`, so a note from `/magpie-findings edit` has to be entered again there with `E <n>`.
+When findings are curated in the pane or via `/magpie-findings`, the mod syncs the serialized findings payload to `<file>.curated.json` and the keep answer to `<file>.curated.keep` beside the findings file.
 
 Per the vendor-neutral additive-only contract (`docs/when-to-use-mods.md`), this mod is entirely additive.
 In Codex, Antigravity, Cursor, and headless CI environments where mod hooks are unsupported or absent, the skill seamlessly continues using the standard sequential text picker prompt above.
@@ -343,8 +343,11 @@ uv run --project <framework>/tools/pr-management pr-management code-review rende
   [--security-note <file>] [--inline off]
 ```
 
+When `<file>.curated.json` was written beside the findings file during Step 7a curation, pass that file to `--findings` so maintainer edits and omitted general observations reach `render`.
+When `<file>.curated.keep` is present, pass its contents to `--keep`.
 It assembles the body in the template order ([`posting.md`](posting.md#review-body--template-structure)), backtick-quotes every handle, places each kept inline comment by `line` + `side` (listing any the diff cannot anchor — those fold into the body), appends the verbatim footer variant and verifies it.
-Show the full body and the inline count; hold for explicit confirmation. Substantive edits re-render and re-confirm.
+Show the full body and the inline count; hold for explicit confirmation.
+Substantive edits re-render and re-confirm.
 
 ---
 

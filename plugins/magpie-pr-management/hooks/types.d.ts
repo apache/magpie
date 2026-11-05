@@ -27,6 +27,7 @@ declare module 'claude-code' {
       reviewFindingsState: {
         prNumber?: number;
         prTitle?: string;
+        findingsPath?: string;
         findings: Array<{
           id: string;
           file: string;
