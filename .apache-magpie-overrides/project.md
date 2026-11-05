@@ -78,10 +78,10 @@ produces.
 
 | Key | Value | Purpose |
 |---|---|---|
-| `tracker_repo` | not used — Apache Magpie has no private security tracker; reports follow the ASF default process via `security@apache.org` | Private security tracker (this repo) |
-| `tracker_repo_url` | not used | |
-| `tracker_default_branch` | not used | Default PR target for the tracker repo |
-| `tracker_project_board_url` | not used | Security board |
+| `tracker_repo` | `apache/magpie-security` | Private security tracker (this repo); PMC-only |
+| `tracker_repo_url` | `https://github.com/apache/magpie-security` | |
+| `tracker_default_branch` | `main` | Default PR target for the tracker repo |
+| `tracker_project_board_url` | `https://github.com/orgs/apache/projects/698` | Security board |
 | `upstream_repo` | `apache/magpie` (derived from the `upstream` git remote) | Public codebase where fixes land |
 | `upstream_repo_url` | `https://github.com/apache/magpie` (derived) | |
 | `upstream_default_branch` | `main` (derived from the fetched upstream HEAD) | Upstream's default branch — what `<default-branch>` resolves to. Distinct from `tracker_default_branch` |
@@ -100,7 +100,7 @@ produces.
 |---|---|---|
 | `security_list` | `security@apache.org` (ASF default — no project-specific security list) | Inbound reports; **not** publicly archived (auto-sourced default) |
 | `private_list` | `private@magpie.apache.org` | PMC escalation; **not** publicly archived (auto-sourced default) |
-| `users_list` | `users@magpie.apache.org` | Public advisories end up here; publicly archived (auto-sourced from `.asf.yaml` or default) |
+| `users_list` | `dev@magpie.apache.org` | Public advisories end up here; publicly archived. Holds the dev list on purpose: see the note below this table |
 | `dev_list` | `dev@magpie.apache.org` | Release `[RESULT][VOTE]` threads; publicly archived (auto-sourced from `.asf.yaml` or default) |
 | `announce_list` | `announce@apache.org` | Cross-project announcement list; publicly archived |
 | `commits_list` | `commits@magpie.apache.org` | Publicly archived (auto-sourced from `.asf.yaml`) |
@@ -148,9 +148,9 @@ For **ASF adopters**, fill in the per-project CNA queue fields below:
 
 | Key | Value |
 |---|---|
-| `cna_private_owner` | not used (no project security tracker / CNA queue) |
-| `cna_private_projecturl` | not used (no project security tracker / CNA queue) |
-| `cna_private_userslist` | not used (no project security tracker / CNA queue) |
+| `cna_private_owner` | `magpie` |
+| `cna_private_projecturl` | `https://magpie.apache.org` |
+| `cna_private_userslist` | `dev@magpie.apache.org` |
 
 ## GitHub project board
 
@@ -162,23 +162,23 @@ treat missing board config as *"no board reconciliation"*.
 
 | Key | Value |
 |---|---|
-| `project_board_url` | not used (no board) |
-| `project_board_number` | not used (no board) |
-| `project_board_node_id` | not used (no board) |
-| `status_field_node_id` | not used (no board) |
+| `project_board_url` | `https://github.com/orgs/apache/projects/698` |
+| `project_board_number` | `698` |
+| `project_board_node_id` | `PVT_kwDNuP_OAakC_A` |
+| `status_field_node_id` | `PVTSSF_lADNuP_OAakC_M4aKCCZ` |
 
 **`Status` column → option-ID mapping** (re-fetch if any write
 returns `not found`):
 
 | Column | Option ID |
 |---|---|
-| `Needs triage` | not used (no board) |
-| `Assessed` | not used (no board) |
-| `CVE allocated` | not used (no board) |
-| `PR created` | not used (no board) |
-| `PR merged` | not used (no board) |
-| `Fix released` | not used (no board) |
-| `Announced` | not used (no board) |
+| `Needs triage` | `1adabf67` |
+| `Assessed` | `cc8881d8` |
+| `CVE allocated` | `3eec77cb` |
+| `PR created` | `6c408cbe` |
+| `PR merged` | `84b14673` |
+| `Fix released` | `b9c1b297` |
+| `Announced` | `1cef86c9` |
 
 ## Mail sources
 

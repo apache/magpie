@@ -93,6 +93,8 @@ Each change-request verb resolves onto the mail surfaces as follows.
 | `reject(id, reason)` | Drafts a threaded reply carrying `reason`. **No commit** — the absence of a `land` is the rejection. Nothing is transitioned; the thread simply closes socially. |
 | `status(id)` | `checks: none` (a mail thread has no CI), `mergeable` from an `svn patch --dry-run`. Skills degrade the `checks` gate to advisory and fall back to a human-judgement prompt (the contract's `status` graceful-degradation path — this is the maximally-degraded backend). |
 
+An implementation must pin the reviewed patch by hash and refuse a different one at `land` ([threat model R-I6](../../docs/security/threat-model.md#111-claimed-properties)).
+
 ### Attribution
 
 The delegated `land` credits the patch author in the SVN commit
