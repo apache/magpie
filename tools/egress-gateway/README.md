@@ -10,6 +10,7 @@
   - [Run it](#run-it)
   - [Point tools at it](#point-tools-at-it)
   - [The allowlist](#the-allowlist)
+    - [ASF projects](#asf-projects)
   - [Test](#test)
     - [Automated tests](#automated-tests)
     - [Manual verification](#manual-verification)
@@ -48,8 +49,8 @@ how-to.
 - **Network:** Binds a loopback listen socket (default `127.0.0.1:8899`) and
   makes unrestricted outbound by design — must run in a **non-sandboxed**
   context. Needs a writable `$HOME` (or a `HOME` override) for runtime state
-  under `~/.proxy`. Default allowlist mirrors the sandbox's curated domains
-  (ASF infra, GitHub, Google APIs, PyPI).
+  under `~/.proxy`. The default allowlist covers general-purpose services
+  (GitHub, Google APIs, PyPI, vulnerability registries), not ASF hosts.
 - **Optional:** the `dev` dependency group (`pytest`, `ruff`, `mypy`) for automated tests,
   and curl for manual verification.
 
@@ -111,10 +112,22 @@ Entries starting with `.` are treated as suffixes; everything else is an
 exact host. Loopback (`localhost`, `127.0.0.1`, `::1`) is always allowed.
 
 **Security scope:** `EGRESS_ALLOW_EXTRA` applies to the entire gateway
-process, not just one project. Do not use a shared gateway with ASF
-overrides as evidence of project-specific network isolation. The
-project-local ASF sandbox fragment does not change this gateway's
-allowlist automatically.
+process, not just one project. The project-local ASF sandbox fragment
+does not change this gateway's allowlist.
+
+### ASF projects
+
+A project with `organization: ASF` gets the ASF hosts from a gateway of its own, so no other project receives them.
+Start it on a separate port:
+
+```bash
+EGRESS_ALLOW_EXTRA="lists.apache.org,dist.apache.org,repository.apache.org,downloads.apache.org,archive.apache.org,cveprocess.apache.org,issues.apache.org,whimsy.apache.org" \
+  uv run --project tools/egress-gateway egress-gateway --port 8900
+```
+
+Then point only that project at it, in its `.claude/settings.local.json` `env` block, as in [Point tools at it](#point-tools-at-it).
+The first six hosts are the ones in `tools/agent-isolation/claude-settings.asf.fragment.json`.
+`issues.apache.org` and `whimsy.apache.org` are for tools that run in containers; drop the ones the project does not use.
 
 ## Test
 

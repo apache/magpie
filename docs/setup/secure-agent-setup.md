@@ -3002,7 +3002,7 @@ This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) P
 - **This project's containers only.**
   Every resource the gateway creates is labelled with the project slug, and every read or act call is filtered to that label, so two projects sharing one daemon see disjoint worlds.
 - **Same egress policy as the shell.**
-  Containers get the egress gateway as their HTTP proxy, so tools inside them that honour proxy variables are bound by the same host allow-list as sandboxed commands.
+  Containers get the egress gateway as their HTTP proxy, so tools inside them that honour proxy variables are bound by the gateway's host allow-list.
 
 ### Install (user-scope)
 

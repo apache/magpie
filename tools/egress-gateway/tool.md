@@ -97,11 +97,10 @@ redactor and the gate. See RFC-AI-0003 §4.4.
 3. Allow loopback in `sandbox.network.allowedDomains` so sandboxed tools can
    reach it (loopback-only; does not widen the internet egress surface).
 
-The gateway and sandbox enforce separate allowlists. Project-local ASF
-sandbox permissions do not automatically extend the shared gateway.
-Requests to ASF hosts remain blocked by the default gateway even for
-ASF projects. Do not use a process-wide `EGRESS_ALLOW_EXTRA` override
-on a shared gateway as a project-isolation mechanism.
+The gateway and sandbox enforce separate allowlists, and the project-local ASF sandbox fragment does not extend the gateway.
+The allowlist belongs to the gateway process, so the scope of a grant is the set of projects pointed at that process.
+A project with `organization: ASF` runs its own gateway on its own port, with the ASF hosts in `EGRESS_ALLOW_EXTRA`, and only that project's proxy variables point at it: see [ASF projects](README.md#asf-projects).
+Do not add ASF hosts to a gateway other projects use: that grants them to every project on it.
 
 ## What this tool is NOT for
 

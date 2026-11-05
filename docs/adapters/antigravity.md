@@ -96,6 +96,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
    If the operator retains any, report that the permissions remain
    globally effective across repositories. Do not automatically add
    ASF project-specific permissions to this user-scope profile.
+   Antigravity has no project-level grant yet, so ASF hosts are not pre-approved on this harness, even for an ASF project ([#2003](https://github.com/apache/magpie/issues/2003)).
    Leave `agentMode` unset (or `plan`): `accept-edits` and `auto` approve edits or commands without review.
 4. **Register the guard.** Merge the `magpie-agent-guard` entry from the shipped `hooks.json`, with the path resolved in step 1.
    Keep exactly one effective guard registration; propose correcting a stale or duplicate entry instead of appending another.
