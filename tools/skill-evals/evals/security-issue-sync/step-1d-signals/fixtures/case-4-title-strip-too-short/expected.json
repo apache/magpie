@@ -15,5 +15,5 @@
   "severity": {
     "action": "none"
   },
-  "notes": "Stripping the leading project-name token and the HUNTR ID would collapse the title to the single word XSS, fewer than three words, so the strip is proposed with the ambiguity flagged for the user to confirm or override rather than applied silently."
+  "notes": "Stripping the leading project-name token and the HUNTR ID would collapse the title to the single word XSS, fewer than three words, so the strip is proposed with the ambiguity flagged for the user to confirm or override rather than applied silently. No other signal fires: affected versions, reporter credit, severity and CWE need no change."
 }
