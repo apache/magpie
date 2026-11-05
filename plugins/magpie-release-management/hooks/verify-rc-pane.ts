@@ -58,15 +58,20 @@ export async function setVerifyRcState($: any, state: VerifyRcState | null): Pro
 }
 
 /**
- * Strips ANSI CSI sequences, OSC sequences, and C0/C1 control characters from strings.
+ * Strips ANSI CSI and OSC sequences and C0/C1 control characters, and folds line
+ * breaks to a space so that one detail cannot draw a second checklist row.
  */
 export function sanitizeText(raw: unknown): string {
   if (typeof raw !== 'string') {
     return '';
   }
-  let clean = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
-  clean = clean.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, '');
-  return clean.trim();
+  return raw
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[@-Z\\-_]/g, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
+    .trim();
 }
 
 /**

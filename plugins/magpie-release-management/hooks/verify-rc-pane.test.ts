@@ -104,6 +104,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
       assertStrictEqual(sanitizeText('\x1b[31mRed Alert\x1b[0m'), 'Red Alert');
       assertStrictEqual(sanitizeText('\x1b]0;Window Title\x07Clean Text'), 'Clean Text');
       assertStrictEqual(sanitizeText('Line 1\x00\x08Text\x1f'), 'Line 1Text');
+      assertStrictEqual(sanitizeText('\x1b[?25lHidden cursor'), 'Hidden cursor');
+      assertStrictEqual(sanitizeText('failure\n[PASS] another check'), 'failure [PASS] another check');
       assertStrictEqual(sanitizeText(null), '');
       assertStrictEqual(sanitizeText(undefined), '');
       assertStrictEqual(sanitizeText(12345), '');
@@ -178,9 +180,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
   });
 
   describe('createDefaultVerifySteps canonical sequence', () => {
-    test('returns all 11 canonical steps matching verify-rc/SKILL.md in exact order', () => {
+    test('returns all 13 canonical steps matching verify-rc/SKILL.md in exact order', () => {
       const steps = createDefaultVerifySteps();
-      assertStrictEqual(steps.length, 11);
+      assertStrictEqual(steps.length, 13);
 
       const expectedIds = [
         'preflight',
@@ -190,6 +192,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         'rat-license-headers',
         'notice-license',
         'binary-exclusion',
+        'jvm-artefacts',
+        'nexus-staging',
         'source-tree-integrity',
         'version-consistency',
         'reproducibility',
@@ -306,7 +310,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
       const stepsBox = pane.children[1];
       assertStrictEqual(stepsBox.type, 'Box');
-      assertStrictEqual(stepsBox.children.length, 11);
+      assertStrictEqual(stepsBox.children.length, 13);
 
       // Verify row 0 (preflight) has PASS badge
       const row0 = stepsBox.children[0];
@@ -464,13 +468,13 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
       assertStrictEqual(headerBox.children[0].bold, true);
       assertStrictEqual(
         headerBox.children[1].children[0],
-        'Progress: 2/11 completed \u00B7 Status: RUNNING'
+        'Progress: 2/13 completed \u00B7 Status: RUNNING'
       );
       assertStrictEqual(headerBox.children[1].color, 'info');
 
       // Verify Step Rows
       const stepsBox = pane.children[1];
-      assertStrictEqual(stepsBox.children.length, 11);
+      assertStrictEqual(stepsBox.children.length, 13);
 
       // Preflight (passed)
       const row0 = stepsBox.children[0];

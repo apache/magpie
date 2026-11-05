@@ -29,6 +29,8 @@ export type VerifyStepId =
   | 'rat-license-headers'
   | 'notice-license'
   | 'binary-exclusion'
+  | 'jvm-artefacts'
+  | 'nexus-staging'
   | 'source-tree-integrity'
   | 'version-consistency'
   | 'reproducibility'
@@ -59,7 +61,7 @@ export interface VerifyRcState {
 }
 
 /**
- * Returns the canonical 11 verification steps in exact SKILL.md execution order,
+ * Returns the canonical 13 verification steps in exact SKILL.md execution order,
  * all initialized in 'pending' status.
  */
 export function createDefaultVerifySteps(): VerifyRcStep[] {
@@ -71,6 +73,8 @@ export function createDefaultVerifySteps(): VerifyRcStep[] {
     { id: 'rat-license-headers', label: 'Apache RAT license headers', status: 'pending' },
     { id: 'notice-license', label: 'NOTICE and LICENSE integrity', status: 'pending' },
     { id: 'binary-exclusion', label: 'Prohibited binaries scan', status: 'pending' },
+    { id: 'jvm-artefacts', label: 'JVM artefact checks', status: 'pending' },
+    { id: 'nexus-staging', label: 'Nexus staging repository', status: 'pending' },
     { id: 'source-tree-integrity', label: 'Source integrity & symlinks', status: 'pending' },
     { id: 'version-consistency', label: 'Version manifest consistency', status: 'pending' },
     { id: 'reproducibility', label: 'Reproducible build verification', status: 'pending' },
