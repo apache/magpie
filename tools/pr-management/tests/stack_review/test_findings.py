@@ -27,6 +27,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -347,6 +348,13 @@ def test_residue_command_runs_with_git(
     assert result.returncode == (0 if matches else 1), result.stderr
     assert result.stderr == ""
     assert result.stdout.splitlines() == [f"refs/magpie-stack/120/4:src/compat.py:{hit}" for hit in matches]
+
+
+def test_residue_command_accepts_a_posix_class_silently() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        command = residue_command("/c", "magpie-stack/120", 4, ["py3[[:digit:]]{2}"], [])
+    assert "(py3[[:digit:]]{2})" in command
 
 
 @pytest.mark.parametrize("variants", [[""], ["py310|"], ["x*"], ["[0-9]*"], ["(py310)?"], ["py310", "x*"]])

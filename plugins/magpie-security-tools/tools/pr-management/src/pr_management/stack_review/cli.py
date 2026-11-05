@@ -27,6 +27,7 @@ import argparse
 import json
 import re
 import shlex
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +121,10 @@ def residue_command(clone: str, prefix: str, size: int, variants: list[str], ext
     if not _PREFIX.match(prefix):
         raise SystemExit(f"pr-management: --prefix must be magpie-stack/<number>, got {prefix!r}")
     for variant in variants:
-        compiled = re.compile(variant)
+        with warnings.catch_warnings():
+            # A POSIX class such as [[:digit:]] is valid ERE; Python warns about it.
+            warnings.simplefilter("ignore", FutureWarning)
+            compiled = re.compile(variant)
         # This Python precheck catches common mistakes, not every ERE empty match.
         if compiled.search("") is not None:
             raise SystemExit(f"pr-management: --variant must not match the empty string, got {variant!r}")
