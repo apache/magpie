@@ -29,8 +29,8 @@ dispatcher whose operations are a **closed catalogue** of fixed shapes:
 - the repository is policy, never a parameter;
 - value-bearing parameters (labels, milestones, assignees, columns, close
   reasons) must appear in adopter-declared enums;
-- free text reaches the forge only by file reference, and the file must resolve
-  inside a declared workspace;
+- free text reaches the forge only by file reference, and the file must sit
+  inside a declared workspace, reached with no symlink on its path;
 - GraphQL documents are *named*, not supplied: the caller picks one of the
   allowlisted queries shipped with the dispatcher, which supplies the text and
   fills owner/name from policy.
@@ -51,6 +51,21 @@ cover (`//**/.git/**/apache-magpie/…`, `//**/.svn/apache-magpie/…`,
 anywhere on its path, or that is not a regular file, is not read.
 The personal policy supplies data only and grants nothing `--config` could
 not; `setup config` drafts it, the user saves it.
+
+**The write entry points act only on an approved policy** (#1957).
+`vetted-op` and `vetted-op-tracker` run outside the sandbox, so a policy they
+act on must be one the agent cannot write.
+They refuse `--config` whenever an operation runs; a dry run, `policy` and
+`list-ops` publish nothing and keep it.
+They act on the discovered policy only when it is byte-for-byte a `.toml` the
+user placed in `~/.config/apache-magpie/vetted-ops/`, because discovery starts
+from a working directory the agent picks.
+That directory sits outside every sandbox-writable root and is `Edit`-denied,
+and its home comes from the password database, not `$HOME`.
+`vetted-op-read` still takes `--config`.
+`safe_read.py` opens every policy and body one path component at a time from
+the checked descriptor, following no symlink, and a `workspace` with a symlink
+on its path is refused.
 
 The HTTP read backend (`http-read`, which implies `writes=False`) carries the
 security-data lookups the adapters used to spell as raw `curl`: four OSV.dev
@@ -115,8 +130,11 @@ A third entry point, `vetted-op-tracker`, refuses every operation except the
 procedure ones before it reads the policy — the same shape as
 `vetted-op-read`'s write refusal. It is excluded from the sandbox, because the
 procedures' `gh` must verify TLS, and kept on `ask`, never `allow`.
-`vetted-op` itself stays sandboxed: excluding it would run the whole write
-catalogue there.
+`vetted-op` is excluded too, in both launcher forms, and likewise never
+`allow`ed (#1956): a sandboxed `vetted-op` cannot read `~/.claude/magpie/` to
+start, and every operation is a fixed `gh` argv with no shell and bodies read
+only from the owner-only workspace, so it reaches less than the bare `gh *`
+exclusion.
 
 A read too large to carry through the agent's context goes to a file:
 `vetted-op-read --save NAME` writes a read operation's output to
@@ -261,6 +279,12 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    Each search string is built by the operation with `repo:<upstream>` from
    policy first, so its parameter narrows a sweep and cannot re-aim it; this
    is a fixed shape, unlike the free-text search refused below.
+   `pr-management-code-review`'s auto-merge path added `run-rerun`, for a run
+   held in `action_required` that `workflow-approve` answers is not waiting for
+   approval (#1951).
+   `security-issue-sync` reads a GitHub Security Advisory's comments with
+   `advisory-comments` and posts a reply the reporter sees with
+   `advisory-comment` (#1964).
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They
@@ -281,13 +305,19 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
 
    Several shapes are refused rather than wrapped, and will stay refused:
    free-text search (`gh search issues` / `prs`, and GraphQL's `search(...)`)
-   has no fixed shape; creation (`gh issue create` / `gh pr create`) would need
-   a free-text title, since `gh` offers `--body-file` but no `--title-file`;
+   has no fixed shape; `gh pr create` would need a free-text title, since `gh`
+   offers `--body-file` but no `--title-file`;
    release publication and deletion is vote-gated and irreversible; and
    `gh run download` writes to local disk rather than to the forge, which is a
    different risk class entirely. All keep their `ask` rule. The catalogue
    covers the sweep, not everything — and **widening it must never widen the
    posture**, which is why `pr-merge` and `release-delete` are both absent.
+   Tracker creation has since got a fixed shape: `issue-create-labeled` (GitHub
+   only) takes `title` and `body` as workspace file paths through
+   `Op.title_files`, so the dispatcher reads and validates the title and a dry
+   run shows only its size, and a JSON array of 1 to 20 distinct policy-approved
+   labels applied in the same request; it prints `number`, `node_id` and `url`
+   (#1982).
 
    Note what the PR family deliberately does *not* include: there is no
    `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —
@@ -295,6 +325,9 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    than running one — so a vetted merge operation would hand the agent the one
    capability the surrounding design withholds. **Widening the catalogue must
    not widen the posture**, and that constraint binds every family added next.
+   `pr-management-code-review` enabling auto-merge does not change this: it runs
+   the rendered `gh pr merge --auto` directly, which stays on `ask`, not through
+   the dispatcher (#1951).
 
 3. **Adapter parity.** Forge operations are `gh`-shaped today (HTTP read operations
    now ship alongside them via a stdlib backend). The forge is already an

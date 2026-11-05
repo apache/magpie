@@ -153,4 +153,6 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
   `skill-reconciler` skill, but the skill still does not wire it in:
   `SKILL.md` never names `skill-reconciler-diff`. Its unit tests cover
   frontmatter-only, section-order, placeholder, support-file, and
-  safety-baseline divergences.
+  safety-baseline divergences, and `test_checklist_pin.py` pins the clause
+  regexes to the checklist's canonical wordings and the softened phrasings
+  it quotes (#1943).

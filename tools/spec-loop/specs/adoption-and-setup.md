@@ -502,6 +502,17 @@ committed version with drift detection.
   `setup` sub-action it is reported as n/a and the run continues; no policy
   is written to get past it. Every other skill, and a policy that exists but
   fails to load, still stops.
+- **An import caller's grants and labels are part of a clean reconcile.**
+  `setup reconcile` check 3a and `setup config` compare each configured
+  security issue-import caller's `[callers]` entry with the vetted-ops README's
+  configuration example, whatever tracker backend is selected, and for GitHub
+  imports check `[values] labels` against the labels each importer sets (#1749,
+  #1982).
+  A missing grant or label is a finding, proposed as a minimal diff the user
+  saves; setup never writes the policy itself, and never creates a missing one.
+  A skill is stamped clean only after re-reading the saved policy proves the
+  grants and labels are there; a declined, unapplied or unreadable one stays
+  unresolved.
 - **The isolated-setup warning is shown once per session, in adopted repos
   only.** `magpie-setup`'s `SessionStart` hook warns while the machine has no
   isolated setup (its stamp, or a sandbox enabled in the project's or the
@@ -698,6 +709,8 @@ committed version with drift detection.
     entry when both stores name the same skill, and — on confirmation —
     writes the stamp; a project with no adoption or configuration
     evidence at all reports nothing to reconcile and stops.
+    An import skill is not stamped clean while its vetted-ops caller grants
+    or required labels are missing or unverified.
 20. `/magpie-setup:setup upgrade` reconciles the overrides its walk covers and
     writes the stamp only for one that passes the target-skill, anchor,
     and `requires_config` checks — an override with an unresolved

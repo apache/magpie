@@ -94,11 +94,12 @@ manifest is Claude Code's `.claude-plugin/plugin.json`, but they are not
 Claude-Code-only: Codex installs them by falling through to that same file.
 The exception is a plugin whose `hooks/hooks.json` carries Claude Code mods
 (`$schema`, `modules`), which Codex's strict hooks schema rejects whole:
-`magpie-setup`, `magpie-utilities` and `magpie-security` each carry a
+`magpie-setup`, `magpie-utilities`, `magpie-security` and
+`magpie-pr-management` each carry a
 complete `.codex-plugin/plugin.json` (read instead of the Claude manifest)
 whose `hooks` names a clean `hooks/codex-hooks.json` — the `startup`
 upgrade check (`/bin/bash -p check-upgrade.sh`) for `magpie-setup`, an empty
-file for the other two (#1836, #1676).
+file for the other three (#1836, #1676, #1920).
 `tools/dev/check-family-plugins.py --fix` generates them and fails a Codex
 catalogue plugin whose Codex-visible hook file has any other top-level key.
 

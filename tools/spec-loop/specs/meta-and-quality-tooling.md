@@ -88,6 +88,13 @@ trustworthy as it grows.
   match its journal and, with `--against <ref>`, on a committed record that
   was edited or removed; `import-readme` migrates a pre-journal table into
   `legacy: true` records (#1626).
+  The model comes from the best evidence available, and `model_source` says
+  which: `--journal-model`, a `--model` flag in the `--cli` string, then for a
+  `claude` CLI `ANTHROPIC_MODEL` and the `model` key of its settings files, so
+  runs through the sandboxed wrapper still record one; nothing found is
+  recorded as null, never guessed (#1946).
+  `skill-eval-journal flaky` lists the cases that failed in some but not all
+  runs of one batch, never pooling runs across models or commits (#1947).
   A step with no `user-prompt-template.md` gets a neutral user prompt: the
   case report followed by "Return JSON only."; a step that needs the
   `{corpus}` / `{roster}` / `{report}` framing carries its own template, as
@@ -105,6 +112,9 @@ trustworthy as it grows.
 - `tools/spec-inventory/` — deterministic `uv` tool that summarizes
   specs, skills, and tools into a compact routing inventory for spec-loop
   prompts.
+  A skill edit, which `git diff` reports under `plugins/<plugin>/skills/<alias>/`,
+  maps back to `skills/<name>/` through the repository's symlinks, so a spec's
+  skill bullet matches it (#1936).
 - `tools/pilot-report-validator/` — validates adopter pilot-report files
   against the required schema defined in `docs/pilot-report-template.md`.
   Checks required frontmatter keys (`skill`, `date`, `target_repo`,
@@ -140,6 +150,9 @@ trustworthy as it grows.
   SPDX-License-Identifier header, Validation code block present,
   filesystem paths in Validation blocks must exist under repo root);
   the spec-side counterpart to `skill-and-tool-validator`.
+  It also checks `gap-closes-when` predicates on Known gaps and cross-spec
+  "N-skill family" counts (#1940; see
+  [`spec-gap-staleness.md`](spec-gap-staleness.md)).
 - Skills: `write-skill` (author/update a skill; its Step 7 runs
   `optimize-skill` on every new skill before it ships, unconditionally),
   `optimize-skill` (restructure an existing skill or sweep a set: split

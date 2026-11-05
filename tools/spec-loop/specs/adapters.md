@@ -52,7 +52,10 @@ by swapping the adapter, not the skill.
   `maildir-source-read` and `maildir-source-thread-url` read a static
   mbox / Maildir / `.eml` directory — forensics, air-gapped triage and
   compliance exports — with no credentials and no network.
-- `tools/ponymail/` — public mailing-list archive search. Its one local
+- `tools/ponymail/` — public mailing-list archive search.
+  An explicit date range is written `dfr=yyyy-mm-dd|dto=yyyy-mm-dd`: with a
+  space the search reports 0 hits and no error (#1980).
+  Its one local
   write, `save_attachments` (`ponymail-mcp` 1.3.0+), downloads a report's
   attachments into a `PONYMAIL_ATTACHMENT_DIRS` root that the agent can
   read but not write (the secure setup's `Edit(~/.cache/ponymail-attachments/**)`
@@ -348,6 +351,17 @@ by swapping the adapter, not the skill.
   declines with exit 3 so the resolution chain falls through (#1466).
   It connects with a verified TLS context (`ssl.create_default_context()`,
   #1862).
+  Every thread operation accepts a bare Message-ID as well as the bracketed
+  form (#1962).
+  A window that starts inside a thread holds the replies but not the root,
+  and the contract makes the operations agree on it: the subject, `started_by`
+  and `create_draft`'s default recipient come from the root when the window
+  holds it, else from the earliest message it can prove, undated last, as
+  `maildir` does (#1925).
+  With the root missing, `create_draft` with no `--to` addresses the earliest
+  message whose `From` is not `IMAP_SOURCE_USER`, skipping a message with no
+  sender, and only then the earliest message; that is a heuristic, not a proof
+  (#1977).
   `tools/mail-source/mailman3/` is a doc-only, read-only backend over
   Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
   `thread_url`); it has no drafts or sent view, so it pairs with a drafting

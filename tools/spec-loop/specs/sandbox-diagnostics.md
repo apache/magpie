@@ -102,7 +102,12 @@ error, and two skills that probe or verify the setup on demand.
   `~/.claude/scripts/container-gateway/src` (a marketplace install); with
   no report it fails as "gateway status unavailable" rather than "not
   running", and a `status` that exits 2 without a report as "refused the
-  run directory" (#1815). Probe 7 checks that `prek` and `uv` run inside
+  run directory" (#1815).
+  An operator copy the sandbox cannot read, because the project's wiring has
+  no `allowRead` grant for `~/.claude/scripts/container-gateway/`, is named as
+  that rather than blamed on `python3`; the probe tests a file, since the
+  directory's metadata stays visible (#1967).
+  Probe 7 checks that `prek` and `uv` run inside
   the sandbox and can write `~/.cache`, telling a missing grant (⚠)
   from a tool that is not installed (⊘) by reading the worktree's
   `settings.local.json`, since a read-denied `~/.local/bin` looks the
