@@ -58,9 +58,9 @@ security skill at the wrong place, which is worse than a skill refusing to run.
 
 | Key | Value | Notes |
 |---|---|---|
-| `security_list` | `security@magpie.apache.org` | Inbound reports; not publicly archived |
+| `security_list` | `security@apache.org` | Inbound reports; not publicly archived. Magpie has no dedicated security list yet |
 | `private_list` | `private@magpie.apache.org` | PMC escalation; not publicly archived |
-| `users_list` | `users@magpie.apache.org` | Publicly archived |
+| `users_list` | `dev@magpie.apache.org` | Publicly archived. Magpie has no users list, so public advisories go to the dev list |
 | `dev_list` | `dev@magpie.apache.org` | Release `[VOTE]` / `[RESULT]` threads; publicly archived |
 | `announce_list` | `announce@apache.org` | Cross-project announcements |
 | `commits_list` | `commits@magpie.apache.org` | Publicly archived |
@@ -75,7 +75,7 @@ authority for the release flow.
 |---|---|
 | `cna_private_owner` | *TODO* |
 | `cna_private_projecturl` | `https://magpie.apache.org/` |
-| `cna_private_userslist` | `users@magpie.apache.org` |
+| `cna_private_userslist` | `dev@magpie.apache.org` |
 
 ## Project board
 
