@@ -480,11 +480,18 @@ def test_a_failed_state_fetch_posts_nothing_on_the_hand_off_front(capsys, tmp_pa
     [
         "Stored XSS in the task instance notes view in Apache Airflow 2.10.5",
         "Stored XSS in the task instance notes view (Airflow 2.10.5)",
+        "Stored XSS in the task instance notes view in Airflow 2.10.5",
     ],
 )
 def test_a_version_noise_suffix_fails_the_title_gate(capsys, tmp_path, title):
     out = decide(capsys, tmp_path, record=record(title=title))
     assert (out["action"], out["gate_failed"]) == ("block", "title_strip_cascade")
+
+
+def test_a_short_name_with_no_version_stays_in_the_title(capsys, tmp_path):
+    title = "Stored XSS in the task instance notes view in Airflow"
+    out = decide(capsys, tmp_path, record=record(title=title), session="expired")
+    assert out["action"] == "hand-off"
 
 
 def test_a_malformed_cve_id_never_reaches_a_command(capsys, tmp_path):
