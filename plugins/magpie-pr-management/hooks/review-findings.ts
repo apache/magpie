@@ -806,7 +806,11 @@ const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'a
  * an integer >= 1 or null, its numbering over this file is formatKeepAnswer's.
  */
 export function serializeFindingsForRender(findings: readonly ReviewFinding[]): string {
-  const payload = findings.map((f) => {
+  // Anchored findings are preserved (rendered or folded via render --keep).
+  // Unanchored general findings marked 'skip' are omitted so render does not post them.
+  const activeFindings = findings.filter((f) => isAnchored(f) || f.action !== 'skip');
+
+  const payload = activeFindings.map((f) => {
     const raw = f.raw;
     const base: Record<string, unknown> =
       typeof raw === 'object' && raw !== null && !Array.isArray(raw)
@@ -833,6 +837,49 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     return { ...base, file: f.file, line: f.line, severity: f.severity };
   });
   return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * Derives the file paths for curated findings and keep recommendation beside original findings.
+ */
+export function getCuratedFindingsPaths(originalPath: string): {
+  curatedJsonPath: string;
+  curatedKeepPath: string;
+} {
+  if (originalPath.endsWith('.json')) {
+    return {
+      curatedJsonPath: originalPath.replace(/\.json$/, '.curated.json'),
+      curatedKeepPath: originalPath.replace(/\.json$/, '.curated.keep'),
+    };
+  }
+  return {
+    curatedJsonPath: `${originalPath}.curated.json`,
+    curatedKeepPath: `${originalPath}.curated.keep`,
+  };
+}
+
+/**
+ * Writes curated findings payload (.curated.json) and keep parameter (.curated.keep)
+ * to disk beside the original findings file using $.fs.write.
+ */
+export async function syncCuratedStateToDisk(
+  $: any,
+  state: ReviewFindingsState | null
+): Promise<{ jsonPath: string; keepPath: string } | null> {
+  if (!state || !state.findingsPath || !state.findings) {
+    return null;
+  }
+  try {
+    const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(state.findingsPath);
+    const jsonContent = serializeFindingsForRender(state.findings);
+    const keepContent = formatKeepAnswer(state.findings);
+    await $.fs.write(curatedJsonPath, jsonContent);
+    await $.fs.write(curatedKeepPath, keepContent);
+    return { jsonPath: curatedJsonPath, keepPath: curatedKeepPath };
+  } catch {
+    // Fail-open: do not throw or halt execution on file write failure
+    return null;
+  }
 }
 
 /**
@@ -985,13 +1032,6 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
 }
 
 /**
- * Event hook registration entry point for Claude Code mod.
- *
- * Registers:
- * - session.start: lifecycle hook for test fixture hydration in PR-2 (PR-3 wires the live session feed).
- * - ui.render (Pane): renders the interactive review findings pane when state is populated.
- */
-/**
  * UI press event handler for Claude Code mod.
  *
  * Handles button click actions from the interactive review findings pane:
@@ -1036,6 +1076,7 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
       if (targetIdx !== -1) {
         const updated = toggleFindingActionInState(state, targetIdx);
         await setReviewFindingsState($, updated);
+        await syncCuratedStateToDisk($, updated);
         return { handled: true };
       }
     }
@@ -1045,15 +1086,18 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
     if (targetIdx !== -1) {
       const updated = toggleFindingActionInState(state, targetIdx);
       await setReviewFindingsState($, updated);
+      await syncCuratedStateToDisk($, updated);
       return { handled: true };
     }
   } else if (element === 'accept-all') {
     const updated = setBulkActionInState(state, 'accept');
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return { handled: true };
   } else if (element === 'skip-all') {
     const updated = setBulkActionInState(state, 'skip');
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return { handled: true };
   } else if (element === 'prev-finding') {
     const updated = updateSelectedIndexInState(state, 'up');
@@ -1139,14 +1183,18 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           const base = sessionCwd || sessionRoot || '';
           const candidatePath = base ? resolveRelativePath(base, rawPath) : rawPath;
 
+          let effectivePath: string | null = null;
           let fileContent: string | null = null;
           try {
             fileContent = await $.fs.read(candidatePath);
+            effectivePath = candidatePath;
           } catch {
             try {
               fileContent = await $.fs.read(rawPath);
+              effectivePath = rawPath;
             } catch {
               fileContent = null;
+              effectivePath = null;
             }
           }
 
@@ -1154,12 +1202,15 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             const parsed = parseFindings(fileContent);
             if (parsed.findings.length > 0) {
               const prNumber = extractPrNumberFromCommand(command);
-              await setReviewFindingsState($, {
+              const nextState: ReviewFindingsState = {
                 prNumber,
+                findingsPath: effectivePath || rawPath,
                 findings: parsed.findings,
                 summary: parsed.summary,
                 selectedIndex: 0,
-              });
+              };
+              await setReviewFindingsState($, nextState);
+              await syncCuratedStateToDisk($, nextState);
             } else {
               await setReviewFindingsState($, null);
             }
@@ -1243,6 +1294,7 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
   if (rawArgs === 'all') {
     const updated = setBulkActionInState(state, 'accept');
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return {
       text: `Accepted all review findings. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
     };
@@ -1251,26 +1303,37 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
   if (rawArgs === 'none') {
     const updated = setBulkActionInState(state, 'skip');
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return {
       text: 'Skipped all review findings. Keep parameter: NONE',
     };
   }
 
-  const keepMatch = rawArgs.match(/^keep\s+([0-9,\s]+)$/i);
+  const keepMatch = rawArgs.match(/^keep\s+([a-zA-Z0-9,\s]+)$/i);
   if (keepMatch) {
     const parts = keepMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
     const indicesToKeep = new Set(
       parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
     );
+    const generalIdentifiers = new Set(
+      parts.filter((p) => /^[gG]\d+$/.test(p))
+    );
 
     const anchored = state.findings.filter(isAnchored);
     const newFindings = state.findings.map((f) => {
-      if (!isAnchored(f)) return f;
-      const anchoredIndex = anchored.indexOf(f) + 1;
-      return {
-        ...f,
-        action: indicesToKeep.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
-      };
+      if (isAnchored(f)) {
+        const anchoredIndex = anchored.indexOf(f) + 1;
+        return {
+          ...f,
+          action: indicesToKeep.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
+        };
+      }
+      const unanchored = state.findings.filter((item) => !isAnchored(item));
+      const genIdx = unanchored.indexOf(f) + 1;
+      if (generalIdentifiers.has(`g${genIdx}`) || generalIdentifiers.has(`G${genIdx}`)) {
+        return { ...f, action: 'accept' as const };
+      }
+      return f;
     });
 
     const updated: ReviewFindingsState = {
@@ -1279,26 +1342,37 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       summary: calculateSummary(newFindings),
     };
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return {
       text: `Curated findings. Kept: ${Array.from(indicesToKeep).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
     };
   }
 
-  const dropMatch = rawArgs.match(/^drop\s+([0-9,\s]+)$/i);
+  const dropMatch = rawArgs.match(/^drop\s+([a-zA-Z0-9,\s]+)$/i);
   if (dropMatch) {
     const parts = dropMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
     const indicesToDrop = new Set(
       parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
     );
+    const generalIdentifiers = new Set(
+      parts.filter((p) => /^[gG]\d+$/.test(p))
+    );
 
     const anchored = state.findings.filter(isAnchored);
     const newFindings = state.findings.map((f) => {
-      if (!isAnchored(f)) return f;
-      const anchoredIndex = anchored.indexOf(f) + 1;
-      return {
-        ...f,
-        action: indicesToDrop.has(anchoredIndex) ? ('skip' as const) : f.action,
-      };
+      if (isAnchored(f)) {
+        const anchoredIndex = anchored.indexOf(f) + 1;
+        return {
+          ...f,
+          action: indicesToDrop.has(anchoredIndex) ? ('skip' as const) : f.action,
+        };
+      }
+      const unanchored = state.findings.filter((item) => !isAnchored(item));
+      const genIdx = unanchored.indexOf(f) + 1;
+      if (generalIdentifiers.has(`g${genIdx}`) || generalIdentifiers.has(`G${genIdx}`)) {
+        return { ...f, action: 'skip' as const };
+      }
+      return f;
     });
 
     const updated: ReviewFindingsState = {
@@ -1307,6 +1381,7 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       summary: calculateSummary(newFindings),
     };
     await setReviewFindingsState($, updated);
+    await syncCuratedStateToDisk($, updated);
     return {
       text: `Dropped findings: ${Array.from(indicesToDrop).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
     };
@@ -1323,6 +1398,7 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
         body: newNote,
       });
       await setReviewFindingsState($, updated);
+      await syncCuratedStateToDisk($, updated);
       return {
         text: `Updated finding #${idOrNum} (marked edit with custom note). Keep parameter: ${formatKeepAnswer(updated.findings)}`,
       };
@@ -1335,6 +1411,16 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
   };
 }
 
+/**
+ * Event hook registration entry point for Claude Code mod.
+ *
+ * Registers:
+ * - session.start: command registration and test fixture hydration
+ * - ui.render (Pane): renders the interactive review findings pane when state is populated
+ * - ui.press: handles button press interactions from the review findings pane
+ * - tool.call (Bash): intercepts code-review disposition to hydrate findings from disk
+ * - command.run (magpie-findings): zero-token command for inspecting and curating findings
+ */
 export function register(on: any): void {
   on('session.start', async ($: any, e: any, next: any) => {
     try {

@@ -24,6 +24,7 @@ import {
   formatActionIndicator,
   formatFindingDescription,
   formatKeepAnswer,
+  getCuratedFindingsPaths,
   extractFindingsPathFromCommand,
   extractPrNumberFromCommand,
   formatSeverityBadge,
@@ -47,6 +48,7 @@ import {
   serializeFindingsForRender,
   setBulkActionInState,
   setReviewFindingsState,
+  syncCuratedStateToDisk,
   toggleFindingActionInState,
   truncateFilePath,
   truncateText,
@@ -71,6 +73,17 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
 
 function createMockEngine(overrides: any = {}): any {
   const store = new Map<string, any>();
+  const files = new Map<string, string>();
+  const defaultFs = {
+    read: async (path: string) => {
+      if (files.has(path)) return files.get(path);
+      throw new Error(`ENOENT: ${path}`);
+    },
+    write: async (path: string, content: string) => {
+      files.set(path, content);
+    },
+    _files: files,
+  };
   return {
     state: {
       get: (atom: any) => {
@@ -90,6 +103,10 @@ function createMockEngine(overrides: any = {}): any {
     },
     ui: {
       invalidate: () => {},
+    },
+    fs: {
+      ...defaultFs,
+      ...(overrides.fs || {}),
     },
     ...overrides,
   };
@@ -1937,6 +1954,139 @@ End of observations.
           }
         }
       }
+    });
+  });
+
+  describe('PR-4 Curated findings bridge and general observation filtering', () => {
+    test('getCuratedFindingsPaths derives .curated.json and .curated.keep paths', () => {
+      const pathsJson = getCuratedFindingsPaths('saved/findings-1887.json');
+      assertStrictEqual(pathsJson.curatedJsonPath, 'saved/findings-1887.curated.json');
+      assertStrictEqual(pathsJson.curatedKeepPath, 'saved/findings-1887.curated.keep');
+
+      const pathsNoExt = getCuratedFindingsPaths('saved/findings-1887');
+      assertStrictEqual(pathsNoExt.curatedJsonPath, 'saved/findings-1887.curated.json');
+      assertStrictEqual(pathsNoExt.curatedKeepPath, 'saved/findings-1887.curated.keep');
+    });
+
+    test('serializeFindingsForRender omits skipped unanchored findings while preserving anchored findings', () => {
+      const findings: ReviewFinding[] = [
+        { id: 'inline-1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+        { id: 'gen-1', file: 'README.md', line: null, severity: 'major', body: 'General 1', action: 'skip' },
+        { id: 'inline-2', file: 'b.py', line: 20, severity: 'nit', body: 'Inline 2', action: 'skip' },
+        { id: 'gen-2', file: 'CONTRIBUTING.md', line: null, severity: 'minor', body: 'General 2', action: 'accept' },
+      ];
+
+      const serialized = serializeFindingsForRender(findings);
+      const parsed = JSON.parse(serialized);
+
+      // Anchored findings: inline-1 (accept) and inline-2 (skip) are both in the file
+      // (their posting/folding is controlled by render --keep)
+      // Unanchored findings: gen-1 (skip) is omitted, gen-2 (accept) is preserved
+      assertStrictEqual(parsed.length, 3);
+      assertStrictEqual(parsed[0].file, 'a.py');
+      assertStrictEqual(parsed[1].file, 'b.py');
+      assertStrictEqual(parsed[2].file, 'CONTRIBUTING.md');
+    });
+
+    test('syncCuratedStateToDisk writes both curated JSON and keep answer to disk', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 1887,
+        findingsPath: '/work/saved/findings-1887.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Note 1', action: 'accept' },
+          { id: 'f2', file: 'b.py', line: 20, severity: 'nit', body: 'Note 2', action: 'edit' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      const result = await syncCuratedStateToDisk(test$, state);
+      assert(result !== null);
+      assertStrictEqual(result?.jsonPath, '/work/saved/findings-1887.curated.json');
+      assertStrictEqual(result?.keepPath, '/work/saved/findings-1887.curated.keep');
+
+      const writtenJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      const parsed = JSON.parse(writtenJson);
+      assertStrictEqual(parsed.length, 2);
+
+      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      assertStrictEqual(writtenKeep, 'ALL');
+    });
+
+    test('handleBashToolCall sets findingsPath and writes curated files upon disposition', async () => {
+      const sampleFindings = JSON.stringify([
+        { file: 'main.py', line: 42, severity: 'minor', explanation: 'Needs fix' },
+      ]);
+
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+      test$.fs._files.set('/work/repo/saved/findings-999.json', sampleFindings);
+
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-999.json --pr 999' },
+        () => {}
+      );
+
+      const state = await getReviewFindingsState(test$);
+      assert(state !== null);
+      assertStrictEqual(state?.findingsPath, '/work/repo/saved/findings-999.json');
+
+      // Verify curated files were synced to disk
+      const curatedJson = await test$.fs.read('/work/repo/saved/findings-999.curated.json');
+      assert(curatedJson.includes('main.py'));
+
+      const curatedKeep = await test$.fs.read('/work/repo/saved/findings-999.curated.keep');
+      assertStrictEqual(curatedKeep, 'ALL');
+    });
+
+    test('handleUiPress and handleFindingsCommand update curated files on disk', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 1887,
+        findingsPath: '/work/saved/findings-1887.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+          { id: 'g1', file: 'README.md', line: null, severity: 'minor', body: 'General 1', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      await setReviewFindingsState(test$, state);
+      await syncCuratedStateToDisk(test$, state);
+
+      // Button click to toggle general finding to skip
+      await handleUiPress(test$, { element: 'toggle-general-1' }, () => {});
+
+      let curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      let parsed = JSON.parse(curatedJson);
+      // General finding g1 is skipped, so omitted from curated JSON
+      assertStrictEqual(parsed.length, 1);
+      assertStrictEqual(parsed[0].file, 'a.py');
+
+      // Slash command to edit inline 1
+      await handleFindingsCommand(test$, { args: 'edit 1 Maintainer customized review note' });
+
+      curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      parsed = JSON.parse(curatedJson);
+      assertStrictEqual(parsed[0].explanation, 'Maintainer customized review note');
+
+      // Drop command with general identifier
+      await handleFindingsCommand(test$, { args: 'drop g1' });
+      const curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[1].action, 'skip');
+
+      // Keep command with general identifier
+      await handleFindingsCommand(test$, { args: 'keep 1, g1' });
+      const keptState = await getReviewFindingsState(test$);
+      assertStrictEqual(keptState?.findings[0].action, 'accept');
+      assertStrictEqual(keptState?.findings[1].action, 'accept');
     });
   });
 });
