@@ -104,10 +104,19 @@ same directory; the behaviour is unchanged.
   An inline comment carries the finding as the review body does (its
   `quoted_rule` and `suggestion`), minus the excerpt it is anchored on, and
   a folded finding falls back to its suggestion before its rule, never the
-  bare rule label (#1853). Detail files include
+  bare rule label (#1853).
+  A finding that has both keeps its explanation and its suggestion, on both
+  surfaces (#1987).
+  Detail files include
   `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
   `adversarial.md`, `posting.md`, one file per outcome under
   `classifications/` and per category under `criteria/`.
+  `code_review/runs.py` reads the workflow runs held at a PR head and plans
+  their release for the auto-merge path.
+  Under Claude Code the plugin also ships a mod,
+  `plugins/magpie-pr-management/hooks/review-findings.ts`, wired through
+  `hooks/hooks.json` with its types in `hooks/types.ts` and `types.d.ts`
+  (#1920, #1954, #1992).
 - Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
   of a GitHub stacked pull request. Resolves the stack from a member PR or
   its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`
@@ -325,12 +334,57 @@ same directory; the behaviour is unchanged.
   with a mechanical `fixup`, and the maintainer can push to the PR head,
   `FIXUP` is the default action: the maintainer commits those changes to the
   contributor's branch on confirmation, waits for CI, and approves with a body
-  that lists what the fixup changed. A `major` is never fixed up, and merging
-  stays a separate confirmed action.
+  that lists what the fixup changed. A `major` is never fixed up.
   The "touching mine" selector uses GitHub data rather than `git log
   --author`, CODEOWNERS team ownership checks team membership rather than
   organisation membership, and `maintain` permission gets the maintainer
   footer (#1585).
+  A suggested reviewer who is not a committer is called a frequent
+  contributor only when a committer roster was loaded; with none, the reason
+  makes no claim about the role and `committer` is null, and a configured
+  `committers_team_slug` whose `team-<slug>.txt` read is missing is named as a
+  needed `team-members` read (#1988).
+- **Approve plus auto-merge is the default where the repository allows it.**
+  When `disposition` finds an action that ends in an `APPROVE`, the repository
+  allows auto-merge (`autoMergeAllowed`) and the viewer can enable it on the
+  PR (`viewerCanEnableAutoMerge`), the default becomes `APPROVE+AUTO-MERGE`,
+  or `FIXUP+APPROVE+AUTO-MERGE` when a fixup is the default; `auto_merge`
+  carries the eligibility, its reason and the method (#1951).
+  It is never eligible on a self-authored PR, on one that already has
+  auto-merge enabled, on a branch that conflicts or has no computed merge
+  state, or when the saved read names no viewer to check self-authorship
+  against (#1960).
+  Elsewhere merging stays a separate confirmed action.
+  Real CI that is still running stops being a gate on this path, because
+  GitHub holds the merge until the required checks pass, but only when every
+  running check is a required one; a running check that is not required keeps
+  the gate, since auto-merge would not wait for it.
+  With CI held this way (`ci_pending_held_by_auto_merge`) plain `APPROVE` and
+  `FIXUP` are not offered, because without auto-merge they would approve on
+  unfinished CI.
+  Failing CI, a rollup green from bot checks only, and workflows waiting for
+  approval stay gates, and `ci_action` names what to approve or re-run first.
+  The maintainer's confirmation of the disposition covers the auto-merge
+  write, and the prompt names it.
+  After the approval posts, the skill refreshes the liveness read, re-runs
+  `guard` and stops on a head nobody reviewed.
+  `code-review release-runs` then releases the runs held in `action_required`
+  at the head, and only on a head the viewer has an `APPROVED` review on, or
+  a single commit on top of it signed by the viewer alone; a released run
+  executes that head's code in CI.
+  `render --auto-merge` re-runs the disposition gates, refuses a viewer that
+  disagrees with the saved read, and emits `gh pr merge --auto
+  --match-head-commit <reviewed head>`, so a later push cannot ride the
+  approval into a merge; the method is the repository's
+  `viewerDefaultMergeMethod`, squash when unknown (#1983).
+- **The findings pane is additive.** Under Claude Code, a `code-review
+  disposition --findings <file>` Bash call hydrates the mod's interactive pane
+  above the prompt, and the zero-token `/magpie-findings` command (`status`,
+  `all`, `none`, `keep`, `drop`, `edit`) tracks per-finding actions.
+  Neither changes what is posted: only the answer typed at the picker reaches
+  `render`.
+  Runtimes without mods keep the text picker alone, and Codex reads the clean
+  `hooks/codex-hooks.json` instead (#1992).
 - **Third-party licence scan reads only real copyright notices.**
   `scans.third_party_licences` treats an added file as third-party code when
   the first 25 lines carry a licence identifier or block and either a
@@ -380,9 +434,13 @@ same directory; the behaviour is unchanged.
   The tool path — `with-reviewers:codex,copilot`, or a resolved
   `adversarial-review.md` whose `mode` is not `off` — has the agent run the
   [adversarial-review](adversarial-review.md) tool over `--target pr:<N>`
-  from an empty temporary directory created once per session, because the
-  skill has no checkout of the PR's head and the maintainer's own checkout
-  must not be readable by other models.
+  with `--repo-dir` set to a new temporary directory holding a `git archive`
+  export of the PR's head, made per PR, because the maintainer's own checkout
+  must not be readable by other models and with an empty directory the
+  reviewers reply without findings (#1986).
+  The export excludes `.apache-magpie-overrides/tools/vetted-ops`, which the
+  secure setup denies writes to, so the agent reviews a PR's policy change
+  itself.
   Its findings fold into the Step 4 list, attributed per reviewer, as
   untrusted data.
   The slash path — `with-reviewer:<command>` or a *Review preferences*
@@ -415,9 +473,12 @@ same directory; the behaviour is unchanged.
 
 ## Out of scope
 
-- **Auto-merge.** No skill in this family merges, closes, or approves
-  without a human confirmation in-session. Full auto-merge belongs to the
-  Auto-merge mode (deliberately off per MISSION sequencing).
+- **Auto-merge without a human.** No skill in this family merges, closes, or
+  approves without a human confirmation in-session.
+  `pr-management-code-review` enabling GitHub's auto-merge on a PR the
+  maintainer just approved is that confirmed action, not an exception.
+  Agent-decided merging belongs to the Agentic Autonomous mode (deliberately
+  off per MISSION sequencing).
 - **Security-class PRs.** CVE-fixing PRs flow through the
   `security-issue-fix` skill ([security-issue-lifecycle.md](security-issue-lifecycle.md));
   the PR management family handles the public general-purpose queue only.
@@ -471,13 +532,18 @@ same directory; the behaviour is unchanged.
     or the Stage-2 screen has regressed or a change request still stands
     (#1580).
 13. `pr-management-code-review` proposes `APPROVE` only when the single
-    disposition gate holds (no finding above a nit, real CI green, no
+    disposition gate holds (no finding above a nit, real CI green or, on
+    the auto-merge path, running with every running check required, no
     unresolved thread other than an outdated one the current code
     addresses, no standing change request, no open maintainer
-    question) (#1585).
+    question) (#1585, #1951).
 14. `pr-management-stats` writes nothing to any PR or tracker; its only
     write is the confirmed secret-gist publish on the maintainer's account
     (#1572).
+15. `pr-management-code-review` enables auto-merge only on a confirmed
+    disposition whose gates `render --auto-merge` re-ran, pinned to the
+    reviewed head with `--match-head-commit`, and never on a self-authored
+    PR (#1951, #1960).
 
 ## Validation
 
@@ -502,12 +568,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   end-to-end under evaluation conditions. Shape may change as pilot
   evaluations surface real-world usage patterns.
 - **`pr-management-code-review` now has a full eval suite** at
-  `tools/skill-evals/evals/pr-management-code-review/` covering 116 cases
-  across 27 suites: selector resolution, per-finding risk classification,
+  `tools/skill-evals/evals/pr-management-code-review/` covering 60 cases
+  across 16 suites, with the 13 scripted suites moved to
+  `tools/pr-management/tests/code_review`: per-finding risk classification,
   AI-generated-code signal handling, prompt-injection resistance across PR
-  body / code comments / commit messages, review-disposition (APPROVE /
-  REQUEST_CHANGES / COMMENT), and the confirmation-gate handoff (post /
-  dry-run-skip / re-draft), plus evidence-gated dependency compatibility
+  body / code comments / commit messages, and the confirmation-gate handoff
+  (post / dry-run-skip / re-draft), plus evidence-gated dependency compatibility
   across transitive paths, empty intersections, partial metadata, environment
   markers, and adopter-specific remediation. The SOFT eval-coverage validator
   warning is cleared. Acceptance criteria 6 and 7 are met.

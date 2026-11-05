@@ -339,7 +339,8 @@ tree) and:
   build `labels` query parameter);
 - injects `label=org.apache.magpie.project=<slug>` into the `filters`
   of every list, prune and events call, merging with filters the client
-  sent;
+  sent and emitting every key in list form, because the daemon rejects a
+  mix of the list and object forms as `invalid filter` (#1991);
 - for every by-name or by-id call, inspects the resource first through
   the backend, checks the label, and re-issues the call by ID, so a name
   that is re-bound between the check and the act cannot escape;

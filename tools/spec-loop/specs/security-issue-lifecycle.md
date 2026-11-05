@@ -243,7 +243,8 @@ publication, with a human gate and an audit-log entry at every step.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
-  `gh api -F title=@<file>`), and the import skills and
+  `gh api -F title=@<file>`), though the importers now use
+  `issue-create-labeled` instead (#1982), and the import skills and
   `security-issue-invalidate` point at `tools/github/project-board.md`
   for the orphan-issue, introspection and archive board recipes.
 - Status rollups are written by `tools/github-rollup/`
@@ -433,9 +434,14 @@ publication, with a human gate and an audit-log entry at every step.
   The review never runs against the private tracker checkout, and its
   findings are advisory data that never block the flow.
 - **Attacker-controlled titles never reach a shell argument.** Tracker
-  creation from a report title goes through the safe-create recipe
-  (title written to a file, passed by `-F title=@<file>`), never
+  creation from a report title never uses
   `gh issue create --title '<title>'` (#1437).
+  `security-issue-import`, `-from-md` and `-from-pr` create a GitHub tracker
+  through the vetted `issue-create-labeled` operation: the title goes to a
+  workspace file the dispatcher reads, the body travels on stdin, and the
+  policy-approved labels apply at creation (#1982).
+  A failure stops the import and never falls back to raw `gh`, and a
+  non-GitHub tracker keeps its backend's `issue-create`.
 - **Import dedup searches follow a provisional class.**
   `security-issue-import` Steps 2a and 2c skip their searches for a
   candidate whose provisional class, read from the root message, is

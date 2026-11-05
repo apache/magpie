@@ -374,7 +374,10 @@ See `docs/adapters/goose.md`.
   `core.hooksPath` is set, gets `GIT_CONFIG_GLOBAL=/dev/null` and has no
   home (#1822).
   The `lefthook-hooks-path` agent guard blocks `lefthook install --force`
-  and `--reset-hooks-path` while that path is the framework's.
+  and `--reset-hooks-path` while that path is the framework's, failing closed
+  behind global options and package runners (`npx`, `pnpm exec`, `yarn
+  exec` / `dlx`, `bunx`, `corepack`), including a command line a runner hands
+  to a shell (#1948).
   The settings template likewise denies `Edit(~/.cache/ponymail-attachments/**)`
   (#1828): the PonyMail MCP saves report attachments there from outside the
   sandbox, and a sandboxed command that could rename directories under that
@@ -396,7 +399,8 @@ See `docs/adapters/goose.md`.
   `registry.json` registers prek (install strategy `git-dir-flag`),
   overcommit (`hooks-path-env`, with `install.runtime_env` so the
   dispatcher exports the same `core.hooksPath` at run time), lefthook
-  (`hide-global-config`, no home), plus four
+  (`hide-global-config`, no home), captainhook (`hooks-path-env`, #1899),
+  plus four
   managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:
   `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
@@ -408,6 +412,14 @@ See `docs/adapters/goose.md`.
   exported run-time override reaches git commands the hook starts,
   including ones aimed at another repository, which is recorded as a
   known limitation of the strategy.
+  CaptainHook's Symfony Console CLI takes global options before the command
+  and resolves a prefix of it, so its adapter sets `install.match: prefix`
+  (`captainhook -n install`, `captainhook inst`); `install.vendor_bin` lets the
+  shim fall back to `<repository root>/vendor/bin/<tool>`, where Composer keeps
+  it off `PATH`.
+  Its Composer plugins install behind the shim on every `composer install` and
+  `composer update`, so an install through the shim warns when `composer.json`
+  leaves one enabled, and verify reports the same as ⚠.
   A `none` manager gets no shim; its worktree caveats (cargo-husky skips
   hook install in a linked worktree, the JGit plugins target
   `<worktree>/hooks`) are recorded in the README's adapter table.
@@ -523,7 +535,7 @@ The reference model is four layers, layered:
      token` / `gh auth refresh` denied) and 4 (`gh` writes gated by
      `ask`).
    - the vetted-ops **read** dispatcher, which spawns `gh` and so
-     inherits the same need; only the read dispatcher, never
+     inherits the same need; it alone is also `allow`ed, never
      `vetted-op` itself, because `--caller` is argv. Both invocation
      forms are excluded and allowed — `uv run --project … vetted-op-read`
      and the `uvx --from … vetted-op-read` form the read-only gatherer
@@ -680,11 +692,13 @@ The reference model is four layers, layered:
    run. Only read-only entries belong there; `vetted-op` (writes) stays
    on `ask`.
    Install Step V now describes three entry points over one catalogue and
-   adds `vetted-op-tracker` to both `ask` and `sandbox.excludedCommands`.
-   The update skill reports `vetted-op-tracker` in `allow`, or `vetted-op`
-   in `excludedCommands`, as a must-fix, and a missing tracker exclusion
-   or `ask` entry as drift; the verify skill fails the check when
-   `vetted-op` is in `excludedCommands` (#1448).
+   adds `vetted-op-tracker` and `vetted-op` to both `ask` and
+   `sandbox.excludedCommands`.
+   The update skill reports either write dispatcher in `allow`, or an
+   excluded one with no matching `ask` rule, as a must-fix, and a missing
+   exclusion or `ask` entry as drift; the verify skill fails the check on an
+   excluded write dispatcher with no `ask` rule, and on a missing `vetted-op`
+   exclusion (#1448, #1956).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates. The window is the
