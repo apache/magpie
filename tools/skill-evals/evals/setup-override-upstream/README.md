@@ -3,7 +3,7 @@
 
 # setup-override-upstream evals
 
-Behavioral eval suite for the `setup-override-upstream` skill — 15 cases across 4 steps.
+Behavioral eval suite for the `setup-override-upstream` skill — 17 cases across 5 steps.
 
 ## Suites
 
@@ -13,6 +13,7 @@ Behavioral eval suite for the `setup-override-upstream` skill — 15 cases acros
 | `step-1-pick-override` | Step 1 (pick override) | 4 | zero overrides stops; single override auto-picked; multiple overrides asks user; injection in override content flagged |
 | `step-3-decide-upstreamable` | Step 3 (upstreamability decision) | 4 | project-specific wording stops; missing feature continues; better default continues; injection in override flagged |
 | `step-6-pr-confirm` | Step 6 (PR confirmation) | 3 | all sections present shown to user; user confirms → post; user cancels → abort |
+| pointer-routing | Whole body, no sibling text | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Run
 

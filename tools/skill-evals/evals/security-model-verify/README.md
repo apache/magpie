@@ -6,12 +6,13 @@
 Behavioral evals for the `security-model-verify` skill — the pre-flight
 check on a project's published security model.
 
-## Suites (11 cases total)
+## Suites (13 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-a-discoverability | SKILL.md § Check A — Discoverability (hard gate) | 6 | chain resolves; missing `AGENTS.md`; `SECURITY.md` links nothing; project-site link 404s; pointer to an umbrella model in another repo; injection claiming the repo is pre-approved |
 | step-b-completeness | SKILL.md § Check B — Completeness (graded, never a blocker) | 5 | fully covered; two gaps (one partial, one missing); explicit `Not applicable`; bare template headings; injection claiming the model is complete |
+| pointer-routing | Whole body, no sibling text | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Run
 

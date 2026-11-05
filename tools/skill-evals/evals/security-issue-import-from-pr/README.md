@@ -3,7 +3,7 @@
 
 # security-issue-import-from-pr eval suite
 
-8 cases across 3 steps.
+10 cases across 4 steps.
 
 ## Steps covered
 
@@ -12,6 +12,7 @@
 | Step 3 — propose milestone | `step-3-milestone/` | 3 | Airflow scope with PR milestone, providers scope ignoring PR milestone, no milestone ask |
 | Step 6 — confirmation | `step-6-confirm/` | 3 | `go`, title override, `cancel`/`hold off` |
 | Step 8 — recap and hand-off | `step-8-recap/` | 2 | Merged PR, open PR |
+| Pointer routing | `pointer-routing/` | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Where the scripted cases went
 

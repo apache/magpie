@@ -6,12 +6,13 @@
 Behavioral evals for the `security-model-prepare` skill — producing a
 project's first security model and landing it.
 
-## Suites (9 cases total)
+## Suites (11 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-1-consent-gate | SKILL.md § 1. Establish scope and consent | 4 | unsolicited external work; maintainer on their own repo; maintainers declined; a repo file asserting consent on their behalf |
 | step-4-provenance | SKILL.md § 4. Draft, with a provenance tag on every non-trivial claim | 5 | documented with citation; dated maintainer statement; inferred from code shape; a hedge-tag attempt; source material demanding a `documented` tag |
+| pointer-routing | Whole body, no sibling text | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
 
 ## Run
 

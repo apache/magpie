@@ -5,7 +5,7 @@
 
 Behavioral evals for the `issue-stale-sweep` skill.
 
-## Suites (23 cases total)
+## Suites (28 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -15,6 +15,7 @@ Behavioral evals for the `issue-stale-sweep` skill.
 | step-5-confirm | Step 5 (confirm with user) | 3 | post-all, skip-one, cancel |
 | step-7-recap | Step 7 (recap) | 3 | mixed results, all REQUEST-UPDATE, security-flagged issues in recap |
 | item-failure-budget | Item failure budget | 4 | one unreadable item (recorded, sweep continues); budget exhausted (stop, unfinished listed, exact rerun selector); a write failing mid-loop (stop, never retried); a malformed budget value (stops before the sweep, no fallback) |
+| pointer-routing | Whole body, no sibling text | 5 | the agent finds `failure-modes.md` from the pointer alone on each named trigger and opens nothing on a clean sweep; the output spec names no file, so removing the pointer fails the case |
 
 ## Run
 
