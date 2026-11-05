@@ -408,7 +408,7 @@ The remaining transitions stay separate:
 - `publish-ready` → `public` is **sync-driven** via the adapter's `publish(cve_id)` method (see Step 4 above),
   fired when the advisory archive URL has been captured on `<mail-archive-url>/list.html?<users-list>`.
 
-Step 6 below describes how to verify the state advance landed (and what to do if it did not).
+`push-decision` verifies that the state advance landed, and says what to do if it did not.
 
 ### Decision flow
 
@@ -417,24 +417,11 @@ write `{regenerated, cve_id, record, record_state, fix_released_transition, proj
 and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
 It checks the title cascade, the upgrade-target version and the CWE long form on the JSON itself;
 the four gates that need judgement (trigger conditions, the incomplete-fix clause, the private-finder anonymisation, the conservative range) are your verdicts in `judged`, and one not given is asked for, never assumed.
+Its `reason` says what to do and surface in the Step 6 recap, and `handoff_variant` picks the Step 5c variant.
+When the state fetch fails, pass `fetched_state: "unknown"`.
 
-1. **Skip-condition gate.** Skip 5b entirely when 5a was skipped
-   (no CVE allocated; tracker closed as invalid / duplicate / not
-   CVE worthy). There is no record to push to.
+1. **The judged pre-push gates.** Judge these four on the JSON about to be pushed:
 
-1b. **Pre-push hygiene-gate scan.** Before any push call, re-scan
-   the JSON about to be pushed for the seven pre-push gates that
-   make the published CVE record user-facing:
-
-   - **Title strip cascade** — `containers.cna.title` must have gone through the
-     [`security-cve-allocate` Step 2 cascade](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title)
-     and contain no project-name prefix/suffix, no `[GHSA-...]` / `(ZDRES-...)` / `(HUNTR-...)` / `(GHSL-...)` external tracker IDs,
-     no `(split from #NNN)` markers, no `[Security Report]` classifier, no version-noise suffix.
-     The issue-title hygiene Step 1d row enforces the same cascade; this gate re-runs it on the JSON's `title`, because the generator reads the issue title verbatim.
-   - **Short public summary names an upgrade-target version** —
-     `descriptions[0].value` must contain a `<package> <X.Y.Z>`
-     pattern; bare *"upgrade to the version that contains the
-     fix"* fails.
    - **Short public summary states trigger conditions** — the
      who / when / action triplet from the Step 2b paragraph
      above; at least two of three must be unambiguously present.
@@ -443,9 +430,6 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
      declares the relationship), the summary must name the prior
      CVE AND tell users who applied the prior fix to also apply
      this one.
-   - **CWE field has the long-form description** —
-     `problemTypes[0].descriptions[0].description` must be in
-     the `CWE-NNN: <Title>` shape, not a bare `CWE-NNN` token.
    - **Anonymise private-scanner and internal-finder names** —
      when the tracker's source is a private scanner, an internal-partner-shared scan, or an unpublished bug-bounty pipeline
      (signal: the *Security mailing list thread* body field references a scanner product name, or names an individual reporter who arrived through a private channel rather than `security@`),
@@ -475,22 +459,7 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
    The gates catch body fields that drifted between the Step 2b proposal and the push
    (e.g. the user confirmed only some of the proposed updates); a skipped push makes the next sync surface the rest.
 
-2. **Probe the adapter's authenticated session.** Invoke the adapter's session-probe entrypoint
-   (per `tools/<cve-tool>/README.md`; for Vulnogram,
-   `uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-check`).
-   It returns one of three outcomes:
-
-   - **`valid`** → proceed to step 3.
-   - **`expired`** → skip the push and surface a one-line reminder in the Step 6 recap:
-     *"CVE-tool authenticated session expired — re-run the adapter's setup entrypoint (for the Vulnogram adapter, `vulnogram-api-setup --pmc <project>`) to restore automatic push; using manual-paste hand-off this run."*
-     Use the manual-paste hand-off variant for any 5c comment work below.
-   - **`not-configured`** → skip the push;
-     the manual-paste hand-off (via the `cve_authority.source_tab_url_template` link) still works.
-     Silent on other runs, but on a `fix released` transition the record still needs `allocated → review-ready`,
-     so raise the deferral blocker from the rule above in the Step 6 recap.
-     Use the manual-paste hand-off variant for any 5c comment work below.
-
-3. **Extract the regenerated JSON.** Re-run the
+2. **Extract the regenerated JSON.** Re-run the
    [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)
    generator with `--stdout` (no `--attach`) into a temporary file,
    or extract it from the body via `awk` between the
@@ -499,7 +468,7 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
    Conventional path: `<scratch>/cve-<CVE-ID>-<N>.json`.
    `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
-4. **Push the update through the adapter's `push_update` method**
+3. **Push the update through the adapter's `push_update` method**
    (`push_update(cve_id, fields, state_transition=None)` per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md)).
    For Vulnogram the entrypoint is `vulnogram-api-record-update`:
 
@@ -521,48 +490,17 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
    which an adapter that embeds state in the record body (Vulnogram does) writes in the same call;
    an adapter that needs a separate state-flip call does it internally, keeping the call atomic from the skill's side.
 
-   Capture the exit code and `stdout` / `stderr`:
+   On exit 0, record the ISO-8601 timestamp (`PUSH_TIMESTAMP`) for the Step 5c comment work;
+   the Step 6 recap includes *"CVE record auto-pushed to the CVE tool at `PUSH_TIMESTAMP`."* (for Vulnogram, *"auto-pushed to Vulnogram"*).
 
-   - **`exit 0`** → push succeeded.
-     Record the ISO-8601 timestamp (`PUSH_TIMESTAMP`); the Step 5c comment work uses the **OAuth-pushed variant**;
-     the Step 6 recap includes *"CVE record auto-pushed to the CVE tool at `PUSH_TIMESTAMP`."* (for Vulnogram, *"auto-pushed to Vulnogram"*).
-   - **`exit ≠ 0`** → push failed.
-     Surface the error verbatim in the Step 6 recap and **fall back** to the manual-paste hand-off for the Step 5c comment work.
-     Do **not** retry in the same sync run; the next sync retries.
-
-5. **Idempotence note.** `push_update` is idempotent by contract (the Vulnogram upsert endpoint satisfies this),
+4. **Idempotence note.** `push_update` is idempotent by contract (the Vulnogram upsert endpoint satisfies this),
    so do not short-circuit "already pushed this JSON":
    every successful run that re-regenerated the JSON re-pushes, keeping the record byte-identical to the tracker body.
 
-6. **Verify the state advance landed (`allocated` → `review-ready`
-   gate).** When step 4 succeeded **and** the pushed JSON carried the adapter-native equivalent of `review-ready`
-   (for Vulnogram, `body.CNA_private.state = "REVIEW"`),
-   immediately call the adapter's `fetch_current_state(cve_id)` to confirm the state advanced.
-   For Vulnogram the entrypoint is `vulnogram-api-record-fetch`:
-
-   ```bash
-   uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch \
-     --cve-id <CVE-ID> --state-only
-   ```
-
-   If that fetch entrypoint is not yet installed on the operator's machine (see [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
+5. **The state fetch.** If the fetch entrypoint `push-decision` names is not yet installed on the operator's machine (see [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
    read the state from the `push_update` response envelope, which the contract requires to include the saved state.
-
-   `fetch_current_state` normalises the native token onto the generic verbs
-   (`allocated`, `review-ready`, `publish-ready`, `public`, `retracted`, `unknown`).
-   Three outcomes:
-
-   - **`review-ready` or any later state (`publish-ready` / `public`)** → state-gate clear.
-     Step 5c picks the OAuth-pushed hand-off variant and Step 4 of the *Reconcile* flow posts / PATCH-flips the RM hand-off comment.
-     The Step 6 recap notes *"CVE record state auto-promoted to `review-ready` at `PUSH_TIMESTAMP`."*
-     (for Vulnogram, add *"i.e. `DRAFT` → `REVIEW` in the underlying record"*).
-   - **`allocated`** → state-gate NOT cleared.
-     Surface the specific reason: usually a body field was empty, so the JSON never carried `state = "review-ready"` (Stage 1 of the two-stage gate caught this);
-     otherwise a body field carried a value the CNA schema rejected silently (the upsert saved what it could parse but did not advance the state).
-     Either way, **do not post the RM hand-off comment**.
-     Fire the *Remediation-developer fill-fields comment* instead per the dedicated Step 2b bullet, and surface the state-gate-not-cleared blocker in the Step 6 recap.
-   - **Fetch failed (transient HTTP error, session expired between push and fetch, or the adapter returned `unknown`)** →
-     surface the fetch failure as a blocker, post nothing on the RM-hand-off front this run, and retry the verification on the next sync.
+   On `state_advance`, the Step 6 recap notes *"CVE record state auto-promoted to `review-ready` at `PUSH_TIMESTAMP`."*
+   (for Vulnogram, add *"i.e. `DRAFT` → `REVIEW` in the underlying record"*).
 
 ## Step 5c — Reconcile the release-manager hand-off comment
 

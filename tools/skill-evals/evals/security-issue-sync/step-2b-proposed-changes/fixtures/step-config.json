@@ -2,6 +2,8 @@
   "skill_md": "skills/security-issue-sync/SKILL.md",
   "step_heading": "### 2b. Proposed changes",
   "also_include": [
-    "skills/security-issue-sync/signals-to-actions.md"
+    "skills/security-issue-sync/signals-to-actions.md",
+    "skills/security-issue-sync/release-manager-comments.md",
+    "skills/security-issue-sync/post-advisory-records.md"
   ]
 }

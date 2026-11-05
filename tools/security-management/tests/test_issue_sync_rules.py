@@ -462,6 +462,31 @@ def test_an_unjudged_gate_is_asked_for_and_a_failed_push_hands_off(capsys, tmp_p
     assert (stuck["action"], stuck["state_advance"], stuck["recap_blocker"]) == ("push", None, True)
 
 
+@pytest.mark.parametrize("fetched", ["unknown", "failed"])
+def test_a_failed_state_fetch_posts_nothing_on_the_hand_off_front(capsys, tmp_path, fetched):
+    out = decide(capsys, tmp_path, session="valid", record_state="DRAFT", push_exit=0, fetched_state=fetched)
+    assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
+        "push",
+        None,
+        None,
+        True,
+    )
+    assert "fill-fields" not in out["reason"]
+    assert "next sync" in out["reason"]
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Stored XSS in the task instance notes view in Apache Airflow 2.10.5",
+        "Stored XSS in the task instance notes view (Airflow 2.10.5)",
+    ],
+)
+def test_a_version_noise_suffix_fails_the_title_gate(capsys, tmp_path, title):
+    out = decide(capsys, tmp_path, record=record(title=title))
+    assert (out["action"], out["gate_failed"]) == ("block", "title_strip_cascade")
+
+
 def test_a_malformed_cve_id_never_reaches_a_command(capsys, tmp_path):
     code, out = run(
         capsys, tmp_path, "push-decision", {"regenerated": True, "cve_id": "CVE-2026-1; rm -rf ~", **NAMES}
