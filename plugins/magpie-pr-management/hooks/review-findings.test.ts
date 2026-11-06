@@ -20,10 +20,13 @@
 import { describe, test } from 'claude-code/testing';
 import {
   calculateSummary,
+  cleanCuratedFindingsFiles,
   cycleFindingAction,
+  findMatchingExistingFinding,
   formatActionIndicator,
   formatFindingDescription,
   formatKeepAnswer,
+  getCuratedFindingsPaths,
   extractFindingsPathFromCommand,
   extractPrNumberFromCommand,
   formatSeverityBadge,
@@ -38,6 +41,7 @@ import {
   normalizeSeverity,
   normalizeSource,
   parseFindings,
+  parseFindingTokens,
   resolveFindingIndex,
   resolveRelativePath,
   register,
@@ -47,9 +51,11 @@ import {
   serializeFindingsForRender,
   setBulkActionInState,
   setReviewFindingsState,
+  syncCuratedStateToDisk,
   toggleFindingActionInState,
   truncateFilePath,
   truncateText,
+  updateAndSyncReviewFindingsState,
   updateFindingInState,
   updateSelectedIndexInState,
 } from './review-findings.ts';
@@ -71,6 +77,23 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
 
 function createMockEngine(overrides: any = {}): any {
   const store = new Map<string, any>();
+  const files = new Map<string, string>();
+  const defaultFs = {
+    read: async (path: string) => {
+      if (files.has(path)) return files.get(path);
+      throw new Error(`ENOENT: ${path}`);
+    },
+    write: async (path: string, content: string) => {
+      files.set(path, content);
+    },
+    remove: async (path: string) => {
+      files.delete(path);
+    },
+    unlink: async (path: string) => {
+      files.delete(path);
+    },
+    _files: files,
+  };
   return {
     state: {
       get: (atom: any) => {
@@ -90,6 +113,10 @@ function createMockEngine(overrides: any = {}): any {
     },
     ui: {
       invalidate: () => {},
+    },
+    fs: {
+      ...defaultFs,
+      ...(overrides.fs || {}),
     },
     ...overrides,
   };
@@ -1937,6 +1964,400 @@ End of observations.
           }
         }
       }
+    });
+  });
+
+  describe('PR-4 Curated findings bridge and general observation filtering', () => {
+    test('getCuratedFindingsPaths derives .curated.json and .curated.keep paths', () => {
+      const pathsJson = getCuratedFindingsPaths('saved/findings-1887.json');
+      assertStrictEqual(pathsJson.curatedJsonPath, 'saved/findings-1887.curated.json');
+      assertStrictEqual(pathsJson.curatedKeepPath, 'saved/findings-1887.curated.keep');
+
+      const pathsNoExt = getCuratedFindingsPaths('saved/findings-1887');
+      assertStrictEqual(pathsNoExt.curatedJsonPath, 'saved/findings-1887.curated.json');
+      assertStrictEqual(pathsNoExt.curatedKeepPath, 'saved/findings-1887.curated.keep');
+    });
+
+    test('serializeFindingsForRender omits skipped unanchored findings while preserving anchored findings', () => {
+      const findings: ReviewFinding[] = [
+        { id: 'inline-1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+        { id: 'gen-1', file: 'README.md', line: null, severity: 'major', body: 'General 1', action: 'skip' },
+        { id: 'inline-2', file: 'b.py', line: 20, severity: 'nit', body: 'Inline 2', action: 'skip' },
+        { id: 'gen-2', file: 'CONTRIBUTING.md', line: null, severity: 'minor', body: 'General 2', action: 'accept' },
+      ];
+
+      const serialized = serializeFindingsForRender(findings);
+      const parsed = JSON.parse(serialized);
+
+      // Anchored findings: inline-1 (accept) and inline-2 (skip) are both in the file
+      // (their posting/folding is controlled by render --keep)
+      // Unanchored findings: gen-1 (skip) is omitted, gen-2 (accept) is preserved
+      assertStrictEqual(parsed.length, 3);
+      assertStrictEqual(parsed[0].file, 'a.py');
+      assertStrictEqual(parsed[1].file, 'b.py');
+      assertStrictEqual(parsed[2].file, 'CONTRIBUTING.md');
+    });
+
+    test('syncCuratedStateToDisk writes both curated JSON and keep answer to disk', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 1887,
+        findingsPath: '/work/saved/findings-1887.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Note 1', action: 'accept' },
+          { id: 'f2', file: 'b.py', line: 20, severity: 'nit', body: 'Note 2', action: 'edit' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      const result = await syncCuratedStateToDisk(test$, state);
+      assert(result !== null);
+      assertStrictEqual(result?.jsonPath, '/work/saved/findings-1887.curated.json');
+      assertStrictEqual(result?.keepPath, '/work/saved/findings-1887.curated.keep');
+
+      const writtenJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      const parsed = JSON.parse(writtenJson);
+      assertStrictEqual(parsed.length, 2);
+
+      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      assertStrictEqual(writtenKeep, 'ALL');
+    });
+
+    test('handleBashToolCall sets findingsPath and hydrates state, but does NOT write curated files upon initial disposition', async () => {
+      const sampleFindings = JSON.stringify([
+        { file: 'main.py', line: 42, severity: 'minor', explanation: 'Needs fix' },
+      ]);
+
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+      test$.fs._files.set('/work/repo/saved/findings-999.json', sampleFindings);
+
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-999.json --pr 999' },
+        () => {}
+      );
+
+      const state = await getReviewFindingsState(test$);
+      assert(state !== null);
+      assertStrictEqual(state?.findingsPath, '/work/repo/saved/findings-999.json');
+
+      // Verify curated files were NOT written upfront on initial disposition
+      assert(!test$.fs._files.has('/work/repo/saved/findings-999.curated.json'));
+      assert(!test$.fs._files.has('/work/repo/saved/findings-999.curated.keep'));
+    });
+
+    test('renderFindingsPane button onPress callbacks update state and sync curated files to disk', async () => {
+      const mockButtonCallbacks = new Map<string, () => Promise<void>>();
+      const MockButton = (props: any) => {
+        if (props?.key && typeof props?.onPress === 'function') {
+          mockButtonCallbacks.set(props.key, props.onPress);
+        }
+        return { type: 'button', ...props };
+      };
+
+      const test$ = createMockEngine({
+        ui: {
+          resolve: () => ({
+            Box: (props: any) => props,
+            Text: (props: any) => props,
+            Button: MockButton,
+          }),
+        },
+      });
+
+      const state: ReviewFindingsState = {
+        prNumber: 1887,
+        findingsPath: '/work/saved/findings-1887.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+          { id: 'f2', file: 'b.py', line: 20, severity: 'nit', body: 'Inline 2', action: 'accept' },
+          { id: 'g1', file: 'README.md', line: null, severity: 'minor', body: 'General 1', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      await setReviewFindingsState(test$, state);
+
+      renderFindingsPane(test$, {}, state);
+
+      // Trigger [None] button onPress
+      const skipAllCb = mockButtonCallbacks.get('skip-all');
+      assert(typeof skipAllCb === 'function', 'skip-all button callback must be registered');
+      await skipAllCb!();
+
+      let curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'skip');
+      assertStrictEqual(curState?.findings[1].action, 'skip');
+
+      // Verify disk sync happened from button onPress
+      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      assertStrictEqual(writtenKeep, 'NONE');
+
+      // Trigger row toggle onPress
+      renderFindingsPane(test$, {}, curState!);
+      const toggleCb = mockButtonCallbacks.get('toggle-1');
+      assert(typeof toggleCb === 'function', 'toggle-1 button callback must be registered');
+      await toggleCb!();
+
+      curState = await getReviewFindingsState(test$);
+      // 'skip' toggles to 'edit'
+      assertStrictEqual(curState?.findings[0].action, 'edit');
+
+      const updatedKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      assertStrictEqual(updatedKeep, '1');
+    });
+
+    test('handleBashToolCall preserves existing maintainer curation across disposition re-runs', async () => {
+      const initialFindings = JSON.stringify([
+        { file: 'auth.py', line: 15, severity: 'major', explanation: 'Original note 1', rule: 'sec-rule-1' },
+        { file: 'auth.py', line: 55, severity: 'minor', explanation: 'Original note 2', rule: 'style-rule-2' },
+      ]);
+
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+      test$.fs._files.set('/work/repo/saved/findings-123.json', initialFindings);
+
+      // 1. Initial disposition runs
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-123.json --pr 123' },
+        () => {}
+      );
+
+      // 2. Maintainer curates: drops finding 1 and edits finding 2
+      await handleFindingsCommand(test$, { args: 'drop 1' });
+      await handleFindingsCommand(test$, { args: 'edit 2 Sanitized custom explanation' });
+
+      let state = await getReviewFindingsState(test$);
+      assertStrictEqual(state?.findings[0].action, 'skip');
+      assertStrictEqual(state?.findings[1].action, 'edit');
+      assertStrictEqual(state?.findings[1].body, 'Sanitized custom explanation');
+
+      // 3. Disposition re-runs (e.g. after maintainer [E]dits or checks CI)
+      const updatedFindings = JSON.stringify([
+        { file: 'auth.py', line: 15, severity: 'major', explanation: 'Fresh parser note 1', rule: 'sec-rule-1' },
+        { file: 'auth.py', line: 55, severity: 'minor', explanation: 'Fresh parser note 2', rule: 'style-rule-2' },
+        { file: 'auth.py', line: 99, severity: 'nit', explanation: 'Brand new finding', rule: 'nit-rule-3' },
+      ]);
+      test$.fs._files.set('/work/repo/saved/findings-123.json', updatedFindings);
+
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-123.json --pr 123' },
+        () => {}
+      );
+
+      state = await getReviewFindingsState(test$);
+      assert(state !== null);
+      assertStrictEqual(state?.findings.length, 3);
+      // Finding 1 preserved as 'skip'
+      assertStrictEqual(state?.findings[0].action, 'skip');
+      // Finding 2 preserved as 'edit' with custom body
+      assertStrictEqual(state?.findings[1].action, 'edit');
+      assertStrictEqual(state?.findings[1].body, 'Sanitized custom explanation');
+      // Finding 3 is new, defaults to 'accept'
+      assertStrictEqual(state?.findings[2].action, 'accept');
+    });
+
+    test('disposition cleans up orphaned curated files when findings become empty', async () => {
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+      test$.fs._files.set('/work/repo/saved/findings-empty.json', '[]');
+      test$.fs._files.set('/work/repo/saved/findings-empty.curated.json', '[{"file":"old.py"}]');
+      test$.fs._files.set('/work/repo/saved/findings-empty.curated.keep', '1');
+
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-empty.json --pr 404' },
+        () => {}
+      );
+
+      const state = await getReviewFindingsState(test$);
+      assertStrictEqual(state, null);
+
+      // Verify orphaned files were cleaned up
+      assert(!test$.fs._files.has('/work/repo/saved/findings-empty.curated.json'));
+      assert(!test$.fs._files.has('/work/repo/saved/findings-empty.curated.keep'));
+    });
+
+    test('strict token validation rejects letters and decouples gN in keep and drop commands', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 2005,
+        findingsPath: '/work/saved/findings-2005.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+          { id: 'f2', file: 'b.py', line: 20, severity: 'major', body: 'Inline 2', action: 'accept' },
+          { id: 'g1', file: 'README.md', line: null, severity: 'minor', body: 'General 1', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      await setReviewFindingsState(test$, state);
+
+      // 1. keep abc must fail validation and NOT touch state
+      const badKeepRes = await handleFindingsCommand(test$, { args: 'keep abc' });
+      assert(badKeepRes.text.startsWith('Error: Invalid token "abc"'));
+      let curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'accept');
+      assertStrictEqual(curState?.findings[1].action, 'accept');
+
+      // 2. drop abc must fail validation and NOT touch state
+      const badDropRes = await handleFindingsCommand(test$, { args: 'drop abc' });
+      assert(badDropRes.text.startsWith('Error: Invalid token "abc"'));
+
+      // 3. keep g1 must ONLY modify general observations, leaving anchored findings untouched
+      await handleFindingsCommand(test$, { args: 'keep g1' });
+      curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'accept', 'Anchored 1 must remain accept');
+      assertStrictEqual(curState?.findings[1].action, 'accept', 'Anchored 2 must remain accept');
+      assertStrictEqual(curState?.findings[2].action, 'accept', 'General 1 must remain accept');
+
+      // 4. keep 1 must ONLY modify anchored findings, leaving general observations untouched
+      await handleFindingsCommand(test$, { args: 'keep 1' });
+      curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'accept', 'Anchored 1 kept');
+      assertStrictEqual(curState?.findings[1].action, 'skip', 'Anchored 2 skipped');
+      assertStrictEqual(curState?.findings[2].action, 'accept', 'General 1 must remain accept');
+
+      // 5. drop g1 must mark general observation as skip without touching anchored
+      await handleFindingsCommand(test$, { args: 'drop g1' });
+      curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'accept');
+      assertStrictEqual(curState?.findings[1].action, 'skip');
+      assertStrictEqual(curState?.findings[2].action, 'skip');
+
+      // 6. keep 1, g1 updates both
+      await handleFindingsCommand(test$, { args: 'keep 1, g1' });
+      curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[0].action, 'accept');
+      assertStrictEqual(curState?.findings[1].action, 'skip');
+      assertStrictEqual(curState?.findings[2].action, 'accept');
+    });
+
+    test('sync error records syncError on state and displays warning in pane and status', async () => {
+      const writtenFiles = new Set<string>();
+      let warningNodeFound = false;
+      const MockText = (props: any) => {
+        if (props?.children && props.children[0]?.includes('Warning: Curation sync to disk failed')) {
+          warningNodeFound = true;
+        }
+        return { type: 'text', ...props };
+      };
+
+      const failingTest$ = createMockEngine({
+        fs: {
+          write: async (path: string) => {
+            if (path.endsWith('.keep')) {
+              throw new Error('EACCES: permission denied');
+            }
+            writtenFiles.add(path);
+          },
+          remove: async (path: string) => {
+            writtenFiles.delete(path);
+          },
+          unlink: async (path: string) => {
+            writtenFiles.delete(path);
+          },
+        },
+        ui: {
+          resolve: () => ({
+            Box: (props: any) => props,
+            Text: MockText,
+          }),
+        },
+      });
+
+      const state: ReviewFindingsState = {
+        prNumber: 2005,
+        findingsPath: '/work/readonly/findings.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      await setReviewFindingsState(failingTest$, state);
+
+      // Perform curation action that triggers write
+      const res = await handleFindingsCommand(failingTest$, { args: 'none' });
+      assert(res.text.includes('Warning: sync to disk failed: EACCES: permission denied'));
+
+      const curState = await getReviewFindingsState(failingTest$);
+      assert(curState?.syncError !== null && curState?.syncError !== undefined);
+      assert(curState?.syncError.includes('EACCES: permission denied'));
+
+      // Verify partial file was cleaned up so files do not end up mismatched
+      assert(!writtenFiles.has('/work/readonly/findings.curated.json'));
+
+      // Verify warning renders in /magpie-findings status
+      const statusRes = await handleFindingsCommand(failingTest$, { args: 'status' });
+      assert(statusRes.text.includes('Warning: Curation sync to disk failed'));
+
+      // Verify warning renders in pane Box
+      renderFindingsPane(failingTest$, {}, curState!);
+      assert(warningNodeFound, 'Warning node must be rendered in pane when syncError is set');
+    });
+
+    test('handleUiPress and handleFindingsCommand update curated files on disk', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 1887,
+        findingsPath: '/work/saved/findings-1887.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 10, severity: 'minor', body: 'Inline 1', action: 'accept' },
+          { id: 'g1', file: 'README.md', line: null, severity: 'minor', body: 'General 1', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      await setReviewFindingsState(test$, state);
+      await syncCuratedStateToDisk(test$, state);
+
+      // Button click to toggle general finding to skip
+      await handleUiPress(test$, { element: 'toggle-general-1' }, () => {});
+
+      let curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      let parsed = JSON.parse(curatedJson);
+      // General finding g1 is skipped, so omitted from curated JSON
+      assertStrictEqual(parsed.length, 1);
+      assertStrictEqual(parsed[0].file, 'a.py');
+
+      // Slash command to edit inline 1
+      await handleFindingsCommand(test$, { args: 'edit 1 Maintainer customized review note' });
+
+      curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      parsed = JSON.parse(curatedJson);
+      assertStrictEqual(parsed[0].explanation, 'Maintainer customized review note');
+
+      // Drop command with general identifier
+      await handleFindingsCommand(test$, { args: 'drop g1' });
+      const curState = await getReviewFindingsState(test$);
+      assertStrictEqual(curState?.findings[1].action, 'skip');
+
+      // Keep command with general identifier
+      await handleFindingsCommand(test$, { args: 'keep 1, g1' });
+      const keptState = await getReviewFindingsState(test$);
+      assertStrictEqual(keptState?.findings[0].action, 'accept');
+      assertStrictEqual(keptState?.findings[1].action, 'accept');
     });
   });
 });

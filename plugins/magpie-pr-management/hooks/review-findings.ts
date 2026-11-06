@@ -221,7 +221,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
             label: actionSpec.label.slice(0, 3),
             onPress: async () => {
               const updated = toggleFindingActionInState(state, globalIdx);
-              await setReviewFindingsState($, updated);
+              await updateAndSyncReviewFindingsState($, updated);
             },
           })
         : Text({
@@ -297,7 +297,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
             label: actionSpec.label.slice(0, 3),
             onPress: async () => {
               const updated = toggleFindingActionInState(state, globalIdx);
-              await setReviewFindingsState($, updated);
+              await updateAndSyncReviewFindingsState($, updated);
             },
           })
         : Text({
@@ -371,7 +371,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
             label: '[All]',
             onPress: async () => {
               const updated = setBulkActionInState(state, 'accept');
-              await setReviewFindingsState($, updated);
+              await updateAndSyncReviewFindingsState($, updated);
             },
           }),
           Text({ children: [' '] }),
@@ -380,7 +380,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
             label: '[None]',
             onPress: async () => {
               const updated = setBulkActionInState(state, 'skip');
-              await setReviewFindingsState($, updated);
+              await updateAndSyncReviewFindingsState($, updated);
             },
           }),
           Text({ children: [' '] }),
@@ -414,6 +414,22 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
               'Commands: /magpie-findings [all|none|keep <indices>|drop <indices>|status]',
             ],
             color: 'dim',
+          }),
+        ],
+      })
+    );
+  }
+
+  if (state.syncError) {
+    contentBoxes.push(
+      Box({
+        paddingTop: 1,
+        children: [
+          Text({
+            children: [
+              `[!] Warning: Curation sync to disk failed (${state.syncError}). Step 7b will use original findings.`,
+            ],
+            color: 'warning',
           }),
         ],
       })
@@ -806,7 +822,11 @@ const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'a
  * an integer >= 1 or null, its numbering over this file is formatKeepAnswer's.
  */
 export function serializeFindingsForRender(findings: readonly ReviewFinding[]): string {
-  const payload = findings.map((f) => {
+  // Anchored findings are preserved (rendered or folded via render --keep).
+  // Unanchored general findings marked 'skip' are omitted so render does not post them.
+  const activeFindings = findings.filter((f) => isAnchored(f) || f.action !== 'skip');
+
+  const payload = activeFindings.map((f) => {
     const raw = f.raw;
     const base: Record<string, unknown> =
       typeof raw === 'object' && raw !== null && !Array.isArray(raw)
@@ -833,6 +853,123 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     return { ...base, file: f.file, line: f.line, severity: f.severity };
   });
   return JSON.stringify(payload, null, 2);
+}
+
+/**
+ * Derives the file paths for curated findings and keep recommendation beside original findings.
+ */
+export function getCuratedFindingsPaths(originalPath: string): {
+  curatedJsonPath: string;
+  curatedKeepPath: string;
+} {
+  if (originalPath.endsWith('.json')) {
+    return {
+      curatedJsonPath: originalPath.replace(/\.json$/, '.curated.json'),
+      curatedKeepPath: originalPath.replace(/\.json$/, '.curated.keep'),
+    };
+  }
+  return {
+    curatedJsonPath: `${originalPath}.curated.json`,
+    curatedKeepPath: `${originalPath}.curated.keep`,
+  };
+}
+
+/**
+ * Removes or clears curated findings files (.curated.json and .curated.keep).
+ * Called when findings become empty or stale.
+ */
+export async function cleanCuratedFindingsFiles(
+  $: any,
+  originalPath: string
+): Promise<void> {
+  if (!originalPath) return;
+  try {
+    const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(originalPath);
+    try {
+      await $.fs.remove(curatedJsonPath);
+    } catch {
+      try {
+        await $.fs.unlink(curatedJsonPath);
+      } catch {
+        await $.fs.write(curatedJsonPath, '[]');
+      }
+    }
+    try {
+      await $.fs.remove(curatedKeepPath);
+    } catch {
+      try {
+        await $.fs.unlink(curatedKeepPath);
+      } catch {
+        await $.fs.write(curatedKeepPath, 'NONE');
+      }
+    }
+  } catch {
+    // Fail-open
+  }
+}
+
+/**
+ * Writes curated findings payload (.curated.json) and keep parameter (.curated.keep)
+ * to disk beside the original findings file using $.fs.write.
+ */
+export async function syncCuratedStateToDisk(
+  $: any,
+  state: ReviewFindingsState | null
+): Promise<{ success: boolean; jsonPath?: string; keepPath?: string; error?: string }> {
+  if (!state || !state.findingsPath || !state.findings) {
+    return { success: true };
+  }
+  if (state.findings.length === 0) {
+    await cleanCuratedFindingsFiles($, state.findingsPath);
+    return { success: true };
+  }
+  try {
+    const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(state.findingsPath);
+    const jsonContent = serializeFindingsForRender(state.findings);
+    const keepContent = formatKeepAnswer(state.findings);
+    await $.fs.write(curatedJsonPath, jsonContent);
+    await $.fs.write(curatedKeepPath, keepContent);
+    return { success: true, jsonPath: curatedJsonPath, keepPath: curatedKeepPath };
+  } catch (err: any) {
+    // Fail-open: clean up partial files to prevent mismatched or stale sidecars
+    try {
+      await cleanCuratedFindingsFiles($, state.findingsPath);
+    } catch {
+      // Safe no-op
+    }
+    return {
+      success: false,
+      error: err?.message || String(err),
+    };
+  }
+}
+
+/**
+ * Updates reviewFindingsState atom and synchronizes curated findings to disk.
+ * If disk sync fails, records syncError in state for display in pane footer.
+ */
+export async function updateAndSyncReviewFindingsState(
+  $: any,
+  updatedState: ReviewFindingsState | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!updatedState) {
+    await setReviewFindingsState($, null);
+    return { success: true };
+  }
+  const syncResult = await syncCuratedStateToDisk($, updatedState);
+  if (!syncResult.success) {
+    updatedState = {
+      ...updatedState,
+      syncError: syncResult.error || 'Failed to write curated files to disk',
+    };
+  } else if (updatedState.syncError) {
+    updatedState = {
+      ...updatedState,
+      syncError: null,
+    };
+  }
+  await setReviewFindingsState($, updatedState);
+  return syncResult;
 }
 
 /**
@@ -985,13 +1122,6 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
 }
 
 /**
- * Event hook registration entry point for Claude Code mod.
- *
- * Registers:
- * - session.start: lifecycle hook for test fixture hydration in PR-2 (PR-3 wires the live session feed).
- * - ui.render (Pane): renders the interactive review findings pane when state is populated.
- */
-/**
  * UI press event handler for Claude Code mod.
  *
  * Handles button click actions from the interactive review findings pane:
@@ -1035,7 +1165,7 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
       const targetIdx = state.findings.indexOf(target);
       if (targetIdx !== -1) {
         const updated = toggleFindingActionInState(state, targetIdx);
-        await setReviewFindingsState($, updated);
+        await updateAndSyncReviewFindingsState($, updated);
         return { handled: true };
       }
     }
@@ -1044,16 +1174,16 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
     const targetIdx = resolveFindingIndex(state, idOrNum);
     if (targetIdx !== -1) {
       const updated = toggleFindingActionInState(state, targetIdx);
-      await setReviewFindingsState($, updated);
+      await updateAndSyncReviewFindingsState($, updated);
       return { handled: true };
     }
   } else if (element === 'accept-all') {
     const updated = setBulkActionInState(state, 'accept');
-    await setReviewFindingsState($, updated);
+    await updateAndSyncReviewFindingsState($, updated);
     return { handled: true };
   } else if (element === 'skip-all') {
     const updated = setBulkActionInState(state, 'skip');
-    await setReviewFindingsState($, updated);
+    await updateAndSyncReviewFindingsState($, updated);
     return { handled: true };
   } else if (element === 'prev-finding') {
     const updated = updateSelectedIndexInState(state, 'up');
@@ -1104,6 +1234,44 @@ export function resolveRelativePath(baseDir: string, filePath: string): string {
 }
 
 /**
+ * Matches an incoming finding to an existing finding from prior state
+ * to preserve maintainer curation across disposition re-runs.
+ */
+export function findMatchingExistingFinding(
+  target: ReviewFinding,
+  existingFindings: readonly ReviewFinding[]
+): ReviewFinding | undefined {
+  if (target.id && !target.id.startsWith('finding-')) {
+    const idMatch = existingFindings.find((e) => e.id === target.id);
+    if (idMatch) return idMatch;
+  }
+  if (isAnchored(target)) {
+    const fileLineMatch = existingFindings.filter(
+      (e) => isAnchored(e) && e.file === target.file && e.line === target.line
+    );
+    if (fileLineMatch.length === 1) {
+      return fileLineMatch[0];
+    }
+    if (fileLineMatch.length > 1) {
+      const ruleOrBodyMatch = fileLineMatch.find(
+        (e) => (target.rule && e.rule === target.rule) || e.body === target.body
+      );
+      if (ruleOrBodyMatch) return ruleOrBodyMatch;
+      return fileLineMatch[0];
+    }
+  } else {
+    const unanchored = existingFindings.filter(
+      (e) => !isAnchored(e) && e.file === target.file
+    );
+    const match = unanchored.find(
+      (e) => (target.rule && e.rule === target.rule) || e.body === target.body
+    );
+    if (match) return match;
+  }
+  return undefined;
+}
+
+/**
  * Bash tool.call event handler for Claude Code mod (Fail-Open).
  *
  * Intercepts pr-management code-review disposition command executions,
@@ -1139,14 +1307,18 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           const base = sessionCwd || sessionRoot || '';
           const candidatePath = base ? resolveRelativePath(base, rawPath) : rawPath;
 
+          let effectivePath: string | null = null;
           let fileContent: string | null = null;
           try {
             fileContent = await $.fs.read(candidatePath);
+            effectivePath = candidatePath;
           } catch {
             try {
               fileContent = await $.fs.read(rawPath);
+              effectivePath = rawPath;
             } catch {
               fileContent = null;
+              effectivePath = null;
             }
           }
 
@@ -1154,16 +1326,50 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             const parsed = parseFindings(fileContent);
             if (parsed.findings.length > 0) {
               const prNumber = extractPrNumberFromCommand(command);
-              await setReviewFindingsState($, {
+
+              let existingState: ReviewFindingsState | null = null;
+              try {
+                existingState = await read($, reviewFindingsState);
+              } catch {
+                existingState = null;
+              }
+
+              let finalFindings = parsed.findings;
+              if (
+                existingState &&
+                existingState.findings &&
+                existingState.findings.length > 0 &&
+                (!existingState.prNumber || !prNumber || existingState.prNumber === prNumber)
+              ) {
+                finalFindings = parsed.findings.map((f) => {
+                  const match = findMatchingExistingFinding(f, existingState.findings);
+                  if (match) {
+                    return {
+                      ...f,
+                      action: match.action,
+                      body: match.action === 'edit' ? match.body : f.body,
+                    };
+                  }
+                  return f;
+                });
+              }
+
+              const nextState: ReviewFindingsState = {
                 prNumber,
-                findings: parsed.findings,
-                summary: parsed.summary,
+                findingsPath: effectivePath || rawPath,
+                findings: finalFindings,
+                summary: calculateSummary(finalFindings),
                 selectedIndex: 0,
-              });
+              };
+              await setReviewFindingsState($, nextState);
+              // NOTE: Never write .curated.* files at initial disposition.
+              // Curated files are only written when the maintainer curates findings.
             } else {
+              await cleanCuratedFindingsFiles($, effectivePath || rawPath);
               await setReviewFindingsState($, null);
             }
           } else {
+            await cleanCuratedFindingsFiles($, effectivePath || rawPath);
             await setReviewFindingsState($, null);
           }
         }
@@ -1176,6 +1382,74 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
   if (typeof next === 'function') {
     return next(e);
   }
+}
+
+export interface ParsedFindingTokens {
+  valid: boolean;
+  error?: string;
+  anchoredIndices: Set<number>;
+  generalIndices: Set<number>;
+}
+
+/**
+ * Validates and parses finding indices for /magpie-findings keep and drop.
+ * Strictly requires every token to be an integer >= 1 (e.g. 1, 3) or general observation (e.g. g1, g2).
+ * Rejects arbitrary strings (e.g. abc).
+ */
+export function parseFindingTokens(raw: string): ParsedFindingTokens {
+  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return {
+      valid: false,
+      error: 'No finding indices specified',
+      anchoredIndices: new Set(),
+      generalIndices: new Set(),
+    };
+  }
+
+  const anchoredIndices = new Set<number>();
+  const generalIndices = new Set<number>();
+
+  for (const token of parts) {
+    if (/^\d+$/.test(token)) {
+      const num = Number.parseInt(token, 10);
+      if (num >= 1) {
+        anchoredIndices.add(num);
+      } else {
+        return {
+          valid: false,
+          error: `Invalid index "${token}": indices must be >= 1`,
+          anchoredIndices: new Set(),
+          generalIndices: new Set(),
+        };
+      }
+    } else if (/^[gG]\d+$/.test(token)) {
+      const num = Number.parseInt(token.slice(1), 10);
+      if (num >= 1) {
+        generalIndices.add(num);
+      } else {
+        return {
+          valid: false,
+          error: `Invalid general index "${token}": indices must be >= 1`,
+          anchoredIndices: new Set(),
+          generalIndices: new Set(),
+        };
+      }
+    } else {
+      return {
+        valid: false,
+        error: `Invalid token "${token}". Only numeric indices (e.g. 1, 3) and general observation indices (e.g. g1, g2) are allowed.`,
+        anchoredIndices: new Set(),
+        generalIndices: new Set(),
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    anchoredIndices,
+    generalIndices,
+  };
 }
 
 /**
@@ -1237,39 +1511,77 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
         lines.push(`  ${indicator.label.slice(0, 3)} g${i + 1}. [${f.severity.toUpperCase()}] ${f.file} - ${truncateText(f.body, 60)}`);
       }
     }
+    if (state.syncError) {
+      lines.push('');
+      lines.push(`[!] Warning: Curation sync to disk failed (${state.syncError}).`);
+    }
     return { text: lines.join('\n') };
   }
 
   if (rawArgs === 'all') {
     const updated = setBulkActionInState(state, 'accept');
-    await setReviewFindingsState($, updated);
+    const syncRes = await updateAndSyncReviewFindingsState($, updated);
+    const warnSuffix = syncRes.error ? ` (Warning: sync to disk failed: ${syncRes.error})` : '';
     return {
-      text: `Accepted all review findings. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+      text: `Accepted all review findings. Keep parameter: ${formatKeepAnswer(updated.findings)}${warnSuffix}`,
     };
   }
 
   if (rawArgs === 'none') {
     const updated = setBulkActionInState(state, 'skip');
-    await setReviewFindingsState($, updated);
+    const syncRes = await updateAndSyncReviewFindingsState($, updated);
+    const warnSuffix = syncRes.error ? ` (Warning: sync to disk failed: ${syncRes.error})` : '';
     return {
-      text: 'Skipped all review findings. Keep parameter: NONE',
+      text: `Skipped all review findings. Keep parameter: NONE${warnSuffix}`,
     };
   }
 
-  const keepMatch = rawArgs.match(/^keep\s+([0-9,\s]+)$/i);
+  const keepMatch = rawArgs.match(/^keep(?:\s+([\s\S]+))?$/i);
   if (keepMatch) {
-    const parts = keepMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
-    const indicesToKeep = new Set(
-      parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
-    );
+    if (!keepMatch[1] || keepMatch[1].trim() === '') {
+      return { text: 'Usage: /magpie-findings keep <indices> (e.g. 1,3 or g1)' };
+    }
+    const parsedTokens = parseFindingTokens(keepMatch[1]);
+    if (!parsedTokens.valid) {
+      return { text: `Error: ${parsedTokens.error}` };
+    }
 
+    const { anchoredIndices, generalIndices } = parsedTokens;
     const anchored = state.findings.filter(isAnchored);
+    const unanchored = state.findings.filter((f) => !isAnchored(f));
+
+    for (const idx of anchoredIndices) {
+      if (idx > anchored.length) {
+        return {
+          text: `Error: Anchored finding index ${idx} out of range (1-${anchored.length})`,
+        };
+      }
+    }
+    for (const gIdx of generalIndices) {
+      if (gIdx > unanchored.length) {
+        return {
+          text: `Error: General observation index g${gIdx} out of range (g1-g${unanchored.length})`,
+        };
+      }
+    }
+
+    const hasAnchoredSpec = anchoredIndices.size > 0;
+    const hasGeneralSpec = generalIndices.size > 0;
+
     const newFindings = state.findings.map((f) => {
-      if (!isAnchored(f)) return f;
-      const anchoredIndex = anchored.indexOf(f) + 1;
+      if (isAnchored(f)) {
+        if (!hasAnchoredSpec) return f;
+        const anchoredIndex = anchored.indexOf(f) + 1;
+        return {
+          ...f,
+          action: anchoredIndices.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
+        };
+      }
+      if (!hasGeneralSpec) return f;
+      const genIndex = unanchored.indexOf(f) + 1;
       return {
         ...f,
-        action: indicesToKeep.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
+        action: generalIndices.has(genIndex) ? ('accept' as const) : ('skip' as const),
       };
     });
 
@@ -1278,26 +1590,66 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       findings: newFindings,
       summary: calculateSummary(newFindings),
     };
-    await setReviewFindingsState($, updated);
+    const syncRes = await updateAndSyncReviewFindingsState($, updated);
+    const keptList: string[] = [];
+    if (hasAnchoredSpec) {
+      keptList.push(...Array.from(anchoredIndices).sort((a, b) => a - b).map(String));
+    }
+    if (hasGeneralSpec) {
+      keptList.push(...Array.from(generalIndices).sort((a, b) => a - b).map((g) => `g${g}`));
+    }
+    const warnSuffix = syncRes.error ? ` (Warning: sync to disk failed: ${syncRes.error})` : '';
     return {
-      text: `Curated findings. Kept: ${Array.from(indicesToKeep).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+      text: `Curated findings. Kept: ${keptList.join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}${warnSuffix}`,
     };
   }
 
-  const dropMatch = rawArgs.match(/^drop\s+([0-9,\s]+)$/i);
+  const dropMatch = rawArgs.match(/^drop(?:\s+([\s\S]+))?$/i);
   if (dropMatch) {
-    const parts = dropMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
-    const indicesToDrop = new Set(
-      parts.map((p) => Number.parseInt(p, 10)).filter((n) => Number.isInteger(n) && n >= 1)
-    );
+    if (!dropMatch[1] || dropMatch[1].trim() === '') {
+      return { text: 'Usage: /magpie-findings drop <indices> (e.g. 2 or g1)' };
+    }
+    const parsedTokens = parseFindingTokens(dropMatch[1]);
+    if (!parsedTokens.valid) {
+      return { text: `Error: ${parsedTokens.error}` };
+    }
 
+    const { anchoredIndices, generalIndices } = parsedTokens;
     const anchored = state.findings.filter(isAnchored);
+    const unanchored = state.findings.filter((f) => !isAnchored(f));
+
+    for (const idx of anchoredIndices) {
+      if (idx > anchored.length) {
+        return {
+          text: `Error: Anchored finding index ${idx} out of range (1-${anchored.length})`,
+        };
+      }
+    }
+    for (const gIdx of generalIndices) {
+      if (gIdx > unanchored.length) {
+        return {
+          text: `Error: General observation index g${gIdx} out of range (g1-g${unanchored.length})`,
+        };
+      }
+    }
+
+    const hasAnchoredSpec = anchoredIndices.size > 0;
+    const hasGeneralSpec = generalIndices.size > 0;
+
     const newFindings = state.findings.map((f) => {
-      if (!isAnchored(f)) return f;
-      const anchoredIndex = anchored.indexOf(f) + 1;
+      if (isAnchored(f)) {
+        if (!hasAnchoredSpec) return f;
+        const anchoredIndex = anchored.indexOf(f) + 1;
+        return {
+          ...f,
+          action: anchoredIndices.has(anchoredIndex) ? ('skip' as const) : f.action,
+        };
+      }
+      if (!hasGeneralSpec) return f;
+      const genIndex = unanchored.indexOf(f) + 1;
       return {
         ...f,
-        action: indicesToDrop.has(anchoredIndex) ? ('skip' as const) : f.action,
+        action: generalIndices.has(genIndex) ? ('skip' as const) : f.action,
       };
     });
 
@@ -1306,9 +1658,17 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       findings: newFindings,
       summary: calculateSummary(newFindings),
     };
-    await setReviewFindingsState($, updated);
+    const syncRes = await updateAndSyncReviewFindingsState($, updated);
+    const droppedList: string[] = [];
+    if (hasAnchoredSpec) {
+      droppedList.push(...Array.from(anchoredIndices).sort((a, b) => a - b).map(String));
+    }
+    if (hasGeneralSpec) {
+      droppedList.push(...Array.from(generalIndices).sort((a, b) => a - b).map((g) => `g${g}`));
+    }
+    const warnSuffix = syncRes.error ? ` (Warning: sync to disk failed: ${syncRes.error})` : '';
     return {
-      text: `Dropped findings: ${Array.from(indicesToDrop).sort((a, b) => a - b).join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+      text: `Dropped findings: ${droppedList.join(',')}. Keep parameter: ${formatKeepAnswer(updated.findings)}${warnSuffix}`,
     };
   }
 
@@ -1322,9 +1682,10 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
         action: 'edit',
         body: newNote,
       });
-      await setReviewFindingsState($, updated);
+      const syncRes = await updateAndSyncReviewFindingsState($, updated);
+      const warnSuffix = syncRes.error ? ` (Warning: sync to disk failed: ${syncRes.error})` : '';
       return {
-        text: `Updated finding #${idOrNum} (marked edit with custom note). Keep parameter: ${formatKeepAnswer(updated.findings)}`,
+        text: `Updated finding #${idOrNum} (marked edit with custom note). Keep parameter: ${formatKeepAnswer(updated.findings)}${warnSuffix}`,
       };
     }
     return { text: `Finding #${idOrNum} not found in active review findings.` };
@@ -1335,6 +1696,16 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
   };
 }
 
+/**
+ * Event hook registration entry point for Claude Code mod.
+ *
+ * Registers:
+ * - session.start: command registration and test fixture hydration
+ * - ui.render (Pane): renders the interactive review findings pane when state is populated
+ * - ui.press: handles button press interactions from the review findings pane
+ * - tool.call (Bash): intercepts code-review disposition to hydrate findings from disk
+ * - command.run (magpie-findings): zero-token command for inspecting and curating findings
+ */
 export function register(on: any): void {
   on('session.start', async ($: any, e: any, next: any) => {
     try {
