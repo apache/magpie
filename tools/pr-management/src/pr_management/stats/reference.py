@@ -387,10 +387,10 @@ def classify(pr, ctx, *, partial=False):
     """Annotate a PR node in place with `_`-prefixed classification fields.
 
     `partial=True` declares that the PR came from a reduced schema (the
-    closed-PR query, which omits the heavy engagement collections —
-    commits / latestReviews / reviewThreads / timelineItems). Those signals are
-    read defensively below, so an absent collection contributes False to
-    `_is_engaged` rather than raising. `isDraft` IS required from both queries
+    closed-PR query, which omits commits / latestReviews / reviewThreads but
+    includes the last ClosedEvent actor in timelineItems). Missing collections
+    are read defensively below and contribute False to `_is_engaged` rather
+    than raising. `isDraft` IS required from both queries
     (CLOSED_PRS_QUERY now selects it); it falls back to False only as a guard.
     """
     author = pr["author"]["login"] if pr["author"] else None
@@ -434,12 +434,22 @@ def classify(pr, ctx, *, partial=False):
                 break
         if has_review_thread_collab:
             break
-    # Timeline events (LabeledEvent / draft conversion by maintainer)
+    # Timeline events: open-PR label/draft activity and closed-PR closure actors.
     has_maintainer_event = False
     label_added_at = None
     for ev in pr.get("timelineItems", {}).get("nodes") or []:
         actor = (ev.get("actor") or {}).get("login")
-        if actor and not is_bot(actor):
+        # Exclude only contributors' own label/draft-state activity;
+        # collaborator PRs and closure actors retain their existing signal.
+        if (
+            actor
+            and not is_bot(actor)
+            and not (
+                pr["_is_contrib"]
+                and ev.get("__typename") in ("LabeledEvent", "ReadyForReviewEvent", "ConvertToDraftEvent")
+                and actor.lower() == (author or "").lower()
+            )
+        ):
             has_maintainer_event = True
         if ev.get("label", {}).get("name") == ctx["ready_label"]:
             at = parse_iso(ev.get("createdAt"))
