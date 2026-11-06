@@ -40,6 +40,8 @@
     - [Term canonicalization](#term-canonicalization)
     - [Scoping and fail-closed gates](#scoping-and-fail-closed-gates)
     - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
+  - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
+    - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2014,6 +2016,19 @@ static scope.
   before starting the session. The escape hatch serves as a zero-token deterministic
   guard against accidental leaks; inline environment variables passed to the command
   line (e.g. `MAGPIE_ALLOW_EMBARGO_TERMS=1 git commit ...`) are ignored by the hook.
+
+## Review findings curation mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pr-management` plugin, the review findings interactive pane mod ([`plugins/magpie-pr-management/hooks/review-findings.ts`](../../plugins/magpie-pr-management/hooks/review-findings.ts)) provides an interactive terminal overview of findings during PR review triage and synchronizes maintainer curation decisions directly to disk beside the findings file.
+
+### Unsandboxed filesystem writes (`$.fs.write`)
+
+As established in [`docs/when-to-use-mods.md`](../when-to-use-mods.md), Claude Code mod hooks run outside the container sandbox with direct user privileges. The review findings mod introduces the framework's first use of `$.fs.write` in a mod hook.
+
+- **Rationale**: The mod communicates maintainer curation decisions (action toggles, inline keep selections, and edited review bodies) to the downstream deterministic CLI tool (`pr-management code-review render`) running in subsequent skill steps. Writing sidecars avoids spawning background daemons, opening IPC sockets, or modifying global environment state.
+- **Locality and sidecar constraints**: `$.fs.write` is strictly constrained to sibling sidecars (`<file>.curated.json` and `<file>.curated.keep`) placed directly beside an existing vetted findings file path discovered from a preceding `code-review disposition` command. The hook never targets arbitrary filesystem paths, user configuration files, dotfiles, or executable scripts.
+- **Fail-open design**: Filesystem write operations are non-blocking and fail open. If `$.fs.write` encounters permission errors, read-only volumes, or quota exhaustion, execution never halts or crashes. Instead, the failure is recorded in state, an explicit warning is displayed in the interactive pane footer and `/magpie-findings status`, and downstream skill steps fall back cleanly to original findings and interactive sequential prompts.
+- **Orphan cleanup**: When a re-run of `disposition` discovers that all findings have been resolved (empty findings list), pre-existing curated sidecar files are automatically cleaned up to prevent stale curation decisions from lingering on disk.
 
 ## Sandbox-error hint hook
 

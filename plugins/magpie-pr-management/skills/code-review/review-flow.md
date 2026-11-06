@@ -324,9 +324,9 @@ Pick which to post: [A]ll (default), [N]one, 1,3 (keep), -2 (drop), [E 2] (edit)
 The answer is passed to `render --keep`; dropped comments fold into the body's *Smaller observations*. The picker is skipped when there is nothing anchored, or under `inline:off`.
 
 Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt as an interactive visual overview during review triage.
-Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`).
+Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`), where `<indices>` can address anchored inline comments (`1`, `3`) and general observations (`g1`, `g2`).
 The resulting keep recommendation is displayed in the pane footer and in `/magpie-findings status` for easy entry into the picker prompt.
-When findings are curated in the pane or via `/magpie-findings`, the mod syncs the serialized findings payload to `<file>.curated.json` and the keep answer to `<file>.curated.keep` beside the findings file.
+When findings are curated in the pane or via `/magpie-findings`, the mod syncs the serialized findings payload to `<file>.curated.json` and the keep answer to `<file>.curated.keep` beside the findings file. Initial `disposition` execution never writes curated sidecars upfront.
 
 Per the vendor-neutral additive-only contract (`docs/when-to-use-mods.md`), this mod is entirely additive.
 In Codex, Antigravity, Cursor, and headless CI environments where mod hooks are unsupported or absent, the skill seamlessly continues using the standard sequential text picker prompt above.
@@ -344,7 +344,8 @@ uv run --project <framework>/tools/pr-management pr-management code-review rende
 ```
 
 When `<file>.curated.json` was written beside the findings file during Step 7a curation, pass that file to `--findings` so maintainer edits and omitted general observations reach `render`.
-When `<file>.curated.keep` is present, pass its contents to `--keep`.
+
+**Picker precedence**: The maintainer's typed answer at the Step 7a text picker prompt always takes precedence. If the maintainer enters an answer (e.g. `1,3`, `None`, `-2`), pass that answer directly to `--keep <answer>`. When findings were curated in the interactive pane or via `/magpie-findings`, `<file>.curated.keep` holds that curated set and is offered as the recommended default. If the maintainer accepts the default or runs non-interactively with a curated sidecar, pass the contents of `<file>.curated.keep` to `--keep`.
 It assembles the body in the template order ([`posting.md`](posting.md#review-body--template-structure)), backtick-quotes every handle, places each kept inline comment by `line` + `side` (listing any the diff cannot anchor — those fold into the body), appends the verbatim footer variant and verifies it.
 Show the full body and the inline count; hold for explicit confirmation.
 Substantive edits re-render and re-confirm.
