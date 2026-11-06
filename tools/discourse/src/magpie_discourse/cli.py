@@ -25,7 +25,7 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
-from magpie_discourse import listing, topics
+from magpie_discourse import listing, search, topics
 from magpie_discourse.client import load_config
 
 
@@ -40,6 +40,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = topics.fetch_topic(config, topic_id, max_posts=args.max_posts)
     elif args.subcommand == "topic" and args.topic_action == "list":
         result = listing.list_topics(config, args.category, since=args.since, limit=args.limit)
+    elif args.subcommand == "topic" and args.topic_action == "search":
+        result = search.search_topics(config, args.query, limit=args.limit)
     else:  # pragma: no cover - argparse rejects anything else
         raise AssertionError(f"unhandled command {args}")
 
@@ -80,5 +82,13 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=listing.DEFAULT_LIMIT,
         help=f"Return at most this many unique topics (default {listing.DEFAULT_LIMIT}); look ahead to prove truncation.",
+    )
+    topic_search = topic_subparsers.add_parser("search", help="Find forum topics by full-text search.")
+    topic_search.add_argument("query", help="Native Discourse search query, including any filters or order.")
+    topic_search.add_argument(
+        "--limit",
+        type=int,
+        default=search.DEFAULT_LIMIT,
+        help=f"Return at most this many distinct topics (default {search.DEFAULT_LIMIT}).",
     )
     return parser
