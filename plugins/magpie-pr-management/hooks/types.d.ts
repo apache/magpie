@@ -50,6 +50,7 @@ declare module 'claude-code' {
           unanchoredCount: number;
         };
         selectedIndex: number;
+        syncError?: string | null;
       } | null;
     };
   }

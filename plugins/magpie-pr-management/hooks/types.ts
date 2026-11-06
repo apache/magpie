@@ -57,6 +57,7 @@ export interface ReviewFindingsState {
   findings: ReviewFinding[];
   summary: ReviewFindingsSummary;
   selectedIndex: number;
+  syncError?: string | null;
 }
 
 export interface ParseFindingsResult {
