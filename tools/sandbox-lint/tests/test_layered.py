@@ -414,3 +414,10 @@ def test_an_unreadable_extension_is_reported(tmp_path: Path) -> None:
     (tmp_path / PROJECT_EXCLUSION_ALLOWLIST).mkdir(parents=True)
     errors = check_invariants(_with_exclusions(), project_root=tmp_path)
     assert any(e.startswith(f"{PROJECT_EXCLUSION_ALLOWLIST}: cannot be read") for e in errors), errors
+
+
+def test_status_check_allow_is_the_bare_command() -> None:
+    allow = _load(LOCAL_TEMPLATE)["permissions"]["allow"]
+
+    assert "Bash(gh auth status)" in allow
+    assert not [entry for entry in allow if entry.startswith("Bash(gh auth status") and entry.endswith("*)")]

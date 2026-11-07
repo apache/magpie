@@ -51,7 +51,7 @@
       "Bash(gh cache list *)",
       "Bash(gh search *)",
       "Bash(gh browse *)",
-      "Bash(gh auth status*)",
+      "Bash(gh auth status)",
       "Bash(zizmor *)",
       "WebFetch(domain:cveawg.mitre.org)",
       "WebFetch(domain:pypi.org)"

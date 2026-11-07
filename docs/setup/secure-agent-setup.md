@@ -677,7 +677,7 @@ The full block below is the two merged, annotated.
       "Bash(gh workflow view *)", "Bash(gh workflow list *)",
       "Bash(gh release view *)", "Bash(gh release list *)",
       "Bash(gh label list *)", "Bash(gh cache list *)",
-      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status*)",
+      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status)",
       // The vetted-ops READ dispatcher. Safe to `allow` rather than `ask`
       // because it refuses every write operation before it consults policy or
       // --caller, so no argv can talk it into a mutation. The write dispatcher
