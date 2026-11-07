@@ -63,6 +63,15 @@ def _make_mock_response(body: dict[str, Any] | list[Any] | str | int, status: in
     return mock_resp
 
 
+def _jev_response(**answer: Any) -> dict[str, Any]:
+    """Build a response in the documented System One shape."""
+    return {
+        "model": "jev-1.14.0",
+        "answers": {"decision": answer},
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+
 @pytest.fixture(autouse=True)
 def clean_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
     """Ensure tests run with clean typed-decision environment by default.
@@ -145,7 +154,7 @@ def test_home_key_file_is_picked_up() -> None:
 
 def test_model_version_is_pinned_constant() -> None:
     """Model version must be a pinned constant and never 'latest'."""
-    assert JEV_MODEL == "systemone-2026-06-01"
+    assert JEV_MODEL == "jev-1.14.0"
     assert "latest" not in JEV_MODEL.lower()
 
     provider = JevProvider(api_key="test-key")
@@ -161,10 +170,7 @@ def test_model_version_is_pinned_constant() -> None:
 def test_jev_choice_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful choice operation returns {label, confidence}."""
     provider = JevProvider(api_key="test-key")
-    expected_response = {
-        "label": "bug",
-        "confidence": 0.96,
-    }
+    expected_response = _jev_response(type="choice", choice="bug", confidence=0.96)
 
     mock_resp = _make_mock_response(expected_response)
 
@@ -182,18 +188,16 @@ def test_jev_choice_success(approved_privacy_config: pathlib.Path) -> None:
         assert isinstance(req.data, bytes)
         body = json.loads(req.data.decode("utf-8"))
         assert body["model"] == JEV_MODEL
-        assert body["operation"] == "choice"
-        assert body["prompt"] == "Classify issue description"
-        assert body["options"] == ["bug", "feature", "question"]
+        assert body["state"] == "Classify issue description"
+        question = body["questions"]["decision"]
+        assert question["type"] == "choice"
+        assert list(question["criteria"]) == ["bug", "feature", "question"]
 
 
 def test_jev_score_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful score operation returns {value, confidence}."""
     provider = JevProvider(api_key="test-key")
-    expected_response = {
-        "value": 4.5,
-        "confidence": 0.89,
-    }
+    expected_response = _jev_response(type="score", score=3.5, confidence=0.89)
 
     mock_resp = _make_mock_response(expected_response)
 
@@ -206,16 +210,15 @@ def test_jev_score_success(approved_privacy_config: pathlib.Path) -> None:
         req: urllib.request.Request = mock_open.call_args[0][0]
         assert isinstance(req.data, bytes)
         body = json.loads(req.data.decode("utf-8"))
-        assert body["operation"] == "score"
-        assert body["scale"] == [1, 5]
+        question = body["questions"]["decision"]
+        assert question["type"] == "score"
+        assert question["criteria"] == ["1", "2", "3", "4", "5"]
 
 
 def test_jev_noul_success(approved_privacy_config: pathlib.Path) -> None:
     """Mocked successful noul operation returns {probability}."""
     provider = JevProvider(api_key="test-key")
-    expected_response = {
-        "probability": 0.78,
-    }
+    expected_response = _jev_response(type="noul", noul=0.78)
 
     mock_resp = _make_mock_response(expected_response)
 
@@ -228,24 +231,8 @@ def test_jev_noul_success(approved_privacy_config: pathlib.Path) -> None:
         req: urllib.request.Request = mock_open.call_args[0][0]
         assert isinstance(req.data, bytes)
         body = json.loads(req.data.decode("utf-8"))
-        assert body["operation"] == "noul"
-        assert body["prompt"] == "Is this report actionable?"
-
-
-def test_jev_nested_result_object(approved_privacy_config: pathlib.Path) -> None:
-    """Provider handles nested 'result' or 'decision' dictionaries from backend."""
-    provider = JevProvider(api_key="test-key")
-    nested_response = {
-        "result": {
-            "label": "feature",
-            "confidence": 0.92,
-        }
-    }
-    mock_resp = _make_mock_response(nested_response)
-
-    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        res = provider.choice("Request new CLI flag", ["bug", "feature"])
-        assert res == {"label": "feature", "confidence": 0.92}
+        assert body["state"] == "Is this report actionable?"
+        assert body["questions"]["decision"]["type"] == "noul"
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +270,7 @@ def test_timeout_first_attempt_retry_succeeds(approved_privacy_config: pathlib.P
     """First attempt times out, retry succeeds: operation returns response."""
     provider = JevProvider(api_key="test-key", backoff_seconds=0.001)
 
-    mock_success = _make_mock_response({"probability": 0.65})
+    mock_success = _make_mock_response(_jev_response(type="noul", noul=0.65))
     side_effects = [TimeoutError("Transient timeout"), mock_success]
 
     with patch("urllib.request.OpenerDirector.open", side_effect=side_effects) as mock_open:
@@ -300,7 +287,7 @@ def test_timeout_first_attempt_retry_succeeds(approved_privacy_config: pathlib.P
 def test_outbound_passes_through_privacy_gate(approved_privacy_config: pathlib.Path) -> None:
     """Every outbound prompt must be routed through enforce_privacy_gate before dispatch."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": "approved", "confidence": 1.0})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice="approved", confidence=1.0))
 
     with (
         patch("typed_decision.providers.jev.enforce_privacy_gate", wraps=enforce_privacy_gate) as mock_gate,
@@ -652,17 +639,17 @@ def test_choice_empty_options_raises() -> None:
 def test_choice_missing_label_in_response(approved_privacy_config: pathlib.Path) -> None:
     """Response missing label raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"confidence": 0.95})
+    mock_resp = _make_mock_response(_jev_response(type="choice", confidence=0.95))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(TypedDecisionUnavailable, match="missing 'label'"):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'choice'"):
             provider.choice("Test", ["a", "b"])
 
 
 def test_choice_rejects_missing_confidence(approved_privacy_config: pathlib.Path) -> None:
     """Choice response missing confidence must raise TypedDecisionUnavailable (never default to 1.0)."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": "a"})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice="a"))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="missing 'confidence'"):
@@ -672,7 +659,7 @@ def test_choice_rejects_missing_confidence(approved_privacy_config: pathlib.Path
 def test_choice_rejects_label_not_in_options(approved_privacy_config: pathlib.Path) -> None:
     """Choice response returning a label outside the provided options must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": "unexpected", "confidence": 0.9})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice="unexpected", confidence=0.9))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="not in candidate options"):
@@ -683,12 +670,12 @@ def test_choice_rejects_invalid_confidence_range(approved_privacy_config: pathli
     """Confidence outside [0.0, 1.0] must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
 
-    mock_resp_high = _make_mock_response({"label": "a", "confidence": 1.5})
+    mock_resp_high = _make_mock_response(_jev_response(type="choice", choice="a", confidence=1.5))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
         with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
             provider.choice("Test", ["a", "b"])
 
-    mock_resp_low = _make_mock_response({"label": "a", "confidence": -0.1})
+    mock_resp_low = _make_mock_response(_jev_response(type="choice", choice="a", confidence=-0.1))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
         with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
             provider.choice("Test", ["a", "b"])
@@ -697,7 +684,7 @@ def test_choice_rejects_invalid_confidence_range(approved_privacy_config: pathli
 def test_choice_rejects_non_numeric_confidence(approved_privacy_config: pathlib.Path) -> None:
     """Non-numeric confidence raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": "a", "confidence": "high"})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice="a", confidence="high"))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="non-numeric confidence"):
@@ -714,7 +701,7 @@ def test_score_invalid_scale_argument() -> None:
 def test_score_scalar_scale_normalized(approved_privacy_config: pathlib.Path) -> None:
     """Scalar scale=10 is normalized to (0, 10) and bounds-checked."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"value": 7.5, "confidence": 0.85})
+    mock_resp = _make_mock_response(_jev_response(type="score", score=6.75, confidence=0.85))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp) as mock_open:
         res = provider.score("Test", scale=10)
         assert res["value"] == 7.5
@@ -723,13 +710,15 @@ def test_score_scalar_scale_normalized(approved_privacy_config: pathlib.Path) ->
         req: urllib.request.Request = mock_open.call_args[0][0]
         assert isinstance(req.data, bytes)
         payload = json.loads(req.data.decode("utf-8"))
-        assert payload["scale"] == [0.0, 10.0]
+        criteria = payload["questions"]["decision"]["criteria"]
+        assert len(criteria) == 10
+        assert (criteria[0], criteria[-1]) == ("0", "10")
 
 
 def test_score_scalar_scale_rejects_out_of_bounds(approved_privacy_config: pathlib.Path) -> None:
     """Scalar scale=10 rejects value=42 outside [0, 10]."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"value": 42.0, "confidence": 0.9})
+    mock_resp = _make_mock_response(_jev_response(type="score", score=42.0, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
             provider.score("Test", scale=10)
@@ -775,12 +764,12 @@ def test_score_rejects_non_finite_response_value(approved_privacy_config: pathli
     """Score response value that is NaN or Inf raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
 
-    mock_resp_nan = _make_mock_response({"value": float("nan"), "confidence": 0.9})
+    mock_resp_nan = _make_mock_response(_jev_response(type="score", score=float("nan"), confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_nan):
         with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
             provider.score("Test", scale=(1, 5))
 
-    mock_resp_inf = _make_mock_response({"value": float("inf"), "confidence": 0.9})
+    mock_resp_inf = _make_mock_response(_jev_response(type="score", score=float("inf"), confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_inf):
         with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
             provider.score("Test", scale=(1, 5))
@@ -789,10 +778,10 @@ def test_score_rejects_non_finite_response_value(approved_privacy_config: pathli
 def test_score_rejects_missing_value(approved_privacy_config: pathlib.Path) -> None:
     """Score response missing value raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"confidence": 0.8})
+    mock_resp = _make_mock_response(_jev_response(type="score", confidence=0.8))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(TypedDecisionUnavailable, match="missing 'value'"):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'score'"):
             provider.score("Test", scale=(1, 5))
 
 
@@ -800,12 +789,12 @@ def test_score_rejects_value_outside_scale(approved_privacy_config: pathlib.Path
     """Score response value outside scale raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
 
-    mock_resp_high = _make_mock_response({"value": 6.0, "confidence": 0.9})
+    mock_resp_high = _make_mock_response(_jev_response(type="score", score=6.0, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
         with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
             provider.score("Test", scale=(1, 5))
 
-    mock_resp_low = _make_mock_response({"value": 0.5, "confidence": 0.9})
+    mock_resp_low = _make_mock_response(_jev_response(type="score", score=-0.5, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
         with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
             provider.score("Test", scale=(1, 5))
@@ -814,7 +803,7 @@ def test_score_rejects_value_outside_scale(approved_privacy_config: pathlib.Path
 def test_score_rejects_missing_confidence(approved_privacy_config: pathlib.Path) -> None:
     """Score response missing confidence raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"value": 3.0})
+    mock_resp = _make_mock_response(_jev_response(type="score", score=3.0))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="missing 'confidence'"):
@@ -824,7 +813,7 @@ def test_score_rejects_missing_confidence(approved_privacy_config: pathlib.Path)
 def test_score_rejects_invalid_confidence_range(approved_privacy_config: pathlib.Path) -> None:
     """Score response confidence outside [0.0, 1.0] raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"value": 3.0, "confidence": 1.2})
+    mock_resp = _make_mock_response(_jev_response(type="score", score=3.0, confidence=1.2))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
@@ -834,10 +823,10 @@ def test_score_rejects_invalid_confidence_range(approved_privacy_config: pathlib
 def test_noul_rejects_missing_probability(approved_privacy_config: pathlib.Path) -> None:
     """Noul response missing probability raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({})
+    mock_resp = _make_mock_response(_jev_response(type="noul"))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(TypedDecisionUnavailable, match="missing 'probability'"):
+        with pytest.raises(TypedDecisionUnavailable, match="missing 'noul'"):
             provider.noul("Test")
 
 
@@ -845,12 +834,12 @@ def test_noul_rejects_invalid_probability_range(approved_privacy_config: pathlib
     """Probability outside [0.0, 1.0] raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
 
-    mock_resp_high = _make_mock_response({"probability": 1.1})
+    mock_resp_high = _make_mock_response(_jev_response(type="noul", noul=1.1))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
         with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
             provider.noul("Test")
 
-    mock_resp_low = _make_mock_response({"probability": -0.2})
+    mock_resp_low = _make_mock_response(_jev_response(type="noul", noul=-0.2))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
         with pytest.raises(TypedDecisionUnavailable, match="outside valid range"):
             provider.noul("Test")
@@ -859,7 +848,7 @@ def test_noul_rejects_invalid_probability_range(approved_privacy_config: pathlib
 def test_noul_rejects_non_numeric_probability(approved_privacy_config: pathlib.Path) -> None:
     """Non-numeric probability raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"probability": "likely"})
+    mock_resp = _make_mock_response(_jev_response(type="noul", noul="likely"))
 
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="non-numeric probability"):
@@ -922,7 +911,7 @@ def test_no_auth_redirect_handler_blocks_redirects() -> None:
 def test_choice_rejects_boolean_label(approved_privacy_config: pathlib.Path) -> None:
     """Boolean for 'label' must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": True, "confidence": 0.9})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice=True, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="boolean"):
             provider.choice("Test", ["True", "False"])
@@ -931,7 +920,7 @@ def test_choice_rejects_boolean_label(approved_privacy_config: pathlib.Path) -> 
 def test_choice_rejects_boolean_confidence(approved_privacy_config: pathlib.Path) -> None:
     """Boolean for 'confidence' in choice must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"label": "a", "confidence": True})
+    mock_resp = _make_mock_response(_jev_response(type="choice", choice="a", confidence=True))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.choice("Test", ["a", "b"])
@@ -940,12 +929,12 @@ def test_choice_rejects_boolean_confidence(approved_privacy_config: pathlib.Path
 def test_score_rejects_boolean_response_value(approved_privacy_config: pathlib.Path) -> None:
     """Boolean for 'value' in score must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp_false = _make_mock_response({"value": False, "confidence": 0.8})
+    mock_resp_false = _make_mock_response(_jev_response(type="score", score=False, confidence=0.8))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_false):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.score("Test", scale=(0, 10))
 
-    mock_resp_true = _make_mock_response({"value": True, "confidence": 0.8})
+    mock_resp_true = _make_mock_response(_jev_response(type="score", score=True, confidence=0.8))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_true):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.score("Test", scale=(0, 10))
@@ -954,7 +943,7 @@ def test_score_rejects_boolean_response_value(approved_privacy_config: pathlib.P
 def test_score_rejects_boolean_confidence(approved_privacy_config: pathlib.Path) -> None:
     """Boolean for 'confidence' in score must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"value": 5.0, "confidence": True})
+    mock_resp = _make_mock_response(_jev_response(type="score", score=5.0, confidence=True))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.score("Test", scale=(0, 10))
@@ -963,39 +952,60 @@ def test_score_rejects_boolean_confidence(approved_privacy_config: pathlib.Path)
 def test_noul_rejects_boolean_probability(approved_privacy_config: pathlib.Path) -> None:
     """Boolean for 'probability' in noul must raise TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp_true = _make_mock_response({"probability": True})
+    mock_resp_true = _make_mock_response(_jev_response(type="noul", noul=True))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_true):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.noul("Test")
 
-    mock_resp_false = _make_mock_response({"probability": False})
+    mock_resp_false = _make_mock_response(_jev_response(type="noul", noul=False))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_false):
         with pytest.raises(TypedDecisionUnavailable, match="boolean is not allowed"):
             provider.noul("Test")
 
 
-def test_response_rejects_non_dict_result_field(approved_privacy_config: pathlib.Path) -> None:
-    """A non-dict 'result' payload (e.g. error string) raises TypedDecisionUnavailable."""
+@pytest.mark.parametrize(
+    ("body", "match"),
+    [
+        pytest.param({"label": "a", "confidence": 0.9}, "missing 'answers'", id="no-answers"),
+        pytest.param({"answers": "unauthorized"}, "missing 'answers'", id="answers-not-object"),
+        pytest.param({"answers": {"other": {"type": "choice"}}}, "missing 'choice' answer", id="wrong-name"),
+        pytest.param(_jev_response(type="noul", noul=0.5), "missing 'choice' answer", id="wrong-type"),
+    ],
+)
+def test_response_rejects_malformed_answers(
+    approved_privacy_config: pathlib.Path, body: dict[str, Any], match: str
+) -> None:
+    """A response without the expected answer raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"result": "unauthorized", "label": "a", "confidence": 0.9})
-    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(
-            TypedDecisionUnavailable,
-            match="Malformed 'result' in Jev API response: expected JSON object, got str",
-        ):
+    with patch("urllib.request.OpenerDirector.open", return_value=_make_mock_response(body)):
+        with pytest.raises(TypedDecisionUnavailable, match=match):
             provider.choice("Test", ["a", "b"])
 
 
-def test_rejects_non_dict_decision_envelope(approved_privacy_config: pathlib.Path) -> None:
-    """A non-dict 'decision' payload raises TypedDecisionUnavailable."""
+@pytest.mark.parametrize(
+    ("scale", "levels", "position", "value"),
+    [
+        pytest.param((1, 5), 5, 4.0, 5.0, id="integer-scale-top"),
+        pytest.param((1, 5), 5, 0.0, 1.0, id="integer-scale-bottom"),
+        pytest.param((0, 9), 10, 9.0, 9.0, id="largest-exact-integer-scale"),
+        pytest.param((0, 10), 10, 9.0, 10.0, id="integer-scale-over-cap"),
+        pytest.param((0.0, 0.5), 10, 9.0, 0.5, id="fractional-scale"),
+    ],
+)
+def test_score_maps_level_position_onto_scale(
+    approved_privacy_config: pathlib.Path,
+    scale: tuple[float, float],
+    levels: int,
+    position: float,
+    value: float,
+) -> None:
+    """Scales stay within the API's level cap, and answers map back to scale values."""
     provider = JevProvider(api_key="test-key")
-    mock_resp = _make_mock_response({"decision": "unauthorized", "probability": 0.5})
-    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(
-            TypedDecisionUnavailable,
-            match="Malformed 'decision' in Jev API response: expected JSON object, got str",
-        ):
-            provider.noul("Test")
+    mock_resp = _make_mock_response(_jev_response(type="score", score=position, confidence=0.9))
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp) as mock_open:
+        assert provider.score("Test", scale=scale)["value"] == pytest.approx(value)
+    body = json.loads(mock_open.call_args[0][0].data.decode("utf-8"))
+    assert len(body["questions"]["decision"]["criteria"]) == levels
 
 
 def test_privacy_gate_raw_desc_carries_provider_for_custom_endpoint() -> None:
