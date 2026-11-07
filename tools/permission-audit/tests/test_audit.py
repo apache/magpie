@@ -14,14 +14,49 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from permission_audit.audit import audit_settings
+import json
+from pathlib import Path
+
+from permission_audit.audit import (
+    RECOMMENDED_BY_FAMILY,
+    RECOMMENDED_BY_ORGANIZATION,
+    audit_settings,
+)
 
 
 def test_empty_allow_only_misses_recommended():
     result = audit_settings(allow_list=[], families=["security"])
     assert result.forbidden == []
-    # lychee (default family "") + 3 generic security entries = 4
-    assert len(result.missing_recommended) == 4
+    expected = {
+        "Bash(lychee *)",
+        "mcp__claude_ai_Gmail__get_thread",
+        "mcp__claude_ai_Gmail__get_message",
+        "mcp__claude_ai_Gmail__list_drafts",
+        "mcp__claude_ai_Gmail__get_draft",
+        "mcp__gmail-plaintext__check_auth",
+    }
+    assert {f.pattern for f in result.missing_recommended} == expected
+
+
+def test_release_management_family_recommendations():
+    result = audit_settings(allow_list=[], families=["release-management"])
+    assert result.forbidden == []
+    expected_generic = {
+        "Bash(lychee *)",
+        "mcp__gmail-plaintext__check_auth",
+    }
+    assert {f.pattern for f in result.missing_recommended} == expected_generic
+
+    result_asf = audit_settings(allow_list=[], families=["release-management"], organization="ASF")
+    expected_asf = expected_generic | {
+        "mcp__ponymail__auth_status",
+        "mcp__ponymail__get_thread",
+        "mcp__ponymail__get_email",
+        "mcp__ponymail__get_source",
+        "mcp__ponymail__list_lists",
+        "mcp__ponymail__list_restrictions",
+    }
+    assert {f.pattern for f in result_asf.missing_recommended} == expected_asf
 
 
 def test_forbidden_python_wildcard_flagged_with_pointer():
@@ -73,8 +108,21 @@ def test_default_family_always_included_even_when_not_requested():
 def test_asf_only_recommendations_need_the_asf_organization():
     """PonyMail, the ASF project directory and Vulnogram are ASF services."""
     asf_only = {
+        "mcp__ponymail__auth_status",
         "mcp__ponymail__get_thread",
+        "mcp__ponymail__get_email",
+        "mcp__ponymail__get_source",
+        "mcp__ponymail__list_lists",
+        "mcp__ponymail__list_restrictions",
+        "mcp__apache-projects__project_stats",
+        "mcp__apache-projects__get_committee",
+        "mcp__apache-projects__get_group_members",
         "mcp__apache-projects__get_person",
+        "mcp__apache-projects__search_people",
+        "mcp__apache-projects__get_releases",
+        "mcp__apache-projects__get_repositories",
+        "mcp__apache-projects__list_committees",
+        "mcp__apache-projects__search_projects",
         "Bash(vulnogram-api-record-fetch *)",
     }
     elsewhere = {f.pattern for f in audit_settings([], ["security"]).missing_recommended}
@@ -83,5 +131,76 @@ def test_asf_only_recommendations_need_the_asf_organization():
     assert not asf_only & elsewhere
     assert not asf_only & independent
     assert asf_only <= asf
-    # lychee + 3 generic + 10 ASF security entries
-    assert len(asf) == 14
+    expected_generic = {
+        "Bash(lychee *)",
+        "mcp__claude_ai_Gmail__get_thread",
+        "mcp__claude_ai_Gmail__get_message",
+        "mcp__claude_ai_Gmail__list_drafts",
+        "mcp__claude_ai_Gmail__get_draft",
+        "mcp__gmail-plaintext__check_auth",
+    }
+    assert elsewhere == expected_generic
+    assert independent == expected_generic
+    assert asf == expected_generic | asf_only
+
+
+def _find_family_mcp_allows() -> Path:
+    current = Path(__file__).resolve().parent
+    for p in [current, *current.parents]:
+        target = p / "plugins" / "magpie-setup" / "skills" / "setup" / "family-mcp-allows.json"
+        if target.exists():
+            return target
+    raise FileNotFoundError("Could not locate family-mcp-allows.json")
+
+
+def test_audit_recommendations_match_family_mcp_allows_json():
+    """Ensure every MCP pattern in audit.py is backed by family-mcp-allows.json.
+
+    Validates per-family scoping and exact bidirectional parity between
+    the canonical family-mcp-allows registry and permission-audit recommendation dictionaries.
+    """
+    path = _find_family_mcp_allows()
+    registry = json.loads(path.read_text(encoding="utf-8"))
+
+    # Map family -> set of allowed MCP patterns
+    allowed_by_family: dict[str, set[str]] = {}
+    for server, entry in registry.get("servers", {}).items():
+        server_tools = {f"mcp__{server}__{t}" for t in entry.get("tools", [])}
+        for fam in entry.get("families", []):
+            allowed_by_family.setdefault(fam, set()).update(server_tools)
+
+    # 1. Per-family check: every MCP pattern in RECOMMENDED_BY_FAMILY must be registered for that family
+    for family, rec_patterns in RECOMMENDED_BY_FAMILY.items():
+        if not family:
+            continue
+        mcp_patterns = {p for p in rec_patterns if p.startswith("mcp__")}
+        fam_allowed = allowed_by_family.get(family, set())
+        assert mcp_patterns <= fam_allowed, (
+            f"Family '{family}' has MCP recommendations not registered for that family in family-mcp-allows.json: "
+            f"{mcp_patterns - fam_allowed}"
+        )
+
+    # 2. Per-family check: every MCP pattern in RECOMMENDED_BY_ORGANIZATION must be registered for that family
+    for org, fam_map in RECOMMENDED_BY_ORGANIZATION.items():
+        for family, org_patterns in fam_map.items():
+            mcp_patterns = {p for p in org_patterns if p.startswith("mcp__")}
+            fam_allowed = allowed_by_family.get(family, set())
+            assert mcp_patterns <= fam_allowed, (
+                f"Org '{org}' family '{family}' has MCP recommendations not registered for that family: "
+                f"{mcp_patterns - fam_allowed}"
+            )
+
+    # 3. Exact bidirectional parity check for both release-management and security
+    for fam in ("release-management", "security"):
+        actual = {
+            p
+            for p in (
+                RECOMMENDED_BY_FAMILY.get(fam, frozenset())
+                | RECOMMENDED_BY_ORGANIZATION.get("ASF", {}).get(fam, frozenset())
+            )
+            if p.startswith("mcp__")
+        }
+        assert actual == allowed_by_family[fam], (
+            f"Family '{fam}' recommendations in audit.py do not exactly match family-mcp-allows.json: "
+            f"missing={allowed_by_family[fam] - actual}, extra={actual - allowed_by_family[fam]}"
+        )
