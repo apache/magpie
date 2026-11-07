@@ -97,7 +97,6 @@ RECOMMENDED_BY_FAMILY: dict[str, frozenset[str]] = {
     "security": frozenset(
         {
             "mcp__claude_ai_Gmail__get_thread",
-            "mcp__claude_ai_Gmail__search_threads",
             "mcp__claude_ai_Gmail__list_drafts",
             "mcp__claude_ai_Gmail__list_labels",
         }
@@ -112,7 +111,6 @@ RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
         "security": frozenset(
             {
-                "mcp__ponymail__search_list",
                 "mcp__ponymail__auth_status",
                 "mcp__ponymail__get_thread",
                 "mcp__ponymail__get_email",

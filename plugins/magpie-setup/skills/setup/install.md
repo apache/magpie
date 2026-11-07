@@ -1746,10 +1746,10 @@ Same hands-off contract as 9c — **surface, do not run**:
    is then usable by **any** agent session on the machine, Magpie-related
    or not (see [`tools/gmail/oauth-draft/README.md` → MCP server](../../../../tools/gmail/oauth-draft/README.md#mcp-server)).
 3. **Reflect the outcome** in the recommended permission allow-list
-   (add `mcp__gmail-plaintext__create_draft` alongside the Gmail read
-   tools — see [`verify.md`](verify.md) check 8d). It only ever creates
-   **unsent** drafts the human reviews and sends, so allow-listing it
-   avoids a prompt on every draft.
+   (add `mcp__gmail-plaintext__check_auth` alongside the Gmail read
+   tools — see [`verify.md`](verify.md) check 8d). Leave
+   `mcp__gmail-plaintext__create_draft` off it: each draft keeps its
+   harness prompt, so the operator sees it being created.
 4. **Tell the operator what to do next**, as a numbered list:
    1. Run the `claude mcp add gmail-plaintext …` command above.
    2. Restart the agent, so the `mcp__gmail-plaintext__*` tools load.

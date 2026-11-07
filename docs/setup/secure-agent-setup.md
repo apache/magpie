@@ -696,17 +696,17 @@ The full block below is the two merged, annotated.
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",   // same dispatcher, the form bulk gatherer agents use
       // Read-only MCP tools the security skills call on every sync / import /
-      // triage run. Without these, each archive or mailbox read prompts, and a
-      // bulk sync fans out into hundreds of prompts. Write tools stay off this
-      // list (drafts, logins, label/thread mutations keep their prompt), with
-      // one exception: gmail-plaintext `create_draft` only creates an unsent
-      // draft the operator reviews in Gmail.
-      "mcp__ponymail__search_list", "mcp__ponymail__get_thread", "mcp__ponymail__get_email",
+      // triage run. Without these, each read of a named thread or message
+      // prompts, and a bulk sync fans out into hundreds of prompts. Whole-mailbox
+      // and whole-list searches stay off this list, as do write tools (drafts,
+      // logins, label/thread mutations): these sessions read untrusted reports,
+      // so the operator sees those calls.
+      "mcp__ponymail__get_thread", "mcp__ponymail__get_email",
       "mcp__ponymail__get_source", "mcp__ponymail__list_lists", "mcp__ponymail__list_restrictions",
       "mcp__ponymail__auth_status",
-      "mcp__claude_ai_Gmail__search_threads", "mcp__claude_ai_Gmail__get_thread",
-      "mcp__claude_ai_Gmail__get_message", "mcp__claude_ai_Gmail__list_drafts", "mcp__claude_ai_Gmail__get_draft",
-      "mcp__gmail-plaintext__create_draft", "mcp__gmail-plaintext__check_auth",
+      "mcp__claude_ai_Gmail__get_thread", "mcp__claude_ai_Gmail__get_message",
+      "mcp__claude_ai_Gmail__list_drafts", "mcp__claude_ai_Gmail__get_draft",
+      "mcp__gmail-plaintext__check_auth",
       "mcp__apache-projects__get_committee", "mcp__apache-projects__get_group_members",
       "mcp__apache-projects__get_person", "mcp__apache-projects__search_people",
       "mcp__apache-projects__project_stats", "mcp__apache-projects__get_releases",
