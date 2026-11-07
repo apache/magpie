@@ -446,9 +446,10 @@ Closed set: `VALID`, `VALID-HARDENING`, `OUT-OF-MODEL` (`trusted-input`, `advers
 | #93, #1148 (settings could grant credential reads; lint path-normalisation gap) | `VALID` | C-E7 |
 | #11, #591, #1681, #1696, CodeQL 4 (credentials or secret env reachable from the sandbox or the agent's context) | `VALID` / `VALID-HARDENING` | C-K2 |
 | #1795a (agent-chosen credential path) | `VALID` | C-K4 |
-| #1091 (token re-sent on redirect) | `VALID` | C-K3 |
+| #1091, fixed by #1107 (token re-sent on redirect) | `VALID` | C-K3 |
 | #1795b, CodeQL 1–3 (DRAFT published; URL sanitisation in CVE JSON) | `VALID` | C-I4, C-C4 |
-| #1329, #1246, #1151, #1606, #1679, #1493 (agent-guard spelling and parse gaps) | `VALID` | C-E1 |
+| #1329, #1246, #1606, #1679, #1493 (agent-guard spelling and parse gaps) | `VALID` | C-E1 |
+| #1151 (agent-guard matched text outside the segment it was checking) | `VALID-HARDENING` | C-E1 |
 | #1308, #1311, #1179 (agent could edit the vetted-ops policy; ineffective `Write()` denies; path traversal) | `VALID` | C-E3 |
 | #1315 (eval runner followed fixture symlinks outside the sandbox) | `VALID` | C-E6 |
 | #1683 (tracker backends: git hooks and filter drivers outside the sandbox) | `VALID` | C-E6 |
