@@ -107,9 +107,9 @@ do not act without human review.
 | [`contributor-identity-map`](../skills/contributor-identity-map/SKILL.md) | Maps a contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; grades the evidence and records only the mappings a maintainer confirms. | experimental |
 | [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
 | [`contributor-sentiment`](../skills/contributor-sentiment/SKILL.md) | Measures contributor-sentiment signals (thread tone, time-to-first-reply, first-PR retention, reviewer load) and produces the structured gate report for experimental→stable advancement. | experimental |
-| [`pr-management-quick-merge`](../skills/pr-management-quick-merge/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
+| [`pr-management-merge-candidates`](../skills/pr-management-merge-candidates/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
 | [`ci-runner-audit`](../skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
-| [`dependency-audit`](../skills/dependency-audit/SKILL.md) | Read-only dependency vulnerability audit: detects the project's dependency manager(s), runs the appropriate audit tool, surfaces patchable findings grouped by severity, and proposes upgrades for maintainer review. | experimental |
+| [`dependency-vulnerability-audit`](../skills/dependency-vulnerability-audit/SKILL.md) | Read-only dependency vulnerability audit: detects the project's dependency manager(s), runs the appropriate audit tool, surfaces patchable findings grouped by severity, and proposes upgrades for maintainer review. | experimental |
 | [`dependency-license-audit`](../skills/dependency-license-audit/SKILL.md) | Read-only license audit of the dependency tree: resolves each dependency's declared license, classifies against the ASF three-category model (A/B/X) or a custom allowlist, and reports forbidden, binary-only (category B), and unknown-license dependencies. | experimental |
 | [`workflow-security-audit`](../skills/workflow-security-audit/SKILL.md) | Read-only GitHub Actions workflow security audit powered by `zizmor`: surfaces injection vulnerabilities, excessive permissions, unpinned external actions, and self-hosted-runner fork-secret leaks. | experimental |
 | [`workflow-optimization`](../skills/workflow-optimization/SKILL.md) | Read-only review of one repository's GitHub Actions workflows and run history against the ASF Infra workflow-optimization practices; produces a prioritised plan to cut runner use. | experimental |
@@ -150,7 +150,7 @@ choices were reviewable independently from the runtime behaviour.
 
 | Skill | Purpose | Status |
 |---|---|---|
-| [`pr-management-mentor`](../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
+| [`pr-management-thread-mentor`](../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task (suitability gate + readiness checklist); waits for maintainer confirmation before filing. | experimental |
 | [`mentoring-welcome`](../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via `author_association`, drafts a welcome with contributing-guide link and expected next steps; waits for maintainer confirmation before posting. | experimental |
 | [`contributor-to-committer`](../skills/contributor-to-committer/SKILL.md) | Read-only brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels as plain numbers with the difference; surfaces information only — no ranking, status, or readiness verdict, the PMC decides. | experimental |
@@ -168,7 +168,7 @@ The prototype ships flagged `mode: Mentoring` + `experimental`. Shape
 may change as adopter pilots and contributor-sentiment evaluation land.
 The skill is read-only by default and never posts without explicit
 maintainer confirmation — see
-[`pr-management-mentor/SKILL.md`](../skills/pr-management-mentor/SKILL.md)
+[`pr-management-thread-mentor/SKILL.md`](../skills/pr-management-thread-mentor/SKILL.md)
 for the full contract.
 
 The closest existing surface is

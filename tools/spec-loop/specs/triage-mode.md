@@ -33,7 +33,7 @@ suggestion the human signs off on.
 
 - PR queue: `pr-management-triage`, `pr-management-stats`,
   `pr-management-code-review` (deep review is a triage variant),
-  `pr-management-quick-merge` (read-only express-lane surfacing of
+  `pr-management-merge-candidates` (read-only express-lane surfacing of
   trivial, low-risk PRs a maintainer can review in seconds),
   `pr-stale-sweep` (inactivity nudge or pre-close notice for PRs,
   skipping maintainer-court and ready-labelled PRs), and
@@ -140,7 +140,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   [contributor-offboarding.md](contributor-offboarding.md).
 - **Repo-health is an eight-skill family — feature-complete.** The six
   read-only audits `ci-runner-audit`, `workflow-security-audit`
-  (zizmor-backed), `dependency-audit`, `license-compliance-audit`,
+  (zizmor-backed), `dependency-vulnerability-audit`, `license-compliance-audit`,
   `flaky-test-triage`, and `dependency-license-audit` have all shipped
   (`experimental`), alongside `audit-finding-fix`, which fixes findings
   rather than producing them, and `workflow-optimization`, a read-only

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-Target: .claude/skills/pr-management-mentor/SKILL.md
+Target: .claude/skills/pr-management-thread-mentor/SKILL.md
 
 wc -l SKILL.md: 312
 Largest section: "## Step 3 — Draft" (58 lines) — within range, no dominating section.

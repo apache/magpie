@@ -22,7 +22,7 @@ argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allow
 capability: capability:triage
 surface_hash: sha256:9723ef52fb16204e
 license: Apache-2.0
-measured_tokens: 3928
+measured_tokens: 3934
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -321,7 +321,7 @@ manual verification.
 
 ## Cross-references
 
-- [`dependency-audit`](../dependency-audit/SKILL.md) — sibling
+- [`dependency-vulnerability-audit`](../dependency-vulnerability-audit/SKILL.md) — sibling
   repo-health skill: known-vulnerability scanning (CVEs), not license
   classification. The manager detection logic is shared.
 - [`license-compliance-audit`](../license-compliance-audit/SKILL.md) —

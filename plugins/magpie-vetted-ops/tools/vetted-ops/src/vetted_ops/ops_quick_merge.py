@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 """
-The pr-management-quick-merge reads.
+The pr-management-merge-candidates reads.
 
 All reads: the skill's one mutation, the APPROVE review, goes through
 `gh pr review` behind the harness's confirmation, and merging is a command the

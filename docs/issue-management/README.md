@@ -9,6 +9,8 @@
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
+  - [Triage issues](#triage-issues)
+  - [Reproduce and fix an issue](#reproduce-and-fix-an-issue)
   - [Family boundary](#family-boundary)
   - [Skills](#skills)
   - [Status](#status)
@@ -165,6 +167,16 @@ below sends, merges, or posts anything without you confirming it.*
 
 ![A reproducer run that extracted an eleven-line stdlib probe from a bug report and reproduced the same error](../../assets/quickstart/families/issue/reproducer.svg)
 
+## Triage issues
+
+Run `/magpie-issue:triage` to classify issues against the project's criteria and propose a disposition.
+Use `/magpie-issue:backlog-stats` to review backlog health, pressure areas, and staleness.
+
+## Reproduce and fix an issue
+
+Run `/magpie-issue:reproducer` to extract and try a minimal reproducer from an issue.
+After triage confirms a bug, run `/magpie-issue:fix-workflow` to draft a fix for maintainer review.
+
 ## Family boundary
 
 This family sits **alongside** two related families:
@@ -220,5 +232,5 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) — adopter scaffold index.
 - [`docs/modes.md`](../modes.md) — MISSION mode taxonomy that the
   `mode:` frontmatter field declares against.
-- [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
+- [Project rules](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

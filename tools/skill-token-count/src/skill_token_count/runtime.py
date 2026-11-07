@@ -91,9 +91,21 @@ def summarize(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return summaries
 
 
+# Published benchmark corpora retain the skill names used when measured.
+LEGACY_SKILL_NAMES = {
+    "pr-management-mentor": "pr-management-thread-mentor",
+    "pr-management-quick-merge": "pr-management-merge-candidates",
+    "dependency-audit": "dependency-vulnerability-audit",
+}
+
+
+def skill_directory(root: Path, name: str) -> Path:
+    return root / "skills" / LEGACY_SKILL_NAMES.get(name, name)
+
+
 def validate_case_mode(root: Path, case: dict[str, Any]) -> None:
     """Reject mislabeled samples before making a paid model call."""
-    entrypoint = root / "skills" / case["skill"] / "SKILL.md"
+    entrypoint = skill_directory(root, case["skill"]) / "SKILL.md"
     source = entrypoint.read_text(encoding="utf-8")
     frontmatter = source.split("---", 2)
     match = (
@@ -107,7 +119,7 @@ def validate_case_mode(root: Path, case: dict[str, Any]) -> None:
 
 def build_prompt(root: Path, corpus: dict[str, Any], case: dict[str, Any]) -> tuple[str, dict[str, str]]:
     validate_case_mode(root, case)
-    sources = sorted((root / "skills" / case["skill"]).glob("*.md"))
+    sources = sorted(skill_directory(root, case["skill"]).glob("*.md"))
     if not any(path.name == "SKILL.md" for path in sources):
         raise ValueError("Missing skill entrypoint")
     hashes = {}

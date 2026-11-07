@@ -21,7 +21,7 @@
 
 OSV.dev vulnerability cross-reference client.
 Queries the [OSV.dev REST API v1](https://api.osv.dev/v1/) for vulnerability records, aliases (CVE ↔ GHSA ↔ OSV IDs), affected package versions, and vulnerabilities associated with a public upstream commit.
-Complements [`tools/cve-org/`](../cve-org/) and [`tools/cve-tool-vulnogram/`](../cve-tool-vulnogram/) by providing cross-ecosystem vulnerability records for intended triage consumers (`security-issue-triage`, `security-issue-deduplicate`, `security-cve-allocate`, and `dependency-audit` — not yet wired).
+Complements [`tools/cve-org/`](../cve-org/) and [`tools/cve-tool-vulnogram/`](../cve-tool-vulnogram/) by providing cross-ecosystem vulnerability records for intended triage consumers (`security-issue-triage`, `security-issue-deduplicate`, `security-cve-allocate`, and `dependency-vulnerability-audit` — not yet wired).
 See [`tool.md`](tool.md) for endpoint recipes, payload structures, and confidentiality boundaries.
 
 ## Prerequisites

@@ -669,7 +669,7 @@ bare-name → handle map and release managers:
 roster:
   # Mailing-list threads reference contributors by first name; this binds
   # those to GitHub handles for @-mentions.
-  # Consumed by: security-issue-sync, pr-management-mentor.
+  # Consumed by: security-issue-sync, pr-management-thread-mentor.
   bare_name_handles:
     # Example (replace with your project's contributors):
     "<FirstName>": "@<handle>"

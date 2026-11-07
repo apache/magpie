@@ -23,7 +23,7 @@ its own backend, and this skill drives it unchanged.
 | *close* disposition (Step 4) | `reject(id, reason)` | `gh pr close` |
 
 Triage **never** calls `land` — merging is out of scope for this skill
-(it lives in `pr-management-quick-merge` and the maintainer's own
+(it lives in `pr-management-merge-candidates` and the maintainer's own
 merge command). Backends whose `status` returns `checks: none` /
 `mergeable: unknown` (a JIRA patch with no pipeline, a bare `[PATCH]`
 thread) degrade the CI-rerun and mark-ready gates to advisory: the

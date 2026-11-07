@@ -55,7 +55,7 @@ board_status_field_id = "PVTSSF_field"
 [callers]
 "security-issue-sync" = ["issue-view", "issue-add-label", "issue-comment", "issue-close", "cve-check-published"]
 "security-issue-triage" = ["issue-view", "osv-get-vuln", "osv-query-package", "cve-check-published"]
-"dependency-audit" = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
+"dependency-vulnerability-audit" = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 """
 
 

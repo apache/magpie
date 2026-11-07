@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Repo-health audits — family overview](#repo-health-audits--family-overview)
+- [Repository maintenance](#repository-maintenance)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Works well with](#works-well-with)
@@ -15,7 +15,7 @@
     - [`ci-runner-audit` (experimental)](#ci-runner-audit-experimental)
     - [`workflow-security-audit` (experimental)](#workflow-security-audit-experimental)
     - [`workflow-optimization` (experimental)](#workflow-optimization-experimental)
-    - [`dependency-audit` (experimental)](#dependency-audit-experimental)
+    - [`dependency-vulnerability-audit` (experimental)](#dependency-vulnerability-audit-experimental)
     - [`license-compliance-audit` (experimental)](#license-compliance-audit-experimental)
     - [`flaky-test-triage` (experimental)](#flaky-test-triage-experimental)
     - [`dependency-license-audit` (experimental)](#dependency-license-audit-experimental)
@@ -28,17 +28,19 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Repo-health audits — family overview
+<a id="repo-health-audits--family-overview"></a>
+# Repository maintenance
 
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
-Read-only agent-assisted audits that surface repository maintenance signals
+Agent-assisted audits and fixes that address repository maintenance signals
 a human would otherwise have to detect by hand: runner label obsolescence,
 Actions workflow security issues, stale or vulnerable dependencies,
 license/NOTICE drift, flaky-test patterns, and wasted CI runner capacity. Every skill in this family
-produces a human-readable report and proposes remedies; applying any change
-is the maintainer's action.
+produces a human-readable report and proposes remedies. The
+`audit-finding-fix` skill can then prepare a fix for a selected finding.
+The maintainer reviews and confirms every mutation.
 
 The family lives under `mode: Triage` in the framework taxonomy — the same
 classify-and-propose discipline the security and PR-management triage skills
@@ -54,7 +56,7 @@ follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 
 ## Install & first runs
 
-Install just this family — one plugin, 8 skills. Read-only repository-health audits, plus fixes for what they find.
+Install just this family — one plugin, 8 skills. Audits and fixes for repository maintenance findings.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -103,7 +105,7 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`fix-workflow.md`](../../plugins/magpie-setup/templates/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `audit-finding-fix` |
-| [`repo-health-config.md`](../../plugins/magpie-setup/templates/repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. | `dependency-audit`, `flaky-test-triage`, `license-compliance-audit`, `workflow-security-audit` |
+| [`repo-health-config.md`](../../plugins/magpie-setup/templates/repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. | `dependency-vulnerability-audit`, `flaky-test-triage`, `license-compliance-audit`, `workflow-security-audit` |
 | [`runtime-invocation.md`](../../plugins/magpie-setup/templates/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `audit-finding-fix` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
@@ -154,10 +156,10 @@ below sends, merges, or posts anything without you confirming it.*
 **Audit dependencies for CVEs.**
 
 ```text
-/magpie-repo-health:dependency-audit
+/magpie-repo-health:dependency-vulnerability-audit
 ```
 
-![A dependency-audit run grouping findings into outdated-with-a-fix, unmaintained, and pinned-but-unused, having upgraded nothing](../../assets/quickstart/families/repo-health/dependency-audit.svg)
+![A dependency vulnerability audit run grouping findings into outdated-with-a-fix, unmaintained, and pinned-but-unused, having upgraded nothing](../../assets/quickstart/families/repo-health/dependency-vulnerability-audit.svg)
 
 **Audit the Actions workflows.**
 
@@ -180,7 +182,7 @@ below sends, merges, or posts anything without you confirming it.*
 ### `audit-finding-fix` (experimental)
 
 Takes a single audit finding (from `ci-runner-audit`,
-`workflow-security-audit`, `dependency-audit`, or
+`workflow-security-audit`, `dependency-vulnerability-audit`, or
 `license-compliance-audit`) and drafts a targeted fix PR: code change,
 commit message, and PR description. The fix addresses exactly one finding
 and includes a regression check where applicable.
@@ -263,7 +265,8 @@ for repositories outside the ASF.
 
 ---
 
-### `dependency-audit` (experimental)
+<a id="dependency-audit-experimental"></a>
+### `dependency-vulnerability-audit` (experimental)
 
 Detects the project's dependency manager(s), runs the appropriate audit
 tool (`pip-audit`, `npm audit`, `cargo audit`, or `trivy`), and surfaces
@@ -318,12 +321,12 @@ Resolve the license of every direct and transitive dependency and classify
 each against the project's license policy. This is distinct from the two
 existing skills: `license-compliance-audit` checks the project's own
 LICENSE, NOTICE, and SPDX headers (and excludes vendored code), and
-`dependency-audit` checks dependencies for known vulnerabilities, not
+`dependency-vulnerability-audit` checks dependencies for known vulnerabilities, not
 license terms. Neither audits the licenses of the dependency tree.
 
 Checks performed:
 
-1. Detect the dependency manager(s) (reusing `dependency-audit`'s detection)
+1. Detect the dependency manager(s) (reusing `dependency-vulnerability-audit`'s detection)
    and enumerate direct and transitive dependencies.
 2. Resolve each dependency's declared license from ecosystem metadata
    (`pip-licenses` / PyPI, `license-checker` for npm, `cargo-deny` or

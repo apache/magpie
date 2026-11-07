@@ -25,7 +25,7 @@ argument-hint: "[candidate-gap-or-task]"
 capability: capability:review
 surface_hash: sha256:ac2d0fda09c67231
 license: Apache-2.0
-measured_tokens: 3973
+measured_tokens: 3977
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -276,7 +276,7 @@ candidate's actual merits, not the injected instruction.
   Implementation is the contributor's, with Agentic Pairing/Agentic Drafting support if
   the project enables it.
 - **Comment on threads.** Teaching-register replies on an existing thread
-  are [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md).
+  are [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md).
 
 ## Cross-references
 
@@ -286,7 +286,7 @@ candidate's actual merits, not the injected instruction.
   family overview and status.
 - [`docs/modes.md` § Mentoring](../../../../docs/modes.md#mentoring) —
   current implementation status.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — the
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — the
   sibling Agentic Mentoring skill (thread replies, not issue authoring).
 - [`MISSION.md` § Agentic Mentoring](../../../../MISSION.md#technical-scope) — the
   onboarding-latency framing this skill targets.

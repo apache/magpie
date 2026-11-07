@@ -321,7 +321,7 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
 
    Note what the PR family deliberately does *not* include: there is no
    `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —
-   `pr-management-quick-merge` prints a merge command for the maintainer rather
+   `pr-management-merge-candidates` prints a merge command for the maintainer rather
    than running one — so a vetted merge operation would hand the agent the one
    capability the surrounding design withholds. **Widening the catalogue must
    not widen the posture**, and that constraint binds every family added next.

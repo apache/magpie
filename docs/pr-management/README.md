@@ -5,11 +5,12 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [PR management skill family](#pr-management-skill-family)
+- [Pull requests](#pull-requests)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Works well with](#works-well-with)
     - [Try these first](#try-these-first)
+  - [Review a pull request](#review-a-pull-request)
   - [Skills](#skills)
   - [Cross-references](#cross-references)
 
@@ -18,7 +19,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# PR management skill family
+<a id="pr-management-skill-family"></a>
+# Pull requests
 
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
@@ -128,12 +130,12 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`mentoring-config.md`](../../plugins/magpie-setup/templates/mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. | `mentor` |
+| [`mentoring-config.md`](../../plugins/magpie-setup/templates/mentoring-config.md) | Tone knobs and hand-off protocol for the thread-level mentoring skill. | `thread-mentor` |
 | [`pr-management-code-review-criteria.md`](../../plugins/magpie-setup/templates/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review`, `stack-review` |
-| [`pr-management-config.md`](../../plugins/magpie-setup/templates/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `pr-stale-sweep`, `pr-triage`, `quick-merge`, `stats` |
-| [`pr-management-quick-merge-config.md`](../../plugins/magpie-setup/templates/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `quick-merge` |
+| [`pr-management-config.md`](../../plugins/magpie-setup/templates/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `merge-candidates`, `pr-stale-sweep`, `pr-triage`, `stats` |
+| [`pr-management-quick-merge-config.md`](../../plugins/magpie-setup/templates/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `merge-candidates` |
 | [`pr-management-triage-comment-templates.md`](../../plugins/magpie-setup/templates/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `pr-triage` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `pr-stale-sweep`, `pr-triage`, `pre-first-pr-check`, `quick-merge`, `reviewer-routing`, `stack-review` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `merge-candidates`, `pr-stale-sweep`, `pr-triage`, `pre-first-pr-check`, `reviewer-routing`, `stack-review`, `thread-mentor` |
 | [`reviewer-roster.md`](../../plugins/magpie-setup/templates/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
@@ -211,6 +213,12 @@ below sends, merges, or posts anything without you confirming it.*
 
 ![A stats run: a FAIR health rating, this week's and last week's open/close counts, the three areas under most pressure, and the triage funnel](../../assets/quickstart/families/pr-management/stats.svg)
 
+## Review a pull request
+
+Run `/magpie-pr-management:code-review` to review one pull request and draft a review for maintainer confirmation.
+Run `/magpie-pr-management:stack-review` to review a stacked pull request as one unit.
+Use `/magpie-pr-management:pr-triage` to classify the open queue and propose next steps.
+
 ## Skills
 
 | Skill | Purpose |
@@ -218,8 +226,8 @@ below sends, merges, or posts anything without you confirming it.*
 | [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md) | First-pass triage. Successor to `breeze pr auto-triage`. |
 | [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) | Read-only summary tables grouped by area label. |
 | [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md) | Deep code review, one PR at a time. |
-| [`pr-management-quick-merge`](../../skills/pr-management-quick-merge/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
-| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
+| [`pr-management-merge-candidates`](../../skills/pr-management-merge-candidates/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
+| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
 | [`pr-stale-sweep`](../../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
 | [`pre-first-pr-check`](../../skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
 | [`reviewer-routing`](../../skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
@@ -230,4 +238,4 @@ below sends, merges, or posts anything without you confirming it.*
 - [Top-level README — Install](../../README.md#install) — 3-step bootstrap.
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) — adopter scaffold index, including the PR-management config files.
 - [`tools/spec-loop/specs/pr-management-family.md`](../../tools/spec-loop/specs/pr-management-family.md) — functional spec: acceptance criteria, validation commands, and known gaps.
-- [`docs/mentoring/README.md`](../mentoring/README.md) — `pr-management-mentor` family overview.
+- [`docs/mentoring/README.md`](../mentoring/README.md) — the Agentic Mentoring overview, including `pr-management-thread-mentor`.

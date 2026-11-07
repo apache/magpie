@@ -31,7 +31,7 @@ Suites are currently implemented for:
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
 - **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
-- **pr-management-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
+- **pr-management-thread-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
@@ -59,7 +59,7 @@ Suites are currently implemented for:
 - **audit-finding-fix** — 12 cases across 4 suites (step-2-parse-findings, step-5-scope-check, step-6-compose-commit, step-7-handback)
 - **contributor-nomination** — 35 cases across 5 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render, step-6-discuss-email)
 - **contributor-to-committer** — 21 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-compare-reference, step-5-render-brief)
-- **dependency-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
+- **dependency-vulnerability-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **dependency-license-audit** — 19 cases across 4 suites (step-license-classification, step-license-normalization, step-license-report, step-scope-selection)
 - **flaky-test-triage** — 10 cases across 3 suites (step-classify, step-reporting, step-scope-and-config)
 - **good-first-issue-author** — 13 cases across 2 suites (readiness-check, suitability-gate)
@@ -70,7 +70,7 @@ Suites are currently implemented for:
 - **issue-stale-sweep** — 28 cases across 7 suites (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap, item-failure-budget, pointer-routing)
 - **license-compliance-audit** — 9 cases across 2 suites (step-findings-report, step-scope-selection)
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
-- **pr-management-quick-merge** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
+- **pr-management-merge-candidates** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
 - **release-announce-draft** — 2 cases across 2 suites (step-0-preflight, step-3-site-bump); the Step 0 verdict and Steps 2–3 are rendered and pytest-tested in `tools/release-management`
 - **release-archive-sweep** — 2 cases across 2 suites (step-0-preflight, step-2-emit-commands); the Step 0 verdict, the listing, trains, retention rule and archive command set are code, pytest-tested in `tools/release-management`
 - **release-audit-report** — 4 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record); the Step 0 verdict, the Step 1 search plan, voter handles and field check, the record and the PR proposal are code, pytest-tested in `tools/release-management`

@@ -9,6 +9,7 @@
   - [Two manifest families: Agent Plugins 1.0 and client-specific](#two-manifest-families-agent-plugins-10-and-client-specific)
   - [Choosing a plugin: which families](#choosing-a-plugin-which-families)
   - [Skill names differ by install method](#skill-names-differ-by-install-method)
+    - [Renamed commands](#renamed-commands)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
@@ -279,6 +280,21 @@ name** rather than any slash command, since a skill cannot know which way the
 reader installed it. If you are on the snapshot install, translate
 `/<plugin>:<alias>` to the single token `/magpie-<directory-name>` using the
 table above — note it is the **directory** name, not the alias.
+
+### Renamed commands
+
+These skill renames keep the family plugins unchanged. Existing config filenames such as `pr-management-quick-merge-config.md` and `mentoring-config.md` remain valid.
+
+| Old marketplace command | New marketplace command | Old portable command | New portable command |
+|---|---|---|---|
+| `/magpie-pr-management:mentor` | `/magpie-pr-management:thread-mentor` | `/magpie-pr-management-mentor` | `/magpie-pr-management-thread-mentor` |
+| `/magpie-pr-management:quick-merge` | `/magpie-pr-management:merge-candidates` | `/magpie-pr-management-quick-merge` | `/magpie-pr-management-merge-candidates` |
+| `/magpie-repo-health:dependency-audit` | `/magpie-repo-health:dependency-vulnerability-audit` | `/magpie-dependency-audit` | `/magpie-dependency-vulnerability-audit` |
+
+Per-skill override files follow the new flat names.
+Rename existing personal or committed overrides from `pr-management-mentor.md`, `pr-management-quick-merge.md`, or `dependency-audit.md` to `pr-management-thread-mentor.md`, `pr-management-merge-candidates.md`, or `dependency-vulnerability-audit.md`, respectively.
+Update custom vetted-ops caller allowlists to the same new flat names.
+The runtime `pr-management mentor` and `pr-management quick-merge` tool commands are unchanged.
 
 ## Supported agents
 

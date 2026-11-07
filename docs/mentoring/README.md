@@ -139,7 +139,7 @@ below sends, merges, or posts anything without you confirming it.*
 
 | Skill | Purpose | Status |
 |---|---|---|
-| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
+| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. | experimental |
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via the GitHub `author_association` field; skips repeat contributors. | experimental |
 | [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain a single issue's context, relevant code paths, and expected approach to a newcomer who has claimed it; teaching register, never gatekeeps. | experimental |
@@ -152,7 +152,7 @@ confirmation in-session.
 
 ### What each skill covers
 
-- **`pr-management-mentor`** — the thread-level Agentic Mentoring skill. Reads an
+- **`pr-management-thread-mentor`** — the thread-level Agentic Mentoring skill. Invoke it with `/magpie-pr-management:thread-mentor`. The `magpie-pr-management` plugin provides it. It reads an
   issue or PR thread, decides whether a teaching-register intervention is
   warranted (clarifying question, convention pointer, paired example from a
   prior PR), drafts the comment, and waits for maintainer confirmation before
@@ -221,5 +221,5 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
   protocol, adopter contract.
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index.
-- [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
+- [Project rules](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

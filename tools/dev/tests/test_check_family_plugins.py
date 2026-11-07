@@ -347,7 +347,9 @@ def test_alias_strips_the_first_family_segment_too():
 
 
 def test_alias_leaves_a_name_that_does_not_repeat_the_family():
-    assert mod.plugin_alias("dependency-audit", "repo-health") == "dependency-audit"
+    assert (
+        mod.plugin_alias("dependency-vulnerability-audit", "repo-health") == "dependency-vulnerability-audit"
+    )
     assert mod.plugin_alias("reviewer-routing", "pr-management") == "reviewer-routing"
 
 

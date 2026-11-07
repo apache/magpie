@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# 🐦 Magpie here — your repository-health sidekick
+# Repository maintenance
 
 A one-minute tour, then straight back to what you asked for.
 

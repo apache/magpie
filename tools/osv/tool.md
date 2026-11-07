@@ -44,7 +44,7 @@ These skills represent intended consumers for this cross-reference adapter once 
 - [`security-issue-triage`](../../skills/security-issue-triage/SKILL.md) — early deduplication against the known-vulnerability set.
 - [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md) — alias resolution (CVE ↔ GHSA) before merging duplicate trackers.
 - [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) — sanity check that no existing OSV/GHSA already covers the report before allocating a new CVE.
-- [`dependency-audit`](../../skills/dependency-audit/SKILL.md) — scan project dependencies against published ecosystem advisories.
+- [`dependency-vulnerability-audit`](../../skills/dependency-vulnerability-audit/SKILL.md) — scan project dependencies against published ecosystem advisories.
 
 ## URLs and Endpoints
 

@@ -17,7 +17,7 @@
 """The deterministic tone rules.
 
 One test per case of the retired model-graded `tone-checks` suite
-(`tools/skill-evals/evals/pr-management-mentor/tone-checks`), named after it.
+(`tools/skill-evals/evals/pr-management-thread-mentor/tone-checks`), named after it.
 Case 14 (jargon, rule 13) stays a model-judgement case in that suite.
 """
 

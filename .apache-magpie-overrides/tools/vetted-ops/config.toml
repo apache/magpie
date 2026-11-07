@@ -116,9 +116,9 @@ close_reasons = ["completed", "not planned"]
     "team-members",
 ]
 
-# pr-management-quick-merge screens the ready queue from saved reads. Reads only:
+# pr-management-merge-candidates screens the ready queue from saved reads. Reads only:
 # it never merges; the maintainer runs the printed merge command.
-"pr-management-quick-merge" = [
+"pr-management-merge-candidates" = [
     "viewer",
     "gql-pr-triage-preflight",
     "gql-pr-express-ready",
@@ -151,8 +151,8 @@ close_reasons = ["completed", "not planned"]
     "pr-comments",
 ]
 
-# pr-management-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
-"pr-management-mentor" = [
+# pr-management-thread-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
+"pr-management-thread-mentor" = [
     "viewer",
     "repo-issue-view",
     "pr-view-with-body",

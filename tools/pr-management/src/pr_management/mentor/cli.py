@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""`pr-management mentor …` — the deterministic half of pr-management-mentor."""
+"""`pr-management mentor …` — the deterministic half of pr-management-thread-mentor."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def _docs(result: dict[str, Any]) -> list[str]:
 
 
 def add_parsers(sub: Any) -> None:
-    parser = sub.add_parser(FAMILY, help="pr-management-mentor")
+    parser = sub.add_parser(FAMILY, help="pr-management-thread-mentor")
     cmd = parser.add_subparsers(dest="command", required=True)
     cmd.add_parser("config", help="the resolved mentoring configuration and what is missing")
 

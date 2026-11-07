@@ -427,7 +427,7 @@ def step_use_script() -> list[tuple[str, str]]:
         (FG, ""),
         (FG, "  magpie-setup           install, upgrade, adopt, sandbox"),
         (FG, "  magpie-utilities       author and index your own skills"),
-        (FG, "  magpie-pr-management   triage, review, stats, quick-merge"),
+        (FG, "  magpie-pr-management   triage, review, stats, merge candidates"),
         (FG, ""),
         (CMD, "> /magpie-pr-management:pr-triage"),
         (FG, ""),

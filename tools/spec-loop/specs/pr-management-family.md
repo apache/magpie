@@ -20,9 +20,9 @@ acceptance:
   - Every Triage-mode skill in the family is read-only or
     proposes-then-confirms; none applies a label, comment, or state change
     without explicit maintainer confirmation.
-  - pr-management-quick-merge never merges autonomously; it surfaces
+  - pr-management-merge-candidates never merges autonomously; it surfaces
     candidates and the exact merge command for the maintainer.
-  - pr-management-mentor never posts without explicit maintainer
+  - pr-management-thread-mentor never posts without explicit maintainer
     confirmation; its output is pedagogical, never gatekeeping.
   - No pr-management body @-mentions anyone but the PR author and the
     project's merged mention_allowlist; the agent-guard mention guard
@@ -133,7 +133,7 @@ same directory; the behaviour is unchanged.
   `experimental`. Detail files: `tiers.md`, `report.md`, `adopter-config.md`,
   `invocation.md`, and one file per finding class / verdict / step outcome
   under `classifications/`; tests under `tools/pr-management/tests/stack_review/`.
-- Skill: `pr-management-quick-merge` — read-only express-lane screener
+- Skill: `pr-management-merge-candidates` — read-only express-lane screener
   for trivial, low-risk PRs (docs, changelog, translations, tests) that
   pass every quality gate; surfaces ranked candidates with diff summaries
   and the exact merge command. Never merges autonomously. Ships `mode:
@@ -142,7 +142,7 @@ same directory; the behaviour is unchanged.
   over reads saved with `vetted-op-read --save`; one file per gate, bucket,
   tier and drop reason under `classifications/`, and
   `actions/{present,approve,hand-off}.md`.
-- Skill: `pr-management-mentor` — drafts a teaching-register comment on a
+- Skill: `pr-management-thread-mentor` — drafts a teaching-register comment on a
   single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
   Listed here because its domain is PR/issue threads; documented in detail
@@ -153,7 +153,7 @@ same directory; the behaviour is unchanged.
   `reviewer-routing` (`mode: Triage`; [reviewer routing](reviewer-routing.md)),
   and `pre-first-pr-check` (`mode: Pairing`, read-only newcomer checklist on a
   local branch; [pairing mode](pairing-mode.md)).
-  `pr-management-mentor`, `reviewer-routing` and `pre-first-pr-check` run their
+  `pr-management-thread-mentor`, `reviewer-routing` and `pre-first-pr-check` run their
   rules in `tools/pr-management` (`mentor assess|render|tone-check|log`,
   `reviewer-routing preflight|propose`, `pre-first-pr check|report`); their
   detail files are per-classification under `classifications/`.
@@ -296,7 +296,7 @@ same directory; the behaviour is unchanged.
   7-day notice), and reuses triage's maintainer-court, ready-label, security
   and bot rules; the close notice carries `<!-- pr-stale-sweep-close -->`.
   Regression cases: `tools/pr-management/tests/stale_sweep/`.
-- **Quick-merge never merges.** `pr-management-quick-merge` surfaces
+- **Quick-merge never merges.** `pr-management-merge-candidates` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
   deliberately off by MISSION sequencing.
@@ -312,7 +312,7 @@ same directory; the behaviour is unchanged.
   naming the approving maintainer (#1580).
   Regression cases: `tools/pr-management/tests/quick_merge/` and the
   `approve-protocol` eval suite.
-- **Teaching register for mentoring.** `pr-management-mentor` follows the
+- **Teaching register for mentoring.** `pr-management-thread-mentor` follows the
   Mentoring mode's tone contract (polite, never gatekeeping, explicit
   hand-off to a human when scope exceeds the agent). It posts only on
   maintainer confirmation.
@@ -493,9 +493,9 @@ same directory; the behaviour is unchanged.
 1. `pr-management-triage` never writes a label, comment, or state change
    without in-session confirmation; all state-changing actions are
    propose-before-apply.
-2. `pr-management-quick-merge` surfaces candidates with the merge command
+2. `pr-management-merge-candidates` surfaces candidates with the merge command
    but never executes the merge autonomously.
-3. `pr-management-mentor` posts only on explicit maintainer confirmation
+3. `pr-management-thread-mentor` posts only on explicit maintainer confirmation
    and never gates or rejects contributor work.
 4. `pr-management-stats` emits read-only tables without mutating any
    tracker or PR state.
@@ -527,7 +527,7 @@ same directory; the behaviour is unchanged.
     agent-guard `mention` guard refuses any other mention on comments,
     folded notes, reviews and non-GET `gh api` writes, reading the allowlist
     only from the target's default branch on GitHub (#1579, #1584).
-12. `pr-management-quick-merge` submits an `APPROVE` only after
+12. `pr-management-merge-candidates` submits an `APPROVE` only after
     `approve-check` passes on fresh reads, and refuses when any Stage-1 gate
     or the Stage-2 screen has regressed or a change request still stands
     (#1580).
@@ -551,10 +551,10 @@ same directory; the behaviour is unchanged.
 test -f .agents/skills/magpie-pr-management-triage/SKILL.md
 test -f .agents/skills/magpie-pr-management-stats/SKILL.md
 test -f .agents/skills/magpie-pr-management-code-review/SKILL.md
-test -f .agents/skills/magpie-pr-management-quick-merge/SKILL.md
+test -f .agents/skills/magpie-pr-management-merge-candidates/SKILL.md
 test -f .agents/skills/magpie-pr-management-stack-review/SKILL.md
 tools/dev/run-skill-script-tests.sh
-test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
+test -f .agents/skills/magpie-pr-management-thread-mentor/SKILL.md
 test -f docs/pr-management/README.md
 uv run --all-packages --group dev pytest tools/pr-management/tests
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate

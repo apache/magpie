@@ -26,7 +26,7 @@ CONFIG = """# Example — mentoring configuration
 
 | Key | Value | Notes |
 |---|---|---|
-| `mentoring_invocation_command` | `/magpie-pr-management:mentor` | x |
+| `mentoring_invocation_command` | `/magpie-pr-management:thread-mentor` | x |
 | `maintainer_team_handle` | `@acme/committers` | x |
 | `max_agent_turns` | `2` | x |
 

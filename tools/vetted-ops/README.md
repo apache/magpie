@@ -254,7 +254,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]
 "security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
-"dependency-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
+"dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",
                            "gql-pr-triage-review-requested", "gql-pr-triage-one", "gql-pr-triage-preflight",
@@ -276,7 +276,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "runs-at-head", "workflow-approve", "run-rerun"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
-"pr-management-quick-merge" = ["viewer",
+"pr-management-merge-candidates" = ["viewer",
                                "gql-pr-triage-preflight",
                                "gql-pr-express-ready",
                                "gql-pr-express-one",
@@ -296,7 +296,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                 "gql-pr-by-head",
                                 "pr-checks",
                                 "pr-comments"]
-"pr-management-mentor" = ["viewer",
+"pr-management-thread-mentor" = ["viewer",
                           "repo-issue-view",
                           "pr-view-with-body",
                           "pr-comments",
