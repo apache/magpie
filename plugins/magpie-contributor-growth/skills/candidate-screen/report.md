@@ -22,9 +22,17 @@ Sources collected: <list>; not collected: <list, with the reason>
 Pool: <N> contributors; pre-filter kept <N> (committer <N>, <governance-body> <N>)
 Details links open live searches; the counts in each section were measured at <end>.
 
-## People
+## Headline
 
-- [<Real Name> (handle)](#<anchor of their section>) — <target>
+The same people as below, split by target with one phrase each — not a ranking, and not a readiness judgement.
+
+### Committer candidates
+
+- [<Real Name> (handle)](#<anchor of their section>) — <one phrase, the same claim as the opening sentence of their section>
+
+### <governance-body> candidates
+
+- [<Real Name> (handle)](#<anchor of their section>) — <one phrase, the same claim as the opening sentence of their section>
 
 ## Summary of findings
 
@@ -66,6 +74,8 @@ and community work; factual flags. Every claim links to its evidence.>
 
 - A handle is always a plain link, `[handle](https://github.com/handle)` — never `@handle`, so no one is notified.
 - Names follow [`real-names.md`](../nomination/real-names.md); a person with no verified name is listed by handle.
+- Each Headline subsection is alphabetical by GitHub handle, case-insensitive, like every other list in the report; a target with nobody measured still gets its heading, followed by `None.`.
+- The Headline one-liner restates the opening claim of the person's own section — what they built, where their activity concentrates — not a new judgement; it carries no information the full section doesn't already say, and never a readiness, comparison, or ranking claim.
 - Shares are percentages with one decimal.
 - The Activity table has a *Mailing-list posts* row for everyone: the count in Raw and Adjusted when the person has a confirmed address, otherwise *not collected*, never `0`; Discounted and Penalty hold an em dash, because the count comes from the list search and not from `metrics.json`.
 - A count fed by a capped stream is written `≥ N` and footnoted *"at least N — the search returned more than was fetched"*; any `notes` from `metrics.json` are listed under the candidate.
