@@ -408,7 +408,7 @@ by swapping the adapter, not the skill.
   provider-agnostic, stdlib-only Python API for structured decisions,
   `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
   The Jev provider connects to TypeSafe's API (`api.typesafe.ai/v1/systemone`,
-  model pinned to `systemone-2026-06-01`); the local provider connects to a
+  model pinned to `jev-1.14.0`); the local provider connects to a
   self-hosted OpenAI-compatible chat-completions endpoint such as Ollama,
   llama.cpp, or vLLM. `MAGPIE_TYPED_DECISION_PROVIDER` selects `jev` or
   `local`; when unset, the registry selects configured Jev or reports
