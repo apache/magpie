@@ -21,7 +21,7 @@ import io
 import json
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from pr_management.stack_review import stack_ledger
@@ -389,12 +389,35 @@ class CliTest(unittest.TestCase):
             with redirect_stdout(omitted):
                 self.assertEqual(stack_ledger.main(argv), 0)
             missing = io.StringIO()
-            with redirect_stdout(missing):
+            stderr = io.StringIO()
+            with redirect_stdout(missing), redirect_stderr(stderr):
                 self.assertEqual(
                     stack_ledger.main([*argv, "--gitattributes", str(Path(tmp, ".gitattributes"))]),
                     0,
                 )
             self.assertEqual(json.loads(missing.getvalue()), json.loads(omitted.getvalue()))
+            self.assertEqual(stderr.getvalue(), "")
+
+    def test_missing_gitattributes_parent_warns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d1 = Path(tmp, "1.diff")
+            d1.write_text(_file_diff("pkg/a.py", [(["x = 1"], ["x = 2"])]), encoding="utf-8")
+            attrs = Path(tmp, "missing-clone", ".gitattributes")
+            argv = ["ledger", "--layer", f"1={d1}"]
+            omitted = io.StringIO()
+            with redirect_stdout(omitted):
+                self.assertEqual(stack_ledger.main(argv), 0)
+            missing = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(missing), redirect_stderr(stderr):
+                self.assertEqual(stack_ledger.main([*argv, "--gitattributes", str(attrs)]), 0)
+
+            self.assertEqual(missing.getvalue(), omitted.getvalue())
+            self.assertEqual(
+                stderr.getvalue(),
+                f"Could not read attributes at {str(attrs)!r}. "
+                "Using built-in and --generated-globs patterns.\n",
+            )
 
     def test_gitattributes_read_errors_propagate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

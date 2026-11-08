@@ -46,6 +46,7 @@ import fnmatch
 import hashlib
 import json
 import keyword
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -776,8 +777,14 @@ def main(argv: list[str] | None = None) -> int:
             with open(args.gitattributes, encoding="utf-8") as fh:
                 globs.extend(parse_gitattributes_generated(fh.read()))
         except FileNotFoundError:
-            # The skill passes this path even when the clone has no .gitattributes.
-            pass
+            # A checkout can legitimately omit its .gitattributes.
+            parent = os.path.dirname(args.gitattributes) or os.curdir
+            if not os.path.exists(parent):
+                print(
+                    f"Could not read attributes at {args.gitattributes!r}. "
+                    "Using built-in and --generated-globs patterns.",
+                    file=sys.stderr,
+                )
     layers: dict[int, list[FileDiff]] = {}
     for position, path in args.layer:
         with open(path, encoding="utf-8", errors="replace") as fh:
