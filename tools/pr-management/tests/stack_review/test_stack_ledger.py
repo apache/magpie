@@ -396,6 +396,31 @@ class CliTest(unittest.TestCase):
                 )
             self.assertEqual(json.loads(missing.getvalue()), json.loads(omitted.getvalue()))
 
+    def test_gitattributes_read_errors_propagate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d1 = Path(tmp, "1.diff")
+            d1.write_text(_file_diff("pkg/a.py", [(["x = 1"], ["x = 2"])]), encoding="utf-8")
+            attrs = Path(tmp, ".gitattributes")
+            attrs.write_bytes(b"\xff")
+            argv = ["ledger", "--layer", f"1={d1}", "--gitattributes", str(attrs)]
+
+            with self.assertRaises(UnicodeDecodeError):
+                stack_ledger.main(argv)
+
+            attrs.unlink()
+            attrs.mkdir()
+            with self.assertRaises(OSError) as error:
+                stack_ledger.main(argv)
+            self.assertEqual(error.exception.filename, str(attrs))
+
+    def test_missing_layer_diff_raises_with_missing_gitattributes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d1 = Path(tmp, "missing.diff")
+            attrs = Path(tmp, ".gitattributes")
+            with self.assertRaises(FileNotFoundError) as error:
+                stack_ledger.main(["ledger", "--layer", f"1={d1}", "--gitattributes", str(attrs)])
+            self.assertEqual(error.exception.filename, str(d1))
+
     def test_ledger_then_render_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             d1 = Path(tmp, "1.diff")
