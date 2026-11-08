@@ -375,6 +375,27 @@ class LedgerTest(unittest.TestCase):
 
 
 class CliTest(unittest.TestCase):
+    def test_missing_gitattributes_matches_omitting_the_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            d1 = Path(tmp, "1.diff")
+            d1.write_text(
+                _file_diff("pkg/a.py", [(["x = 1"], ["x = 2"])])
+                + _file_diff("pkg/uv.lock", [(["old"], ["new"])])
+                + _file_diff("pkg/report.json", [(["{}"], ['{"x": 1}'])]),
+                encoding="utf-8",
+            )
+            argv = ["ledger", "--layer", f"1={d1}", "--generated-globs", "pkg/report.json"]
+            omitted = io.StringIO()
+            with redirect_stdout(omitted):
+                self.assertEqual(stack_ledger.main(argv), 0)
+            missing = io.StringIO()
+            with redirect_stdout(missing):
+                self.assertEqual(
+                    stack_ledger.main([*argv, "--gitattributes", str(Path(tmp, ".gitattributes"))]),
+                    0,
+                )
+            self.assertEqual(json.loads(missing.getvalue()), json.loads(omitted.getvalue()))
+
     def test_ledger_then_render_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             d1 = Path(tmp, "1.diff")

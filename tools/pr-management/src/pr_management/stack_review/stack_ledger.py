@@ -733,7 +733,8 @@ def main(argv: list[str] | None = None) -> int:
         "--generated-globs", default="", help="comma-separated extra generated-file globs"
     )
     ledger_cmd.add_argument(
-        "--gitattributes", help="a .gitattributes whose linguist-generated entries count as generated"
+        "--gitattributes",
+        help="read linguist-generated entries from this .gitattributes when present",
     )
     ledger_cmd.add_argument(
         "--read-budget",
@@ -771,8 +772,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.generated_globs:
         globs.extend(g.strip() for g in args.generated_globs.split(",") if g.strip())
     if args.gitattributes:
-        with open(args.gitattributes, encoding="utf-8") as fh:
-            globs.extend(parse_gitattributes_generated(fh.read()))
+        try:
+            with open(args.gitattributes, encoding="utf-8") as fh:
+                globs.extend(parse_gitattributes_generated(fh.read()))
+        except FileNotFoundError:
+            # The skill passes this path even when the clone has no .gitattributes.
+            pass
     layers: dict[int, list[FileDiff]] = {}
     for position, path in args.layer:
         with open(path, encoding="utf-8", errors="replace") as fh:
