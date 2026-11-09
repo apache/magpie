@@ -1,7 +1,7 @@
 {
   "name": "magpie-contributor-growth",
   "description": "Apache Magpie \u2014 Committer readiness and onboarding: activity, calibration, nominations, sentiment and post-vote onboarding.",
-  "version": "0.9.0.dev202611090650",
+  "version": "0.9.0.dev202611090749",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
