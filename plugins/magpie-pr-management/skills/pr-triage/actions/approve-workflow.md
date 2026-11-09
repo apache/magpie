@@ -4,10 +4,11 @@
 # `approve-workflow` — approve pending CI for a first-time contributor
 
 **Inspect the diff first** — [`workflow-approval.md`](../workflow-approval.md) holds the protocol.
-Only after the maintainer confirms the diff is not malicious, re-list the pending runs at action time (another maintainer may have approved since the sweep):
+Only after the maintainer confirms the diff is not malicious, re-list the pending runs at action time (another maintainer may have approved since the sweep) and refresh the liveness read (`guard` checks the head against any saved copy, so a stale one reports a head move that never happened):
 
 ```bash
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save runs-head-<N>.json runs-at-head <head_sha>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save liveness-<N>.json gql-pr-liveness <N>
 uv run --project <framework>/tools/pr-management pr-management triage guard approve-workflow --pr <N> --head <head_sha> --saved-dir <workspace>/saved
 ```
 
