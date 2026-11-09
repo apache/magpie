@@ -222,6 +222,7 @@ def test_running_ci_without_auto_merge_still_gates() -> None:
         {"ci_state": "EXPECTED"},
         {"ci_state": "PENDING", "real_ci": False},
         {"ci_state": "SUCCESS", "real_ci": False},
+        {"ci_state": "PENDING", "pending_not_required": ("Workflow approval",)},
     ],
 )
 def test_ci_that_never_ran_names_the_workflow_action(ci: dict[str, Any]) -> None:

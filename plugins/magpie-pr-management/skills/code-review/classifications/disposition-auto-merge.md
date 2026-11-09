@@ -9,6 +9,7 @@ Plain `APPROVE` and `FIXUP` stay in the overrides unless CI is still running; a 
 
 1. **Post the `APPROVE`** as usual — immediately, even while real CI is still running (`ci_pending_held_by_auto_merge`), provided every running check is a required one (auto-merge waits only for those; a running check that is not required keeps the CI gate); for the fixup variant, right after the push ([`disposition-fixup.md`](disposition-fixup.md) step 6).
    Failing CI, a rollup green from bot checks only, and workflows waiting for approval still rule it out (Golden rule 8); `ci_action` names the run to approve or re-run first.
+   A held run that shows up as a pending check that is not required rules it out too, and step 3 cannot release it, because `release-runs` needs an approval: follow `ci_action` and approve it through `pr-management-triage` first.
 2. **Refresh the liveness read and re-run `guard`** against the head the approval was made on — save `gql-pr-liveness <N>` again first, so `guard` is not reading the pre-post copy. New commits since → stop; do not enable auto-merge on a head nobody reviewed.
 3. **Release held workflow runs at the head.** Auto-merge only works if the required checks run, and a push — the fixup, or a contributor push the guard just saw — can leave the head's runs held in `action_required`.
    Read them per head (the repository-wide `runs-action-required` list is capped at 1000 and can miss them):
