@@ -430,7 +430,7 @@ kilobytes — which a deterministic tool then reads from the file.
   inside its own writable roots, could already write there. Create them once:
 
   ```bash
-  mkdir -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
+  mkdir -p -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
   ```
 
 - The workspace passes the same ownership and mode checks as for body files;

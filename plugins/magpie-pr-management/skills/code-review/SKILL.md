@@ -22,7 +22,7 @@ when_to_use: |
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:97ef701d93960492
+surface_hash: sha256:871da2459ce53192
 license: Apache-2.0
 measured_tokens: 4119
 ---
