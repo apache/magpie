@@ -284,6 +284,7 @@ table above — note it is the **directory** name, not the alias.
 ### Renamed commands
 
 These skill renames keep the family plugins unchanged. Existing config filenames such as `pr-management-quick-merge-config.md` and `mentoring-config.md` remain valid.
+In a copied `mentoring-config.md`, change `mentoring_invocation_command` from `/magpie-pr-management:mentor` to `/magpie-pr-management:thread-mentor`, or the mentoring sweep invokes a command that no longer exists.
 
 | Old marketplace command | New marketplace command | Old portable command | New portable command |
 |---|---|---|---|
@@ -294,6 +295,7 @@ These skill renames keep the family plugins unchanged. Existing config filenames
 Per-skill override files follow the new flat names.
 Rename existing personal or committed overrides from `pr-management-mentor.md`, `pr-management-quick-merge.md`, or `dependency-audit.md` to `pr-management-thread-mentor.md`, `pr-management-merge-candidates.md`, or `dependency-vulnerability-audit.md`, respectively.
 Update custom vetted-ops caller allowlists to the same new flat names.
+Then approve the edited policy again: reads run only under the approved copy in `~/.config/apache-magpie/vetted-ops/`, and until it carries the new names they are refused.
 The runtime `pr-management mentor` and `pr-management quick-merge` tool commands are unchanged.
 
 ## Supported agents

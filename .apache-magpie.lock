@@ -21,7 +21,7 @@ reconciled:
     committer-onboarding:       sha256:fc0108bae9d7b687
     contributor-to-committer:   sha256:bdf92c88a304ddea
     deduplicate:                sha256:10a3cb1b8a2892e2
-    dependency-vulnerability-audit: sha256:19ba62ec34a55604
+    dependency-audit:           sha256:19ba62ec34a55604
     fix-workflow:               sha256:cdd7487f53514882
     flaky-test-triage:          sha256:eda3c3891897f08d
     good-first-issue-author:    sha256:ac2d0fda09c67231
