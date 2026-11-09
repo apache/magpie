@@ -81,13 +81,6 @@ FORBIDDEN_PATTERNS: frozenset[str] = frozenset(
     }
 )
 
-# Family name → patterns the framework's skills in that family
-# invoke often. Keep narrow — every entry MUST be read-only and
-# scoped to a specific tool.
-#
-# Empty-string key "" means "applies to every adopter regardless
-# of family choice" (e.g. lychee — the framework itself ships
-# docs, so every adopter ends up running it).
 _GENERIC_GMAIL_READ_TOOLS: frozenset[str] = frozenset(
     {
         "mcp__claude_ai_Gmail__get_thread",
@@ -103,6 +96,13 @@ _GMAIL_PLAINTEXT_AUTH_TOOLS: frozenset[str] = frozenset(
     }
 )
 
+# Family name → patterns the framework's skills in that family
+# invoke often. Keep narrow — every entry MUST be read-only and
+# scoped to a specific tool.
+#
+# Empty-string key "" means "applies to every adopter regardless
+# of family choice" (e.g. lychee — the framework itself ships
+# docs, so every adopter ends up running it).
 RECOMMENDED_BY_FAMILY: dict[str, frozenset[str]] = {
     "": frozenset(
         {
@@ -124,30 +124,15 @@ _ASF_PONYMAIL_READ_TOOLS: frozenset[str] = frozenset(
     }
 )
 
-_ASF_APACHE_PROJECTS_READ_TOOLS: frozenset[str] = frozenset(
-    {
-        "mcp__apache-projects__project_stats",
-        "mcp__apache-projects__get_committee",
-        "mcp__apache-projects__get_group_members",
-        "mcp__apache-projects__get_person",
-        "mcp__apache-projects__search_people",
-        "mcp__apache-projects__get_releases",
-        "mcp__apache-projects__get_repositories",
-        "mcp__apache-projects__list_committees",
-        "mcp__apache-projects__search_projects",
-    }
-)
-
 # Organization → family → patterns recommended only to that organization's
-# projects: the ASF's PonyMail archive, its project directory and its CVE
-# tool mean nothing to a project outside the ASF, so recommending them
+# projects: the ASF's PonyMail archive and its CVE tool
+# mean nothing to a project outside the ASF, so recommending them
 # there would only widen the allow-list.
 RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
         "release-management": _ASF_PONYMAIL_READ_TOOLS,
         "security": frozenset(
             _ASF_PONYMAIL_READ_TOOLS
-            | _ASF_APACHE_PROJECTS_READ_TOOLS
             | {"Bash(vulnogram-api-record-fetch *)"}
         ),
     },

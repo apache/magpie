@@ -106,7 +106,7 @@ def test_default_family_always_included_even_when_not_requested():
 
 
 def test_asf_only_recommendations_need_the_asf_organization():
-    """PonyMail, the ASF project directory and Vulnogram are ASF services."""
+    """PonyMail and Vulnogram are ASF services."""
     asf_only = {
         "mcp__ponymail__auth_status",
         "mcp__ponymail__get_thread",
@@ -114,15 +114,6 @@ def test_asf_only_recommendations_need_the_asf_organization():
         "mcp__ponymail__get_source",
         "mcp__ponymail__list_lists",
         "mcp__ponymail__list_restrictions",
-        "mcp__apache-projects__project_stats",
-        "mcp__apache-projects__get_committee",
-        "mcp__apache-projects__get_group_members",
-        "mcp__apache-projects__get_person",
-        "mcp__apache-projects__search_people",
-        "mcp__apache-projects__get_releases",
-        "mcp__apache-projects__get_repositories",
-        "mcp__apache-projects__list_committees",
-        "mcp__apache-projects__search_projects",
         "Bash(vulnogram-api-record-fetch *)",
     }
     elsewhere = {f.pattern for f in audit_settings([], ["security"]).missing_recommended}

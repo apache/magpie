@@ -14,8 +14,7 @@
   "servers": {
     "apache-projects": {
       "families": [
-        "contributor-growth",
-        "security"
+        "contributor-growth"
       ],
       "tools": [
         "project_stats",

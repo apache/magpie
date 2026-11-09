@@ -698,23 +698,10 @@ adopter opted into via
   - `mcp__ponymail__get_source`
   - `mcp__ponymail__list_lists`
   - `mcp__ponymail__list_restrictions`
-  - `mcp__apache-projects__project_stats`
-  - `mcp__apache-projects__get_committee`
-  - `mcp__apache-projects__get_group_members`
-  - `mcp__apache-projects__get_person`
-  - `mcp__apache-projects__search_people`
-  - `mcp__apache-projects__get_releases`
-  - `mcp__apache-projects__get_repositories`
-  - `mcp__apache-projects__list_committees`
-  - `mcp__apache-projects__search_projects`
   - `Bash(vulnogram-api-record-fetch *)`
 
-  (The `mcp__apache-projects__*` read tools back the roster /
-  affiliation lookups — also used by `contributor-nomination`,
-  the maintainer-side <governance-body>/committer assessment skill. Both MCP
-  servers are installed from the latest `main` of `apache/comdev`;
-  see [`tools/apache-projects/tool.md`](../../../../tools/apache-projects/tool.md)
-  and [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md).)
+  (The PonyMail MCP server is installed from the latest `main` of
+  `apache/comdev`; see [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md).)
 
 - **Any family that ships docs / markdown** (effectively
   every adopter, since the framework itself ships docs) —
