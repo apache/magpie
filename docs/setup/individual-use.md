@@ -318,7 +318,7 @@ the agent may touch.
 | Works | Does not work |
 |---|---|
 | Every **install** — marketplace or snapshot — works exactly as it does on an adopted repo | A workflow skill run with no project config at all: its pre-flight stops and proposes `/magpie-setup` rather than guessing. The install is fine; what is missing is the repo's configuration |
-| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` — once the repo has a `.apache-magpie-overrides/` for them to read | `/magpie-setup verify` / `upgrade` — these read the committed lock and snapshot, which do not exist here |
+| All workflow skills — `security-*`, `pr-management-*`, `issue-*`, `release-*`, `mentoring-*`, `pairing-*`, `repo-health-*` — once the repo has a `.apache-magpie-overrides/` for them to read | `/magpie-setup verify` / `update` — these read the committed lock and snapshot, which do not exist here |
 | Personal configuration and overrides in `<git-common-dir>/apache-magpie/` | Shared overrides (`.apache-magpie-overrides/`) — the committed override directory requires the project to have adopted |
 | `setup-isolated-setup-install` / `-verify` / `-doctor` (the secure-setup skills are user-scope artefacts, not per-project) | Drift and floor detection — there is no `.apache-magpie.lock` to compare against, so the pre-flight falls through to the project-config check above |
 | The full safety, confidentiality, and privacy baseline (always applied regardless of adoption state) | — |

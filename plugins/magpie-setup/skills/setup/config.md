@@ -203,7 +203,7 @@ An older copy under the personal layer (`.apache-magpie-local/setup_preflight/`,
 once the new one answers.
 
 The shared copy serves every project without one of its own, so the
-last `config` or `upgrade` from a plugin decides its version. The checker
+last `config` or `update` from a plugin decides its version. The checker
 reads each project's own lock and configuration, so a project pinned to
 an older framework is still checked against its own pin.
 
@@ -411,7 +411,7 @@ applied to two stores.
   surface that migrates it there.
 - **Already adopted** (`<committed-lock>` exists) → write **no**
   `version`, `at`, or `skills` entry anywhere, ever. The committed stamp
-  is `adopt`'s, `reconcile`'s, and `upgrade`'s to write — never
+  is `adopt`'s, `reconcile`'s, and `update`'s to write — never
   `config`'s, because staging into a committed file from an unattended
   pre-flight run is exactly what this sub-action must never do (see
   [Hard rule 1](#hard-rules)), and this skill's own
@@ -634,7 +634,7 @@ Tell the user, in this order:
    an already-adopted project, only the skill(s) whose missing
    configuration **this run actually wrote**, each recorded as an
    `acknowledged.skills` entry instead, and that the committed stamp is
-   untouched — `adopt`, `reconcile`, or `upgrade` write that. A skill
+   untouched — `adopt`, `reconcile`, or `update` write that. A skill
    that was already fully configured before this run gets nothing here
    on an adopted project, even though it is in scope — say so plainly
    rather than letting silence read as an oversight. Say plainly, too,

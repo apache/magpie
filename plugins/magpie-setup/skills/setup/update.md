@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# upgrade — refresh the gitignored snapshot per the committed lock
+# update — move this install to the new version
 
 **Scope: the pinned snapshot install.** On the default
 **marketplace** install there is no snapshot and no lock to drift
@@ -14,9 +14,10 @@ between `<committed-lock>` (project pin) and `<local-lock>`
 (per-machine fetch), then re-installs per the committed lock,
 refreshes symlinks, and reconciles overrides.
 
-Two trigger paths land here:
+Most runs start from [`setup-upgrade`](../upgrade/SKILL.md), which runs this as its first phase when the version has to move and then checks and fixes the machine and project.
+Two trigger paths also land here directly:
 
-1. **User-initiated** — explicit `setup upgrade`,
+1. **User-initiated** — explicit `setup update`,
    e.g. after a colleague bumped `<committed-lock>` to a
    new framework version and the user wants to align.
 2. **Drift-triggered from a framework skill** — any
@@ -46,8 +47,8 @@ Both paths run the same flow.
    Compare `git rev-parse --git-dir` against
    `git rev-parse --git-common-dir`. If different, stop with:
 
-   > *"`upgrade` runs in the main checkout, not a worktree.
-   > From the main: `cd <main-path> && setup upgrade`.
+   > *"`update` runs in the main checkout, not a worktree.
+   > From the main: `cd <main-path> && setup update`.
    > Every worktree automatically picks up the refreshed
    > snapshot once the main upgrade lands, because each
    > worktree's `<snapshot-dir>` is a symlink to the main's
@@ -324,7 +325,7 @@ bootstrap logic. It implements
 4. **Reload in-flight.** Immediately after the copy lands —
    before doing anything else in this run — re-read the
    updated `.agents/skills/magpie-setup/SKILL.md`,
-   the just-overwritten `upgrade.md` (this file), and any
+   the just-overwritten `update.md` (this file), and any
    helper file you have already opened in this run
    (`agents.md`, `overrides.md`, `verify.md`). Resume
    the upgrade from the step *after* this one, executing
@@ -778,7 +779,7 @@ rather than pulls in via symlink. Examples:
 - The `settings.local.json` `hooks.PreToolUse` wiring for the
   deterministic guard ([`tools/agent-guard`](../../../../tools/agent-guard/README.md)).
   The engine itself is **not** copied anywhere: the wiring resolves
-  it inside the snapshot, so `upgrade` refreshing the snapshot
+  it inside the snapshot, so `update` refreshing the snapshot
   refreshes the engine and every skill-owned guard with it. An
   adopter whose entry still names the retired per-repository copy
   (`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py`) is rewritten
@@ -1026,7 +1027,7 @@ The [PonyMail](../../../../tools/ponymail/tool.md) and
 servers are installed from a local `apache/comdev` checkout and are
 **tracked at `main`, not pinned** (no tagged releases — contrast
 the cooldown-pinned system tools in the secure-setup update flow).
-An ASF adopter running `setup upgrade` should refresh that
+An ASF adopter running `setup update` should refresh that
 checkout in the same pass, so it does not silently rot between
 framework upgrades.
 
@@ -1192,8 +1193,10 @@ Recommended follow-ups:
     appears in the diff.
   - Open .apache-magpie-overrides/<name>.md for any ⚠ entry above.
 
-Then run /magpie-setup:complete-upgrade to check and fix the machine and project for the new version.
+Then run /magpie-setup:upgrade to check and fix the machine and project for the new version.
 ```
+
+When [`setup-upgrade`](../upgrade/SKILL.md) started this run, leave that last line out and hand back to it: it carries on with the check-and-fix phase in the same run.
 
 ## Failure modes
 

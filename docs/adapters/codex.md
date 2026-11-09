@@ -15,6 +15,7 @@
     - [Deterministic guard rules](#deterministic-guard-rules)
     - [Vetted operations](#vetted-operations)
     - [Trust boundary](#trust-boundary)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [setup-isolated lifecycle](#setup-isolated-lifecycle)
   - [Known limitations](#known-limitations)
@@ -232,6 +233,14 @@ state.
 Policy changes remain normal reviewed repository changes: an approved elevated
 action can still modify `.codex/`, so the profile complements — never
 replaces — code review.
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or invoke `$magpie-setup:upgrade`.
+On a marketplace install with a newer version it runs `codex plugin marketplace upgrade apache-magpie`; start a new session and invoke it again for the check-and-fix phase.
+On a pinned snapshot it runs `setup update` first.
+The session hook prompts once per version after you trust it in `/hooks`, and every skill asks again while `codex plugin list` shows a version this project has not upgraded to.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

@@ -472,7 +472,7 @@ def test_the_setup_mechanism_is_never_flagged(repo: Path) -> None:
     """`/magpie-setup` names the install mechanism, not a skill a marketplace
     user invokes, so it stays legal on every page."""
     _skill(repo, "setup", "setup", "Triage")
-    _doc(repo, "Run `/magpie-setup upgrade` to refresh the snapshot.\n")
+    _doc(repo, "Run `/magpie-setup update` to refresh the snapshot.\n")
     assert _errors(mod.check_portable_form_is_flagged) == []
 
 

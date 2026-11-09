@@ -24,7 +24,7 @@ On a pinned-snapshot install the commands are shorter: `/magpie-setup config`, `
 - 🧩 Codex has no auto-update, so run `codex plugin marketplace upgrade apache-magpie`; on Antigravity, re-run `agy plugin install https://github.com/apache/magpie`
 
 After an update, the next skill you run checks your configuration against it and proposes any fixes;
-`/magpie-setup:setup reconcile` checks everything at once (on a pinned snapshot, `/magpie-setup upgrade` does the update).
+`/magpie-setup:setup reconcile` checks everything at once (on a pinned snapshot, `/magpie-setup update` does the update).
 
 ## 💬 Just ask
 

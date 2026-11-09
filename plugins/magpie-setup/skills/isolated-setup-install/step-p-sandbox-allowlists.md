@@ -414,7 +414,7 @@ redundant but harmless. The committed project-scope file is
 have no business in a file shared across contributors).
 
 The helper is also invoked by `setup install`,
-`setup upgrade`, and `setup worktree-init` for
+`setup update`, and `setup worktree-init` for
 the same reason. The repo-local `post-checkout` git hook chains
 into the helper too, so new worktrees added via `git worktree add`
 inherit access automatically — but `setup install` writes that hook

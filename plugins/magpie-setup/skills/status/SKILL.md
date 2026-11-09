@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:85dfb8b48739fc11
 license: Apache-2.0
-measured_tokens: 2404
+measured_tokens: 2402
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -77,7 +77,7 @@ Also at the top of every run, this skill compares the gitignored
 `.apache-magpie.local.lock` (per-machine fetch) against the
 committed `.apache-magpie.lock` (the project pin). On mismatch the
 skill surfaces the gap and proposes
-[`setup upgrade`](../setup/upgrade.md). The proposal is
+[`setup update`](../setup/update.md). The proposal is
 non-blocking; surfacing the drift is itself part of this skill's
 dashboard, so the comparison feeds [Step 1](#step-1--render-the-dashboard)
 rather than gating the run.
@@ -192,7 +192,7 @@ present on disk but not wired; an opt-in family not installed;
 dangling symlinks; drift) and present each as a concrete,
 confirmable change. On confirmation, **delegate to
 [`setup`](../setup/SKILL.md)** with the right flags
-(`agents:<list>`, `skill-families:<list>`, or `upgrade`) — this
+(`agents:<list>`, `skill-families:<list>`, or `update`) — this
 skill never edits symlinks, locks, or `.gitignore` itself.
 
 Full gap-detection and delegation rules: [`adjust.md`](adjust.md).
@@ -230,7 +230,7 @@ Full gap-detection and delegation rules: [`adjust.md`](adjust.md).
 - [`scripts/collect_status.py`](scripts/collect_status.py) — the
   deterministic, read-only state collector.
 - [`setup`](../setup/SKILL.md) — adoption mutation:
-  [`install.md`](../setup/install.md), [`upgrade.md`](../setup/upgrade.md),
+  [`install.md`](../setup/install.md), [`update.md`](../setup/update.md),
   the [`agents.md`](../setup/agents.md) target registry, and the
   [Golden rules](../setup/SKILL.md#golden-rules).
 - [`setup verify`](../setup/verify.md) — the deep

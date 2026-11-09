@@ -162,7 +162,7 @@ reconciled:
   override, and most of the catalogue for a project that commits a
   widely-read `project.md`.
 
-**Written only by `setup`**: `adopt`, `reconcile` and `upgrade` write
+**Written only by `setup`**: `adopt`, `reconcile` and `update` write
 the committed block, and
 [`config`](config.md#step-3b--record-what-this-run-reconciled) writes
 only the personal layer's `reconciled.json`, never the lock. Never
@@ -174,7 +174,7 @@ agrees with a hash nobody actually computed.
 the project was last fully swept."** Each of those sub-actions updates
 the block without necessarily touching every skill in `skills:` —
 [`adopt`](adopt.md) migrates whatever the local stamp already held,
-[`upgrade`](upgrade.md#step-5--reconcile-overrides) reconciles whatever
+[`update`](update.md#step-5--reconcile-overrides) reconciles whatever
 `.apache-magpie-overrides/` covers, and only
 [`reconcile`](reconcile.md) itself walks every configured skill in one
 pass. (`config` moves the same clock in the local store, on a project
@@ -327,7 +327,7 @@ fetched_at:       <ISO-8601 timestamp>
 
 The drift check on every framework-skill invocation compares
 this against `<committed-lock>` and surfaces any mismatch as a
-proposed `setup upgrade`.
+proposed `setup update`.
 
 ## Source locks — the same split, for trusted external sources
 
@@ -345,4 +345,4 @@ never entangles a framework upgrade:
 
 They are written and reconciled by
 [`skill-sources.md`](skill-sources.md) and re-fetched on
-`upgrade`; the format and drift semantics live there.
+`update`; the format and drift semantics live there.

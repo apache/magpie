@@ -27,7 +27,7 @@ workflow and drift is repaired rather than merely reported.
 That single-block story does not scale by hand to a second, third, and
 fourth repeated paragraph (the git-repo + main-checkout pre-check shared by
 `install.md`/`uninstall.md`, the ASF-detection step shared by
-`upgrade.md`/`verify.md`, worktree enumeration, the sandbox-allowlist
+`update.md`/`verify.md`, worktree enumeration, the sandbox-allowlist
 helper chain, …) without either duplicating this whole script per block or
 inventing a second propagation mechanism — which would just be the
 duplication this repository exists to remove, one layer up. This script is
@@ -277,7 +277,7 @@ def declared_block_text(
     in one host would silently lose that indent on its very first line (and
     keep it on every other) the moment it landed anywhere else. Applying
     `indent` here, once, after `.strip()`, is what lets one flat source
-    render correctly whether it lands flush left (`upgrade.md`'s top-level
+    render correctly whether it lands flush left (`update.md`'s top-level
     `Procedure:` list) or nested three spaces under a list item
     (`install.md`'s equivalent, nested under `2. **Propagate ...**`)."""
     source = declared_block_source(name, blocks_dir)

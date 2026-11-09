@@ -213,16 +213,16 @@ remind the user:
    PR against `apache/magpie` implementing the change
    in the framework skill itself. The framework will then
    apply the change on every adopter's next
-   `setup upgrade`, and this adopter's override
+   `setup update`, and this adopter's override
    becomes redundant — at which point the user deletes it.
 4. **Re-anchor on framework upgrades.** The skill's
-   [`upgrade.md`](upgrade.md) sub-action surfaces conflicts
+   [`update.md`](update.md) sub-action surfaces conflicts
    when a framework upgrade restructures a skill the user has
    an override for. Re-anchor when prompted.
 
 ## Failure modes
 
-- **Snapshot missing** → redirect to `setup upgrade`.
+- **Snapshot missing** → redirect to `setup update`.
 - **Skill name typo** → list available skills, ask again.
 - **Non-adopted repo + no `--local` flag** → the committed
   surface is unavailable; offer the personal surface

@@ -183,7 +183,7 @@ def framework_stamp(root: Path) -> str:
     package (a plugin or framework tree), in the project's own framework
     tree, or in its pinned snapshot.  Otherwise — the copy in the personal
     layer of a marketplace install, which carries no manifest — the
-    fingerprint of this package, which `/magpie-setup:setup upgrade`
+    fingerprint of this package, which `/magpie-setup:setup update`
     refreshes, so a dismissal lifts when an upgrade changes the checker.
     """
     for candidate in (

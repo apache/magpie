@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# setup-complete-upgrade evals
+# setup-upgrade evals
 
-Behavioral evals for the `setup-complete-upgrade` skill.
+Behavioral evals for the `setup-upgrade` skill.
 
 ## Suites (18 cases total)
 
@@ -17,11 +17,11 @@ Behavioral evals for the `setup-complete-upgrade` skill.
 ```bash
 # All cases
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/setup-complete-upgrade/
+    tools/skill-evals/evals/setup-upgrade/
 
 # Single suite
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/setup-complete-upgrade/step-plan/fixtures/
+    tools/skill-evals/evals/setup-upgrade/step-plan/fixtures/
 ```
 
 ## Notes

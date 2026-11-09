@@ -129,6 +129,11 @@ if you're on the pinned-snapshot fallback instead).
 
 ## Update / maintain
 
+**Upgrading is one command on every install:** say *"upgrade magpie"*, or run `/magpie-setup:upgrade` on the marketplace install.
+It moves to the new version when it has to, then checks this machine and this project and applies the fixes you approve.
+After Magpie changes, every skill asks whether to upgrade until you have.
+Each agent's spelling and update command: [Upgrading Magpie](docs/setup/marketplace.md#upgrading-magpie).
+
 **Marketplace install** (the recommended path above):
 
 - `/plugin marketplace update apache-magpie` then
@@ -149,9 +154,10 @@ if you're on the pinned-snapshot fallback instead).
 
 **Pinned-snapshot install** (the fallback):
 
-- `/magpie-setup upgrade` — refresh the snapshot to a newer
-  framework version + reconcile any overrides against the new
-  framework structure.
+- the `upgrade` skill (`magpie-setup-upgrade` on this install) — refresh the snapshot to the version the
+  committed lock pins (it runs `/magpie-setup update`), reconcile any
+  overrides against the new framework structure, then check and fix
+  this machine and project.
 - `/magpie-setup verify` — read-only health check (snapshot
   intact, symlinks live, `.gitignore` correct, etc.).
 - `/magpie-setup:setup override <framework-skill>` — open or

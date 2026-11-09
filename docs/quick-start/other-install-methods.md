@@ -154,7 +154,7 @@ ln -sf ../../.agents/skills/magpie-setup .github/skills/magpie-setup
 cat >> .gitignore <<'GITIGNORE'
 
 # Magpie — gitignored snapshot of the framework, refreshed
-# by /magpie-setup upgrade. Build artefact, not source. No trailing
+# by /magpie-setup update. Build artefact, not source. No trailing
 # slash: worktree-init makes this a symlink to the main checkout's
 # snapshot, and a directory-only pattern would not match it.
 /.apache-magpie
@@ -310,14 +310,15 @@ stale on a `main`-tracking adopter), the skill surfaces the
 gap and proposes:
 
 ```text
-/magpie-setup upgrade
+/magpie-setup-upgrade
 ```
 
-`upgrade` deletes the gitignored snapshot, re-installs per the
+That runs `/magpie-setup update` and then checks and fixes this machine and project for the new version.
+`update` deletes the gitignored snapshot, re-installs per the
 committed lock, refreshes the gitignored symlinks (adding any
 new framework skills, removing any that were renamed away),
 and updates the local lock. See
-[`setup/upgrade.md`](../../skills/setup/upgrade.md)
+[`setup/update.md`](../../skills/setup/update.md)
 for the full flow.
 
 ---

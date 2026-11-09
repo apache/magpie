@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:4866c98daeb1e5c4
 license: Apache-2.0
-measured_tokens: 6616
+measured_tokens: 6615
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -228,7 +228,7 @@ Check 5 still reports the running `claude --version` beside that verdict.
     [`conditional-checks.md`](conditional-checks.md#check-17--roborev-exclusion-if-installed).
 
 18. **Local agent settings.** Every entry the reconciliation in
-    [`setup upgrade`](../setup/upgrade.md#reconcile-the-local-agent-settings)
+    [`setup update`](../setup/update.md#reconcile-the-local-agent-settings)
     would add is present in `.claude/settings.local.json`: the MCP tools of
     families installed here but not adopted and, only in the Magpie
     framework checkout itself, the template entries. A missing entry is ⚠: nothing is exposed, but the

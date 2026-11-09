@@ -16,7 +16,7 @@
 #
 # Detects when the installed plugin version has changed since the last
 # session (i.e. the marketplace updated it) and prompts the user to run
-# `/magpie-setup:complete-upgrade`. That skill covers what `setup upgrade`
+# `/magpie-setup:upgrade`. That skill covers what `setup update`
 # used to be suggested for (the snapshot, the agentic overrides, and drift)
 # plus the isolated setup.
 #
@@ -30,7 +30,7 @@
 # command and follows no symlink to do it.
 #
 # Agents without a session hook (e.g. Antigravity) get no automatic prompt;
-# their users reconcile with `/magpie-setup upgrade` after a plugin update.
+# their users run `/magpie-setup:upgrade` after a plugin update.
 #
 # The session environment comes from settings a project can set, and this hook
 # runs outside the sandbox, so none of it may choose what runs: bash is the
@@ -80,9 +80,9 @@ if [ "$current" != "$stored" ]; then
   printf '%s' "$current" >"$marker" 2>/dev/null || true
 
   if [ -n "$stored" ]; then
-    notice="Apache Magpie updated ($stored -> $current). Run \`/magpie-setup:complete-upgrade\` to check and fix this machine and this project for the new version."
+    notice="Apache Magpie updated ($stored -> $current). Run \`/magpie-setup:upgrade\` to check and fix this machine and this project for the new version."
   else
-    notice="Apache Magpie plugin $current is active. Run \`/magpie-setup:complete-upgrade\` to check and fix this machine and this project."
+    notice="Apache Magpie plugin $current is active. Run \`/magpie-setup:upgrade\` to check and fix this machine and this project."
   fi
 fi
 

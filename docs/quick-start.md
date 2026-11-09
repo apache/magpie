@@ -302,7 +302,7 @@ variant to your personal layer (`<git-common-dir>/apache-magpie/`, or
 both. A gate that says no is the useful output: it names the unapproved model
 and leaves your configuration alone until you decide.
 
-Re-run it after `/magpie-setup:setup upgrade` — what counts as approved can narrow
+Re-run it after `/magpie-setup:setup update` — what counts as approved can narrow
 between versions.
 
 → **The recipes, the variants, and what each mechanism does:**

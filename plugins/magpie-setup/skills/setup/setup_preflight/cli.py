@@ -52,6 +52,7 @@ from .core import (
 )
 from .delegation import findings as delegation_findings
 from .lockfile import MalformedLock
+from .upgrade import findings as upgrade_findings
 
 #: How to notice which harness is running, and that harness's own
 #: plugin-listing command (`install.md` Step M2/M5).  The markers mirror
@@ -257,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             project, cached = cached_project_findings(root, installed, harness=harness)
         findings = [
             *([] if args.no_welcome else welcome_findings(root, args.skill)),
+            *upgrade_findings(root, installed, harness),
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
             *_delegation(root, args.skill),

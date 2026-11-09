@@ -191,7 +191,7 @@ part that is not undone by deleting a directory.
 ## Step 6 — Re-run after an upgrade
 
 What counts as default-approved can narrow between framework
-versions. After `/magpie-setup:setup upgrade`, re-run Step 4: if an
+versions. After `/magpie-setup:setup update`, re-run Step 4: if an
 entry that used to pass is now opt-in, the gate surfaces it and
 the user takes the matching variant's opt-in recipe.
 

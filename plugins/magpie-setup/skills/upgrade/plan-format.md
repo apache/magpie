@@ -11,7 +11,7 @@ The user should be able to read it in seconds and approve it knowingly.
 This is the canonical layout:
 
 ```text
-complete-upgrade — Magpie 0.9.0.dev202610250024 (was 0.9.0.dev202610200101)
+upgrade — Magpie 0.9.0.dev202610250024 (was 0.9.0.dev202610200101)
 !!! 3 of 5 items leave the sandbox: 1, 4, 5 !!!
 
 Fix
@@ -45,7 +45,7 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 - **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, and show their unified diff under `details <n>`.
   They add only entries copied verbatim from `tools/agent-isolation/claude-settings.local.template.json` or the framework `.claude/settings.json`, or written by the helper that owns the write; never a value taken from gathered text.
   A change to the committed `.claude/settings.json` is never an item; it goes to *Run these yourself* as a diff.
-- **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup upgrade`.
+- **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup update`.
 - **Paths** are named as they resolve: in a linked worktree a personal-layer item names the main checkout's `.apache-magpie-local/`, never a new one in the worktree.
   Such a write needs no `[bypass]` when it is inside the gathered write scope (the directories where Gather's sandboxed probe write succeeded).
 - **Run these yourself** previews every hard-line or user-terminal command now, so nothing in the closing summary is a surprise.
@@ -91,7 +91,7 @@ The approval names the bypass explicitly through the header line, so one `yes` s
 When there is nothing actionable, as [`SKILL.md` → Plan](SKILL.md#plan) defines it:
 
 ```text
-complete-upgrade — Magpie 0.9.0.dev202610250024: this machine and this project are already in line.
+upgrade — Magpie 0.9.0.dev202610250024: this machine and this project are already in line.
 ```
 
 Then run the re-check, record the stamps, and stop.

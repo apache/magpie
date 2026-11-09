@@ -148,9 +148,9 @@ The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
    with per-agent relays back through the canonical entry) — identical to
    how framework-family skills are wired.
 
-Drift detection, `upgrade`, and `verify` extend to the source locks: a
+Drift detection, `update`, and `verify` extend to the source locks: a
 committed-vs-local mismatch surfaces the gap and proposes
-`/magpie-setup:setup upgrade`, which re-fetches per the committed pins.
+`/magpie-setup:setup update`, which re-fetches per the committed pins.
 
 ## Layout contract — skills, evals, tests
 

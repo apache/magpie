@@ -9,7 +9,7 @@ Return ONLY valid JSON with this structure:
 {
   "status": "clean" | "sync-needed" | "reinstall-needed" | "security-flagged" | "local-lock-missing",
   "severity": "ok" | "warning" | "error",
-  "remediation": "none" | "setup upgrade" | "investigate"
+  "remediation": "none" | "setup update" | "investigate"
 }
 ```
 
@@ -17,13 +17,13 @@ Return ONLY valid JSON with this structure:
   is at the upstream tip. `severity: "ok"`, `remediation: "none"`.
 - `"sync-needed"` — ref differs (tag bumped, or `git-branch` local is
   behind upstream tip), but method and URL match. `severity: "warning"`,
-  `remediation: "setup upgrade"`.
+  `remediation: "setup update"`.
 - `"reinstall-needed"` — method or URL differs between committed and
-  local lock. `severity: "error"`, `remediation: "setup upgrade"`.
+  local lock. `severity: "error"`, `remediation: "setup update"`.
 - `"security-flagged"` — `svn-zip` method and the SHA-512 in the
   committed lock does not match what is on disk / last fetched.
   `severity: "error"`, `remediation: "investigate"`.
 - `"local-lock-missing"` — `.apache-magpie.local.lock` is absent or
   unparsable. `severity: "warning"`,
-  `remediation: "setup upgrade"`.
+  `remediation: "setup update"`.
 - Do not include any text outside the JSON object.

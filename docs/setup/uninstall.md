@@ -49,7 +49,7 @@ into your repo.
 
 > **You may not actually want this.** To **change install
 > method or version**, use
-> [`/magpie-setup:setup upgrade`](../../skills/setup/upgrade.md)
+> [`/magpie-setup:setup update`](../../skills/setup/update.md)
 > — it keeps your overrides and re-uses the existing
 > wiring. To **temporarily detach a single skill for
 > debugging**, edit the relevant file under

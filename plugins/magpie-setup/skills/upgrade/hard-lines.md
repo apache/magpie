@@ -82,6 +82,6 @@ These are never run by the agent, whatever the plan says; each is printed with i
 - Anything needing `sudo`.
 - Anything needing a physical device, such as `ykman`.
 - A claude-code upgrade: `npm install -g --no-save @anthropic-ai/claude-code@latest`.
-- A plugin or marketplace update, a framework `git pull`, or a snapshot bump (`/magpie-setup:setup upgrade`).
+- A plugin or marketplace update, a framework `git pull`, or a snapshot bump (`/magpie-setup:setup update`).
 - Pinned-tool bumps (`bubblewrap`, `socat`): a manifest PR, never run here.
 - On a harness with no sandbox bypass, every item that would carry `[bypass]`.

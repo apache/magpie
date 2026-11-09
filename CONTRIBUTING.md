@@ -590,7 +590,7 @@ domains, and paths for your own tools such as GnuPG or Docker) ships as
 [`tools/agent-isolation/claude-settings.local.template.json`](tools/agent-isolation/claude-settings.local.template.json)
 and belongs in your gitignored `.claude/settings.local.json`, which Claude Code layers on
 top. [`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) puts it
-in place, and `setup upgrade` reconciles it whenever the template changes; both hand you
+in place, and `setup update` reconciles it whenever the template changes; both hand you
 the copy, since an agent cannot write its own settings. The local file is per
 worktree; `setup worktree-init` reconciles each new one. Keep your own additions in the
 same file: reconciliation only adds what the template gained and asks before removing

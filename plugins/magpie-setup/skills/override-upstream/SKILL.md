@@ -16,7 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:6aa9dd2488726450
 license: Apache-2.0
-measured_tokens: 3776
+measured_tokens: 3773
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -38,7 +38,7 @@ It takes one `.apache-magpie-overrides/<skill>.md` file in an adopter repo, help
 
 Overrides (per [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)) are deliberately *agentic* and *adopter-local*: no schema, no anchors, no patch tool.
 That makes them quick to write but hard to share, since every adopter who wants the same behaviour writes their own.
-**Upstreaming** is the escape hatch: when an override starts looking like a missing feature, a PR bakes it into the framework default, and every adopter gets it on their next `setup upgrade`.
+**Upstreaming** is the escape hatch: when an override starts looking like a missing feature, a PR bakes it into the framework default, and every adopter gets it on their next `setup update`.
 
 ## Adopter overrides
 
@@ -77,7 +77,7 @@ Public PR content is shown to the user before it is posted.
 
 **Golden rule 4 — decouple PR from override deletion.**
 Opening the framework PR is one step.
-Deleting the now-redundant override file is a separate step, AFTER the PR has merged AND the adopter has run `setup upgrade` to pick up the change.
+Deleting the now-redundant override file is a separate step, AFTER the PR has merged AND the adopter has run `setup update` to pick up the change.
 The skill ends with a pointer at that cleanup; it does not delete the override preemptively.
 
 ## Walk-through
@@ -87,7 +87,7 @@ The skill ends with a pointer at that cleanup; it does not delete the override p
 1. We are in an adopter repo (has `<adopter-repo>/.apache-magpie.lock` and `<adopter-repo>/.apache-magpie-overrides/`).
    If not, stop — the skill is for adopters with at least one override file.
 2. The snapshot is current (no drift per the section above).
-   If drift exists, propose `setup upgrade` first.
+   If drift exists, propose `setup update` first.
 3. Identify `<framework-clone>`, the user's local clone of `apache/magpie`.
    Common locations: `~/code/magpie/`, `~/work/magpie/`.
    If not found, ask the user where it is, or help them clone it (`git clone
@@ -215,7 +215,7 @@ Framework PR opened: <PR URL>
 
 Next steps once it merges:
 
-  1. setup upgrade   (in <adopter-repo>)
+  1. setup update   (in <adopter-repo>)
      - Bumps the snapshot to the new framework version.
      - .apache-magpie.lock will reflect the new pin.
   2. Delete .apache-magpie-overrides/<skill>.md in <adopter-repo>
@@ -239,7 +239,7 @@ Deletion happens after the PR merges, which the skill cannot predict (or whether
 ✓ PR opened:              <PR URL>
 
 Next: wait for the PR to merge, then in <adopter-repo>:
-  setup upgrade
+  setup update
   rm .apache-magpie-overrides/<skill>.md
   git add -A && git commit -m "Remove override <skill>: upstreamed in apache/magpie#<N>"
 ```
@@ -258,7 +258,7 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 
 - Not for *applying* an override at run-time — that is the per-skill pre-flight protocol in [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md).
 - Not for *creating* a new override — that is [`setup override <skill>`](../setup/overrides.md).
-- Not for *upgrading* the snapshot — that is [`setup upgrade`](../setup/upgrade.md).
+- Not for *upgrading* the snapshot — that is [`setup update`](../setup/update.md).
   Run that BEFORE this skill if drift exists.
 - Not for framework PRs unrelated to overrides.
   Other contributions (new skill, new tool, refactor) go through the framework's normal PR workflow.
@@ -267,4 +267,4 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 
 - [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) — the override contract.
 - [`setup/overrides.md`](../setup/overrides.md) — how to *create* / *open* an override.
-- [`setup/upgrade.md`](../setup/upgrade.md) — how to upgrade the snapshot post-merge.
+- [`setup/update.md`](../setup/update.md) — how to upgrade the snapshot post-merge.

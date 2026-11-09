@@ -9,4 +9,4 @@ The running agent is Claude Code. `claude plugin list --json` reports both
 plugins at 0.9.0, and 0.9.0 is the latest available — there is nothing to
 update.
 
-The user ran `/magpie-setup upgrade`.
+The user ran `/magpie-setup update`.

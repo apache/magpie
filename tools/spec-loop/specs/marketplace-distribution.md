@@ -121,7 +121,7 @@ no model tokens, and shows a drift banner above the prompt.
 The command hook is wired as `/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"`,
 because it runs outside the sandbox and the session environment must not
 choose the shell (#1794); on a version change it points at
-`/magpie-setup:complete-upgrade` (#1813), and the interpreter rules are in
+`/magpie-setup:upgrade` (#1813), and the interpreter rules are in
 [`adoption-and-setup.md`](adoption-and-setup.md).
 `tools/setup-preflight/tests/test_session_hook.py` asserts that wiring;
 `check-family-plugins.py` checks only that `hooks.json` references
