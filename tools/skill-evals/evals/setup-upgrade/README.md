@@ -42,4 +42,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-09 | `51e73a33` (upgrade-skill) | `opus[1m]` | 1 | pass |  |
 | 2026-11-05 | `7b6e5bbd` (fix/isolated-configured-user-settings) | `opus[1m]` | 1 | pass |  |
