@@ -252,7 +252,26 @@ def read_layout(fetch: Fetch, base: str, skills_root: str) -> dict[str, str]:
             files = {e["name"] for e in _listing(fetch, base, f"{skills_root}/{name}")}
             if "SKILL.md" in files:
                 layout[name] = "directory"
+            elif "skills" in files:
+                # A plugin directory: the skill sits in skills/<name>/, where
+                # plugin installers (Codex in particular) look for it.
+                nested = {e["name"] for e in _listing(fetch, base, f"{skills_root}/{name}/skills/{name}")}
+                if "SKILL.md" in nested:
+                    layout[name] = "directory"
     return layout
+
+
+def scan_root(desc: Descriptor) -> str:
+    """Where to look for every skill the source ships.
+
+    A descriptor for one skill kept as a plugin directory points its
+    ``skills_root`` at ``<root>/<skill>/skills``; its siblings live in
+    ``<root>``."""
+    for skill in desc.provides:
+        suffix = f"/{skill}/skills"
+        if desc.skills_root.endswith(suffix):
+            return desc.skills_root.removesuffix(suffix)
+    return desc.skills_root
 
 
 def read_tags(fetch: Fetch, base: str) -> dict[str, str]:
@@ -376,7 +395,7 @@ def check_repo(fetch: Fetch, descs: list[Descriptor], rows: list[CatalogueRow] |
         return [f"Skipped: `{descs[0].url}` is not a GitHub repository; check it by hand."]
     base = f"/repos/{m.group('owner')}/{m.group('repo')}"
     upstream = Upstream(
-        layout=read_layout(fetch, base, descs[0].skills_root),
+        layout=read_layout(fetch, base, scan_root(descs[0])),
         tags=read_tags(fetch, base),
         marketplaces=read_marketplaces(fetch, base),
     )

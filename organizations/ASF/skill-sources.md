@@ -56,6 +56,10 @@ The Incubator versions each skill on its own, tagging it `<skill>-<version>`
 (for example `releasecheck-0.5.1`), so each skill is curated as its own
 descriptor pinned to its own tag: `apache-incubator` for `releasecheck`, and
 `apache-incubator-<skill>` for each skill pinned after it.
+A skill kept as a plugin directory (`tools/skills/<skill>/skills/<skill>/SKILL.md`,
+the layout Codex needs to find it) is pinned with
+`skills_root: tools/skills/<skill>/skills`; the drift check still scans
+`tools/skills/` for its siblings.
 A pin moves only when it is updated here, and an adopter's committed pin moves
 only when the adopter bumps it; `/magpie-setup:setup skill-sources` then
 re-fetches and re-verifies the new tag.

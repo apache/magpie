@@ -269,3 +269,53 @@ def test_newer_tag_for_a_per_skill_pin(tmp_path: Path) -> None:
     status, report = _run(tmp_path, responses, PER_SKILL)
     assert status == 1
     assert "**Newer tag** `maturity-0.2` for `apache-incubator-maturity`" in report
+
+
+def _as_plugin(responses: dict[str, object], skill: str) -> None:
+    """Re-lay ``skill`` out as a plugin directory: skills/<skill>/SKILL.md."""
+    responses[f"{BASE}/contents/tools/skills/{skill}"] = _entries(
+        (".claude-plugin", "dir"), ("skills", "dir")
+    )
+    responses[f"{BASE}/contents/tools/skills/{skill}/skills/{skill}"] = _entries(("SKILL.md", "file"))
+
+
+def test_plugin_directory_counts_as_a_directory_skill(tmp_path: Path) -> None:
+    responses = _responses()
+    _as_plugin(responses, "maturity")
+    status, report = _run(tmp_path, responses)
+    assert status == 0, report
+
+
+def test_single_file_moved_into_a_plugin_directory(tmp_path: Path) -> None:
+    responses = _responses()
+    listing = responses[f"{BASE}/contents/tools/skills"]
+    assert isinstance(listing, list)
+    listing.remove({"name": "graduation.md", "type": "file"})
+    listing.append({"name": "graduation", "type": "dir"})
+    _as_plugin(responses, "graduation")
+    status, report = _run(tmp_path, responses)
+    assert status == 1
+    assert "`graduation` is catalogued `single-file`, but the source makes it `untagged`" in report
+
+
+def test_per_skill_plugin_descriptor_scans_the_shared_root(tmp_path: Path) -> None:
+    org_file = PER_SKILL.replace(
+        "ref: maturity-0.1\n  commit: {pin}\n  layout:\n    skills_root: tools/skills\n",
+        "ref: maturity-0.1\n  commit: {pin}\n  layout:\n    skills_root: tools/skills/maturity/skills\n",
+    )
+    assert "tools/skills/maturity/skills" in org_file
+    responses = _with_maturity_tag(_responses())
+    _as_plugin(responses, "maturity")
+    del responses[f"{BASE}/contents/tools/skills/maturity?ref=maturity-0.1"]
+    responses[f"{BASE}/contents/tools/skills/maturity/skills/maturity?ref=maturity-0.1"] = _entries(
+        ("SKILL.md", "file")
+    )
+    status, report = _run(tmp_path, responses, org_file)
+    assert status == 0, report
+
+
+def test_scan_root() -> None:
+    plugin = mod.Descriptor(id="x", skills_root="tools/skills/maturity/skills", provides=["maturity"])
+    flat = mod.Descriptor(id="y", skills_root="tools/skills", provides=["releasecheck"])
+    assert mod.scan_root(plugin) == "tools/skills"
+    assert mod.scan_root(flat) == "tools/skills"
