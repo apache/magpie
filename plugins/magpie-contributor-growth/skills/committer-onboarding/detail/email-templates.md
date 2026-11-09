@@ -8,6 +8,10 @@ Do not send any of these without explicit nominator confirmation.
 
 ## Congratulations email
 
+The ICLA block follows the ASF's own
+[committer invitation template](https://community.apache.org/templates/committer-invite.txt);
+when the two differ, the ASF template wins, and this file should be brought back in line with it.
+
 **To:** `<candidate email>`
 **Bcc:** `private@<podling>.apache.org`
 **Subject:** Welcome to Apache <project> — invitation to become a committer
@@ -27,28 +31,34 @@ continued involvement.
 
 [INCLUDE THE FOLLOWING BLOCK ONLY IF ICLA IS NOT YET ON FILE:]
 ───────────────────────────────────────────────────────────────
-Before we can create your Apache account, the Apache Software
-Foundation requires you to file an Individual Contributor
-License Agreement (ICLA).  Please:
+If you accept, you will need an Apache account, and before it
+can be created the Apache Software Foundation needs an
+Individual Contributor License Agreement (ICLA) from you:
 
-1. Download the ICLA form:
-   https://www.apache.org/licenses/icla.pdf
+1. The ICLA form and its details are at:
+   https://www.apache.org/licenses/#clas
 
-2. Fill in your legal name, postal address, preferred email
-   address, and — in the "username" field — your preferred
-   Apache ID (a short, lowercase identifier, e.g. "jsmith").
-   Check that the ID is not already taken:
+2. Fill it in with a PDF form filler, and return it to the
+   ASF Secretary as described at:
+   https://www.apache.org/licenses/contributor-agreements.html#submitting
+
+3. In the form, name the Apache <project> project and choose a
+   unique Apache ID. Check that your preferred ID is not
+   already taken:
    https://people.apache.org/committer-index.html
+   Naming the project lets the Secretary notify the PMC when
+   your ICLA has been recorded.
 
-3. Sign the form (electronic signatures are accepted) and
-   email it to secretary@apache.org.  Include "<project>"
-   and your preferred Apache ID in the subject line.
+Do not copy the project or anyone else on your message to the
+Secretary: the form contains personal information that should
+be kept private.
 
-4. Reply to this email once you have filed it so that I can
-   follow up with the secretary.
+If you have already filed an ICLA, let us know the email
+address and public name you used on it and your preferred
+Apache ID instead, and we will request your account.
 
-Account creation typically takes a few business days after the
-ICLA is processed.
+When your ICLA has been recorded, you will receive a follow-up
+message with the next steps.
 ───────────────────────────────────────────────────────────────
 [END ICLA BLOCK]
 
@@ -59,10 +69,9 @@ it shortly. Once it has been processed and your Apache account
 is created, we will grant you access to the project's
 repositories and mailing lists.
 
-If you have not already done so, please confirm with the
-secretary (secretary@apache.org) that your filing was received.
-We will follow up with them on the account-creation request
-once it appears in the system.
+If your ICLA named the Apache <project> project, the Secretary
+will notify the PMC when it has been recorded, and you will
+receive a follow-up message with the next steps.
 ───────────────────────────────────────────────────────────────
 [END ICLA SUBMITTED BLOCK]
 
@@ -85,8 +94,10 @@ You will also be subscribed to the project's private mailing
 list — you should receive a confirmation shortly.
 [END PMC/PPMC LINE]
 
-Please feel free to reply to this email if you have any
-questions.  We're excited to have you on board!
+Please let us know in reply to this message whether you accept
+or decline, and do not share that you were invited before the
+PMC announces it.  Feel free to ask any questions too.
+We're excited to have you on board!
 
 On behalf of the <project> PPMC,  [use PMC for TLPs]
 <nominator name> (<nominator apache-id>@apache.org)

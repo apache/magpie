@@ -41,7 +41,7 @@ Suites are currently implemented for:
 - **setup-isolated-setup-doctor** — 29 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
-- **committer-onboarding** — 27 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
+- **committer-onboarding** — 28 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
 - **contributor-identity-map** — 6 cases across 1 step (step-2-grade-confirm)
 - **ci-runner-audit** — 6 cases across 2 steps (step-scope-selection, step-reporting)
 - **setup-status** — 18 cases across 5 steps (step-0-preflight, step-1-command, step-2-present, step-3-adjust-decision)
