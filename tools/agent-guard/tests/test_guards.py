@@ -420,38 +420,38 @@ def _two_checkouts(monkeypatch, main="/repo", worktree="/wt"):
     "command",
     [
         "git -C /wt push --force-with-lease origin HEAD:mybranch",
-        "cd /wt && git push --force-with-lease origin HEAD:mybranch",
-        "cd /wt; git push --force origin HEAD:mybranch",
-        "cd wt && git push --force origin HEAD:mybranch",
         "git -C wt push --force origin HEAD:mybranch",
+        "git -C / -C wt push --force origin HEAD:mybranch",
     ],
 )
-def test_empty_rebase_reads_the_repository_the_push_runs_in(monkeypatch, command):
-    # A rebase done in a linked worktree and pushed from it: the main checkout
-    # is on the default branch, so judging HEAD there reports an empty branch.
+def test_empty_rebase_reads_the_repository_git_c_names(monkeypatch, command):
+    # A rebase done in a linked worktree and pushed with `git -C`: the main
+    # checkout is on the default branch, so judging HEAD there reports an
+    # empty branch.
     seen = _two_checkouts(monkeypatch, main="/", worktree="/wt")
     assert dispatch(command, cwd="/") is None
     assert set(seen) == {"/wt"}
 
 
-@pytest.mark.parametrize(
-    "command",
-    [
-        "git -C /repo push --force origin HEAD:mybranch",
-        "cd /repo && git push --force origin HEAD:mybranch",
-    ],
-)
-def test_empty_rebase_still_denied_in_the_repository_the_push_runs_in(monkeypatch, command):
+def test_empty_rebase_still_denied_in_the_repository_git_c_names(monkeypatch):
     _two_checkouts(monkeypatch)
-    reason = dispatch(command, cwd="/wt")
+    reason = dispatch("git -C /repo push --force origin HEAD:mybranch", cwd="/wt")
     assert reason and "0 commits" in reason
 
 
-def test_cd_target_ignores_what_it_cannot_resolve():
-    assert agent_guard._cd_target(["cd", "-"], "/x") is None
-    assert agent_guard._cd_target(["cd", "$TMPDIR/wt"], "/x") is None
-    assert agent_guard._cd_target(["cd"], "/x") is None
-    assert agent_guard._cd_target(["cd", "sub"], "/x") == "/x/sub"
+@pytest.mark.parametrize(
+    "command",
+    [
+        # The guard cannot tell these apart from the segments alone: the first
+        # pushes from /wt, the second from the hook's directory.
+        "cd /wt && git push --force origin HEAD:mybranch",
+        "(cd /wt); git push --force origin HEAD:mybranch",
+    ],
+)
+def test_empty_rebase_does_not_follow_cd_and_names_git_c(monkeypatch, command):
+    _two_checkouts(monkeypatch, main="/", worktree="/wt")
+    reason = dispatch(command, cwd="/")
+    assert reason and "0 commits" in reason and "git -C <dir> push" in reason
 
 
 def test_plain_refspec_push_not_guarded_as_force(monkeypatch):

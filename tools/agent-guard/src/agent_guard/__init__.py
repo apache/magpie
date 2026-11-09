@@ -2048,7 +2048,9 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
             f"agent-guard[empty-rebase]: refusing to force-push '{src}' — it has 0 commits "
             f"over its merge-base with {default_ref}. Pushing an empty branch to a PR head "
             "auto-closes the PR and revokes maintainer write access. Verify the rebase "
-            "result is non-empty first. Override: MAGPIE_ALLOW_EMPTY_PUSH=1."
+            "result is non-empty first. Pushing from another checkout? Name it with "
+            "`git -C <dir> push`: the guard does not follow a `cd` earlier on the line. "
+            "Override: MAGPIE_ALLOW_EMPTY_PUSH=1."
         )
     return None
 
@@ -2828,24 +2830,6 @@ def discover_guards() -> list[tuple[Callable[[GuardContext], str | None], set[st
 # --------------------------------------------------------------------------- #
 
 
-def _cd_target(argv: list[str], cwd: str | None) -> str | None:
-    """The directory a literal ``cd <dir>`` moves to, or None when it is not one.
-
-    Segments carry no separators, so a ``cd`` is taken to hold for the rest of
-    the line, as it does after ``&&`` and ``;``. Inside a subshell it would not;
-    the cost of that is only which repository a guard reads its refs from.
-    """
-    if len(argv) != 2 or argv[0] != "cd":
-        return None
-    target = argv[1]
-    if target == "-" or _EXPANSION_RE.search(target):
-        return None
-    path = Path(target).expanduser()
-    if not path.is_absolute():
-        path = (Path(cwd) if cwd else Path.cwd()) / path
-    return str(path)
-
-
 def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -> str | None:
     """Return a deny reason for ``command``, or None to allow it.
 
@@ -2897,11 +2881,6 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
             reason = guard_vetted_ops_spelling(seg, cwd, harness)
             if reason:
                 return reason
-            continue
-        if seg.argv and seg.argv[0] == "cd":
-            # `cd <worktree> && git push …` runs git in the worktree, not in
-            # the directory the hook was called from.
-            cwd = _cd_target(seg.argv, cwd) or cwd
             continue
         if not seg.argv or guarded_head(seg.argv) is None:
             continue  # fast path — non-guarded command family
