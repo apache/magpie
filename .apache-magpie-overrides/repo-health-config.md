@@ -14,7 +14,7 @@
 Per-skill switches for the repo-health audit family. Copy this file into
 your `<project-config>/` directory and fill in the `TODO` values. Skills
 in this family (`ci-runner-audit`, `workflow-security-audit`,
-`dependency-audit`, `license-compliance-audit`, `flaky-test-triage`, and
+`dependency-vulnerability-audit`, `license-compliance-audit`, `flaky-test-triage`, and
 `dependency-license-audit`) read from this file at run time.
 
 See `docs/repo-health/README.md` for a full description of each skill
@@ -72,8 +72,8 @@ repo_health:
     extra_repos: []
 
   # ---------------------------------------------------------------------------
-  # dependency-audit — known-vulnerability check on direct + transitive deps.
-  # Consumed by: dependency-audit (experimental).
+  # dependency-vulnerability-audit — known-vulnerability check on direct + transitive deps.
+  # Consumed by: dependency-vulnerability-audit (experimental).
   # ---------------------------------------------------------------------------
   dependency_audit:
 

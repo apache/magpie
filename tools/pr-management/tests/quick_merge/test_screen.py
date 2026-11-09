@@ -17,7 +17,7 @@
 """The quick-merge screen.
 
 Each `test_case_*` mirrors a case of the model-graded suites this code
-replaces (`tools/skill-evals/evals/pr-management-quick-merge/stage-{1,2,3}-*`),
+replaces (`tools/skill-evals/evals/pr-management-merge-candidates/stage-{1,2,3}-*`),
 named after it, with the same expected outcome.
 """
 

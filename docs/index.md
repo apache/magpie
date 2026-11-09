@@ -64,16 +64,16 @@ adapter/config layer, but they carry ASF assumptions the generic families do not
 
 | If you're dealing with… | Adopt the family | Scope |
 |---|---|---|
-| Setting up agents safely — sandbox, clean environment, privacy routing | [setup](setup/README.md) | Any project |
-| Security reports that need careful, audited handling | [security](security/README.md) | Any project |
-| A pull-request queue that's out of control | [pr-management](pr-management/README.md) | Any project |
-| Catching implementation-detail nits before you open a PR | [pairing](pairing/README.md) | Any project |
-| An issue backlog full of duplicates and stale reports | [issue-management](issue-management/README.md) | Any project |
-| Repo hygiene slipping — CI runners, dependencies, licenses, flaky tests | [repo-health](repo-health/README.md) | Any project |
-| Releases that are a manual, error-prone slog | [release-management](release-management/README.md) | 🪶 ASF-specific |
-| New contributors getting stuck and drifting away | [mentoring](mentoring/README.md) | Any project |
-| Growing contributors into committers | [contributor-growth](contributor-growth/README.md) | 🪶 ASF-specific |
-| Building or maintaining your own skills | [utilities](utilities/README.md) | Any project |
+| Setting up agents safely — sandbox, clean environment, privacy routing | [Setup](setup/README.md) | Any project |
+| Security reports that need careful, audited handling | [Security reports](security/README.md) | Any project |
+| A pull-request queue that's out of control | [Pull requests](pr-management/README.md) | Any project |
+| Catching implementation-detail nits before you open a PR | [Local code review](pairing/README.md) | Any project |
+| An issue backlog full of duplicates and stale reports | [Issues](issue-management/README.md) | Any project |
+| Repo hygiene slipping — CI runners, dependencies, licenses, flaky tests | [Repository maintenance](repo-health/README.md) | Any project |
+| Releases that are a manual, error-prone slog | [Releases](release-management/README.md) | 🪶 ASF-specific |
+| New contributors getting stuck and drifting away | [Mentoring](mentoring/README.md) | Any project |
+| Growing contributors into committers | [Committer readiness and onboarding](contributor-growth/README.md) | 🪶 ASF-specific |
+| Building or maintaining your own skills | [Skill tools](utilities/README.md) | Any project |
 
 Start with [`setup`](setup/README.md) regardless — it is the prerequisite every adopter installs first — then add the families above as you need them.
 

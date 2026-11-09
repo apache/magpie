@@ -200,7 +200,7 @@ Post a review verdict + body onto the proposal.
 
 - **When it fires.** The confirmation step of `pr-management-triage`
   (a *comment* disposition) and `pr-management-code-review` /
-  `pr-management-quick-merge` (an *approve* / *request-changes*
+  `pr-management-merge-candidates` (an *approve* / *request-changes*
   verdict). The skills always draft-then-confirm before this fires;
   the adapter never gates — the skill does.
 - **Inputs.** `id`; `verdict` — one of `comment`, `approve`,
@@ -219,7 +219,7 @@ Merge / apply the proposal and close it in its accepted state. **This
 is the only verb that touches `contract:source-control`.**
 
 - **When it fires.** The merge step — never from `pr-management-triage`
-  (triage never merges); from `pr-management-quick-merge` on explicit
+  (triage never merges); from `pr-management-merge-candidates` on explicit
   per-PR confirmation, and from the maintainer's own merge command.
 - **Inputs.** `id`; `strategy` — one of `merge`, `squash`, `rebase`
   (backends that cannot honour the requested strategy fall back to
@@ -263,7 +263,7 @@ Read the CI / mergeable status of the proposal.
 
 - **When it fires.** Classification in `pr-management-triage` (the
   CI-rerun / mark-ready gates) and the all-gates-green attestation in
-  `pr-management-quick-merge`.
+  `pr-management-merge-candidates`.
 - **Inputs.** `id`.
 - **Output.** `state` (a generic lifecycle verb); `checks` — one of
   `passing`, `failing`, `pending`, `none`; `mergeable` — `clean` /
@@ -350,8 +350,8 @@ contract is the interface those call sites resolve through.
 |---|---|
 | [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md) | `list_open`, `get`, `get_discussion`, `status`, `post_review` (comment), `reject` (close). **Never** `land` — triage does not merge. |
 | [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md) | `get`, `get_discussion`, `post_review` (approve / request-changes). |
-| [`pr-management-quick-merge`](../../skills/pr-management-quick-merge/SKILL.md) | `list_open`, `get`, `status`, `post_review` (approve), `land` (on per-PR confirmation). |
-| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | `get`, `get_discussion`, `post_review` (comment). |
+| [`pr-management-merge-candidates`](../../skills/pr-management-merge-candidates/SKILL.md) | `list_open`, `get`, `status`, `post_review` (approve), `land` (on per-PR confirmation). |
+| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | `get`, `get_discussion`, `post_review` (comment). |
 | [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) | `list_open` (read-only queue metrics). |
 | `contributor-*` skills and `committer-onboarding` | `list_authored`, `list_reviews_given`, `list_authored_commits` — read-only; see [Contributor-activity queries](#contributor-activity-queries-read-only). |
 

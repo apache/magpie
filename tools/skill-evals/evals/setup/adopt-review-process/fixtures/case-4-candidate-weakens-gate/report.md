@@ -11,7 +11,7 @@ other path.
 
 `CONTRIBUTING.md` line 20 reads: "Trivial documentation fixes may be merged by
 their author without waiting for a second pair of eyes." The framework default
-for `pr-management-quick-merge` requires explicit maintainer confirmation
+for `pr-management-merge-candidates` requires explicit maintainer confirmation
 before any merge, and that confirmation is a gate rather than a default.
 
 `CONTRIBUTING.md` line 51 reads: "We use the `needs-triage` label for anything

@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Release-management skill family](#release-management-skill-family)
+- [Releases](#releases)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
@@ -20,7 +20,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Release-management skill family
+<a id="release-management-skill-family"></a>
+# Releases
 
 > **Scope — `organization: ASF` · 🪶 ASF-specific.** This family encodes Apache Software
 > Foundation processes (the 14-step release lifecycle) and assumes an ASF adopter

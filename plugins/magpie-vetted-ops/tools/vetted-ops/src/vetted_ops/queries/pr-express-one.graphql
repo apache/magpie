@@ -15,7 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# One upstream PR in the pr-management-quick-merge shape (TriagePR plus its
+# One upstream PR in the pr-management-merge-candidates shape (TriagePR plus its
 # changed files). $owner / $repo come from policy, never from the caller.
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {

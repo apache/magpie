@@ -10,6 +10,7 @@
     - [The first run](#the-first-run)
     - [Before the first run](#before-the-first-run)
     - [Try these first](#try-these-first)
+  - [Agent isolation](#agent-isolation)
   - [Security mailing-list configuration](#security-mailing-list-configuration)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
@@ -130,6 +131,14 @@ below sends, merges, or posts anything without you confirming it.*
 ```
 
 ![A status run: the install method, the installed plugins, the project's committed floor, and two green checks saying this machine is at or above it](../../assets/quickstart/families/setup/status.svg)
+
+## Agent isolation
+
+These commands require the `magpie-setup` plugin.
+Install the sandbox with `/magpie-setup:isolated-setup-install`.
+Verify its configuration with `/magpie-setup:isolated-setup-verify`.
+Diagnose sandbox setup failures with `/magpie-setup:isolated-setup-doctor`.
+Refresh the isolated setup with `/magpie-setup:isolated-setup-update`.
 
 ## Security mailing-list configuration
 

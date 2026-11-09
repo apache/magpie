@@ -24,7 +24,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 3682
+measured_tokens: 3686
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -249,7 +249,7 @@ confirmation; the maintainer decides whether to notify the team.
 - **Tag or label the thread.** Labeling is Agentic Triage's job
   ([`pr-management-triage`](../../../magpie-pr-management/skills/pr-triage/SKILL.md)).
 - **Teach conventions.** Convention pointers on an existing thread belong
-  to [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md). This
+  to [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md). This
   skill welcomes; it does not coach.
 
 ## Cross-references
@@ -260,7 +260,7 @@ confirmation; the maintainer decides whether to notify the team.
   overview and status.
 - [`docs/modes.md` § Mentoring](../../../../docs/modes.md#mentoring) —
   current implementation status.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — sibling
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — sibling
   skill for teaching-register interventions on existing threads.
 - [`good-first-issue-author`](../good-first-issue-author/SKILL.md) —
   the supply-side Agentic Mentoring skill that authors newcomer-ready issues.

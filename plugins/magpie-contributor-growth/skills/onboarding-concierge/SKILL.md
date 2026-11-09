@@ -21,7 +21,7 @@ argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
-measured_tokens: 3599
+measured_tokens: 3601
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -313,7 +313,7 @@ or handle the thread directly. The skill does not post anything.
   overview and status.
 - [`mentoring-welcome`](../../../magpie-mentoring/skills/welcome/SKILL.md) — sibling skill
   for first-contact orientation on a thread.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — sibling
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — sibling
   skill for teaching-register interventions on existing code-review threads.
 - [`good-first-issue-author`](../../../magpie-mentoring/skills/good-first-issue-author/SKILL.md) —
   authors newcomer-ready issues so the "where do I start?" answer has

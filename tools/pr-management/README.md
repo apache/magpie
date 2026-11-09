@@ -15,11 +15,11 @@
     - [`triage guard` — the pre-mutation checks](#triage-guard--the-pre-mutation-checks)
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
-    - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
+    - [`quick-merge screen`: pr-management-merge-candidates](#quick-merge-screen-pr-management-merge-candidates)
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
     - [`stack-review` — pr-management-stack-review](#stack-review--pr-management-stack-review)
     - [`code-review` — pr-management-code-review](#code-review--pr-management-code-review)
-    - [`mentor` — pr-management-mentor](#mentor--pr-management-mentor)
+    - [`mentor`: pr-management-thread-mentor](#mentor-pr-management-thread-mentor)
     - [`reviewer-routing` — reviewer-routing](#reviewer-routing--reviewer-routing)
     - [`pre-first-pr` — pre-first-pr-check](#pre-first-pr--pre-first-pr-check)
     - [`config`](#config)
@@ -171,7 +171,9 @@ After a first `gh gist create`, `pr-management stats record-gist <id>` stores th
 CODEOWNERS is read from the adopter checkout (`.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`).
 `--fetch-with-gh [--repo owner/name]` fetches through `gh` directly instead of the saved files, for a CI job outside the sandbox; it uses the search index for closed PRs.
 
-### `quick-merge screen` — pr-management-quick-merge
+<a id="quick-merge-screen--pr-management-quick-merge"></a>
+
+### `quick-merge screen`: pr-management-merge-candidates
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management quick-merge screen --saved-dir <workspace>/saved [--tier A|B] [--max-churn N] [--pr N] [--session <file>]
@@ -238,7 +240,9 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 When a saved read is missing, a subcommand returns `needs: [{op, params, save, why}]`; the skill runs each bare `vetted-op-read --save` and re-runs it.
 The agent keeps reading the diff, writing findings and judging severity.
 
-### `mentor` — pr-management-mentor
+<a id="mentor--pr-management-mentor"></a>
+
+### `mentor`: pr-management-thread-mentor
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management mentor config

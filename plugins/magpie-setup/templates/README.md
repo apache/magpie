@@ -14,9 +14,9 @@
     - [CVE-allocation mechanics](#cve-allocation-mechanics)
     - [Remediation workflow](#remediation-workflow)
     - [Editorial + reporter-facing](#editorial--reporter-facing)
-    - [Contributor growth](#contributor-growth)
+    - [Committer readiness and onboarding](#committer-readiness-and-onboarding)
     - [Issue management](#issue-management)
-    - [Repo-health audits](#repo-health-audits)
+    - [Repository maintenance](#repository-maintenance)
     - [Mentoring](#mentoring)
     - [PR triage and review](#pr-triage-and-review)
     - [Privacy and model routing](#privacy-and-model-routing)
@@ -109,7 +109,9 @@ the rest.
 | [`canned-responses.md`](canned-responses.md) | Reusable reporter-facing reply templates. |
 | [`site-repo.md`](site-repo.md) | The project's website repository, and the path a release announcement bumps. |
 
-### Contributor growth
+<a id="contributor-growth"></a>
+
+### Committer readiness and onboarding
 
 These files configure the contributor-nomination, committer-onboarding,
 and contributor-to-committer skill family. Adopters that do not use
@@ -140,13 +142,16 @@ delete this group.
 | [`reassess-pool-defaults.md`](reassess-pool-defaults.md) | Named pools for reassessment sweeps (`open-eol`, `reopened`, `stale-unresolved`, project-specific). Used by `issue-reassess`. |
 | [`reproducer-conventions.md`](reproducer-conventions.md) | Evidence-package directory layout and frozen-copy discipline. Used by `issue-reproducer` and `issue-reassess-stats`. |
 
-### Repo-health audits
+<a id="repo-health-audits"></a>
+
+### Repository maintenance
 
 These files configure the [`ci-runner-audit`](../../../skills/ci-runner-audit/SKILL.md)
 and [`workflow-security-audit`](../../../skills/workflow-security-audit/SKILL.md)
-skills and the planned `dependency-audit`, `license-compliance-audit`, and
-`flaky-test-triage` skills. Adopters who do not use repo-health audits can
-delete this group.
+skills and the `dependency-vulnerability-audit`, `license-compliance-audit`, and
+`flaky-test-triage` skills.
+The `audit-finding-fix` skill uses `fix-workflow.md` and `runtime-invocation.md` to draft and commit fixes for their findings.
+Adopters who do not use repository maintenance can delete this group.
 
 | File | Purpose |
 |---|---|

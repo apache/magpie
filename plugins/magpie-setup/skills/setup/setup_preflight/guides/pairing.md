@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# 🐦 Magpie here — your pre-PR review sidekick
+# Local code review
 
 A one-minute tour, then straight back to what you asked for.
 
@@ -32,7 +32,7 @@ Talk to Magpie in plain language:
 - *"run three independent review passes on my branch"*
 - *"compare the correctness, security, and conventions findings"*
 
-For an already-open PR, use the PR-management code-review workflow instead.
+For an already-open PR, use the Pull requests code-review workflow instead.
 
 ## 🎨 Make it yours
 

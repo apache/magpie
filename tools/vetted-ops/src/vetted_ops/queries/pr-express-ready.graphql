@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 # The `ready for maintainer review` queue in the triage shape plus each PR's
-# changed files, for pr-management-quick-merge (all pages, `--paginate
+# changed files, for pr-management-merge-candidates (all pages, `--paginate
 # --slurp`). The builder writes `repo:<upstream>` from policy into
 # $searchQuery, so the query cannot be re-aimed. The search connection's
 # pageInfo is the only one in the document. The TriagePR fragment must stay

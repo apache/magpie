@@ -24,7 +24,7 @@ argument-hint: "[issue-number or issue-URL]"
 capability: capability:review
 surface_hash: sha256:8cfe453a3113abe2
 license: Apache-2.0
-measured_tokens: 3796
+measured_tokens: 3798
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -307,7 +307,7 @@ and hands off.
   authors net-new good first issues from supplied candidates.
 - [`good-first-issue-sweep`](../good-first-issue-sweep/SKILL.md) —
   curates the existing backlog to surface GFI candidates.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — teaching-
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — teaching-
   register replies on existing issue and PR threads.
 - `onboarding-concierge` — answers "how do I contribute here" questions
   from `CONTRIBUTING.md` (skill in progress).

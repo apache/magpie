@@ -262,14 +262,18 @@ and bundled scripts. The skill router reads only the frontmatter
 `description` field to decide whether to load the skill; the body
 is loaded only after the decision.
 
-| Family | Skills | Purpose |
+| Family | Skills (flat names) | Purpose |
 |---|---|---|
-| `security-*` | `security-issue-import`, `security-issue-import-from-md`, `security-issue-import-from-pr`, `security-issue-triage`, `security-issue-sync`, `security-issue-deduplicate`, `security-cve-allocate`, `security-issue-fix`, `security-issue-invalidate` | Full lifecycle of a security report from arrival on `<security-list>` through CVE publication. |
-| `pr-management-*` | `pr-management-triage`, `pr-management-code-review`, `pr-management-mentor`, `pr-management-stats` | Maintainer-side PR queue management — sweep, classify, review, mentor first-time contributors, surface backlog trends. |
-| `issue-*` | `issue-triage`, `issue-fix-workflow`, `issue-reproducer`, `issue-reassess`, `issue-reassess-stats` | Issue-tracker triage, agent-drafted fixes for confirmed bugs, automated reproduction of bug reports, reassessment of EOL backlogs. |
-| `setup-*` | `setup`, `setup-isolated-setup-install`, `setup-isolated-setup-verify`, `setup-isolated-setup-update`, `setup-isolated-setup-doctor`, `setup-override-upstream`, `setup-shared-config-sync` | Framework adoption, sandbox install + verify + update + diagnostic, override-promotion workflow, shared-config sync. |
-| `contributor-nomination` | one skill | Build the evidence brief for a committer or PMC nomination. |
-| Meta-skills | `write-skill`, `list-skills` | Author new skills following framework conventions; print a human-readable skill index. |
+| Security reports (`security-*`) | `security-issue-*`, `security-cve-*`, `security-model-*` | Confidential report handling, CVE publication, and security-model maintenance. See [`docs/security/`](docs/security/README.md). |
+| Pull requests (`pr-management-*`) | `pr-management-triage`, `pr-management-code-review`, `pr-management-thread-mentor`, `pr-management-merge-candidates`, `pr-management-stats` | Maintainer-side PR queue management, review, and contributor mentoring. See [`docs/pr-management/`](docs/pr-management/README.md). |
+| Mentoring (`magpie-mentoring`) | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` | Welcome contributors, explain issues, and prepare newcomer tasks. See [`docs/mentoring/`](docs/mentoring/README.md). |
+| Issues (`issue-*`) | `issue-*` | Issue triage, reproduction, fix drafting, reassessment, and backlog reporting. See [`docs/issue-management/`](docs/issue-management/README.md). |
+| Project rules and setup (`setup-*`) | `setup`, `setup-isolated-setup-install`, `setup-isolated-setup-verify`, `setup-isolated-setup-update`, `setup-isolated-setup-doctor`, `setup-override-upstream`, `setup-shared-config-sync` | Framework adoption, agent isolation, project rules, and shared-config sync. See [`docs/setup/`](docs/setup/README.md). |
+| Repository maintenance (`repo-health-*`) | Audits and `audit-finding-fix` | Audits and fixes for dependency, workflow, license, runner, and test-maintenance findings. See [`docs/repo-health/`](docs/repo-health/README.md). |
+| Local code review (`pairing-*`) | `pairing-self-review`, `pairing-multi-agent-review` | Developer-side self-review and multi-agent review before opening a pull request. See [`docs/pairing/`](docs/pairing/README.md). |
+| Committer readiness and onboarding (`contributor-growth-*`) | `contributor-*`, `committer-onboarding`, `onboarding-concierge` | Readiness signals, nomination support, and onboarding. ASF-specific. See [`docs/contributor-growth/`](docs/contributor-growth/README.md). |
+| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
+| Releases (`release-*`) | `release-*` | ASF release lifecycle and records. ASF-specific. See [`docs/release-management/`](docs/release-management/README.md). |
 
 Each skill's frontmatter `description` is the agent-router contract.
 Be precise — vague descriptions cause the router to load the wrong
@@ -614,7 +618,7 @@ clone (gitignored) and listing the skills you want disabled:
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "skillOverrides": {
     "magpie-pr-management-code-review": "off",
-    "magpie-pr-management-mentor": "off",
+    "magpie-pr-management-thread-mentor": "off",
     "magpie-pr-management-stats": "off",
     "magpie-pr-management-triage": "off",
     "magpie-security-cve-allocate": "off",

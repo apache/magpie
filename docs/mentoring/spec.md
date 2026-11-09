@@ -32,7 +32,7 @@ cross-listed:
 
 | Skill | Purpose |
 |---|---|
-| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread. |
+| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread. |
 | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft a single net-new good first issue from a maintainer-supplied candidate. |
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR. |
 | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only activity brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels; no ranking or readiness verdict. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) |
@@ -87,7 +87,7 @@ invoked on. The skill is opt-in per invocation. Three trigger
 paths:
 
 1. **Maintainer-on-demand**. A maintainer runs
-   `/magpie-pr-management:mentor <pr-number>`. The skill
+   `/magpie-pr-management:thread-mentor <pr-number>`. The skill
    reads the thread, decides whether a mentoring intervention is
    warranted, drafts the comment, and waits for the maintainer
    to confirm before posting.
@@ -95,7 +95,7 @@ paths:
    [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md)
    classifies a PR as "first contributor, missing repro" (or
    equivalent triage flag), the maintainer can chain
-   `/magpie-pr-management:mentor` on that PR. The two skills compose;
+   `/magpie-pr-management:thread-mentor` on that PR. The two skills compose;
    Agentic Mentoring does not run inside Agentic Triage by default.
 3. **Issue-thread invocation**. Same opt-in, on issues rather
    than PRs, for the "missing version / missing repro" case.
@@ -191,7 +191,7 @@ Required keys:
 
 | Key | Purpose |
 |---|---|
-| `mentoring_invocation_command` | Slash-command name (e.g. `/magpie-pr-management:mentor`). |
+| `mentoring_invocation_command` | Slash-command name (e.g. `/magpie-pr-management:thread-mentor`). |
 | `maintainer_team_handle` | `@<org>/<team>` mentioned on hand-off. |
 | `ai_attribution_footer` | Literal footer markdown. Mirrors the triage-footer convention. |
 | `convention_pointers` | Table of `{trigger phrase} → {docs link, one-line label}` so the agent links rather than paraphrases. |
@@ -203,7 +203,7 @@ Required keys:
 These questions were open before the skills shipped. The answers are
 fixed in the shipped implementations.
 
-- **GitHub-only.** `pr-management-mentor` posts to GitHub threads
+- **GitHub-only.** `pr-management-thread-mentor` posts to GitHub threads
   only. Mailing-list mentoring stays with the human maintainer; the
   agent has no list-subscriber identity.
 - **Attribution footer.** Same wording as the triage footer, different
@@ -220,7 +220,7 @@ fixed in the shipped implementations.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) —
   current implementation status (experimental, 7 skills shipped).
 - [`.claude/skills/pr-management triage render`](../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies) —
-  tone-footer convention; `pr-management-mentor` mirrors its
+  tone-footer convention; `pr-management-thread-mentor` mirrors its
   format with a `mentoring` step token.
 - [`AGENTS.md`](../../AGENTS.md) — repository-level rules every
   mode inherits.

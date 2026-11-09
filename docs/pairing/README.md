@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Agentic Pairing skill family](#agentic-pairing-skill-family)
+- [Local code review](#local-code-review)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Works well with](#works-well-with)
@@ -22,7 +22,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Agentic Pairing skill family
+<a id="agentic-pairing-skill-family"></a>
+# Local code review
 
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
@@ -222,5 +223,5 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
   a mode moves from `experimental` to `stable`.
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index.
-- [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
+- [Project rules](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

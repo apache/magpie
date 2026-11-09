@@ -22,7 +22,7 @@ argument-hint: "[--repo owner/name | --path /path/to/checkout] [--declared-spdx 
 capability: capability:triage
 surface_hash: sha256:b40b2993e5f18f54
 license: Apache-2.0
-measured_tokens: 4947
+measured_tokens: 4950
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -431,7 +431,7 @@ skill does not provide).
   scaffold.
 - [`ci-runner-audit`](../ci-runner-audit/SKILL.md) — sibling repo-health
   skill; same read-only/propose pattern.
-- `dependency-audit` — sibling skill for dependency vulnerability hygiene.
+- `dependency-vulnerability-audit` — sibling skill for dependency vulnerability hygiene.
 - [Apache License 2.0, Section 4(d)](https://www.apache.org/licenses/LICENSE-2.0#redistribution)
   — the NOTICE file requirement for Apache-2.0 licensed software.
 - [SPDX License List](https://spdx.org/licenses/) — canonical SPDX

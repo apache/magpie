@@ -1906,7 +1906,7 @@ framework before they hit a "skill not found" error:
    framework via a snapshot mechanism. The framework provides
    maintainer-facing skills (e.g. `pr-management-triage`,
    `pr-management-code-review`, `pr-management-stats`,
-   `pr-management-mentor`, and the `security-*` family)
+   `pr-management-thread-mentor`, and the `security-*` family)
    exposed as agent skills in agent harnesses such as Claude
    Code.
 

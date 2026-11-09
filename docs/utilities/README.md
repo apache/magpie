@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Utilities skill family](#utilities-skill-family)
+- [Skill tools](#skill-tools)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Works well with](#works-well-with)
@@ -21,12 +21,13 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Utilities skill family
+<a id="utilities-skill-family"></a>
+# Skill tools
 
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
-Framework meta-skills — the tools you use to **build and maintain skills
+Framework meta-skills — the tools you use to **discover, build, and maintain skills
 themselves**, rather than to run a maintainership mode on your project. They
 sit outside the MISSION mode taxonomy (Agentic Triage, Agentic Mentoring,
 Agentic Drafting, Agentic Pairing, Agentic Autonomous): nothing here acts on
@@ -43,7 +44,7 @@ They are for skill authors and framework contributors.
 
 ## Install & first runs
 
-Install just this family — one plugin, 5 skills. Framework meta-skills: author, restructure, and index your own skills.
+Install just this family — one plugin, 5 skills. Discover, author, and maintain skills, and report framework bugs.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 

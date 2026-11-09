@@ -147,3 +147,24 @@ def test_summary_does_not_pool_different_skills() -> None:
     rows = summarize(records)
     assert len(rows) == 2
     assert {row["skill"]: row["p50_total_tokens"] for row in rows} == {"mentor": 10, "author": 100}
+
+
+@pytest.mark.parametrize(
+    ("old_name", "current_name"),
+    [
+        ("pr-management-mentor", "pr-management-thread-mentor"),
+        ("pr-management-quick-merge", "pr-management-merge-candidates"),
+        ("dependency-audit", "dependency-vulnerability-audit"),
+    ],
+)
+def test_historical_corpus_loads_current_skill(tmp_path: Path, old_name: str, current_name: str) -> None:
+    from skill_token_count.runtime import build_prompt
+
+    skill = tmp_path / "skills" / current_name
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nmode: Triage\n---\nReview the fixture.")
+    case = {"skill": old_name, "mode": "Triage", "input": "Captured observations."}
+    prompt, hashes = build_prompt(tmp_path, {"common": {}}, case)
+    assert f"skills/{current_name}/SKILL.md" in hashes
+    assert "Review the fixture." in prompt
+    assert case["skill"] == old_name

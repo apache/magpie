@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Security workflow skill family](#security-workflow-skill-family)
+- [Security reports](#security-reports)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Works well with](#works-well-with)
@@ -22,7 +22,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Security workflow skill family
+<a id="security-workflow-skill-family"></a>
+# Security reports
 
 > **Scope.** Works on any project, ASF or not. The ASF intake
 > path (`security@`, Vulnogram CVE flow) is the default profile; non-ASF

@@ -147,7 +147,7 @@ captured configuration and tool observations. Live tools and posting were disabl
 | Mode and measured skill | Runs | p50 total tokens | p90 total tokens |
 |---|---:|---:|---:|
 | Triage: `issue-triage` | 6 | 34,825 | 35,055 |
-| Mentoring: `pr-management-mentor` | 6 | 28,907 | 29,592.5 |
+| Mentoring: `pr-management-thread-mentor` | 6 | 28,907 | 29,592.5 |
 | Mentoring: `good-first-issue-author` | 6 | 26,567 | 26,653 |
 | Drafting: `issue-fix-workflow` | 6 | 28,714 | 29,406.5 |
 | Pairing: `pairing-self-review` | 6 | 22,975 | 24,475 |
@@ -221,7 +221,7 @@ calls. `Not measured` means there is no corresponding session evidence here.
 It does not mean zero, and another skill's p50 must not be substituted.
 
 For example, `issue-triage` has replay p50 **34,825**, above the old **4K-15K**
-planning estimate; `pr-management-mentor` also exceeds its estimate. Loading
+planning estimate; `pr-management-thread-mentor` also exceeds its estimate. Loading
 full entrypoints and sibling references plus CLI overhead differs from the
 unspecified protocol behind those estimates. We cannot attribute the discrepancy
 to one cause or validate the old bounds from this sample. Use a workload-matched
@@ -270,7 +270,7 @@ cost depends on contributor volume.
 
 | Skill | Typical invocation | Planning estimate | Notes | Replay p50 tokens |
 |---|---|---|---|---|
-| `pr-management-mentor` | Single threaded reply | 6K–20K | Estimated; skill experimental | 28,907 |
+| `pr-management-thread-mentor` | Single threaded reply | 6K–20K | Estimated; skill experimental | 28,907 |
 | `good-first-issue-author` | One candidate → one issue draft | 6K–18K | Estimated; reads one candidate + named source files, no full-thread history; skill experimental | 26,567 |
 | `newcomer-issue-explainer` | One issue → one beginner explanation draft | 4K–12K | Estimated; reads one issue body + a small set of named source files; read-only; skill experimental | Not measured |
 | `mentoring-welcome` | One first-time contributor → one welcome draft | 4K–12K | Estimated; reads the triggering thread + contributing-guide pointers, no full-thread history; skill experimental | Not measured |

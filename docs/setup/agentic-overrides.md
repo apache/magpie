@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Agentic overrides — modifying framework workflows in an adopter](#agentic-overrides--modifying-framework-workflows-in-an-adopter)
+- [Project rules](#project-rules)
   - [Two directories, one lookup chain — for overrides *and* configuration](#two-directories-one-lookup-chain--for-overrides-and-configuration)
     - [`.gitignore`, and the case where there is none](#gitignore-and-the-case-where-there-is-none)
   - [What an override file may contain](#what-an-override-file-may-contain)
@@ -37,7 +37,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Agentic overrides — modifying framework workflows in an adopter
+<a id="agentic-overrides--modifying-framework-workflows-in-an-adopter"></a>
+# Project rules
 
 The framework's skills are project-agnostic by design. An
 adopter project that needs to modify a framework workflow's

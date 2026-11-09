@@ -272,16 +272,16 @@ INHERITED = ("version", "author", "homepage", "repository", "license")
 # Per-family descriptions used when (re)generating manifests. Keep in sync with
 # the family README; `check` does not enforce these (only structure/symlinks).
 DESC = {
-    "security": "security-issue handling lifecycle — import through CVE publication, triage, sync, dedup, invalidate. Maintainer-only.",
-    "release-management": "ASF release lifecycle: plan, RC cut/sign, vote, tally, promote, announce, archive, audit.",
-    "setup": "framework install/maintenance: install (adopt), upgrade, verify, override, status, secure-agent setup, shared-config sync.",
-    "pr-management": "PR-queue management: triage, stats, deep code review, stack review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
-    "issue": "issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, dedup, backlog stats.",
-    "repo-health": "read-only repo-health audits: runner labels, workflow security, dependency/license/NOTICE, flaky tests, audit-finding fixes.",
-    "contributor-growth": "path-to-committer: activity sweeps, nominations, sentiment, readiness, committer/post-vote onboarding.",
-    "utilities": "framework meta-skills: write-skill, optimize-skill, skill-reconciler, list-skills.",
-    "mentoring": "newcomer mentoring: welcome, newcomer-issue explanations, good-first-issue authoring + sweep.",
-    "pairing": "pair a change with a structured self-review or a multi-agent adversarial review.",
+    "security": "Security reports: import through CVE publication, triage, sync, deduplication and invalidation. Maintainer-only.",
+    "release-management": "Releases: ASF release planning, RC preparation and signing, voting, promotion, announcements, archives and audits.",
+    "setup": "Framework setup: installation, updates, verification, project rules, agent isolation and shared configuration.",
+    "pr-management": "Pull requests: triage, statistics, code review, stack review, merge candidates, thread mentoring and reviewer routing.",
+    "issue": "Issue management: triage, reproduction, fix drafting, reassessment, stale sweeps, deduplication and backlog statistics.",
+    "repo-health": "Repository maintenance: CI, workflow security, dependency vulnerabilities, licenses and flaky-test audits, plus fixes for audit findings.",
+    "contributor-growth": "Committer readiness and onboarding: activity, calibration, nominations, sentiment and post-vote onboarding.",
+    "utilities": "Skill tools: skill discovery, authoring, optimization, maintenance and framework bug reporting.",
+    "mentoring": "Mentoring: newcomer welcomes, issue explanations, good-first-issue authoring and discovery.",
+    "pairing": "Local code review: structured self-review or independent adversarial review of a local change.",
 }
 
 
