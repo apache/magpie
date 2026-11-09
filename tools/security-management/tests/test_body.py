@@ -460,7 +460,7 @@ def test_no_mention_or_reference_resolves_whatever_the_backticks(report: str) ->
     for match in re.finditer(r"@someone|#12\b", out):
         before = out[: match.start()]
         # either a word joiner broke it, or it sits in a backtick pair on a backtick-free source line
-        assert out[match.start() + 1] == "⁠" or before.endswith("`"), (report, out)
+        assert out[match.start() + 1] == "\u2060" or before.endswith("`"), (report, out)
 
 
 def test_mentions_beside_certain_code_spans_are_wrapped_and_code_is_untouched() -> None:
@@ -468,7 +468,7 @@ def test_mentions_beside_certain_code_spans_are_wrapped_and_code_is_untouched() 
 
 
 def test_mentions_on_a_line_with_uncertain_spans_get_a_word_joiner() -> None:
-    assert _md("see ``code` by @someone in #12\n") == "see ``code` by @⁠someone in #⁠12\n"
+    assert _md("see ``code` by @someone in #12\n") == "see ``code` by @\u2060someone in #\u206012\n"
 
 
 def test_mentions_on_a_backtick_free_line_are_wrapped_as_code() -> None:
@@ -480,7 +480,7 @@ def test_mentions_on_a_backtick_free_line_are_wrapped_as_code() -> None:
     [
         "- [hidden]: https://e.org",
         "1. [x]: y",
-        "      [deep]: z",
+        "  - [deep]: z",
         "[a\\]b]: c",
         "[multi",
     ],
@@ -505,8 +505,75 @@ def test_every_glyphless_character_becomes_visible(char: str) -> None:
 def test_character_references_are_shown_not_decoded() -> None:
     out = _md("a&#8203;b &#x200B; &ZeroWidthSpace; &amp; ok\n")
     assert "&#8203;" not in out.replace("&amp;#8203;", "")
-    assert "&amp;#8203;" in out and "&amp;#x200B;" in out and "&amp;ZeroWidthSpace;" in out
+    assert "&amp;#\u20608203;" in out and "&amp;#\u2060x200B;" in out and "&amp;ZeroWidthSpace;" in out
+    assert "&amp;amp; ok" in out
 
 
 def test_a_nested_setext_underline_is_escaped() -> None:
     assert _md("- a\n  - Foo\n    ---\n") == "- a\n  - Foo\n    \\---\n"
+
+
+def test_indented_python_under_a_list_item_becomes_a_python_fence() -> None:
+    report = (
+        "- 3.2.0, auth.py:\n"
+        "    logout_url = auth_manager.get_url_logout()\n"
+        "    if logout_url:\n"
+        "        return RedirectResponse(logout_url)\n"
+        "\n"
+        "- next item\n"
+    )
+    assert _md(report) == (
+        "- 3.2.0, auth.py:\n"
+        "```python\n"
+        "logout_url = auth_manager.get_url_logout()\n"
+        "if logout_url:\n"
+        "    return RedirectResponse(logout_url)\n"
+        "```\n"
+        "\n"
+        "- next item\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("block", "language"),
+    [
+        ('    {"use_beeline": true,\n     "ssl": "x"}', "json"),
+        ('    beeline -u "jdbc:hive2://h/db"', "shell"),
+        ("    import os\n    x = os.getcwd()", "python"),
+        ("    Some indented prose", "text"),
+    ],
+)
+def test_an_indented_code_block_gets_a_fence_with_a_guessed_language(block: str, language: str) -> None:
+    assert _md(f"Example:\n\n{block}\n\nAfter.\n").startswith(f"Example:\n\n```{language}\n")
+
+
+def test_indented_code_keeps_its_content_and_a_longer_fence_than_its_backticks() -> None:
+    out = _md("Code:\n    x = '```'\n    <img src=a> @someone\n")
+    assert out == "Code:\n````python\nx = '```'\n<img src=a> @someone\n````\n"
+
+
+def test_an_indented_continuation_of_a_wrapped_line_is_not_code() -> None:
+    report = "- PUT /variables/K_B\n                             -> 201; the row\n"
+    assert _md(report) == report
+
+
+def test_an_indented_nested_list_is_not_code() -> None:
+    assert _md("Items:\n\n    - one\n    - two\n") == "Items:\n\n    - one\n    - two\n"
+
+
+def test_a_wrap_that_would_merge_backtick_runs_falls_back_to_a_word_joiner() -> None:
+    out = _md("``a``@someone\n")
+    assert "@\u2060someone" in out
+
+
+def test_a_numeric_character_reference_cannot_link_an_issue() -> None:
+    assert "#\u2060123" in _md("see &#123; here\n")
+
+
+def test_a_label_split_after_an_escaped_bracket_is_visible() -> None:
+    assert _md("[a\\]\nb]: https://e.org\n").startswith("\\[")
+
+
+def test_a_non_breaking_space_line_does_not_end_the_paragraph_for_code_spans() -> None:
+    out = _md("`open\n\u00a0\n@someone x`\n")
+    assert "@\u2060someone" in out

@@ -51,6 +51,7 @@ never decides whether a body is an injection attempt.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from collections.abc import Mapping
@@ -190,16 +191,19 @@ _CONTAINER_HEADING = re.compile(
 # A bare issue reference (`#12`) or an @-mention in report prose. Either would
 # resolve against the tracker (a wrong issue, a notification). `owner/repo#12`,
 # URLs and e-mail addresses are left alone.
-_BARE_REF = re.compile(r"(?<![\w/&#`])#\d+\b")
+_BARE_REF = re.compile(r"(?<![\w/#`])#\d+\b")
 _MENTION = re.compile(r"(?<![\w/`.@])@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9._-]+)?\b")
 # The same two, matched anywhere on the line (inline code included), for the
 # word-joiner form below.
-_BARE_REF_ANYWHERE = re.compile(r"(?<![\w/&#])#(?=\d+\b)")
+_BARE_REF_ANYWHERE = re.compile(r"(?<![\w/#])#(?=\d+\b)")
 _MENTION_ANYWHERE = re.compile(r"(?<![\w/.@])@(?=[A-Za-z0-9])")
 _WORD_JOINER = "⁠"
 # A character reference (`&#8203;`, `&#x200B;`, `&ZeroWidthSpace;`): it could
 # decode to a character the visible-token rule never sees, so its `&` is escaped.
-_CHARACTER_REFERENCE = re.compile(r"&(?=#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)")
+# A numeric one also gets a word joiner after its `#`, so `&#123;` shown as
+# text is not read as a reference to issue 123.
+_NUMERIC_REFERENCE = re.compile(r"&#(?=[0-9]{1,7};|[xX][0-9a-fA-F]{1,6};)")
+_NAMED_REFERENCE = re.compile(r"&(?=[A-Za-z][A-Za-z0-9]{1,31};)")
 
 
 def _unmatched_backticks(line: str) -> bool:
@@ -255,13 +259,29 @@ def _markdown_line(line: str, spans_uncertain: bool) -> str:
     alone. Otherwise a word joiner follows every `#` / `@`, which no reader
     resolves, in code or out of it.
     """
-    if spans_uncertain or _unmatched_backticks(line):
-        line = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
-        line = _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, line)
-    else:
-        line = _outside_code_spans(line, _wrap_refs_and_mentions)
-    line = _CHARACTER_REFERENCE.sub("&amp;", line)
-    return escape_html(line).replace("![", "[image: ")
+    line = _NAMED_REFERENCE.sub("&amp;", line)
+    line = _NUMERIC_REFERENCE.sub("&amp;#" + _WORD_JOINER, line)
+    wrapped = (
+        None
+        if spans_uncertain or _unmatched_backticks(line)
+        else _outside_code_spans(line, _wrap_refs_and_mentions)
+    )
+    if wrapped is None or not _wraps_cleanly(wrapped):
+        wrapped = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
+        wrapped = _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, wrapped)
+    return escape_html(wrapped).replace("![", "[image: ")
+
+
+def _wraps_cleanly(line: str) -> bool:
+    """Whether every backtick run of the wrapped `line` still pairs and no reference or mention is left outside code.
+
+    A wrap next to an existing span merges backtick runs (`` ``a``@x `` becomes
+    `` ``a```@x` ``), which can unpair them and leave the token live.
+    """
+    if _unmatched_backticks(line):
+        return False
+    outside = _CODE_SPAN.sub(" ", line)
+    return _BARE_REF_ANYWHERE.search(outside) is None and _MENTION_ANYWHERE.search(outside) is None
 
 
 # A line that could be (or open) a link reference definition (`[label]: dest`,
@@ -270,7 +290,7 @@ def _markdown_line(line: str, spans_uncertain: bool) -> str:
 # human readers that agents reading the raw body still see. Escaping its `[`
 # turns it into visible text.
 _LINK_DEFINITION = re.compile(
-    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)\[(?=.*\]:|[^\]]*$)"
+    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)\[(?=(?:\\.|[^\]\\])*(?:\]:|\\?$))"
 )
 # Characters with no glyph of their own (format characters, variation
 # selectors, invisible fillers): they make text read differently to a human
@@ -290,6 +310,82 @@ def _invisible(char: str) -> bool:
 
 def _visible(text: str) -> str:
     return "".join(f"[U+{ord(c):04X}]" if _invisible(c) else c for c in text)
+
+
+# A line indented four columns or more, and a list-marker line (never code).
+_INDENTED = re.compile(r"^(?: {4}|\t| {1,3}\t)")
+_LIST_START = re.compile(r"^(?:[-*+]|\d{1,9}[.)])[ \t]")
+_PYTHON = re.compile(
+    r"^(?:def |class |import |from [\w.]+ import |return\b|if .*:$|elif |else:|for .*:$|while .*:$|"
+    r"with .*:$|try:|except\b|raise |@\w|print\(|[A-Za-z_][\w.]*(?:\[.*\])? *=[^=])"
+)
+_SHELL = re.compile(r"^(?:\$ |# |curl |airflow |beeline |pip |python3? |export |docker |kubectl |uv |git )")
+
+
+def _code_language(block: list[str]) -> str:
+    code = [line for line in block if line.strip()]
+    first = code[0].lstrip()
+    if first[:1] in "{[":
+        try:
+            json.loads("\n".join(block))
+        except ValueError:
+            return "text"
+        return "json"
+    if _SHELL.match(first):
+        return "shell"
+    if sum(1 for line in code if _PYTHON.match(line.lstrip())) * 2 >= len(code):
+        return "python"
+    return "text"
+
+
+def _fence_indented_code(lines: list[str]) -> list[str]:
+    """The lines with each indented code block of the report turned into a column-0 fence.
+
+    Mail clients send code as indented lines, which GitHub shows as unhighlighted
+    code at best and as running text inside a list item at worst. A run of lines
+    indented four columns or more, after a blank line or a line ending in `:`,
+    becomes a fence with a guessed language (`python`, `json`, `shell`, `text`),
+    dedented. A column-0 fence is also the one form of code whose boundaries
+    this module and GitHub always agree on.
+    """
+    out: list[str] = []
+    fence: str | None = None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        opened = _OPEN_FENCE.match(line)
+        if fence is not None:
+            stripped = line.lstrip(" ")
+            closes = len(line) - len(stripped) <= 3 and stripped.startswith(fence[0] * len(fence))
+            if closes and not stripped.lstrip(fence[0]).strip(" \t"):
+                fence = None
+            out.append(line)
+            i += 1
+            continue
+        if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
+            fence = opened.group(1)
+            out.append(line)
+            i += 1
+            continue
+        previous = out[-1] if out else ""
+        starts = not previous.strip(" \t") or previous.rstrip().endswith(":")
+        if starts and _INDENTED.match(line) and line.strip() and not _LIST_START.match(line.strip()):
+            j = i
+            while j < len(lines) and (_INDENTED.match(lines[j]) or not lines[j].strip(" \t")):
+                j += 1
+            while not lines[j - 1].strip(" \t"):
+                j -= 1
+            block = [b.expandtabs(4) for b in lines[i:j]]
+            indent = min(len(b) - len(b.lstrip(" ")) for b in block if b.strip())
+            block = [b[indent:] for b in block]
+            longest = max((len(r) for b in block for r in re.findall(r"`+", b)), default=0)
+            marker = "`" * max(3, longest + 1)
+            out.extend([marker + _code_language(block), *block, marker])
+            i = j
+            continue
+        out.append(line)
+        i += 1
+    return out
 
 
 def markdown_block(text: str) -> dict[str, Any]:
@@ -341,7 +437,7 @@ def markdown_block(text: str) -> dict[str, Any]:
         return {"ok": False, "indicator": "line break", "text": text, "escaped_lines": []}
     if not content.strip():
         return {"ok": True, "indicator": None, "text": "", "escaped_lines": []}
-    lines = content.rstrip("\n").split("\n")
+    lines = _fence_indented_code(content.rstrip("\n").split("\n"))
     changed: list[int] = []
     fence: str | None = None  # the open fence's marker (e.g. "````" or "~~~"), when inside one
     previous = ""  # the previous line as emitted, for setext underlines
@@ -370,7 +466,7 @@ def markdown_block(text: str) -> dict[str, Any]:
                 new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", new, count=1)
                 new = _LINK_DEFINITION.sub(lambda m: m.group(1) + "\\[", new, count=1)
                 new = _markdown_line(new, spans_open)
-                if not line.strip():
+                if not line.strip(" \t"):
                     spans_open = False
                 elif _unmatched_backticks(line):
                     spans_open = True
