@@ -636,7 +636,7 @@ def test_choice_empty_options_raises() -> None:
         provider.choice("Test prompt", [])
 
 
-def test_choice_missing_label_in_response(approved_privacy_config: pathlib.Path) -> None:
+def test_choice_missing_choice_in_response(approved_privacy_config: pathlib.Path) -> None:
     """Response missing label raises TypedDecisionUnavailable."""
     provider = JevProvider(api_key="test-key")
     mock_resp = _make_mock_response(_jev_response(type="choice", confidence=0.95))
@@ -720,7 +720,7 @@ def test_score_scalar_scale_rejects_out_of_bounds(approved_privacy_config: pathl
     provider = JevProvider(api_key="test-key")
     mock_resp = _make_mock_response(_jev_response(type="score", score=42.0, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
-        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+        with pytest.raises(TypedDecisionUnavailable, match=r"level position .* outside \[0, "):
             provider.score("Test", scale=10)
 
 
@@ -766,12 +766,12 @@ def test_score_rejects_non_finite_response_value(approved_privacy_config: pathli
 
     mock_resp_nan = _make_mock_response(_jev_response(type="score", score=float("nan"), confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_nan):
-        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+        with pytest.raises(TypedDecisionUnavailable, match=r"level position .* outside \[0, "):
             provider.score("Test", scale=(1, 5))
 
     mock_resp_inf = _make_mock_response(_jev_response(type="score", score=float("inf"), confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_inf):
-        with pytest.raises(TypedDecisionUnavailable, match="outside scale range"):
+        with pytest.raises(TypedDecisionUnavailable, match=r"level position .* outside \[0, "):
             provider.score("Test", scale=(1, 5))
 
 
@@ -791,12 +791,12 @@ def test_score_rejects_value_outside_scale(approved_privacy_config: pathlib.Path
 
     mock_resp_high = _make_mock_response(_jev_response(type="score", score=6.0, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_high):
-        with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
+        with pytest.raises(TypedDecisionUnavailable, match=r"level position .* outside \[0, "):
             provider.score("Test", scale=(1, 5))
 
     mock_resp_low = _make_mock_response(_jev_response(type="score", score=-0.5, confidence=0.9))
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp_low):
-        with pytest.raises(TypedDecisionUnavailable, match="outside scale"):
+        with pytest.raises(TypedDecisionUnavailable, match=r"level position .* outside \[0, "):
             provider.score("Test", scale=(1, 5))
 
 
@@ -1006,6 +1006,44 @@ def test_score_maps_level_position_onto_scale(
         assert provider.score("Test", scale=scale)["value"] == pytest.approx(value)
     body = json.loads(mock_open.call_args[0][0].data.decode("utf-8"))
     assert len(body["questions"]["decision"]["criteria"]) == levels
+
+
+@pytest.mark.parametrize(
+    "scale",
+    [
+        pytest.param((1.0, 1.0 + 1e-14), id="span-tiny-vs-magnitude"),
+        pytest.param((1e16, 1e16 + 8), id="span-below-float-resolution"),
+    ],
+)
+def test_score_rejects_indistinguishable_level_labels(
+    approved_privacy_config: pathlib.Path, scale: tuple[float, float]
+) -> None:
+    """Scales whose level labels collide are rejected before any request."""
+    provider = JevProvider(api_key="test-key")
+    with patch("urllib.request.OpenerDirector.open") as mock_open:
+        with pytest.raises(TypedDecisionUnavailable, match="not distinguishable"):
+            provider.score("Test", scale=scale)
+    mock_open.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("scale", "levels"),
+    [
+        pytest.param((1000000, 1000004), 5, id="large-magnitude"),
+        pytest.param((0.9999999, 1.0), 10, id="near-one"),
+    ],
+)
+def test_score_level_labels_are_distinct(
+    approved_privacy_config: pathlib.Path, scale: tuple[float, float], levels: int
+) -> None:
+    """Level labels keep enough precision to stay unique."""
+    provider = JevProvider(api_key="test-key")
+    mock_resp = _make_mock_response(_jev_response(type="score", score=0.0, confidence=0.9))
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp) as mock_open:
+        provider.score("Test", scale=scale)
+    body = json.loads(mock_open.call_args[0][0].data.decode("utf-8"))
+    criteria = body["questions"]["decision"]["criteria"]
+    assert len(criteria) == len(set(criteria)) == levels
 
 
 def test_privacy_gate_raw_desc_carries_provider_for_custom_endpoint() -> None:

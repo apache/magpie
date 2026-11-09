@@ -370,14 +370,19 @@ class JevProvider(DecisionProvider):
         else:
             raise TypedDecisionUnavailable(f"Invalid scale type: {type(scale).__name__}")
 
-        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         levels = _build_score_levels(norm_scale[0], norm_scale[1])
+        labels = [f"{level:.15g}" for level in levels]
+        if len(set(labels)) != len(labels):
+            raise TypedDecisionUnavailable(
+                f"Invalid scale: levels for {norm_scale} are not distinguishable as distinct labels"
+            )
+        vetted_prompt = enforce_privacy_gate(prompt, self._endpoint, provider_name="TypeSafe Jev")
         payload = self._build_payload(
             vetted_prompt,
             {
                 "type": "score",
                 "instructions": "Rate the state on this numeric scale. Each level is a score, lowest first.",
-                "criteria": [f"{level:g}" for level in levels],
+                "criteria": labels,
             },
         )
 
@@ -409,7 +414,7 @@ class JevProvider(DecisionProvider):
             last_level = len(levels) - 1
             if not math.isfinite(position) or not 0 <= position <= last_level:
                 raise TypedDecisionUnavailable(
-                    f"Jev API returned score {position} outside scale range [0, {last_level}]"
+                    f"Jev API returned level position {position} outside [0, {last_level}] for scale {norm_scale}"
                 )
             span = norm_scale[1] - norm_scale[0]
             value = min(norm_scale[1], norm_scale[0] + span * position / last_level)
