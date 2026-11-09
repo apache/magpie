@@ -1,7 +1,7 @@
 {
   "name": "magpie-issue",
   "description": "Apache Magpie \u2014 Issue management: triage, reproduction, fix drafting, reassessment, stale sweeps, deduplication and backlog statistics.",
-  "version": "0.9.0.dev202611041445",
+  "version": "0.9.0.dev202611090650",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
