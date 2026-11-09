@@ -98,18 +98,18 @@ Add `magpie-security-tools` with the first family: it carries the framework tool
 [What each family solves](quick-start/families.md) — the ten families, with the
 problem each one solves.
 
-Each family's README opens with an **Install & first runs** section — the one
+Each family has an **Install & first runs** page — the one
 command for that family and a few things to try once it is in:
-[setup](setup/README.md#install--first-runs) ·
-[security](security/README.md#install--first-runs) ·
-[release-management](release-management/README.md#install--first-runs) ·
-[pr-management](pr-management/README.md#install--first-runs) ·
-[issue](issue-management/README.md#install--first-runs) ·
-[repo-health](repo-health/README.md#install--first-runs) ·
-[contributor-growth](contributor-growth/README.md#install--first-runs) ·
-[utilities](utilities/README.md#install--first-runs) ·
-[mentoring](mentoring/README.md#install--first-runs) ·
-[pairing](pairing/README.md#install--first-runs)
+[setup](setup/install.md) ·
+[security](security/install.md) ·
+[release-management](release-management/install.md) ·
+[pr-management](pr-management/install.md) ·
+[issue](issue-management/install.md) ·
+[repo-health](repo-health/install.md) ·
+[contributor-growth](contributor-growth/install.md) ·
+[utilities](utilities/install.md) ·
+[mentoring](mentoring/install.md) ·
+[pairing](pairing/install.md)
 
 **Check what landed** with `/plugin` → *Installed*, filtered to `magpie`:
 

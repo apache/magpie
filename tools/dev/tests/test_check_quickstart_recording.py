@@ -122,7 +122,7 @@ def repo(tmp_path: Path) -> Iterator[Path]:
         _svg(tmp_path / "assets" / "quickstart" / top)
 
     (tmp_path / "docs" / "pairing").mkdir(parents=True)
-    (tmp_path / "docs" / "pairing" / "README.md").write_text(
+    (tmp_path / "docs" / "pairing" / "install.md").write_text(
         "![a run](../../assets/quickstart/families/pairing/self-review.svg)\n",
         encoding="utf-8",
     )
@@ -237,8 +237,8 @@ def test_a_screenshot_naming_a_skill_the_family_does_not_ship_is_reported(repo: 
     assert any("not-a-skill" in e and "ships no skill" in e for e in errs)
 
 
-def test_a_screenshot_the_readme_does_not_embed_is_reported(repo: Path) -> None:
-    (repo / "docs/pairing/README.md").write_text("no images here\n", encoding="utf-8")
+def test_a_screenshot_the_install_page_does_not_embed_is_reported(repo: Path) -> None:
+    (repo / "docs/pairing/install.md").write_text("no images here\n", encoding="utf-8")
     errs = mod.check_screenshots(["pairing"])
     assert any("does not embed" in e for e in errs)
 
@@ -388,7 +388,7 @@ def test_an_embedded_wizard_animation_is_silent(repo: Path) -> None:
     wizard = repo / "assets/quickstart/wizard"
     wizard.mkdir(parents=True)
     _svg(wizard / "pairing.svg")
-    (repo / "docs/pairing/README.md").write_text(
+    (repo / "docs/pairing/install.md").write_text(
         "![run](../../assets/quickstart/wizard/pairing.svg)\n"
         "![a](../../assets/quickstart/families/pairing/self-review.svg)\n",
         encoding="utf-8",

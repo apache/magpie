@@ -193,6 +193,6 @@ whose header carries the rules an entry has to meet — chiefly that it can say
 what it adds to a *named* Magpie family, and that it lists every agent it runs
 on with that agent's own install command. Run
 `python3 tools/dev/check-companion-skills.py --fix` to regenerate this page and
-the blocks in the family READMEs.
+the blocks in the family install pages.
 
 <!-- END generated: companion-skills -->

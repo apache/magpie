@@ -18,7 +18,7 @@
 
 """Check the documentation claims that must track the tree, and silently rot.
 
-Twelve checks, all mechanical, each one written after the drift it catches was
+Thirteen checks, all mechanical, each one written after the drift it catches was
 found by hand:
 
 1. **Spec-index completeness.** Every ``tools/spec-loop/specs/<name>.md`` is
@@ -48,8 +48,8 @@ found by hand:
    an install decision, so a stale one costs the reader context they were
    choosing against.
 
-6. **Per-family skill counts in the family READMEs.** Each
-   ``docs/<family>/README.md`` opens with an "Install & first runs" section
+6. **Per-family skill counts on the family install pages.** Each
+   ``docs/<family>/install.md`` ("Install & first runs") opens by
    claiming "one plugin, N skills". Ten more numbers a human would have to
    remember; the family is read from the install command in the same file, so
    ``issue`` under ``docs/issue-management/`` resolves correctly.
@@ -102,6 +102,18 @@ found by hand:
     ``/plugin install magpie-<family>@apache-magpie`` line differs per page
     and is not duplication.
 
+13. **Every skill family has the same documentation pages.** A family's docs
+    are an overview, ``docs/<family>/README.md``, and an install page,
+    ``docs/<family>/install.md``, at the least. Five families used to be a
+    single README while the others had several pages, so on the site some
+    families unfolded in the sidebar and some did not, and a reader could not
+    tell where the install steps of a family would be. The README keeps an
+    ``## Install & first runs`` section that links ``install.md``; the install
+    page is titled ``# Install & first runs`` and carries the family's
+    ``/plugin install`` line and its ``## Before the first run`` and
+    ``## Try these first`` sections, in that order. Families may add further
+    pages; none may have fewer.
+
 Why counting is worth a hook at all: every one of these is a number a human has
 to remember to update while thinking about something else, and none of them
 breaks anything when wrong. They just quietly mislead the next reader.
@@ -138,9 +150,14 @@ TOTAL_COUNT_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start.m
 # with a bare skill count.
 FAMILY_PLUGIN_FILES = (Path("docs/setup/marketplace.md"), Path("docs/quick-start/families.md"))
 
-# Family README "Install & first runs" sections: the family is named by the
+# Family "Install & first runs" pages (docs/<family>/install.md): the family is named by the
 # `/plugin install magpie-<family>@...` line, the count by the prose above it.
-FAMILY_README_GLOB = "docs/*/README.md"
+FAMILY_README_GLOB = "docs/*/install.md"
+
+# A family whose docs do not sit in a directory named after it.
+FAMILY_DOCS_DIR_OVERRIDES = {"issue": "issue-management"}
+# The install page's required sections, in reading order.
+FAMILY_INSTALL_SECTIONS = ("## Before the first run", "## Try these first")
 
 # Markdown that documents how to invoke a skill. The stutter guard reads these;
 # eval fixtures are expected *outputs*, not documentation, so they are excluded.
@@ -394,6 +411,38 @@ def check_family_readme_counts(errors: list[str]) -> None:
             )
 
 
+def check_family_docs_layout(errors: list[str]) -> None:
+    """Every live family has an overview README and an install page, shaped alike."""
+    for family in sorted(_key_counts("family")):
+        docs = Path("docs") / FAMILY_DOCS_DIR_OVERRIDES.get(family, family)
+        readme, install = docs / "README.md", docs / "install.md"
+        if not readme.is_file():
+            errors.append(f"{readme}: missing — every skill family has an overview README")
+        else:
+            text = readme.read_text(encoding="utf-8")
+            if not re.search(r"^## Install & first runs[ \t]*$", text, re.M):
+                errors.append(f"{readme}: no '## Install & first runs' section pointing at install.md")
+            elif "](install.md)" not in text:
+                errors.append(f"{readme}: the '## Install & first runs' section does not link install.md")
+        if not install.is_file():
+            errors.append(f"{install}: missing — every skill family has an 'Install & first runs' page")
+            continue
+        text = install.read_text(encoding="utf-8")
+        if not re.search(r"^# Install & first runs[ \t]*$", text, re.M):
+            errors.append(f"{install}: the page title must be '# Install & first runs'")
+        if f"/plugin install magpie-{family}@" not in text:
+            errors.append(f"{install}: no '/plugin install magpie-{family}@' line")
+        last = -1
+        for heading in FAMILY_INSTALL_SECTIONS:
+            m = re.search(rf"^{re.escape(heading)}[ \t]*$", text, re.M)
+            if not m:
+                errors.append(f"{install}: no '{heading}' section")
+            elif m.start() < last:
+                errors.append(f"{install}: '{heading}' is out of order")
+            else:
+                last = m.start()
+
+
 def check_no_plugin_name_stutter(errors: list[str]) -> None:
     """No doc may invoke a family skill by a name that repeats its family.
 
@@ -645,6 +694,7 @@ def main(argv: list[str] | None = None) -> int:
     check_total_counts(errors, total)
     check_family_plugin_counts(errors)
     check_family_readme_counts(errors)
+    check_family_docs_layout(errors)
     check_marketplace_add_is_not_repeated(errors)
     check_no_plugin_name_stutter(errors)
     check_portable_form_is_flagged(errors)
