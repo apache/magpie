@@ -2020,6 +2020,10 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
         return None
     if seg.override("MAGPIE_ALLOW_EMPTY_PUSH"):
         return None
+    # Read the refs in the repository the push runs in: `git -C <worktree> push`
+    # from the main checkout pushes the worktree's HEAD, not the checkout's.
+    if cwd is not None or "-C" in seg.argv[1:idx]:
+        cwd = str(_git_start_dir(seg.argv, idx, cwd))
 
     # Resolve the source ref being pushed: last `src[:dst]` positional, else HEAD.
     positionals = [t.removeprefix("+") for t in refspecs]
@@ -2044,7 +2048,9 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
             f"agent-guard[empty-rebase]: refusing to force-push '{src}' — it has 0 commits "
             f"over its merge-base with {default_ref}. Pushing an empty branch to a PR head "
             "auto-closes the PR and revokes maintainer write access. Verify the rebase "
-            "result is non-empty first. Override: MAGPIE_ALLOW_EMPTY_PUSH=1."
+            "result is non-empty first. Pushing from another checkout? Name it with "
+            "`git -C <dir> push`: the guard does not follow a `cd` earlier on the line. "
+            "Override: MAGPIE_ALLOW_EMPTY_PUSH=1."
         )
     return None
 

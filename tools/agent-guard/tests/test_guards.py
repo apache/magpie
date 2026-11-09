@@ -401,6 +401,59 @@ def test_plus_refspec_nonempty_push_allowed(monkeypatch):
     assert dispatch("git push origin +mybranch:mybranch") is None
 
 
+def _two_checkouts(monkeypatch, main="/repo", worktree="/wt"):
+    """`_run` answers as if ``main`` sits on the default branch (0 commits over
+    it) and ``worktree`` carries 3 commits on top. Returns the cwds it saw."""
+    seen: list[str | None] = []
+
+    def _stub(args, cwd=None):
+        seen.append(cwd)
+        if args[:3] == ["git", "rev-list", "--count"]:
+            return "3" if cwd == worktree else "0" if cwd == main else None
+        return _push_handler(None)(args)
+
+    monkeypatch.setattr(agent_guard, "_run", _stub)
+    return seen
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git -C /wt push --force-with-lease origin HEAD:mybranch",
+        "git -C wt push --force origin HEAD:mybranch",
+        "git -C / -C wt push --force origin HEAD:mybranch",
+    ],
+)
+def test_empty_rebase_reads_the_repository_git_c_names(monkeypatch, command):
+    # A rebase done in a linked worktree and pushed with `git -C`: the main
+    # checkout is on the default branch, so judging HEAD there reports an
+    # empty branch.
+    seen = _two_checkouts(monkeypatch, main="/", worktree="/wt")
+    assert dispatch(command, cwd="/") is None
+    assert set(seen) == {"/wt"}
+
+
+def test_empty_rebase_still_denied_in_the_repository_git_c_names(monkeypatch):
+    _two_checkouts(monkeypatch)
+    reason = dispatch("git -C /repo push --force origin HEAD:mybranch", cwd="/wt")
+    assert reason and "0 commits" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # The guard cannot tell these apart from the segments alone: the first
+        # pushes from /wt, the second from the hook's directory.
+        "cd /wt && git push --force origin HEAD:mybranch",
+        "(cd /wt); git push --force origin HEAD:mybranch",
+    ],
+)
+def test_empty_rebase_does_not_follow_cd_and_names_git_c(monkeypatch, command):
+    _two_checkouts(monkeypatch, main="/", worktree="/wt")
+    reason = dispatch(command, cwd="/")
+    assert reason and "0 commits" in reason and "git -C <dir> push" in reason
+
+
 def test_plain_refspec_push_not_guarded_as_force(monkeypatch):
     def boom(args):
         raise AssertionError("non-force push is not guarded")
