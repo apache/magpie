@@ -17,6 +17,12 @@ uv run --project <framework>/tools/pr-management pr-management triage guard appr
   gh api -X POST repos/<upstream>/actions/runs/<run_id>/approve
   ```
 
+  GitHub accepts this only for first-time contributors' runs. A run that answers HTTP 403 *"This workflow run is not waiting for approval"* needs a full re-run instead; one that then answers *"already running"* is done:
+
+  ```bash
+  gh run rerun <run_id> --repo <upstream>
+  ```
+
 - `proceed: false` with "already approved" → nothing to do; say so in one line, so the no-op is visible.
 
 No note is posted: CI starting is what the contributor wanted.

@@ -134,6 +134,11 @@ def pick(
             + ", ".join(f"`{n}`" for n in pending_not_required)
             + " (not a required check)"
         )
+        # `release-runs` needs an approval, which this gate withholds, so held runs go through triage.
+        ci_action = (
+            "wait for those checks; if their runs are waiting for workflow approval, "
+            "approve them (pr-management-triage); then re-run disposition"
+        )
     elif ci_state == "EXPECTED":
         gates.append("CI is waiting for workflow approval — the project's real CI has not run")
         ci_action = "approve the waiting workflow runs (pr-management-triage), then re-run disposition"
