@@ -220,23 +220,46 @@ def _unmatched_backticks(line: str) -> bool:
     return False
 
 
+# An inline code span: a backtick run closed by the next run of exactly the
+# same length. On a line whose runs all pair up, with no span left open by an
+# earlier line, this is the span CommonMark finds.
+_CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+
+
+def _outside_code_spans(line: str, transform: Any) -> str:
+    """`line` with `transform` applied to the text outside inline code spans only."""
+    out: list[str] = []
+    pos = 0
+    for match in _CODE_SPAN.finditer(line):
+        out.append(transform(line[pos : match.start()]))
+        out.append(match.group(0))
+        pos = match.end()
+    out.append(transform(line[pos:]))
+    return "".join(out)
+
+
+def _wrap_refs_and_mentions(segment: str) -> str:
+    segment = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", segment)
+    return _MENTION.sub(lambda m: f"`{m.group(0)}`", segment)
+
+
 def _markdown_line(line: str, spans_uncertain: bool) -> str:
     """A prose line: no HTML tag, comment, image or character reference renders; no reference or mention resolves.
 
     HTML openers, images and character references are defused on the whole
     line, inside inline code too (where `&lt;` then shows literally): code-span
     boundaries are not decided line by line, so they never gate the escaping.
-    References and mentions are wrapped as inline code only on a line with no
-    backtick and no code span possibly left open by an earlier line, where the
-    added backticks cannot pair with the report's; anywhere else a word joiner
-    follows their `#` / `@`, which no reader resolves, in code or out of it.
+    When the line's code spans are certain (every backtick run on it pairs
+    up, none is escaped, no span is left open by an earlier line), references
+    and mentions outside them are wrapped as inline code and code is left
+    alone. Otherwise a word joiner follows every `#` / `@`, which no reader
+    resolves, in code or out of it.
     """
-    if spans_uncertain or "`" in line:
+    if spans_uncertain or _unmatched_backticks(line):
         line = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
         line = _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, line)
     else:
-        line = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", line)
-        line = _MENTION.sub(lambda m: f"`{m.group(0)}`", line)
+        line = _outside_code_spans(line, _wrap_refs_and_mentions)
     line = _CHARACTER_REFERENCE.sub("&amp;", line)
     return escape_html(line).replace("![", "[image: ")
 
@@ -284,10 +307,11 @@ def markdown_block(text: str) -> dict[str, Any]:
       a plain link (`[image: …](…)`), so no remote image loads. This applies
       inside inline code spans too (they then show `&lt;` literally): span
       boundaries can cross lines, so they never gate the escaping.
-    - **References and mentions.** Bare `#NNN` and `@user` / `@org/team` are
-      shown as inline code on a line without backticks, and anywhere else get
-      a word joiner after the `#` / `@`, so they neither link a wrong tracker
-      issue nor notify anyone, whatever the code-span boundaries.
+    - **References and mentions.** Bare `#NNN` and `@user` / `@org/team` in
+      prose are shown as inline code; on a line whose code-span boundaries
+      are uncertain (an unpaired or escaped backtick, a span possibly open
+      from an earlier line) every one gets a word joiner after the `#` / `@`
+      instead, so none links a wrong tracker issue or notifies anyone.
     - **Hidden text.** Nothing can be shown to an agent but hidden from a
       human: HTML comments and `<details>` are already defused above, a link
       reference definition (`[x]: …`, the `[//]: # (…)` comment idiom, also

@@ -463,8 +463,12 @@ def test_no_mention_or_reference_resolves_whatever_the_backticks(report: str) ->
         assert out[match.start() + 1] == "⁠" or before.endswith("`"), (report, out)
 
 
-def test_mentions_on_a_line_with_backticks_get_a_word_joiner() -> None:
-    assert _md("see `code` by @someone in #12\n") == "see `code` by @⁠someone in #⁠12\n"
+def test_mentions_beside_certain_code_spans_are_wrapped_and_code_is_untouched() -> None:
+    assert _md("use `@task.docker` by @someone in #12\n") == "use `@task.docker` by `@someone` in `#12`\n"
+
+
+def test_mentions_on_a_line_with_uncertain_spans_get_a_word_joiner() -> None:
+    assert _md("see ``code` by @someone in #12\n") == "see ``code` by @⁠someone in #⁠12\n"
 
 
 def test_mentions_on_a_backtick_free_line_are_wrapped_as_code() -> None:
