@@ -443,3 +443,66 @@ def test_a_backtick_line_with_backticks_after_it_is_inline_code_not_a_fence() ->
 )
 def test_setext_underlines_do_not_make_headings(report: str, expected: str) -> None:
     assert _md(report) == expected
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "`start\n@someone and #12\nend`",  # a span crossing lines: GitHub sees code, then not
+        "`a @someone\nb`",  # wrapping here would re-pair the report's backticks
+        "\\`@someone`",  # an escaped backtick opens no span
+        "`x` @someone `y`",
+        "``@someone`",
+    ],
+)
+def test_no_mention_or_reference_resolves_whatever_the_backticks(report: str) -> None:
+    out = _md(report)
+    for match in re.finditer(r"@someone|#12\b", out):
+        before = out[: match.start()]
+        # either a word joiner broke it, or it sits in a backtick pair on a backtick-free source line
+        assert out[match.start() + 1] == "⁠" or before.endswith("`"), (report, out)
+
+
+def test_mentions_on_a_line_with_backticks_get_a_word_joiner() -> None:
+    assert _md("see `code` by @someone in #12\n") == "see `code` by @⁠someone in #⁠12\n"
+
+
+def test_mentions_on_a_backtick_free_line_are_wrapped_as_code() -> None:
+    assert _md("by @someone in #12\n") == "by `@someone` in `#12`\n"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "- [hidden]: https://e.org",
+        "1. [x]: y",
+        "      [deep]: z",
+        "[a\\]b]: c",
+        "[multi",
+    ],
+)
+def test_link_definitions_in_lists_escaped_labels_and_open_labels_are_visible(line: str) -> None:
+    out = _md(line)
+    assert "\\[" in out
+
+
+def test_a_task_list_and_a_leading_link_are_not_escaped() -> None:
+    assert _md("- [ ] task\n[docs](https://e.org) here\n") == "- [ ] task\n[docs](https://e.org) here\n"
+
+
+@pytest.mark.parametrize(
+    "char", ["\u00ad", "\u061c", "\u180e", "\ufe0f", "\U000e0041", "\U000e0100", "\u3164", "\u115f", "\u2800"]
+)
+def test_every_glyphless_character_becomes_visible(char: str) -> None:
+    out = _md(f"a{char}b\n")
+    assert char not in out and f"[U+{ord(char):04X}]" in out
+
+
+def test_character_references_are_shown_not_decoded() -> None:
+    out = _md("a&#8203;b &#x200B; &ZeroWidthSpace; &amp; ok\n")
+    assert "&#8203;" not in out.replace("&amp;#8203;", "")
+    assert "&amp;#8203;" in out and "&amp;#x200B;" in out and "&amp;ZeroWidthSpace;" in out
+
+
+def test_a_nested_setext_underline_is_escaped() -> None:
+    assert _md("- a\n  - Foo\n    ---\n") == "- a\n  - Foo\n    \\---\n"

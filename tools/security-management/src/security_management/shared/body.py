@@ -52,6 +52,7 @@ never decides whether a body is an injection attempt.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping
 from typing import Any
 
@@ -181,65 +182,91 @@ _OTHER_FENCE = re.compile(
 # A setext heading underline (`===` / `---` under a paragraph line), also in a
 # block quote: it would turn the line above into a heading. Its first character
 # is escaped, so it stays text.
-_SETEXT = re.compile(r"^((?:[ \t]*>)*[ \t]{0,3})(=+|-+)[ \t]*$")
+_SETEXT = re.compile(r"^((?:[ \t]*>)*[ \t]*)(=+|-+)[ \t]*$")
 # An ATX heading marker of level 1-3 behind optional block-quote / list markers.
 _CONTAINER_HEADING = re.compile(
     r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))[ \t]*)*[ \t]*)(#{1,3})(?=[ \t]|$)"
 )
-# An inline code span: a backtick run closed by a run of exactly the same length
-# (CommonMark). Used only to keep references and mentions in code unwrapped;
-# HTML and images are defused on the whole line, code spans included, so a span
-# this line-local match gets wrong (one spanning lines) can never let a tag render.
-_CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
-
-
-def _outside_code_spans(line: str, transform: Any) -> str:
-    """`line` with `transform` applied to the text outside inline code spans only."""
-    out: list[str] = []
-    pos = 0
-    for match in _CODE_SPAN.finditer(line):
-        out.append(transform(line[pos : match.start()]))
-        out.append(match.group(0))
-        pos = match.end()
-    out.append(transform(line[pos:]))
-    return "".join(out)
-
-
 # A bare issue reference (`#12`) or an @-mention in report prose. Either would
-# resolve against the tracker (a wrong issue, a notification), so both are
-# shown as inline code. `owner/repo#12`, URLs and e-mail addresses are left.
+# resolve against the tracker (a wrong issue, a notification). `owner/repo#12`,
+# URLs and e-mail addresses are left alone.
 _BARE_REF = re.compile(r"(?<![\w/&#`])#\d+\b")
 _MENTION = re.compile(r"(?<![\w/`.@])@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9._-]+)?\b")
+# The same two, matched anywhere on the line (inline code included), for the
+# word-joiner form below.
+_BARE_REF_ANYWHERE = re.compile(r"(?<![\w/&#])#(?=\d+\b)")
+_MENTION_ANYWHERE = re.compile(r"(?<![\w/.@])@(?=[A-Za-z0-9])")
+_WORD_JOINER = "⁠"
+# A character reference (`&#8203;`, `&#x200B;`, `&ZeroWidthSpace;`): it could
+# decode to a character the visible-token rule never sees, so its `&` is escaped.
+_CHARACTER_REFERENCE = re.compile(r"&(?=#[0-9]{1,7};|#[xX][0-9a-fA-F]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)")
 
 
-def _refs_and_mentions(segment: str) -> str:
-    """Prose outside code spans: no bare reference or mention resolves."""
-    segment = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", segment)
-    return _MENTION.sub(lambda m: f"`{m.group(0)}`", segment)
+def _unmatched_backticks(line: str) -> bool:
+    """Whether a backtick run on `line` has no closing run of the same length on it (or is escaped).
 
-
-def _markdown_line(line: str) -> str:
-    """A prose line: no HTML tag, comment or image renders anywhere on it; no reference or mention resolves.
-
-    HTML openers and images are defused on the whole line, inside inline code
-    too (where `&lt;` then shows literally): code-span boundaries are not
-    decided line by line, so they must not gate the escaping.
+    Such a run may open a code span that CommonMark closes on a later line of
+    the paragraph, so code-span boundaries are then unknown line by line.
     """
-    line = escape_html(line).replace("![", "[image: ")
-    return _outside_code_spans(line, _refs_and_mentions)
+    if "\\`" in line:
+        return True
+    runs = [len(run) for run in re.findall(r"`+", line)]
+    i = 0
+    while i < len(runs):
+        closer = next((j for j in range(i + 1, len(runs)) if runs[j] == runs[i]), None)
+        if closer is None:
+            return True
+        i = closer + 1
+    return False
 
 
-# A link reference definition (`[label]: dest`, also `[//]: # (text)`): it
-# renders as nothing, so it would hide text from human readers that agents
-# reading the raw body still see. Escaping its `[` turns it into visible text.
-_LINK_DEFINITION = re.compile(r"^((?:[ \t]*>)*[ \t]{0,3})\[(?=[^\]]*\]:)")
-# Zero-width and bidirectional-control characters: they make text read
-# differently to a human than to an agent, so they are shown as visible tokens.
-_INVISIBLE = re.compile("[​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+def _markdown_line(line: str, spans_uncertain: bool) -> str:
+    """A prose line: no HTML tag, comment, image or character reference renders; no reference or mention resolves.
+
+    HTML openers, images and character references are defused on the whole
+    line, inside inline code too (where `&lt;` then shows literally): code-span
+    boundaries are not decided line by line, so they never gate the escaping.
+    References and mentions are wrapped as inline code only on a line with no
+    backtick and no code span possibly left open by an earlier line, where the
+    added backticks cannot pair with the report's; anywhere else a word joiner
+    follows their `#` / `@`, which no reader resolves, in code or out of it.
+    """
+    if spans_uncertain or "`" in line:
+        line = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
+        line = _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, line)
+    else:
+        line = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", line)
+        line = _MENTION.sub(lambda m: f"`{m.group(0)}`", line)
+    line = _CHARACTER_REFERENCE.sub("&amp;", line)
+    return escape_html(line).replace("![", "[image: ")
+
+
+# A line that could be (or open) a link reference definition (`[label]: dest`,
+# also `[//]: # (text)`, or a label continued on the next line), behind any
+# block-quote / list markers: it renders as nothing, so it would hide text from
+# human readers that agents reading the raw body still see. Escaping its `[`
+# turns it into visible text.
+_LINK_DEFINITION = re.compile(
+    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)\[(?=.*\]:|[^\]]*$)"
+)
+# Characters with no glyph of their own (format characters, variation
+# selectors, invisible fillers): they make text read differently to a human
+# than to an agent, so each is shown as a visible `[U+XXXX]` token.
+_INVISIBLE_EXTRA = frozenset({0x034F, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x2800, 0x3164, 0xFFA0})
+
+
+def _invisible(char: str) -> bool:
+    code = ord(char)
+    return (
+        unicodedata.category(char) == "Cf"
+        or 0xFE00 <= code <= 0xFE0F
+        or 0xE0100 <= code <= 0xE01EF
+        or code in _INVISIBLE_EXTRA
+    )
 
 
 def _visible(text: str) -> str:
-    return _INVISIBLE.sub(lambda m: f"[U+{ord(m.group(0)):04X}]", text)
+    return "".join(f"[U+{ord(c):04X}]" if _invisible(c) else c for c in text)
 
 
 def markdown_block(text: str) -> dict[str, Any]:
@@ -257,14 +284,18 @@ def markdown_block(text: str) -> dict[str, Any]:
       a plain link (`[image: …](…)`), so no remote image loads. This applies
       inside inline code spans too (they then show `&lt;` literally): span
       boundaries can cross lines, so they never gate the escaping.
-    - **References and mentions.** Bare `#NNN` and `@user` / `@org/team` in
-      prose are shown as inline code, so they neither link a wrong tracker
-      issue nor notify anyone.
+    - **References and mentions.** Bare `#NNN` and `@user` / `@org/team` are
+      shown as inline code on a line without backticks, and anywhere else get
+      a word joiner after the `#` / `@`, so they neither link a wrong tracker
+      issue nor notify anyone, whatever the code-span boundaries.
     - **Hidden text.** Nothing can be shown to an agent but hidden from a
       human: HTML comments and `<details>` are already defused above, a link
-      reference definition (`[x]: …`, the `[//]: # (…)` comment idiom) has its
-      `[` escaped so it renders as text, and zero-width / bidi-control
-      characters, anywhere including code, become visible `[U+XXXX]` tokens.
+      reference definition (`[x]: …`, the `[//]: # (…)` comment idiom, also
+      in a list item or with its label continued on the next line) has its
+      `[` escaped so it renders as text, a character reference has its `&`
+      escaped, and characters with no glyph (format, bidi-control and
+      variation-selector characters, invisible fillers), anywhere including
+      code, become visible `[U+XXXX]` tokens.
     - **Code.** Fenced and inline code is otherwise left byte-exact (nothing
       renders inside it), except that a line inside a fence which a field
       reader would take as a `###` boundary or a machine marker (`<!--`) gets
@@ -290,6 +321,7 @@ def markdown_block(text: str) -> dict[str, Any]:
     changed: list[int] = []
     fence: str | None = None  # the open fence's marker (e.g. "````" or "~~~"), when inside one
     previous = ""  # the previous line as emitted, for setext underlines
+    spans_open = False  # an earlier line of this paragraph may have left a code span open
     for index, original in enumerate(lines):
         line = _visible(original)
         new = line
@@ -305,6 +337,7 @@ def markdown_block(text: str) -> dict[str, Any]:
             opened = _OPEN_FENCE.match(line)
             if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
                 fence = opened.group(1)
+                spans_open = False
             else:
                 new = _OTHER_FENCE.sub(lambda m: m.group(1) + "\\" + m.group(2), line, count=1)
                 underline = _SETEXT.match(new)
@@ -312,7 +345,11 @@ def markdown_block(text: str) -> dict[str, Any]:
                     new = underline.group(1) + "\\" + new[len(underline.group(1)) :]
                 new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", new, count=1)
                 new = _LINK_DEFINITION.sub(lambda m: m.group(1) + "\\[", new, count=1)
-                new = _markdown_line(new)
+                new = _markdown_line(new, spans_open)
+                if not line.strip():
+                    spans_open = False
+                elif _unmatched_backticks(line):
+                    spans_open = True
                 if loose_heading_name(new) is not None:
                     new = "\\" + new  # belt and braces: no field boundary survives
         if new != original:
