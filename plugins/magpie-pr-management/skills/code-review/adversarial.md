@@ -90,12 +90,15 @@ The agent runs the reviewers itself, at Step 5 of
 
    ```bash
    git fetch https://github.com/<upstream>.git pull/<N>/head:refs/review/pr-<N>
-   git archive refs/review/pr-<N> -- . ':(exclude).apache-magpie-overrides/tools/vetted-ops' | tar -x -C <export-dir>
+   GIT_INDEX_FILE=<scratch>/review-index git read-tree refs/review/pr-<N>
+   GIT_INDEX_FILE=<scratch>/review-index git rm -f --cached -r -q --ignore-unmatch .apache-magpie-overrides/tools/vetted-ops
+   GIT_INDEX_FILE=<scratch>/review-index git checkout-index -a -f --prefix=<export-dir>/
    ```
 
-   Keep the exclusion: the secure setup denies writes to the vetted-ops policy path wherever it appears, so a full export fails partway through.
+   Use a temporary index, not `git archive`: `git archive` honours `export-ignore`, so a project that marks a directory that way loses it from the export without a word, even when the PR changes files there.
+   Keep the `git rm`, and its `-f`, which it needs when the PR changes the policy: the secure setup denies writes to the vetted-ops policy path wherever it appears, so a full export fails partway through.
    Do not relax that rule to complete the export.
-   The reviewers therefore never see the policy, and `export-ignore` paths are missing too.
+   The reviewers therefore never see the policy.
    When a PR changes the policy, review that file yourself.
 2. **Per PR, one line**, unquoted with a literal `~` — the form the sandbox
    exclusion matches:
