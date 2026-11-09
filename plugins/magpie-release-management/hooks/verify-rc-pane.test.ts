@@ -725,14 +725,14 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         assertStrictEqual(normalizeStepStatus('WARN'), 'warning');
         assertStrictEqual(normalizeStepStatus('WARNING'), 'warning');
-        assertStrictEqual(normalizeStepStatus('REVIEW'), 'warning');
+        assertStrictEqual(normalizeStepStatus('REVIEW'), 'running');
 
         assertStrictEqual(normalizeStepStatus('SKIP'), 'skipped');
         assertStrictEqual(normalizeStepStatus('SKIPPED'), 'skipped');
 
         assertStrictEqual(normalizeStepStatus('RUNNING'), 'running');
 
-        assertStrictEqual(normalizeStepStatus('unknown'), 'pending');
+        assertStrictEqual(normalizeStepStatus('unknown'), 'running');
         assertStrictEqual(normalizeStepStatus(null), 'pending');
       });
 
@@ -828,11 +828,6 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(stepsWithJvm.find((s) => s.id === 'jvm-artefacts')!.status, 'pending');
         assertStrictEqual(stepsWithJvm.find((s) => s.id === 'nexus-staging')!.status, 'pending');
 
-        // --skip-repro flag skips Step 9
-        applyJvmAndReproSkipRules(steps, undefined, 'verify-rc 3.0.0-rc1 --skip-repro');
-        const reproStep = steps.find((s) => s.id === 'reproducibility')!;
-        assertStrictEqual(reproStep.status, 'skipped');
-        assertStrictEqual(reproStep.detail, 'Skipped via --skip-repro');
       });
     });
 
@@ -856,10 +851,14 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         const $ = createMockEngine();
         const next = async (e: any) => ({
           stdout: JSON.stringify({
-            verdict: 'proceed',
-            status: 'PASS',
-            rc_tag: '3.0.0-rc1',
-            staging_url: 'https://dist.apache.org/repos/dist/dev/foo/3.0.0-rc1',
+            ok: true,
+            skill: 'verify-rc',
+            blockers: [],
+            warnings: [],
+            values: {
+              rc_tag: '3.0.0-rc1',
+              staging_url: 'https://dist.apache.org/repos/dist/dev/foo/3.0.0-rc1',
+            },
           }),
         });
 
@@ -978,7 +977,6 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         const batchOutput = {
           tool: 'release-verify',
-          status: 'PASS',
           steps: [
             {
               step: 'inventory',
@@ -988,10 +986,15 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             { step: 'signatures', status: 'PASS' },
             { step: 'checksums', status: 'PASS' },
             { step: 'notice-license', status: 'PASS' },
-            { step: 'binaries', status: 'PASS' },
-            { step: 'symlinks', status: 'PASS' },
-            { step: 'version', status: 'PASS' },
+            { step: 'binary-exclusion', status: 'PASS' },
+            { step: 'source-tree-integrity', status: 'PASS' },
+            { step: 'version-consistency', status: 'PASS' },
           ],
+          verdict: {
+            step: 'verdict',
+            overall: 'PASS',
+            step_summary: [],
+          },
         };
 
         const next = async (e: any) => ({
@@ -1033,8 +1036,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         const next = async (e: any) => ({
           stdout: JSON.stringify({
             step: 'verdict',
-            status: 'PASS',
             overall: 'PASS',
+            step_summary: [],
           }),
         });
 
@@ -1073,6 +1076,286 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(nextCalled, true);
         assertDeepStrictEqual(result, { stdout: 'success' });
       });
+
+      test('handles blocked preflight by setting status to failed with blocker detail', async () => {
+        const $ = createMockEngine();
+        const next = async (e: any) => ({
+          stdout: JSON.stringify({
+            ok: false,
+            skill: 'verify-rc',
+            blockers: ['required key release_manager is missing from release-management-config.md'],
+            warnings: [],
+            values: {},
+          }),
+        });
+
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight --skill verify-rc 3.0.0-rc1' },
+          next
+        );
+
+        const state = await getVerifyRcState($);
+        assert(state !== null);
+        assertStrictEqual(state.steps[0].status, 'failed');
+        assert(state.steps[0].detail!.includes('required key release_manager is missing'));
+        assertStrictEqual(state.overallStatus, 'failed');
+      });
+
+      test('handles preflight with warnings by setting status to warning', async () => {
+        const $ = createMockEngine();
+        const next = async (e: any) => ({
+          stdout: JSON.stringify({
+            ok: true,
+            skill: 'verify-rc',
+            blockers: [],
+            warnings: ['KEYS URL uses http instead of https'],
+            values: { rc_tag: '3.0.0-rc1' },
+          }),
+        });
+
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight --skill verify-rc 3.0.0-rc1' },
+          next
+        );
+
+        const state = await getVerifyRcState($);
+        assert(state !== null);
+        assertStrictEqual(state.steps[0].status, 'warning');
+        assertStrictEqual(state.steps[0].detail, 'KEYS URL uses http instead of https');
+      });
+
+      test('handles verdict FAIL by setting status to failed and overall to failed', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        const next = async (e: any) => ({
+          stdout: JSON.stringify({
+            step: 'verdict',
+            overall: 'FAIL',
+            fail_steps: ['signatures', 'checksums'],
+            step_summary: [],
+          }),
+        });
+
+        await handleBashToolCall($, { command: 'uv run release-verify verdict' }, next);
+
+        const state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[12].status, 'failed');
+        assertStrictEqual(state.steps[12].detail, 'Failed: signatures, checksums');
+        assertStrictEqual(state.overallStatus, 'failed');
+        assert(typeof state.completedAt === 'number');
+      });
+
+      test('handles unresolved verdict (overall: null) by keeping status running', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        const next = async (e: any) => ({
+          stdout: JSON.stringify({
+            step: 'verdict',
+            overall: null,
+            unresolved: ['notice-license', 'source-tree-integrity'],
+            step_summary: [],
+          }),
+        });
+
+        await handleBashToolCall($, { command: 'uv run release-verify verdict' }, next);
+
+        const state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[12].status, 'running');
+        assertStrictEqual(state.steps[12].detail, 'Unresolved: notice-license, source-tree-integrity');
+        assertStrictEqual(state.overallStatus, 'running');
+        assertStrictEqual(state.completedAt, null);
+      });
+
+      test('handles tool output with status: null by leaving step running', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        const next = async (e: any) => ({
+          stdout: JSON.stringify({
+            step: 'reproducibility',
+            status: null,
+            pending: ['--compare: what repro-archive compare printed'],
+          }),
+        });
+
+        await handleBashToolCall($, { command: 'uv run verify-rc repro 3.0.0-rc1' }, next);
+
+        const state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[11].status, 'running');
+        assertStrictEqual(state.steps[11].detail, 'Pending: --compare: what repro-archive compare printed');
+      });
+
+      test('resets state for new RC tag in the same session', async () => {
+        const $ = createMockEngine();
+
+        // 1. Run for rc1
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight 3.0.0-rc1' },
+          async () => ({
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '3.0.0-rc1' },
+            }),
+          })
+        );
+        let state = await getVerifyRcState($);
+        assertStrictEqual(state.rcTag, '3.0.0-rc1');
+        assertStrictEqual(state.steps[0].status, 'passed');
+
+        // 2. Now run for rc2
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight 3.0.0-rc2' },
+          async () => ({
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '3.0.0-rc2' },
+            }),
+          })
+        );
+        state = await getVerifyRcState($);
+        assertStrictEqual(state.rcTag, '3.0.0-rc2');
+        assertStrictEqual(state.version, '3.0.0');
+        assertStrictEqual(state.steps[0].status, 'passed');
+        // All subsequent steps should be reset to pending
+        assertStrictEqual(state.steps[1].status, 'pending');
+        assertStrictEqual(state.steps[2].status, 'pending');
+      });
+
+      test('re-running a previously passed step sets target to running in-flight', async () => {
+        const $ = createMockEngine();
+        const steps = createDefaultVerifySteps();
+        steps[1].status = 'passed'; // inventory previously passed
+
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps,
+          startedAt: Date.now(),
+        });
+
+        let capturedStatusDuringExecution: string | null = null;
+        const next = async () => {
+          const intermediateState = await getVerifyRcState($);
+          capturedStatusDuringExecution = intermediateState.steps[1].status;
+          return {
+            stdout: JSON.stringify({
+              step: 'inventory',
+              status: 'PASS',
+              found: ['foo.tar.gz'],
+            }),
+          };
+        };
+
+        await handleBashToolCall($, { command: 'uv run release-verify inventory' }, next);
+        assertStrictEqual(capturedStatusDuringExecution, 'running');
+      });
+
+      test('respects mandatory reproducibility when skip_repro_ignored is returned', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        // Tool output indicates automated signing made repro mandatory, ignoring --skip-repro
+        const next = async () => ({
+          stdout: JSON.stringify({
+            step: 'reproducibility',
+            mandatory: true,
+            skipped: false,
+            skip_repro_ignored: true,
+            status: 'PASS',
+            detail: 'Reproducibility passed (mandatory under automated signing)',
+          }),
+        });
+
+        await handleBashToolCall($, { command: 'uv run verify-rc repro 3.0.0-rc1 --skip-repro' }, next);
+
+        const state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[11].status, 'passed');
+        assert(state.steps[11].detail!.includes('Reproducibility passed'));
+      });
+
+      test('anchored invocation ignores grep or git commit commands referencing tools', async () => {
+        const $ = createMockEngine();
+        let nextCalled = false;
+        const next = async () => {
+          nextCalled = true;
+          return { stdout: 'matches found' };
+        };
+
+        // grep merely mentions tool name
+        await handleBashToolCall($, { command: 'grep -n maven-artifact-verify README.md' }, next);
+        assertStrictEqual(nextCalled, true);
+        let state = await getVerifyRcState($);
+        assertStrictEqual(state, null);
+
+        // git commit message merely mentions release-verify
+        await handleBashToolCall($, { command: 'git commit -m "chore: release-verify version fix"' }, next);
+        state = await getVerifyRcState($);
+        assertStrictEqual(state, null);
+      });
+
+      test('handles error-only JSON on bad input by setting status to failed', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        const next = async () => ({
+          exitCode: 2,
+          isError: true,
+          stdout: JSON.stringify({
+            error: 'unrecognized arguments: --bad-flag',
+          }),
+        });
+
+        await handleBashToolCall($, { command: 'uv run release-verify binaries --bad-flag' }, next);
+
+        const state = await getVerifyRcState($);
+        const step = state.steps.find((s: any) => s.id === 'binary-exclusion');
+        assertStrictEqual(step.status, 'failed');
+        assert(step.detail.includes('unrecognized arguments: --bad-flag'));
+        assertStrictEqual(state.overallStatus, 'failed');
+      });
     });
 
     describe('end-to-end verification lifecycle simulation', () => {
@@ -1082,9 +1365,15 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         // 1. Step 0: Pre-flight check
         await handleBashToolCall(
           $,
-          { command: 'uv run release-config preflight --skill verify-rc 2.11.0-rc1 --skip-repro' },
+          { command: 'uv run release-config preflight --skill verify-rc 2.11.0-rc1' },
           async () => ({
-            stdout: JSON.stringify({ verdict: 'proceed', status: 'PASS', rc_tag: '2.11.0-rc1' }),
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '2.11.0-rc1' },
+            }),
           })
         );
         let state = await getVerifyRcState($);
@@ -1094,7 +1383,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         // 2. Step 1: Inventory (no JVM files)
         await handleBashToolCall(
           $,
-          { command: 'uv run release-verify inventory --skip-repro' },
+          { command: 'uv run release-verify inventory' },
           async () => ({
             stdout: JSON.stringify({
               step: 'inventory',
@@ -1107,7 +1396,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(state.steps[1].status, 'passed');
         assertStrictEqual(state.steps[7].status, 'skipped'); // jvm-artefacts
         assertStrictEqual(state.steps[8].status, 'skipped'); // nexus-staging
-        assertStrictEqual(state.steps[11].status, 'skipped'); // reproducibility
+        assertStrictEqual(state.steps[11].status, 'pending'); // reproducibility pending until verify-rc repro
 
         // 3. Step 2: Signatures
         await handleBashToolCall(
@@ -1172,12 +1461,28 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        // 10. Step 10: Final verdict
+        // 10. Step 9: Reproducibility
+        await handleBashToolCall(
+          $,
+          { command: 'uv run verify-rc repro 2.11.0-rc1 --skip-repro' },
+          async () => ({
+            stdout: JSON.stringify({
+              mandatory: false,
+              skipped: true,
+              skip_reason: '--skip-repro was passed',
+              status: 'SKIP',
+            }),
+          })
+        );
+        state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[11].status, 'skipped');
+
+        // 11. Step 10: Final verdict
         await handleBashToolCall(
           $,
           { command: 'uv run release-verify verdict' },
           async () => ({
-            stdout: JSON.stringify({ step: 'verdict', status: 'PASS', overall: 'PASS' }),
+            stdout: JSON.stringify({ step: 'verdict', overall: 'PASS', step_summary: [] }),
           })
         );
 
@@ -1201,7 +1506,13 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           $,
           { command: 'uv run release-config preflight 3.0.0-rc1' },
           async () => ({
-            stdout: JSON.stringify({ verdict: 'proceed', status: 'PASS', rc_tag: '3.0.0-rc1' }),
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '3.0.0-rc1' },
+            }),
           })
         );
 

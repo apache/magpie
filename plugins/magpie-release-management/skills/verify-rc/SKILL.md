@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 6686
+measured_tokens: 6574
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -443,15 +443,8 @@ comment carries no attestation and says why.
 
 ## Interactive verification checklist pane (Claude Code)
 
-When running under Claude Code with the `magpie-release-management` plugin enabled,
-the companion `verify-rc-pane` mod renders an interactive verification checklist
-above the prompt. As the skill executes mechanical checks (`release-config preflight`
-and `release-verify` subcommands), the mod intercepts the tool calls, updates each
-step's live status badge (`[✓] PASS`, `[✗] FAIL`, `[!] WARN`, `[*] RUNNING`, `[-] SKIP`),
-and displays concise findings inline for any warning or failure.
-
-On other agent harnesses (such as Codex, Antigravity, Cursor, or headless CI),
-standard sequential command-line text output continues to run without modification.
+Under Claude Code, the `verify-rc-pane` mod shows each step's live status from the commands above.
+Other harnesses see the plain command output.
 
 ---
 
