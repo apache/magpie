@@ -23,9 +23,9 @@
 | File | Embedded by | Shows |
 |---|---|---|
 | `magpie-setup.svg` | [`docs/quick-start.md`](../../docs/quick-start.md), and [`docs/setup/README.md`](../../docs/setup/README.md) | `/magpie-setup:setup` detecting the checkout, printing its plan, and waiting for approval. A real recording of a real run. |
-| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup:setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-wizard.py`](../../tools/dev/render-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
+| `wizard/<family>.svg` | that family's install page, *Before the first run* | An **animated** `/magpie-setup:setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-wizard.py`](../../tools/dev/render-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
 | `families/<family>/<skill>.txt` | — | The authored transcript. This is the source file. |
-| `families/<family>/<skill>.svg` | that family's README, *Try these first* | The transcript rendered. Generated; never hand-edited. |
+| `families/<family>/<skill>.svg` | that family's install page, *Try these first* | The transcript rendered. Generated; never hand-edited. |
 
 The setup family has no screenshot of `/magpie-setup:setup` itself: its first run
 *is* `magpie-setup.svg`, so `docs/setup/README.md` embeds that rather than a
@@ -74,7 +74,7 @@ $EDITOR assets/quickstart/families/pairing/self-review.txt
 tools/dev/render-screenshot.sh assets/quickstart/families/pairing/self-review.txt
 ```
 
-Then embed the `.svg` in that family's README under *Try these first*, with
+Then embed the `.svg` in that family's install page (`docs/<family>/install.md`) under *Try these first*, with
 alt text describing what the run shows. `--all` re-renders everything and
 `--check` fails on anything stale, which is what runs on commit.
 

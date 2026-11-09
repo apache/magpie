@@ -35,7 +35,7 @@ Checks:
   declaration cannot quietly become fiction;
 - every file any skill reads has a template in `projects/_template/`, so a
   skill cannot ask an adopter for config the framework is unable to scaffold;
-- each family README's generated block matches what the frontmatter says.
+- each family install page's generated block matches what the frontmatter says.
 
 `--fix` rewrites the blocks. The descriptions come from the adopter scaffold's
 own index (`projects/_template/README.md`), falling back to each template's
@@ -147,7 +147,7 @@ def families() -> dict[str, dict[str, tuple[list[str], set[str]]]]:
 
 
 def docs_readme(family: str) -> Path:
-    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "README.md"
+    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "install.md"
 
 
 _MD_LINK = re.compile(r"(\]\()([^)#\s]+)")
@@ -167,7 +167,7 @@ def rebase_links(text: str, src_dir: Path, dst_dir: Path) -> str:
 
 
 def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dict[str, str]) -> str:
-    """The generated block for one family README."""
+    """The generated block for one family install page."""
     required: dict[str, list[str]] = {}
     optional: dict[str, list[str]] = {}
     for alias, (need, refs) in sorted(skills.items()):
@@ -267,10 +267,10 @@ def splice(body: str, block: str) -> str:
         start = body.index(BEGIN)
         end = body.index(END) + len(END)
         return body[:start] + block + body[end:]
-    anchor = "### Try these first\n"
+    anchor = "## Try these first\n"
     if anchor not in body:
-        raise ValueError("no '### Try these first' heading to insert before")
-    section = "### Before the first run\n\n" + block + "\n\n"
+        raise ValueError("no '## Try these first' heading to insert before")
+    section = "## Before the first run\n\n" + block + "\n\n"
     return body.replace(anchor, section + anchor, 1)
 
 

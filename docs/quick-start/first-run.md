@@ -115,17 +115,17 @@ when it needs it; the skills that do not never look.
 That is individual use, complete. Nothing was committed, no teammate was
 affected, and you did not ask anyone's permission.
 
-Which files each family needs is on its README under *Before the first run*:
-[security](../security/README.md#before-the-first-run) ·
-[release-management](../release-management/README.md#before-the-first-run) ·
-[pr-management](../pr-management/README.md#before-the-first-run) ·
-[issue](../issue-management/README.md#before-the-first-run) ·
-[repo-health](../repo-health/README.md#before-the-first-run) ·
-[contributor-growth](../contributor-growth/README.md#before-the-first-run) ·
-[mentoring](../mentoring/README.md#before-the-first-run) ·
-[utilities](../utilities/README.md#before-the-first-run) ·
-[pairing](../pairing/README.md#before-the-first-run) ·
-[setup](../setup/README.md#before-the-first-run)
+Which files each family needs is on its install page under *Before the first run*:
+[security](../security/install.md#before-the-first-run) ·
+[release-management](../release-management/install.md#before-the-first-run) ·
+[pr-management](../pr-management/install.md#before-the-first-run) ·
+[issue](../issue-management/install.md#before-the-first-run) ·
+[repo-health](../repo-health/install.md#before-the-first-run) ·
+[contributor-growth](../contributor-growth/install.md#before-the-first-run) ·
+[mentoring](../mentoring/install.md#before-the-first-run) ·
+[utilities](../utilities/install.md#before-the-first-run) ·
+[pairing](../pairing/install.md#before-the-first-run) ·
+[setup](../setup/install.md#before-the-first-run)
 
 Those tables are generated from the skills themselves, so they cannot drift
 from what the skills actually read.
