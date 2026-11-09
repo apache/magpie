@@ -19,7 +19,7 @@ The prose fields are the agent's; the tool only lays them out, checks them and l
 | `handles`, `question` | The `<sm> mentions` picks (at most 3, on the roster, never the triager) and the question they are best placed to answer. |
 | `roster`, `viewer`, `names` | The Step 0 roster handles, the triager's login, and the display name → handle map the bare-name scrub uses. |
 | `canned_heading`, `canned_headings` | INFO-ONLY: the exact heading, checked against the headings of `canned-responses.md`. |
-| `kept_tracker` | PROBABLE-DUP: the tracker to keep; the comment names `security-issue-deduplicate <N> <kept>`. |
+| `kept_tracker` | PROBABLE-DUP: the tracker to keep; the comment names `security-issue-deduplicate <kept> <N>` (kept tracker first). |
 | `upstream`, `prs` | FIX-ALREADY-PUBLIC: each candidate PR's `number`, `author`, `state` and `date`; the reporter-reply draft of [`classification.md`](../classification.md#fix-already-public) is rendered from them, `merged` or `open since` per PR. |
 
 The output carries `text`, `file`, `command` (`gh issue comment <N> --repo <tracker> --body-file <file>`), `replacements_made`, `linked_refs` and `unlinked_cves`.

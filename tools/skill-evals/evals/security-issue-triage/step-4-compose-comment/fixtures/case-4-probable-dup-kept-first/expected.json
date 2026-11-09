@@ -1,0 +1,8 @@
+{
+  "disposition": "PROBABLE-DUP",
+  "mention_handles": ["@alice", "@bob"],
+  "has_security_model_quote": true,
+  "has_bare_issue_numbers": false,
+  "has_kept_tracker_first": true,
+  "has_no_reversed_dedupe_command": true
+}
