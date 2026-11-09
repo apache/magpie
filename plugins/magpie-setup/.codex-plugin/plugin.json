@@ -1,7 +1,7 @@
 {
   "name": "magpie-setup",
   "description": "Apache Magpie \u2014 Framework setup: installation, updates, verification, project rules, agent isolation and shared configuration.",
-  "version": "0.9.0.dev202611041445",
+  "version": "0.9.0.dev202611090650",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
