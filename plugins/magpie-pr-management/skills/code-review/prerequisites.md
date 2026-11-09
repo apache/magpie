@@ -44,6 +44,17 @@ this check says so.
 If `gh auth status` fails entirely, surface it and ask the
 maintainer to run `gh auth login`. Do not proceed.
 
+### A save directory for the reads
+
+Every saved read goes through `vetted-op-read --save`, which writes only into a `saved/` directory under the vetted-ops workspace that holds a `.vetted-ops-save` marker. It creates neither.
+If a save refuses with *"holds no .vetted-ops-save file"* or *"is unusable"*, at any point in the run, ask the maintainer to create them (the workspace path is in the refusal):
+
+```bash
+mkdir -p -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
+```
+
+A `saved` that is a symlink stays unusable: `--save` refuses it, so replace it with a real directory first.
+
 ---
 
 ## 2. Resolve adversarial-reviewer configuration (DEGRADES)

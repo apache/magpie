@@ -85,8 +85,10 @@ Every read in this skill is saved with `vetted-op-read --save`, which writes onl
 If the first save refuses with *"holds no .vetted-ops-save file"* or *"is unusable"*, ask the maintainer to create it once (the workspace path is in the refusal):
 
 ```bash
-mkdir -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
+mkdir -p -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
 ```
+
+A `saved` that is a symlink stays unusable: `--save` refuses it, so replace it with a real directory first.
 
 ---
 
