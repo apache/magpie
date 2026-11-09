@@ -326,11 +326,25 @@ def test_images_and_html_are_defused_outside_code() -> None:
     assert "&lt;img src=x>" in out
 
 
-def test_code_is_left_byte_exact() -> None:
+def test_fenced_code_is_byte_exact_and_inline_code_is_defused() -> None:
     report = "Run `<b>![x](y)</b>` then:\n\n```python\nx = '<img src=a>'  # ![i](j)\n```\n"
     out = _md(report)
-    assert "`<b>![x](y)</b>`" in out
+    assert "`&lt;b>[image: x](y)&lt;/b>`" in out
     assert "```python\nx = '<img src=a>'  # ![i](j)\n```\n" in out
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "``<img src=https://evil.example/p>`",  # unequal backtick runs: no code span in CommonMark
+        "`start\nx` <img src=https://evil.example/p> `y`",  # a code span crossing lines
+        "`a``<img src=x>``b`",
+        "<details><summary>s</summary>hidden</details>",
+    ],
+)
+def test_no_tag_or_image_renders_whatever_the_backticks(report: str) -> None:
+    out = _md(report)
+    assert "<img" not in out and "<details" not in out and "<summary" not in out
 
 
 def test_field_boundaries_and_markers_inside_a_fence_are_escaped() -> None:
@@ -365,3 +379,67 @@ def test_report_block_defaults_to_markdown_and_keeps_inert_on_request() -> None:
     assert body.report_block("# x", "inert")["text"].startswith("```text\n")
     with pytest.raises(ValueError):
         body.report_block("x", "html")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "[//]: # (hidden note for the agent)",
+        "[a]: https://example.org",
+        "   [x]: <y> 'z'",
+        "> [ref]: https://e.org",
+    ],
+)
+def test_link_reference_definitions_render_as_visible_text(line: str) -> None:
+    out = _md(line)
+    prefix = line[: line.index("[")]
+    assert out.startswith(prefix + "\\[")
+
+
+def test_an_ordinary_link_is_not_touched() -> None:
+    assert _md("see [docs](https://e.org) and [x] item\n") == "see [docs](https://e.org) and [x] item\n"
+
+
+def test_invisible_and_bidi_characters_become_visible() -> None:
+    out = _md("admin‮resu​ ok\n```\nx⁦y\n```\n")
+    assert "‮" not in out and "​" not in out and "⁦" not in out
+    assert "[U+202E]" in out and "[U+200B]" in out and "[U+2066]" in out
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        # GitHub ends this fence with the list item, so the tag is prose there.
+        "- step\n  ```\n<img src=https://evil.example/p>\n",
+        "> ```\n<img src=https://evil.example/p>\n",
+        "1. ~~~\n<img src=https://evil.example/p>\n",
+        "\t```\n<img src=https://evil.example/p>\n",
+    ],
+)
+def test_an_indented_or_nested_fence_never_hides_prose(report: str) -> None:
+    assert "<img" not in _md(report)
+
+
+def test_a_column_zero_fence_stays_code_and_a_nested_one_is_broken() -> None:
+    assert _md("```\n<b>\n```\n") == "```\n<b>\n```\n"
+    # The indented opener is broken, so line 3 opens the fence for GitHub too.
+    assert _md("  ```\nx\n```\n<b>\n```\n") == "  \\```\nx\n```\n<b>\n```\n"
+    assert _md("- a\n  ```sh\n  x\n  ```\n") == "- a\n  \\```sh\n  x\n  \\```\n"
+
+
+def test_a_backtick_line_with_backticks_after_it_is_inline_code_not_a_fence() -> None:
+    assert _md("```a`b\n<img src=x>\n") == "```a`b\n&lt;img src=x>\n"
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("FINDING 1\n=========\n", "FINDING 1\n\\=========\n"),
+        ("Title\n---\n", "Title\n\\---\n"),
+        ("> Quote\n> ===\n", "> Quote\n> \\===\n"),
+        ("Para\n\n---\n", "Para\n\n---\n"),  # a thematic break stays one
+        ("| a | b |\n|---|---|\n", "| a | b |\n|---|---|\n"),  # a table is untouched
+    ],
+)
+def test_setext_underlines_do_not_make_headings(report: str, expected: str) -> None:
+    assert _md(report) == expected

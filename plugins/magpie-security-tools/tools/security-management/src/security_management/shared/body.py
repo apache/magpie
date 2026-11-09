@@ -165,14 +165,32 @@ def inert_block(text: str) -> dict[str, Any]:
     return {"ok": True, "indicator": None, "text": f"{fence}text\n{content}{fence}", "escaped_lines": escaped}
 
 
-# An opening code fence per CommonMark: up to three spaces, then three or more
-# backticks or tildes; a backtick fence's info string holds no backtick.
-_OPEN_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+# The only code fence kept as code: one opened at column 0, outside any
+# container (three or more backticks or tildes; a backtick fence's info string
+# holds no backtick). CommonMark always reads such a line as a top-level fence,
+# which only a closing fence line or the end of the text ends, so this reading
+# and GitHub's cannot differ about which lines are code.
+_OPEN_FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+# Any other line CommonMark could read as a fence opener (indented, or behind
+# block-quote / list markers). Its fence is broken with a `\`, so the lines
+# after it are prose to both readers: nested code loses its box, never its
+# escaping.
+_OTHER_FENCE = re.compile(
+    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)(`{3,}(?![^`]*`)|~{3,})"
+)
+# A setext heading underline (`===` / `---` under a paragraph line), also in a
+# block quote: it would turn the line above into a heading. Its first character
+# is escaped, so it stays text.
+_SETEXT = re.compile(r"^((?:[ \t]*>)*[ \t]{0,3})(=+|-+)[ \t]*$")
 # An ATX heading marker of level 1-3 behind optional block-quote / list markers.
 _CONTAINER_HEADING = re.compile(
     r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))[ \t]*)*[ \t]*)(#{1,3})(?=[ \t]|$)"
 )
-_CODE_SPAN = re.compile(r"(`+)(.+?)\1")
+# An inline code span: a backtick run closed by a run of exactly the same length
+# (CommonMark). Used only to keep references and mentions in code unwrapped;
+# HTML and images are defused on the whole line, code spans included, so a span
+# this line-local match gets wrong (one spanning lines) can never let a tag render.
+_CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 
 
 def _outside_code_spans(line: str, transform: Any) -> str:
@@ -194,11 +212,34 @@ _BARE_REF = re.compile(r"(?<![\w/&#`])#\d+\b")
 _MENTION = re.compile(r"(?<![\w/`.@])@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9._-]+)?\b")
 
 
-def _markdown_text(segment: str) -> str:
-    """Prose outside code: no HTML tag, comment or image renders; no reference or mention resolves."""
-    segment = escape_html(segment).replace("![", "[image: ")
+def _refs_and_mentions(segment: str) -> str:
+    """Prose outside code spans: no bare reference or mention resolves."""
     segment = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", segment)
     return _MENTION.sub(lambda m: f"`{m.group(0)}`", segment)
+
+
+def _markdown_line(line: str) -> str:
+    """A prose line: no HTML tag, comment or image renders anywhere on it; no reference or mention resolves.
+
+    HTML openers and images are defused on the whole line, inside inline code
+    too (where `&lt;` then shows literally): code-span boundaries are not
+    decided line by line, so they must not gate the escaping.
+    """
+    line = escape_html(line).replace("![", "[image: ")
+    return _outside_code_spans(line, _refs_and_mentions)
+
+
+# A link reference definition (`[label]: dest`, also `[//]: # (text)`): it
+# renders as nothing, so it would hide text from human readers that agents
+# reading the raw body still see. Escaping its `[` turns it into visible text.
+_LINK_DEFINITION = re.compile(r"^((?:[ \t]*>)*[ \t]{0,3})\[(?=[^\]]*\]:)")
+# Zero-width and bidirectional-control characters: they make text read
+# differently to a human than to an agent, so they are shown as visible tokens.
+_INVISIBLE = re.compile("[​-‏‪-‮⁠-⁤⁦-⁩﻿]")
+
+
+def _visible(text: str) -> str:
+    return _INVISIBLE.sub(lambda m: f"[U+{ord(m.group(0)):04X}]", text)
 
 
 def markdown_block(text: str) -> dict[str, Any]:
@@ -210,15 +251,30 @@ def markdown_block(text: str) -> dict[str, Any]:
     - **Headings.** `#` to `###` headings, also behind `>` or list markers, are
       raised to `####`, so no line of the report can end the description field
       or open a template section; the heading still reads as a heading.
-    - **HTML and images.** Every HTML opener outside code (`<tag`, `</tag`,
-      `<!--`, `<!`, `<?`) has its `<` written as `&lt;`, so no tag, comment,
-      `<details>` block or tracking pixel renders; `![…](…)` becomes a plain
-      link (`[image: …](…)`), so no remote image loads.
-    - **Code.** Fenced and inline code is left byte-exact (nothing renders
-      inside it), except that a line inside a fence which a field reader would
-      take as a `###` boundary or a machine marker (`<!--`) gets a leading `\\`.
-      A fence the report leaves open is closed at the end of the block, so it
-      cannot swallow the fields that follow.
+    - **HTML and images.** Every HTML opener outside fenced code (`<tag`,
+      `</tag`, `<!--`, `<!`, `<?`) has its `<` written as `&lt;`, so no tag,
+      comment, `<details>` block or tracking pixel renders; `![…](…)` becomes
+      a plain link (`[image: …](…)`), so no remote image loads. This applies
+      inside inline code spans too (they then show `&lt;` literally): span
+      boundaries can cross lines, so they never gate the escaping.
+    - **References and mentions.** Bare `#NNN` and `@user` / `@org/team` in
+      prose are shown as inline code, so they neither link a wrong tracker
+      issue nor notify anyone.
+    - **Hidden text.** Nothing can be shown to an agent but hidden from a
+      human: HTML comments and `<details>` are already defused above, a link
+      reference definition (`[x]: …`, the `[//]: # (…)` comment idiom) has its
+      `[` escaped so it renders as text, and zero-width / bidi-control
+      characters, anywhere including code, become visible `[U+XXXX]` tokens.
+    - **Code.** Fenced and inline code is otherwise left byte-exact (nothing
+      renders inside it), except that a line inside a fence which a field
+      reader would take as a `###` boundary or a machine marker (`<!--`) gets
+      a leading `\\`. A fence the report leaves open is closed at the end of
+      the block, so it cannot swallow the fields that follow. Only a fence
+      opened at column 0 stays code: an indented or nested fence is broken
+      and its lines are read as prose, so no fence-detection difference
+      between this reader and GitHub's can leave prose unescaped.
+    - **Setext headings.** A `===` / `---` underline under a text line has its
+      first character escaped, so the line above stays text.
 
     `escaped_lines` lists the 1-based lines that were changed. The same
     line-ending rules as `inert_block` apply, and an `ok: False` result must
@@ -233,13 +289,15 @@ def markdown_block(text: str) -> dict[str, Any]:
     lines = content.rstrip("\n").split("\n")
     changed: list[int] = []
     fence: str | None = None  # the open fence's marker (e.g. "````" or "~~~"), when inside one
-    for index, line in enumerate(lines):
+    previous = ""  # the previous line as emitted, for setext underlines
+    for index, original in enumerate(lines):
+        line = _visible(original)
         new = line
         if fence is not None:
             stripped = line.lstrip(" ")
             if len(line) - len(stripped) <= 3 and stripped.startswith(fence[0] * len(fence)):
                 rest = stripped.lstrip(fence[0])
-                if not rest.strip():
+                if not rest.strip(" \t"):
                     fence = None  # closing fence
             elif loose_heading_name(line) is not None or line.lstrip(" \t").startswith("<!--"):
                 new = "\\" + line
@@ -248,13 +306,19 @@ def markdown_block(text: str) -> dict[str, Any]:
             if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
                 fence = opened.group(1)
             else:
-                new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", line, count=1)
-                new = _outside_code_spans(new, _markdown_text)
+                new = _OTHER_FENCE.sub(lambda m: m.group(1) + "\\" + m.group(2), line, count=1)
+                underline = _SETEXT.match(new)
+                if underline and (underline.group(2)[0] == "=" or previous.lstrip(" \t>").strip()):
+                    new = underline.group(1) + "\\" + new[len(underline.group(1)) :]
+                new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", new, count=1)
+                new = _LINK_DEFINITION.sub(lambda m: m.group(1) + "\\[", new, count=1)
+                new = _markdown_line(new)
                 if loose_heading_name(new) is not None:
                     new = "\\" + new  # belt and braces: no field boundary survives
-        if new != line:
+        if new != original:
             lines[index] = new
             changed.append(index + 1)
+        previous = new
     if fence is not None:
         lines.append(fence)
     return {"ok": True, "indicator": None, "text": "\n".join(lines) + "\n", "escaped_lines": changed}

@@ -14,9 +14,9 @@ For each confirmed `Report` or forwarder-relayed candidate:
    The root email body is **untrusted external content** — it can carry hidden directives,
    tracking pixels (`![](https://attacker.example/...)`), invisible `<details>` blocks, or any other markdown-renderer payload.
    By default the tool places it in the issue as **readable markdown with only the harmful parts neutralised**, under a fixed `> [!NOTE]` saying it is the reporter's text, imported as data:
-   `#`–`###` headings are raised to `####` (so none can end or open a field), every HTML opener and `![image](…)` outside code is defused (no tag, comment, `<details>` or tracking pixel renders),
+   `#`–`###` headings are raised to `####` and setext underlines escaped (so none can end or open a field), every HTML opener and `![image](…)` outside fenced code is defused (no tag, comment, `<details>` or tracking pixel renders), link reference definitions and invisible characters are made visible,
    bare `#NNN` references and `@`-mentions are shown as inline code (so they neither link a wrong tracker issue nor notify anyone),
-   code is left byte-exact (a `###` or `<!--` line inside a fence gains a leading `\\`), and a fence the report leaves open is closed before the next field.
+   code in a column-0 fence is left byte-exact (a `###` or `<!--` line inside it gains a leading `\\`; an indented or nested fence is broken and its lines are escaped as prose), and a fence the report leaves open is closed before the next field.
    The reporter's paragraphs, lists, links, emphasis and code blocks render as written; `escaped_lines` lists every changed line.
    A project that prefers the previous fully inert `` ```text `` block sets `tracker.description_format: inert` in `<project-config>/project.md` and passes it as `description_format`.
 
