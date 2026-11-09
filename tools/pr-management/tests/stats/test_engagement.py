@@ -26,7 +26,7 @@ from pr_management.stats import dashboard, reference
 
 from .helpers import _iso, comment, make_ctx, make_pr
 
-EVENT_TYPES = ("LabeledEvent", "ReadyForReviewEvent", "ConvertToDraftEvent")
+EVENT_TYPES = reference.AUTHOR_SELF_EVENT_TYPES
 
 
 def _event(kind, actor="contributor", *, label="area:docs", days_ago=1):

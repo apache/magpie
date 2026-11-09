@@ -159,6 +159,10 @@ query($q: String!, $first: Int!, $after: String) {
 }
 """
 
+# Timeline node types OPEN_PRS_QUERY selects (its itemTypes list); a
+# contributor's own events of these types are not maintainer engagement.
+AUTHOR_SELF_EVENT_TYPES = ("LabeledEvent", "ReadyForReviewEvent", "ConvertToDraftEvent")
+
 CLOSED_PRS_QUERY = """
 query($q: String!, $first: Int!, $after: String) {
   search(query: $q, type: ISSUE, first: $first, after: $after) {
@@ -446,7 +450,7 @@ def classify(pr, ctx, *, partial=False):
             and not is_bot(actor)
             and not (
                 pr["_is_contrib"]
-                and ev.get("__typename") in ("LabeledEvent", "ReadyForReviewEvent", "ConvertToDraftEvent")
+                and ev.get("__typename") in AUTHOR_SELF_EVENT_TYPES
                 and actor.lower() == (author or "").lower()
             )
         ):
