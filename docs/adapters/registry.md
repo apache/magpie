@@ -49,7 +49,7 @@ extension point = a documented, labelled slot with a tracking issue.
 | Capability contract | Shipping adapter(s) | Extension points (tracked) |
 |---|---|---|
 | [`tools/cve-tool`](../../tools/cve-tool/) | [`cve-tool-vulnogram`](../../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
-| [`tools/mail-archive`](../../tools/mail-archive/) | [`ponymail`](../../tools/ponymail/) (ASF), [`gmail`](../../tools/gmail/), [`sourcehut`](../../tools/sourcehut/), [`discourse`](../../tools/discourse/) `partial` topic reads and category activity lists (not a complete/selectable backend) | Hyperkitty, remaining Discourse coverage [#307](https://github.com/apache/magpie/issues/307), Google Groups, GitHub Discussions |
+| [`tools/mail-archive`](../../tools/mail-archive/) | [`ponymail`](../../tools/ponymail/) (ASF), [`gmail`](../../tools/gmail/), [`sourcehut`](../../tools/sourcehut/), [`discourse`](../../tools/discourse/) `partial` topic reads, category activity lists and full-text search (not a complete/selectable backend) | Hyperkitty, remaining Discourse coverage [#307](https://github.com/apache/magpie/issues/307), Google Groups, GitHub Discussions |
 | [`tools/mail-source`](../../tools/mail-source/) | mbox, IMAP, [`mailman3`](../../tools/mail-source/mailman3/), [`gmail`](../../tools/gmail/), [`maildir`](../../tools/maildir/), [`ponymail`](../../tools/ponymail/) (ASF) | — |
 | [`tools/forwarder-relay`](../../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md)) | huntr.com, HackerOne, GHSA relay |
 | [`tools/scan-format`](../../tools/scan-format/) | ASVS | other scanner formats |
