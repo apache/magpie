@@ -269,12 +269,16 @@ by swapping the adapter, not the skill.
   Pinned topics count toward the positive limit (default 100); only an extra unique match proves truncation, and an older explicitly non-pinned topic ends a since scan.
   Received pages are strictly validated; malformed data or failed requests produce no partial output. Lists are not consistent snapshots and have no pagination budget.
   `topic search <query> [--limit N]` passes a native full-text query to `/search.json`.
-  Discourse usually selects one representative post per topic. Queries such as `in:all-posts` can yield several.
+  Discourse usually selects one representative post per topic.
+  Queries such as `in:all-posts` can yield several.
   `matches` lists distinct posts returned on fetched pages in server order, with excerpts and same-forum links.
-  Its length cannot establish a total hit or contribution count. Use `topic view` to read the discussion.
-  Only an extra distinct topic proves `truncated`. If page 10 signals more results,
+  Its length cannot establish a total hit or contribution count.
+  Use `topic view` to read the discussion.
+  Only an extra distinct topic proves `truncated`.
+  If page 10 signals more results,
   `server_limit_reached` is true regardless of the topic limit.
-  Only GET requests are permitted. User activity, guarded writes and the remaining mail-archive verbs are
+  Only GET requests are permitted.
+  User activity, guarded writes and the remaining mail-archive verbs are
   tracked in #307.
 - `tools/forgejo/` — doc-only Forgejo / Gitea adapter (#1469, part of
   #310), declared `contract:tracker + contract:source-control +

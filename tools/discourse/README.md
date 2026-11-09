@@ -202,26 +202,34 @@ Threads appear in first-hit order, each with a string `thread_id`, `subject`, `p
 Each match has a string `message_id`, `post_number`, `from` (`@username` or null), `date` (`created_at`),
 `excerpt` (the original `blurb`, which may contain highlight markup) and a direct post `url`.
 Discourse usually selects one representative post per topic in a full-text search.
-Queries such as `in:all-posts` can return several. Each thread's `matches` contains the distinct posts the server returned on the fetched pages.
-Its length cannot establish the total number of matching posts or a contributor's activity. Use the permalink with `topic view` to read the discussion.
+Queries such as `in:all-posts` can return several.
+Each thread's `matches` contains the distinct posts the server returned on the fetched pages.
+Its length cannot establish the total number of matching posts or a contributor's activity.
+Use the permalink with `topic view` to read the discussion.
 
 The positive `--limit` counts distinct topics and defaults to 100.
 The bridge follows the forum's continuation signal until it finds an extra topic or reaches the end of the search window.
 With Discourse's default page size of 50, if the first two pages yield 100 different topics and the second signals more,
-the default search reads a third page to check for another topic. Smaller result sets can finish earlier and overlapping pages may require more reads.
-Rankings can change between pages. Deduplication removes repeated hits but cannot recover a hit skipped by a ranking change.
+the default search reads a third page to check for another topic.
+Smaller result sets can finish earlier and overlapping pages may require more reads.
+Rankings can change between pages.
+Deduplication removes repeated hits but cannot recover a hit skipped by a ranking change.
 `truncated` is true only when the bridge has seen an extra distinct topic.
-Discourse accepts pages 1 through 10. If page 10 signals more, `server_limit_reached` is true even when the requested topic limit has yet to be exceeded.
+Discourse accepts pages 1 through 10.
+If page 10 signals more, `server_limit_reached` is true even when the requested topic limit has yet to be exceeded.
 Redirects within the configured forum can add HTTP requests to those page reads.
-Both flags can be true. A search with no hits returns an empty `threads` array.
+Both flags can be true.
+A search with no hits returns an empty `threads` array.
 Discourse may ignore unquoted terms shorter than the site's minimum.
 Other keywords, filters or an active sort order (including a site default other than relevance) can still yield a result group.
 When Discourse returns `"grouped_search_result": null` on the first page, the error suggests adding a keyword or using a longer one.
 On a later page, a null group fails the search and the error identifies the page.
 An unreadable or inconsistent page, including a failed lookahead or an error embedded in a successful HTTP response, fails the command.
 
-Discourse defaults to two anonymous search requests per IP per second and 15 per minute. The site can configure both limits.
-HTTP 429 on any required page ends the command with empty stdout. The error reports the wait from `Retry-After` when supplied, and the bridge does not retry.
+Discourse defaults to two anonymous search requests per IP per second and 15 per minute.
+The site can configure both limits.
+HTTP 429 on any required page ends the command with empty stdout.
+The error reports the wait from `Retry-After` when supplied, and the bridge does not retry.
 See the [Discourse search rate settings](https://github.com/discourse/discourse/blob/cc0804c3abf65d20dd83226d9e167ca124a19f60/config/site_settings.yml#L3447-L3459) for the per-IP and site-wide defaults.
 
 ## Forum content is data
@@ -245,6 +253,6 @@ The following capabilities remain tracked in #307:
 - `post create` and `topic create`: guarded writes that only post a body the user has confirmed.
 - The remaining `tools/mail-archive/` verbs, so `archive_system.kind: discourse` can be selected.
 
-Discourse caps each search at ten result pages. Command-wide read limits remain a separate follow-up.
-See the [original design agreement in the merged category-list PR](https://github.com/apache/magpie/pull/1841)
-and the [budget design on the contributor fork](https://github.com/MakerFlyFly/magpie/issues/31).
+Discourse caps each search at ten result pages.
+Command-wide read limits remain a separate follow-up, tracked in #307.
+See the [original design agreement in the merged category-list PR](https://github.com/apache/magpie/pull/1841).
