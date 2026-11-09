@@ -214,7 +214,9 @@ def body_input(**extra: Any) -> dict[str, Any]:
 
 
 def test_render_body_sentinels_and_inert_pr_body(capsys, tmp_path) -> None:
-    _, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", body_input()))
+    _, out = run(
+        capsys, "render-body", "--input", write(tmp_path, "b.json", body_input(description_format="inert"))
+    )
     text = out["text"]
     assert out["fields_ok"] and out["sanitised"]
     assert (
@@ -371,7 +373,7 @@ def test_render_rollup_keeps_a_markdown_remediation_developer_in_code(capsys, tm
 
 @pytest.mark.parametrize("pr_body", ["```\nunclosed", "```\n### Severity\n~~~\n", "    ```\nx\n    ```"])
 def test_render_body_keeps_unpaired_fences_inert(capsys, tmp_path, pr_body: str) -> None:
-    data = body_input()
+    data = body_input(description_format="inert")
     data["pr"]["body"] = pr_body
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0

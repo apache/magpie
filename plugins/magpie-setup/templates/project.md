@@ -504,6 +504,13 @@ tracker:
     mailing_thread: "Mailing list thread URL"
     affected_versions: "Affected versions"
 
+  # How an imported report reaches the issue description.
+  #   markdown (default): readable — headings raised to ####, HTML and images
+  #                       defused, bare #NNN / @-mentions as inline code.
+  #   inert:              the whole report in a plain-text ```text fence.
+  # Consumed by: security-issue-import, -import-from-pr, -import-from-md.
+  description_format: markdown
+
   # Tracker labels — role -> the concrete label name in this project.
   # Consumed by: security-issue-triage, security-issue-sync, pr-management-triage.
   labels:

@@ -83,14 +83,14 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     pr = data["pr"]
     number = int(pr["number"])
     url = f"https://github.com/{upstream}/pull/{number}"
-    cleaned = body.inert_block(str(pr.get("body") or ""))
+    cleaned = body.report_block(str(pr.get("body") or ""), str(data.get("description_format") or "markdown"))
     if not cleaned["ok"]:
         return {
             "ok": False,
             "refused": f"the PR body is malformed ({cleaned['indicator']}); it is not rendered",
             "malformed_indicator": cleaned["indicator"],
         }
-    pr_body = cleaned["text"]  # inert: references inside render as text, so they are not linked
+    pr_body = cleaned["text"]  # headings demoted, HTML and images defused (or inert, on request)
     note = (
         f"> **Imported from public PR {_pr_link(upstream, number)}** — there is no inbound `security@` report; "
         "the PR description below is the public statement of the vulnerability."

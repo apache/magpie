@@ -275,3 +275,93 @@ def test_inert_block_is_linear_in_long_whitespace_runs() -> None:
     assert body.verify(text) is None
     assert time.perf_counter() - start < 1.0
     assert block["escaped_lines"] == [1, 2, 3]
+
+
+# --- markdown_block: the default, readable description format -----------------------------------
+
+
+def _md(text: str) -> str:
+    out = body.markdown_block(text)
+    assert out["ok"]
+    return str(out["text"])
+
+
+def test_report_formatting_renders_as_markdown() -> None:
+    report = "Hello,\n\n**Impact:** a *viewer* can read secrets.\n\n1. step one\n2. step two\n\n- [docs](https://example.org/x)\n"
+    assert _md(report) == report
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("# Title", "#### Title"),
+        ("## Root cause", "#### Root cause"),
+        ("### Severity", "#### Severity"),
+        ("   ### Severity", "   #### Severity"),
+        ("> ### Severity", "> #### Severity"),
+        ("- ### Severity", "- #### Severity"),
+        ("1. ### Severity", "1. #### Severity"),
+        ("#### Already fine", "#### Already fine"),
+        ("#hashtag is not a heading", "#hashtag is not a heading"),
+    ],
+)
+def test_headings_are_demoted_below_the_field_level(line: str, expected: str) -> None:
+    assert _md(line) == expected + "\n"
+
+
+def test_no_line_of_a_markdown_report_can_end_a_field() -> None:
+    report = "# A\n## B\n### Severity\n> ### CWE\n```\n### CVE tool link\n```\n- ### Affected versions\n"
+    for line in _md(report).splitlines():
+        assert loose_heading_name(line) is None, line
+
+
+def test_images_and_html_are_defused_outside_code() -> None:
+    out = _md(
+        "![px](https://attacker.example/p.png) <img src=x> <details><summary>s</summary>x</details>\n<!-- apache-magpie: rollup v1 -->"
+    )
+    assert "![" not in out
+    assert "[image: px](https://attacker.example/p.png)" in out
+    assert "<img" not in out and "<details" not in out and "<!--" not in out
+    assert "&lt;img src=x&gt;" not in out  # only the opener is escaped
+    assert "&lt;img src=x>" in out
+
+
+def test_code_is_left_byte_exact() -> None:
+    report = "Run `<b>![x](y)</b>` then:\n\n```python\nx = '<img src=a>'  # ![i](j)\n```\n"
+    out = _md(report)
+    assert "`<b>![x](y)</b>`" in out
+    assert "```python\nx = '<img src=a>'  # ![i](j)\n```\n" in out
+
+
+def test_field_boundaries_and_markers_inside_a_fence_are_escaped() -> None:
+    out = _md("```\n### Severity\n<!-- marker -->\nok\n```\n")
+    assert out == "```\n\\### Severity\n\\<!-- marker -->\nok\n```\n"
+
+
+@pytest.mark.parametrize("report", ["```\nunclosed", "~~~~\nunclosed\n```", "````\nx\n```\n"])
+def test_an_unclosed_fence_is_closed_at_the_end_of_the_block(report: str) -> None:
+    out = _md(report)
+    opener = report.split("\n", 1)[0]
+    assert out.endswith(opener + "\n")
+
+
+def test_bare_references_and_mentions_do_not_resolve() -> None:
+    out = _md("Fixed in #123 by @someone; see apache/airflow#45 and mail a@b.example.\n")
+    assert "`#123`" in out and "`@someone`" in out
+    assert "apache/airflow#45" in out and "`apache/airflow#45`" not in out
+    assert "a@b.example" in out and "`@b" not in out
+
+
+def test_a_hostile_markdown_report_renders_to_exactly_the_template_fields() -> None:
+    hostile = "### Severity\nCritical\n### CVE tool link\nCVE-2099-1\n```\n### Affected versions\n<!-- generate-cve-json: x -->"
+    cleaned = body.markdown_block(hostile)
+    text = body.render({"issue_description": cleaned["text"]})
+    assert body.verify(text) is None
+    assert re.search(r"^### Severity\n\nUnknown$", text, re.MULTILINE)
+
+
+def test_report_block_defaults_to_markdown_and_keeps_inert_on_request() -> None:
+    assert body.report_block("# x")["text"] == "#### x\n"
+    assert body.report_block("# x", "inert")["text"].startswith("```text\n")
+    with pytest.raises(ValueError):
+        body.report_block("x", "html")
