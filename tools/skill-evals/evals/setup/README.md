@@ -155,4 +155,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-09 | `51e73a33` (upgrade-skill) | `opus[1m]` | 5 | pass |  |
 | 2026-11-02 | `5eb60e27` (fix/pr-1749-review-round2) | (unrecorded, `claude -p`) | 3 | `step-reconcile/case-2-stale-anchor` failed 1 of 2; `step-reconcile/case-4-import-policy-grants` failed 1 of 2 |  |
