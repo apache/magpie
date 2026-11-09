@@ -567,7 +567,8 @@ def test_a_wrap_that_would_merge_backtick_runs_falls_back_to_a_word_joiner() -> 
 
 
 def test_a_numeric_character_reference_cannot_link_an_issue() -> None:
-    assert "#\u2060123" in _md("see &#123; here\n")
+    out = _md("see &#123; and &#x7B; here\n")
+    assert "#123" not in out and out == "see { and { here\n"
 
 
 def test_a_label_split_after_an_escaped_bracket_is_visible() -> None:
@@ -577,3 +578,10 @@ def test_a_label_split_after_an_escaped_bracket_is_visible() -> None:
 def test_a_non_breaking_space_line_does_not_end_the_paragraph_for_code_spans() -> None:
     out = _md("`open\n\u00a0\n@someone x`\n")
     assert "@\u2060someone" in out
+
+
+def test_plain_character_references_are_decoded_and_markup_ones_kept_escaped() -> None:
+    out = _md("victim &#39;alice&#39; &quot;x&quot; &#60;img&#62; &#8203; &#64;someone\n")
+    assert out.startswith("victim 'alice' \"x\" ")
+    assert "<img" not in out and "&amp;#\u206060;" in out and "&amp;#\u20608203;" in out
+    assert "&amp;#\u206064;someone" in out

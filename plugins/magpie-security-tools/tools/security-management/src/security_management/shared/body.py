@@ -51,6 +51,7 @@ never decides whether a body is an injection attempt.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import unicodedata
@@ -204,6 +205,17 @@ _WORD_JOINER = "⁠"
 # text is not read as a reference to issue 123.
 _NUMERIC_REFERENCE = re.compile(r"&#(?=[0-9]{1,7};|[xX][0-9a-fA-F]{1,6};)")
 _NAMED_REFERENCE = re.compile(r"&(?=[A-Za-z][A-Za-z0-9]{1,31};)")
+# A reference to an ordinary visible character (`&#39;`, `&quot;`, common in
+# text copied from HTML) is decoded to that character instead, so it reads as
+# written; one decoding to markup or a glyphless character stays escaped.
+_ANY_REFERENCE = re.compile(r"&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});")
+_MARKUP_CHARACTERS = frozenset("<>&#@`[]!\\*_~|=-+:")
+
+
+def _decode_plain_reference(match: re.Match[str]) -> str:
+    decoded = html.unescape(match.group(0))
+    plain = len(decoded) == 1 and decoded.isprintable() and not _invisible(decoded)
+    return decoded if plain and decoded not in _MARKUP_CHARACTERS else match.group(0)
 
 
 def _unmatched_backticks(line: str) -> bool:
@@ -259,6 +271,7 @@ def _markdown_line(line: str, spans_uncertain: bool) -> str:
     alone. Otherwise a word joiner follows every `#` / `@`, which no reader
     resolves, in code or out of it.
     """
+    line = _ANY_REFERENCE.sub(_decode_plain_reference, line)
     line = _NAMED_REFERENCE.sub("&amp;", line)
     line = _NUMERIC_REFERENCE.sub("&amp;#" + _WORD_JOINER, line)
     wrapped = (
