@@ -21,9 +21,9 @@ when_to_use: |
   calibrate. Skip for one named person — use nomination.
 argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
-surface_hash: sha256:683e09570311f09a
+surface_hash: sha256:0d00099fe9910caa
 license: Apache-2.0
-measured_tokens: 4858
+measured_tokens: 4921
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -231,7 +231,7 @@ Do not compare anyone's counts with the floors, count floors met or missed, or s
 ## Step 4 — Write the report
 
 Write the report per [`report.md`](report.md) to `<scratch>/candidate-screen/<end>-candidate-screen.md`.
-The report opens with everyone measured, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
+The report opens with a Headline: everyone measured, split into a committer list and a `<governance-body>` list, each in alphabetical order of GitHub handle, linked to their section, with one phrase restating the opening claim of that section — never a new judgement, comparison, or readiness claim. A target with nobody measured still gets its heading, followed by `None.`. The Headline is followed by one or two paragraphs summarising the findings across the list.
 Each person's section, in the same order, holds two or three paragraphs of details: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
 Each section starts with a **Details** line of links to live code-host searches of the person's full activity in the window — changes landed, changes reviewed, issues filed, threads commented — per [`report.md` → Details links](report.md#details-links), so a reader can open everything behind the counts.
 Nothing in the report compares people with each other or with the floors, orders them by any measure, scores them, counts floors met, or says or implies that anyone is ready, close, or not ready.
