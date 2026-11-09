@@ -205,13 +205,13 @@ _WORD_JOINER = "⁠"
 # text is not read as a reference to issue 123.
 _NUMERIC_REFERENCE = re.compile(r"&#(?=[0-9]{1,7};|[xX][0-9a-fA-F]{1,6};)")
 _NAMED_REFERENCE = re.compile(r"&(?=[A-Za-z][A-Za-z0-9]{1,31};)")
-# A reference to an ordinary visible character (`&#39;`, `&quot;`, common in
-# text copied from HTML) is decoded to that character instead, so it reads as
-# written; one decoding to markup or a glyphless character stays escaped.
+# A reference to an ordinary visible character (`&#39;`, `&quot;`, `&gt;`,
+# common in text copied from HTML) is decoded to that character before any
+# other rule runs, so it reads as written and is sanitised exactly as if the
+# reporter had typed it. One decoding to `&`, a glyphless or a non-printable
+# character (a line break included) stays a reference, escaped later.
 _ANY_REFERENCE = re.compile(r"&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});")
-# `<` and `>` decode safely: HTML openers are escaped after decoding, and a
-# leading `>` cannot end a field (the final boundary check still runs).
-_MARKUP_CHARACTERS = frozenset("&#@`[]!\\*_~|=-+:")
+_MARKUP_CHARACTERS = frozenset("&")
 
 
 def _decode_plain_reference(match: re.Match[str]) -> str:
@@ -273,7 +273,6 @@ def _markdown_line(line: str, spans_uncertain: bool) -> str:
     alone. Otherwise a word joiner follows every `#` / `@`, which no reader
     resolves, in code or out of it.
     """
-    line = _ANY_REFERENCE.sub(_decode_plain_reference, line)
     line = _NAMED_REFERENCE.sub("&amp;", line)
     line = _NUMERIC_REFERENCE.sub("&amp;#" + _WORD_JOINER, line)
     wrapped = (
@@ -474,16 +473,17 @@ def markdown_block(text: str) -> dict[str, Any]:
                 fence = opened.group(1)
                 spans_open = False
             else:
-                new = _OTHER_FENCE.sub(lambda m: m.group(1) + "\\" + m.group(2), line, count=1)
+                decoded = _ANY_REFERENCE.sub(_decode_plain_reference, line)
+                new = _OTHER_FENCE.sub(lambda m: m.group(1) + "\\" + m.group(2), decoded, count=1)
                 underline = _SETEXT.match(new)
                 if underline and (underline.group(2)[0] == "=" or previous.lstrip(" \t>").strip()):
                     new = underline.group(1) + "\\" + new[len(underline.group(1)) :]
                 new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", new, count=1)
                 new = _LINK_DEFINITION.sub(lambda m: m.group(1) + "\\[", new, count=1)
                 new = _markdown_line(new, spans_open)
-                if not line.strip(" \t"):
+                if not decoded.strip(" \t"):
                     spans_open = False
-                elif _unmatched_backticks(line):
+                elif _unmatched_backticks(decoded):
                     spans_open = True
                 if loose_heading_name(new) is not None:
                     new = "\\" + new  # belt and braces: no field boundary survives

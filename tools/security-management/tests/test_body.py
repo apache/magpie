@@ -580,13 +580,36 @@ def test_a_non_breaking_space_line_does_not_end_the_paragraph_for_code_spans() -
     assert "@\u2060someone" in out
 
 
-def test_plain_character_references_are_decoded_and_markup_ones_kept_escaped() -> None:
+def test_plain_character_references_are_decoded_and_glyphless_ones_kept_escaped() -> None:
     out = _md("victim &#39;alice&#39; &quot;x&quot; &#60;img&#62; &#8203; &#64;someone\n")
     assert out.startswith("victim 'alice' \"x\" ")
     assert "<img" not in out and "&lt;img>" in out and "&amp;#\u20608203;" in out
-    assert "&amp;#\u206064;someone" in out
+    assert "`@someone`" in out  # decoded, then defused like a typed mention
 
 
 def test_a_decoded_quote_marker_cannot_open_a_field() -> None:
     out = _md("&gt; ### Severity\n")
     assert loose_heading_name(out.rstrip("\n")) is None
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "&gt; [hidden]: https://e.org",
+        "&#35;&#35;&#35; Severity",
+        "&#96;&#96;&#96;\n<img src=x>\n&#96;&#96;&#96;",
+        "Title\n&#61;&#61;&#61;",
+        "&#32;&#32;&#32;&#32;[x]: y",
+    ],
+)
+def test_decoded_references_get_the_same_block_rules_as_literal_text(report: str) -> None:
+    out = _md(report)
+    for line in out.splitlines():
+        assert loose_heading_name(line) is None
+    assert "<img" not in out
+    assert not re.search(r"(?m)^(?:[ >]*)\[[^\]]*\]:", out)
+    assert not re.search(r"(?m)^=+$", out)
+
+
+def test_a_line_break_reference_is_not_decoded() -> None:
+    assert "\n" not in _md("a&#10;b").rstrip("\n")
