@@ -21,6 +21,7 @@ import { describe, test } from 'claude-code/testing';
 import {
   calculateSummary,
   cleanCuratedFindingsFiles,
+  computeFindingsHash,
   cycleFindingAction,
   findMatchingExistingFinding,
   formatActionIndicator,
@@ -35,6 +36,7 @@ import {
   handleFindingsCommand,
   handleUiPress,
   isAnchored,
+  isCuratedSidecarValid,
   normalizeAction,
   normalizeFilePath,
   normalizeLine,
@@ -86,11 +88,8 @@ function createMockEngine(overrides: any = {}): any {
     write: async (path: string, content: string) => {
       files.set(path, content);
     },
-    remove: async (path: string) => {
-      files.delete(path);
-    },
-    unlink: async (path: string) => {
-      files.delete(path);
+    exists: async (path: string) => {
+      return files.has(path);
     },
     _files: files,
   };
@@ -2011,6 +2010,7 @@ End of observations.
         selectedIndex: 0,
       };
 
+      test$.fs._files.set('/work/saved/findings-1887.json', '[]');
       const result = await syncCuratedStateToDisk(test$, state);
       assert(result !== null);
       assertStrictEqual(result?.jsonPath, '/work/saved/findings-1887.curated.json');
@@ -2018,7 +2018,9 @@ End of observations.
 
       const writtenJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
       const parsed = JSON.parse(writtenJson);
-      assertStrictEqual(parsed.length, 2);
+      assertStrictEqual(parsed.schema_version, 1);
+      assertStrictEqual(parsed.pr, 1887);
+      assertStrictEqual(parsed.findings.length, 2);
 
       const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
       assertStrictEqual(writtenKeep, 'ALL');
@@ -2083,6 +2085,7 @@ End of observations.
         selectedIndex: 0,
       };
 
+      test$.fs._files.set('/work/saved/findings-1887.json', '[]');
       await setReviewFindingsState(test$, state);
 
       renderFindingsPane(test$, {}, state);
@@ -2190,9 +2193,14 @@ End of observations.
       const state = await getReviewFindingsState(test$);
       assertStrictEqual(state, null);
 
-      // Verify orphaned files were cleaned up
-      assert(!test$.fs._files.has('/work/repo/saved/findings-empty.curated.json'));
-      assert(!test$.fs._files.has('/work/repo/saved/findings-empty.curated.keep'));
+      // Verify orphaned sidecars were marked as invalidated on disk
+      const jsonContent = await test$.fs.read('/work/repo/saved/findings-empty.curated.json');
+      const parsed = JSON.parse(jsonContent);
+      assertStrictEqual(parsed.invalidated, true);
+      assertStrictEqual(parsed.findings.length, 0);
+
+      const keepContent = await test$.fs.read('/work/repo/saved/findings-empty.curated.keep');
+      assertStrictEqual(keepContent, 'INVALIDATED');
     });
 
     test('strict token validation rejects letters and decouples gN in keep and drop commands', async () => {
@@ -2209,6 +2217,7 @@ End of observations.
         selectedIndex: 0,
       };
 
+      test$.fs._files.set('/work/saved/findings-1887.json', '[]');
       await setReviewFindingsState(test$, state);
 
       // 1. keep abc must fail validation and NOT touch state
@@ -2261,19 +2270,16 @@ End of observations.
         return { type: 'text', ...props };
       };
 
+      const writtenFileContents = new Map<string, string>();
       const failingTest$ = createMockEngine({
         fs: {
-          write: async (path: string) => {
+          exists: async () => true,
+          read: async () => '[]',
+          write: async (path: string, content: string) => {
             if (path.endsWith('.keep')) {
               throw new Error('EACCES: permission denied');
             }
-            writtenFiles.add(path);
-          },
-          remove: async (path: string) => {
-            writtenFiles.delete(path);
-          },
-          unlink: async (path: string) => {
-            writtenFiles.delete(path);
+            writtenFileContents.set(path, content);
           },
         },
         ui: {
@@ -2304,8 +2310,12 @@ End of observations.
       assert(curState?.syncError !== null && curState?.syncError !== undefined);
       assert(curState?.syncError.includes('EACCES: permission denied'));
 
-      // Verify partial file was cleaned up so files do not end up mismatched
-      assert(!writtenFiles.has('/work/readonly/findings.curated.json'));
+      // Verify partial file was marked as invalidated on disk so Step 7b falls back to original findings
+      const jsonContent = writtenFileContents.get('/work/readonly/findings.curated.json');
+      assert(jsonContent !== undefined);
+      const parsed = JSON.parse(jsonContent!);
+      assertStrictEqual(parsed.invalidated, true);
+      assertStrictEqual(parsed.findings.length, 0);
 
       // Verify warning renders in /magpie-findings status
       const statusRes = await handleFindingsCommand(failingTest$, { args: 'status' });
@@ -2329,6 +2339,7 @@ End of observations.
         selectedIndex: 0,
       };
 
+      test$.fs._files.set('/work/saved/findings-1887.json', '[]');
       await setReviewFindingsState(test$, state);
       await syncCuratedStateToDisk(test$, state);
 
@@ -2338,15 +2349,15 @@ End of observations.
       let curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
       let parsed = JSON.parse(curatedJson);
       // General finding g1 is skipped, so omitted from curated JSON
-      assertStrictEqual(parsed.length, 1);
-      assertStrictEqual(parsed[0].file, 'a.py');
+      assertStrictEqual(parsed.findings.length, 1);
+      assertStrictEqual(parsed.findings[0].file, 'a.py');
 
       // Slash command to edit inline 1
       await handleFindingsCommand(test$, { args: 'edit 1 Maintainer customized review note' });
 
       curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
       parsed = JSON.parse(curatedJson);
-      assertStrictEqual(parsed[0].explanation, 'Maintainer customized review note');
+      assertStrictEqual(parsed.findings[0].explanation, 'Maintainer customized review note');
 
       // Drop command with general identifier
       await handleFindingsCommand(test$, { args: 'drop g1' });
@@ -2358,6 +2369,189 @@ End of observations.
       const keptState = await getReviewFindingsState(test$);
       assertStrictEqual(keptState?.findings[0].action, 'accept');
       assertStrictEqual(keptState?.findings[1].action, 'accept');
+    });
+
+    test('serializeFindingsForRender on edit deletes base.comment and overrides explanation', () => {
+      const rawFindingWithComment = {
+        file: 'api.py',
+        line: 42,
+        severity: 'minor',
+        comment: 'Raw unedited inline comment from detector',
+        explanation: 'Raw explanation',
+        suggestion: '-foo()\n+bar()',
+      };
+
+      const findings: ReviewFinding[] = [
+        {
+          id: 'f1',
+          file: 'api.py',
+          line: 42,
+          severity: 'minor',
+          body: 'Maintainer revised human comment',
+          action: 'edit',
+          raw: rawFindingWithComment,
+        },
+      ];
+
+      const serialized = serializeFindingsForRender(findings);
+      const parsed = JSON.parse(serialized);
+      assertStrictEqual(parsed.length, 1);
+      // base.comment must be deleted on edit so render does not fall back to unedited raw comment
+      assertStrictEqual(parsed[0].comment, undefined);
+      assertStrictEqual(parsed[0].suggestion, undefined);
+      assertStrictEqual(parsed[0].explanation, 'Maintainer revised human comment');
+
+      // Envelope mode
+      const envelopeSerialized = serializeFindingsForRender(findings, {
+        pr: 2005,
+        sourceHash: 'testhash123',
+      });
+      const envelopeParsed = JSON.parse(envelopeSerialized);
+      assertStrictEqual(envelopeParsed.schema_version, 1);
+      assertStrictEqual(envelopeParsed.pr, 2005);
+      assertStrictEqual(envelopeParsed.source_sha256, 'testhash123');
+      assertStrictEqual(envelopeParsed.findings[0].comment, undefined);
+      assertStrictEqual(envelopeParsed.findings[0].explanation, 'Maintainer revised human comment');
+    });
+
+    test('isCuratedSidecarValid verifies schema, PR number, hash, and invalidation marker', () => {
+      const sourceContent = JSON.stringify([{ file: 'main.py', line: 1 }]);
+      const sourceHash = computeFindingsHash(sourceContent);
+
+      const validPayload = JSON.stringify({
+        schema_version: 1,
+        pr: 2005,
+        source_sha256: sourceHash,
+        findings: [{ file: 'main.py', line: 1 }],
+      });
+      assert(isCuratedSidecarValid(validPayload, 2005, sourceContent));
+
+      // Mismatched PR number
+      assert(!isCuratedSidecarValid(validPayload, 999, sourceContent));
+
+      // Mismatched source content / hash
+      assert(!isCuratedSidecarValid(validPayload, 2005, 'different source content'));
+
+      // Explicitly invalidated marker
+      const invalidatedPayload = JSON.stringify({
+        schema_version: 1,
+        pr: null,
+        source_sha256: null,
+        invalidated: true,
+        findings: [],
+      });
+      assert(!isCuratedSidecarValid(invalidatedPayload, 2005, sourceContent));
+
+      // Null, empty, or malformed JSON
+      assert(!isCuratedSidecarValid(null, 2005, sourceContent));
+      assert(!isCuratedSidecarValid('', 2005, sourceContent));
+      assert(!isCuratedSidecarValid('not json', 2005, sourceContent));
+    });
+
+    test('cleanCuratedFindingsFiles does not create sidecar files when none exist on disk', async () => {
+      const test$ = createMockEngine();
+      // Neither findings file nor curated sidecars exist in test$.fs._files
+      await cleanCuratedFindingsFiles(test$, '/work/nonexistent/findings.json');
+      assert(!test$.fs._files.has('/work/nonexistent/findings.curated.json'));
+      assert(!test$.fs._files.has('/work/nonexistent/findings.curated.keep'));
+    });
+
+    test('handleBashToolCall re-syncs curated sidecars on disposition re-run after edit', async () => {
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+
+      const initialSource = JSON.stringify([
+        { file: 'app.py', line: 10, severity: 'minor', explanation: 'Initial note 1' },
+        { file: 'app.py', line: 20, severity: 'minor', explanation: 'Initial note 2' },
+      ]);
+      test$.fs._files.set('/work/repo/saved/findings-run.json', initialSource);
+
+      // 1. Initial disposition (does NOT write sidecars)
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-run.json --pr 100' },
+        () => {}
+      );
+      assert(!test$.fs._files.has('/work/repo/saved/findings-run.curated.json'));
+
+      // 2. Maintainer curates (which writes sidecars to disk)
+      await handleFindingsCommand(test$, { args: 'drop 1' });
+      assert(test$.fs._files.has('/work/repo/saved/findings-run.curated.json'));
+      let curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.curated.json'));
+      assertStrictEqual(curatedOnDisk.source_sha256, computeFindingsHash(initialSource));
+
+      // 3. Maintainer edits raw findings file (e.g. via [E]dit) and re-runs disposition
+      const editedSource = JSON.stringify([
+        { file: 'app.py', line: 10, severity: 'minor', explanation: 'Rewritten note 1' },
+        { file: 'app.py', line: 20, severity: 'minor', explanation: 'Rewritten note 2' },
+      ]);
+      test$.fs._files.set('/work/repo/saved/findings-run.json', editedSource);
+
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-run.json --pr 100' },
+        () => {}
+      );
+
+      // Verify sidecars on disk were re-synced with editedSource's new hash and curation preserved
+      curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.curated.json'));
+      assertStrictEqual(curatedOnDisk.pr, 100);
+      assertStrictEqual(curatedOnDisk.source_sha256, computeFindingsHash(editedSource));
+      assertStrictEqual(curatedOnDisk.findings.length, 2);
+    });
+
+    test('handleBashToolCall invalidates curated sidecars on PR mismatch when path is reused', async () => {
+      const test$ = createMockEngine({
+        session: {
+          root: async () => '/work/repo',
+          cwd: async () => '/work/repo',
+        },
+      });
+
+      // Sidecars pre-exist for PR 100
+      test$.fs._files.set(
+        '/work/repo/saved/findings-shared.json',
+        JSON.stringify([{ file: 'a.py', line: 5, severity: 'minor', explanation: 'A' }])
+      );
+      test$.fs._files.set(
+        '/work/repo/saved/findings-shared.curated.json',
+        JSON.stringify({ schema_version: 1, pr: 100, source_sha256: 'old', findings: [] })
+      );
+      test$.fs._files.set('/work/repo/saved/findings-shared.curated.keep', '1');
+
+      // Re-running disposition on a different PR (PR 200) with the same shared findings path
+      await handleBashToolCall(
+        test$,
+        { command: 'uv run pr-management code-review disposition --findings saved/findings-shared.json --pr 200' },
+        () => {}
+      );
+
+      // Existing sidecar on disk must be marked as invalidated
+      const jsonContent = await test$.fs.read('/work/repo/saved/findings-shared.curated.json');
+      const parsed = JSON.parse(jsonContent);
+      assertStrictEqual(parsed.invalidated, true);
+
+      const keepContent = await test$.fs.read('/work/repo/saved/findings-shared.curated.keep');
+      assertStrictEqual(keepContent, 'INVALIDATED');
+    });
+
+    test('syncCuratedStateToDisk refuses to write sidecars when source file does not exist', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 300,
+        findingsPath: '/work/nonexistent/findings.json',
+        findings: [{ id: 'f1', file: 'a.py', line: 1, severity: 'minor', body: 'A', action: 'accept' }],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      const result = await syncCuratedStateToDisk(test$, state);
+      assertStrictEqual(result.success, false);
+      assert(result.error?.includes('Source findings file does not exist'));
     });
   });
 });

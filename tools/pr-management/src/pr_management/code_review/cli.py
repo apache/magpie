@@ -388,9 +388,20 @@ def _doc_name(category: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", category.lower().split(" (")[0]).strip("-")
 
 
+def _load_findings(path: Path | str | None) -> list[dict[str, Any]]:
+    if not path:
+        return []
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(raw, dict):
+        return raw.get("findings", [])
+    if isinstance(raw, list):
+        return raw
+    return []
+
+
 def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
-    findings = json.loads(Path(args.findings).read_text(encoding="utf-8")) if args.findings else []
+    findings = _load_findings(args.findings)
     result = _decide(args, cfg, pr, findings, args.viewer)
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
@@ -520,7 +531,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     saved: Path = args.saved_dir
     pr = data.load_pr(saved / f"cr-pr-{args.pr}.json")
     files = difflib.parse((saved / f"diff-{args.pr}.patch").read_text(encoding="utf-8", errors="replace"))
-    findings = json.loads(Path(args.findings).read_text(encoding="utf-8"))
+    findings = _load_findings(args.findings)
     summary = Path(args.summary).read_text(encoding="utf-8").strip()
     anchored = [f for f in findings if f.get("line")]
     picked = review_body.pick(args.keep or "A", len(anchored)) if args.inline == "on" else {"keep": []}
@@ -592,7 +603,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
             args,
             cfg,
             pr,
-            json.loads(Path(args.findings).read_text(encoding="utf-8")),
+            findings,
             args.viewer,
         )
         if not decision["auto_merge"]["eligible"]:

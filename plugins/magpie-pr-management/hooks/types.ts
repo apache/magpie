@@ -54,6 +54,7 @@ export interface ReviewFindingsState {
   prNumber?: number;
   prTitle?: string;
   findingsPath?: string;
+  sourceHash?: string | null;
   findings: ReviewFinding[];
   summary: ReviewFindingsSummary;
   selectedIndex: number;

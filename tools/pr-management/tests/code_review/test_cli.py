@@ -216,6 +216,71 @@ def test_context_then_disposition_then_render(
     assert "Apache Product maintainer" in body and "https://example.org/contrib" in body
 
 
+def test_disposition_and_render_with_envelope_findings(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    envelope_findings = tmp_path / "envelope_findings.json"
+    envelope_findings.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pr": 7,
+                "source_sha256": "abcdef1234567890",
+                "findings": [
+                    {
+                        "file": "scheduler/job.py",
+                        "line": 2,
+                        "severity": "minor",
+                        "rule": "naming-convention",
+                        "explanation": "Prefer a verb phrase for function names.",
+                        "suggestion": "-def process():\n+def process_batch():",
+                    }
+                ],
+            }
+        )
+    )
+    dis = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "disposition",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--viewer",
+        "alice",
+        "--findings",
+        str(envelope_findings),
+    )
+    assert dis["disposition"] == "COMMENT"
+    summary = tmp_path / "summary_envelope.txt"
+    summary.write_text("One naming nit inline.")
+    out = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "render",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--findings",
+        str(envelope_findings),
+        "--summary",
+        str(summary),
+        "--disposition",
+        "COMMENT",
+        "--out-dir",
+        str(tmp_path / "out_env"),
+        "--permission",
+        "write",
+    )
+    assert out["footer_verified"] and out["inline_threads"] == 1
+
+
 def test_guard_needs_the_liveness_read_then_checks_the_head(
     capsys: pytest.CaptureFixture[str], project: Path, saved: Path
 ) -> None:

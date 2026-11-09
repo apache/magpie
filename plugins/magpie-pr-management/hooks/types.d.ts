@@ -28,6 +28,7 @@ declare module 'claude-code' {
         prNumber?: number;
         prTitle?: string;
         findingsPath?: string;
+        sourceHash?: string | null;
         findings: Array<{
           id: string;
           file: string;

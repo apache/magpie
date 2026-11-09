@@ -2023,12 +2023,23 @@ For Claude Code harnesses using the `magpie-pr-management` plugin, the review fi
 
 ### Unsandboxed filesystem writes (`$.fs.write`)
 
-As established in [`docs/when-to-use-mods.md`](../when-to-use-mods.md), Claude Code mod hooks run outside the container sandbox with direct user privileges. The review findings mod introduces the framework's first use of `$.fs.write` in a mod hook.
+As established in [`docs/when-to-use-mods.md`](../when-to-use-mods.md), Claude Code mod hooks run outside the container sandbox with direct user privileges.
+The review findings mod introduces the framework's first use of `$.fs.write` in a mod hook.
 
-- **Rationale**: The mod communicates maintainer curation decisions (action toggles, inline keep selections, and edited review bodies) to the downstream deterministic CLI tool (`pr-management code-review render`) running in subsequent skill steps. Writing sidecars avoids spawning background daemons, opening IPC sockets, or modifying global environment state.
-- **Locality and sidecar constraints**: `$.fs.write` is strictly constrained to sibling sidecars (`<file>.curated.json` and `<file>.curated.keep`) placed directly beside an existing vetted findings file path discovered from a preceding `code-review disposition` command. The hook never targets arbitrary filesystem paths, user configuration files, dotfiles, or executable scripts.
-- **Fail-open design**: Filesystem write operations are non-blocking and fail open. If `$.fs.write` encounters permission errors, read-only volumes, or quota exhaustion, execution never halts or crashes. Instead, the failure is recorded in state, an explicit warning is displayed in the interactive pane footer and `/magpie-findings status`, and downstream skill steps fall back cleanly to original findings and interactive sequential prompts.
-- **Orphan cleanup**: When a re-run of `disposition` discovers that all findings have been resolved (empty findings list), pre-existing curated sidecar files are automatically cleaned up to prevent stale curation decisions from lingering on disk.
+- **Rationale**: The mod communicates maintainer curation decisions (action toggles, inline keep selections, and edited review bodies) to the downstream deterministic CLI tool (`pr-management code-review render`) running in subsequent skill steps.
+  Writing sidecars avoids spawning background daemons, opening IPC sockets, or modifying global environment state.
+- **Write boundaries and unsandboxed execution**: Because Claude Code mod hooks execute outside the container sandbox with user privileges, `$.fs.write` targets the host filesystem directly.
+  The write destination is the directory of the `--findings` path intercepted from the preceding `code-review disposition` command (typically the session or scratch directory).
+  Writes are strictly restricted to sibling sidecars (`<file>.curated.json` and `<file>.curated.keep`) beside an existing findings file that exists on disk.
+  The fixed `.curated.*` suffixes and existence precheck ensure executable scripts, dotfiles, or unrelated system files are never overwritten.
+- **Fail-open design and clean fallback**: Filesystem write operations are non-blocking and fail open.
+  If `$.fs.write` encounters permission errors, read-only volumes, or quota exhaustion, execution never halts or crashes.
+  Instead, the failure records `syncError` in state, displays an explicit warning in the interactive pane footer and `/magpie-findings status`, and invalidates partial sidecars on disk.
+  Downstream skill steps fall back cleanly to original findings and the interactive sequential text picker prompt.
+- **Self-invalidation lifecycle**: Because the Claude Code mod filesystem API provides no `remove` or `unlink` methods, sidecars manage their lifecycle via deterministic self-invalidation rather than file deletion.
+  The curated JSON payload embeds the active PR number and the source findings file's SHA-256 digest in a metadata envelope.
+  When a write fails, when findings become empty, or when a disposition re-run detects a mismatched PR number, the hook writes explicit invalidation markers to disk.
+  Downstream Step 7b verifies that the PR number and source hash match before passing `<file>.curated.json` to `render`, ensuring stale or orphaned curation files are never consumed.
 
 ## Sandbox-error hint hook
 

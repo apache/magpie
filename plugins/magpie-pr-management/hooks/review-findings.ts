@@ -28,6 +28,135 @@ import type {
   ReviewFindingsSummary,
 } from './types.ts';
 
+export interface CuratedFindingsPayload {
+  schema_version: 1;
+  pr?: number | null;
+  source_sha256?: string | null;
+  invalidated?: boolean;
+  findings: Record<string, unknown>[];
+}
+
+/**
+ * Computes deterministic SHA-256 hex digest of UTF-8 string in pure JS/TS
+ * without external module imports, adhering to mod import boundaries.
+ */
+export function computeFindingsHash(content: string): string {
+  const ascii = unescape(encodeURIComponent(content));
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const words: number[] = [];
+  const asciiBitLength = ascii.length * 8;
+  const hash: number[] = [];
+  const k: number[] = [];
+  let primeCounter = 0;
+  const isComposite: Record<number, number> = {};
+
+  for (let candidate = 2; primeCounter < 64; candidate += 1) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) {
+        isComposite[i] = candidate;
+      }
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+      primeCounter += 1;
+    }
+  }
+
+  let padded = ascii + '\x80';
+  while (padded.length % 64 !== 56) {
+    padded += '\x00';
+  }
+
+  for (let i = 0; i < padded.length; i += 1) {
+    const code = padded.charCodeAt(i);
+    words[i >> 2] |= code << ((3 - (i % 4)) * 8);
+  }
+
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+
+  for (let j = 0; j < words.length; ) {
+    const w = words.slice(j, (j += 16));
+    const oldHash = [...hash];
+    for (let i = 0; i < 64; i += 1) {
+      const w15 = w[i - 15];
+      const w2 = w[i - 2];
+      const a = hash[0];
+      const e = hash[4];
+      const s1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+      const ch = (e & hash[5]) ^ (~e & hash[6]);
+      const s0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+      const maj = (a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]);
+
+      const wi =
+        i < 16
+          ? w[i]
+          : ((w[i - 16] +
+              (((w15 >>> 7) | (w15 << 25)) ^ ((w15 >>> 18) | (w15 << 14)) ^ (w15 >>> 3)) +
+              w[i - 7] +
+              (((w2 >>> 17) | (w2 << 15)) ^ ((w2 >>> 19) | (w2 << 13)) ^ (w2 >>> 10))) |
+              0);
+      w[i] = wi;
+
+      const temp1 = (hash[7] + s1 + ch + k[i] + wi) | 0;
+      const temp2 = (s0 + maj) | 0;
+
+      hash[7] = hash[6];
+      hash[6] = hash[5];
+      hash[5] = hash[4];
+      hash[4] = (hash[3] + temp1) | 0;
+      hash[3] = hash[2];
+      hash[2] = hash[1];
+      hash[1] = hash[0];
+      hash[0] = (temp1 + temp2) | 0;
+    }
+    for (let i = 0; i < 8; i += 1) {
+      hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+  }
+
+  let result = '';
+  for (let i = 0; i < 8; i += 1) {
+    for (let j = 3; j >= 0; j -= 1) {
+      const b = (hash[i] >>> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+/**
+ * Validates whether a curated findings sidecar JSON content matches the current
+ * active PR number and source findings file content without being invalidated.
+ */
+export function isCuratedSidecarValid(
+  curatedJsonContent: string | null | undefined,
+  prNumber: number | null | undefined,
+  sourceFileContent: string
+): boolean {
+  if (!curatedJsonContent) return false;
+  try {
+    const parsed = JSON.parse(curatedJsonContent);
+    if (!parsed || typeof parsed !== 'object') return false;
+    if (parsed.invalidated === true) return false;
+    if (
+      parsed.pr !== undefined &&
+      parsed.pr !== null &&
+      prNumber !== undefined &&
+      prNumber !== null
+    ) {
+      if (Number(parsed.pr) !== Number(prNumber)) return false;
+    }
+    const expectedHash = computeFindingsHash(sourceFileContent);
+    if (parsed.source_sha256 && parsed.source_sha256 !== expectedHash) {
+      return false;
+    }
+    return Array.isArray(parsed.findings);
+  } catch {
+    return false;
+  }
+}
+
 export const reviewFindingsState = atom(
   { plugin: 'magpie-pr-management', key: 'reviewFindingsState' },
   null as ReviewFindingsState | null
@@ -427,7 +556,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
         children: [
           Text({
             children: [
-              `[!] Warning: Curation sync to disk failed (${state.syncError}). Step 7b will use original findings.`,
+              `[!] Warning: Curation sync to disk failed (${state.syncError}). Sidecars invalidated; Step 7b will use original findings.`,
             ],
             color: 'warning',
           }),
@@ -821,7 +950,10 @@ const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'a
  * for them. Render anchors on a truthy `line`, so with `line` normalised to
  * an integer >= 1 or null, its numbering over this file is formatKeepAnswer's.
  */
-export function serializeFindingsForRender(findings: readonly ReviewFinding[]): string {
+export function serializeFindingsForRender(
+  findings: readonly ReviewFinding[],
+  options?: { pr?: number | null; sourceHash?: string | null }
+): string {
   // Anchored findings are preserved (rendered or folded via render --keep).
   // Unanchored general findings marked 'skip' are omitted so render does not post them.
   const activeFindings = findings.filter((f) => isAnchored(f) || f.action !== 'skip');
@@ -837,6 +969,7 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     }
     if (f.action === 'edit') {
       delete base.suggestion;
+      delete base.comment;
       if (f.body) {
         base.explanation = f.body;
       }
@@ -852,6 +985,17 @@ export function serializeFindingsForRender(findings: readonly ReviewFinding[]): 
     }
     return { ...base, file: f.file, line: f.line, severity: f.severity };
   });
+
+  if (options && (options.pr !== undefined || options.sourceHash !== undefined)) {
+    const envelope: CuratedFindingsPayload = {
+      schema_version: 1,
+      pr: options.pr ?? null,
+      source_sha256: options.sourceHash ?? null,
+      findings: payload,
+    };
+    return JSON.stringify(envelope, null, 2);
+  }
+
   return JSON.stringify(payload, null, 2);
 }
 
@@ -875,8 +1019,10 @@ export function getCuratedFindingsPaths(originalPath: string): {
 }
 
 /**
- * Removes or clears curated findings files (.curated.json and .curated.keep).
- * Called when findings become empty or stale.
+ * Marks curated findings files (.curated.json and .curated.keep) as invalidated.
+ * Called when findings become empty, stale, or during cleanup after write failures.
+ * Only writes invalidation markers if curated sidecar files already exist on disk,
+ * ensuring orphaned files are not created beside non-existent findings files.
  */
 export async function cleanCuratedFindingsFiles(
   $: any,
@@ -885,23 +1031,35 @@ export async function cleanCuratedFindingsFiles(
   if (!originalPath) return;
   try {
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(originalPath);
+    let jsonExists = false;
+    let keepExists = false;
     try {
-      await $.fs.remove(curatedJsonPath);
+      jsonExists = await $.fs.exists(curatedJsonPath);
     } catch {
-      try {
-        await $.fs.unlink(curatedJsonPath);
-      } catch {
-        await $.fs.write(curatedJsonPath, '[]');
-      }
+      jsonExists = false;
     }
     try {
-      await $.fs.remove(curatedKeepPath);
+      keepExists = await $.fs.exists(curatedKeepPath);
     } catch {
-      try {
-        await $.fs.unlink(curatedKeepPath);
-      } catch {
-        await $.fs.write(curatedKeepPath, 'NONE');
-      }
+      keepExists = false;
+    }
+
+    if (!jsonExists && !keepExists) {
+      return;
+    }
+
+    if (jsonExists) {
+      const invalidEnvelope: CuratedFindingsPayload = {
+        schema_version: 1,
+        pr: null,
+        source_sha256: null,
+        invalidated: true,
+        findings: [],
+      };
+      await $.fs.write(curatedJsonPath, JSON.stringify(invalidEnvelope, null, 2));
+    }
+    if (keepExists) {
+      await $.fs.write(curatedKeepPath, 'INVALIDATED');
     }
   } catch {
     // Fail-open
@@ -914,7 +1072,8 @@ export async function cleanCuratedFindingsFiles(
  */
 export async function syncCuratedStateToDisk(
   $: any,
-  state: ReviewFindingsState | null
+  state: ReviewFindingsState | null,
+  sourceContent?: string
 ): Promise<{ success: boolean; jsonPath?: string; keepPath?: string; error?: string }> {
   if (!state || !state.findingsPath || !state.findings) {
     return { success: true };
@@ -924,14 +1083,37 @@ export async function syncCuratedStateToDisk(
     return { success: true };
   }
   try {
+    // Verify that the original source findings file exists before writing sidecars
+    const exists = await $.fs.exists(state.findingsPath);
+    if (!exists) {
+      await cleanCuratedFindingsFiles($, state.findingsPath);
+      return {
+        success: false,
+        error: `Source findings file does not exist: ${state.findingsPath}`,
+      };
+    }
+
+    let rawSource = sourceContent;
+    if (rawSource === undefined) {
+      try {
+        rawSource = await $.fs.read(state.findingsPath);
+      } catch {
+        rawSource = '';
+      }
+    }
+    const sourceHash = state.sourceHash || computeFindingsHash(rawSource || '');
+
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(state.findingsPath);
-    const jsonContent = serializeFindingsForRender(state.findings);
+    const jsonContent = serializeFindingsForRender(state.findings, {
+      pr: state.prNumber,
+      sourceHash,
+    });
     const keepContent = formatKeepAnswer(state.findings);
     await $.fs.write(curatedJsonPath, jsonContent);
     await $.fs.write(curatedKeepPath, keepContent);
     return { success: true, jsonPath: curatedJsonPath, keepPath: curatedKeepPath };
   } catch (err: any) {
-    // Fail-open: clean up partial files to prevent mismatched or stale sidecars
+    // Fail-open: invalidate sidecars on disk so Step 7b falls back to original findings
     try {
       await cleanCuratedFindingsFiles($, state.findingsPath);
     } catch {
@@ -1051,7 +1233,8 @@ export function parseFindings(input: string | unknown): ParseFindingsResult {
     const file = normalizeFilePath(item.file ?? item.path ?? item.filename);
     const line = normalizeLine(item.line ?? item.lineNumber ?? item.line_number, errors);
     const severity = normalizeSeverity(item.severity ?? item.level, errors);
-    const rawBody = item.body ?? item.explanation ?? item.suggestion ?? item.title ?? '';
+    const rawBody =
+      item.body ?? item.explanation ?? item.comment ?? item.suggestion ?? item.title ?? '';
     const body = String(rawBody).trim();
     const rawRule = item.rule ?? item.rule_id ?? item.category ?? '';
     const rule = String(rawRule).trim() || undefined;
@@ -1354,16 +1537,60 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
                 });
               }
 
+              const targetFindingsFile = effectivePath || rawPath;
+              const sourceHash = computeFindingsHash(fileContent);
+
               const nextState: ReviewFindingsState = {
                 prNumber,
-                findingsPath: effectivePath || rawPath,
+                findingsPath: targetFindingsFile,
+                sourceHash,
                 findings: finalFindings,
                 summary: calculateSummary(finalFindings),
                 selectedIndex: 0,
               };
               await setReviewFindingsState($, nextState);
+
+              // Check if curated sidecars already exist on disk from earlier curation
+              const { curatedJsonPath } = getCuratedFindingsPaths(targetFindingsFile);
+              let hasExistingCuratedJson = false;
+              try {
+                hasExistingCuratedJson = await $.fs.exists(curatedJsonPath);
+              } catch {
+                hasExistingCuratedJson = false;
+              }
+
+              if (hasExistingCuratedJson) {
+                let existingDiskJson: any = null;
+                try {
+                  const rawCurated = await $.fs.read(curatedJsonPath);
+                  existingDiskJson = JSON.parse(rawCurated);
+                } catch {
+                  existingDiskJson = null;
+                }
+
+                const isAlreadyInvalidated =
+                  !existingDiskJson ||
+                  typeof existingDiskJson !== 'object' ||
+                  existingDiskJson.invalidated === true;
+
+                const matchesPr =
+                  !isAlreadyInvalidated &&
+                  existingDiskJson.pr !== undefined &&
+                  existingDiskJson.pr !== null &&
+                  prNumber !== undefined &&
+                  prNumber !== null &&
+                  Number(existingDiskJson.pr) === Number(prNumber);
+
+                if (matchesPr && finalFindings.length > 0) {
+                  // Re-sync sidecars with merged curation state and updated source hash
+                  await syncCuratedStateToDisk($, nextState, fileContent);
+                } else if (!isAlreadyInvalidated) {
+                  // PR mismatch or empty findings: invalidate sidecars on disk
+                  await cleanCuratedFindingsFiles($, targetFindingsFile);
+                }
+              }
               // NOTE: Never write .curated.* files at initial disposition.
-              // Curated files are only written when the maintainer curates findings.
+              // Curated files are only written when curated sidecars exist or when curated in UI.
             } else {
               await cleanCuratedFindingsFiles($, effectivePath || rawPath);
               await setReviewFindingsState($, null);
