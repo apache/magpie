@@ -6,4 +6,4 @@
 and magpie-agent-guard.
 
 The running agent is Claude Code. `claude plugin list --json` reports all three
-at 0.2.0; 0.4.0 is available. The user ran `/magpie-setup upgrade`.
+at 0.2.0; 0.4.0 is available. The user ran `/magpie-setup update`.

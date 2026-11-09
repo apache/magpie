@@ -9,6 +9,7 @@
   - [Harness contract](#harness-contract)
   - [Installation](#installation)
   - [Action guard](#action-guard)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [Known limitations](#known-limitations)
   - [Upstream references](#upstream-references)
@@ -77,6 +78,13 @@ Junie hooks live in user configuration, so Magpie does not write the file; the a
 The adapter blocks with exit 2, the denial reason on stderr, and a `{"decision": "deny", "reason": ...}` object on stdout.
 Malformed events, other tools, and allowed commands exit 0 silently.
 Other non-zero exits only warn in Junie and let the tool run, so the adapter never uses them.
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
+On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
+Every skill stops on a snapshot behind the committed lock and proposes it.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

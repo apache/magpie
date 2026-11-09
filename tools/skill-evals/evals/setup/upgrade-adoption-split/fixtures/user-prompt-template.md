@@ -5,5 +5,5 @@
 
 {report}
 
-You are running the marketplace branch of `setup upgrade`. Report what it does.
+You are running the marketplace branch of `setup update`. Report what it does.
 Return JSON only.

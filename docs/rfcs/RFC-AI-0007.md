@@ -182,7 +182,7 @@ steps are unchanged — they already operate per selected skill.
 
 - [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md),
   [`install.md`](../../skills/setup/install.md),
-  [`upgrade.md`](../../skills/setup/upgrade.md) — the flow this RFC rewires.
+  [`update.md`](../../skills/setup/update.md) — the flow this RFC rewires.
 - [`docs/setup/install-recipes.md`](../quick-start/other-install-methods.md) — the
   fetch recipes that gain the sparse variant.
 - [`PRINCIPLES.md` §14](../../PRINCIPLES.md) — the snapshot-plus-override

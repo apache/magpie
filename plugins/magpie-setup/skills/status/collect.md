@@ -9,7 +9,7 @@ It is **read-only** and **offline**: it parses files and reads
 symlinks; it never fetches over the network and never writes. The
 upstream-tip drift check and any remediation belong to
 [`setup verify`](../setup/verify.md) and
-[`setup upgrade`](../setup/upgrade.md).
+[`setup update`](../setup/update.md).
 
 The skill renders the dashboard via `--format md`
 ([Step 1](SKILL.md#step-1--render-the-dashboard)); this `--format
@@ -37,7 +37,7 @@ python3 <framework>/skills/setup-status/scripts/collect_status.py --format json 
 | `families` | The installed-skill roster grouped by family (see below). |
 | `overrides` | `{present, has_readme, skill_count}` for `.apache-magpie-overrides/` (committed, shared). |
 | `local_overrides` | `{present, has_readme, skill_count, path, location, layers, legacy_in_tree}` for the personal layer. `location` is `in-tree` (`.apache-magpie-local/`, adopted), `main-checkout` (an adopted linked worktree with none of its own, using its main checkout's), `git-dir` (`<git-common-dir>/apache-magpie/`, not adopted), `svn-dir` (`<.svn>/apache-magpie/`, a Subversion working copy that has not adopted Magpie), or `in-tree` for a project with no version control; `layers` lists every personal directory read, first match wins; `legacy_in_tree` flags an old `.apache-magpie-local/` in an unadopted repo. Always reported; `present: false` when the directory does not exist. |
-| `post_checkout_hook` | `{present, executable, has_sandbox_helper, has_stale_verify_line}`. `has_stale_verify_line` true means the hook still carries the long-removed `--auto-fix-symlinks` line — remediation is `setup upgrade`. |
+| `post_checkout_hook` | `{present, executable, has_sandbox_helper, has_stale_verify_line}`. `has_stale_verify_line` true means the hook still carries the long-removed `--auto-fix-symlinks` line — remediation is `setup update`. |
 | `gitignore` | Coverage flags (see below). |
 
 ## `agent_targets[]`
@@ -101,8 +101,8 @@ for the *intended* set, and use the on-disk read for the
 | `checked` | Then |
 |---|---|
 | `false`, reason `method:local …` | Self-adoption has no remote snapshot to drift against. |
-| `false`, reason `method:marketplace …` | Installed via the plugin manager — there is no snapshot or local lock to drift against, by design. This is **not** a fault; do not propose `setup upgrade`. |
-| `false`, reason `local lock absent …` | The snapshot was never fetched on this machine. Propose [`setup upgrade`](../setup/upgrade.md). |
+| `false`, reason `method:marketplace …` | Installed via the plugin manager — there is no snapshot or local lock to drift against, by design. This is **not** a fault; do not propose `setup update`. |
+| `false`, reason `local lock absent …` | The snapshot was never fetched on this machine. Propose [`setup update`](../setup/update.md). |
 | `true` | `in_sync` plus any `mismatches[]` over `method` / `url` / `ref`. The `git-branch` upstream-tip comparison needs network and is **not** done here — `note` names `setup verify` as the skill that does it. |
 
 ## `gitignore`

@@ -23,6 +23,7 @@
   - [Clean-environment wrapper and isolation](#clean-environment-wrapper-and-isolation)
   - [Install](#install)
   - [Security model](#security-model)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [Update](#update)
   - [Doctor](#doctor)
@@ -262,6 +263,14 @@ make that unforgeable.
   redirection, substitution, `-c` config override or write-shaped `gh api` flag
   falls back to the prompt.
 - `agent-iso copilot` remains Layer 0 only (no push gate at the wrapper).
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
+On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
+Every skill stops on a snapshot behind the committed lock and proposes it.
+With the VS Code plugin install, update the plugin in the editor, then run `/magpie-setup:upgrade`: nothing prompts you there.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

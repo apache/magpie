@@ -84,7 +84,7 @@ with `organization: <org>`. See
 ## After authoring
 
 - **Contributing upstream?** Open the PR; once it merges and adopters run
-  `/magpie-setup upgrade`, the adapter is available to everyone.
+  `/magpie-setup update`, the adapter is available to everyone.
 - **Keeping it external?** Optionally add a row to the
   [registry](registry.md#community--external-adapters) so others can
   discover it — discovery only, no install.

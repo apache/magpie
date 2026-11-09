@@ -91,7 +91,7 @@ COMPANIONS = dict.fromkeys(
 )
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
 #: Each pinned key in the committed lock, and the local-lock key that records
-#: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).
+#: what this machine actually fetched for it (`locks.md`, `update.md` Step 1).
 LOCAL_COUNTERPART = {
     "method": "source_method",
     "url": "source_url",

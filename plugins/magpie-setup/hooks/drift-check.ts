@@ -339,7 +339,7 @@ export async function checkSetupDrift(
         isAdopted: true,
         hasDrift: true,
         message:
-          'Apache Magpie: Empty `.apache-magpie.lock` detected. Run `/magpie-setup upgrade` to populate.',
+          'Apache Magpie: Empty `.apache-magpie.lock` detected. Run `/magpie-setup:upgrade` to populate.',
       };
     }
 
@@ -351,7 +351,7 @@ export async function checkSetupDrift(
         isAdopted: true,
         hasDrift: true,
         message:
-          'Apache Magpie: Malformed `.apache-magpie.lock` detected. Run `/magpie-setup upgrade` to repair.',
+          'Apache Magpie: Malformed `.apache-magpie.lock` detected. Run `/magpie-setup:upgrade` to repair.',
       };
     }
 
@@ -365,7 +365,7 @@ export async function checkSetupDrift(
           isAdopted: true,
           hasDrift: true,
           message:
-            'Apache Magpie: Malformed `.apache-magpie.lock` (missing min_version). Run `/magpie-setup upgrade` to repair.',
+            'Apache Magpie: Malformed `.apache-magpie.lock` (missing min_version). Run `/magpie-setup:upgrade` to repair.',
         };
       }
 
@@ -378,7 +378,7 @@ export async function checkSetupDrift(
             hasDrift: true,
             lockVersion: minVersion,
             currentVersion,
-            message: `Apache Magpie: Installed plugin version (${currentVersion}) is below adoption floor (${minVersion}). Run \`/magpie-setup upgrade\` to reconcile.`,
+            message: `Apache Magpie: Installed plugin version (${currentVersion}) is below adoption floor (${minVersion}). Run \`/magpie-setup:upgrade\` to reconcile.`,
           };
         }
 
@@ -417,7 +417,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Local snapshot lockfile missing (`.apache-magpie.local.lock`). Run `/magpie-setup upgrade` to fetch snapshot.',
+            'Apache Magpie: Local snapshot lockfile missing (`.apache-magpie.local.lock`). Run `/magpie-setup:upgrade` to fetch snapshot.',
         };
       }
 
@@ -429,7 +429,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Empty `.apache-magpie.local.lock` detected. Run `/magpie-setup upgrade` to refresh.',
+            'Apache Magpie: Empty `.apache-magpie.local.lock` detected. Run `/magpie-setup:upgrade` to refresh.',
         };
       }
 
@@ -442,7 +442,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Malformed `.apache-magpie.local.lock` detected. Run `/magpie-setup upgrade` to repair.',
+            'Apache Magpie: Malformed `.apache-magpie.local.lock` detected. Run `/magpie-setup:upgrade` to repair.',
         };
       }
 
@@ -458,7 +458,7 @@ export async function checkSetupDrift(
             isAdopted: true,
             hasDrift: true,
             lockVersion: committedPin,
-            message: `Apache Magpie: Snapshot drift detected (${localPin} -> ${committedPin}). Run \`/magpie-setup upgrade\` to reconcile snapshot and overrides.`,
+            message: `Apache Magpie: Snapshot drift detected (${localPin} -> ${committedPin}). Run \`/magpie-setup:upgrade\` to reconcile snapshot and overrides.`,
           };
         }
 
@@ -475,7 +475,7 @@ export async function checkSetupDrift(
             isAdopted: true,
             hasDrift: true,
             lockVersion: lockData.ref,
-            message: `Apache Magpie: Snapshot drift detected (${localData.source_ref} -> ${lockData.ref}). Run \`/magpie-setup upgrade\` to reconcile snapshot and overrides.`,
+            message: `Apache Magpie: Snapshot drift detected (${localData.source_ref} -> ${lockData.ref}). Run \`/magpie-setup:upgrade\` to reconcile snapshot and overrides.`,
           };
         }
 
@@ -491,7 +491,7 @@ export async function checkSetupDrift(
       isAdopted: true,
       hasDrift: true,
       message:
-        'Apache Magpie: Malformed `.apache-magpie.lock` (unknown or missing method). Run `/magpie-setup upgrade` to repair.',
+        'Apache Magpie: Malformed `.apache-magpie.lock` (unknown or missing method). Run `/magpie-setup:upgrade` to repair.',
     };
   } catch {
     return {

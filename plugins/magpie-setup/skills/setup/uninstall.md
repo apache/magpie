@@ -69,7 +69,7 @@ explicit confirmation before any write.
   is being cleaned up before merge.
 
 If the goal is to **change install method or version**, use
-[`setup upgrade`](upgrade.md) instead — that path
+[`setup update`](update.md) instead — that path
 preserves overrides and re-uses the existing wiring.
 
 If the goal is to **move from the snapshot install to the

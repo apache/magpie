@@ -31,7 +31,7 @@ submodule, not vendored copy):
   committed one declares what the project pins to; the local
   one records what each machine actually fetched. Drift
   between them is surfaced and remediated by
-  `setup upgrade`.
+  `setup update`.
 - Symlinks make the framework's skills callable as if they
   lived in the adopter repo. **Each symlink is named
   `magpie-<framework-skill>`** — every framework skill is
@@ -85,7 +85,7 @@ purposes and live in different places:
 
 - `<committed-lock>` declares what version the *project* uses.
   Edited by the adopter who runs `setup install` first
-  (or who later runs `setup upgrade` and accepts the
+  (or who later runs `setup update` and accepts the
   new pin). Bumping it is a deliberate project-level action;
   the bump shows up in the `git diff` of the PR that proposed
   it.
@@ -97,8 +97,8 @@ purposes and live in different places:
 Every framework skill (and `setup verify`) checks
 `<committed-lock>` vs `<local-lock>` at the top of its run.
 On mismatch the skill surfaces the gap and proposes
-`setup upgrade`. The user accepts or defers; if they
-accept, `upgrade`:
+`setup update`. The user accepts or defers; if they
+accept, `update`:
 
 1. Deletes `<snapshot-dir>` outright.
 2. Re-installs per the *committed* lock (the new version the
@@ -162,7 +162,7 @@ silently mis-applies.
 **Golden rule 9 — reload `setup` in-flight after a
 self-update.** When a sub-action changes or creates the
 content of the committed `setup` skill (in practice:
-`adopt` recovering an out-of-date bootstrap, or `upgrade`'s
+`adopt` recovering an out-of-date bootstrap, or `update`'s
 overwrite-from-snapshot step), the agent **re-reads the
 modified files of this skill before continuing** the rest of
 the current run. Concretely: after the copy lands on disk,

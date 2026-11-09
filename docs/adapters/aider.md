@@ -20,6 +20,7 @@
     - [Architect and editor model split](#architect-and-editor-model-split)
     - [Local LLM connectivity (Ollama / vLLM)](#local-llm-connectivity-ollama--vllm)
   - [Clean-environment wrapper and isolation](#clean-environment-wrapper-and-isolation)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [See also](#see-also)
 
@@ -203,6 +204,13 @@ The `agent-iso` launcher scrubs ambient cloud tokens while preserving local deve
 
 > [!WARNING]
 > **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Aider receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operating with `--no-auto-commits` and operator diligence.
+
+## Upgrade Magpie
+
+After a new Magpie version, load the upgrade skill and ask Aider to follow it: `/read-only .agents/skills/magpie-setup-upgrade/SKILL.md`, then *"upgrade magpie"*.
+On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
+Every skill stops on a snapshot behind the committed lock and proposes it.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

@@ -243,7 +243,7 @@ def _inside(path: str, root: str) -> bool:
 
 
 def checker_install_dir(root: Path, source: Path) -> Path:
-    """Where `config` or `upgrade` may install a checker copied from `source`.
+    """Where `config` or `update` may install a checker copied from `source`.
 
     The shared `checker_home` serves every project, so it takes a copy only
     from a known framework location (`framework_roots`): a harness's plugin

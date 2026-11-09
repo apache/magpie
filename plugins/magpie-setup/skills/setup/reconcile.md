@@ -16,7 +16,7 @@ for the design this sub-action implements.
 **Scope: every adopted or configured project, any install method.** A
 marketplace floor and a pinned snapshot both carry a `reconciled:`
 stamp; this sub-action reconciles either. It is not the same walk as
-[`upgrade`](upgrade.md)'s override reconciliation — that one runs only
+[`update`](update.md)'s override reconciliation — that one runs only
 on the pinned-snapshot path, triggered by a snapshot refresh. This one
 runs on demand, on any method, and needs no snapshot refresh to
 justify it.
@@ -140,7 +140,7 @@ baseline required.
    *"`<override file>` anchors to `<old heading text>`, which is now
    `<new heading text>`"* — name the override file and the heading that
    moved, the same shape
-   [`upgrade.md` Step 5](upgrade.md#step-5--reconcile-overrides) surfaces.
+   [`update.md` Step 5](update.md#step-5--reconcile-overrides) surfaces.
 
 3. **`requires_config` resolution.** For every skill in scope, resolve
    each `requires_config:` entry through the lookup chain
@@ -245,7 +245,7 @@ the stamp needs no confirmation when nothing is changing.
 ## Step 2 — Confirm, apply, and write the stamp
 
 Findings present themselves for confirmation **item by item**, the same
-protocol `upgrade.md` Step 5 uses for override conflicts — the skill
+protocol `update.md` Step 5 uses for override conflicts — the skill
 does not auto-rewrite an override's anchor; re-anchoring is the
 maintainer's judgement call, not pattern-matching. A `requires_config`
 gap can be closed mechanically by chaining into
@@ -363,7 +363,7 @@ Stamp:
 - **A skill's `SKILL.md` is unreadable for a reason other than the
   sandbox** (renamed skill, broken symlink, corrupted snapshot) →
   surface as a finding distinct from `unchecked` — this is the same
-  "target skill no longer exists" case `upgrade.md` Step 5 already
+  "target skill no longer exists" case `update.md` Step 5 already
   covers, not a sandbox limitation.
 - **`dry-run` with findings present** → report only; nothing is
   written, including the stamp.

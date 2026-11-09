@@ -99,7 +99,7 @@
 #   2. A `setup-isolated-setup-install` first-run flow that the
 #      operator drives outside an agent session.
 #   3. An agent's `Bash` tool call with `dangerouslyDisableSandbox: true`
-#      — `/magpie-setup adopt`, `upgrade`, `worktree-init` invoke this
+#      — `/magpie-setup adopt`, `update`, `worktree-init` invoke this
 #      script that way, proposing the bypass to the operator first so
 #      `sandbox-bypass-warn.sh`'s bold-red banner fires as a backstop.
 # If invoked from inside a sandboxed session *without* the bypass, jq's
@@ -130,7 +130,7 @@
 #   invokes the same write pass once per worktree, each against
 #   the worktree's own `.claude/settings.local.json`. Used by
 #   `setup-isolated-setup-install`, `/magpie-setup adopt`,
-#   `/magpie-setup upgrade`.
+#   `/magpie-setup update`.
 # - The target file is created from scratch if it does not exist
 #   (only the `sandbox.filesystem` block and
 #   `permissions.additionalDirectories` are written; nothing else is
@@ -145,7 +145,7 @@
 #
 # Invoked from:
 # - setup-isolated-setup-install (at install, with --all-worktrees).
-# - /magpie-setup adopt + upgrade (with --all-worktrees from the main).
+# - /magpie-setup adopt + update (with --all-worktrees from the main).
 # - /magpie-setup worktree-init (without the flag — current worktree only).
 # - The post-checkout git hook installed by /magpie-setup adopt
 #   (without the flag — only the new worktree's path).

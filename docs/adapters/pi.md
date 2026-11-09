@@ -12,6 +12,7 @@
     - [Sandbox boundaries](#sandbox-boundaries)
     - [Limits](#limits)
   - [Spec-loop runner](#spec-loop-runner)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [Update](#update)
   - [Doctor](#doctor)
@@ -129,6 +130,12 @@ If the sandbox cannot start, the extension refuses bash rather than running it u
 The `pi` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) runs `pi -p`, forwarding `--model` and `--thinking` when supplied.
 A non-interactive run has no UI, so every command that would ask is refused: a build iteration needing a push or a mutating `gh` call cannot complete unattended.
 See the [spec-loop guide](../../tools/spec-loop/README.md).
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or run `/skill:upgrade` after `pi update --extensions`.
+Pi has no session hook and no plugin listing the pre-flight can read, so nothing prompts you: run it after every update.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

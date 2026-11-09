@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 5393
+measured_tokens: 5390
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -74,7 +74,7 @@ gitignored `.apache-magpie.local.lock` (per-machine
 fetch) against the committed `.apache-magpie.lock`
 (the project pin). On mismatch the skill surfaces the
 gap and proposes
-[`setup upgrade`](../setup/upgrade.md).
+[`setup update`](../setup/update.md).
 The proposal is non-blocking — the user may defer if
 they want to run with the local snapshot for now. See
 [`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
@@ -319,7 +319,7 @@ have been changed. Rationale and commands:
 The committed `.claude/settings.json` is only the shared floor; the rest
 of a working setup is personal and goes in `.claude/settings.local.json`.
 Build and hand over that file exactly as
-[`setup upgrade` → Reconcile the local agent settings](../setup/upgrade.md#reconcile-the-local-agent-settings)
+[`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)
 does: the MCP tools for families installed here but not adopted by the
 project and, **only when this project is the Magpie framework checkout**,
 its template (`tools/agent-isolation/claude-settings.local.template.json`).
@@ -328,7 +328,7 @@ project's sandbox beyond what its maintainers configured. An agent
 cannot write that file, so stage it and give the user the copy command.
 
 **ASF network fragment selection:** Follow
-[`setup upgrade` → ASF network fragment selection](../setup/upgrade.md#asf-network-fragment-selection)
+[`setup update` → ASF network fragment selection](../setup/update.md#asf-network-fragment-selection)
 when building the proposed local settings. Select the reviewed ASF
 fragment only for an explicitly declared ASF project. Preserve the
 existing staged-copy and user-approval process. Never install ASF

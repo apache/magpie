@@ -42,7 +42,7 @@ Invocations (registered in [`SKILL.md`](SKILL.md#sub-actions)):
   `<trust-list>` — this sub-action never edits the trust list;
   vouching for a source is the adopter's committed act).
 
-**Main-checkout only**, like `adopt`/`upgrade` — a worktree picks
+**Main-checkout only**, like `adopt`/`update` — a worktree picks
 up the source snapshots through the same `<snapshot-dir>` symlink
 that `worktree-init` seeds (the source snapshots live beside the
 framework snapshot and are shared the same way). Refuse to run in
@@ -60,7 +60,7 @@ upgrade:
 The project's **per-source pins** — one block per trusted source,
 keyed by `id`, carrying the same pin keys as the framework lock
 (`method` / `url` / `ref` + the per-method verification anchor).
-Edited only by this sub-action and `upgrade`; do not modify by
+Edited only by this sub-action and `update`; do not modify by
 hand.
 
 ```text
@@ -103,12 +103,12 @@ keyed by `id`.
 **Drift** for a source is a committed-vs-local mismatch on its
 block, read identically to the framework drift check: every
 framework skill (and `verify`) compares the two and, on a gap,
-proposes `setup upgrade`. The committed lock is the pin
+proposes `setup update`. The committed lock is the pin
 that travels with the repo; the local lock is per-machine truth.
 
 ## Step 0 — Pre-flight
 
-1. **Main-checkout guard.** As `adopt`/`upgrade`
+1. **Main-checkout guard.** As `adopt`/`update`
    ([`SKILL.md` Sub-actions](SKILL.md#sub-actions)): if
    `git rev-parse --git-dir` ≠ `git rev-parse --git-common-dir`,
    this is a linked worktree — refuse and tell the user to run
@@ -156,7 +156,7 @@ For every entry in `<trust-list>`
 
 Into **`.apache-magpie-sources/<source-id>/`** (gitignored,
 sibling to `<snapshot-dir>` — kept separate on purpose so a
-framework `upgrade`, which deletes `<snapshot-dir>` outright, does
+framework `update`, which deletes `<snapshot-dir>` outright, does
 **not** wipe the source snapshots). Reuse the framework [install
 recipes](../../../../docs/quick-start/other-install-methods.md) **verbatim**,
 parameterized by the source `url`/`ref`:
@@ -245,22 +245,22 @@ the eval binding resolves after fetch with no extra wiring.
 
 ## Step 6 — Chain worktree propagation
 
-As with `adopt`/`upgrade`, finish by running
+As with `adopt`/`update`, finish by running
 [`worktree-init`](worktree-init.md) on every linked worktree so
 each one's shared `<snapshot-dir>` and agent-dir symlinks reflect
 the new source skills. Unconditional and idempotent — a no-op when
 there are no worktrees.
 
-## Relationship to `adopt`, `upgrade`, `verify`
+## Relationship to `adopt`, `update`, `verify`
 
 - **`adopt`** chains into this sub-action as its final content
   pass when `<trust-list>` lists any source, so a fresh adoption
   that already trusts a source wires it in the same run (see
   [`install.md` Step 8b](install.md#step-8b--wire-up-trusted-external-source-skills)).
-- **`upgrade`** re-fetches every source per its committed
+- **`update`** re-fetches every source per its committed
   `<sources-lock>` pin, refreshes the symlinks, and extends drift
   detection to the two source locks (see
-  [`upgrade.md` Step 6f](upgrade.md#step-6f--re-fetch-trusted-external-sources)).
+  [`update.md` Step 6f](update.md#step-6f--re-fetch-trusted-external-sources)).
 - **`verify`** reports source-snapshot presence, source-symlink
   health, and source drift (committed vs local) alongside the
   framework checks (see

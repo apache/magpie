@@ -234,7 +234,7 @@ whatever they put there.
   `magpie-vetted-ops@apache-magpie`
   — a project whose maintainers enlarged it in Step 1 has more, and
   the lock is what you read, never a fixed count.
-- **Add whichever derived MCP allows are missing.** On `upgrade`, also
+- **Add whichever derived MCP allows are missing.** On `update`, also
   propose removing each `mcp__…` allow for a server the registry lists
   that the current lock and registry no longer derive (a family dropped,
   or a tool pulled from the registry, perhaps because it turned out to

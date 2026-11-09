@@ -15,6 +15,7 @@
     - [Deterministic guard rules](#deterministic-guard-rules)
   - [Reuse framework MCP servers](#reuse-framework-mcp-servers)
   - [Spec-loop runner](#spec-loop-runner)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [Update](#update)
   - [Doctor](#doctor)
@@ -192,6 +193,13 @@ The denial also ends the turn: the envelope's `response` is empty even when the 
 A build iteration needing edits therefore cannot complete unattended under this profile; use an interactive session for those operations.
 See the [spec-loop guide](../../tools/spec-loop/README.md).
 
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or run `/magpie-setup:upgrade`.
+With a newer version available it refreshes the plugin as [the plugin install page](../setup/marketplace-install.md#google-antigravity) describes; restart `agy` and run it again for the check-and-fix phase.
+While the plugin listing is readable, every skill asks whether to upgrade until this project has upgraded to the installed version.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+
 ## Verify
 
 Ask `Use the magpie-setup-isolated-setup-verify skill.`, or run the static checks yourself:
@@ -229,7 +237,7 @@ Include the `agy --version` output.
 Report missing rules, changed Magpie values, duplicate guards, and a guard path that no longer resolves.
 Do not apply changes or fetch updates as part of this check.
 
-For a plugin, refresh the source as [the plugin install page](../setup/marketplace-install.md#google-antigravity) describes; for a snapshot, use `setup upgrade`.
+For a plugin, refresh the source as [the plugin install page](../setup/marketplace-install.md#google-antigravity) describes; for a snapshot, use `setup update`.
 After an approved refresh, repeat the install merge against the new profile, restart `agy`, and repeat [Verify](#verify).
 
 ## Doctor

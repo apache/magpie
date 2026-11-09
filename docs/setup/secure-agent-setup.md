@@ -177,7 +177,7 @@ select. The end state and verification commands are documented in the
 5. When you want to be on the framework's latest: on the
    marketplace install, run `/plugin marketplace update
    apache-magpie` then `/plugin update <plugin>@apache-magpie`; on
-   the pinned-snapshot fallback, run `/magpie-setup upgrade` instead
+   the pinned-snapshot fallback, run `/magpie-setup update` instead
    — pulls your local magpie checkout to origin/main with
    --ff-only, refuses to touch a dirty working tree, surfaces what
    arrived. Either way, then run
@@ -196,7 +196,7 @@ The skills are at
 [`.claude/skills/magpie-setup/verify.md`](../../skills/setup/verify.md),
 [`.claude/skills/setup-isolated-setup-install/`](../../skills/setup-isolated-setup-install/SKILL.md),
 [`.claude/skills/setup-isolated-setup-verify/`](../../skills/setup-isolated-setup-verify/SKILL.md),
-[`.claude/skills/magpie-setup/upgrade.md`](../../skills/setup/upgrade.md),
+[`.claude/skills/magpie-setup/update.md`](../../skills/setup/update.md),
 [`.claude/skills/setup-isolated-setup-update/`](../../skills/setup-isolated-setup-update/SKILL.md),
 [`.claude/skills/setup-shared-config-sync/`](../../skills/setup-shared-config-sync/SKILL.md).
 Each skill references back into the canonical sections of this
@@ -1226,7 +1226,7 @@ auditable:
   invocation of the helper happens in a context where the operator
   is already approving setup actions.
 - **`dangerouslyDisableSandbox: true` from agent sessions.**
-  `/magpie-setup:setup install`, `upgrade`, and `worktree-init` invoke the
+  `/magpie-setup:setup install`, `update`, and `worktree-init` invoke the
   helper with explicit sandbox bypass. Every bypass triggers
   [`sandbox-bypass-warn.sh`](../../tools/agent-isolation/sandbox-bypass-warn.sh)'s
   bold-red banner naming the command, the reason, and the file
@@ -1309,7 +1309,7 @@ The helper is invoked from four points in the framework's lifecycle:
    pre-existing worktrees has every working-tree path covered
    without an extra round-trip through
    `setup-isolated-setup-install`.
-3. **During upgrade** — `/magpie-setup:setup upgrade` Step 6c, after
+3. **During upgrade** — `/magpie-setup:setup update` Step 6c, after
    the per-worktree `worktree-init` chain, runs the helper with
    `--all-worktrees` so any worktree added since adopt has its
    path written into its own settings.local.json.
@@ -4151,8 +4151,8 @@ A project turns the warning off for every contributor with `isolation_warning: o
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:complete-upgrade` (or `/magpie-setup:setup upgrade`) has refreshed it.
-The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh in one approved run.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:upgrade` (or `/magpie-setup:setup update`) has refreshed it.
+The prompt after each plugin update tells you to run `/magpie-setup:upgrade`, which covers that refresh in one approved run.
 
 ### Direct steps
 

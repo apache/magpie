@@ -29,7 +29,7 @@
 > Run it when unsure: it reports what it found and changes nothing it
 > does not have to.
 
-`adopt` and `upgrade` are **main-checkout-only**. A new git
+`adopt` and `update` are **main-checkout-only**. A new git
 worktree of an already-adopted tracker repo gets the framework
 state by **symlinking** its `.apache-magpie/` directory to the
 main checkout's snapshot, rather than maintaining its own copy.
@@ -56,7 +56,7 @@ has the right symlink is a no-op.
 
    > *"You appear to be in the main checkout (`<path>`).
    > `worktree-init` only runs in a worktree. Use
-   > `setup` (or `setup upgrade`) here
+   > `setup` (or `setup update`) here
    > instead."*
 
 2. **Resolve the main checkout's path.** Take
@@ -290,9 +290,9 @@ install, nothing seeded per worktree`.
 `.claude/settings.local.json` is per worktree, and the committed
 `.claude/settings.json` holds only the shared floor; without the local file
 `gh` loses its sandbox exclusion and every read-only allow prompts. Run
-[`setup upgrade` → Reconcile the local agent settings](upgrade.md#reconcile-the-local-agent-settings)
+[`setup update` → Reconcile the local agent settings](update.md#reconcile-the-local-agent-settings)
 for this worktree, including the
-[ASF network fragment selection](upgrade.md#asf-network-fragment-selection).
+[ASF network fragment selection](update.md#asf-network-fragment-selection).
 Resolve `project.md` with the existing personal-first precedence and
 main-checkout fallback, but select and propose the fragment for **this
 worktree's** `.claude/settings.local.json` only when ASF is explicitly
@@ -321,7 +321,7 @@ Print a short summary:
   command given, or nothing to add.
 - The agent-guard recap row from Step 1d (always ✓ — the guard
   runs from the install, not from a per-worktree copy).
-- A reminder: `upgrade` from the main, not from the worktree.
+- A reminder: `update` from the main, not from the worktree.
 
 ## Inputs
 
@@ -341,7 +341,7 @@ different overrides. Symlinking it would conflate branches.
 
 - **Fetching the framework.** Use `adopt` in the main checkout
   first.
-- **Upgrading the framework version.** Use `upgrade` in the
+- **Upgrading the framework version.** Use `update` in the
   main checkout; the symlink means every worktree sees the
   refreshed snapshot immediately.
 - **Auto-running on `git worktree add`.** Adopters who want

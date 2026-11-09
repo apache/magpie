@@ -10,6 +10,7 @@
   - [Deterministic guard rules](#deterministic-guard-rules)
   - [Spec-loop runner](#spec-loop-runner)
   - [Clean-environment wrapper](#clean-environment-wrapper)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -91,6 +92,14 @@ adds no settings grant: OpenCode takes its filesystem isolation from the
 OS-level sandbox rather than from a per-launch allowlist. Network restrictions
 and tool approval are separate controls, described in the
 [secure-agent setup](../setup/secure-agent-setup.md).
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
+On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
+Every skill stops on a snapshot behind the committed lock and proposes it.
+A personal install linked from a framework checkout upgrades with `git pull` in that checkout; then run the skill for the check-and-fix phase.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

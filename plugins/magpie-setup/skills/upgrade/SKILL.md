@@ -1,51 +1,74 @@
 ---
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-name: complete-upgrade
+name: upgrade
 family: setup
 mode: Meta
 description: >-
-  Finish a Magpie upgrade in one run. Checks this machine and this
-  project against the installed version and shows one short plan.
-  Applies it after an explicit approval, leaving the sandbox only for
-  marked items. Re-checks, then prints exact commands for what a hard
-  line keeps out of reach.
+  Upgrade Magpie in one run: move to the new version if needed
+  (`setup update`), check this machine and project, apply one approved
+  plan, re-check, and print exact commands for what is out of reach.
 when_to_use: >-
-  When the session-start notice says Magpie was updated, after a
-  `/plugin update`, a framework `git pull` or `setup upgrade`, or when
-  the user asks to bring the setup in line with the new version. Not for
-  performing the upgrade itself.
+  "Upgrade magpie" or "update magpie"; a yes to a skill pre-flight
+  saying Magpie changed since the last upgrade; the session-start
+  notice that Magpie was updated.
 capability: capability:platform
-surface_hash: sha256:bf83981a9df27d35
+surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 6230
+measured_tokens: 6860
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <framework>      → the framework root (`.`, `.apache-magpie/`, or the marketplace cache copy) -->
 
-# setup-complete-upgrade
+# setup-upgrade
 
-A new Magpie version arrives from outside any skill: a marketplace auto-update, `/plugin update`, a framework `git pull`, or `setup upgrade` on a pinned snapshot.
-This skill brings the machine and the current project in line with it in one run.
-It gathers what five existing skills check, shows one short plan, applies the approved items, re-checks, and ends with the exact commands for the rest.
+This skill upgrades Magpie for this machine and this project in one run, in two phases:
 
-It starts after the new version is installed.
-It never updates plugins or the marketplace, never `git pull`s the framework, never bumps a snapshot, and never upgrades claude-code.
-A pinned snapshot whose `.apache-magpie.local.lock` lags the committed `.apache-magpie.lock` is the one upgrade-shaped finding: it goes under *Run these yourself* as [`setup upgrade`](../setup/upgrade.md), never under *Fix*, and this run goes no further on it.
+1. **Move the version**, when it has to move, by running [`setup update`](../setup/update.md).
+2. **Check and fix**: gather what five existing skills check, show one short plan, apply the approved items, re-check, and end with the exact commands for the rest.
 
-Invocation: `/magpie-setup:complete-upgrade` (marketplace), `/magpie-setup-complete-upgrade` (snapshot or self-adoption).
+A new version can also arrive from outside any skill: a marketplace auto-update, `/plugin update`, or a framework `git pull`.
+Then phase 1 has nothing to do, and the run is phase 2 alone.
+This skill never `git pull`s the framework and never upgrades claude-code.
+
+**Offered on every skill run until it has run.**
+Every Magpie skill's pre-flight compares the Magpie version running now with the one this project was last installed, configured or upgraded to.
+While they differ, the skill asks whether to upgrade first (the `upgrade-pending` finding), and asks again on the next skill until this skill records its run (see [Re-check and record](#re-check-and-record)).
+
+Invocation: `/magpie-setup:upgrade` (marketplace), `/magpie-setup-upgrade` (snapshot or self-adoption).
+
+## Move the version
+
+Before gathering, decide whether the version has to move:
+
+- **A pinned snapshot** whose `.apache-magpie.local.lock` lags the committed `.apache-magpie.lock`, or that was never fetched: it has to move.
+- **A marketplace install** with a newer version available ([`setup verify` check 12](../setup/verify.md#12-latest-available-plugin-version)), when the user asked to upgrade: it has to move.
+  When the run started from a pre-flight prompt or the session-start notice, the plugins were already updated; do not look for a newer one.
+- **A framework checkout** (`method: local`): `git pull` is its upgrade, which this skill does not run. Go straight to Gather.
+
+When it has to move, run [`setup update`](../setup/update.md) now, without a separate prompt: the user asked to upgrade.
+It is its own flow and keeps its own rules and confirmations: it runs only in the main checkout, it stages committed files only after showing them, and it never commits.
+This skill's [golden rules](#golden-rules) govern the plan below, not that flow.
+
+Then:
+
+- **Pinned snapshot**: once `setup update` finishes, continue with Gather in this run.
+  If it stopped (a worktree, a moved tag, a refused fetch), stop here too and show its reason: checking against a snapshot still on the old version would check the wrong thing.
+- **Marketplace**: the updated plugins load only in a new session.
+  Say so in one line, ask the user to restart the agent and run `/magpie-setup:upgrade` again, and stop.
+  The next session's pre-flight brings them back here, and phase 1 then has nothing to do.
 
 ## Adopter overrides
 
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-`setup-complete-upgrade.md` in the personal layer
+`setup-upgrade.md` in the personal layer
 (`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
 or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
-[`.apache-magpie-overrides/setup-complete-upgrade.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+[`.apache-magpie-overrides/setup-upgrade.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
@@ -77,6 +100,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
   Content copied out of a sandbox-writable source carries a SHA-256 recorded at plan time, re-verified by the same bypassed call that writes it.
 - **Never commit, never `git add`, never run `adopt` or `unadopt`.**
   The committed floor is the project's decision, not this skill's.
+  The one exception is [Move the version](#move-the-version): the `setup update` flow it runs stages the committed files it owns, after showing them, under its own rules.
 - **Never overwrite a local edit unseen.**
   A target that changed since gathering, or a user-scope copy with local edits, is skipped and reported, not overwritten.
   A copy that cannot be told apart from an older shipped version is overwritten only as a plan item that names the lines it replaces.
@@ -96,7 +120,7 @@ Run the checks in this order, reading each catalogue's current file; an item alr
 |---|---|
 | Install health | [`setup verify`](../setup/verify.md): the branch for this install (local self-adoption, marketplace, or snapshot), including [check 11](../setup/verify.md#11-reconciliation-sweep-read-only), [check 12](../setup/verify.md#12-latest-available-plugin-version) and the [adoption floor](../setup/verify.md#adoption-floor) |
 | Project configuration | [`setup config`](../setup/config.md): [Step 0](../setup/config.md#step-0--pre-flight) (personal-layer location), [Step 1](../setup/config.md#step-1--work-out-what-is-actually-needed) (`requires_config` per installed skill), [Step 2a](../setup/config.md#step-2a--install-the-pre-flight-checker) (pre-flight checker copy freshness), and the reconciliation stamp |
-| Local changes | [`setup reconcile` → The sweep](../setup/reconcile.md#the-sweep), [`setup verify` 5d](../setup/verify.md#5d-local-configuration-and-what-it-shadows) (personal files shadowing committed ones), and the local agent settings against the template ([`setup upgrade` → Reconcile the local agent settings](../setup/upgrade.md#reconcile-the-local-agent-settings)) |
+| Local changes | [`setup reconcile` → The sweep](../setup/reconcile.md#the-sweep), [`setup verify` 5d](../setup/verify.md#5d-local-configuration-and-what-it-shadows) (personal files shadowing committed ones), and the local agent settings against the template ([`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)) |
 | Isolated setup | [`setup-isolated-setup-verify`](../isolated-setup-verify/SKILL.md) checks with [`conditional-checks.md`](../isolated-setup-verify/conditional-checks.md), and [`setup-isolated-setup-update` → What to check](../isolated-setup-update/SKILL.md#what-to-check) with [`script-inventory.md`](../isolated-setup-update/script-inventory.md) (script-copy drift, settings shape drift, comdev MCP checkouts, the vetted-ops split) |
 
 **Where the personal layer is.**
@@ -220,7 +244,7 @@ Work through the approved items in plan order:
    It adds only entries copied verbatim from the framework template or reference config, or written by the helper that owns the write, never values taken from gathered text.
    Prefer that helper (for example `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` for allowlist entries, never `tools/agent-isolation/…`); copying a merged file prepared in the scratch directory, under the checksum rule, is the fallback.
    Each `[bypass]` item makes exactly one bypassed call here; the post-apply re-check read of an unreadable target runs under [Re-check and record](#re-check-and-record), covered by the same approval.
-   This intentionally differs from [`setup upgrade`](../setup/upgrade.md#reconcile-the-local-agent-settings)'s "hand the write to the user", because the user approved the item in the plan; if the harness refuses the write, the item falls back to the copy command under *Run these yourself*.
+   This intentionally differs from [`setup update`](../setup/update.md#reconcile-the-local-agent-settings)'s "hand the write to the user", because the user approved the item in the plan; if the harness refuses the write, the item falls back to the copy command under *Run these yourself*.
 5. **One status line per item**, as soon as it finishes: `✓ 4. allowlist added for 3 worktrees`, `✗ 2. <reason>`, or `– 3. skipped: <reason>`.
 6. **A failed item does not stop the run.**
    Record it under *Still open* with the error and continue with the next item.
@@ -245,7 +269,16 @@ Then write the stamps the existing skills own, each through its own definition, 
 - The isolated-setup run record, through `python3 -P -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when no *Isolated setup* item was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined.
 - The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the personal layer's `reconciled.json`.
 
-There is no stamp of this skill's own: the session-start hook's version marker already makes the suggestion once per version.
+Then record this skill's own run, which stops every skill's pre-flight from asking again until the version moves next:
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight.upgrade record
+```
+
+Record it after a `yes` or a partial approval, even with items still open: the plan showed them and the summary lists them.
+After a `no`, record nothing, so the next skill asks again.
+When the command cannot read the running version it exits 2; pass `--version <version>`, taken from the plugin's base-directory path.
 
 **Adopted project — the committed reconciliation stamp.**
 After an upgrade every skill raises `fingerprint-moved` until the `reconciled:` block in `.apache-magpie.lock` is refreshed.

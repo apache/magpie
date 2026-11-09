@@ -189,7 +189,7 @@ installed](README.md#how-a-trusted-skill-is-installed).
 - **Keep the two-tree layout stable** so eval bindings keep resolving after
   a fetch.
 - **Additions to `provides`** reach adopters on their next
-  `/magpie-setup:setup upgrade`, which re-fetches per the committed pin and
+  `/magpie-setup:setup update`, which re-fetches per the committed pin and
   refreshes the symlinks.
 
 ## See also

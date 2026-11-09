@@ -11,6 +11,7 @@
   - [Deterministic guard rules](#deterministic-guard-rules)
   - [Spec-loop runner](#spec-loop-runner)
   - [Clean-environment wrapper](#clean-environment-wrapper)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -93,6 +94,13 @@ kiro-iso
 The `kiro` name normalises to the `kiro-cli` binary. Like OpenCode and unlike
 Claude Code, it takes no `--settings` filesystem grant: Kiro gets its
 filesystem isolation from the OS-level sandbox.
+
+## Upgrade Magpie
+
+Kiro has no update command: install each skill again from the new tag.
+If you installed `setup-upgrade` (`skills/setup-upgrade`), ask *"upgrade magpie"* afterwards for the check-and-fix phase.
+Nothing prompts you.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

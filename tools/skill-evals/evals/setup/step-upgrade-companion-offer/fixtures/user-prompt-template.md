@@ -5,6 +5,6 @@
 
 {report}
 
-You are in Step 0b of `setup upgrade`, after the plugin update, at the
+You are in Step 0b of `setup update`, after the plugin update, at the
 companion pointer. Decide which companions to offer and how. Return JSON
 only.

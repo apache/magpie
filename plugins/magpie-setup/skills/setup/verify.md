@@ -172,13 +172,13 @@ resolves to one) and contains the expected top-level files
 
 - ✗ if missing **and we are in the main checkout** (`git
   rev-parse --git-dir` equals `git rev-parse --git-common-dir`)
-  → run `setup upgrade` (it gracefully handles the
+  → run `setup update` (it gracefully handles the
   recover-snapshot case when the committed lock exists but
   the snapshot does not).
 - ✗ if missing **and we are in a worktree** (the two dirs
   differ) → run `setup worktree-init` to symlink
   `<snapshot-dir>` to the main checkout's. Do **not**
-  propose `upgrade` — that creates a per-worktree snapshot,
+  propose `update` — that creates a per-worktree snapshot,
   which is the bug `worktree-init` is designed to prevent.
 - ⚠ if present as a regular directory **in a worktree** →
   legacy per-worktree snapshot. Suggest
@@ -202,7 +202,7 @@ resolves to one) and contains the expected top-level files
   redirect (already caught in pre-flight).
 - ⚠ if `<local-lock>` is missing or unparsable → first
   install on this machine has not run, or the file was
-  truncated. Suggest `setup upgrade` to re-create
+  truncated. Suggest `setup update` to re-create
   the snapshot + write the local lock.
 
 ### 3. Drift between committed and local locks
@@ -227,10 +227,10 @@ Compare:
 | Result | Severity |
 |---|---|
 | All match (and for `git-branch`, local is at upstream tip) | ✓ |
-| `git-tag` upstream tag resolves to a commit other than `<committed-lock>.commit` | ✗ — the tag moved, a supply-chain signal; name both commits and stop. Do **not** suggest `setup upgrade` as the fix: it refuses a moved tag. The project re-pins only deliberately, after reviewing the new commit |
-| `git-tag` `<local-lock>.fetched_commit` differs from `<committed-lock>.commit` | ✗ — this machine runs a commit the project did not pin; investigate before running skills; remediation once the upstream tag is confirmed unmoved: `setup upgrade` |
-| Method or URL differ | ✗ — full re-install needed; remediation: `setup upgrade` |
-| Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `setup upgrade` |
+| `git-tag` upstream tag resolves to a commit other than `<committed-lock>.commit` | ✗ — the tag moved, a supply-chain signal; name both commits and stop. Do **not** suggest `setup update` as the fix: it refuses a moved tag. The project re-pins only deliberately, after reviewing the new commit |
+| `git-tag` `<local-lock>.fetched_commit` differs from `<committed-lock>.commit` | ✗ — this machine runs a commit the project did not pin; investigate before running skills; remediation once the upstream tag is confirmed unmoved: `setup update` |
+| Method or URL differ | ✗ — full re-install needed; remediation: `setup update` |
+| Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `setup update` |
 | `svn-zip` SHA-512 differs from the verification anchor in `<committed-lock>` | ✗ — security-flagged; the released zip changed content; investigate before upgrading |
 
 ### 4. `.gitignore` correctly excludes the snapshot + local lock + symlinks + project-local settings
@@ -318,7 +318,7 @@ from `.agents/skills/` is as much a gap as one missing from
   symlinks here indicate a broken install or a skipped
   upgrade pass. Remediation:
   `setup verify --auto-fix-symlinks` (cheap), or
-  `setup upgrade` (covers the family-wide pass).
+  `setup update` (covers the family-wide pass).
 - **Opt-in family the project picked** (per
   `<committed-lock>` / `<local-lock>`) → surface as ✗. The
   project declared the family but the install is missing a
@@ -390,9 +390,9 @@ snapshot's `.apache-magpie/skills/setup/`.
 
   - **Snapshot is newer than the committed copy** (typical
     case after a framework upgrade where the adopter has
-    not yet rerun `setup upgrade`). Run
-    `setup upgrade` — its
-    [Step 4b](upgrade.md#step-4b--overwrite-the-committed-setup-from-the-new-snapshot--reload-in-flight)
+    not yet rerun `setup update`). Run
+    `setup update` — its
+    [Step 4b](update.md#step-4b--overwrite-the-committed-setup-from-the-new-snapshot--reload-in-flight)
     auto-overwrites the committed copy with the snapshot's
     version, **reloads the skill in-flight** so the rest of
     the upgrade run executes against the new bootstrap
@@ -811,7 +811,7 @@ latest `main` of `apache/comdev` (tracked, not pinned). Confirm:
    `apache/comdev`, the branch is `main`, and it is not behind the
    last-fetched `origin/main`. This is the read-only, offline form
    of the freshness assertion; the authoritative live fetch belongs
-   to [`setup upgrade` Step 6e](upgrade.md#step-6e--refresh-comdev-mcp-checkouts-asf-projects)
+   to [`setup update` Step 6e](update.md#step-6e--refresh-comdev-mcp-checkouts-asf-projects)
    and [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md).
     ✗ off-`main` or non-`apache/comdev` remote; ⚠ behind
     `origin/main`.
@@ -827,7 +827,7 @@ metadata:
 - **Only when `organization: ASF`**: the mailing lists, against the current
   `.asf.yaml`. Skip the `.asf.yaml` comparison for a non-ASF `organization`
   (an `independent` project has no `.asf.yaml` to drift against — not a finding).
-- ⚠ if any value has changed or drifted (e.g. the default branch changed from `master` to `main`, or — for ASF projects — mailing-list routing in `.asf.yaml` was updated). Recommend running `setup upgrade` to re-derive and align the committed configuration with the new metadata.
+- ⚠ if any value has changed or drifted (e.g. the default branch changed from `master` to `main`, or — for ASF projects — mailing-list routing in `.asf.yaml` was updated). Recommend running `setup update` to re-derive and align the committed configuration with the new metadata.
 
 ### 9. Project documentation mentions the framework
 
@@ -872,7 +872,7 @@ lists at least one source — otherwise skip this check silently
   framework snapshot).
 - **Source drift.** The source's committed block vs its
   `.apache-magpie.sources.local.lock` block — a mismatch ⇒ ⚠ and
-  proposes `setup upgrade`, exactly like framework drift
+  proposes `setup update`, exactly like framework drift
   (check 3).
 - **Symlinks live.** Every `magpie-<name>` the source `provides`
   resolves through the canonical
@@ -1177,9 +1177,9 @@ intentionally opted out of), say so explicitly and stop.
 If anything is ✗, end the report with a concrete next-step
 list, ordered most → least urgent:
 
-- ✗ on check 1 → `setup upgrade` (re-fetches per
+- ✗ on check 1 → `setup update` (re-fetches per
   the committed lock).
-- ✗ on check 3 (drift) → `setup upgrade`.
+- ✗ on check 3 (drift) → `setup update`.
 - ✗ on check 5 (dangling symlinks) →
   `setup verify --auto-fix-symlinks` (cheap;
   no-op when symlinks already correct).
@@ -1220,7 +1220,7 @@ list, ordered most → least urgent:
   off-`main`) → `setup install` Step 9c to (re-)install
   from latest `apache/comdev` `main`. ⚠ on check 8e (PonyMail
   unauthenticated, or checkout behind `origin/main`) →
-  `mcp__ponymail__login()` and/or `setup upgrade`
+  `mcp__ponymail__login()` and/or `setup update`
   Step 6e (live fetch + `git pull --ff-only`).
 - ⚠ on check 11 (reconciliation sweep finding, or `unchecked`
   skills) → `/magpie-setup:setup reconcile` (outside the sandbox, if the

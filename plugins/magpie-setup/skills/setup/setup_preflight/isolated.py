@@ -40,7 +40,7 @@ has it — the framework's own tree, or a pinned snapshot under
 `.apache-magpie/` — and otherwise taken from the constant generated into
 `isolated_fingerprint.py`.  The constant is what a marketplace install
 sees: the copy of this package in the personal config layer (see
-`layers.py`) is refreshed by `/magpie-setup upgrade`, which is exactly the
+`layers.py`) is refreshed by `/magpie-setup update`, which is exactly the
 moment the constant moves.
 
 Run as a module it also records what happened, so nothing hand-writes a

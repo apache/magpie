@@ -14,6 +14,7 @@
   - [Deterministic guard rules and tool bridges](#deterministic-guard-rules-and-tool-bridges)
   - [Spec-loop runner](#spec-loop-runner)
   - [Clean-environment wrapper](#clean-environment-wrapper)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [See also](#see-also)
 
@@ -112,6 +113,14 @@ agent-iso cursor .
 ```
 
 The `agent-iso` launcher scrubs undeclared environment variables while preserving local developer toolchains (`git`, `uv`, `gh`).
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
+On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
+Every skill stops on a snapshot behind the committed lock and proposes it.
+With the AP1 plugin install, update the plugin, then run `/magpie-setup:upgrade`: nothing prompts you there.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

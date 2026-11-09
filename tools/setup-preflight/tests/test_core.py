@@ -188,7 +188,7 @@ def write_local_lock(
     ref: str = "v0.2.0",
     commit: str = "1111111111111111111111111111111111111111",
 ) -> None:
-    """The local lock in the shape `install.md` and `upgrade.md` write it."""
+    """The local lock in the shape `install.md` and `update.md` write it."""
     (root / ".apache-magpie.local.lock").write_text(
         FETCHED.format(method=method, url=url, ref=ref, commit=commit), encoding="utf-8"
     )
@@ -260,7 +260,7 @@ def test_the_framework_checkout_self_adoption_lock_parses(project: Path) -> None
 
 def test_the_framework_checkout_has_nothing_to_drift(project: Path) -> None:
     """Its skills are the working tree: no snapshot, no floor. Routing it to
-    the snapshot-drift section proposed an `upgrade` that cannot help."""
+    the snapshot-drift section proposed an `update` that cannot help."""
     write_lock(project, LOCAL)
     assert project_findings(project, None) == []
     assert project_findings(project, {"magpie-setup": "0.0.1"}) == []
@@ -464,7 +464,7 @@ def test_a_changed_harness_invalidates_the_cache(project: Path) -> None:
 
 
 def test_a_refreshed_checker_invalidates_the_cache(project: Path) -> None:
-    """`upgrade` replaces the checker's copy; a verdict the old code computed
+    """`update` replaces the checker's copy; a verdict the old code computed
     must not outlive it."""
     write_lock(project, MARKETPLACE)
     (project / ".apache-magpie-local").mkdir()

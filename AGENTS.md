@@ -503,7 +503,7 @@ snapshot that [`setup`](skills/setup/SKILL.md) manages; the project's
 pinned version is the committed `.apache-magpie.lock`. Every skill
 compares the per-machine `.apache-magpie.local.lock` against the
 committed pin at the top of its run and, on drift, proposes
-`/magpie-setup upgrade`. There is no `git submodule update` step — the
+`/magpie-setup update`. There is no `git submodule update` step — the
 snapshot mechanism replaces it.
 
 **Run the agent in the credential-isolation setup.** The skills operate
