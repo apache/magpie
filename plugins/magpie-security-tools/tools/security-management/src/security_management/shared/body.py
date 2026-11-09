@@ -209,7 +209,9 @@ _NAMED_REFERENCE = re.compile(r"&(?=[A-Za-z][A-Za-z0-9]{1,31};)")
 # text copied from HTML) is decoded to that character instead, so it reads as
 # written; one decoding to markup or a glyphless character stays escaped.
 _ANY_REFERENCE = re.compile(r"&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});")
-_MARKUP_CHARACTERS = frozenset("<>&#@`[]!\\*_~|=-+:")
+# `<` and `>` decode safely: HTML openers are escaped after decoding, and a
+# leading `>` cannot end a field (the final boundary check still runs).
+_MARKUP_CHARACTERS = frozenset("&#@`[]!\\*_~|=-+:")
 
 
 def _decode_plain_reference(match: re.Match[str]) -> str:

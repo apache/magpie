@@ -583,5 +583,10 @@ def test_a_non_breaking_space_line_does_not_end_the_paragraph_for_code_spans() -
 def test_plain_character_references_are_decoded_and_markup_ones_kept_escaped() -> None:
     out = _md("victim &#39;alice&#39; &quot;x&quot; &#60;img&#62; &#8203; &#64;someone\n")
     assert out.startswith("victim 'alice' \"x\" ")
-    assert "<img" not in out and "&amp;#\u206060;" in out and "&amp;#\u20608203;" in out
+    assert "<img" not in out and "&lt;img>" in out and "&amp;#\u20608203;" in out
     assert "&amp;#\u206064;someone" in out
+
+
+def test_a_decoded_quote_marker_cannot_open_a_field() -> None:
+    out = _md("&gt; ### Severity\n")
+    assert loose_heading_name(out.rstrip("\n")) is None
