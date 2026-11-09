@@ -38,6 +38,61 @@ def test_audit_clean_file_exits_zero(tmp_path, capsys):
     assert out["missing_recommended"] == []
 
 
+def test_audit_release_management_family_flags_missing_auth(tmp_path, capsys):
+    p = tmp_path / "settings.local.json"
+    _write_settings(p, {"permissions": {"allow": ["Bash(lychee *)"]}})
+    rc = main(["audit", str(p), "--families", "release-management"])
+    captured = capsys.readouterr()
+    out = json.loads(captured.out)
+    assert rc == 0
+    assert out["forbidden"] == []
+    missing_patterns = {m["pattern"] for m in out["missing_recommended"]}
+    assert "mcp__gmail-plaintext__check_auth" in missing_patterns
+
+
+def test_audit_release_management_family_passes_when_present(tmp_path, capsys):
+    p = tmp_path / "settings.local.json"
+    _write_settings(
+        p,
+        {
+            "permissions": {
+                "allow": [
+                    "Bash(lychee *)",
+                    "mcp__gmail-plaintext__check_auth",
+                ]
+            }
+        },
+    )
+    rc = main(["audit", str(p), "--families", "release-management"])
+    captured = capsys.readouterr()
+    out = json.loads(captured.out)
+    assert rc == 0
+    assert out["forbidden"] == []
+    assert out["missing_recommended"] == []
+
+
+def test_audit_release_management_asf_organization_flags_ponymail(tmp_path, capsys):
+    p = tmp_path / "settings.local.json"
+    _write_settings(
+        p,
+        {
+            "permissions": {
+                "allow": [
+                    "Bash(lychee *)",
+                    "mcp__gmail-plaintext__check_auth",
+                ]
+            }
+        },
+    )
+    rc = main(["audit", str(p), "--families", "release-management", "--organization", "ASF"])
+    captured = capsys.readouterr()
+    out = json.loads(captured.out)
+    assert rc == 0
+    missing_patterns = {m["pattern"] for m in out["missing_recommended"]}
+    assert "mcp__ponymail__auth_status" in missing_patterns
+    assert "mcp__ponymail__get_thread" in missing_patterns
+
+
 def test_audit_forbidden_exits_nonzero(tmp_path, capsys):
     p = tmp_path / "settings.local.json"
     _write_settings(p, {"permissions": {"allow": ["Bash(uv run *)"]}})
@@ -83,7 +138,14 @@ def test_list_known_dumps_canonical_lists(capsys):
     assert "Bash(uv run *)" in out["forbidden_patterns"]
     assert "Bash(python3 *)" in out["forbidden_patterns"]
     assert "Bash(lychee *)" in out["recommended_by_family"][""]
-    assert "mcp__claude_ai_Gmail__get_thread" in out["recommended_by_family"]["security"]
+    security_recs = out["recommended_by_family"]["security"]
+    assert "mcp__claude_ai_Gmail__get_thread" in security_recs
+    assert "mcp__claude_ai_Gmail__get_message" in security_recs
+    assert "mcp__claude_ai_Gmail__list_drafts" in security_recs
+    assert "mcp__claude_ai_Gmail__get_draft" in security_recs
+    assert "mcp__gmail-plaintext__check_auth" in security_recs
+    assert "mcp__claude_ai_Gmail__list_labels" not in security_recs
+    assert out["recommended_by_family"]["release-management"] == ["mcp__gmail-plaintext__check_auth"]
 
 
 def test_no_args_exits_with_error_code(capsys):

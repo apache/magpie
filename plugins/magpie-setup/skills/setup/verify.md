@@ -675,28 +675,33 @@ boundary. Tailor the recommendation to the families the
 adopter opted into via
 [`<committed-lock>` → `skill-families`](install.md#step-5--pick-the-skill-families-and-mcp-servers):
 
-- **`security` family** —
-  - `mcp__claude_ai_Gmail__get_thread`
-  - `mcp__claude_ai_Gmail__list_drafts`
-  - `mcp__claude_ai_Gmail__list_labels`
+- **`release-management` family** —
+  - `mcp__gmail-plaintext__check_auth`
   - and, only when `project.md` declares `organization: ASF` (they are ASF services):
   - `mcp__ponymail__auth_status`
   - `mcp__ponymail__get_thread`
   - `mcp__ponymail__get_email`
+  - `mcp__ponymail__get_source`
+  - `mcp__ponymail__list_lists`
   - `mcp__ponymail__list_restrictions`
-  - `mcp__apache-projects__project_stats`
-  - `mcp__apache-projects__get_committee`
-  - `mcp__apache-projects__get_group_members`
-  - `mcp__apache-projects__get_person`
-  - `mcp__apache-projects__search_people`
+
+- **`security` family** —
+  - `mcp__claude_ai_Gmail__get_thread`
+  - `mcp__claude_ai_Gmail__get_message`
+  - `mcp__claude_ai_Gmail__list_drafts`
+  - `mcp__claude_ai_Gmail__get_draft`
+  - `mcp__gmail-plaintext__check_auth`
+  - and, only when `project.md` declares `organization: ASF` (they are ASF services):
+  - `mcp__ponymail__auth_status`
+  - `mcp__ponymail__get_thread`
+  - `mcp__ponymail__get_email`
+  - `mcp__ponymail__get_source`
+  - `mcp__ponymail__list_lists`
+  - `mcp__ponymail__list_restrictions`
   - `Bash(vulnogram-api-record-fetch *)`
 
-  (The `mcp__apache-projects__*` read tools back the roster /
-  affiliation lookups — also used by `contributor-nomination`,
-  the maintainer-side <governance-body>/committer assessment skill. Both MCP
-  servers are installed from the latest `main` of `apache/comdev`;
-  see [`tools/apache-projects/tool.md`](../../../../tools/apache-projects/tool.md)
-  and [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md).)
+  (The PonyMail MCP server is installed from the latest `main` of
+  `apache/comdev`; see [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md).)
 
 - **Any family that ships docs / markdown** (effectively
   every adopter, since the framework itself ships docs) —

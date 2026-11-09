@@ -81,6 +81,21 @@ FORBIDDEN_PATTERNS: frozenset[str] = frozenset(
     }
 )
 
+_GENERIC_GMAIL_READ_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__claude_ai_Gmail__get_thread",
+        "mcp__claude_ai_Gmail__get_message",
+        "mcp__claude_ai_Gmail__list_drafts",
+        "mcp__claude_ai_Gmail__get_draft",
+    }
+)
+
+_GMAIL_PLAINTEXT_AUTH_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__gmail-plaintext__check_auth",
+    }
+)
+
 # Family name → patterns the framework's skills in that family
 # invoke often. Keep narrow — every entry MUST be read-only and
 # scoped to a specific tool.
@@ -94,35 +109,29 @@ RECOMMENDED_BY_FAMILY: dict[str, frozenset[str]] = {
             "Bash(lychee *)",
         }
     ),
-    "security": frozenset(
-        {
-            "mcp__claude_ai_Gmail__get_thread",
-            "mcp__claude_ai_Gmail__list_drafts",
-            "mcp__claude_ai_Gmail__list_labels",
-        }
-    ),
+    "release-management": _GMAIL_PLAINTEXT_AUTH_TOOLS,
+    "security": frozenset(_GENERIC_GMAIL_READ_TOOLS | _GMAIL_PLAINTEXT_AUTH_TOOLS),
 }
 
+_ASF_PONYMAIL_READ_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__ponymail__auth_status",
+        "mcp__ponymail__get_thread",
+        "mcp__ponymail__get_email",
+        "mcp__ponymail__get_source",
+        "mcp__ponymail__list_lists",
+        "mcp__ponymail__list_restrictions",
+    }
+)
+
 # Organization → family → patterns recommended only to that organization's
-# projects: the ASF's PonyMail archive, its project directory and its CVE
-# tool mean nothing to a project outside the ASF, so recommending them
+# projects: the ASF's PonyMail archive and its CVE tool
+# mean nothing to a project outside the ASF, so recommending them
 # there would only widen the allow-list.
 RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
-        "security": frozenset(
-            {
-                "mcp__ponymail__auth_status",
-                "mcp__ponymail__get_thread",
-                "mcp__ponymail__get_email",
-                "mcp__ponymail__list_restrictions",
-                "mcp__apache-projects__project_stats",
-                "mcp__apache-projects__get_committee",
-                "mcp__apache-projects__get_group_members",
-                "mcp__apache-projects__get_person",
-                "mcp__apache-projects__search_people",
-                "Bash(vulnogram-api-record-fetch *)",
-            }
-        ),
+        "release-management": _ASF_PONYMAIL_READ_TOOLS,
+        "security": frozenset(_ASF_PONYMAIL_READ_TOOLS | {"Bash(vulnogram-api-record-fetch *)"}),
     },
 }
 
