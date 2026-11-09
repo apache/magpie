@@ -131,10 +131,7 @@ _ASF_PONYMAIL_READ_TOOLS: frozenset[str] = frozenset(
 RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
         "release-management": _ASF_PONYMAIL_READ_TOOLS,
-        "security": frozenset(
-            _ASF_PONYMAIL_READ_TOOLS
-            | {"Bash(vulnogram-api-record-fetch *)"}
-        ),
+        "security": frozenset(_ASF_PONYMAIL_READ_TOOLS | {"Bash(vulnogram-api-record-fetch *)"}),
     },
 }
 
