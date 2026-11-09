@@ -50,17 +50,23 @@ def template(name: str) -> str:
     return re.sub(r"\A<!--.*?-->\n*", "", text, flags=re.DOTALL)
 
 
+def _without_contributing_link(text: str) -> str:
+    """Drop the "More on how …" line, its link and the spacer before them."""
+    return "\n".join(text.rstrip("\n").splitlines()[:-3]).rstrip("\n")
+
+
 def footer(variant: str, project: str, contributing_url: str | None) -> str:
     text = template(f"footer-{variant}").replace("<PROJECT>", project)
     if contributing_url:
         return text.replace("<upstream_contributing_docs_url>", contributing_url).rstrip("\n")
-    lines = text.rstrip("\n").splitlines()
-    # No contributing-docs URL: drop the "More on how …" line, its link and the spacer before them.
-    return "\n".join(lines[:-3]).rstrip("\n")
+    return _without_contributing_link(text)
 
 
-def _footer_regex(variant: str) -> re.Pattern[str]:
-    raw = template(f"footer-{variant}").replace("<PROJECT>", " PROJECTSLOT ")
+def _footer_regex(variant: str, with_contributing_link: bool = True) -> re.Pattern[str]:
+    raw = template(f"footer-{variant}")
+    if not with_contributing_link:
+        raw = _without_contributing_link(raw)
+    raw = raw.replace("<PROJECT>", " PROJECTSLOT ")
     raw = raw.replace("<upstream_contributing_docs_url>", " URLSLOT ")
     words = re.sub(r"[>*\[\]()]", " ", raw).split()
     parts = []
@@ -81,7 +87,7 @@ def verify_footer(body: str, variant: str | None = None) -> dict[str, Any]:
         [variant] if variant else ["approve", "request-changes", "comment-maintainer", "comment-role-neutral"]
     )
     for name in variants:
-        if _footer_regex(name).search(flat):
+        if any(_footer_regex(name, link).search(flat) for link in (True, False)):
             return {"footer_present": True, "variant": name, "action": "post"}
     return {"footer_present": False, "variant": None, "action": "block"}
 

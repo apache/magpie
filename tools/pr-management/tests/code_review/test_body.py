@@ -95,6 +95,19 @@ def test_footer_without_contributing_url_drops_the_link_lines() -> None:
     assert "Contributing guide" not in text and "More on how" not in text and text.endswith("follow up.*")
 
 
+@pytest.mark.parametrize(
+    "variant", ["approve", "request-changes", "comment-maintainer", "comment-role-neutral"]
+)
+def test_footer_without_contributing_url_still_verifies(variant: str) -> None:
+    result = body.verify_footer(_with(body.footer(variant, "Foo", None)), variant)
+    assert result == {"footer_present": True, "variant": variant, "action": "post"}
+
+
+def test_footer_without_contributing_url_truncated_is_blocked() -> None:
+    text = body.footer("approve", "Foo", None).rsplit("\n", 1)[0]
+    assert body.verify_footer(_with(text), "approve")["action"] == "block"
+
+
 # --- picker, anchors, payload -------------------------------------------------------------------------
 
 
