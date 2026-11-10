@@ -656,7 +656,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         );
         assertStrictEqual(
           mapCliSubcommandToStepId('uv run release-config load --skill verify-rc 2.11.0-rc1'),
-          'preflight'
+          null // decoupled: load does not map to a verification step and never resets preflight
         );
 
         // Individual steps
@@ -1356,6 +1356,212 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assert(step.detail.includes('unrecognized arguments: --bad-flag'));
         assertStrictEqual(state.overallStatus, 'failed');
       });
+
+      test('release-config load is decoupled: does not reset preflight status or wipe state', async () => {
+        const $ = createMockEngine();
+
+        // 1. Preflight runs and passes
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight --skill verify-rc 2.11.0-rc1' },
+          async () => ({
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '2.11.0-rc1' },
+            }),
+          })
+        );
+        let state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(state.rcTag, '2.11.0-rc1');
+
+        // 2. Redirected load runs with empty stdout
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config load 2.11.0-rc1 > /tmp/load.json' },
+          async () => ({ stdout: '' })
+        );
+
+        state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(state.rcTag, '2.11.0-rc1');
+      });
+
+      test('anchored tag extraction ignores non-step commands and --dir paths', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        // Arbitrary non-step command with -rc2
+        await handleBashToolCall($, { command: 'git show 3.0.0-rc2' }, async () => ({ stdout: 'commit...' }));
+        let state = await getVerifyRcState($);
+        assertStrictEqual(state.rcTag, '3.0.0-rc1');
+
+        // Step command with --dir containing another rc string
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify inventory --dir /tmp/other-1.0.0-rc9' },
+          async () => ({
+            stdout: JSON.stringify({ step: 'inventory', status: 'PASS', found: ['a.tar.gz'] }),
+          })
+        );
+        state = await getVerifyRcState($);
+        assertStrictEqual(state.rcTag, '3.0.0-rc1'); // Did not reset to 1.0.0-rc9
+        assertStrictEqual(state.steps.find((s: any) => s.id === 'inventory').status, 'passed');
+      });
+
+      test('processes batch release-verify all failure by marking all batch steps failed', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        // Simulate release-verify all exit 2 with error JSON
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify all' },
+          async () => ({
+            exitCode: 2,
+            isError: true,
+            stdout: JSON.stringify({ error: 'Missing required flag: --keys' }),
+          })
+        );
+
+        const state = await getVerifyRcState($);
+        const batchIds = [
+          'inventory',
+          'signatures',
+          'checksums',
+          'notice-license',
+          'binary-exclusion',
+          'source-tree-integrity',
+          'version-consistency',
+        ];
+        for (const id of batchIds) {
+          const s = state.steps.find((step: any) => step.id === id);
+          assertStrictEqual(s.status, 'failed');
+          assert(s.detail.includes('Missing required flag: --keys'));
+        }
+        assertStrictEqual(state.overallStatus, 'failed');
+      });
+
+      test('processes batch release-verify all failure when next() throws exception', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        try {
+          await handleBashToolCall($, { command: 'uv run release-verify all' }, async () => {
+            throw new Error('Command timed out after 120s');
+          });
+        } catch (err: any) {
+          assert(err.message.includes('Command timed out'));
+        }
+
+        const state = await getVerifyRcState($);
+        const batchIds = [
+          'inventory',
+          'signatures',
+          'checksums',
+          'notice-license',
+          'binary-exclusion',
+          'source-tree-integrity',
+          'version-consistency',
+        ];
+        for (const id of batchIds) {
+          const s = state.steps.find((step: any) => step.id === id);
+          assertStrictEqual(s.status, 'failed');
+          assert(s.detail.includes('Command timed out after 120s'));
+        }
+        assertStrictEqual(state.overallStatus, 'failed');
+      });
+
+      test('extracts wrapped tool.call response shape { result: { stdout, exitCode } }', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        // Wrapped response format
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify inventory' },
+          async () => ({
+            result: {
+              stdout: JSON.stringify({
+                step: 'inventory',
+                status: 'PASS',
+                found: ['pkg-3.0.0.tar.gz'],
+              }),
+              exitCode: 0,
+            },
+          })
+        );
+
+        const state = await getVerifyRcState($);
+        const invStep = state.steps.find((s: any) => s.id === 'inventory');
+        assertStrictEqual(invStep.status, 'passed');
+      });
+
+      test('authoritative verdict reconciles REVIEW rows and sets overall status', async () => {
+        const $ = createMockEngine();
+        const steps = createDefaultVerifySteps();
+        // notice-license in review
+        const nl = steps.find((s) => s.id === 'notice-license');
+        if (nl) nl.status = 'running';
+
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps,
+          startedAt: Date.now(),
+        });
+
+        // Verdict output resolves notice-license via step_summary
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify verdict --status notice-license=PASS' },
+          async () => ({
+            stdout: JSON.stringify({
+              step: 'verdict',
+              overall: 'PASS',
+              step_summary: [
+                { step: 'inventory', status: 'PASS' },
+                { step: 'notice-license', status: 'PASS' },
+              ],
+            }),
+          })
+        );
+
+        const state = await getVerifyRcState($);
+        const resolvedNl = state.steps.find((s: any) => s.id === 'notice-license');
+        assertStrictEqual(resolvedNl.status, 'passed');
+        assertStrictEqual(state.steps.find((s: any) => s.id === 'verdict').status, 'passed');
+        assertStrictEqual(state.overallStatus, 'passed');
+        assert(typeof state.completedAt === 'number');
+      });
     });
 
     describe('end-to-end verification lifecycle simulation', () => {
@@ -1551,6 +1757,139 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assert(headerText.includes('Status: FAILED'));
         const footerText = pane.children[2].children[0].children[0];
         assert(footerText.includes('Verdict: FAIL (Hard blocker encountered; do not release candidate)'));
+      });
+
+      test('simulates real skill command order (preflight -> redirected load -> steps -> verdict)', async () => {
+        const $ = createMockEngine();
+
+        // 1. Step 0: Pre-flight check
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight --skill verify-rc 2.11.0-rc1' },
+          async () => ({
+            stdout: JSON.stringify({
+              ok: true,
+              skill: 'verify-rc',
+              blockers: [],
+              warnings: [],
+              values: { rc_tag: '2.11.0-rc1' },
+            }),
+          })
+        );
+        let state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(state.rcTag, '2.11.0-rc1');
+
+        // 2. Redirected load command (output saved to scratch, stdout empty)
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config load 2.11.0-rc1 > /scratch/verify-rc-load.json' },
+          async () => ({ stdout: '' })
+        );
+        state = await getVerifyRcState($);
+        // Pre-flight must NOT be wiped or reset to running
+        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(state.rcTag, '2.11.0-rc1');
+
+        // 3. Verification steps run
+        // Inventory
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify inventory' },
+          async () => ({
+            stdout: JSON.stringify({
+              step: 'inventory',
+              status: 'PASS',
+              found: ['foo-2.11.0.tar.gz', 'foo-2.11.0.tar.gz.asc', 'foo-2.11.0.tar.gz.sha512'],
+            }),
+          })
+        );
+
+        // Signatures, Checksums, RAT
+        await handleBashToolCall($, { command: 'uv run release-verify signatures' }, async () => ({
+          stdout: JSON.stringify({ step: 'signatures', status: 'PASS' }),
+        }));
+        await handleBashToolCall($, { command: 'uv run release-verify checksums' }, async () => ({
+          stdout: JSON.stringify({ step: 'checksums', status: 'PASS' }),
+        }));
+        await handleBashToolCall($, { command: 'uv run release-verify rat' }, async () => ({
+          stdout: JSON.stringify({ step: 'rat-license-headers', status: 'PASS' }),
+        }));
+
+        // Notice & license returns REVIEW -> normalized to running
+        await handleBashToolCall($, { command: 'uv run release-verify notice-license' }, async () => ({
+          stdout: JSON.stringify({ step: 'notice-license', status: 'REVIEW', detail: 'Manual review required' }),
+        }));
+        state = await getVerifyRcState($);
+        assertStrictEqual(state.steps.find((s: any) => s.id === 'notice-license').status, 'running');
+        assertStrictEqual(state.overallStatus, 'running');
+
+        // Binaries, Symlinks, Version
+        await handleBashToolCall($, { command: 'uv run release-verify binaries' }, async () => ({
+          stdout: JSON.stringify({ step: 'binary-exclusion', status: 'PASS' }),
+        }));
+        await handleBashToolCall($, { command: 'uv run release-verify symlinks' }, async () => ({
+          stdout: JSON.stringify({ step: 'source-tree-integrity', status: 'PASS' }),
+        }));
+        await handleBashToolCall($, { command: 'uv run release-verify version' }, async () => ({
+          stdout: JSON.stringify({ step: 'version-consistency', status: 'PASS' }),
+        }));
+
+        // Reproducibility skipped
+        await handleBashToolCall(
+          $,
+          { command: 'uv run verify-rc repro 2.11.0-rc1 --skip-repro' },
+          async () => ({
+            stdout: JSON.stringify({ mandatory: false, skipped: true, status: 'SKIP' }),
+          })
+        );
+
+        // 4. Final verdict with manual override: notice-license=PASS
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-verify verdict --status notice-license=PASS' },
+          async () => ({
+            stdout: JSON.stringify({
+              step: 'verdict',
+              overall: 'PASS',
+              step_summary: [
+                { step: 'inventory', status: 'PASS' },
+                { step: 'signatures', status: 'PASS' },
+                { step: 'checksums', status: 'PASS' },
+                { step: 'rat-license-headers', status: 'PASS' },
+                { step: 'notice-license', status: 'PASS' },
+                { step: 'binary-exclusion', status: 'PASS' },
+                { step: 'jvm-artefacts', status: 'SKIP' },
+                { step: 'nexus-staging', status: 'SKIP' },
+                { step: 'source-tree-integrity', status: 'PASS' },
+                { step: 'version-consistency', status: 'PASS' },
+                { step: 'reproducibility', status: 'SKIP' },
+              ],
+            }),
+          })
+        );
+
+        const finalState = await getVerifyRcState($);
+        assertStrictEqual(finalState.overallStatus, 'passed');
+        assert(typeof finalState.completedAt === 'number');
+
+        // Notice-license reconciled to passed from step_summary
+        const nlStep = finalState.steps.find((s: any) => s.id === 'notice-license');
+        assertStrictEqual(nlStep.status, 'passed');
+
+        // Pre-flight still passed
+        assertStrictEqual(finalState.steps[0].status, 'passed');
+
+        // Verdict step itself passed
+        assertStrictEqual(finalState.steps[12].status, 'passed');
+
+        // Render check
+        const pane = renderVerifyRcPane($, {}, finalState);
+        assert(pane !== null);
+        const headerText = pane.children[0].children[1].children[0];
+        assert(headerText.includes('Progress: 13/13 completed · Status: PASSED'));
+        const footerText = pane.children[2].children[0].children[0];
+        assert(footerText.includes('Verdict: PASS (All mechanical checks passed; voter obligation remains)'));
       });
     });
   });

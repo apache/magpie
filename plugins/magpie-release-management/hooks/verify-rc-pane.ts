@@ -314,13 +314,39 @@ export function renderVerifyRcPane($: any, e: any, state: VerifyRcState | null):
 
 /**
  * Extracts a release candidate tag from a shell command string.
+ * Anchored to explicit --rc-tag / --tag flags or positional verify-rc / release-verify arguments
+ * to prevent false-positive tag resets from directory paths or commit messages.
  */
 export function extractRcTag(command: string): string | null {
   if (!command || typeof command !== 'string') return null;
-  const match =
-    command.match(/(?:verify-rc|--rc-tag|--tag)[=\s]+([0-9A-Za-z_.\-]+-rc\d+)/i) ||
-    command.match(/\b([0-9A-Za-z_.\-]+-rc\d+)\b/);
-  return match ? match[1] : null;
+  const invocations = extractCommandInvocations(command);
+  for (const inv of invocations) {
+    // 1. Explicit flags: --rc-tag <tag>, --rc-tag=<tag>, --tag <tag>, --tag=<tag>
+    const flagMatch = inv.match(/(?:--rc-tag|--tag)[=\s]+([0-9A-Za-z_.\-]+-rc\d+)/i);
+    if (flagMatch) return flagMatch[1];
+
+    // 2. Positional tag in verify-rc, release-verify, or release-config invocations
+    // Matches standalone token like '3.0.0-rc1' that is not a directory path or flag argument
+    const toolMatch = inv.match(
+      /^(?:(?:\S*\/)?(?:verify-rc|verify_rc|release-verify|release_verify|release-config|release_config)(?:\.py|\.cli)?)(?:\s+(.*))?$/i
+    );
+    if (toolMatch) {
+      const rest = toolMatch[1] || '';
+      const tokens = rest.split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        const prev = i > 0 ? tokens[i - 1] : '';
+        // Skip flag values for path/directory arguments
+        if (/^--(?:dir|path|tree|previous|keys|recipe-dir|validator|manifest)\b/i.test(prev)) {
+          continue;
+        }
+        if (/^[0-9A-Za-z_.\-]+-rc\d+$/i.test(t)) {
+          return t;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -410,7 +436,7 @@ export function mapCliSubcommandToStepId(command: string): VerifyStepId | 'all' 
     }
 
     if (tool === 'release-config' || tool === 'release_config') {
-      if (/^(?:preflight|load)\b/.test(rest)) return 'preflight';
+      if (/^preflight\b/.test(rest)) return 'preflight';
     }
 
     if (tool === 'verify-rc' || tool === 'verify_rc') {
@@ -538,8 +564,10 @@ export function extractDetailFromPayload(payload: any): string | null {
 }
 
 /**
- * Applies skip rules for non-applicable steps (SKILL.md Steps 6b, 6c, 9):
- * - If staged inventory contains no JVM artifacts (.jar, .pom, .war), mark steps 6b and 6c as skipped.
+ * Applies skip rules for non-applicable JVM steps (SKILL.md Steps 6b, 6c):
+ * - If staged inventory contains no JVM artifacts (.jar, .war, .ear, .pom), marks
+ *   jvm-artefacts (6b) and nexus-staging (6c) as skipped.
+ * (Note: Step 9 reproducibility skip is determined directly from verify-rc repro output).
  */
 export function applyJvmAndReproSkipRules(
   steps: VerifyRcStep[],
@@ -587,6 +615,20 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
   }
 
   const stepId = mapCliSubcommandToStepId(command);
+  if (!stepId) {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+
+  const BATCH_STEP_IDS: VerifyStepId[] = [
+    'inventory',
+    'signatures',
+    'checksums',
+    'notice-license',
+    'binary-exclusion',
+    'source-tree-integrity',
+    'version-consistency',
+  ];
+
   let state = await getVerifyRcState($);
   const rcTag = extractRcTag(command);
   const isFreshRun = stepId === 'preflight' || (Boolean(rcTag) && Boolean(state?.rcTag) && rcTag !== state?.rcTag);
@@ -615,16 +657,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
     state.currentStepId = stepId === 'all' ? 'inventory' : stepId;
     state.completedAt = null;
     if (stepId === 'all') {
-      const batchIds: VerifyStepId[] = [
-        'inventory',
-        'signatures',
-        'checksums',
-        'notice-license',
-        'binary-exclusion',
-        'source-tree-integrity',
-        'version-consistency',
-      ];
-      for (const id of batchIds) {
+      for (const id of BATCH_STEP_IDS) {
         const step = state.steps.find((s) => s.id === id);
         if (step) {
           step.status = 'running';
@@ -646,12 +679,25 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
   try {
     res = typeof next === 'function' ? await next(e) : undefined;
   } catch (err) {
-    if (state && stepId && stepId !== 'all') {
-      const target = state.steps.find((s) => s.id === stepId);
-      if (target) {
-        target.status = 'failed';
-        target.detail = sanitizeText(err instanceof Error ? err.message : String(err));
-        target.durationMs = Date.now() - stepStartTime;
+    if (state && stepId) {
+      const errMsg = sanitizeText(err instanceof Error ? err.message : String(err));
+      if (stepId === 'all') {
+        for (const id of BATCH_STEP_IDS) {
+          const s = state.steps.find((st) => st.id === id);
+          if (s) {
+            s.status = 'failed';
+            s.detail = errMsg;
+            s.durationMs = Date.now() - stepStartTime;
+          }
+        }
+        state.currentStepId = null;
+      } else {
+        const target = state.steps.find((s) => s.id === stepId);
+        if (target) {
+          target.status = 'failed';
+          target.detail = errMsg;
+          target.durationMs = Date.now() - stepStartTime;
+        }
       }
       state.overallStatus = calculateOverallStatus(state.steps);
       await setVerifyRcState($, state);
@@ -661,27 +707,75 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
 
   if (state && stepId) {
     try {
-      const rawOutput =
-        res?.output ?? res?.stdout ?? res?.content ?? res?.text ?? (typeof res === 'string' ? res : '');
+      const resObj = res && typeof res === 'object' ? res : null;
+      const innerResult = resObj?.result;
+      const innerObj = innerResult && typeof innerResult === 'object' ? innerResult : null;
+
+      const rawOutput: string =
+        (typeof innerObj?.output === 'string' ? innerObj.output : null) ??
+        (typeof innerObj?.stdout === 'string' ? innerObj.stdout : null) ??
+        (typeof innerObj?.content === 'string' ? innerObj.content : null) ??
+        (typeof innerObj?.text === 'string' ? innerObj.text : null) ??
+        (typeof innerResult === 'string' ? innerResult : null) ??
+        (typeof resObj?.output === 'string' ? resObj.output : null) ??
+        (typeof resObj?.stdout === 'string' ? resObj.stdout : null) ??
+        (typeof resObj?.content === 'string' ? resObj.content : null) ??
+        (typeof resObj?.text === 'string' ? resObj.text : null) ??
+        (typeof res === 'string' ? res : '');
+
+      const exitCode: number | undefined =
+        typeof innerObj?.exitCode === 'number'
+          ? innerObj.exitCode
+          : typeof resObj?.exitCode === 'number'
+            ? resObj.exitCode
+            : undefined;
+
+      const isError: boolean = Boolean(
+        innerObj?.isError ||
+        resObj?.isError ||
+        (typeof exitCode === 'number' && exitCode !== 0)
+      );
+
       const json = extractJsonFromOutput(rawOutput);
 
       let target: VerifyRcStep | undefined;
-      if (stepId === 'all' && json && Array.isArray(json.steps)) {
-        for (const batchStep of json.steps) {
-          const rawStep = String(batchStep.step || batchStep.name || '');
-          const matchedId: VerifyStepId | null = isVerifyStepId(rawStep)
-            ? rawStep
-            : (mapCliSubcommandToStepId(`release-verify ${rawStep}`) as VerifyStepId | null);
-          if (matchedId && matchedId !== 'all') {
-            const batchTarget = state.steps.find((s) => s.id === matchedId);
-            if (batchTarget) {
-              batchTarget.status = normalizeStepStatus(batchStep.status);
-              batchTarget.detail = extractDetailFromPayload(batchStep);
+      if (stepId === 'all') {
+        if (json && Array.isArray(json.steps) && !isError && (exitCode === 0 || exitCode === undefined)) {
+          for (const batchStep of json.steps) {
+            const rawStep = String(batchStep.step || batchStep.name || '');
+            const matchedId: VerifyStepId | null = isVerifyStepId(rawStep)
+              ? rawStep
+              : (mapCliSubcommandToStepId(`release-verify ${rawStep}`) as VerifyStepId | null);
+            if (matchedId && matchedId !== 'all') {
+              const batchTarget = state.steps.find((s) => s.id === matchedId);
+              if (batchTarget) {
+                batchTarget.status = normalizeStepStatus(batchStep.status);
+                batchTarget.detail = extractDetailFromPayload(batchStep);
+              }
             }
           }
+          applyJvmAndReproSkipRules(state.steps, json);
+          state.currentStepId = null;
+        } else {
+          // Batch failure on non-zero exit, error payload, or missing steps array
+          const rawErrMsg =
+            json && typeof json.error === 'string'
+              ? json.error
+              : typeof rawOutput === 'string' && rawOutput.trim().length > 0
+                ? rawOutput
+                : exitCode
+                  ? `Command failed (exit ${exitCode})`
+                  : 'Batch verification failed';
+          const detailMsg = truncateText(sanitizeText(rawErrMsg), 60);
+          for (const id of BATCH_STEP_IDS) {
+            const batchTarget = state.steps.find((s) => s.id === id);
+            if (batchTarget) {
+              batchTarget.status = 'failed';
+              batchTarget.detail = detailMsg;
+            }
+          }
+          state.currentStepId = null;
         }
-        applyJvmAndReproSkipRules(state.steps, json);
-        state.currentStepId = null;
       } else if (stepId !== 'all') {
         target = state.steps.find((s) => s.id === stepId);
         if (target) {
@@ -699,6 +793,10 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
               target.detail = sanitizeText(json.warnings[0]);
             } else {
               target.status = 'passed';
+            }
+            if (json.values && typeof json.values.rc_tag === 'string' && json.values.rc_tag) {
+              state.rcTag = json.values.rc_tag;
+              state.version = deriveVersionFromRcTag(json.values.rc_tag);
             }
           } else if (stepId === 'verdict' && json && ('overall' in json)) {
             if (json.overall === 'PASS') {
@@ -719,6 +817,22 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
                   ? `Unresolved: ${json.unresolved.join(', ')}`
                   : 'Pending step resolution';
             }
+
+            // Reconcile individual step rows reported in step_summary (resolves REVIEW and redirected steps)
+            if (Array.isArray(json.step_summary)) {
+              for (const item of json.step_summary) {
+                const stepKey = String(item.step || '');
+                const matchedId: VerifyStepId | null = isVerifyStepId(stepKey)
+                  ? stepKey
+                  : (mapCliSubcommandToStepId(`release-verify ${stepKey}`) as VerifyStepId | null);
+                if (matchedId && matchedId !== 'all') {
+                  const row = state.steps.find((s) => s.id === matchedId);
+                  if (row && item.status) {
+                    row.status = normalizeStepStatus(item.status);
+                  }
+                }
+              }
+            }
           } else if (stepId === 'reproducibility' && json) {
             if (json.skipped === true || json.status === 'SKIP') {
               target.status = 'skipped';
@@ -735,15 +849,15 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           } else if (json && json.status !== null && json.status !== undefined) {
             target.status = normalizeStepStatus(json.status);
             target.detail = extractDetailFromPayload(json);
-          } else if ((res?.exitCode && res.exitCode !== 0) || res?.isError || (json && typeof json.error === 'string')) {
+          } else if (isError || (json && typeof json.error === 'string')) {
             target.status = 'failed';
             const rawErrMsg =
               json && typeof json.error === 'string'
                 ? json.error
                 : typeof rawOutput === 'string' && rawOutput.trim().length > 0
                   ? rawOutput
-                  : res?.exitCode
-                    ? `Command failed (exit ${res.exitCode})`
+                  : exitCode
+                    ? `Command failed (exit ${exitCode})`
                     : 'Command failed';
             target.detail = truncateText(sanitizeText(rawErrMsg), 60);
           } else {
@@ -760,15 +874,22 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
         }
       }
 
-      if (
-        (stepId === 'verdict' &&
-          (target?.status === 'passed' || target?.status === 'failed' || target?.status === 'warning')) ||
-        state.steps.every((s) => s.status !== 'pending' && s.status !== 'running')
-      ) {
+      if (stepId === 'verdict' && json && json.overall !== null && json.overall !== undefined) {
+        if (json.overall === 'PASS') {
+          state.overallStatus = 'passed';
+        } else if (json.overall === 'PASS-WITH-WARNINGS') {
+          state.overallStatus = 'passed-with-warnings';
+        } else if (json.overall === 'FAIL') {
+          state.overallStatus = 'failed';
+        }
         state.completedAt = Date.now();
+      } else {
+        state.overallStatus = calculateOverallStatus(state.steps);
+        if (state.steps.every((s) => s.status !== 'pending' && s.status !== 'running')) {
+          state.completedAt = Date.now();
+        }
       }
 
-      state.overallStatus = calculateOverallStatus(state.steps);
       await setVerifyRcState($, state);
     } catch {
       // Fail-open
