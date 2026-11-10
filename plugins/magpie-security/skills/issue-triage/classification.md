@@ -98,8 +98,8 @@ Propose when **any** of:
   the new report is a sibling vector with the same fix shape.
 
 The proposal links the candidate kept-tracker and suggests
-`security-issue-deduplicate <new> <existing>` as the next
-slash command.
+`security-issue-deduplicate <kept> <new>` as the next
+slash command: the first tracker stays open, the second closes as duplicate.
 
 #### `FIX-ALREADY-PUBLIC`
 

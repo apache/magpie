@@ -138,6 +138,23 @@ Composes the triage proposal GitHub comment from the classification result,
 Security Model verbatim quote, and @-mention routing. Expected JSON uses
 structural assertions rather than exact prose match.
 
+These cases exercise the model's composition instructions.
+In production, `security-management issue-triage render-proposal` renders the next command deterministically;
+the [pytest handoff cases](../../../security-management/tests/test_issue_triage.py) exercise the generated command through the deduplicate selector.
+
+The PROBABLE-DUP command assertions follow the selector's case-insensitive command aliases:
+an optional `/` and `magpie-security:` prefix, optional `security-` and `issue-` segments, then `dedupe` or `deduplicate`.
+The marketplace skill invocation is `/magpie-security:issue-deduplicate`.
+For these aliases with whitespace-separated bare numeric or `#N` arguments, the case accepts the kept-first command in backticks or as a complete plain-text command line
+and rejects a reversed command, including a comment that also supplies the correct command.
+Command and argument boundaries prevent longer issue numbers, extra arguments, and unrelated prefixes from matching.
+These assertions do not normalize comma separators, intervening words or arrows (`keep`, `drop`, `into`, `->`, `→`),
+repository-qualified references, issue URLs, or Markdown-link arguments;
+those forms are outside this smoke test's command-direction coverage.
+A supported forward command and an unsupported reversed spelling in the same comment can therefore pass.
+Plugin dispatch identity is outside these predicates' scope; the system prompt still requests `security-issue-deduplicate`.
+The quote and reference-format flags remain model-reported; the command assertions inspect `comment_body` directly.
+
 Hard rules: no bare `#NNN` (must be clickable links); Security Model quote
 verbatim; max 3 @-mentions; DEFENSE-IN-DEPTH must say "defense-in-depth fix
 is welcome via public PR; not a CVE"; UNCERTAIN must open with "low-confidence
@@ -148,6 +165,7 @@ proposal, please challenge."
 | `case-1-valid-dag-scope-bypass` | VALID | `mention_handles=["@alice","@bob"]`, `has_security_model_quote=true`, `has_bare_issue_numbers=false` |
 | `case-2-not-cve-worthy-canned` | INVALID | `mention_handles=["@dave"]`, verbatim DAG-authors quote, exact canned heading named |
 | `case-3-uncertain-flag` | UNCERTAIN | "low-confidence proposal, please challenge" framing; `mention_handles=["@alice"]`; Deployment Managers verbatim quote |
+| `case-4-probable-dup-kept-first` | PROBABLE-DUP | `security-issue-deduplicate 212 250` keeps the selected tracker first; linked references and the Security Model quote remain required |
 
 ---
 

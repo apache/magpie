@@ -18,7 +18,7 @@ Suites are currently implemented for:
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
 - **security-issue-import** — 43 cases across 9 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
-- **security-issue-triage** — 23 cases across 7 suites (2, 2.5, 2.6, 3, 4, 6, item-failure-budget); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
+- **security-issue-triage** — 24 cases across 7 suites (2, 2.5, 2.6, 3, 4, 6, item-failure-budget); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
 - **security-issue-deduplicate** — 3 cases across 1 step (3, the merge inputs); Steps 1, 2, 3 (the merged body), 4, 5 and 6 are decided and pytest-tested in `tools/security-management`
 - **security-cve-allocate** — 4 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-sync**: 62 cases across 11 steps (1d, 1f, 2a, 2b, 2c, 5b judged gates, handoff-delegate, pointer-routing, pointer-routing-gather, D0 dashboard ASF-only gate, D4 dashboard proposals); bulk selection and pre-flight, the buckets, Steps 3 and 6, the Guardrails check, the security CC, the drafting backend, the GHSA tier and the Step 5b flow are decided and pytest-tested in `tools/security-management`
