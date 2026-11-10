@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202610280340
-  at:      2026-10-29
+  version: 0.9.0.dev202611090749
+  at:      2026-11-09
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -16,12 +16,12 @@ reconciled:
     audit-report:               sha256:ecab5c5c3e52d580
     backlog-stats:              sha256:0f124437a9fa54f9
     calibrate:                  sha256:9c623c35a58589e5
-    candidate-screen:           sha256:a1767d466ee963d1
-    code-review:                sha256:0e09164d15647a70
+    candidate-screen:           sha256:0d00099fe9910caa
+    code-review:                sha256:871da2459ce53192
     committer-onboarding:       sha256:fc0108bae9d7b687
     contributor-to-committer:   sha256:bdf92c88a304ddea
     deduplicate:                sha256:10a3cb1b8a2892e2
-    dependency-audit:           sha256:19ba62ec34a55604
+    dependency-vulnerability-audit: sha256:19ba62ec34a55604
     fix-workflow:               sha256:cdd7487f53514882
     flaky-test-triage:          sha256:eda3c3891897f08d
     good-first-issue-author:    sha256:ac2d0fda09c67231
@@ -32,9 +32,12 @@ reconciled:
     issue-import-via-forwarder: sha256:43894008501eb56d
     keys-sync:                  sha256:61e10c986bb0d3ec
     license-compliance-audit:   sha256:b40b2993e5f18f54
-    mentor:                     sha256:bdf8343d503d01ef
+    merge-candidates:           sha256:99ac70a7b7f1228c
+    model-prepare:              sha256:db4f1e33c6b3fab3
+    model-update:               sha256:5f058bd378b65f45
+    model-verify:               sha256:03ecb6b8514583b2
     newcomer-issue-explainer:   sha256:8cfe453a3113abe2
-    nomination:                 sha256:d088479a32dcc0cf
+    nomination:                 sha256:f216f3944b7d94c2
     onboarding-concierge:       sha256:4105a6571bcb70c2
     pr-stale-sweep:             sha256:086e859fb8751476
     pr-triage:                  sha256:54dc4ba1be7b36d4
@@ -42,7 +45,6 @@ reconciled:
     prepare:                    sha256:9380580d6421d8b4
     privacy-llm:                sha256:49a65c36a0dc49ab
     promote:                    sha256:ecfb43e47fa5905e
-    quick-merge:                sha256:99ac70a7b7f1228c
     rc-cut:                     sha256:60623e456e72bbf6
     reassess:                   sha256:cb023dff6e95a57a
     reassess-stats:             sha256:44c7826660a3ae71
@@ -52,6 +54,8 @@ reconciled:
     stack-review:               sha256:f0872f2cf794b6d2
     stale-sweep:                sha256:65673690910c37f0
     stats:                      sha256:9e5dedfbf2f9f716
+    submit-to-oss-scan:         sha256:cefbd533dc1009f2
+    thread-mentor:              sha256:bdf8343d503d01ef
     triage:                     sha256:fb90bdc45aec5f8a
     verify-rc:                  sha256:68f688faf6363ba7
     vote-draft:                 sha256:6d70a52ead840ca2
