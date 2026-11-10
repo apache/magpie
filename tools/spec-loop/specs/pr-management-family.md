@@ -157,8 +157,10 @@ same directory; the behaviour is unchanged.
   rules in `tools/pr-management` (`mentor assess|render|tone-check|log`,
   `reviewer-routing preflight|propose`, `pre-first-pr check|report`); their
   detail files are per-classification under `classifications/`.
-- Family README: `docs/pr-management/README.md` — family overview, skill
-  table, adopter-config scaffold.
+- Family README: `docs/pr-management/README.md` — family overview and skill
+  table; `docs/pr-management/install.md` (*Install & first runs*) — the
+  `/plugin install` line, the generated *Before the first run* config table,
+  *Works well with* and *Try these first*.
 - Tool: `tools/pr-management/` (`pr_management.stats`) — deterministic Python backing for
   `pr-management-stats`; ships its own tests.
 - Adopter config (templates in `plugins/magpie-setup/templates/`, which
@@ -296,7 +298,7 @@ same directory; the behaviour is unchanged.
   7-day notice), and reuses triage's maintainer-court, ready-label, security
   and bot rules; the close notice carries `<!-- pr-stale-sweep-close -->`.
   Regression cases: `tools/pr-management/tests/stale_sweep/`.
-- **Quick-merge never merges.** `pr-management-merge-candidates` surfaces
+- **Merge-candidates never merges.** `pr-management-merge-candidates` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
   deliberately off by MISSION sequencing.
@@ -359,6 +361,9 @@ same directory; the behaviour is unchanged.
   GitHub holds the merge until the required checks pass, but only when every
   running check is a required one; a running check that is not required keeps
   the gate, since auto-merge would not wait for it.
+  Its `ci_action` says to wait for those checks, or to approve their held
+  runs through `pr-management-triage`, because `release-runs` needs the
+  approval this gate withholds (#2029).
   With CI held this way (`ci_pending_held_by_auto_merge`) plain `APPROVE` and
   `FIXUP` are not offered, because without auto-merge they would approve on
   unfinished CI.
@@ -434,11 +439,14 @@ same directory; the behaviour is unchanged.
   The tool path — `with-reviewers:codex,copilot`, or a resolved
   `adversarial-review.md` whose `mode` is not `off` — has the agent run the
   [adversarial-review](adversarial-review.md) tool over `--target pr:<N>`
-  with `--repo-dir` set to a new temporary directory holding a `git archive`
-  export of the PR's head, made per PR, because the maintainer's own checkout
+  with `--repo-dir` set to a new temporary directory holding an export of
+  the PR's head, made per PR, because the maintainer's own checkout
   must not be readable by other models and with an empty directory the
   reviewers reply without findings (#1986).
-  The export excludes `.apache-magpie-overrides/tools/vetted-ops`, which the
+  The export goes through a temporary index (`git read-tree` plus
+  `git checkout-index`), not `git archive`, so paths marked `export-ignore`
+  stay in it (#2030).
+  It drops `.apache-magpie-overrides/tools/vetted-ops`, which the
   secure setup denies writes to, so the agent reviews a PR's policy change
   itself.
   Its findings fold into the Step 4 list, attributed per reviewer, as
@@ -564,7 +572,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 - **`experimental` — no adopter pilot has run the full family end-to-end.**
   All nine skills are on main with eval suites; no maintainer has exercised
-  the triage → stats → code-review → quick-merge → mentor pipeline
+  the triage → stats → code-review → merge-candidates → thread-mentor pipeline
   end-to-end under evaluation conditions. Shape may change as pilot
   evaluations surface real-world usage patterns.
   <!-- gap-closes-when: none (narrative) -->

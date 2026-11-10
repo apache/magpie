@@ -164,7 +164,10 @@ adopter-facing page.
   `claude plugin update` nor auto-update runs anything in the adopter's
   repo; each skill's pre-flight self-checks against the last reconciliation
   on its first run after an upgrade, and `/magpie-setup:setup reconcile`
-  forces the full pass (`docs/setup/marketplace.md`, #1392). On machines
+  forces the full pass (`docs/setup/marketplace.md`, #1392). Until
+  `/magpie-setup:upgrade` has run and recorded the new version, every skill's
+  pre-flight also asks whether to upgrade now (`upgrade-pending`, #2041; see
+  [`adoption-and-setup.md`](adoption-and-setup.md)). On machines
   using the isolated setup, the same pre-flight also proposes
   `setup-isolated-setup-update` when the upgrade moved the secure-setup
   fingerprint (see [`adoption-and-setup.md`](adoption-and-setup.md),

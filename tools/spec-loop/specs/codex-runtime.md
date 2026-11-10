@@ -22,7 +22,7 @@ acceptance:
     remain subject to Codex approvals; hook trust is reviewed separately.
   - Fixed installed vetted-op-read prefixes allow reads; both write entry
     points prompt, with per-machine native rules rendered for review.
-  - Adopt, upgrade, verify, and unadopt account for the committed Codex
+  - Adopt, update, verify, and unadopt account for the committed Codex
     policy.
   - setup-isolated install, verify, update, and doctor route to explicit
     Codex steps before any Claude-only procedure.
