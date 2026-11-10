@@ -423,7 +423,8 @@ def _load_findings(path: Path | str | None, pr_number: int | None = None) -> lis
                     hash_match = curated_raw.get("source_sha256") == hashlib.sha256(source_bytes).hexdigest()
                     if pr_match and hash_match and "findings" in curated_raw:
                         return curated_raw["findings"]
-            except Exception:
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                # An unreadable, malformed, or inaccessible sidecar safely falls back to raw findings.
                 pass
         return raw
     return []
