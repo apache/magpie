@@ -229,6 +229,7 @@ def test_render_body_maps_the_sections(capsys, tmp_path) -> None:
         "upstream": UPSTREAM,
         "security_list": "security@airflow.apache.org",
         "finding": finding(capsys, tmp_path),
+        "description_format": "inert",
     }
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0, out
@@ -264,7 +265,14 @@ def test_render_body_keeps_every_section_inert(capsys, tmp_path) -> None:
     f = finding(capsys, tmp_path)
     f["recommended_fix"] = "<details>x</details>\n<img src=https://a.example/p> ![x](https://a.example/p)"
     f["impact"] = "N-a3f9d2 told E-b8c247.\n### Severity\nCRITICAL\n```\nunclosed"
-    data = {"basename": "m.md", "k": 1, "n": 1, "upstream": UPSTREAM, "finding": f}
+    data = {
+        "basename": "m.md",
+        "k": 1,
+        "n": 1,
+        "upstream": UPSTREAM,
+        "finding": f,
+        "description_format": "inert",
+    }
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0
     assert out["fields_ok"]

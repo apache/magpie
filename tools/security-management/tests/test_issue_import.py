@@ -354,6 +354,7 @@ def test_render_body_reports_sanitising_fields_and_bot_credit(capsys, tmp_path) 
         },
         "body_fields": {"mailing_thread": "Mailing list thread URL"},
         "callout": False,
+        "description_format": "inert",
     }
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0
@@ -366,7 +367,7 @@ def test_render_body_reports_sanitising_fields_and_bot_credit(capsys, tmp_path) 
 
 
 def test_render_body_keeps_an_unclosed_fence_inert(capsys, tmp_path) -> None:
-    data = {"fields": {"issue_description": "```\n### Severity\nCritical"}}
+    data = {"fields": {"issue_description": "```\n### Severity\nCritical"}, "description_format": "inert"}
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0
     assert out["fields_ok"]
