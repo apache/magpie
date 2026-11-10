@@ -677,6 +677,10 @@ export interface ParsedSubcommand {
   hasDynamicInput: boolean;
   isGraphqlMutation?: boolean;
   isLiteralUnknownEndpoint?: boolean;
+  /** For `gh api`: the REST endpoint path, with any host, `v3` prefix and query string stripped. */
+  apiEndpoint?: string;
+  /** For `gh api`: the HTTP method given with `-X` / `--method`, upper-cased. */
+  apiMethod?: string;
   hasGitDirOrWorkTree?: boolean;
   /** The command runs with environment set for it: a leading `NAME=value` or an `env` wrapper, after any prefix. */
   setsOwnEnvironment?: boolean;
@@ -1749,6 +1753,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         let endpoint = token.replace(/^(?:https?:\/\/[^/]+)?\/+/, '');
         // Strip optional v3 or api/v3 prefix
         endpoint = endpoint.replace(/^(?:api\/)?v3\/+/, '');
+        result.apiEndpoint = endpoint.replace(/[?#].*$/, '');
 
         if (endpoint.startsWith('repos/')) {
           const parts = endpoint.slice('repos/'.length).split('/');
@@ -1792,6 +1797,17 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
           result.isLiteralUnknownEndpoint = true;
         }
         break;
+      }
+
+      for (let i = cmdIdx + 2; i < tokens.length; i++) {
+        const token = tokens[i];
+        if ((token === '-X' || token === '--method') && i + 1 < tokens.length) {
+          result.apiMethod = tokens[i + 1].toUpperCase();
+        } else if (token.startsWith('--method=')) {
+          result.apiMethod = token.slice('--method='.length).toUpperCase();
+        } else if (/^-X[A-Za-z]+$/.test(token)) {
+          result.apiMethod = token.slice(2).toUpperCase();
+        }
       }
 
       for (let i = cmdIdx + 2; i < tokens.length; i++) {
@@ -2054,6 +2070,66 @@ export function generateBlockingReason(commandType: string, terms: string[]): st
     'Public commits, tags, PR descriptions, and comments on upstream repositories must describe the change in neutral functional terms without mentioning CVE IDs or vulnerability classes before the coordinated disclosure advisory has shipped.',
     'If this is legitimate post-coordinated-disclosure maintenance, consult an Apache Magpie security-team maintainer to review and set the environment bypass.',
   ].join('\n');
+}
+
+/**
+ * For a blocked `gh api` write that has a vetted route, names that route.
+ *
+ * Advisory discussions and tracker comments are private surfaces whose text legitimately carries
+ * the terms this guard scans for. The guard's decision does not change; the hint only names the
+ * vetted-ops operation that performs the same write, and says the operation has to be granted to
+ * the caller in the adopter's vetted-ops config, which is a maintainer's change, not the agent's.
+ * Returns undefined when the endpoint has no vetted route.
+ */
+export function vettedRouteHint(parsed: ParsedSubcommand): string | undefined {
+  if (parsed.commandType !== 'gh api' || !parsed.apiEndpoint) {
+    return undefined;
+  }
+  const endpoint = parsed.apiEndpoint;
+  const sendsFields = parsed.extractedTexts.length > 0 || parsed.referencedFiles.length > 0;
+  const method = parsed.apiMethod ?? (sendsFields ? 'POST' : 'GET');
+  const grant =
+    'The calling skill needs that operation in its `[callers]` list in ' +
+    '`.apache-magpie-overrides/tools/vetted-ops/config.toml`, and adding it is a maintainer\'s change. ' +
+    'The body file goes under `~/.cache/apache-magpie/vetted-ops-bodies/` (see tools/vetted-ops/README.md).';
+
+  const advisoryComments = endpoint.match(
+    /^repos\/[^/]+\/[^/]+\/security-advisories\/(GHSA-[0-9a-z-]+)\/comments(\/\d+)?\/?$/i,
+  );
+  if (advisoryComments) {
+    if (advisoryComments[2] || method === 'PATCH' || method === 'DELETE') {
+      return 'No vetted operation edits or deletes an advisory comment; do that in the advisory web UI.';
+    }
+    return [
+      'A security advisory discussion is private to its collaborators. Post the comment with the vetted operation instead:',
+      `  vetted-op --caller <skill> advisory-comment ${advisoryComments[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  if (/^repos\/[^/]+\/[^/]+\/security-advisories\/GHSA-[0-9a-z-]+\/?$/i.test(endpoint)) {
+    return 'No vetted operation edits advisory record fields (`cve_id`, `credits`, `severity`, ...); edit them in the advisory web UI.';
+  }
+
+  const commentEdit = endpoint.match(/^repos\/[^/]+\/[^/]+\/issues\/comments\/(\d+)\/?$/);
+  if (commentEdit && method === 'PATCH') {
+    return [
+      'If this comment is on the private tracker, edit it with the vetted operation instead:',
+      `  vetted-op --caller <skill> comment-update ${commentEdit[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  const issueComment = endpoint.match(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments\/?$/);
+  if (issueComment && method === 'POST') {
+    return [
+      'If this issue is on the private tracker, post the comment with the vetted operation instead:',
+      `  vetted-op --caller <skill> issue-comment ${issueComment[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  return undefined;
 }
 
 /**
@@ -2499,6 +2575,10 @@ export async function evaluatePublicSurfaceCommand(
     if (matched.length > 0) {
       const uniqueTerms = Array.from(new Set(matched));
       let reason = generateBlockingReason(parsed.commandType, uniqueTerms);
+      const vettedHint = vettedRouteHint(parsed);
+      if (vettedHint) {
+        reason += `\n\n${vettedHint}`;
+      }
       if (trackerFallbackHint) {
         // The Bash tool call carries no cwd, so a command run in the tracker checkout cannot be
         // told apart from one run after an earlier `cd ../<upstream>`; an explicit target can.
