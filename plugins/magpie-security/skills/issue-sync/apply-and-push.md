@@ -207,6 +207,9 @@ Use:
     (see [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend))
     with `thread_id` from Step 1c, the standard `to` / `cc` lists,
     `subject="Re: <root subject>"`, and the plain-text `body`.
+    When Step 1c found no Gmail thread but the inbound `Message-ID` is known
+    (PonyMail, or the tracker's recorded root `Message-ID`), pass it as `in_reply_to`
+    (with its `References` chain as `references` when known) instead of `thread_id`.
   - **`claude_ai_mcp`** (**discouraged** — it silently rewrites embedded URLs into Google tracking redirects, see
     [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)) —
     only when `oauth_curl` credentials are missing **and** the body has no links;

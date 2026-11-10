@@ -42,10 +42,20 @@ The two threading paths available to the skills, in preferred order:
    support this. Resolve the inbound thread's latest message ID (via
    `get_thread`) and pass it to `replyToMessageId`, or pass the
    `threadId` as `thread_id` to `mcp__gmail-plaintext__create_draft`.
-2. **Subject-matched draft** — the pragmatic fallback. Use when the
+2. **Header-threaded draft by `Message-ID`** — `oauth_curl` only. Use
+   when the inbound message is not in the user's Gmail (Gmail dropped it
+   as spam, an LDAP-only subscription, another account) but its
+   `Message-ID` is known: from PonyMail (`mcp__ponymail__get_email`) or
+   the tracker's recorded root `Message-ID`. Pass it as `in_reply_to`
+   (and the parent's own `References`, when known, as `references`) to
+   `mcp__gmail-plaintext__create_draft`, with no `thread_id`. Every
+   recipient's client threads the reply on those headers; only the
+   sender's own Gmail shows it as a new conversation.
+3. **Subject-matched draft** — the pragmatic fallback. Use when the
    thread cannot be resolved (archived, deleted, stale `threadId`)
-   or the inbound subject is unsafe to match on. Both backends fall
-   back to this by simply omitting the thread-attachment parameter.
+   and no `Message-ID` is known either, or the inbound subject is
+   unsafe to match on. Both backends fall back to this by simply
+   omitting the thread-attachment parameter.
 
 The call shape (signature, kwargs, no-send rule) per backend lives in
 [`operations.md` — Drafting backends](operations.md#drafting-backends);
@@ -209,7 +219,12 @@ work in cases where the inbound thread cannot be resolved:
   applies — drop thread attachment for the new draft so it surfaces
   in the global Drafts folder.
 
-In these cases, **create the draft with `replyToMessageId` omitted
+On `oauth_curl`, when the inbound message's `Message-ID` is still known
+(PonyMail, or the tracker's recorded root `Message-ID`), pass it as
+`in_reply_to` instead — path 2 above — and the reply keeps its
+`In-Reply-To` / `References` for every recipient.
+
+Otherwise, **create the draft with `replyToMessageId` omitted
 (or `--thread-id` omitted on the OAuth path) but with the matching
 subject line from the inbound message**. Gmail will start a new
 conversation on the sender's side, but most other clients (and
@@ -226,6 +241,9 @@ user knows which path the draft took:
   `claude_ai_mcp` backend).
 - *"Draft attached by `threadId` (via `oauth_curl` backend)."* —
   the good case for the OAuth-opt-in user.
+- *"Draft threaded by `In-Reply-To: <msg-id-prefix>...` (via
+  `oauth_curl`; the inbound message is not in this Gmail)."* — the
+  header-threaded case.
 - *"Draft created by subject fallback (`<reason>`). Gmail shows it
   as a new conversation server-side; the recipient's client will
   thread it via the `Re: <subject>` match."*

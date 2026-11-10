@@ -40,6 +40,8 @@ def _run_impl(
     *,
     thread_id: str | None = None,
     no_reply_headers: bool = False,
+    in_reply_to: str | None = None,
+    references: str | None = None,
     body: str = "Reply body with a link: https://lists.apache.org/thread/abc123\n",
 ):
     """Call the tool implementation with all network boundaries mocked.
@@ -70,6 +72,8 @@ def _run_impl(
             thread_id=thread_id,
             no_reply_headers=no_reply_headers,
             credentials_path=None,
+            in_reply_to=in_reply_to,
+            references=references,
         )
     return result, captured.get("raw", b"")
 
@@ -88,7 +92,7 @@ def test_tools_are_registered_without_any_html_parameter():
     draft_props = by_name["create_draft"].input_schema.get("properties", {})
     # The draft tool must never expose an HTML / rich-text body knob.
     assert not any("html" in p.lower() for p in draft_props)
-    assert {"to", "subject", "body"} <= set(draft_props)
+    assert {"to", "subject", "body", "in_reply_to", "references"} <= set(draft_props)
     # No tool anywhere exposes an html parameter.
     for t in tools:
         assert not any("html" in p.lower() for p in t.input_schema.get("properties", {}))
@@ -149,6 +153,52 @@ def test_impl_skips_thread_lookup_when_no_thread_id():
     _, raw = _run_impl(thread_id=None)
     decoded = raw.decode()
     assert "In-Reply-To:" not in decoded
+
+
+def test_impl_sets_explicit_reply_headers_without_thread_id():
+    _, raw = _run_impl(in_reply_to="report@example.org", references="<root@example.org>")
+    msg = _parse(raw)
+    assert msg["In-Reply-To"] == "<report@example.org>"
+    assert msg["References"] == "<root@example.org> <report@example.org>"
+    assert msg.get_content_type() == "text/plain"
+    assert not msg.is_multipart()
+
+
+def test_impl_explicit_reply_headers_win_over_thread_id():
+    result, raw = _run_impl(thread_id="tid", in_reply_to="<report@example.org>")
+    msg = _parse(raw)
+    assert msg["In-Reply-To"] == "<report@example.org>"
+    assert msg["References"] == "<report@example.org>"
+    assert result["thread_id"] == "tid"
+
+
+@pytest.mark.parametrize(
+    ("in_reply_to", "references", "no_reply_headers", "match"),
+    [
+        ("<a@x>\r\nBcc: attacker@example.com", None, False, "not a Message-ID"),
+        ("<a@x>", "<b@x>\nX-Injected: 1", False, "not a Message-ID"),
+        (None, "<a@x>", False, "references needs in_reply_to"),
+        ("<a@x>", None, True, "mutually exclusive"),
+    ],
+)
+def test_impl_rejects_bad_reply_header_input_before_auth(in_reply_to, references, no_reply_headers, match):
+    with (
+        patch.object(mcp_server, "locate_credentials") as locate,
+        pytest.raises(ValueError, match=match),
+    ):
+        mcp_server._create_draft_impl(
+            to=["x@example.com"],
+            subject="S",
+            body="b",
+            cc=None,
+            bcc=None,
+            thread_id=None,
+            no_reply_headers=no_reply_headers,
+            credentials_path=None,
+            in_reply_to=in_reply_to,
+            references=references,
+        )
+    locate.assert_not_called()
 
 
 # --- create_draft SystemExit handling --------------------------------------

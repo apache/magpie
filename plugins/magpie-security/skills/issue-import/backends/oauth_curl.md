@@ -9,6 +9,12 @@ Read from [Step 7 item 4](../apply.md#step-7--apply-confirmed-imports).
 [`tools/gmail/draft-backends.md`](../../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
 The preferred `oauth_curl` backend uses `--thread-id` directly and preserves URLs verbatim.
 
+**A report seen in PonyMail but not in this user's Gmail** ([candidate listing](../candidate-listing.md)) has no `threadId`.
+Pass its `Message-ID` from `mcp__ponymail__get_email` as `in_reply_to`, and its own `References` header, when it has one, as `references`,
+so the receipt still carries `In-Reply-To` / `References` for the reporter's client
+([`threading.md`](../../../../../tools/gmail/threading.md#gmail--drafts-stay-on-the-inbound-thread)).
+With no Gmail thread, the existing-draft check below runs `list_drafts` only.
+
 **Before drafting, check for an existing pending draft** on the inbound thread per
 [`draft-backends.md` § *Detecting drafts that already exist on a thread*](../../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
 — run **both** `mcp__claude_ai_Gmail__list_drafts` and

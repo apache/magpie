@@ -635,7 +635,9 @@ Group them by category:
   [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend);
   the discouraged `claude_ai_mcp` backend resolves the latest message ID from the inbound `threadId` and passes it as `replyToMessageId` but rewrites embedded URLs —
   see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
-  If Step 1c could not resolve a `threadId`, fall back to a subject-matched draft (thread-attachment parameter omitted, `subject: Re: <root subject>`)
+  If Step 1c could not resolve a `threadId` but the inbound `Message-ID` is known (PonyMail, or the tracker's recorded root `Message-ID`),
+  `oauth_curl` passes it as `in_reply_to` (and its `References` chain as `references` when known) so the draft still threads by header.
+  Otherwise fall back to a subject-matched draft (thread-attachment parameter omitted, `subject: Re: <root subject>`)
   per [`tools/gmail/threading.md`](../../../../tools/gmail/threading.md).
   Surface which path was taken in the proposal.
   The Gmail MCP's no-update-no-delete limitation — corrections surface the prior `draftId` for manual discard rather than silently shadowing it —

@@ -82,7 +82,8 @@ the **recipient** and the **body shape**.
      If no address resolves, block draft creation.
 2. **Subject:** `Re: <root subject>`.
    Never invent a fresh subject: the reply lands on the inbound thread
-   (`replyToMessageId` for `claude_ai_mcp`, `--thread-id` for `oauth_curl`,
+   (`replyToMessageId` for `claude_ai_mcp`, `thread_id` for `oauth_curl` —
+   or its `in_reply_to` set to the inbound `Message-ID` when the report is not in this Gmail —
    `--in-reply-to` the inbound `Message-ID` for `maildir`).
 3. **Body:**
    - Spine: the canned section picked in Step 4, verbatim.

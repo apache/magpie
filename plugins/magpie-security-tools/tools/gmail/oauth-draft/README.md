@@ -185,6 +185,33 @@ conversation for everyone.
 Pass `--no-reply-headers` to skip step 2 (useful only for smoke
 testing — production drafts always want the headers set).
 
+**Replying to a message that is not in your Gmail.** When the inbound
+message never reached this account (Gmail dropped it as spam, an
+LDAP-only list subscription, a different account), there is no
+`threadId` to read headers from. Pass the parent's `Message-ID` instead,
+for example from the PonyMail archive (`mcp__ponymail__get_email`):
+
+```bash
+uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create \
+  --in-reply-to '<report-message-id@example.org>' \
+  --references '<root@example.org> <report-message-id@example.org>' \
+  --to reporter@example.com \
+  --subject "Re: <root subject>" \
+  --body-file /path/to/body.txt
+```
+
+- `--in-reply-to` sets `In-Reply-To`; angle brackets are optional.
+- `--references` (optional, space-separated, root first) sets
+  `References`; `--in-reply-to` is appended when the list does not
+  already name it, so the parent's own `References` can be passed as-is.
+  Without it, `References` is the `--in-reply-to` ID alone.
+- Both values take only `local@domain`-shaped Message-IDs; whitespace or
+  CR / LF inside an ID is rejected, so a value cannot inject headers.
+- With `--thread-id` as well, the draft is still attached to that Gmail
+  thread, but the explicit headers win over the thread-derived ones and
+  the thread is not read. `--no-reply-headers` and `--in-reply-to` are
+  mutually exclusive.
+
 ## MCP server
 
 `oauth-draft-mcp` runs the same OAuth + REST plain-text drafting as an
@@ -231,9 +258,12 @@ running `oauth-draft-setup` (CLI) or by calling the `setup_credentials`
 tool once — both write the same file.
 
 `create_draft` arguments: `to`, `subject`, `body` (required); `cc`, `bcc`,
-`thread_id`, `no_reply_headers`, `credentials_path` (optional). When
-`thread_id` is set the server derives `In-Reply-To` / `References` from
-the thread's last message, exactly like `oauth-draft-create`.
+`thread_id`, `no_reply_headers`, `credentials_path`, `in_reply_to`,
+`references` (optional). When `thread_id` is set the server derives
+`In-Reply-To` / `References` from the thread's last message, exactly like
+`oauth-draft-create`; `in_reply_to` / `references` set them explicitly and
+win over the thread-derived ones, with the same rules as
+[`--in-reply-to` / `--references`](#how-threading-is-guaranteed).
 
 ## Confidentiality
 
