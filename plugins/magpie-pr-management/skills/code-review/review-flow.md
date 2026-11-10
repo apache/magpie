@@ -374,6 +374,8 @@ Record the outcome and move on:
 uv run --project <framework>/tools/pr-management pr-management code-review session record --session <scratch>/cr-session.json --pr <N> --outcome <DISP|skipped|…> [--reason <text>] [--adversarial yes|no]
 ```
 
+`<DISP>` is the review that was posted: `APPROVE`, `REQUEST_CHANGES` or `COMMENT`, or `FIXUP` when the maintainer pushed a fixup and then approved ([`classifications/disposition-fixup.md`](classifications/disposition-fixup.md)), with or without auto-merge.
+
 To keep wall-clock time low on a long queue, fire background analysis subagents on the next PRs while the maintainer works on this one — below.
 
 ---
