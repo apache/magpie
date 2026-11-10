@@ -843,9 +843,11 @@ Bump when the work needs to reach installed copies: before pointing anyone at
 `claude plugin update`, before announcing a change adopters should take, or
 when a batch of merged work has piled up behind a stale stamp.
 
-**How to bump.** From the Actions tab: **bump dev version** -> *Run workflow*.
+**How to bump.** Sync the specs first (see
+[Bumping the dev version](../../CONTRIBUTING.md#bumping-the-dev-version)), then from the
+Actions tab: **bump dev version** -> *Run workflow*.
 [`bump-dev-version.yml`](../../.github/workflows/bump-dev-version.yml) runs the
-three steps below, puts the result through the same checks a pull request gets,
+three steps below, refreshes the framework checkout's own reconciliation stamp, puts the result through the same checks a pull request gets,
 and opens it as a **draft PR** crediting whoever pressed the button. Review the
 diff, press *Ready for review* to start the required checks, then merge.
 `workflow_dispatch` is restricted by GitHub to accounts with write access, so
