@@ -113,11 +113,11 @@ function createMockEngine(overrides: any = {}): any {
     ui: {
       invalidate: () => {},
     },
+    ...overrides,
     fs: {
       ...defaultFs,
       ...(overrides.fs || {}),
     },
-    ...overrides,
   };
 }
 
@@ -2364,10 +2364,10 @@ End of observations.
       const curState = await getReviewFindingsState(test$);
       assertStrictEqual(curState?.findings[1].action, 'skip');
 
-      // Keep command with general identifier
+      // Keep command with general identifier: edited finding 1 retains 'edit', unanchored g1 becomes 'accept'
       await handleFindingsCommand(test$, { args: 'keep 1, g1' });
       const keptState = await getReviewFindingsState(test$);
-      assertStrictEqual(keptState?.findings[0].action, 'accept');
+      assertStrictEqual(keptState?.findings[0].action, 'edit');
       assertStrictEqual(keptState?.findings[1].action, 'accept');
     });
 
@@ -2552,6 +2552,190 @@ End of observations.
       const result = await syncCuratedStateToDisk(test$, state);
       assertStrictEqual(result.success, false);
       assert(result.error?.includes('Source findings file does not exist'));
+    });
+
+    test('computeFindingsHash matches known-answer SHA-256 vectors', () => {
+      // 1. Empty string NIST vector
+      assertStrictEqual(
+        computeFindingsHash(''),
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      );
+
+      // 2. Short ASCII NIST vector 'abc'
+      assertStrictEqual(
+        computeFindingsHash('abc'),
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+      );
+
+      // 3. Multi-block input (56-byte NIST vector)
+      assertStrictEqual(
+        computeFindingsHash('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'),
+        '248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1'
+      );
+
+      // 4. Non-ASCII UTF-8 string with multilingual characters and emoji
+      assertStrictEqual(
+        computeFindingsHash('café 🚀 こんにちは'),
+        '7b935a45fb0ed2a99402a41d1786be3becb6f4b9a431714a62905399f142a049'
+      );
+    });
+
+    test('keep and All retain edit action on edited findings', async () => {
+      const test$ = createMockEngine();
+      const state: ReviewFindingsState = {
+        prNumber: 10,
+        findingsPath: '/work/saved/findings.json',
+        findings: [
+          { id: 'f1', file: 'a.py', line: 1, severity: 'minor', body: 'Original 1', action: 'accept' },
+          { id: 'f2', file: 'a.py', line: 2, severity: 'minor', body: 'Maintainer custom note', action: 'edit' },
+          { id: 'f3', file: 'a.py', line: 3, severity: 'minor', body: 'Original 3', action: 'accept' },
+        ],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      test$.fs._files.set('/work/saved/findings.json', '[]');
+      await setReviewFindingsState(test$, state);
+
+      // 1. Run keep 1,2: f2 must stay 'edit', f1 'accept', f3 'skip'
+      await handleFindingsCommand(test$, { args: 'keep 1,2' });
+      let cur = await getReviewFindingsState(test$);
+      assertStrictEqual(cur?.findings[0].action, 'accept');
+      assertStrictEqual(cur?.findings[1].action, 'edit');
+      assertStrictEqual(cur?.findings[2].action, 'skip');
+
+      // 2. Press All: f2 must stay 'edit', f3 becomes 'accept'
+      await handleFindingsCommand(test$, { args: 'all' });
+      cur = await getReviewFindingsState(test$);
+      assertStrictEqual(cur?.findings[0].action, 'accept');
+      assertStrictEqual(cur?.findings[1].action, 'edit');
+      assertStrictEqual(cur?.findings[2].action, 'accept');
+
+      // 3. Serialized render output preserves maintainer note
+      const jsonStr = await test$.fs.read('/work/saved/findings.curated.json');
+      const parsed = JSON.parse(jsonStr);
+      assertStrictEqual(parsed.findings[1].explanation, 'Maintainer custom note');
+    });
+
+    test('serializeFindingsForRender on edit drops suggestion_block and fixup', () => {
+      const rawWithSuggestions = {
+        file: 'core.py',
+        line: 5,
+        severity: 'minor',
+        explanation: 'Initial text',
+        suggestion: '-old\n+new',
+        comment: 'Inline comment',
+        suggestion_block: '```suggestion\nnew_code()\n```',
+        fixup: 'new_code()',
+      };
+
+      const finding: ReviewFinding = {
+        id: 'f1',
+        file: 'core.py',
+        line: 5,
+        severity: 'minor',
+        body: 'Maintainer customized explanation',
+        action: 'edit',
+        raw: rawWithSuggestions,
+      };
+
+      const out = serializeFindingsForRender([finding]);
+      const parsed = JSON.parse(out);
+      const serialized = Array.isArray(parsed) ? parsed[0] : parsed.findings[0];
+
+      assertStrictEqual(serialized.explanation, 'Maintainer customized explanation');
+      assertStrictEqual(serialized.suggestion, undefined);
+      assertStrictEqual(serialized.comment, undefined);
+      assertStrictEqual(serialized.suggestion_block, undefined);
+      assertStrictEqual(serialized.fixup, undefined);
+    });
+
+    test('findMatchingExistingFinding does not inherit edit when finding is replaced and consumes each match once', async () => {
+      const existing: ReviewFinding[] = [
+        {
+          id: 'old-1',
+          file: 'scheduler/job.py',
+          line: 10,
+          severity: 'minor',
+          rule: 'style-guideline',
+          body: 'Customized edit note on style',
+          action: 'edit',
+        },
+      ];
+
+      // Replaced finding at the same file and line, but different rule and body
+      const replacedFinding: ReviewFinding = {
+        id: 'new-1',
+        file: 'scheduler/job.py',
+        line: 10,
+        severity: 'blocking',
+        rule: 'security-vulnerability',
+        body: 'Direct security issue',
+        action: 'accept',
+      };
+
+      const consumed = new Set<number>();
+      const match = findMatchingExistingFinding(replacedFinding, existing, consumed);
+      // Must NOT match because rule and body differ
+      assertStrictEqual(match, undefined);
+      assertStrictEqual(consumed.size, 0);
+
+      // Verify single consumption: when two incoming findings match the same existing finding, only the first consumes it
+      const sameFinding1: ReviewFinding = {
+        id: 'new-a',
+        file: 'scheduler/job.py',
+        line: 10,
+        severity: 'minor',
+        rule: 'style-guideline',
+        body: 'Customized edit note on style',
+        action: 'accept',
+      };
+      const sameFinding2: ReviewFinding = {
+        id: 'new-b',
+        file: 'scheduler/job.py',
+        line: 10,
+        severity: 'minor',
+        rule: 'style-guideline',
+        body: 'Customized edit note on style',
+        action: 'accept',
+      };
+
+      const match1 = findMatchingExistingFinding(sameFinding1, existing, consumed);
+      assert(match1 !== undefined);
+      assertStrictEqual(match1?.action, 'edit');
+      assertStrictEqual(consumed.size, 1);
+
+      const match2 = findMatchingExistingFinding(sameFinding2, existing, consumed);
+      // Already consumed, so second finding gets undefined
+      assertStrictEqual(match2, undefined);
+    });
+
+    test('syncCuratedStateToDisk refuses to write to symlinks or non-regular files', async () => {
+      const test$ = createMockEngine({
+        fs: {
+          stat: async (p: string) => {
+            if (p.endsWith('.curated.json')) {
+              return { isFile: () => false, isSymbolicLink: () => true };
+            }
+            return { isFile: () => true, isSymbolicLink: () => false };
+          },
+        },
+      });
+
+      test$.fs._files.set('/work/saved/findings.json', '[]');
+      test$.fs._files.set('/work/saved/findings.curated.json', 'symlink_target');
+
+      const state: ReviewFindingsState = {
+        prNumber: 42,
+        findingsPath: '/work/saved/findings.json',
+        findings: [{ id: 'f1', file: 'a.py', line: 1, severity: 'minor', body: 'A', action: 'accept' }],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+
+      const res = await syncCuratedStateToDisk(test$, state);
+      assertStrictEqual(res.success, false);
+      assert(res.error?.includes('Refusing to write to symlink'));
     });
   });
 });

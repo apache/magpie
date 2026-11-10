@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import shlex
 from pathlib import Path
@@ -279,6 +280,230 @@ def test_disposition_and_render_with_envelope_findings(
         "write",
     )
     assert out["footer_verified"] and out["inline_threads"] == 1
+
+
+def test_render_auto_picks_valid_curated_sidecar(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    findings_file = tmp_path / "raw_findings.json"
+    raw_content = json.dumps(
+        [
+            {
+                "file": "scheduler/job.py",
+                "line": 2,
+                "severity": "minor",
+                "rule": "naming-convention",
+                "explanation": "Original explanation.",
+            }
+        ]
+    )
+    findings_file.write_text(raw_content, encoding="utf-8")
+    source_sha256 = hashlib.sha256(findings_file.read_bytes()).hexdigest()
+
+    curated_file = tmp_path / "raw_findings.json.curated.json"
+    curated_file.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pr": 7,
+                "source_sha256": source_sha256,
+                "findings": [
+                    {
+                        "file": "scheduler/job.py",
+                        "line": 2,
+                        "severity": "minor",
+                        "rule": "naming-convention",
+                        "explanation": "Curated maintainer explanation.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = tmp_path / "summary_autopick.txt"
+    summary.write_text("One naming nit inline.")
+    out = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "render",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--findings",
+        str(findings_file),
+        "--summary",
+        str(summary),
+        "--disposition",
+        "COMMENT",
+        "--out-dir",
+        str(tmp_path / "out_autopick"),
+        "--permission",
+        "write",
+    )
+    assert out["footer_verified"] and out["inline_threads"] == 1
+    payload = json.loads(Path(out["payload_file"]).read_text(encoding="utf-8"))
+    thread_body = payload["variables"]["threads"][0]["body"]
+    assert "Curated maintainer explanation." in thread_body
+    assert "Original explanation." not in thread_body
+
+
+def test_render_falls_back_when_curated_sidecar_has_mismatched_sha(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    findings_file = tmp_path / "raw_findings_mismatch.json"
+    raw_content = json.dumps(
+        [
+            {
+                "file": "scheduler/job.py",
+                "line": 2,
+                "severity": "minor",
+                "rule": "naming-convention",
+                "explanation": "Original explanation fallback.",
+            }
+        ]
+    )
+    findings_file.write_text(raw_content, encoding="utf-8")
+
+    curated_file = tmp_path / "raw_findings_mismatch.json.curated.json"
+    curated_file.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pr": 7,
+                "source_sha256": "stale_hash_that_does_not_match",
+                "findings": [
+                    {
+                        "file": "scheduler/job.py",
+                        "line": 2,
+                        "severity": "minor",
+                        "rule": "naming-convention",
+                        "explanation": "Stale sidecar explanation.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = tmp_path / "summary_mismatch.txt"
+    summary.write_text("One naming nit inline.")
+    out = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "render",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--findings",
+        str(findings_file),
+        "--summary",
+        str(summary),
+        "--disposition",
+        "COMMENT",
+        "--out-dir",
+        str(tmp_path / "out_mismatch"),
+        "--permission",
+        "write",
+    )
+    assert out["footer_verified"] and out["inline_threads"] == 1
+    payload = json.loads(Path(out["payload_file"]).read_text(encoding="utf-8"))
+    thread_body = payload["variables"]["threads"][0]["body"]
+    assert "Original explanation fallback." in thread_body
+    assert "Stale sidecar explanation." not in thread_body
+
+
+def test_render_refuses_invalidated_curated_envelope(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    invalidated_file = tmp_path / "findings.curated.json"
+    invalidated_file.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pr": 7,
+                "invalidated": True,
+                "findings": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = tmp_path / "summary_inv.txt"
+    summary.write_text("Summary line.")
+    with pytest.raises(SystemExit) as exc:
+        _run(
+            capsys,
+            "--config-dir",
+            str(project),
+            "code-review",
+            "render",
+            "--saved-dir",
+            str(saved),
+            "--pr",
+            "7",
+            "--findings",
+            str(invalidated_file),
+            "--summary",
+            str(summary),
+            "--disposition",
+            "COMMENT",
+            "--out-dir",
+            str(tmp_path / "out_inv"),
+        )
+    assert "invalidated" in str(exc.value)
+
+
+def test_render_refuses_wrong_pr_curated_envelope(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    wrong_pr_file = tmp_path / "findings_wrong_pr.curated.json"
+    wrong_pr_file.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pr": 999,
+                "findings": [
+                    {
+                        "file": "scheduler/job.py",
+                        "line": 2,
+                        "severity": "minor",
+                        "rule": "naming-convention",
+                        "explanation": "Wrong PR finding.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary = tmp_path / "summary_wrong_pr.txt"
+    summary.write_text("Summary line.")
+    with pytest.raises(SystemExit) as exc:
+        _run(
+            capsys,
+            "--config-dir",
+            str(project),
+            "code-review",
+            "render",
+            "--saved-dir",
+            str(saved),
+            "--pr",
+            "7",
+            "--findings",
+            str(wrong_pr_file),
+            "--summary",
+            str(summary),
+            "--disposition",
+            "COMMENT",
+            "--out-dir",
+            str(tmp_path / "out_wrong_pr"),
+        )
+    assert "PR mismatch" in str(exc.value)
 
 
 def test_guard_needs_the_liveness_read_then_checks_the_head(

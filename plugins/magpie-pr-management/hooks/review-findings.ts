@@ -901,6 +901,9 @@ export function setBulkActionInState(
     if (anchoredOnly && !isAnchored(f)) {
       return f;
     }
+    if (action === 'accept' && f.action === 'edit') {
+      return f;
+    }
     return { ...f, action };
   });
   return {
@@ -970,6 +973,8 @@ export function serializeFindingsForRender(
     if (f.action === 'edit') {
       delete base.suggestion;
       delete base.comment;
+      delete base.suggestion_block;
+      delete base.fixup;
       if (f.body) {
         base.explanation = f.body;
       }
@@ -1049,6 +1054,17 @@ export async function cleanCuratedFindingsFiles(
     }
 
     if (jsonExists) {
+      try {
+        const stat = await $.fs.stat(curatedJsonPath);
+        const isSymlink =
+          stat &&
+          ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
+            stat.isSymbolicLink === true ||
+            (typeof stat.isFile === 'function' && !stat.isFile()));
+        if (isSymlink) return;
+      } catch {
+        // fail-open
+      }
       const invalidEnvelope: CuratedFindingsPayload = {
         schema_version: 1,
         pr: null,
@@ -1059,6 +1075,17 @@ export async function cleanCuratedFindingsFiles(
       await $.fs.write(curatedJsonPath, JSON.stringify(invalidEnvelope, null, 2));
     }
     if (keepExists) {
+      try {
+        const stat = await $.fs.stat(curatedKeepPath);
+        const isSymlink =
+          stat &&
+          ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
+            stat.isSymbolicLink === true ||
+            (typeof stat.isFile === 'function' && !stat.isFile()));
+        if (isSymlink) return;
+      } catch {
+        // fail-open
+      }
       await $.fs.write(curatedKeepPath, 'INVALIDATED');
     }
   } catch {
@@ -1104,6 +1131,29 @@ export async function syncCuratedStateToDisk(
     const sourceHash = state.sourceHash || computeFindingsHash(rawSource || '');
 
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(state.findingsPath);
+
+    for (const targetPath of [curatedJsonPath, curatedKeepPath]) {
+      try {
+        const exists = await $.fs.exists(targetPath);
+        if (exists) {
+          const stat = await $.fs.stat(targetPath);
+          const isSymlink =
+            stat &&
+            ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
+              stat.isSymbolicLink === true ||
+              (typeof stat.isFile === 'function' && !stat.isFile()));
+          if (isSymlink) {
+            return {
+              success: false,
+              error: `Refusing to write to symlink or non-regular file: ${targetPath}`,
+            };
+          }
+        }
+      } catch {
+        // fail-open
+      }
+    }
+
     const jsonContent = serializeFindingsForRender(state.findings, {
       pr: state.prNumber,
       sourceHash,
@@ -1422,34 +1472,38 @@ export function resolveRelativePath(baseDir: string, filePath: string): string {
  */
 export function findMatchingExistingFinding(
   target: ReviewFinding,
-  existingFindings: readonly ReviewFinding[]
+  existingFindings: readonly ReviewFinding[],
+  consumedIndices?: Set<number>
 ): ReviewFinding | undefined {
   if (target.id && !target.id.startsWith('finding-')) {
-    const idMatch = existingFindings.find((e) => e.id === target.id);
-    if (idMatch) return idMatch;
+    const idx = existingFindings.findIndex(
+      (e, i) => (!consumedIndices || !consumedIndices.has(i)) && e.id === target.id
+    );
+    if (idx !== -1) {
+      if (consumedIndices) consumedIndices.add(idx);
+      return existingFindings[idx];
+    }
   }
   if (isAnchored(target)) {
-    const fileLineMatch = existingFindings.filter(
-      (e) => isAnchored(e) && e.file === target.file && e.line === target.line
-    );
-    if (fileLineMatch.length === 1) {
-      return fileLineMatch[0];
-    }
-    if (fileLineMatch.length > 1) {
-      const ruleOrBodyMatch = fileLineMatch.find(
-        (e) => (target.rule && e.rule === target.rule) || e.body === target.body
-      );
-      if (ruleOrBodyMatch) return ruleOrBodyMatch;
-      return fileLineMatch[0];
+    const idx = existingFindings.findIndex((e, i) => {
+      if (consumedIndices && consumedIndices.has(i)) return false;
+      if (!isAnchored(e) || e.file !== target.file || e.line !== target.line) return false;
+      return Boolean((target.rule && e.rule === target.rule) || e.body === target.body);
+    });
+    if (idx !== -1) {
+      if (consumedIndices) consumedIndices.add(idx);
+      return existingFindings[idx];
     }
   } else {
-    const unanchored = existingFindings.filter(
-      (e) => !isAnchored(e) && e.file === target.file
-    );
-    const match = unanchored.find(
-      (e) => (target.rule && e.rule === target.rule) || e.body === target.body
-    );
-    if (match) return match;
+    const idx = existingFindings.findIndex((e, i) => {
+      if (consumedIndices && consumedIndices.has(i)) return false;
+      if (isAnchored(e) || e.file !== target.file) return false;
+      return Boolean((target.rule && e.rule === target.rule) || e.body === target.body);
+    });
+    if (idx !== -1) {
+      if (consumedIndices) consumedIndices.add(idx);
+      return existingFindings[idx];
+    }
   }
   return undefined;
 }
@@ -1524,8 +1578,9 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
                 existingState.findings.length > 0 &&
                 (!existingState.prNumber || !prNumber || existingState.prNumber === prNumber)
               ) {
+                const consumed = new Set<number>();
                 finalFindings = parsed.findings.map((f) => {
-                  const match = findMatchingExistingFinding(f, existingState.findings);
+                  const match = findMatchingExistingFinding(f, existingState.findings, consumed);
                   if (match) {
                     return {
                       ...f,
@@ -1799,16 +1854,18 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       if (isAnchored(f)) {
         if (!hasAnchoredSpec) return f;
         const anchoredIndex = anchored.indexOf(f) + 1;
+        const isKept = anchoredIndices.has(anchoredIndex);
         return {
           ...f,
-          action: anchoredIndices.has(anchoredIndex) ? ('accept' as const) : ('skip' as const),
+          action: isKept ? (f.action === 'edit' ? ('edit' as const) : ('accept' as const)) : ('skip' as const),
         };
       }
       if (!hasGeneralSpec) return f;
       const genIndex = unanchored.indexOf(f) + 1;
+      const isKept = generalIndices.has(genIndex);
       return {
         ...f,
-        action: generalIndices.has(genIndex) ? ('accept' as const) : ('skip' as const),
+        action: isKept ? (f.action === 'edit' ? ('edit' as const) : ('accept' as const)) : ('skip' as const),
       };
     });
 

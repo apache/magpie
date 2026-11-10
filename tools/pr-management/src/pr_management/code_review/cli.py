@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import shlex
@@ -388,20 +389,49 @@ def _doc_name(category: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", category.lower().split(" (")[0]).strip("-")
 
 
-def _load_findings(path: Path | str | None) -> list[dict[str, Any]]:
+def _load_findings(path: Path | str | None, pr_number: int | None = None) -> list[dict[str, Any]]:
     if not path:
         return []
-    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    p = Path(path)
+    if not p.exists():
+        return []
+
+    raw = json.loads(p.read_text(encoding="utf-8"))
     if isinstance(raw, dict):
+        if raw.get("invalidated"):
+            raise SystemExit("pr-management: curated findings envelope is marked invalidated")
+        if pr_number is not None and "pr" in raw and raw["pr"] != pr_number:
+            raise SystemExit(
+                f"pr-management: curated findings envelope PR mismatch (envelope has PR {raw['pr']}, expected {pr_number})"
+            )
+        if p.name.endswith(".curated.json"):
+            source_file = p.with_name(p.name[: -len(".curated.json")])
+            if source_file.exists() and raw.get("source_sha256"):
+                expected_sha = hashlib.sha256(source_file.read_bytes()).hexdigest()
+                if raw["source_sha256"] != expected_sha:
+                    raise SystemExit("pr-management: curated findings envelope source hash mismatch")
         return raw.get("findings", [])
+
     if isinstance(raw, list):
+        curated_path = p.with_name(f"{p.name}.curated.json")
+        if curated_path.exists():
+            try:
+                curated_raw = json.loads(curated_path.read_text(encoding="utf-8"))
+                if isinstance(curated_raw, dict) and not curated_raw.get("invalidated"):
+                    pr_match = pr_number is None or curated_raw.get("pr") == pr_number
+                    source_bytes = p.read_bytes()
+                    hash_match = curated_raw.get("source_sha256") == hashlib.sha256(source_bytes).hexdigest()
+                    if pr_match and hash_match and "findings" in curated_raw:
+                        return curated_raw["findings"]
+            except Exception:
+                pass
         return raw
     return []
 
 
 def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
-    findings = _load_findings(args.findings)
+    findings = _load_findings(args.findings, pr_number=args.pr)
     result = _decide(args, cfg, pr, findings, args.viewer)
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
@@ -531,7 +561,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     saved: Path = args.saved_dir
     pr = data.load_pr(saved / f"cr-pr-{args.pr}.json")
     files = difflib.parse((saved / f"diff-{args.pr}.patch").read_text(encoding="utf-8", errors="replace"))
-    findings = _load_findings(args.findings)
+    findings = _load_findings(args.findings, pr_number=args.pr)
     summary = Path(args.summary).read_text(encoding="utf-8").strip()
     anchored = [f for f in findings if f.get("line")]
     picked = review_body.pick(args.keep or "A", len(anchored)) if args.inline == "on" else {"keep": []}

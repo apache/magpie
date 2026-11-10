@@ -2030,7 +2030,9 @@ The review findings mod introduces the framework's first use of `$.fs.write` in 
   Writing sidecars avoids spawning background daemons, opening IPC sockets, or modifying global environment state.
 - **Write boundaries and unsandboxed execution**: Because Claude Code mod hooks execute outside the container sandbox with user privileges, `$.fs.write` targets the host filesystem directly.
   The write destination is the directory of the `--findings` path intercepted from the preceding `code-review disposition` command (typically the session or scratch directory).
-  Writes are strictly restricted to sibling sidecars (`<file>.curated.json` and `<file>.curated.keep`) beside an existing findings file that exists on disk.
+  Sidecar creation is strictly restricted to sibling files (`<file>.curated.json` and `<file>.curated.keep`) beside an existing findings file.
+  Invalidation markers update existing sidecar paths when curation is cleaned up or when findings become empty.
+  To prevent symlink traversal outside the intended directory, writes refuse to follow paths that exist as symbolic links or non-regular files.
   The fixed `.curated.*` suffixes and existence precheck ensure executable scripts, dotfiles, or unrelated system files are never overwritten.
 - **Fail-open design and clean fallback**: Filesystem write operations are non-blocking and fail open.
   If `$.fs.write` encounters permission errors, read-only volumes, or quota exhaustion, execution never halts or crashes.
@@ -2039,7 +2041,7 @@ The review findings mod introduces the framework's first use of `$.fs.write` in 
 - **Self-invalidation lifecycle**: Because the Claude Code mod filesystem API provides no `remove` or `unlink` methods, sidecars manage their lifecycle via deterministic self-invalidation rather than file deletion.
   The curated JSON payload embeds the active PR number and the source findings file's SHA-256 digest in a metadata envelope.
   When a write fails, when findings become empty, or when a disposition re-run detects a mismatched PR number, the hook writes explicit invalidation markers to disk.
-  Downstream Step 7b verifies that the PR number and source hash match before passing `<file>.curated.json` to `render`, ensuring stale or orphaned curation files are never consumed.
+  Downstream CLI tools (`render`) validate the PR number and source hash directly before loading `<file>.curated.json`, ensuring stale, orphaned, or invalidated curation files are refused or bypassed.
 
 ## Sandbox-error hint hook
 

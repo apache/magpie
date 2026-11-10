@@ -323,7 +323,7 @@ Pick which to post: [A]ll (default without curation), [N]one, 1,3 (keep), -2 (dr
 
 The answer is passed to `render --keep`; dropped comments fold into the body's *Smaller observations*.
 The picker is skipped when there is nothing anchored, or under `inline:off`.
-When `<file>.curated.keep` exists from interactive curation, pressing Enter (empty answer) accepts that curated selection as the default; without a curated sidecar, pressing Enter defaults to `[A]ll`.
+When `<file>.curated.keep` is valid from interactive curation, pressing Enter (empty answer) accepts that curated selection as the default; otherwise, pressing Enter defaults to `[A]ll`.
 
 Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt as an interactive visual overview during review triage.
 Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`), where `<indices>` can address anchored inline comments (`1`, `3`) and general observations (`g1`, `g2`).
@@ -347,9 +347,7 @@ uv run --project <framework>/tools/pr-management pr-management code-review rende
   [--security-note <file>] [--inline off]
 ```
 
-When `<file>.curated.json` was written beside the findings file during Step 7a curation, verify that it records `pr` matching active PR `<N>` and `source_sha256` matching the SHA-256 of `<file>`.
-When valid, pass `<file>.curated.json` to `--findings` so maintainer edits and omitted general observations reach `render`.
-When invalid, mismatched, or marked invalidated, discard the sidecars and pass the original `<file>` to `--findings`.
+When `<file>.curated.json` is present beside `<file>`, `render` validates its PR and source hash directly, using the curated findings when valid and falling back to `<file>` otherwise.
 
 **Picker precedence**: The maintainer's typed answer at the Step 7a text picker prompt always takes precedence.
 If the maintainer enters an answer (e.g. `1,3`, `None`, `-2`), pass that answer directly to `--keep <answer>`.
