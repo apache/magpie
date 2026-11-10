@@ -31,10 +31,13 @@ from oauth_draft.create_draft import (
     api_get,
     api_post,
     build_mime,
+    choose_reply_headers,
     create_draft,
+    explicit_reply_headers,
     headers_from_thread,
     latest_reply_headers,
     main,
+    normalize_message_id,
     parse_args,
     read_body,
 )
@@ -219,6 +222,95 @@ def test_parse_args_repeats():
     )
     assert args.to == ["a@example.com", "b@example.com"]
     assert args.cc == ["c@example.com"]
+
+
+# --- explicit In-Reply-To / References --------------------------------------
+
+
+@pytest.mark.parametrize("value", ["<report@example.org>", "report@example.org"])
+def test_normalize_message_id_adds_angle_brackets(value):
+    assert normalize_message_id(value) == "<report@example.org>"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "<a@x>\r\nBcc: attacker@example.com",
+        "a@x\nX-Injected: 1",
+        "<a@x>\r",
+        "<a b@x>",
+        " <a@x>",
+        "<a@x",
+        "a@x>",
+        "<<a@x>>",
+        "<no-at-sign>",
+        "<a@b@c>",
+        "<@x>",
+        "<a@>",
+        "<a\x00@x>",
+        "<ä@x>",
+        "",
+    ],
+)
+def test_normalize_message_id_rejects_malformed_or_injected(value):
+    with pytest.raises(ValueError, match="not a Message-ID"):
+        normalize_message_id(value)
+
+
+def test_explicit_reply_headers_none_when_not_given():
+    assert explicit_reply_headers(None, None) == (None, None)
+
+
+def test_explicit_reply_headers_references_default_to_in_reply_to():
+    assert explicit_reply_headers("report@example.org", None) == (
+        "<report@example.org>",
+        "<report@example.org>",
+    )
+
+
+def test_explicit_reply_headers_normalizes_references_and_appends_parent():
+    assert explicit_reply_headers("<b@x>", "root@x  <a@x>") == ("<b@x>", "<root@x> <a@x> <b@x>")
+
+
+def test_explicit_reply_headers_keeps_references_naming_the_parent():
+    assert explicit_reply_headers("<b@x>", "<a@x> <b@x>") == ("<b@x>", "<a@x> <b@x>")
+
+
+def test_explicit_reply_headers_rejects_injection_in_references():
+    with pytest.raises(ValueError, match="not a Message-ID"):
+        explicit_reply_headers("<b@x>", "<a@x>\r\nBcc: attacker@example.com")
+
+
+def test_explicit_reply_headers_references_need_in_reply_to():
+    with pytest.raises(ValueError, match="references needs in_reply_to"):
+        explicit_reply_headers(None, "<a@x>")
+
+
+def test_choose_reply_headers_explicit_wins_and_skips_thread_lookup():
+    with patch("oauth_draft.create_draft.latest_reply_headers") as latest:
+        result = choose_reply_headers("tok", "tid", ("<p@x>", "<p@x>"), no_reply_headers=False)
+    assert result == ("<p@x>", "<p@x>")
+    latest.assert_not_called()
+
+
+def test_parse_args_normalizes_in_reply_to():
+    args = parse_args(["--to", "x@example.com", "--subject", "S", "--in-reply-to", "report@example.org"])
+    assert args.in_reply_to == "<report@example.org>"
+    assert args.references == "<report@example.org>"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["--in-reply-to", "<a@x>\r\nBcc: attacker@example.com"],
+        ["--references", "<a@x>"],
+        ["--in-reply-to", "<a@x>", "--no-reply-headers"],
+    ],
+)
+def test_parse_args_rejects_bad_reply_header_input(extra):
+    with pytest.raises(SystemExit) as excinfo:
+        parse_args(["--to", "x@example.com", "--subject", "S", *extra])
+    assert excinfo.value.code == 2
 
 
 # --- read_body -------------------------------------------------------------
@@ -449,3 +541,83 @@ def test_main_no_reply_headers_skips_thread_lookup(tmp_path):
         )
     assert rc == 0
     latest.assert_not_called()
+
+
+def _posted_message(post) -> EmailMessage:
+    raw_b64 = post.call_args.args[2]["message"]["raw"]
+    return parse_built_message(base64.urlsafe_b64decode(raw_b64 + "=" * (-len(raw_b64) % 4)))
+
+
+def test_main_in_reply_to_without_thread_id_sets_headers(tmp_path):
+    creds = _make_creds_file(tmp_path)
+    body = tmp_path / "b.txt"
+    body.write_text("x")
+    with (
+        patch("oauth_draft.create_draft.refresh_access_token", return_value="t"),
+        patch("oauth_draft.create_draft.latest_reply_headers") as latest,
+        patch(
+            "oauth_draft.create_draft.api_post",
+            return_value={"id": "d", "message": {"id": "m"}},
+        ) as post,
+    ):
+        rc = main(
+            [
+                "--credentials",
+                str(creds),
+                "--in-reply-to",
+                "report@example.org",
+                "--references",
+                "<root@example.org>",
+                "--to",
+                "x@example.com",
+                "--subject",
+                "Re: S",
+                "--body-file",
+                str(body),
+            ]
+        )
+    assert rc == 0
+    latest.assert_not_called()
+    assert "threadId" not in post.call_args.args[2]["message"]
+    msg = _posted_message(post)
+    assert msg["In-Reply-To"] == "<report@example.org>"
+    assert msg["References"] == "<root@example.org> <report@example.org>"
+
+
+def test_main_explicit_headers_win_over_thread_id(tmp_path):
+    creds = _make_creds_file(tmp_path)
+    body = tmp_path / "b.txt"
+    body.write_text("x")
+    with (
+        patch("oauth_draft.create_draft.refresh_access_token", return_value="t"),
+        patch(
+            "oauth_draft.create_draft.latest_reply_headers",
+            return_value=("<thread-last@x>", "<thread-last@x>"),
+        ) as latest,
+        patch(
+            "oauth_draft.create_draft.api_post",
+            return_value={"id": "d", "message": {"id": "m", "threadId": "tid"}},
+        ) as post,
+    ):
+        rc = main(
+            [
+                "--credentials",
+                str(creds),
+                "--thread-id",
+                "tid",
+                "--in-reply-to",
+                "<report@example.org>",
+                "--to",
+                "x@example.com",
+                "--subject",
+                "Re: S",
+                "--body-file",
+                str(body),
+            ]
+        )
+    assert rc == 0
+    latest.assert_not_called()
+    assert post.call_args.args[2]["message"]["threadId"] == "tid"
+    msg = _posted_message(post)
+    assert msg["In-Reply-To"] == "<report@example.org>"
+    assert msg["References"] == "<report@example.org>"

@@ -156,8 +156,14 @@ while sandboxed Bash can do neither.
    same `credentials_path` as the probe when set, and either
    `thread_id=<threadId>` (reply on an existing thread — the tracker
    stores `threadId` per the *security-thread* body field convention)
-   or, for a brand-new message, no `thread_id`. URLs in the body are
-   preserved verbatim.
+   or, for a brand-new message, no `thread_id`. When the inbound message
+   is **not in the user's Gmail** (so there is no `threadId`) but its
+   `Message-ID` is known — from PonyMail or the tracker's recorded root
+   `Message-ID` — pass it as `in_reply_to`, plus the parent's
+   `References` chain as `references` when known, so the reply still
+   threads for every recipient
+   ([`threading.md`](threading.md#gmail--drafts-stay-on-the-inbound-thread)).
+   URLs in the body are preserved verbatim.
 
 **Last-resort fallback — `claude_ai_mcp`, only when `oauth_curl`
 credentials are unavailable.** Subject to the hard constraint in the
