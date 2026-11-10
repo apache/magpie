@@ -667,3 +667,11 @@ def test_ordinary_languages_are_kept(info: str) -> None:
 )
 def test_a_dollar_is_escaped_unless_an_odd_backslash_run_escapes_it(report: str, expected: str) -> None:
     assert _md(report) == expected
+
+
+def test_a_long_container_marker_run_does_not_backtrack() -> None:
+    import time
+
+    start = time.monotonic()
+    _md(">" + "\t>" * 40 + "x\n")
+    assert time.monotonic() - start < 1

@@ -193,8 +193,10 @@ _OTHER_FENCE = re.compile(
 # is escaped, so it stays text.
 _SETEXT = re.compile(r"^((?:[ \t]*>)*[ \t]*)(=+|-+)[ \t]*$")
 # An ATX heading marker of level 1-3 behind optional block-quote / list markers.
+# Whitespace is matched only before each marker, so a long `>\t>\t...` run
+# has one way to split and cannot backtrack exponentially.
 _CONTAINER_HEADING = re.compile(
-    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t]))[ \t]*)*[ \t]*)(#{1,3})(?=[ \t]|$)"
+    r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)(#{1,3})(?=[ \t]|$)"
 )
 # A bare issue reference (`#12`) or an @-mention in report prose. Either would
 # resolve against the tracker (a wrong issue, a notification). `owner/repo#12`,
