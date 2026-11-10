@@ -13,6 +13,7 @@ source: >
   tools/pilot-report-validator/, tools/vendor-neutrality-score/,
   tools/preflight-audit/, tools/spec-inventory/,
   tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py,
+  tools/dev/refresh-reconciled-stamp.py,
   tools/dev/ci-pytest-batches.py, and
   the write-skill / list-skills utility skills.
 acceptance:
@@ -277,6 +278,16 @@ trustworthy as it grows.
   whole-repo result, which is why a whole-tree prek run before pushing
   is a required pre-flight (#1317; the tests in it are scoped since #1764,
   below).
+- **A dev bump restamps the checkout's reconciliation and follows a spec sync.**
+  `bump-dev-version.yml` also runs `tools/dev/refresh-reconciled-stamp.py`,
+  which moves the framework checkout's own `reconciled:` stamp in
+  `.apache-magpie.lock` to the new version and stamps every skill at its
+  current `surface_hash`, except the declined skills listed in
+  `tools/dev/reconciled-stamp-excluded.txt`; entries for skills that no
+  longer exist are dropped, and a listed name that no longer exists fails
+  the run, so a rename updates the list.
+  A dev bump is preceded by a local spec sync, since the sync needs an agent
+  and the workflow has none.
 - **Workspace pytest runs only the affected members, batched.**
   `tools/dev/ci-pytest-batches.py` picks the members that get pytest (a
   `[tool.pytest.ini_options]` section and no `[tool.magpie.checks]` opt-out,

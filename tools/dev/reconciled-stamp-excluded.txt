@@ -1,0 +1,21 @@
+# Skills left out of the framework checkout's `reconciled:` stamp in
+# .apache-magpie.lock. Read by tools/dev/refresh-reconciled-stamp.py, which
+# every dev-version bump runs; every skill not listed here is stamped.
+#
+# List a skill here when `/magpie-setup reconcile` declined it for this
+# checkout: it requires configuration this repository does not carry. The
+# security-tracker skills need tracker files (scope labels, canned responses,
+# title normalization, intake, milestones, stats config), and the framework
+# repository is not a security tracker.
+#
+# One skill `name:` per line; `#` starts a comment. A name that no longer
+# exists fails the restamp, so a rename updates this file in the same PR.
+cve-allocate
+issue-deduplicate
+issue-import
+issue-import-from-md
+issue-import-from-pr
+issue-invalidate
+issue-sync
+issue-triage
+tracker-stats-dashboard

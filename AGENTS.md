@@ -635,7 +635,8 @@ to a home-dir path and update the tool to read from there.
 - **Spec-sync pre-check before pushing a functionality PR.** The specs in
   [`tools/spec-loop/specs/`](tools/spec-loop/specs/) are the source of truth
   and must not fall behind the code. Before pushing a PR that ships or changes
-  a skill, tool, or mode — **and before pushing a rebase of one onto a `main`
+  a skill, tool, or mode, **before every dev-version bump**
+  ([Bumping the dev version](CONTRIBUTING.md#bumping-the-dev-version)) — **and before pushing a rebase of one onto a `main`
   that has moved** — confirm `tools/spec-loop/.last-sync` is at (or near) the
   current `main` tip and that the affected specs reflect what actually
   shipped. If they have drifted, run the sync

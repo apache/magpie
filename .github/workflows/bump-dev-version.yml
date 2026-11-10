@@ -115,8 +115,12 @@ jobs:
 
       # The documented steps, unchanged: edit `project.version`, then let
       # check-family-plugins propagate it to every manifest and `uv lock`
-      # restamp the lockfile. `uv run` supplies the Python; `ubuntu-slim` is
-      # minimal and a system interpreter is not worth assuming.
+      # restamp the lockfile. Last, refresh-reconciled-stamp moves this
+      # checkout's own `reconciled:` stamp in `.apache-magpie.lock` to the new
+      # version and every skill's current surface hash (except those listed in
+      # tools/dev/reconciled-stamp-excluded.txt), so the bump does not leave every skill
+      # raising `fingerprint-moved` here. `uv run` supplies the Python;
+      # `ubuntu-slim` is minimal and a system interpreter is not worth assuming.
       - name: Bump the stamp and regenerate the manifests
         id: bump
         run: |
@@ -125,6 +129,7 @@ jobs:
           version=$(uv run --project tools/dev python tools/dev/bump-dev-version.py --print)
           uv run --project tools/dev python tools/dev/check-family-plugins.py --fix
           uv lock
+          uv run --project tools/dev python tools/dev/refresh-reconciled-stamp.py
           if [[ -z "$(git status --porcelain)" ]]; then
             echo "Stamp is already current; nothing to commit."
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -170,7 +175,9 @@ jobs:
             echo ".github/workflows/bump-dev-version.yml with the documented steps: bump"
             echo "\`project.version\` in \`pyproject.toml\`, then"
             echo "\`tools/dev/check-family-plugins.py --fix\` and \`uv lock\` to propagate"
-            echo "to every manifest. The stamp is UTC at minute resolution."
+            echo "to every manifest, and \`tools/dev/refresh-reconciled-stamp.py\` to move"
+            echo "the reconciliation stamp in \`.apache-magpie.lock\` to this version."
+            echo "The stamp is UTC at minute resolution."
             echo
             echo "Co-Authored-By: $coauthor"
           } > "$RUNNER_TEMP/bump-message.txt"
@@ -223,6 +230,11 @@ jobs:
           up the work merged since the previous stamp. The marketplace is served from
           \`main\` and the update check compares version strings, so a frozen suffix is a
           silent no-op — see [\`docs/setup/marketplace.md\`](docs/setup/marketplace.md).
+
+          The reconciliation stamp in \`.apache-magpie.lock\` moves with it: every skill at
+          its current surface hash, except those in \`tools/dev/reconciled-stamp-excluded.txt\`. Specs are
+          not synced here; that is a local step run before this workflow (see
+          [Bumping the dev version](CONTRIBUTING.md#bumping-the-dev-version)).
 
           Requested from the Actions tab by @$ACTOR, who is credited on the commit. The
           commit is signed by GitHub and the candidate was checked before this PR was

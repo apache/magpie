@@ -943,6 +943,13 @@ still, an adopter running that command is told they are already current
 however far behind they are. `docs/setup/marketplace.md` covers *when*
 a bump is wanted; this section covers the machinery.
 
+**Sync the specs first.** A dev bump is what carries merged work to adopters, so the
+specs in [`tools/spec-loop/specs/`](tools/spec-loop/specs/) must describe it before the
+bump goes out. Check `tools/spec-loop/.last-sync` against the `main` tip; if it is
+behind, run `tools/spec-loop/loop.sh update` (or update the affected specs and
+`.last-sync` by hand for a small gap) and merge that `sync-specs` PR before
+starting the workflow. The workflow cannot do this itself: the sync needs an agent.
+
 Start it from the Actions tab — **bump dev version** -> *Run workflow*.
 There is no automatic trigger: whether a bump is wanted is a judgement,
 not something a merge can decide. `workflow_dispatch` is restricted by
@@ -973,7 +980,12 @@ prepare ──> open-pr   draft PR
 
 - **`prepare`** runs the three documented steps —
   [`bump-dev-version.py`](tools/dev/bump-dev-version.py), then
-  `check-family-plugins.py --fix` and `uv lock` — and commits the result
+  `check-family-plugins.py --fix` and `uv lock` — then
+  [`refresh-reconciled-stamp.py`](tools/dev/refresh-reconciled-stamp.py),
+  which moves this checkout's `reconciled:` stamp in `.apache-magpie.lock`
+  to the new version with every skill at its current surface hash, except
+  the declined ones listed in
+  [`reconciled-stamp-excluded.txt`](tools/dev/reconciled-stamp-excluded.txt). It commits the result
   onto a branch. The commit is made through GitHub's
   `createCommitOnBranch` API by
   [`gh-signed-commit.py`](tools/dev/gh-signed-commit.py) rather than
