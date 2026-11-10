@@ -290,11 +290,23 @@ def cmd_settings(ns: argparse.Namespace) -> int:
     Without ``--apply`` it only prints the proposal: the caller shows it to the
     operator and applies it on their yes. Exit 0 on success, 3 when an env key
     already holds a different value (reported, never overwritten), 2 when the
-    file cannot be merged safely (nothing written).
+    file cannot be merged safely (nothing written), or the project has no run
+    directory ``serve`` would accept.
+
+    The run directory is always the gateway's own default for ``--project``
+    (there is no ``--run-dir`` here): the block ends up in
+    ``allowUnixSockets``, so a caller-chosen directory could point it at a
+    real daemon socket. It is computed as ``serve`` computes it
+    (``serving=True``: no default outside an adopted project or a git
+    repository) and checked as ``serve`` and ``status`` check it: a
+    symlinked, foreign-owned or group/world-writable component refuses.
     """
-    cfg = _config(ns)
+    cfg = _config(ns, serving=True)
     run_dir = cfg.run_dir if cfg.run_dir.is_absolute() else _absolute(cfg.run_dir)
+    daemon.validate_run_dir(run_dir, cfg.project_root)  # missing is fine: serve creates it
     sockets = daemon.paths(run_dir)
+    for kind in ("podman", "docker"):
+        daemon.check_socket_path(sockets[kind])
     prop = _settings.proposal(run_dir, {"podman": sockets["podman"], "docker": sockets["docker"]})
     if ns.apply is None:
         print(json.dumps({"proposal": prop.as_dict()}, indent=2))
@@ -350,7 +362,9 @@ def main(argv: list[str] | None = None) -> int:
         "settings",
         help="print the Claude Code settings block that reaches this project's gateway, or merge it (--apply)",
     )
-    _common(g)
+    # Only --project: the run directory is always the gateway's default.
+    g.add_argument("--project", type=Path, default=Path.cwd(), help="project root (default: cwd)")
+    g.set_defaults(run_dir=None, pid_file=None)
     g.add_argument(
         "--apply",
         type=Path,

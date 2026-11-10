@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -158,26 +160,118 @@ def test_a_concurrent_change_aborts_the_write(tmp_path: Path, monkeypatch: pytes
     assert not list(tmp_path.glob(".settings.local.json.*"))  # no temp file left behind
 
 
-def test_cli_prints_a_proposal_and_applies_with_exit_codes(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_a_rename_replace_during_the_merge_aborts_the_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    run = tmp_path / "run"
+    # An editor (or the harness) that saves by writing a temp file and renaming
+    # it over the target puts a new inode at the path; the descriptor apply()
+    # holds never sees it change, so the check has to look at the name.
     target = tmp_path / "settings.local.json"
-    assert cli.main(["settings", "--project", str(tmp_path), "--run-dir", str(run)]) == 0
-    out = json.loads(capsys.readouterr().out)
-    assert out["proposal"]["env"]["CONTAINER_HOST"] == f"unix://{run}/podman.sock"
-    assert not target.exists()  # printing never writes
+    target.write_text('{"env": {}}')
+    real_merge = settings._merge
 
-    args = ["settings", "--project", str(tmp_path), "--run-dir", str(run), "--apply", str(target)]
-    assert cli.main(args) == 0
-    assert json.loads(capsys.readouterr().out)["status"] == "written"
-    assert cli.main(args) == 0
-    assert json.loads(capsys.readouterr().out)["status"] == "unchanged"
+    def merge_then_rename(data: dict, prop: settings.Proposal):
+        out = real_merge(data, prop)
+        new = tmp_path / "editor-save.tmp"
+        new.write_text('{"env": {"MINE": "1"}}')
+        os.replace(new, target)
+        return out
 
-    target.write_text(json.dumps({"env": {"CONTAINER_HOST": "unix:///elsewhere.sock"}}))
-    assert cli.main(args) == 3  # conflict reported, not overwritten
+    monkeypatch.setattr(settings, "_merge", merge_then_rename)
+    with pytest.raises(settings.SettingsError, match="changed while it was being merged"):
+        settings.apply(target, _prop(tmp_path / "run"))
+    assert json.loads(target.read_text()) == {"env": {"MINE": "1"}}  # the other writer's save survives
+    assert not list(tmp_path.glob(".settings.local.json.*"))
+
+
+def test_a_symlinked_parent_directory_is_refused(tmp_path: Path) -> None:
+    # A repository-controlled `.claude` symlink must not redirect the write.
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (tmp_path / ".claude").symlink_to(elsewhere)
+    with pytest.raises(settings.SettingsError, match="symlink"):
+        settings.apply(tmp_path / ".claude" / "settings.local.json", _prop(tmp_path / "run"))
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_only_the_last_directory_is_created(tmp_path: Path) -> None:
+    with pytest.raises(settings.SettingsError, match="does not exist"):
+        settings.apply(tmp_path / "missing" / ".claude" / "settings.local.json", _prop(tmp_path / "run"))
+    assert not (tmp_path / "missing").exists()
+
+
+def _adopted_project() -> Path:
+    # Short, so the socket paths stay under the unix socket path limit.
+    project = Path(tempfile.mkdtemp(prefix="cg-"))
+    (project / ".apache-magpie.lock").write_text("method: local\n", encoding="utf-8")
+    return project
+
+
+def test_cli_prints_a_proposal_and_applies_with_exit_codes(capsys: pytest.CaptureFixture[str]) -> None:
+    project = _adopted_project()
+    run = project.resolve() / ".apache-magpie-local" / "run"  # the gateway anchors on the resolved root
+    target = project / ".claude" / "settings.local.json"
+    try:
+        assert cli.main(["settings", "--project", str(project)]) == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["proposal"]["env"]["CONTAINER_HOST"] == f"unix://{run}/podman.sock"
+        assert not target.exists()  # printing never writes
+
+        args = ["settings", "--project", str(project), "--apply", str(target)]
+        assert cli.main(args) == 0
+        assert json.loads(capsys.readouterr().out)["status"] == "written"
+        assert cli.main(args) == 0
+        assert json.loads(capsys.readouterr().out)["status"] == "unchanged"
+
+        target.write_text(json.dumps({"env": {"CONTAINER_HOST": "unix:///elsewhere.sock"}}))
+        assert cli.main(args) == 3  # conflict reported, not overwritten
+        written = json.loads(capsys.readouterr().out)
+        assert written["status"] == "written" and written["added_sockets"]  # the rest was still added
+
+        target.write_text("{broken")
+        assert cli.main(args) == 2
+        assert "not valid JSON" in capsys.readouterr().err
+    finally:
+        shutil.rmtree(project)
+
+
+def test_cli_settings_takes_no_run_dir(capsys: pytest.CaptureFixture[str]) -> None:
+    # The block goes into allowUnixSockets, so a caller-chosen directory could
+    # name a real daemon socket (`--run-dir /var/run`): the option does not exist.
+    project = _adopted_project()
+    try:
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["settings", "--project", str(project), "--run-dir", "/var/run"])
+        assert exc.value.code == 2
+    finally:
+        shutil.rmtree(project)
     capsys.readouterr()
 
-    target.write_text("{broken")
-    assert cli.main(args) == 2
-    assert "not valid JSON" in capsys.readouterr().err
+
+def test_cli_settings_refuses_a_project_serve_would_refuse(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Neither adopted nor a git repository: serve has no run directory, so
+    # there is no block to propose.
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["settings", "--project", str(tmp_path)])
+    assert exc.value.code == 2
+    assert "pass --run-dir" in capsys.readouterr().err
+
+
+def test_cli_settings_refuses_a_symlinked_run_dir_component(capsys: pytest.CaptureFixture[str]) -> None:
+    # A planted `.apache-magpie-local -> ~/.docker` style link: serve refuses
+    # it, so settings must not authorize sockets under it either.
+    project = _adopted_project()
+    elsewhere = Path(tempfile.mkdtemp(prefix="cg-x-"))
+    try:
+        (project / ".apache-magpie-local").symlink_to(elsewhere)
+        target = project / ".claude" / "settings.local.json"
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["settings", "--project", str(project), "--apply", str(target)])
+        assert exc.value.code == 2
+        assert not target.exists()
+    finally:
+        shutil.rmtree(project)
+        shutil.rmtree(elsewhere)
+    capsys.readouterr()

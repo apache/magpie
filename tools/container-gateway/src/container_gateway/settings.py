@@ -37,12 +37,15 @@ agent session:
   that is reported, never overwritten, because the operator chose it;
 * **idempotent** — a file that already carries the block is not rewritten;
 * **guarded** — it takes an exclusive ``flock`` on the file, re-parses it
-  under the lock, and refuses to replace it if its mtime or size moved
-  between the read and the write (an editor that does not take the lock);
-  the new content goes to a sibling temp file and ``os.replace``s into place,
-  keeping the file's mode;
-* **strict** — it refuses a symlinked target, and a file that is not a JSON
-  object, rather than guess.
+  under the lock, and refuses to replace it if what is at the path moved
+  between the read and the write: a different inode (an editor that saves by
+  renaming a new file over it), or a changed mtime or size (one that writes
+  in place without the lock); the new content goes to a sibling temp file,
+  is fsynced, and ``os.replace``s into place, keeping the file's mode;
+* **strict** — it refuses a symlinked target or a symlinked directory above
+  it (every operation runs relative to a descriptor of the real directory,
+  and only that last directory is ever created), and a file that is not a
+  JSON object, rather than guess.
 
 It never decides whether to apply: the caller (``setup config``) shows the
 proposal and applies it only on the operator's explicit yes.
@@ -50,12 +53,13 @@ proposal and applies it only on the operator's explicit yes.
 
 from __future__ import annotations
 
+import contextlib
 import errno
 import fcntl
 import json
 import os
+import secrets
 import stat
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -112,11 +116,6 @@ def proposal(run_dir: Path, socket_paths: dict[str, Path]) -> Proposal:
     return Proposal(run_dir=run_dir, env=env, sockets=sockets)
 
 
-def _fingerprint(fd: int) -> tuple[int, int]:
-    st = os.fstat(fd)
-    return st.st_mtime_ns, st.st_size
-
-
 def _merge(data: dict[str, Any], prop: Proposal) -> tuple[dict[str, Any], ApplyResult]:
     result = ApplyResult(path=Path(), status="unchanged")
     env = data.get("env", {})
@@ -153,58 +152,107 @@ def _merge(data: dict[str, Any], prop: Proposal) -> tuple[dict[str, Any], ApplyR
     return data, result
 
 
+def _name_fingerprint(dir_fd: int, name: str) -> tuple[int, int, int, int]:
+    """What is at ``name`` now: catches an in-place edit and a rename-replace."""
+    st = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+    return st.st_dev, st.st_ino, st.st_mtime_ns, st.st_size
+
+
+def _open_parent(parent: Path) -> int:
+    """Open the settings file's directory without following a symlink.
+
+    Only the last component is created (never its ancestors), and a symlinked
+    directory is refused: every later operation is relative to this
+    descriptor, so a repository-controlled ``.claude`` symlink cannot
+    redirect the write.
+    """
+    try:
+        parent.mkdir(exist_ok=True)
+    except FileNotFoundError as exc:
+        raise SettingsError(f"{parent.parent} does not exist") from exc
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        return os.open(parent, flags)
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+            raise SettingsError(
+                f"{parent} is a symlink or not a directory; refusing to write through it"
+            ) from exc
+        raise
+
+
 def apply(path: Path, prop: Proposal) -> ApplyResult:
     """Merge ``prop`` into the settings file at ``path`` (created if absent)."""
     if path.is_symlink():
         raise SettingsError(f"{path} is a symlink; refusing to write through it")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    dir_fd = _open_parent(path.parent)
+    name = path.name
     try:
-        fd = os.open(path, flags, 0o600)
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
-            raise SettingsError(f"{path} is a symlink; refusing to write through it") from exc
-        raise
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        before = _fingerprint(fd)
-        raw = os.read(fd, max(before[1], 0) + 1)
-        while True:
-            chunk = os.read(fd, 65536)
-            if not chunk:
-                break
-            raw += chunk
-        text = raw.decode("utf-8") if raw else ""
-        if text.strip():
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError as exc:
-                raise SettingsError(f"{path} is not valid JSON ({exc.msg} at line {exc.lineno})") from exc
-            if not isinstance(data, dict):
-                raise SettingsError(f"{path} is not a JSON object")
-        else:
-            data = {}
-        merged, result = _merge(data, prop)
-        result.path = path
-        if not result.added_env and not result.added_sockets:
-            return result  # nothing to add (possibly with conflicts): never rewrite
-        if _fingerprint(fd) != before:
-            raise SettingsError(f"{path} changed while it was being merged; nothing written, re-run")
-        mode = stat.S_IMODE(os.fstat(fd).st_mode)
-        tmp_fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
         try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                json.dump(merged, tmp, indent=2)
-                tmp.write("\n")
-            os.chmod(tmp_name, mode)
-            # Last look before the swap: a writer that ignores the lock.
-            if _fingerprint(fd) != before:
-                raise SettingsError(f"{path} changed while it was being merged; nothing written, re-run")
-            os.replace(tmp_name, path)
-        except BaseException:
-            Path(tmp_name).unlink(missing_ok=True)
+            fd = os.open(name, flags, 0o600, dir_fd=dir_fd)
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise SettingsError(f"{path} is a symlink; refusing to write through it") from exc
             raise
-        result.status = "written"
-        return result
+        try:
+            return _apply_locked(path, prop, dir_fd, name, fd)
+        finally:
+            os.close(fd)
     finally:
-        os.close(fd)
+        os.close(dir_fd)
+
+
+def _apply_locked(path: Path, prop: Proposal, dir_fd: int, name: str, fd: int) -> ApplyResult:
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    before = _name_fingerprint(dir_fd, name)
+    opened = os.fstat(fd)
+    if (opened.st_dev, opened.st_ino) != before[:2]:
+        raise SettingsError(f"{path} was replaced while it was being opened; nothing written, re-run")
+    chunks = []
+    while True:
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    raw = b"".join(chunks)
+    text = raw.decode("utf-8") if raw else ""
+    if text.strip():
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise SettingsError(f"{path} is not valid JSON ({exc.msg} at line {exc.lineno})") from exc
+        if not isinstance(data, dict):
+            raise SettingsError(f"{path} is not a JSON object")
+    else:
+        data = {}
+    merged, result = _merge(data, prop)
+    result.path = path
+    if not result.added_env and not result.added_sockets:
+        return result  # nothing to add (possibly with conflicts): never rewrite
+    changed = SettingsError(f"{path} changed while it was being merged; nothing written, re-run")
+    if _name_fingerprint(dir_fd, name) != before:
+        raise changed
+    mode = stat.S_IMODE(opened.st_mode)
+    tmp_name = f".{name}.{secrets.token_hex(8)}"
+    tmp_fd = os.open(
+        tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=dir_fd
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+            json.dump(merged, tmp, indent=2)
+            tmp.write("\n")
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            os.fchmod(tmp.fileno(), mode)
+        # Last look before the swap: a writer that ignores the lock, in place
+        # or by renaming a new file over the name.
+        if _name_fingerprint(dir_fd, name) != before:
+            raise changed
+        os.replace(tmp_name, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp_name, dir_fd=dir_fd)
+        raise
+    result.status = "written"
+    return result

@@ -168,11 +168,16 @@ adds both, with absolute paths, to the gitignored, per-project
 in the setup guide, and `setup-isolated-setup-install` Step L proposes
 it as a settings diff). `/magpie-setup:setup config` Step 3h offers to
 write it: `container-gateway settings` prints the block from the
-gateway's own run directory, and `--apply` merges it into
-`.claude/settings.local.json` on the operator's yes, only when git ignores
-that file, additively, under an exclusive lock with a re-read and an
-mtime/size guard, never overwriting a different existing `env` value
-(exit 3) and never writing the Linux `allowAllUnixSockets` widening. The macOS limit of 104 bytes on a socket path is
+gateway's own default run directory (it takes no `--run-dir`, and
+refuses a run directory `serve` would refuse), and `--apply` merges it
+into `.claude/settings.local.json` on the operator's yes, only when git
+ignores that file (exit 0 of `git check-ignore`), additively, under an
+exclusive lock with a re-read and an inode/mtime/size guard on the path,
+never through a symlinked file or directory, never overwriting a
+different existing `env` value (exit 3) and never writing the Linux
+`allowAllUnixSockets` widening. Step 3h runs it from the operator's own
+install with the interpreter the hook vets (the hook's dry run prints
+both), never from `<framework>`, because the write leaves the sandbox. The macOS limit of 104 bytes on a socket path is
 checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real

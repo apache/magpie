@@ -19,7 +19,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 - `run` — `true` when Step 3h applies: the container-gateway hook is installed and git ignores `.claude/settings.local.json`. `false` otherwise.
-- `skip_reason` — why the step did not run: `no-gateway` when the hook is not installed, `not-ignored` when git would commit the settings file. `null` when `run` is `true`.
+- `skip_reason` — why the step did not run: `no-gateway` when the hook is not installed, `not-ignored` when git would commit the settings file, or cannot tell (any non-zero `git check-ignore` exit, such as 128 outside a git repository). `null` when `run` is `true`.
 - `propose` — `true` when the block is shown to the user as an item in Step 3's batch. `false` when `run` is `false`.
 - `apply_now` — `true` only when the user has said yes to the shown block in this run, so the `--apply` command runs now. `false` when the user has not answered, declined, or `run` is `false`.
 - `overwrite_env` — `true` if the run would replace an `env` value the file already holds. Always `false` under the step.
