@@ -645,3 +645,25 @@ def test_a_report_cannot_render_an_alert(line: str) -> None:
 def test_gh_references_do_not_link() -> None:
     assert _md("see GH-123 and gh-4\n") == "see `GH-123` and `gh-4`\n"
     assert "GH-⁠123" in _md("see ``x` GH-123\n")
+
+
+@pytest.mark.parametrize("info", ["ma\\th", "&#109;ath", "math\tx", "m&#97;th", "mer\\maid"])
+def test_a_disguised_rendering_language_opens_as_text(info: str) -> None:
+    assert _md(f"```{info}\nx\n```\n").startswith("```text\n")
+
+
+@pytest.mark.parametrize("info", ["python", "c++", "c#", "objective-c", "shell title=x"])
+def test_ordinary_languages_are_kept(info: str) -> None:
+    assert _md(f"```{info}\nx\n```\n").startswith(f"```{info}\n")
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("a \\\\$x$\n", "a \\\\\\$x\\$\n"),  # `\\$`: the backslashes escape each other
+        ("a \\$x\n", "a \\$x\n"),  # already escaped
+        ("a \\\\\\$x\n", "a \\\\\\$x\n"),  # odd run: escaped
+    ],
+)
+def test_a_dollar_is_escaped_unless_an_odd_backslash_run_escapes_it(report: str, expected: str) -> None:
+    assert _md(report) == expected

@@ -178,6 +178,9 @@ _OPEN_FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
 # maps, 3D models), where text can be hidden or drawn: such a fence opens as
 # `text` instead.
 _RENDERED_LANGUAGES = frozenset({"math", "mermaid", "geojson", "topojson", "stl", "plantuml"})
+# A language name with no escape, reference or other character CommonMark would
+# rewrite: anything else could spell a rendered language, so it also opens as `text`.
+_PLAIN_LANGUAGE = re.compile(r"[A-Za-z0-9_+#.-]+")
 # Any other line CommonMark could read as a fence opener (indented, or behind
 # block-quote / list markers). Its fence is broken with a `\`, so the lines
 # after it are prose to both readers: nested code loses its box, never its
@@ -265,18 +268,19 @@ _GH_REF = re.compile(r"(?<![\w/`])GH-\d+\b", re.IGNORECASE)
 _GH_REF_ANYWHERE = re.compile(r"(?<![\w/])(GH-)(?=\d)", re.IGNORECASE)
 # A `$` opens or closes math, which GitHub renders (and `\color` / `\phantom`
 # can make invisible), so every `$` in prose is backslash-escaped.
-_DOLLAR = re.compile(r"(?<!\\)\$")
+# A `$` is escaped only by an odd run of backslashes before it.
+_DOLLAR = re.compile(r"(?<!\\)((?:\\\\)*)\$")
 
 
 def _wrap_refs_and_mentions(segment: str) -> str:
-    segment = _DOLLAR.sub(r"\\$", segment)
+    segment = _DOLLAR.sub(r"\1\\$", segment)
     segment = _GH_REF.sub(lambda m: f"`{m.group(0)}`", segment)
     segment = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", segment)
     return _MENTION.sub(lambda m: f"`{m.group(0)}`", segment)
 
 
 def _join_refs_and_mentions(line: str) -> str:
-    line = _DOLLAR.sub(r"\\$", line)
+    line = _DOLLAR.sub(r"\1\\$", line)
     line = _GH_REF_ANYWHERE.sub(lambda m: m.group(1) + _WORD_JOINER, line)
     line = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
     return _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, line)
@@ -496,8 +500,11 @@ def markdown_block(text: str) -> dict[str, Any]:
             if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
                 fence = opened.group(1)
                 spans_open = False
-                language = opened.group(2).strip().split(" ")[0].lower()
-                if language in _RENDERED_LANGUAGES:
+                info = opened.group(2).strip(" \t")
+                language = re.split(r"[ \t]+", info)[0] if info else ""
+                if language and (
+                    not _PLAIN_LANGUAGE.fullmatch(language) or language.lower() in _RENDERED_LANGUAGES
+                ):
                     new = fence + "text"
             else:
                 decoded = _ANY_REFERENCE.sub(_decode_plain_reference, line)
