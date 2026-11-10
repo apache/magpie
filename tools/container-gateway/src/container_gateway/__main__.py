@@ -31,6 +31,7 @@ from pathlib import Path
 
 from . import backends as _backends
 from . import daemon
+from . import settings as _settings
 from .layers import LOCAL_DIR, InvalidWorktreeId, default_run_dir
 
 
@@ -283,6 +284,42 @@ def cmd_status(ns: argparse.Namespace) -> int:
     return 0 if running else 3
 
 
+def cmd_settings(ns: argparse.Namespace) -> int:
+    """Print the settings block this project's gateway needs, or merge it into a file.
+
+    Without ``--apply`` it only prints the proposal: the caller shows it to the
+    operator and applies it on their yes. Exit 0 on success, 3 when an env key
+    already holds a different value (reported, never overwritten), 2 when the
+    file cannot be merged safely (nothing written), or the project has no run
+    directory ``serve`` would accept.
+
+    The run directory is always the gateway's own default for ``--project``
+    (there is no ``--run-dir`` here): the block ends up in
+    ``allowUnixSockets``, so a caller-chosen directory could point it at a
+    real daemon socket. It is computed as ``serve`` computes it
+    (``serving=True``: no default outside an adopted project or a git
+    repository) and checked as ``serve`` and ``status`` check it: a
+    symlinked, foreign-owned or group/world-writable component refuses.
+    """
+    cfg = _config(ns, serving=True)
+    run_dir = cfg.run_dir if cfg.run_dir.is_absolute() else _absolute(cfg.run_dir)
+    daemon.validate_run_dir(run_dir, cfg.project_root)  # missing is fine: serve creates it
+    sockets = daemon.paths(run_dir)
+    for kind in ("podman", "docker"):
+        daemon.check_socket_path(sockets[kind])
+    prop = _settings.proposal(run_dir, {"podman": sockets["podman"], "docker": sockets["docker"]})
+    if ns.apply is None:
+        print(json.dumps({"proposal": prop.as_dict()}, indent=2))
+        return 0
+    try:
+        result = _settings.apply(_absolute(ns.apply), prop)
+    except (_settings.SettingsError, OSError) as exc:
+        print(json.dumps({"error": str(exc)}), file=sys.stderr)
+        return 2
+    print(json.dumps(result.as_dict(), indent=2))
+    return 3 if result.conflicts else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="container-gateway")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -321,6 +358,21 @@ def main(argv: list[str] | None = None) -> int:
         q = sub.add_parser(name)
         _common(q)
         q.set_defaults(fn=fn)
+    g = sub.add_parser(
+        "settings",
+        help="print the Claude Code settings block that reaches this project's gateway, or merge it (--apply)",
+    )
+    # Only --project: the run directory is always the gateway's default.
+    g.add_argument("--project", type=Path, default=Path.cwd(), help="project root (default: cwd)")
+    g.set_defaults(run_dir=None, pid_file=None)
+    g.add_argument(
+        "--apply",
+        type=Path,
+        metavar="SETTINGS_JSON",
+        help="merge the block into this settings file (normally .claude/settings.local.json): additive, "
+        "locked, refuses on a concurrent change; never overwrites a different existing env value",
+    )
+    g.set_defaults(fn=cmd_settings)
     ns = parser.parse_args(argv)
     return int(ns.fn(ns))
 
