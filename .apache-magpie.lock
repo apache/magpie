@@ -6,7 +6,7 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611090749
+  version: 0.9.0.dev202611101307
   at:      2026-11-10
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
@@ -63,7 +63,7 @@ reconciled:
     reviewer-routing:           sha256:159e840396b7a667
     self-review:                sha256:ea0a2e29bb2aa0e0
     sentiment:                  sha256:c325db1d99634a51
-    setup:                      sha256:f8e9e88fc61e8891
+    setup:                      sha256:7915f16976882871
     shared-config-sync:         sha256:bc445ef323563cd8
     skill-reconciler:           sha256:964dbda42cb402ce
     stack-review:               sha256:f0872f2cf794b6d2
