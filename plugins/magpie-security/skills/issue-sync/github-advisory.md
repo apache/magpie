@@ -115,6 +115,8 @@ It returns:
 
 The patch is one Step 4 proposal item per advisory; apply it with
 `gh api --method PATCH repos/<upstream>/security-advisories/<GHSA> --input <patch-file>`.
+Where the public-surface guard runs, it blocks that `PATCH` whenever the patch names a CVE (a `cve_id` always does), and no vetted op edits advisory fields:
+hand the operator the advisory `html_url` and the field values to set in the web UI, and record the change only after re-reading the advisory.
 
 ### Two-way comment sync — `<sm> ghsa-mirror`
 
@@ -137,6 +139,8 @@ Both are proposals: the tracker copies are one Step 4 item, and **each** advisor
 since it reaches the reporter at once and cannot be deleted through the API.
 Apply the copies with `gh issue comment <N> --repo <tracker> --body-file <file>` or the `comment-update` vetted op,
 and the advisory posts with the `advisory-comment` vetted op (or `gh api --method POST …/comments -F body=@<file>`; an edit is `--method PATCH …/comments/<id>`).
+The public-surface guard blocks the plain `gh api` forms when the text names a CVE or the advisory, so where it runs the vetted op is the only route;
+it needs `advisory-comment` in the caller's `[callers]` list of the adopter's vetted-ops config, and when that grant is missing the operator adds it — the agent does not.
 
 ### Read the advisory discussion
 
