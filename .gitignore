@@ -123,4 +123,5 @@ AGENTS.md
 docs/superpowers/
 
 # spec-loop single-flight lock (tools/spec-loop/loop.sh): runtime state, never committed.
-tools/spec-loop/.lock/
+tools/spec-loop/.lock
+tools/spec-loop/.lock.*

@@ -91,117 +91,169 @@ spec_loop_update_pathspec() {
 # routine (a slow iteration outlives the schedule interval), so the runner
 # takes a lock before its first iteration and the second starter exits.
 #
-# The lock is a directory: `mkdir` is atomic on every POSIX filesystem and
-# needs neither flock(1) (absent on macOS) nor a .git write. Inside it,
-# `owner` records `<pid> <host> <ISO-8601 start>` so a contender can tell
-# a live holder from a crashed one. A holder whose pid is gone on this
-# host is stale and is taken over; a holder on another host, or a live
-# pid, is respected. A lock with no owner (its runner died between the
-# mkdir and the write) is stale once it is older than
-# SPEC_LOOP_LOCK_GRACE_MIN minutes (default 1).
+# The lock is a symbolic link whose target is the owner line
+# `<pid> <host> <ISO-8601 start>`. `ln -s` creates the link and its content
+# in one atomic step on every POSIX filesystem, so there is never a lock
+# without an owner, and it needs neither flock(1) (absent on macOS) nor a
+# .git write. The target is never a real path; it is only read back with
+# readlink.
 #
-# A takeover renames the stale lock to a unique tombstone instead of
-# deleting it in place: rename is atomic, so when two starters find the
-# same stale lock only one rename succeeds. The winner then checks that
-# the tombstone still holds the owner it judged stale before deleting it;
-# if a faster starter had already replaced the lock, the live lock is put
-# back and the loser reports already_running.
+# A live holder keeps the link's own mtime fresh (spec_loop_lock_heartbeat,
+# every SPEC_LOOP_LOCK_BEAT_SEC seconds, default 60). A lock is stale when
+# its pid is gone on this host, or when its heartbeat is older than
+# SPEC_LOOP_LOCK_STALE_MIN minutes (default 10) on any host: that covers a
+# crashed run on another host or container and a pid reused by an unrelated
+# process. A pid that exists but belongs to another user (kill -0 fails
+# with EPERM) counts as alive.
 #
-# spec_loop_lock_acquire LOCKDIR
+# Takeovers are serialised by a second link, LOCK.takeover: the starter
+# that creates it re-reads the lock and unlinks it only if it still holds
+# the owner line judged stale, then acquires normally. A takeover lasts
+# milliseconds, so a takeover link older than a minute is left by a
+# crashed starter and is removed.
+#
+# spec_loop_lock_acquire LOCK
 #   0  acquired (prints nothing)
 #   1  another loop holds it; prints one `already_running …` line on stdout
 #   2  could not create or inspect the lock (prints the reason on stderr)
-# spec_loop_lock_release LOCKDIR
-#   Removes the lock only if this process owns it.
-spec_loop_lock_owner_line() {
-    printf '%s %s %s\n' "$$" "$(hostname 2>/dev/null || echo unknown-host)" \
-        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)"
+# spec_loop_lock_release LOCK [PID]
+#   Removes the lock only if it names PID (default: this process).
+# spec_loop_lock_handoff LOCK PID
+#   Re-points a lock this process holds at PID (the agent it could not stop).
+spec_loop_lock_host() {
+    hostname 2>/dev/null || echo unknown-host
 }
 
-# spec_loop_lock_takeover LOCKDIR SEEN_OWNER
-#   Atomically moves a stale lock out of the way. 0 when this caller removed
-#   the stale lock it saw; 1 when another starter got there first.
+spec_loop_lock_owner_line() {
+    printf '%s %s %s' "${1:-$$}" "$(spec_loop_lock_host)" \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown-time)"
+}
+
+spec_loop_lock_read() {
+    readlink "$1" 2>/dev/null
+}
+
+# spec_loop_pid_alive PID: 0 when the pid exists (another user's included).
+spec_loop_pid_alive() {
+    local err
+    [ -n "$1" ] || return 1
+    err="$(kill -0 "$1" 2>&1)" && return 0
+    case "$err" in *"not permitted"*|*EPERM*) return 0 ;; esac
+    return 1
+}
+
+# spec_loop_lock_stale_reason LOCK PID HOST: prints why the lock is stale,
+# nothing when its holder looks alive.
+spec_loop_lock_stale_reason() {
+    local lock=$1 pid=$2 host=$3 stale_min=${SPEC_LOOP_LOCK_STALE_MIN:-10}
+    if [ "$host" = "$(spec_loop_lock_host)" ] && ! spec_loop_pid_alive "$pid"; then
+        echo "pid $pid is gone"
+    elif [ -n "$(find "$lock" -maxdepth 0 -mmin "+$stale_min" 2>/dev/null)" ]; then
+        echo "no heartbeat for over $stale_min min"
+    fi
+}
+
+# spec_loop_lock_takeover LOCK SEEN_OWNER
+#   0 when this caller removed the stale lock it saw; 1 otherwise.
 spec_loop_lock_takeover() {
-    local lockdir=$1 seen=$2 tomb now
-    tomb="$lockdir.stale.$$"
-    rm -rf "$tomb"
-    mv "$lockdir" "$tomb" 2>/dev/null || return 1
-    now="$(cat "$tomb/owner" 2>/dev/null)"
-    if [ "$now" = "$seen" ]; then
-        rm -rf "$tomb"
+    local lock=$1 seen=$2 mutex="$1.takeover"
+    if ! ln -s "$$" "$mutex" 2>/dev/null; then
+        if [ -n "$(find "$mutex" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+            rm -f "$mutex"
+        fi
+        return 1
+    fi
+    if [ -n "$seen" ] && [ "$(spec_loop_lock_read "$lock")" = "$seen" ]; then
+        rm -f "$lock"
+        rm -f "$mutex"
         return 0
     fi
-    # The lock was replaced between our read and our rename: it is live.
-    # Put it back unless yet another starter has created one meanwhile.
-    [ -e "$lockdir" ] || mv "$tomb" "$lockdir" 2>/dev/null
-    rm -rf "$tomb"
+    rm -f "$mutex"
     return 1
 }
 
 spec_loop_lock_acquire() {
-    local lockdir=$1 attempt grace=${SPEC_LOOP_LOCK_GRACE_MIN:-1}
+    local lock=$1 attempt owner pid host started stale
     for attempt in 1 2; do
-        if mkdir "$lockdir" 2>/dev/null; then
-            spec_loop_lock_owner_line > "$lockdir/owner" || {
-                rmdir "$lockdir" 2>/dev/null
-                echo "spec-loop: could not write $lockdir/owner" >&2
-                return 2
-            }
+        # `ln -s` onto an existing directory would create the link inside it
+        # and succeed (BSD ln has no -T), so refuse a real directory first.
+        if [ -d "$lock" ] && [ ! -L "$lock" ]; then
+            echo "spec-loop: $lock exists but is not a spec-loop lock; remove it if no loop is running" >&2
+            return 2
+        fi
+        if ln -s "$(spec_loop_lock_owner_line)" "$lock" 2>/dev/null; then
             return 0
         fi
-        [ -d "$lockdir" ] || {
-            echo "spec-loop: could not create lock $lockdir" >&2
-            return 2
-        }
-        local owner pid host started stale=""
-        owner="$(cat "$lockdir/owner" 2>/dev/null)"
-        read -r pid host started <<< "$owner"
-        if [ -n "$pid" ] && [ "$host" = "$(hostname 2>/dev/null || echo unknown-host)" ] \
-            && ! kill -0 "$pid" 2>/dev/null; then
-            stale="pid $pid is gone"
-        elif [ -z "$pid" ] && [ -n "$(find "$lockdir" -maxdepth 0 -mmin "+$grace" 2>/dev/null)" ]; then
-            stale="no owner after ${grace} min"
+        if [ ! -L "$lock" ]; then
+            if [ -e "$lock" ]; then
+                echo "spec-loop: $lock exists but is not a spec-loop lock; remove it if no loop is running" >&2
+                return 2
+            fi
+            [ -d "$(dirname "$lock")" ] || {
+                echo "spec-loop: could not create lock $lock (no such directory)" >&2
+                return 2
+            }
+            continue # released between our ln and our check
         fi
-        # Stale: take it over once.
+        owner="$(spec_loop_lock_read "$lock")"
+        read -r pid host started <<< "$owner"
+        stale="$(spec_loop_lock_stale_reason "$lock" "$pid" "$host")"
         if [ "$attempt" = 1 ] && [ -n "$stale" ]; then
-            if spec_loop_lock_takeover "$lockdir" "$owner"; then
-                echo "spec-loop: removed stale lock $lockdir ($stale)" >&2
+            if spec_loop_lock_takeover "$lock" "$owner"; then
+                echo "spec-loop: removed stale lock $lock ($stale)" >&2
             fi
             continue
         fi
-        if [ -z "$pid" ]; then
-            # Lock dir exists but the owner file is not there yet (a racing
-            # starter between its mkdir and its write) or unreadable. Treat
-            # as held until the grace period above makes it stale.
-            echo "already_running: another spec-loop holds $lockdir (owner unknown); exiting 0"
-        else
-            echo "already_running: spec-loop pid $pid on $host (since ${started:-?}) holds $lockdir; exiting 0"
-        fi
+        echo "already_running: spec-loop pid ${pid:-?} on ${host:-?} (since ${started:-?}) holds $lock; exiting 0"
         return 1
     done
-    echo "spec-loop: could not acquire lock $lockdir after removing a stale one" >&2
+    echo "spec-loop: could not acquire lock $lock" >&2
     return 2
 }
 
 spec_loop_lock_release() {
-    local lockdir=$1 pid _rest
-    [ -d "$lockdir" ] || return 0
-    read -r pid _rest < "$lockdir/owner" 2>/dev/null || pid=""
-    if [ "$pid" = "$$" ]; then
-        rm -rf "$lockdir"
+    local lock=$1 me=${2:-$$} pid _rest
+    read -r pid _rest <<< "$(spec_loop_lock_read "$lock")"
+    if [ -n "$pid" ] && [ "$pid" = "$me" ]; then
+        rm -f "$lock"
     fi
+    return 0
+}
+
+spec_loop_lock_handoff() {
+    local lock=$1 pid=$2 tmp="$1.handoff.$$"
+    rm -f "$tmp"
+    ln -s "$(spec_loop_lock_owner_line "$pid")" "$tmp" && mv -f "$tmp" "$lock"
+}
+
+# spec_loop_lock_heartbeat LOCK
+#   Runs in the background: refreshes the lock's mtime while the pid it
+#   names is alive on this host, and exits once it is not. It follows the
+#   lock across a handoff, so a lock kept for a running agent stays fresh.
+spec_loop_lock_heartbeat() {
+    local lock=$1 beat=${SPEC_LOOP_LOCK_BEAT_SEC:-60} pid host _rest
+    while :; do
+        read -r pid host _rest <<< "$(spec_loop_lock_read "$lock")"
+        [ "$host" = "$(spec_loop_lock_host)" ] && spec_loop_pid_alive "$pid" || return 0
+        touch -h "$lock" 2>/dev/null
+        sleep "$beat"
+    done
 }
 
 # spec_loop_stop_agent PID [TIMEOUT_SECONDS]
 #   Sends TERM to a running agent and waits up to TIMEOUT (default 10) for it
-#   to exit. 0 when it is gone, 1 when it is still running. The runner keeps
-#   its lock in the second case so no other loop starts over a live agent.
+#   to exit. 0 when it is gone, 1 when it is still running. The runner hands
+#   its lock to the agent in the second case so no other loop starts over a
+#   live agent. Only PID itself is signalled: a SPEC_LOOP_AGENT wrapper must
+#   `exec` the agent so the agent is the process that receives TERM.
 spec_loop_pid_running() {
     # kill -0 also succeeds for an exited child nobody has reaped yet (a
-    # zombie), so read the process state and count Z as gone.
-    kill -0 "$1" 2>/dev/null || return 1
+    # zombie), so read the process state and count Z as gone. When ps is
+    # missing or denied (empty output) the process is assumed to be running:
+    # keeping the lock is the safe answer.
+    spec_loop_pid_alive "$1" || return 1
     case "$(ps -o stat= -p "$1" 2>/dev/null)" in
-        Z*|"") return 1 ;;
+        Z*) return 1 ;;
     esac
     return 0
 }

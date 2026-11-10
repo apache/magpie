@@ -109,19 +109,27 @@ and never opens a pull request.
   The mapping is advisory: a `spec-scope` failure is
   silently skipped and the agent still reads the raw path list.
 - **Single flight.** Before its first iteration the runner creates the
-  lock directory `tools/spec-loop/.lock/` (atomic `mkdir`; gitignored;
-  `SPEC_LOOP_LOCK` relocates it) and records `<pid> <host> <start>` in
-  `owner`. While it is held, a second start prints one
+  lock `tools/spec-loop/.lock` (gitignored; `SPEC_LOOP_LOCK` relocates
+  it): a symbolic link whose target is `<pid> <host> <start>`, so `ln -s`
+  creates the lock and its owner in one atomic step. A background
+  heartbeat refreshes the link's mtime every `SPEC_LOOP_LOCK_BEAT_SEC`
+  seconds (default 60). While the lock is held, a second start prints one
   `already_running: …` line naming the holder and exits **0**, never
-  launching an agent and never touching the holder's lock. A lock whose
-  pid is dead on the same host, or that has had no `owner` for longer
-  than `SPEC_LOOP_LOCK_GRACE_MIN` minutes (default 1), is stale and is
-  taken over by an atomic rename, so two starters racing over one stale
-  lock cannot both acquire it; a lock from another host is respected.
+  launching an agent and never touching the holder's lock. A lock is
+  stale when its pid is gone on the same host (a pid of another user
+  counts as alive), or when its heartbeat is older than
+  `SPEC_LOOP_LOCK_STALE_MIN` minutes (default 10) on any host. A stale
+  lock is taken over under a second link, `<lock>.takeover`, which
+  serialises takeovers: the taker re-reads the owner and removes the
+  lock only if it still names the owner judged stale, so of two
+  starters racing over one stale lock only one acquires.
   The lock is released on every exit path (normal end, `STOP`, error
   break, Ctrl+C, `SIGTERM`), but only once the backgrounded agent has
-  stopped: on INT/TERM the runner signals the agent and waits for it,
-  and keeps the lock if the agent is still running. An exit before
+  stopped: on INT/TERM the runner signals the agent and waits up to
+  `SPEC_LOOP_STOP_TIMEOUT` seconds (default 10). If the agent is still
+  running, the lock is handed to the agent's pid (an atomic rename of a
+  new link) and the heartbeat keeps it fresh until the agent exits.
+  A stopped run exits 130 (INT) or 143 (TERM). An exit before
   acquisition (`--help`, a bad argument, a missing agent CLI) never
   releases it.
   `SPEC_LOOP_LOCK=off` disables the lock for a run the operator knows is
@@ -209,8 +217,11 @@ in the same change.
 8. With a live lock held, `loop.sh <mode>` exits 0, prints
    `already_running`, launches no agent, and leaves the lock in place; a
    stale lock (dead pid, same host) is taken over, and of two starters
-   racing over it only one acquires; `SPEC_LOOP_LOCK=off`
-   skips the lock; a completed run leaves no lock behind.
+   racing over it only one acquires; a lock from another host whose
+   heartbeat is older than `SPEC_LOOP_LOCK_STALE_MIN` is taken over;
+   a TERM while an agent ignores it exits 143 and leaves the lock
+   naming the agent; `SPEC_LOOP_LOCK=off` skips the lock; a completed
+   run leaves no lock behind.
 
 ## Validation
 
@@ -227,3 +238,16 @@ bash tools/spec-loop/tests/test_runner_fixtures.sh
 - Cursor, Antigravity CLI, OpenCode, Kiro, Pi, and Goose rely on external policy/config plus
   the OS sandbox for push/PR denial. Claude Code and Grok Build additionally
   receive per-invocation hard-deny rules from the runner.
+- The single-flight stop signals only the agent's own pid. Processes the
+  agent started and does not stop on `SIGTERM` keep running after the
+  runner exits, and a `SPEC_LOOP_AGENT` wrapper that does not `exec` the
+  agent leaves the agent running. Stopping the whole process group would
+  need job control, which moves the agent off the terminal's foreground
+  group.
+  <!-- gap-closes-when: none (narrative) -->
+- A holder that is alive but has stopped its heartbeat for longer than
+  `SPEC_LOOP_LOCK_STALE_MIN` (a host suspended for that long, for
+  example) loses its lock to the next start, and the two runs then
+  overlap. Its release at exit leaves the newer lock alone, because
+  release only removes a lock that names its own pid.
+  <!-- gap-closes-when: none (narrative) -->

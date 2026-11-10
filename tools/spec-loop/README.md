@@ -160,7 +160,7 @@ The loop checks out the integration base and lets the agent carve a
 branch, so two loops in one checkout pull the working tree out from under
 each other. When the loop is started by cron or CI an overlap is routine:
 a slow iteration outlives the schedule interval. The runner therefore
-takes a lock (`tools/spec-loop/.lock/`, gitignored) before its first
+takes a lock (`tools/spec-loop/.lock`, gitignored) before its first
 iteration and releases it on exit. A second start while the first is
 running prints one line and **exits 0**:
 
@@ -169,13 +169,23 @@ already_running: spec-loop pid 4242 on buildbox (since 2026-10-31T09:00:12Z) hol
 ```
 
 Zero, not an error, so the scheduler records a skipped run rather than a
-failure. A lock whose owning pid has died on this host is stale and is
-taken over automatically, as is one that has had no owner for over a
-minute (`SPEC_LOOP_LOCK_GRACE_MIN`); one left by another host is respected
-until removed by hand (`rm -rf tools/spec-loop/.lock`). A takeover is an
-atomic rename, so two starters that find the same stale lock cannot both
-acquire it. On `Ctrl+C` or `SIGTERM` the runner stops the agent before it
-releases the lock, and keeps the lock if the agent will not stop.
+failure. The lock is a symbolic link whose target is the owner line, so
+it is created together with its owner in one atomic step. While the run
+lasts, a background heartbeat refreshes it every minute
+(`SPEC_LOOP_LOCK_BEAT_SEC`). A lock whose owning pid has died on this host
+is stale and is taken over automatically, as is one on any host whose
+heartbeat is older than ten minutes (`SPEC_LOOP_LOCK_STALE_MIN`): a crashed
+container or a reused pid does not block later runs for ever. Takeovers
+are serialised, so two starters that find the same stale lock cannot both
+acquire it.
+
+On `Ctrl+C` or `SIGTERM` the runner stops the agent before it releases the
+lock and exits 130 or 143, so a stopped run never looks like a finished
+one. If the agent does not stop within `SPEC_LOOP_STOP_TIMEOUT` seconds
+(default 10), the lock is handed to the agent's pid and kept fresh until
+the agent exits. Only the agent process is signalled: a
+`SPEC_LOOP_AGENT` wrapper must `exec` the agent so that the agent is the
+process that receives `SIGTERM`.
 
 The lock is per checkout, so two checkouts never contend. Set
 `SPEC_LOOP_LOCK=off` to run without it when an overlap is known to be
@@ -185,9 +195,10 @@ several checkouts of the same repository.
 ## Stop / configure
 
 - Stop: `Ctrl+C`, or `touch STOP` (exits after the current iteration).
-- `SPEC_LOOP_LOCK` — single-flight lock directory (default
+- `SPEC_LOOP_LOCK` — single-flight lock path (default
   `tools/spec-loop/.lock` under the repo root), or `off` to disable the
-  lock. See *One loop per checkout* above.
+  lock. `SPEC_LOOP_LOCK_STALE_MIN`, `SPEC_LOOP_LOCK_BEAT_SEC` and
+  `SPEC_LOOP_STOP_TIMEOUT` tune it. See *One loop per checkout* above.
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to `main`;
   set it explicitly to build on top of a different branch.
 - `SPEC_LOOP_AGENT` — supported headless agent CLI or wrapper to run
