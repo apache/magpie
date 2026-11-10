@@ -613,3 +613,35 @@ def test_decoded_references_get_the_same_block_rules_as_literal_text(report: str
 
 def test_a_line_break_reference_is_not_decoded() -> None:
     assert "\n" not in _md("a&#10;b").rstrip("\n")
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("cost $5 and $\\color{white}{hidden}$\n", "cost \\$5 and \\$\\color{white}{hidden}\\$\n"),
+        ("$$\n\\phantom{x}\n$$\n", "\\$\\$\n\\phantom{x}\n\\$\\$\n"),
+        ("run `echo $HOME` now\n", "run `echo $HOME` now\n"),  # code keeps its `$`
+    ],
+)
+def test_math_never_renders(report: str, expected: str) -> None:
+    assert _md(report) == expected
+
+
+@pytest.mark.parametrize("language", ["math", "mermaid", "geojson", "topojson", "stl", "plantuml", "MATH"])
+def test_a_rendering_fence_opens_as_text(language: str) -> None:
+    assert _md(f"```{language}\nx\n```\n") == "```text\nx\n```\n"
+
+
+def test_a_python_fence_keeps_its_language() -> None:
+    assert _md("```python\nx = 1\n```\n") == "```python\nx = 1\n```\n"
+
+
+@pytest.mark.parametrize("line", ["> [!IMPORTANT]", ">> [!WARNING]", "  > [!NOTE]"])
+def test_a_report_cannot_render_an_alert(line: str) -> None:
+    out = _md(line + "\n> text\n")
+    assert "\\[!" in out and "> [!" not in out.replace("\\[!", "")
+
+
+def test_gh_references_do_not_link() -> None:
+    assert _md("see GH-123 and gh-4\n") == "see `GH-123` and `gh-4`\n"
+    assert "GH-⁠123" in _md("see ``x` GH-123\n")

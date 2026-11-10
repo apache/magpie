@@ -174,6 +174,10 @@ def inert_block(text: str) -> dict[str, Any]:
 # which only a closing fence line or the end of the text ends, so this reading
 # and GitHub's cannot differ about which lines are code.
 _OPEN_FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+# Fence languages GitHub renders as something other than code (math, diagrams,
+# maps, 3D models), where text can be hidden or drawn: such a fence opens as
+# `text` instead.
+_RENDERED_LANGUAGES = frozenset({"math", "mermaid", "geojson", "topojson", "stl", "plantuml"})
 # Any other line CommonMark could read as a fence opener (indented, or behind
 # block-quote / list markers). Its fence is broken with a `\`, so the lines
 # after it are prose to both readers: nested code loses its box, never its
@@ -256,9 +260,26 @@ def _outside_code_spans(line: str, transform: Any) -> str:
     return "".join(out)
 
 
+# `GH-123` (any case) also links an issue of the repository.
+_GH_REF = re.compile(r"(?<![\w/`])GH-\d+\b", re.IGNORECASE)
+_GH_REF_ANYWHERE = re.compile(r"(?<![\w/])(GH-)(?=\d)", re.IGNORECASE)
+# A `$` opens or closes math, which GitHub renders (and `\color` / `\phantom`
+# can make invisible), so every `$` in prose is backslash-escaped.
+_DOLLAR = re.compile(r"(?<!\\)\$")
+
+
 def _wrap_refs_and_mentions(segment: str) -> str:
+    segment = _DOLLAR.sub(r"\\$", segment)
+    segment = _GH_REF.sub(lambda m: f"`{m.group(0)}`", segment)
     segment = _BARE_REF.sub(lambda m: f"`{m.group(0)}`", segment)
     return _MENTION.sub(lambda m: f"`{m.group(0)}`", segment)
+
+
+def _join_refs_and_mentions(line: str) -> str:
+    line = _DOLLAR.sub(r"\\$", line)
+    line = _GH_REF_ANYWHERE.sub(lambda m: m.group(1) + _WORD_JOINER, line)
+    line = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
+    return _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, line)
 
 
 def _markdown_line(line: str, spans_uncertain: bool) -> str:
@@ -281,8 +302,7 @@ def _markdown_line(line: str, spans_uncertain: bool) -> str:
         else _outside_code_spans(line, _wrap_refs_and_mentions)
     )
     if wrapped is None or not _wraps_cleanly(wrapped):
-        wrapped = _BARE_REF_ANYWHERE.sub("#" + _WORD_JOINER, line)
-        wrapped = _MENTION_ANYWHERE.sub("@" + _WORD_JOINER, wrapped)
+        wrapped = _join_refs_and_mentions(line)
     return escape_html(wrapped).replace("![", "[image: ")
 
 
@@ -295,7 +315,8 @@ def _wraps_cleanly(line: str) -> bool:
     if _unmatched_backticks(line):
         return False
     outside = _CODE_SPAN.sub(" ", line)
-    return _BARE_REF_ANYWHERE.search(outside) is None and _MENTION_ANYWHERE.search(outside) is None
+    live = (_BARE_REF_ANYWHERE, _MENTION_ANYWHERE, _GH_REF_ANYWHERE, _DOLLAR)
+    return all(pattern.search(outside) is None for pattern in live)
 
 
 # A line that could be (or open) a link reference definition (`[label]: dest`,
@@ -306,6 +327,9 @@ def _wraps_cleanly(line: str) -> bool:
 _LINK_DEFINITION = re.compile(
     r"^((?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*)\[(?=(?:\\.|[^\]\\])*(?:\]:|\\?$))"
 )
+# A GitHub alert marker (`> [!IMPORTANT]`): it would render the report's text
+# as a callout like the tool's own `[!NOTE]`, so its `[` is escaped.
+_ALERT = re.compile(r"^((?:[ \t]*>)+[ \t]*)\[!")
 # Characters with no glyph of their own (format characters, variation
 # selectors, invisible fillers): they make text read differently to a human
 # than to an agent, so each is shown as a visible `[U+XXXX]` token.
@@ -472,6 +496,9 @@ def markdown_block(text: str) -> dict[str, Any]:
             if opened and not (opened.group(1)[0] == "`" and "`" in opened.group(2)):
                 fence = opened.group(1)
                 spans_open = False
+                language = opened.group(2).strip().split(" ")[0].lower()
+                if language in _RENDERED_LANGUAGES:
+                    new = fence + "text"
             else:
                 decoded = _ANY_REFERENCE.sub(_decode_plain_reference, line)
                 new = _OTHER_FENCE.sub(lambda m: m.group(1) + "\\" + m.group(2), decoded, count=1)
@@ -480,6 +507,7 @@ def markdown_block(text: str) -> dict[str, Any]:
                     new = underline.group(1) + "\\" + new[len(underline.group(1)) :]
                 new = _CONTAINER_HEADING.sub(lambda m: m.group(1) + "####", new, count=1)
                 new = _LINK_DEFINITION.sub(lambda m: m.group(1) + "\\[", new, count=1)
+                new = _ALERT.sub(lambda m: m.group(1) + "\\[!", new, count=1)
                 new = _markdown_line(new, spans_open)
                 if not decoded.strip(" \t"):
                     spans_open = False
