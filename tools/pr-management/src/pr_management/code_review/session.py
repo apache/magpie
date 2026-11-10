@@ -35,7 +35,20 @@ CALLS_PER_PR = 3
 #: A pass that crosses this many calls is mis-batching: stop and fix the call pattern.
 BUDGET_ALARM = 100
 
-OUTCOMES = ("APPROVE", "REQUEST_CHANGES", "COMMENT", "skipped", "slop-comment", "slop-close", "dry-run")
+#: ``FIXUP`` is a maintainer fixup pushed to the PR branch followed by an
+#: ``APPROVE`` that explains it (classifications/disposition-fixup.md); it counts
+#: as a review, like the three GitHub review events.
+OUTCOMES = (
+    "APPROVE",
+    "REQUEST_CHANGES",
+    "COMMENT",
+    "FIXUP",
+    "skipped",
+    "slop-comment",
+    "slop-close",
+    "dry-run",
+)
+REVIEWED = ("APPROVE", "REQUEST_CHANGES", "COMMENT", "FIXUP")
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -83,13 +96,13 @@ def summary(path: Path, *, untouched: int = 0, now: dt.datetime) -> dict[str, An
     counts = Counter(v["outcome"] for v in prs.values())
     started = dt.datetime.fromisoformat(data["started_at"]) if data.get("started_at") else now
     minutes = max(1, int((now - started).total_seconds() // 60))
-    reviewed = sum(counts[k] for k in ("APPROVE", "REQUEST_CHANGES", "COMMENT"))
+    reviewed = sum(counts[k] for k in REVIEWED)
     skipped = [{"pr": int(k), "reason": v.get("reason")} for k, v in prs.items() if v["outcome"] == "skipped"]
     covered = sorted(int(k) for k, v in prs.items() if v.get("adversarial"))
     uncovered = sorted(int(k) for k, v in prs.items() if v.get("adversarial") is False)
     lines = [
         f"Reviewed: {reviewed}  (APPROVE {counts['APPROVE']}, REQUEST_CHANGES {counts['REQUEST_CHANGES']}, "
-        f"COMMENT {counts['COMMENT']})",
+        f"COMMENT {counts['COMMENT']}, FIXUP {counts['FIXUP']})",
         f"Skipped: {len(skipped)}"
         + (
             ""

@@ -324,6 +324,43 @@ def test_session_summary(capsys: pytest.CaptureFixture[str], project: Path, tmp_
     assert out["counts"] == {"APPROVE": 1, "COMMENT": 1, "skipped": 1} and "Reviewed: 2" in out["text"]
 
 
+def test_session_records_fixup_as_a_review(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
+) -> None:
+    ses = tmp_path / "session.json"
+    for pr, outcome in ((1, "FIXUP"), (2, "APPROVE")):
+        _run(
+            capsys,
+            "--config-dir",
+            str(project),
+            "code-review",
+            "session",
+            "record",
+            "--session",
+            str(ses),
+            "--pr",
+            str(pr),
+            "--outcome",
+            outcome,
+            "--now",
+            NOW.isoformat(),
+        )
+    out = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "session",
+        "summary",
+        "--session",
+        str(ses),
+        "--now",
+        NOW.isoformat(),
+    )
+    assert out["counts"] == {"FIXUP": 1, "APPROVE": 1}
+    assert "Reviewed: 2  (APPROVE 1, REQUEST_CHANGES 0, COMMENT 0, FIXUP 1)" in out["text"]
+
+
 def test_slop_comment_builds_quoted_commands(
     capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
 ) -> None:
