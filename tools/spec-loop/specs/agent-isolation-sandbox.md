@@ -691,12 +691,17 @@ The reference model is four layers, layered:
 
    The **allow** half ships too (#1393). `setup-isolated-setup-install`
    carries the reference `permissions.allow` set into an adopter's
-   settings merge alongside `deny` and `ask` — `gh` reads, both
-   vetted-ops read forms, the read-only archive / mailbox / roster MCP
-   tools, and the registry `WebFetch` hosts (`cveawg.mitre.org`,
-   `pypi.org`, `lists.apache.org`) — and `setup-isolated-setup-update`
-   diffs it, because a missing read-only entry is a prompt on every skill
-   run. Only read-only entries belong there; `vetted-op` (writes) stays
+   settings merge alongside `deny` and `ask` — `gh` reads (with
+   `gh auth status` allowed only as the bare command, so a call with
+   flags prompts, #2019), both vetted-ops read forms, the archive and
+   mailbox MCP tools that read one named thread, message or draft or
+   report auth state, the roster MCP tools, and the registry `WebFetch`
+   hosts (`cveawg.mitre.org`, `pypi.org`, `lists.apache.org`) — and
+   `setup-isolated-setup-update` diffs it, because a missing read-only
+   entry is a prompt on every skill run. Whole-mailbox and whole-list
+   searches and draft creation (`mcp__gmail-plaintext__create_draft`)
+   stay off it, so those calls reach the operator as a prompt (#2020).
+   Only read-only entries belong there; `vetted-op` (writes) stays
    on `ask`.
    Install Step V now describes three entry points over one catalogue and
    adds `vetted-op-tracker` and `vetted-op` to both `ask` and

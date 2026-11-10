@@ -91,7 +91,9 @@ grouped, prioritised report → wait for confirmation before any write.
   Step 1. The GitHub Actions Policy, `.asf.yaml` and `creation_cap` checks
   run only when `project.md` declares `organization: ASF`.
 - Design docs: `docs/repo-health/README.md` — family overview and the
-  adopter-config scaffold.
+  adopter contract; `docs/repo-health/install.md` (*Install & first runs*)
+  — the `/plugin install` line, the generated *Before the first run* config
+  table, *Works well with* and *Try these first*.
 - Adopter config: `plugins/magpie-setup/templates/repo-health-config.md`
   (shipped inside the `magpie-setup` plugin) —
   per-skill switches (deprecated-runner families, zizmor rule classes,

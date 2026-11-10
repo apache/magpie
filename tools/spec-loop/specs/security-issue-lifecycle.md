@@ -94,8 +94,9 @@ publication, with a human gate and an audit-log entry at every step.
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
-  matrix, and renders the tracker body (the report as an inert fenced
-  block, `_No response_` for empty fields, headings from
+  matrix, and renders the tracker body (the report as defanged markdown
+  under a fixed `> [!NOTE]` data marker, or an inert fenced block with
+  `description_format: inert`, `_No response_` for empty fields, headings from
   `tracker.body_fields`), the rollup entry,
   the rejections-ledger record, the fix-already-public reply and the
   Step 8 recap. Classification, field extraction, PII identification,
@@ -111,7 +112,8 @@ publication, with a human gate and an audit-log entry at every step.
   For `security-issue-import-from-md` it parses the findings file
   (`not-a-findings-file` on another shape, `UNKNOWN` severity and
   `<upstream>` fallback with warnings), cleans the search keyword, and
-  renders the body (each section an inert block, the Recommended-fix
+  renders the body (each section defanged markdown, or an inert block
+  with `description_format: inert`, the Recommended-fix
   `<details>`), rollup entry, proposal table and recap; duplicate
   judgement and the credit decision stay with the model.
   For `security-issue-import-via-forwarder` it runs the Step 0 checks,
@@ -318,20 +320,34 @@ publication, with a human gate and an audit-log entry at every step.
   Without the tool, or for a Gmail-only report, the proposal lists the names
   as not fetched; `get_source`, `get_mbox` and downloads are never used to
   recover one.
-- **Report text is inert in the tracker (#1672).** The importers put
-  reporter-derived long text (the mail body, the PR description, each
-  findings-file section) into the body as one fenced block with info
-  string `text`, its fence one backtick longer than the longest backtick
-  run in the text. Nothing in it renders — no image, HTML, heading, link
-  or mention — and its content is byte-exact except two escapes: a line
-  that would end a field (`###` then a space, a tab or nothing, at column
-  0 or behind `>`, list markers or indent, whatever the name), and a line
-  starting with `<!--` (a machine marker), each get a leading `\` and are
-  listed in `escaped_lines`. Short fields
-  stay one-line escaped values. The rendered body must pass
-  github-body-field's normaliser (exactly the template fields once each,
-  nothing to decide) or the render is refused. Reporter formatting
-  therefore shows as plain text.
+- **Report text is defanged in the tracker (#1672, #2048).** The
+  importers put reporter-derived long text (the mail body, the PR
+  description, each findings-file section) into the body in the project's
+  `tracker.description_format` (`shared/body.py` `report_block`). The
+  default `markdown` keeps the reporter's formatting readable and
+  neutralises only what could change the tracker or leak: `#`–`###`
+  headings (also behind `>` / list markers) are demoted to `####` and
+  setext underlines escaped, so no line ends or opens a field; every HTML
+  opener and image is defused (no tag, comment, `<details>` or tracking
+  pixel renders); `$` math, GitHub alert markers and link reference
+  definitions are escaped to visible text, and math / diagram fences open
+  as `text`; glyphless characters (format, bidi, variation selectors,
+  fillers) show as `[U+XXXX]`; bare `#NNN`, `GH-NNN` and `@`-mentions are
+  wrapped as inline code, or broken with a word joiner where code-span
+  boundaries are uncertain; only column-0 fenced code stays byte-exact
+  (a `###` / `<!--` line in it gains a leading `\`), an indented or
+  nested fence is broken and escaped as prose, a mail client's indented
+  code block becomes a column-0 fence with a guessed language, and an
+  unclosed fence is closed before the next field. Every changed line is
+  listed in `escaped_lines`. `security-issue-import` puts the report
+  under a fixed `> [!NOTE]` marking it as the reporter's data
+  (`DATA_NOTE`). `description_format: inert` restores one fenced block
+  with info string `text`, its fence one backtick longer than the longest
+  backtick run, byte-exact except the same field-ending and `<!--`
+  escapes, so nothing in it renders. Short fields stay one-line escaped
+  values. The rendered body must pass github-body-field's normaliser
+  (exactly the template fields once each, nothing to decide) or the
+  render is refused.
 - **Field reads and writes fail closed (#1672).** github-body-field is the
   one implementation of the body-field contract, for reading and writing;
   generate-cve-json and vetted-ops (a byte-identical copy) read through
@@ -674,9 +690,11 @@ publication, with a human gate and an audit-log entry at every step.
 5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
    field carries that ID, and the bulk pre-flight never prints a private
    comment body (#1554, #1558).
-6. An imported report renders as one inert block, and every body-field
-   reader in the tree finds exactly the template fields once each in the
-   result, whatever fences or fake `###` lines the report holds (#1672).
+6. An imported report renders as defanged markdown (or, with
+   `description_format: inert`, one inert block) in which no HTML, image,
+   reference or mention takes effect, and every body-field reader in the
+   tree finds exactly the template fields once each in the result,
+   whatever fences or fake `###` lines the report holds (#1672, #2048).
 7. Dashboard mode and `magpie-asf-security-dash` stop for any project whose
    `project.md` does not declare `organization: ASF`, before a session
    cookie or the network is touched (#1798).

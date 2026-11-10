@@ -129,7 +129,10 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   last `screen_recent_activity_months`), measures everyone
   who remains — deliberately more than the PMC would consider,
   alphabetically by handle, never scored, ranked, shortlisted or judged —
-  and writes a report (the list linked to details, plus a
+  and writes a report (a Headline split into committer and
+  `<governance-body>` lists, each alphabetical and linked to details with
+  one phrase restating the opening claim of that person's section, and
+  `None.` under a target with nobody measured; then a
   one-or-two-paragraph summary of findings) with activity data, areas, community signals and verified
   real names, each person's section opening with links to live code-host
   searches of their full activity in the window; commits it only to a repository the GitHub API reports as

@@ -43,7 +43,21 @@ by swapping the adapter, not the skill.
   by shelling out to `oauth-draft-create` or probing the token file: the
   OAuth token under `~/.config/apache-magpie/` is not readable from
   sandboxed Bash, and sandbox-lint refuses an `allowRead` grant for it
-  (#1681).
+  (#1681). A draft threads on the inbound message one of three ways
+  (`tools/gmail/threading.md`): attached to its Gmail `thread_id`, with
+  `In-Reply-To` / `References` derived from the thread's last message;
+  header-threaded by an explicit `in_reply_to` / `references`
+  (`--in-reply-to` / `--references` on `oauth-draft-create`) when the
+  message is not in the user's Gmail but its `Message-ID` is known from
+  PonyMail or the tracker's recorded root; or, failing both, matched by
+  subject. Explicit IDs must each be one `local@domain` token (angle
+  brackets optional, whitespace and CR / LF refused, so no header
+  injection), `References` defaults to `in_reply_to` alone and has it
+  appended when the chain omits it, explicit headers win over a
+  `thread_id`'s (the thread is then not read), and `no_reply_headers`
+  with `in_reply_to` is refused (#2051). The security import, sync and
+  invalidate reply steps pass the PonyMail / recorded `Message-ID` when no
+  Gmail thread exists.
 - `tools/maildir/` — private-mail drafting to a local Maildir spool
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
@@ -417,7 +431,10 @@ by swapping the adapter, not the skill.
   provider-agnostic, stdlib-only Python API for structured decisions,
   `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
   The Jev provider connects to TypeSafe's API (`api.typesafe.ai/v1/systemone`,
-  model pinned to `jev-1.14.0`); the local provider connects to a
+  model pinned to `jev-1.14.0`), sending one typed question per call with
+  the prompt as `state`; `score` sends at most 10 numeric levels (the API's
+  cap) and maps the returned level back onto the requested scale. The local
+  provider connects to a
   self-hosted OpenAI-compatible chat-completions endpoint such as Ollama,
   llama.cpp, or vLLM. `MAGPIE_TYPED_DECISION_PROVIDER` selects `jev` or
   `local`; when unset, the registry selects configured Jev or reports
