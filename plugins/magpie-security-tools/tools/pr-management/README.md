@@ -224,7 +224,7 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 
 | Subcommand | Prints |
 |---|---|
-| `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector) |
+| `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector), and `not_open`: PRs a `pr:` list named that are not open |
 | `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result, the unresolved threads GitHub marks outdated (`outdated_threads`) |
 | `slop-outcome` | the slop outcome once the agent has judged H1, H5 and S2 |
 | `deps` | the dependency-constraint ledger: `broken`, `compatible` or `unknown` |

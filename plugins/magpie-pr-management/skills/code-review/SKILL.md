@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:871da2459ce53192
 license: Apache-2.0
-measured_tokens: 4119
+measured_tokens: 4142
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -260,7 +260,7 @@ last update with PRs whose real CI never ran last.
 Selectors (`pr:<N>`, `area:<LBL>`, `collab:true|false`, `team:<NAME>`, `ready`,
 `*-only` / `no-*`, `since:<window>`, `max:<N>`, `dry-run`, `inline:off`,
 `with-reviewers:<list>`, `with-reviewer:<command>`, `no-adversarial`, `repo:<owner>/<name>`,
-`lookahead:<N>`, `no-prefetch`) compose by AND; `pr:<N>` overrides the rest. `code-review
+`lookahead:<N>`, `no-prefetch`) compose by AND; `pr:<N>` (or a list, `pr:<N>,<M>` / `pr:<N>-<M>`) overrides the rest. `code-review
 resolve <args…>` parses them; the full reference with examples is
 [`invocation.md`](invocation.md). If the resolved queue is empty, say so and exit — never
 widen it silently.

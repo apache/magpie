@@ -246,6 +246,7 @@ def _queue(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "queue": [r for r in rows if r["skip"] is None],
         "auto_skipped": [r for r in rows if r["skip"] is not None],
         "count": sum(1 for r in rows if r["skip"] is None),
+        "not_open": [n for n in sel.pr_numbers if n not in {r["number"] for r in rows}],
         "empty_message": None
         if rows
         else f"No PRs match {' '.join(args.selector) or 'my reviews'}. Nothing to review.",
