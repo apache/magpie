@@ -98,6 +98,29 @@ def test_since_windows(arg: str, days: int) -> None:
     assert selectors.parse([arg]).since_days == days
 
 
+@pytest.mark.parametrize(
+    ("args", "numbers"),
+    [
+        (["pr:1929,1944"], [1929, 1944]),
+        (["pr:2005-2008"], [2005, 2006, 2007, 2008]),
+        (["pr:#1929,#1944-#1945"], [1929, 1944, 1945]),
+        (["pr:1944", "pr:1929", "pr:1944"], [1944, 1929]),
+    ],
+)
+def test_pr_lists(args: list[str], numbers: list[int]) -> None:
+    _subset(selectors.parse(args), mode="single-pr", pr_numbers=numbers, pr_number=None, signals=[])
+
+
+def test_one_pr_keeps_pr_number() -> None:
+    _subset(selectors.parse(["pr:65981"]), pr_number=65981, pr_numbers=[65981])
+
+
+@pytest.mark.parametrize("arg", ["pr:", "pr:abc", "pr:1929,", "pr:10-2", "pr:1-100", "pr:1;2"])
+def test_bad_pr_lists_are_refused(arg: str) -> None:
+    with pytest.raises(selectors.SelectorError):
+        selectors.parse([arg])
+
+
 def test_unknown_flags_are_refused() -> None:
     with pytest.raises(selectors.SelectorError):
         selectors.parse(["approve-everything"])
@@ -248,3 +271,13 @@ def test_team_selector_matches_the_requested_team() -> None:
 def test_commits_are_scanned_for_mentions() -> None:
     (entry,) = _queue(pr(commits=[commit("Thanks @alice for the idea")]))
     assert entry.chips[0] == "mentioned-in: commit"
+
+
+def test_named_prs_keep_the_named_order_and_bypass_filters() -> None:
+    entries = _queue(
+        pr(number=11, files=["a.py"]),
+        pr(number=12, draft=True, files=["b.py"]),
+        pr(number=13, files=["c.py"]),
+        sel=selectors.parse(["pr:13,12", "collab:true"]),
+    )
+    assert [e.pr.number for e in entries] == [13, 12]

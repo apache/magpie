@@ -54,6 +54,8 @@ _DROP = {
     "no-reviewed-before": "reviewed-before",
 }
 _WINDOW = re.compile(r"^(\d+)([dw])$")
+_PR_ITEM = re.compile(r"^#?(\d+)(?:-#?(\d+))?$")
+MAX_PRS = 50  # an explicit list longer than this is a fat-fingered range
 _WIP = re.compile(r"\b(wip|do not merge|don't merge|dnm)\b", re.IGNORECASE)
 
 
@@ -64,7 +66,7 @@ class SelectorError(ValueError):
 @dataclass
 class Selector:
     mode: str = "my-reviews"
-    pr_number: int | None = None
+    pr_numbers: list[int] = field(default_factory=list)
     area_label: str | None = None
     collab: str | None = None
     team: str | None = None
@@ -81,10 +83,16 @@ class Selector:
     lookahead: int = 3
     prefetch: bool = True
 
+    @property
+    def pr_number(self) -> int | None:
+        """The PR when exactly one was named (kept for single-PR callers)."""
+        return self.pr_numbers[0] if len(self.pr_numbers) == 1 else None
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "pr_number": self.pr_number,
+            "pr_numbers": list(self.pr_numbers),
             "area_label": self.area_label,
             "collab": self.collab,
             "team": self.team,
@@ -103,6 +111,24 @@ class Selector:
         }
 
 
+def parse_pr_list(arg: str) -> list[int]:
+    """`pr:N`, `pr:N,M`, `pr:N-M` (inclusive range), `#` prefixes allowed."""
+    value = arg.partition(":")[2]
+    numbers: list[int] = []
+    for item in value.split(","):
+        match = _PR_ITEM.match(item.strip())
+        if not match:
+            raise SelectorError(f"pr:<N>[,<M>…|<N>-<M>] needs PR numbers, got {arg!r}")
+        low = int(match.group(1))
+        high = int(match.group(2)) if match.group(2) else low
+        if high < low:
+            raise SelectorError(f"pr: range runs backwards in {arg!r}")
+        if high - low + 1 > MAX_PRS:
+            raise SelectorError(f"pr: range in {arg!r} names more than {MAX_PRS} PRs")
+        numbers.extend(range(low, high + 1))
+    return numbers
+
+
 def parse(args: list[str]) -> Selector:
     sel = Selector()
     only: list[str] = []
@@ -110,9 +136,11 @@ def parse(args: list[str]) -> Selector:
     for arg in args:
         key, _, value = arg.partition(":")
         if arg.startswith("pr:"):
-            if not value.isdigit():
-                raise SelectorError(f"pr:<N> needs a number, got {arg!r}")
-            sel.pr_number = int(value)
+            for number in parse_pr_list(arg):
+                if number not in sel.pr_numbers:
+                    sel.pr_numbers.append(number)
+            if len(sel.pr_numbers) > MAX_PRS:
+                raise SelectorError(f"pr: selectors name more than {MAX_PRS} PRs")
         elif key == "area" and value:
             sel.area_label = arg
         elif key == "collab" and value in ("true", "false"):
@@ -153,7 +181,7 @@ def parse(args: list[str]) -> Selector:
     if only:
         sel.signals = [s for s in SIGNALS if s in only]
     sel.signals = [s for s in sel.signals if s not in drop]
-    if sel.pr_number is not None:
+    if sel.pr_numbers:
         sel.mode = "single-pr"
     elif sel.team:
         sel.mode = "team"
@@ -280,7 +308,7 @@ def queue(
     entries: list[Entry] = []
     for pr in prs:
         if sel.mode == "single-pr":
-            if pr.number != sel.pr_number:
+            if pr.number not in sel.pr_numbers:
                 continue
             chips = signals_for(pr, sel, viewer, active_set, rules, viewer_teams, now)
         else:
@@ -313,7 +341,10 @@ def queue(
         skip, ask = _skip(pr, viewer)
         entries.append(Entry(pr, chips, skip=skip, ask=ask, real_ci=real_ci(pr, cfg)))
     oldest = dt.datetime.min.replace(tzinfo=dt.UTC)
-    entries.sort(key=lambda e: (not e.real_ci, -(e.pr.updated or oldest).timestamp()))
+    if sel.mode == "single-pr":
+        entries.sort(key=lambda e: sel.pr_numbers.index(e.pr.number))  # the order the maintainer named
+    else:
+        entries.sort(key=lambda e: (not e.real_ci, -(e.pr.updated or oldest).timestamp()))
     if sel.max is not None:
         reviewable = [e for e in entries if e.skip is None][: sel.max]
         entries = reviewable + [e for e in entries if e.skip is not None]
