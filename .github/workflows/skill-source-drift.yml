@@ -1,0 +1,116 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Checks the curated skill sources in `organizations/*/skill-sources.md`
+# against what their repositories ship today — see
+# `tools/dev/check-skill-source-drift.py`. A source adding a skill, re-laying
+# one out as a directory, tagging one for the first time, or tagging a newer
+# version of a pinned one changes nothing in this repository, so without this
+# the catalogue and the pins go stale unnoticed.
+#
+# Weekly (Monday), and from the Actions tab (*Run workflow*).
+#
+# ONE ISSUE, UPDATED IN PLACE. On drift, the open issue with the fixed title
+# below gets the new report as its body, or one is opened. When everything is
+# back in sync, that issue is closed with a comment. Nothing here edits the
+# catalogue or moves a pin: both need a human to read the source first, and a
+# moved tag in particular is a reason to look, not to re-pin.
+---
+name: skill-source drift
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  TITLE: "Skill-source drift: curated sources disagree with upstream"
+
+jobs:
+  check:
+    name: Check curated skill sources
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          cache-suffix: "skill-source-drift"
+
+      - name: Compare the catalogues and pins with their sources
+        id: drift
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          uv run --project tools/dev python tools/dev/check-skill-source-drift.py \
+            > "$RUNNER_TEMP/report.md"
+          status=$?
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          # 0 in sync, 1 drift, anything else: the check itself failed.
+          if [ "$status" -gt 1 ]; then
+            exit "$status"
+          fi
+          echo "drift=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Open, update or close the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DRIFT: ${{ steps.drift.outputs.drift }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --repo "$REPO" --state open --search "in:title \"$TITLE\"" \
+            --json number,title --jq ".[] | select(.title == env.TITLE) | .number" | head -n1)
+
+          if [ "$DRIFT" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --repo "$REPO" \
+                --comment "Back in sync as of $RUN_URL."
+            fi
+            exit 0
+          fi
+
+          {
+            cat "$RUNNER_TEMP/report.md"
+            echo
+            echo "---"
+            echo
+            echo "Found by the weekly [skill-source drift]($RUN_URL) check."
+            echo "To resolve: read the change in the source repository, then update the catalogue"
+            echo "and, where a skill is ready, the descriptor's \`ref\`, \`commit\` and \`provides\`"
+            echo "in \`organizations/<org>/skill-sources.md\` (and \`docs/skill-sources/registry.md\`)."
+            echo "This issue closes itself once the next run finds everything in sync."
+          } > "$RUNNER_TEMP/body.md"
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --repo "$REPO" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" \
+              --label "family:setup" --label "family:ci" --body-file "$RUNNER_TEMP/body.md"
+          fi

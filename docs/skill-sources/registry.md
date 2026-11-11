@@ -38,9 +38,15 @@ Sources an organization vouches for, declared in
 `organization: <org>`. Curation is still not installation — the adopter
 opts each one in.
 
+An org file may also carry a *catalogue* of everything a source ships, pinned or not,
+between `<!-- BEGIN SKILL-SOURCE CATALOGUE: <id> -->` markers.
+The [`skill-source-drift`](../../.github/workflows/skill-source-drift.yml) workflow
+checks every catalogue and pin against its source each week
+and opens an issue when they disagree, so a new or retagged skill upstream does not go unnoticed.
+
 | Organization | Curated sources | File |
 |---|---|---|
-| Apache Software Foundation | `apache-incubator`: [`apache/incubator`](https://github.com/apache/incubator) (`releasecheck`) | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
+| Apache Software Foundation | `apache-incubator`: [`apache/incubator`](https://github.com/apache/incubator) — pinned: `releasecheck`; also catalogued: the IPMC, mentor and podling skills in `tools/skills/` (graduation, retirement, report review, release-vote review, maturity model, …), with how each installs today ([catalogue](../../organizations/ASF/skill-sources.md#what-the-incubator-ships)) | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
 | Independent (no formal governing body) | *(none listed yet)* | [`organizations/independent/skill-sources.md`](../../organizations/independent/skill-sources.md) |
 
 ## Community / external sources
