@@ -1,0 +1,19 @@
+{
+  "has_next_decision": {
+    "type": "non_empty",
+    "field": "next"
+  },
+  "has_remote_decision": {
+    "type": "non_empty",
+    "field": "remote_write"
+  },
+  "has_completion_decision": {
+    "type": "non_empty",
+    "field": "claim_full_undo"
+  },
+  "has_safe_legacy_route": {
+    "type": "regex",
+    "field": "next",
+    "pattern": "^(stop|inspect)$"
+  }
+}

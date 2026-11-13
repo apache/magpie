@@ -3,6 +3,8 @@
 
 # `draft` — convert to draft and deliver the violations
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Sequence matters: convert first, then deliver the note.
 Delivering before converting risks a "converted to draft" note on a still-open PR if the conversion fails.
 

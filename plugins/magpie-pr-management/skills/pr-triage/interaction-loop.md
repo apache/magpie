@@ -117,6 +117,7 @@ group screen itself a decision bottleneck.
 | `[O]` | Override the action for the whole group to a different verb (offered list is the safe-overrides set for this group — see [`#group-action-override`](#group-action-override)). |
 | `[S]` | Skip the group — no mutations, all members marked "skipped" in the session. |
 | `[Q]` | Quit the session. Emit summary. |
+| `[H]` | Open the saved session's action history; inspect, reclassify or propose recovery for a selected PR ([recovery protocol](recovery.md)). |
 
 After `[A]` the action is executed for every PR in the group
 (see [Batch execution status](#batch-execution-status)).
@@ -248,6 +249,11 @@ previews per-PR.
 
 ## Step 4 — Execute
 
+Follow the [action recording protocol](recovery.md#action-recording-protocol) around every operation in the selected action file.
+Begin once per confirmed action and affected PR, prepare before each GitHub write, record its verified result, and finish only after the entire action or its stop/error path.
+This also applies to actions with no note, skipped PRs, and every PR closed by `flag-suspicious`.
+Offer `[H]istory` from the group, drill-in, post-action prompt and summary; it never changes `[B]ack to group` navigation.
+
 <!-- BEGIN MAGPIE BLOCK: write-lock — generated from tools/dev/blocks/write-lock.md -->
 
 **Write lock (one write phase per skill per repository).** The read and
@@ -354,6 +360,7 @@ uv run --project <framework>/tools/pr-management pr-management triage session su
 ```
 
 It prints the per-action / per-reason / pending counts and the throughput as a ready-to-print block; show it as-is.
+Then offer `[H]istory` to inspect/revisit prior decisions or preview confirmed recovery under [recovery.md](recovery.md#recovery-protocol).
 
 ---
 
