@@ -427,7 +427,6 @@ export function mapCliSubcommandToStepId(command: string): VerifyStepId | 'all' 
       if (/^inventory\b/.test(rest)) return 'inventory';
       if (/^signatures\b/.test(rest)) return 'signatures';
       if (/^checksums\b/.test(rest)) return 'checksums';
-      if (/^rat\b/.test(rest)) return 'rat-license-headers';
       if (/^notice-license\b/.test(rest)) return 'notice-license';
       if (/^binaries\b/.test(rest)) return 'binary-exclusion';
       if (/^symlinks\b/.test(rest)) return 'source-tree-integrity';
@@ -569,7 +568,7 @@ export function extractDetailFromPayload(payload: any): string | null {
  *   jvm-artefacts (6b) and nexus-staging (6c) as skipped.
  * (Note: Step 9 reproducibility skip is determined directly from verify-rc repro output).
  */
-export function applyJvmAndReproSkipRules(
+export function applyJvmSkipRules(
   steps: VerifyRcStep[],
   inventoryPayload?: any
 ): void {
@@ -645,8 +644,9 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
       startedAt: Date.now(),
       completedAt: null,
     };
-    if (stepId && stepId !== 'all') {
-      const target = state.steps.find((s) => s.id === stepId);
+    const runningIds: readonly string[] = stepId === 'all' ? BATCH_STEP_IDS : stepId ? [stepId] : [];
+    for (const id of runningIds) {
+      const target = state.steps.find((s) => s.id === id);
       if (target) {
         target.status = 'running';
       }
@@ -754,7 +754,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
               }
             }
           }
-          applyJvmAndReproSkipRules(state.steps, json);
+          applyJvmSkipRules(state.steps, json);
           state.currentStepId = null;
         } else {
           // Batch failure on non-zero exit, error payload, or missing steps array
@@ -840,6 +840,13 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             } else if (json.status !== null && json.status !== undefined) {
               target.status = normalizeStepStatus(json.status);
               target.detail = extractDetailFromPayload(json);
+            } else if (isError || typeof json.error === 'string') {
+              // verify-rc repro refuses bad input with {"ok": false, "error": ...} and exit 2.
+              target.status = 'failed';
+              target.detail = truncateText(
+                sanitizeText(typeof json.error === 'string' ? json.error : 'Command failed'),
+                60
+              );
             } else {
               target.status = 'running';
               if (Array.isArray(json.pending) && json.pending.length > 0) {
@@ -850,7 +857,8 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             target.status = normalizeStepStatus(json.status);
             target.detail = extractDetailFromPayload(json);
           } else if (isError || (json && typeof json.error === 'string')) {
-            target.status = 'failed';
+            // verify-rc report refuses while a step is still REVIEW: the verdict is pending, not failed.
+            target.status = stepId === 'verdict' ? 'running' : 'failed';
             const rawErrMsg =
               json && typeof json.error === 'string'
                 ? json.error
@@ -870,7 +878,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
         }
 
         if (stepId === 'inventory' && json) {
-          applyJvmAndReproSkipRules(state.steps, json);
+          applyJvmSkipRules(state.steps, json);
         }
       }
 

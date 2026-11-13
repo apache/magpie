@@ -29,7 +29,7 @@ import type {
 } from './types.ts';
 
 import {
-  applyJvmAndReproSkipRules,
+  applyJvmSkipRules,
   calculateOverallStatus,
   calculateProgressSummary,
   deriveVersionFromRcTag,
@@ -663,7 +663,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(mapCliSubcommandToStepId('release-verify inventory'), 'inventory');
         assertStrictEqual(mapCliSubcommandToStepId('release-verify signatures'), 'signatures');
         assertStrictEqual(mapCliSubcommandToStepId('release-verify checksums'), 'checksums');
-        assertStrictEqual(mapCliSubcommandToStepId('release-verify rat'), 'rat-license-headers');
+        assertStrictEqual(mapCliSubcommandToStepId('release-verify rat'), null);
         assertStrictEqual(mapCliSubcommandToStepId('verify-rc rat'), 'rat-license-headers');
         assertStrictEqual(mapCliSubcommandToStepId('release-verify notice-license'), 'notice-license');
         assertStrictEqual(mapCliSubcommandToStepId('release-verify binaries'), 'binary-exclusion');
@@ -806,11 +806,11 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(extractDetailFromPayload(null), null);
       });
 
-      test('applyJvmAndReproSkipRules applies skip heuristics', () => {
+      test('applyJvmSkipRules applies skip heuristics', () => {
         const steps = createDefaultVerifySteps();
 
         // Inventory without JVM files skips Steps 6b and 6c
-        applyJvmAndReproSkipRules(steps, {
+        applyJvmSkipRules(steps, {
           found: ['release-3.0.0.tar.gz', 'release-3.0.0.tar.gz.asc', 'release-3.0.0.tar.gz.sha512'],
         });
         const jvmStep = steps.find((s) => s.id === 'jvm-artefacts')!;
@@ -822,7 +822,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         // Reset steps and test with JVM files staged
         const stepsWithJvm = createDefaultVerifySteps();
-        applyJvmAndReproSkipRules(stepsWithJvm, {
+        applyJvmSkipRules(stepsWithJvm, {
           found: ['release-3.0.0.jar', 'release-3.0.0.pom'],
         });
         assertStrictEqual(stepsWithJvm.find((s) => s.id === 'jvm-artefacts')!.status, 'pending');
@@ -1205,6 +1205,64 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         const state = await getVerifyRcState($);
         assertStrictEqual(state.steps[11].status, 'running');
         assertStrictEqual(state.steps[11].detail, 'Pending: --compare: what repro-archive compare printed');
+      });
+
+      test('fails the reproducibility row on a verify-rc repro error payload', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        await handleBashToolCall($, { command: 'uv run verify-rc repro 3.0.0-rc1' }, async () => ({
+          stdout: JSON.stringify({ ok: false, error: 'no such directory: dist' }),
+          exitCode: 2,
+        }));
+
+        const state = await getVerifyRcState($);
+        assertStrictEqual(state.steps[11].status, 'failed');
+        assertStrictEqual(state.steps[11].detail, 'no such directory: dist');
+      });
+
+      test('keeps the verdict row running when verify-rc report refuses an unresolved verdict', async () => {
+        const $ = createMockEngine();
+        await setVerifyRcState($, {
+          rcTag: '3.0.0-rc1',
+          version: '3.0.0',
+          overallStatus: 'running',
+          steps: createDefaultVerifySteps(),
+          startedAt: Date.now(),
+        });
+
+        await handleBashToolCall($, { command: 'uv run release-management verify-rc report' }, async () => ({
+          stdout: JSON.stringify({
+            ok: false,
+            error: "the verdict is unresolved (steps still REVIEW: ['notice-license']); resolve them first",
+          }),
+          exitCode: 2,
+        }));
+
+        const state = await getVerifyRcState($);
+        const verdict = state.steps.find((s: any) => s.id === 'verdict');
+        assertStrictEqual(verdict.status, 'running');
+        assert(state.overallStatus !== 'failed');
+      });
+
+      test('marks the batch rows running while a fresh release-verify all runs', async () => {
+        const $ = createMockEngine();
+        let duringRun: any = null;
+
+        await handleBashToolCall($, { command: 'uv run release-verify all --rc-tag 3.0.0-rc1' }, async () => {
+          duringRun = await getVerifyRcState($);
+          return { stdout: JSON.stringify({ tool: 'release-verify', steps: [], verdict: null }) };
+        });
+
+        for (const id of ['inventory', 'signatures', 'checksums', 'notice-license']) {
+          assertStrictEqual(duringRun.steps.find((s: any) => s.id === id).status, 'running');
+        }
       });
 
       test('resets state for new RC tag in the same session', async () => {
@@ -1625,7 +1683,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         // 5. Step 4: RAT license headers
         await handleBashToolCall(
           $,
-          { command: 'uv run release-verify rat' },
+          { command: 'uv run release-management verify-rc rat' },
           async () => ({
             stdout: JSON.stringify({ step: 'rat-license-headers', status: 'PASS' }),
           })
@@ -1812,7 +1870,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         await handleBashToolCall($, { command: 'uv run release-verify checksums' }, async () => ({
           stdout: JSON.stringify({ step: 'checksums', status: 'PASS' }),
         }));
-        await handleBashToolCall($, { command: 'uv run release-verify rat' }, async () => ({
+        await handleBashToolCall($, { command: 'uv run release-management verify-rc rat' }, async () => ({
           stdout: JSON.stringify({ step: 'rat-license-headers', status: 'PASS' }),
         }));
 
