@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611101307
-  at:      2026-11-10
+  version: 0.9.0.dev202611132325
+  at:      2026-11-13
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -75,7 +75,7 @@ reconciled:
     triage:                     sha256:fb90bdc45aec5f8a
     upgrade:                    sha256:dca13f574cb22384
     upstream-fix:               sha256:ac2752440081dd6c
-    verify-rc:                  sha256:68f688faf6363ba7
+    verify-rc:                  sha256:594e276d2b0a7906
     vote-draft:                 sha256:6d70a52ead840ca2
     vote-tally:                 sha256:34592bfacb7cf955
     welcome:                    sha256:a61c6575d69da08a
