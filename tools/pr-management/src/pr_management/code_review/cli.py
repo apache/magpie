@@ -267,6 +267,8 @@ def _queue_docs(sel: selectors.Selector, rows: list[dict[str, Any]]) -> list[str
 
 
 def _ci_line(pr: data.PR, real: bool) -> str:
+    if pr.ci_outdated_query:
+        return "CI: cannot verify (vetted-ops queries are out of date; upgrade vetted-ops)"
     state = pr.rollup_state or "none reported"
     if state == "SUCCESS" and not real:
         return "CI: no real CI has run (bot checks only)"
@@ -368,7 +370,7 @@ def _context(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "needs": needs,
         "headline": "\n".join(headline),
         "files_tab": f"{pr.url}/files" if pr.url else None,
-        "ci": {"state": pr.rollup_state, "real_ci": real},
+        "ci": {"state": pr.rollup_state, "real_ci": real, "outdated_query": pr.ci_outdated_query},
         "mergeable": pr.mergeable,
         "merge_state": pr.merge_state,
         "stack": stack,

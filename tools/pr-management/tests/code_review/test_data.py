@@ -22,7 +22,7 @@ import re
 
 import pytest
 
-from pr_management.code_review import data
+from pr_management.code_review import cli, data
 
 # The rule vetted-ops applies to every `--save` name (`_SAVE_NAME` in vetted_ops/ops.py).
 SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
@@ -138,6 +138,8 @@ def test_from_node_discards_rollup_and_flags_outdated_query_when_commit_oid_miss
     assert pr.rollup_state is None
     assert pr.contexts == ()
     assert pr.ci_outdated_query is True
+    # The headline names the cause, rather than reading as "none reported".
+    assert "out of date" in cli._ci_line(pr, real=False)
 
 
 def test_from_node_discards_rollup_when_head_ref_oid_missing() -> None:
