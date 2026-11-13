@@ -6,7 +6,8 @@
 This is the structured, session-local action log for `pr-management-triage`.
 It is separate from the human-readable [history gist](session-history.md) and that gist's `session-state.json` pointer.
 Keep it in the existing `<scratch>/triage-session.json`, never commit it or copy its bodies to the gist.
-The tool writes it atomically with owner-only permissions and binds it to one `<upstream>` and viewer.
+The tool writes it atomically and binds it to one `<upstream>` and viewer.
+The file is owner-only on POSIX; Windows permissions follow filesystem ACLs.
 Reopening that same file resumes the session; there is no cross-session history service.
 Legacy cache entries remain viewable, but never fabricate missing receipts to undo them.
 
@@ -60,6 +61,9 @@ The supported change shapes are:
 - `fold`: the exact complete old and new `pr-triage-fold` blocks, or `null` for no block; preserve the description outside the block. Ambiguous or incomplete blocks stop recovery.
 - `comment`: `before: null`, `after` is the exact rendered body. Only a comment created by this action is recoverable.
 - `irreversible`: `before: null`, `after` is `update-branch`, `workflow-approve`, `run-rerun` or `run-cancel`.
+
+Removing a newly appended fold also removes its standard splice separator and final newline when that append layout is unchanged.
+Author footers, edited boundaries and spacing around a restored previous block remain intact.
 
 Journal ready-label removal, draft conversion, note delivery, assignment, close, and final labels **individually**, in the action file's existing order.
 For the `pr-body` channel use `fold`; for the `comment` channel use `comment`.

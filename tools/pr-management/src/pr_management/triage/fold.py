@@ -79,10 +79,18 @@ def block(body: str) -> str | None:
 
 
 def restore(body: str, *, expected: str | None, previous: str | None) -> str:
-    """Replace just our unchanged block, preserving all surrounding author text."""
+    """Restore our block, removing splice spacing only for a new, unchanged append."""
     current = block(body)
     if current != expected:
         raise ValueError("the Magpie block changed after this action")
     if current is not None:
+        if not previous:
+            prefix, _, suffix = body.partition(current)
+            # Only undo splice's exact append layout; leave edited boundaries alone.
+            if suffix == "\n":
+                if not prefix:
+                    return ""
+                if len(prefix) > 2 and prefix.endswith("\n\n") and not prefix.endswith("\n\n\n"):
+                    return prefix[:-2]
         return body.replace(current, previous or "", 1)
     return body + ("\n\n" if body else "") + (previous or "")

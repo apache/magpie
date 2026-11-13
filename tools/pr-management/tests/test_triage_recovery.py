@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -81,9 +82,12 @@ def apply(state: dict[str, Any], change: dict[str, Any], *, reverse: bool = Fals
     elif kind == "state":
         state["state"] = value
     elif kind == "fold":
-        state["body"] = fold.restore(
-            state["body"], expected=change["after" if reverse else "before"], previous=value
-        )
+        if reverse or value is None:
+            state["body"] = fold.restore(
+                state["body"], expected=change["after" if reverse else "before"], previous=value
+            )
+        else:
+            state["body"] = fold.splice(state["body"], value)[0]
     elif kind == "comment":
         if reverse:
             state["missing_comment_ids"] = [100]
@@ -292,7 +296,8 @@ def test_history_is_ordered_and_omits_private_bodies(tmp_path: Path) -> None:
     result = recovery.history(path, REPO, VIEWER)
     assert [a["pr"] for a in result["actions"]] == [12, 13]
     assert "Please fix CI" not in json.dumps(result)
-    assert path.stat().st_mode & 0o077 == 0
+    if os.name == "posix":
+        assert path.stat().st_mode & 0o077 == 0
 
 
 @pytest.mark.parametrize("outcome", ["prepared", "unknown"])
@@ -699,7 +704,7 @@ p.write_text(json.dumps(state))
     restored = json.loads(state_file.read_text())
     assert restored["state"] == "OPEN" and restored["isDraft"] is False
     assert restored["labels"] == original["labels"] and restored["assignees"] == []
-    assert BLOCK not in restored["body"] and "Author text." in restored["body"]
+    assert restored["body"] == original["body"]
     assert recovery.plan(path, REPO, VIEWER, ident, restored)["status"] == "recovered"
 
 
