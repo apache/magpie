@@ -106,9 +106,10 @@ def node(
             "nodes": [
                 {
                     "commit": {
+                        "oid": head,
                         "statusCheckRollup": None
                         if rollup is None
-                        else {"state": rollup, "contexts": {"nodes": checks}}
+                        else {"state": rollup, "contexts": {"nodes": checks}},
                     }
                 }
             ]
