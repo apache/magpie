@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from pr_management.code_review import codeowners, deps, disposition, reviewers
+from pr_management.code_review import codeowners, data, deps, disposition, reviewers
 
 from .builders import NOW, ago, review
 from .builders import pr as build_pr
@@ -468,3 +468,39 @@ def test_markers_split_environments() -> None:
         }
     )
     assert result["evidence"] == {"uninstallable_in": ["py39"]}
+
+
+def test_force_pushed_pr_with_stale_ci_rollup_fails_closed_to_comment() -> None:
+    # Issue #2034: PR head changed to 3ac12395, but GraphQL returned stale SUCCESS rollup on 4eb3567c.
+    node = {
+        "number": 272,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "4eb3567c",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "tests",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    # With clean findings, APPROVE is blocked because CI is unverified (fail-closed Golden rule 8).
+    result = _pick_findings([], ci_state=pr.rollup_state)
+    assert result["disposition"] == "COMMENT"
+    assert "CI is not reported" in result["reason"]

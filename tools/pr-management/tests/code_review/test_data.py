@@ -41,3 +41,141 @@ def test_the_path_commits_save_name_is_one_vetted_ops_accepts(path: str) -> None
 
 def test_long_paths_that_share_a_stem_get_different_names() -> None:
     assert data.slug(LONG) != data.slug(LONG.replace("state.py", "other.py"))
+
+
+def test_from_node_accepts_rollup_when_commit_oid_matches_head_ref_oid() -> None:
+    node = {
+        "number": 1,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "3ac12395",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "build",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3ac12395"
+    assert pr.rollup_state == "SUCCESS"
+    assert len(pr.contexts) == 1
+    assert pr.contexts[0].name == "build"
+    assert pr.contexts[0].conclusion == "SUCCESS"
+
+
+def test_from_node_discards_rollup_when_commit_oid_mismatches_head_ref_oid() -> None:
+    # Simulates Issue #2034: headRefOid is 3ac12395 after a force-push,
+    # but GraphQL returns a stale rollup on prior commit 4eb3567c.
+    node = {
+        "number": 272,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "4eb3567c",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "build",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3ac12395"
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+    assert pr.pending_not_required == ()
+
+
+def test_from_node_discards_rollup_when_commit_oid_missing() -> None:
+    node = {
+        "number": 1,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+
+
+def test_from_node_discards_rollup_when_head_ref_oid_missing() -> None:
+    node = {
+        "number": 1,
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "3ac12395",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+
+
+def test_from_node_accepts_rollup_case_insensitively() -> None:
+    node = {
+        "number": 1,
+        "headRefOid": "3AC12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "  3ac12395  ",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3AC12395"
+    assert pr.rollup_state == "SUCCESS"

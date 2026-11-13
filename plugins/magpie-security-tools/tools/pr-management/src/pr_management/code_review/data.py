@@ -205,7 +205,17 @@ def _commit_authors(commit: dict[str, Any]) -> tuple[str, ...]:
 
 def from_node(node: dict[str, Any]) -> PR:
     latest = _nodes(node.get("latest"))
-    rollup = ((latest[-1].get("commit") if latest else None) or {}).get("statusCheckRollup") or {}
+    latest_commit = (latest[-1].get("commit") if latest else None) or {}
+    head_sha = str(node.get("headRefOid") or "").strip().lower()
+    commit_oid = str(latest_commit.get("oid") or "").strip().lower()
+
+    # Golden rule 8: the CI status check rollup must strictly belong to the PR's head commit.
+    # If the commit OID is missing, empty, or does not match headRefOid (e.g. after a force-push
+    # or a stale GraphQL connection edge), fail closed by discarding the rollup.
+    if head_sha and commit_oid and head_sha == commit_oid:
+        rollup = latest_commit.get("statusCheckRollup") or {}
+    else:
+        rollup = {}
     users, teams = _requests(node)
     threads = _nodes(node.get("reviewThreads"))
     reviews_raw = _nodes(node.get("reviews")) or _nodes(node.get("latestReviews"))
