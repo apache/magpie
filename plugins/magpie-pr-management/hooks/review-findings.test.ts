@@ -1969,8 +1969,8 @@ End of observations.
   describe('PR-4 Curated findings bridge and general observation filtering', () => {
     test('getCuratedFindingsPaths derives .curated.json and .curated.keep paths', () => {
       const pathsJson = getCuratedFindingsPaths('saved/findings-1887.json');
-      assertStrictEqual(pathsJson.curatedJsonPath, 'saved/findings-1887.curated.json');
-      assertStrictEqual(pathsJson.curatedKeepPath, 'saved/findings-1887.curated.keep');
+      assertStrictEqual(pathsJson.curatedJsonPath, 'saved/findings-1887.json.curated.json');
+      assertStrictEqual(pathsJson.curatedKeepPath, 'saved/findings-1887.json.curated.keep');
 
       const pathsNoExt = getCuratedFindingsPaths('saved/findings-1887');
       assertStrictEqual(pathsNoExt.curatedJsonPath, 'saved/findings-1887.curated.json');
@@ -2013,16 +2013,16 @@ End of observations.
       test$.fs._files.set('/work/saved/findings-1887.json', '[]');
       const result = await syncCuratedStateToDisk(test$, state);
       assert(result !== null);
-      assertStrictEqual(result?.jsonPath, '/work/saved/findings-1887.curated.json');
-      assertStrictEqual(result?.keepPath, '/work/saved/findings-1887.curated.keep');
+      assertStrictEqual(result?.jsonPath, '/work/saved/findings-1887.json.curated.json');
+      assertStrictEqual(result?.keepPath, '/work/saved/findings-1887.json.curated.keep');
 
-      const writtenJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      const writtenJson = await test$.fs.read('/work/saved/findings-1887.json.curated.json');
       const parsed = JSON.parse(writtenJson);
       assertStrictEqual(parsed.schema_version, 1);
       assertStrictEqual(parsed.pr, 1887);
       assertStrictEqual(parsed.findings.length, 2);
 
-      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.json.curated.keep');
       assertStrictEqual(writtenKeep, 'ALL');
     });
 
@@ -2050,8 +2050,8 @@ End of observations.
       assertStrictEqual(state?.findingsPath, '/work/repo/saved/findings-999.json');
 
       // Verify curated files were NOT written upfront on initial disposition
-      assert(!test$.fs._files.has('/work/repo/saved/findings-999.curated.json'));
-      assert(!test$.fs._files.has('/work/repo/saved/findings-999.curated.keep'));
+      assert(!test$.fs._files.has('/work/repo/saved/findings-999.json.curated.json'));
+      assert(!test$.fs._files.has('/work/repo/saved/findings-999.json.curated.keep'));
     });
 
     test('renderFindingsPane button onPress callbacks update state and sync curated files to disk', async () => {
@@ -2100,7 +2100,7 @@ End of observations.
       assertStrictEqual(curState?.findings[1].action, 'skip');
 
       // Verify disk sync happened from button onPress
-      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      const writtenKeep = await test$.fs.read('/work/saved/findings-1887.json.curated.keep');
       assertStrictEqual(writtenKeep, 'NONE');
 
       // Trigger row toggle onPress
@@ -2113,7 +2113,7 @@ End of observations.
       // 'skip' toggles to 'edit'
       assertStrictEqual(curState?.findings[0].action, 'edit');
 
-      const updatedKeep = await test$.fs.read('/work/saved/findings-1887.curated.keep');
+      const updatedKeep = await test$.fs.read('/work/saved/findings-1887.json.curated.keep');
       assertStrictEqual(updatedKeep, '1');
     });
 
@@ -2181,8 +2181,8 @@ End of observations.
         },
       });
       test$.fs._files.set('/work/repo/saved/findings-empty.json', '[]');
-      test$.fs._files.set('/work/repo/saved/findings-empty.curated.json', '[{"file":"old.py"}]');
-      test$.fs._files.set('/work/repo/saved/findings-empty.curated.keep', '1');
+      test$.fs._files.set('/work/repo/saved/findings-empty.json.curated.json', '[{"file":"old.py"}]');
+      test$.fs._files.set('/work/repo/saved/findings-empty.json.curated.keep', '1');
 
       await handleBashToolCall(
         test$,
@@ -2194,12 +2194,12 @@ End of observations.
       assertStrictEqual(state, null);
 
       // Verify orphaned sidecars were marked as invalidated on disk
-      const jsonContent = await test$.fs.read('/work/repo/saved/findings-empty.curated.json');
+      const jsonContent = await test$.fs.read('/work/repo/saved/findings-empty.json.curated.json');
       const parsed = JSON.parse(jsonContent);
       assertStrictEqual(parsed.invalidated, true);
       assertStrictEqual(parsed.findings.length, 0);
 
-      const keepContent = await test$.fs.read('/work/repo/saved/findings-empty.curated.keep');
+      const keepContent = await test$.fs.read('/work/repo/saved/findings-empty.json.curated.keep');
       assertStrictEqual(keepContent, 'INVALIDATED');
     });
 
@@ -2311,7 +2311,7 @@ End of observations.
       assert(curState?.syncError.includes('EACCES: permission denied'));
 
       // Verify partial file was marked as invalidated on disk so Step 7b falls back to original findings
-      const jsonContent = writtenFileContents.get('/work/readonly/findings.curated.json');
+      const jsonContent = writtenFileContents.get('/work/readonly/findings.json.curated.json');
       assert(jsonContent !== undefined);
       const parsed = JSON.parse(jsonContent!);
       assertStrictEqual(parsed.invalidated, true);
@@ -2346,7 +2346,7 @@ End of observations.
       // Button click to toggle general finding to skip
       await handleUiPress(test$, { element: 'toggle-general-1' }, () => {});
 
-      let curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      let curatedJson = await test$.fs.read('/work/saved/findings-1887.json.curated.json');
       let parsed = JSON.parse(curatedJson);
       // General finding g1 is skipped, so omitted from curated JSON
       assertStrictEqual(parsed.findings.length, 1);
@@ -2355,7 +2355,7 @@ End of observations.
       // Slash command to edit inline 1
       await handleFindingsCommand(test$, { args: 'edit 1 Maintainer customized review note' });
 
-      curatedJson = await test$.fs.read('/work/saved/findings-1887.curated.json');
+      curatedJson = await test$.fs.read('/work/saved/findings-1887.json.curated.json');
       parsed = JSON.parse(curatedJson);
       assertStrictEqual(parsed.findings[0].explanation, 'Maintainer customized review note');
 
@@ -2452,8 +2452,8 @@ End of observations.
       const test$ = createMockEngine();
       // Neither findings file nor curated sidecars exist in test$.fs._files
       await cleanCuratedFindingsFiles(test$, '/work/nonexistent/findings.json');
-      assert(!test$.fs._files.has('/work/nonexistent/findings.curated.json'));
-      assert(!test$.fs._files.has('/work/nonexistent/findings.curated.keep'));
+      assert(!test$.fs._files.has('/work/nonexistent/findings.json.curated.json'));
+      assert(!test$.fs._files.has('/work/nonexistent/findings.json.curated.keep'));
     });
 
     test('handleBashToolCall re-syncs curated sidecars on disposition re-run after edit', async () => {
@@ -2476,12 +2476,12 @@ End of observations.
         { command: 'uv run pr-management code-review disposition --findings saved/findings-run.json --pr 100' },
         () => {}
       );
-      assert(!test$.fs._files.has('/work/repo/saved/findings-run.curated.json'));
+      assert(!test$.fs._files.has('/work/repo/saved/findings-run.json.curated.json'));
 
       // 2. Maintainer curates (which writes sidecars to disk)
       await handleFindingsCommand(test$, { args: 'drop 1' });
-      assert(test$.fs._files.has('/work/repo/saved/findings-run.curated.json'));
-      let curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.curated.json'));
+      assert(test$.fs._files.has('/work/repo/saved/findings-run.json.curated.json'));
+      let curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.json.curated.json'));
       assertStrictEqual(curatedOnDisk.source_sha256, computeFindingsHash(initialSource));
 
       // 3. Maintainer edits raw findings file (e.g. via [E]dit) and re-runs disposition
@@ -2498,7 +2498,7 @@ End of observations.
       );
 
       // Verify sidecars on disk were re-synced with editedSource's new hash and curation preserved
-      curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.curated.json'));
+      curatedOnDisk = JSON.parse(await test$.fs.read('/work/repo/saved/findings-run.json.curated.json'));
       assertStrictEqual(curatedOnDisk.pr, 100);
       assertStrictEqual(curatedOnDisk.source_sha256, computeFindingsHash(editedSource));
       assertStrictEqual(curatedOnDisk.findings.length, 2);
@@ -2518,10 +2518,10 @@ End of observations.
         JSON.stringify([{ file: 'a.py', line: 5, severity: 'minor', explanation: 'A' }])
       );
       test$.fs._files.set(
-        '/work/repo/saved/findings-shared.curated.json',
+        '/work/repo/saved/findings-shared.json.curated.json',
         JSON.stringify({ schema_version: 1, pr: 100, source_sha256: 'old', findings: [] })
       );
-      test$.fs._files.set('/work/repo/saved/findings-shared.curated.keep', '1');
+      test$.fs._files.set('/work/repo/saved/findings-shared.json.curated.keep', '1');
 
       // Re-running disposition on a different PR (PR 200) with the same shared findings path
       await handleBashToolCall(
@@ -2531,11 +2531,11 @@ End of observations.
       );
 
       // Existing sidecar on disk must be marked as invalidated
-      const jsonContent = await test$.fs.read('/work/repo/saved/findings-shared.curated.json');
+      const jsonContent = await test$.fs.read('/work/repo/saved/findings-shared.json.curated.json');
       const parsed = JSON.parse(jsonContent);
       assertStrictEqual(parsed.invalidated, true);
 
-      const keepContent = await test$.fs.read('/work/repo/saved/findings-shared.curated.keep');
+      const keepContent = await test$.fs.read('/work/repo/saved/findings-shared.json.curated.keep');
       assertStrictEqual(keepContent, 'INVALIDATED');
     });
 
@@ -2612,7 +2612,7 @@ End of observations.
       assertStrictEqual(cur?.findings[2].action, 'accept');
 
       // 3. Serialized render output preserves maintainer note
-      const jsonStr = await test$.fs.read('/work/saved/findings.curated.json');
+      const jsonStr = await test$.fs.read('/work/saved/findings.json.curated.json');
       const parsed = JSON.parse(jsonStr);
       assertStrictEqual(parsed.findings[1].explanation, 'Maintainer custom note');
     });
@@ -2723,7 +2723,7 @@ End of observations.
       });
 
       test$.fs._files.set('/work/saved/findings.json', '[]');
-      test$.fs._files.set('/work/saved/findings.curated.json', 'symlink_target');
+      test$.fs._files.set('/work/saved/findings.json.curated.json', 'symlink_target');
 
       const state: ReviewFindingsState = {
         prNumber: 42,
@@ -2736,6 +2736,28 @@ End of observations.
       const res = await syncCuratedStateToDisk(test$, state);
       assertStrictEqual(res.success, false);
       assert(res.error?.includes('Refusing to write to symlink'));
+    });
+
+    test('cleanCuratedFindingsFiles still invalidates the keep file when the json sidecar is a symlink', async () => {
+      const test$ = createMockEngine({
+        fs: {
+          stat: async (p: string) => {
+            if (p.endsWith('.curated.json')) {
+              return { isFile: () => false, isSymbolicLink: () => true };
+            }
+            return { isFile: () => true, isSymbolicLink: () => false };
+          },
+        },
+      });
+
+      test$.fs._files.set('/work/saved/findings.json', '[]');
+      test$.fs._files.set('/work/saved/findings.json.curated.json', 'symlink_target');
+      test$.fs._files.set('/work/saved/findings.json.curated.keep', '1,2');
+
+      await cleanCuratedFindingsFiles(test$, '/work/saved/findings.json');
+
+      assertStrictEqual(await test$.fs.read('/work/saved/findings.json.curated.json'), 'symlink_target');
+      assertStrictEqual(await test$.fs.read('/work/saved/findings.json.curated.keep'), 'INVALIDATED');
     });
   });
 });

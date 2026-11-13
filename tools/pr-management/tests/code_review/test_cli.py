@@ -220,13 +220,15 @@ def test_context_then_disposition_then_render(
 def test_disposition_and_render_with_envelope_findings(
     capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
 ) -> None:
-    envelope_findings = tmp_path / "envelope_findings.json"
+    raw_findings = tmp_path / "envelope_findings.json"
+    raw_findings.write_text("[]", encoding="utf-8")
+    envelope_findings = tmp_path / "envelope_findings.json.curated.json"
     envelope_findings.write_text(
         json.dumps(
             {
                 "schema_version": 1,
                 "pr": 7,
-                "source_sha256": "abcdef1234567890",
+                "source_sha256": hashlib.sha256(raw_findings.read_bytes()).hexdigest(),
                 "findings": [
                     {
                         "file": "scheduler/job.py",
@@ -504,6 +506,91 @@ def test_render_refuses_wrong_pr_curated_envelope(
             str(tmp_path / "out_wrong_pr"),
         )
     assert "PR mismatch" in str(exc.value)
+
+
+_CURATED_FINDING = {
+    "file": "scheduler/job.py",
+    "line": 2,
+    "severity": "minor",
+    "rule": "naming-convention",
+    "explanation": "Curated explanation.",
+}
+
+
+def _write_curated(raw_file: Path, *, pr: int | None = 7, keep: str | None = None) -> Path:
+    """Write raw findings plus the sidecars the findings-pane hook writes beside them."""
+    raw_file.write_text(
+        json.dumps([{**_CURATED_FINDING, "explanation": "Raw explanation."}]), encoding="utf-8"
+    )
+    envelope: dict[str, Any] = {
+        "schema_version": 1,
+        "source_sha256": hashlib.sha256(raw_file.read_bytes()).hexdigest(),
+        "findings": [_CURATED_FINDING],
+    }
+    if pr is not None:
+        envelope["pr"] = pr
+    curated = raw_file.with_name(raw_file.name + ".curated.json")
+    curated.write_text(json.dumps(envelope), encoding="utf-8")
+    if keep is not None:
+        raw_file.with_name(raw_file.name + ".curated.keep").write_text(keep, encoding="utf-8")
+    return curated
+
+
+def _render_args(project: Path, saved: Path, tmp_path: Path, findings: Path, *extra: str) -> list[str]:
+    summary = tmp_path / "summary_curated.txt"
+    summary.write_text("One naming nit inline.")
+    return [
+        "--config-dir", str(project), "code-review", "render", "--saved-dir", str(saved),
+        "--pr", "7", "--findings", str(findings), "--summary", str(summary),
+        "--disposition", "COMMENT", "--out-dir", str(tmp_path / "out_curated"), "--permission", "write",
+        *extra,
+    ]  # fmt: skip
+
+
+def test_render_refuses_a_missing_findings_file(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, *_render_args(project, saved, tmp_path, tmp_path / "typo.json"))
+    assert "findings file not found" in str(exc.value)
+
+
+def test_render_refuses_a_direct_envelope_without_its_source(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    curated = _write_curated(tmp_path / "findings.json")
+    (tmp_path / "findings.json").unlink()
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, *_render_args(project, saved, tmp_path, curated))
+    assert "no source findings file" in str(exc.value)
+
+
+def test_render_refuses_a_direct_envelope_without_a_pr(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    curated = _write_curated(tmp_path / "findings.json", pr=None)
+    with pytest.raises(SystemExit) as exc:
+        _run(capsys, *_render_args(project, saved, tmp_path, curated))
+    assert "PR mismatch" in str(exc.value)
+
+
+def test_render_keep_curated_uses_the_keep_file_of_a_valid_sidecar(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    raw = tmp_path / "findings.json"
+    _write_curated(raw, keep="N")
+    out = _run(capsys, *_render_args(project, saved, tmp_path, raw, "--keep", "curated"))
+    assert out["inline_threads"] == 0
+
+
+def test_render_keep_curated_falls_back_to_all_when_the_sidecar_is_stale(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    raw = tmp_path / "findings.json"
+    _write_curated(raw, keep="N")
+    raw.write_text(json.dumps([_CURATED_FINDING]), encoding="utf-8")  # source changed: hash mismatch
+    out = _run(capsys, *_render_args(project, saved, tmp_path, raw, "--keep", "curated"))
+    assert out["inline_threads"] == 1
 
 
 def test_guard_needs_the_liveness_read_then_checks_the_head(

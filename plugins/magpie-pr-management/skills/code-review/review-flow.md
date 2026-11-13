@@ -323,7 +323,7 @@ Pick which to post: [A]ll (default without curation), [N]one, 1,3 (keep), -2 (dr
 
 The answer is passed to `render --keep`; dropped comments fold into the body's *Smaller observations*.
 The picker is skipped when there is nothing anchored, or under `inline:off`.
-When `<file>.curated.keep` is valid from interactive curation, pressing Enter (empty answer) accepts that curated selection as the default; otherwise, pressing Enter defaults to `[A]ll`.
+An empty answer (pressing Enter) is passed as `--keep curated` (Step 7b).
 
 Under Claude Code with the `magpie-pr-management` plugin enabled, the interactive findings pane mod automatically hydrates upon running Step 6 (`disposition --findings <file>`) and renders findings above the prompt as an interactive visual overview during review triage.
 Maintainers can inspect findings and track action toggles (`accept`, `skip`, `edit`) via interactive buttons or the zero-token `/magpie-findings` slash command (`status`, `all`, `none`, `keep <indices>`, `drop <indices>`, `edit <idx> <note>`), where `<indices>` can address anchored inline comments (`1`, `3`) and general observations (`g1`, `g2`).
@@ -352,7 +352,7 @@ When `<file>.curated.json` is present beside `<file>`, `render` validates its PR
 **Picker precedence**: The maintainer's typed answer at the Step 7a text picker prompt always takes precedence.
 If the maintainer enters an answer (e.g. `1,3`, `None`, `-2`), pass that answer directly to `--keep <answer>`.
 When findings were curated in the interactive pane or via `/magpie-findings`, `<file>.curated.keep` holds that curated set.
-An empty answer (pressing Enter) accepts `<file>.curated.keep` when valid, and defaults to `All` otherwise.
+An empty answer (pressing Enter) is passed as `--keep curated`: `render` then uses `<file>.curated.keep` only when it also used `<file>.curated.json`, and `All` otherwise.
 
 It assembles the body in the template order ([`posting.md`](posting.md#review-body--template-structure)), backtick-quotes every handle, places each kept inline comment by `line` + `side` (listing any the diff cannot anchor — those fold into the body), appends the verbatim footer variant and verifies it.
 Show the full body and the inline count; hold for explicit confirmation.

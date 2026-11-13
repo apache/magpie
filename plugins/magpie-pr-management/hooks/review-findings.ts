@@ -1011,12 +1011,7 @@ export function getCuratedFindingsPaths(originalPath: string): {
   curatedJsonPath: string;
   curatedKeepPath: string;
 } {
-  if (originalPath.endsWith('.json')) {
-    return {
-      curatedJsonPath: originalPath.replace(/\.json$/, '.curated.json'),
-      curatedKeepPath: originalPath.replace(/\.json$/, '.curated.keep'),
-    };
-  }
+  // `<file>.curated.json` / `<file>.curated.keep`: the names `code-review render` looks for.
   return {
     curatedJsonPath: `${originalPath}.curated.json`,
     curatedKeepPath: `${originalPath}.curated.keep`,
@@ -1053,6 +1048,7 @@ export async function cleanCuratedFindingsFiles(
       return;
     }
 
+    let jsonIsRegular = jsonExists;
     if (jsonExists) {
       try {
         const stat = await $.fs.stat(curatedJsonPath);
@@ -1061,10 +1057,13 @@ export async function cleanCuratedFindingsFiles(
           ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
             stat.isSymbolicLink === true ||
             (typeof stat.isFile === 'function' && !stat.isFile()));
-        if (isSymlink) return;
+        // A symlinked or non-regular sidecar is left alone; the keep file is still invalidated.
+        if (isSymlink) jsonIsRegular = false;
       } catch {
         // fail-open
       }
+    }
+    if (jsonIsRegular) {
       const invalidEnvelope: CuratedFindingsPayload = {
         schema_version: 1,
         pr: null,
