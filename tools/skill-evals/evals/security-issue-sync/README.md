@@ -49,3 +49,14 @@ a CVE-affecting tracker is walked individually in ascending order, a reporter CV
 a bare CVE ID is flagged on markdown surfaces and the CVE-tool URL in a reporter email, the first layer declaring a CC key wins (an explicit null disables the fallback),
 an admin-only advisory change at the collaborator tier (or after a `403`, never retried) is a draft relay and never a tracker comment,
 the push is skipped, blocked at the first failing gate or handed off on an expired or missing session, and no bare `#NNN`.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-13 | `c22d5769` (feat/cve-tool-interface) | `claude-sonnet-5-5` | 10 | `step-2b-proposed-changes/case-2-milestone-missing-create` failed 1 of 2; `step-2b-proposed-changes/case-5-pre-announce-distributors` failed 2 of 2; `step-2b-proposed-changes/case-6-reporter-unresponsive` errored 1 of 2 | cross-model check for #1800; cross-model check for #1800 (re-run of infra failures) |
