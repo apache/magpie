@@ -102,6 +102,7 @@ def pick(
     merge_method: str | None = None,
     pending_not_required: tuple[str, ...] | list[str] = (),
     viewer_known: bool = True,
+    ci_outdated_query: bool = False,
 ) -> dict[str, Any]:
     resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
@@ -142,6 +143,9 @@ def pick(
     elif ci_state == "EXPECTED":
         gates.append("CI is waiting for workflow approval — the project's real CI has not run")
         ci_action = "approve the waiting workflow runs (pr-management-triage), then re-run disposition"
+    elif ci_outdated_query:
+        gates.append("CI rollup cannot be verified — vetted-ops is out of date (latest commit lacks OID)")
+        ci_action = "upgrade vetted-ops to update GraphQL queries, then re-run disposition"
     elif ci_state != "SUCCESS" and not held_by_auto_merge:
         gates.append(f"CI is {ci_state or 'not reported'}")
         if ci_state == "PENDING" and not real_ci:

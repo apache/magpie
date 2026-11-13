@@ -470,8 +470,8 @@ def test_markers_split_environments() -> None:
     assert result["evidence"] == {"uninstallable_in": ["py39"]}
 
 
-def test_force_pushed_pr_with_stale_ci_rollup_fails_closed_to_comment() -> None:
-    # Issue #2034: PR head changed to 3ac12395, but GraphQL returned stale SUCCESS rollup on 4eb3567c.
+def test_pr_with_lagging_commit_edge_fails_closed_to_comment() -> None:
+    # Direction 1 of #2034: latest commit node lags behind headRefOid (4eb3567c != 3ac12395).
     node = {
         "number": 272,
         "headRefOid": "3ac12395",
@@ -504,3 +504,39 @@ def test_force_pushed_pr_with_stale_ci_rollup_fails_closed_to_comment() -> None:
     result = _pick_findings([], ci_state=pr.rollup_state)
     assert result["disposition"] == "COMMENT"
     assert "CI is not reported" in result["reason"]
+
+
+def test_pr_with_outdated_vetted_ops_query_gates_approval_with_upgrade_action() -> None:
+    # Query skew: older vetted-ops without `oid` under `latest: commits(last: 1)`.
+    node = {
+        "number": 272,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "tests",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    assert pr.ci_outdated_query is True
+    result = _pick_findings([], ci_state=pr.rollup_state, ci_outdated_query=pr.ci_outdated_query)
+    assert result["disposition"] == "COMMENT"
+    assert any("vetted-ops is out of date" in g for g in result["approval_gates"])
+    assert result["ci_action"] == "upgrade vetted-ops to update GraphQL queries, then re-run disposition"

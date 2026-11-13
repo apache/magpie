@@ -79,8 +79,8 @@ def test_from_node_accepts_rollup_when_commit_oid_matches_head_ref_oid() -> None
 
 
 def test_from_node_discards_rollup_when_commit_oid_mismatches_head_ref_oid() -> None:
-    # Simulates Issue #2034: headRefOid is 3ac12395 after a force-push,
-    # but GraphQL returns a stale rollup on prior commit 4eb3567c.
+    # Guards against a lagging commit edge where latest: commits(last: 1)
+    # has not advanced to headRefOid (Direction 1 of #2034).
     node = {
         "number": 272,
         "headRefOid": "3ac12395",
@@ -112,9 +112,12 @@ def test_from_node_discards_rollup_when_commit_oid_mismatches_head_ref_oid() -> 
     assert pr.rollup_state is None
     assert pr.contexts == ()
     assert pr.pending_not_required == ()
+    assert pr.ci_outdated_query is False
 
 
-def test_from_node_discards_rollup_when_commit_oid_missing() -> None:
+def test_from_node_discards_rollup_and_flags_outdated_query_when_commit_oid_missing() -> None:
+    # Simulates query skew: an older vetted-ops installation that did not request `oid`
+    # under latest: commits(last: 1). Rollup is discarded for safety, but flagged as outdated.
     node = {
         "number": 1,
         "headRefOid": "3ac12395",
@@ -134,6 +137,7 @@ def test_from_node_discards_rollup_when_commit_oid_missing() -> None:
     pr = data.from_node(node)
     assert pr.rollup_state is None
     assert pr.contexts == ()
+    assert pr.ci_outdated_query is True
 
 
 def test_from_node_discards_rollup_when_head_ref_oid_missing() -> None:

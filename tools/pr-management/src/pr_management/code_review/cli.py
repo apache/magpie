@@ -443,6 +443,7 @@ def _decide(
         merge_method=pr.default_merge_method,
         pending_not_required=pr.pending_not_required,
         viewer_known=bool(pr.viewer),
+        ci_outdated_query=pr.ci_outdated_query,
     )
 
 
