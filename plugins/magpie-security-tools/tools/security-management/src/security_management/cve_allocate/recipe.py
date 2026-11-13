@@ -33,13 +33,11 @@ and is shell-quoted in the API command, since it is reporter-influenced.
 from __future__ import annotations
 
 import re
-import shlex
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from security_management.shared import cve_tool, refs
 from security_management.shared.rollup import one_line
-from security_management.shell import w
 
 PASTE_BACK = "Paste the allocated `CVE-YYYY-NNNNN` back here when done."
 _HANDLE = re.compile(r"^@?([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))$")
@@ -91,7 +89,7 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
             "This reserves a CVE ID immediately and cannot be undone.\n"
             f"(Fallback, if the API path fails: the form at {url}.)\n"
         )
-        command = cve_tool.command(data, "allocate", "--pmc", w(pmc), "--title", shlex.quote(title))
+        command = cve_tool.command(data, "allocate", "--pmc", pmc, "--title", title)
     elif member:
         path = "recipe"
         indented = "\n".join("   " + line for line in block.split("\n"))

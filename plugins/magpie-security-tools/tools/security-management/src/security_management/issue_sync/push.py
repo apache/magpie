@@ -47,7 +47,6 @@ from typing import Any
 from security_management.cve_allocate.title import TRACKER_PREFIXES, strip
 from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
-from security_management.shell import w
 
 GATES = (
     "title_strip_cascade",
@@ -162,7 +161,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
         return out(
             "pending",
             "push the regenerated JSON",
-            next=cve_tool.command(data, "push", "--cve-id", w(cve_id), "--json-file", w(json_file)),
+            next=cve_tool.command(data, "push", "--cve-id", cve_id, "--json-file", json_file),
         )
     if int(data["push_exit"]) != 0:
         return out(
@@ -177,7 +176,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             return out(
                 "pending",
                 "verify the state advance",
-                next=cve_tool.command(data, "fetch", "--cve-id", w(cve_id), "--state-only"),
+                next=cve_tool.command(data, "fetch", "--cve-id", cve_id, "--state-only"),
             )
         if fetched in LATER:
             return out(

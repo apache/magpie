@@ -189,7 +189,7 @@ def _check(scope: str, data: Mapping[str, Any]) -> str:
 
 def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
     pmc = one_line(data.get("pmc"))
-    setup = cve_tool.command(data, "setup", "--pmc", w(pmc or "<pmc>"))
+    setup = cve_tool.command(data, "setup", "--pmc", pmc or "<pmc>")
 
     def out(
         path: str | None, why: str, *, offer_setup: bool = False, command: str | None = None

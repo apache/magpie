@@ -18,12 +18,13 @@
 
 The skills never name a CVE tool's own commands: they run `cve-tool
 <operation>` (tools/cve-tool), which resolves `cve_authority.tool` and runs
-that tool's adapter. Arguments after the operation are the adapter's own
-and are passed through, already shell-quoted by the caller.
+that tool's adapter. Arguments after the operation are the adapter's own;
+`command` shell-quotes each one, so callers pass raw values.
 """
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Mapping
 from typing import Any
 
@@ -32,7 +33,13 @@ from security_management.shell import w
 PROJECT = "<framework>/tools/cve-tool"
 
 
-def command(data: Mapping[str, Any], operation: str, *args: str) -> str:
-    """`uv run --project <cve-tool> cve-tool <operation> <args>`; `data["cve_tool_project"]` overrides the path."""
+def command(data: Mapping[str, Any], operation: str, *args: object) -> str:
+    """`uv run --project <cve-tool> cve-tool <operation> <args>`; `data["cve_tool_project"]` overrides the path.
+
+    Each argument is shell-quoted here, so pass raw values and never quote them first:
+    quoting twice breaks a value. `shlex.quote`, not `w`, because an argument can come
+    from the tracker (an allocation title), and `w` leaves a `<placeholder>`-shaped value bare.
+    """
     project = str(data.get("cve_tool_project") or PROJECT)
-    return " ".join(("uv run --project", w(project), "cve-tool", operation, *args))
+    quoted = (shlex.quote(str(arg)) for arg in args)
+    return " ".join(("uv run --project", w(project), "cve-tool", operation, *quoted))
