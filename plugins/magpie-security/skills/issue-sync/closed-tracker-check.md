@@ -6,7 +6,7 @@
 Part of Step 1 in [`gather.md`](gather.md), which says when to read this file.
 
 For **closed** trackers carrying the `announced` label (which `sync all` includes alongside open issues),
-the CNA-tool record is `PUBLIC` and the issue closed at Step 15, but propagation to `cve.org` takes minutes to days.
+the CNA-tool record is `public` and the issue closed at Step 15, but propagation to `cve.org` takes minutes to days.
 Once cve.org shows it published, the reporter is owed a final *"CVE is live"* email.
 
 The check is read-only and uses the MITRE CVE Services API v2

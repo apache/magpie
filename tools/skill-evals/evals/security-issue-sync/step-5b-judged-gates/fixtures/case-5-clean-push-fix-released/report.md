@@ -30,7 +30,6 @@ Regenerated JSON excerpt:
 Provenance: the reporter wrote to `security@` under her real name and
 asked to be credited. Not a follow-up to any earlier CVE.
 
-Adapter session probe (`vulnogram-api-check`): `valid`.
-`vulnogram-api-record-update`: exit 0 at 2026-10-03T14:12:09Z.
-`vulnogram-api-record-fetch --state-only`: `REVIEW`
-(normalised: `review-ready`).
+Adapter session probe (`cve-tool check`): `valid`.
+`cve-tool push`: exit 0 at 2026-10-03T14:12:09Z.
+`cve-tool fetch --state-only`: `review-ready`.
