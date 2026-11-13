@@ -22,6 +22,7 @@ members = [
     "checker",
     "container-gateway",
     "contributor-metrics",
+    "cve-tool",
     "egress-gateway",
     "generate-cve-json",
     "github-body-field",
@@ -615,6 +616,29 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/62/15/219075012ab13e8905f3cd572204f4acb4b111df787104346b9bc0cea789/cryptography-50.0.0-pp311-pypy311_pp73-manylinux_2_34_x86_64.whl", hash = "sha256:07479a1cb08219ab719147e742e76090c9c773321959bb94946fffdd397a6437", size = 4699593, upload-time = "2026-07-31T14:24:59.951Z" },
     { url = "https://files.pythonhosted.org/packages/8e/b5/c2c5fce26f0ee40d21bafe7f191d29a34b35a65ac4fe8a1191d1983612e9/cryptography-50.0.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:c99c003e088647b8a5b7c145d6f78c335f6348332b62e142d411c4b63d1460b9", size = 3813796, upload-time = "2026-07-31T14:25:02.298Z" },
 ]
+
+[[package]]
+name = "cve-tool"
+version = "0.1.0"
+source = { editable = "tools/cve-tool" }
+dependencies = [
+    { name = "release-config" },
+    { name = "vulnogram-api" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "release-config", editable = "tools/release-config" },
+    { name = "vulnogram-api", editable = "tools/cve-tool-vulnogram/oauth-api" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 
 [[package]]
 name = "egress-gateway"
