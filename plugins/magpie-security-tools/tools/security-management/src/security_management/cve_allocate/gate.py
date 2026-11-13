@@ -22,9 +22,9 @@
 - `blockers`: the Step 1 checks as a function of state, labels and the *CVE
   tool link* value `body-field-get` printed. The `needs triage` warning
   only fires when no hard blocker did.
-- `preflight`: the two `vulnogram-api-check` exits as the Step 3 path.
+- `preflight`: the two `cve-tool check` exits as the Step 3 path.
 - `cve`: the one `CVE-YYYY-NNNNN` in text the user pasted back.
-- `allocate_result`: what a `vulnogram-api-allocate` exit means next. The
+- `allocate_result`: what a `cve-tool allocate` exit means next. The
   allocation is never re-run automatically.
 """
 
@@ -34,7 +34,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from security_management.shared import selectors
+from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
 from security_management.shell import dq, w
 
@@ -42,7 +42,6 @@ CVE_FIELD = "CVE tool link"
 CVE_ALLOCATED = "cve allocated"
 DUPLICATE = "duplicate"
 NEEDS_TRIAGE = "needs triage"
-OAUTH_API = "<framework>/tools/cve-tool-vulnogram/oauth-api"
 READ = "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-cve-allocate"
 
 _CVE_IN_FIELD = re.compile(r"CVE-\d{4}-\d+")
@@ -183,15 +182,14 @@ def blockers(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _check(scope: str, oauth_api: str) -> str:
-    flags = "--server --quiet" if scope == "server" else "--allocate"
-    return f"uv run --project {w(oauth_api)} vulnogram-api-check {flags}"
+def _check(scope: str, data: Mapping[str, Any]) -> str:
+    flags = ("--server", "--quiet") if scope == "server" else ("--allocate",)
+    return cve_tool.command(data, "check", *flags)
 
 
 def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
-    oauth_api = str(data.get("oauth_api") or OAUTH_API)
     pmc = one_line(data.get("pmc"))
-    setup = f"uv run --project {w(oauth_api)} vulnogram-api-setup --pmc {w(pmc or '<pmc>')}"
+    setup = cve_tool.command(data, "setup", "--pmc", w(pmc or "<pmc>"))
 
     def out(
         path: str | None, why: str, *, offer_setup: bool = False, command: str | None = None
@@ -207,7 +205,7 @@ def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
     if data.get("governance_member") is not True:
         return out("recipe", "API allocation is only for a governance-authorised user")
     if data.get("server_exit") is None:
-        return out(None, "run the server check first", command=_check("server", oauth_api))
+        return out(None, "run the server check first", command=_check("server", data))
     server = int(data["server_exit"])
     if server == 4:
         return out(
@@ -218,9 +216,7 @@ def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
     if server != 0:
         return out("recipe", f"unexpected server-check exit {server}")
     if data.get("allocate_exit") is None:
-        return out(
-            None, "the server supports it: check the allocate token", command=_check("allocate", oauth_api)
-        )
+        return out(None, "the server supports it: check the allocate token", command=_check("allocate", data))
     code = int(data["allocate_exit"])
     if code == 0:
         lines = [one_line(line) for line in str(data.get("allocate_stdout") or "").splitlines()]
@@ -274,7 +270,7 @@ def allocate_result(data: Mapping[str, Any]) -> dict[str, Any]:
     first = next((one_line(line) for line in str(data.get("stdout") or "").splitlines() if line.strip()), "")
     stderr = str(data.get("stderr") or "")
     pmc = one_line(data.get("pmc")) or "<pmc>"
-    check = f"ask the user to check {pmc}'s records in Vulnogram before anything else"
+    check = f"ask the user to check {pmc}'s records in the CVE tool before anything else"
 
     def out(next_step: str, why: str, cve_id: str | None = None) -> dict[str, Any]:
         return {"next": next_step, "cve_id": cve_id, "message": why, "rerun_allocate": False}
@@ -289,13 +285,13 @@ def allocate_result(data: Mapping[str, Any]) -> dict[str, Any]:
             return out("step-4", "allocated; no paste-back needed", first)
         return out(
             "step-4",
-            "the ID is reserved but Vulnogram did not save its record; the sync push creates it",
+            "the ID is reserved but the CVE tool did not save its record; the sync push creates it",
             first,
         )
     if code == 5:
         return out(
             "stop",
-            "the PMC cannot allocate directly and Vulnogram mailed the security team: resume later with the ID as an override",
+            "the PMC cannot allocate directly and the CVE tool mailed the security team: resume later with the ID as an override",
         )
     if code == 1:
         result = out(
@@ -307,7 +303,7 @@ def allocate_result(data: Mapping[str, Any]) -> dict[str, Any]:
     if code == 4:
         return out(
             "check-records",
-            f"Vulnogram answered HTML with no ID: {check} (it may have allocated), then use the recipe",
+            f"the CVE tool answered HTML with no ID: {check} (it may have allocated), then use the recipe",
         )
     if "may still have gone through" in stderr:
         return out("check-records", f"the request may still have gone through: {check}, then use the recipe")

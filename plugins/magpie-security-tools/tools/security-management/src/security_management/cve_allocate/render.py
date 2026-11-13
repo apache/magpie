@@ -167,15 +167,10 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
     except ValueError as exc:
         return {"ok": False, "refused": str(exc)}
     allocated = str(data.get("cve_allocated_label") or CVE_ALLOCATED)
-    vulnogram = "vulnogram" in str(data.get("cve_tool") or "tools/cve-tool-vulnogram")
     source = one_line(data.get("source_tab_url_template"))
-    push = "push it to the record via the adapter's `push_update` method"
-    if vulnogram:
-        push += f" (for Vulnogram: `vulnogram-api-record-update --cve-id {cve_id} --json-file <path>`)"
-        if source:
-            push += (
-                f" or, as a fallback, paste it into the record's [`source` tab]({record_url(source, cve_id)})"
-            )
+    push = f"push it to the record with `cve-tool push --cve-id {cve_id} --json-file <path>`"
+    if source:
+        push += f" or, as a fallback, paste it into the record's [`source` tab]({record_url(source, cve_id)})"
     scope = one_line(data.get("scope_label"))
     product = one_line(data.get("product"))
     package = one_line(data.get("package_name"))

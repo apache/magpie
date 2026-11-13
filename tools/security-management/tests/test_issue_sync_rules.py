@@ -373,7 +373,7 @@ def test_case_1_skip_5a_skipped_invalid(capsys, tmp_path):
 def test_case_2_expired_session_fix_released(capsys, tmp_path):
     out = decide(capsys, tmp_path, session="expired", record_state="DRAFT", fix_released_transition=True)
     assert (out["action"], out["handoff_variant"], out["recap_blocker"]) == ("hand-off", "manual-paste", True)
-    assert "vulnogram-api-setup" in out["reason"]
+    assert "cve-tool setup --pmc" in out["reason"]
 
 
 def test_case_3_title_gate_ghsa_prefix(capsys, tmp_path):
@@ -394,11 +394,14 @@ def test_case_4_private_scanner_credit(capsys, tmp_path):
 
 def test_case_5_clean_push_fix_released(capsys, tmp_path):
     base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True}
-    assert decide(capsys, tmp_path, **base)["next"].endswith(
-        "--json-file '<scratch>/cve-CVE-2026-41107.json'"
+    assert decide(capsys, tmp_path, **base)["next"] == (
+        "uv run --project '<framework>/tools/cve-tool' cve-tool push"
+        " --cve-id CVE-2026-41107 --json-file '<scratch>/cve-CVE-2026-41107.json'"
     )
     pending = decide(capsys, tmp_path, **base, push_exit=0)
-    assert "vulnogram-api-record-fetch --cve-id CVE-2026-41107" in pending["next"]
+    assert pending["next"] == (
+        "uv run --project '<framework>/tools/cve-tool' cve-tool fetch --cve-id CVE-2026-41107 --state-only"
+    )
     out = decide(capsys, tmp_path, **base, push_exit=0, fetched_state="REVIEW")
     assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
         "push",
@@ -406,6 +409,18 @@ def test_case_5_clean_push_fix_released(capsys, tmp_path):
         "allocated->review-ready",
         False,
     )
+
+
+@pytest.mark.parametrize("fetched", ["REVIEW", "review-ready"])
+def test_verify_reads_the_generic_state_cve_tool_fetch_prints(capsys, tmp_path, fetched):
+    base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True, "push_exit": 0}
+    out = decide(capsys, tmp_path, **base, fetched_state=fetched)
+    assert (out["action"], out["state_advance"]) == ("push", "allocated->review-ready")
+
+
+def test_cve_tool_project_overrides_the_command_path(capsys, tmp_path):
+    out = decide(capsys, tmp_path, cve_tool_project="/opt/magpie/tools/cve-tool")
+    assert out["next"] == "uv run --project /opt/magpie/tools/cve-tool cve-tool check"
 
 
 def test_case_6_public_record_advisory_closeout(capsys, tmp_path):
