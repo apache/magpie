@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:54dc4ba1be7b36d4
 license: Apache-2.0
-measured_tokens: 5151
+measured_tokens: 5172
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -247,13 +247,15 @@ terminal-bound PR reference instead of constructing OSC 8 sequences
 inside individual output paths:
 
 ```bash
-python3 <framework>/skills/pr-management-triage/scripts/pr_link.py \
+python3 <skill-dir>/scripts/pr_link.py \
   '<upstream>#NNN'
 
 # When the repository is obvious and only #NNN should be visible:
-python3 <framework>/skills/pr-management-triage/scripts/pr_link.py \
+python3 <skill-dir>/scripts/pr_link.py \
   --repo '<upstream>' '#NNN'
 ```
+
+`<skill-dir>` is the directory holding this `SKILL.md`; `<framework>/skills/` does not exist on a marketplace install.
 
 The helper accepts `<upstream>#NNN`, the full GitHub pull-request URL, or
 `#NNN` with `--repo <upstream>`. It preserves the visible form and always
