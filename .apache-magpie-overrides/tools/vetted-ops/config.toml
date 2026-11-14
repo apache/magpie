@@ -80,6 +80,9 @@ close_reasons = ["completed", "not planned"]
     "cr-commit-files",
     "cr-path-commits",
     "cr-commit-pulls",
+    # The head commit's check runs, read before an APPROVE to confirm real CI
+    # ran there (code-review disposition's secondary check, #2072).
+    "check-runs",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,

@@ -381,7 +381,9 @@ same directory; the behaviour is unchanged.
   A rollup is used only when its commit is the PR's head commit; when the
   installed vetted-ops queries do not return that commit's oid, the rollup is
   dropped, the headline says CI cannot be verified, and `ci_action` names the
-  vetted-ops upgrade.
+  vetted-ops upgrade. Before an approval is emitted, disposition performs secondary
+  confirmation of real CI on the head commit via check-runs, failing closed if no
+  real CI runs are recorded (#2034).
   The maintainer's confirmation of the disposition covers the auto-merge
   write, and the prompt names it.
   After the approval posts, the skill refreshes the liveness read, re-runs
