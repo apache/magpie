@@ -2673,6 +2673,36 @@ export async function evaluatePublicSurfaceCommand(
  * Intercepts Bash tool calls, parses commands, verifies embargo terms,
  * and returns { deny: reason } when embargo terms are detected.
  */
+/**
+ * The deny result for an evaluation, or null to let the command run.
+ * Blocks on `blocked` alone: a block that lost its reason still blocks.
+ */
+export function denyFor(evaluation: { blocked: boolean; reason?: string }): { deny: string } | null {
+  if (!evaluation.blocked) return null;
+  return {
+    deny:
+      evaluation.reason ||
+      'public-surface-scrub: this command would publish embargoed security content to a public surface.',
+  };
+}
+
+/**
+ * The deny result when evaluating a command threw, or null when a human set
+ * MAGPIE_ALLOW_EMBARGO_TERMS=1 (the same escape hatch the evaluation honours).
+ */
+export function denyOnEvaluationError(
+  error: unknown,
+  env: { [key: string]: string | undefined }
+): { deny: string } | null {
+  if (env.MAGPIE_ALLOW_EMBARGO_TERMS === '1') return null;
+  const detail = error instanceof Error ? error.message : String(error);
+  return {
+    deny:
+      `public-surface-scrub: could not check this command (${detail}), so it is blocked. ` +
+      'Report the error; a human may set MAGPIE_ALLOW_EMBARGO_TERMS=1 before the session to override.',
+  };
+}
+
 export function register(on: any): void {
   on('tool.call', { tool: 'Bash' }, async ($: any, e: any, next: any) => {
     const command = e?.command;
@@ -2740,24 +2770,30 @@ export function register(on: any): void {
           // $.env may be absent in mock harnesses
         }
       }
-      const evaluation = await evaluatePublicSurfaceCommand(command, {
-        cwd: initialCwd,
-        isSessionRootFallback,
-        env: hookEnv,
-        readFile: async (filePath: string) => {
-          try {
-            return await $.fs.read(filePath);
-          } catch {
-            return null;
-          }
-        },
-      });
-
-      if (evaluation.blocked && evaluation.reason) {
-        return {
-          deny: evaluation.reason,
-        };
+      let evaluation: { blocked: boolean; matchedTerms: string[]; reason?: string };
+      try {
+        evaluation = await evaluatePublicSurfaceCommand(command, {
+          cwd: initialCwd,
+          isSessionRootFallback,
+          env: hookEnv,
+          readFile: async (filePath: string) => {
+            try {
+              return await $.fs.read(filePath);
+            } catch {
+              return null;
+            }
+          },
+        });
+      } catch (error) {
+        // A gate that throws must not let the command through: fail closed,
+        // unless a human set the documented escape hatch before the session.
+        const denial = denyOnEvaluationError(error, hookEnv);
+        if (denial) return denial;
+        evaluation = { blocked: false, matchedTerms: [] };
       }
+
+      const denial = denyFor(evaluation);
+      if (denial) return denial;
     }
 
     if (typeof next === 'function') {

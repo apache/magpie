@@ -19,6 +19,8 @@
 
 import { describe, test } from 'claude-code/testing';
 import {
+  denyFor,
+  denyOnEvaluationError,
   evaluatePublicSurfaceCommand,
   findForbiddenTerms,
   inspectDirectoryRemote,
@@ -2491,4 +2493,19 @@ upstream_repo: apache/kafka
     });
   });
 
+  describe('fail-closed gate decisions', () => {
+    test('a block without a reason still blocks', () => {
+      const denial = denyFor({ blocked: true });
+      assert(denial !== null && denial.deny.length > 0, 'expected a deny with a fallback reason');
+      assertStrictEqual(denyFor({ blocked: true, reason: 'leak' })?.deny, 'leak');
+      assertStrictEqual(denyFor({ blocked: false, reason: 'ignored' }), null);
+    });
+
+    test('an evaluation error blocks unless the human escape hatch is set', () => {
+      const denial = denyOnEvaluationError(new Error('tokenizer exploded'), {});
+      assert(denial !== null && denial.deny.includes('tokenizer exploded'), JSON.stringify(denial));
+      assertStrictEqual(denyOnEvaluationError(new Error('x'), { MAGPIE_ALLOW_EMBARGO_TERMS: '1' }), null);
+      assert(denyOnEvaluationError('not an Error', { MAGPIE_ALLOW_EMBARGO_TERMS: '0' }) !== null);
+    });
+  });
 });
