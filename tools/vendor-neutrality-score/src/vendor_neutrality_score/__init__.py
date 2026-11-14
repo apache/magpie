@@ -122,7 +122,7 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         "Git-hook managers under the secure setup: install target and sandbox / host homes (prek, …)",
     ),
     "contract:sbom-pipeline": (
-        AGNOSTIC,
+        VENDOR_BACKED,
         "SBOM generation in the build: one CycloneDX 1.7 SBOM per distributable artifact, any ecosystem",
     ),
 }

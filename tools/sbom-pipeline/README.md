@@ -107,7 +107,10 @@ and an artifact's SBOM does not depend on any other SBOM to be complete
 
 - `type`, `name` and `version` of the artifact;
 - a `purl` in the artifact's own ecosystem
-  (`pkg:maven/…`, `pkg:npm/…`, `pkg:pypi/…`, `pkg:golang/…`, `pkg:cargo/…`);
+  (`pkg:maven/…`, `pkg:npm/…`, `pkg:pypi/…`, `pkg:golang/…`, `pkg:cargo/…`),
+  with the qualifiers that tell this artifact apart from the release's other artifacts
+  (`classifier` and `type` for Maven, `file_name` for a Python wheel),
+  so no two artifacts share a subject `purl`;
 - `licenses`, as an SPDX license expression;
 - the project's organization as `supplier`,
   taken from the project's configuration rather than written into the build by hand,
@@ -121,7 +124,10 @@ not from a scan of the source tree.
 
 Every component in a package's SBOM carries:
 
-- a `bom-ref` unique within the document;
+- a `bom-ref` unique within the document and derived from the component alone:
+  its `purl`, else `name@version`,
+  prefixed with the containing component's `bom-ref` when it is nested,
+  so two runs of any generator give the same values;
 - `name`, and a `version`
   (or, for an external component, a `versionRange`; see [Assemblies](#4-assemblies));
 - a `purl` whenever its ecosystem has a package-URL type;
@@ -131,8 +137,10 @@ Every component in a package's SBOM carries:
 
 The `dependencies` graph covers every component in the document, nested ones included,
 and only components that ship in the artifact or are required to run it appear in it.
-Build-only and test-only dependencies are left out,
-or marked `scope: excluded` when an ecosystem's generator cannot leave them out.
+Build-only and test-only dependencies are left out.
+A generator that cannot leave them out marks them `scope: excluded`,
+and `normalize` removes them,
+so a published SBOM never carries a `scope: excluded` component.
 
 ### 4. Assemblies
 
@@ -149,14 +157,22 @@ and with where the component sits in the document:
 - **Components of an embedded component** form an **assembly**:
   what that component embeds is listed in its own nested `components` array,
   with `isExternal` left at `false`.
-  What it requires externally is **not** nested:
-  it is listed in the top-level `$.components` with `isExternal: true`,
+  What it requires externally is **not** nested.
+  When the artifact itself embeds that requirement
+  (a shaded library that needs `commons-lang3`, which the WAR ships in `WEB-INF/lib`),
+  the requirement is met inside the artifact,
+  and the `dependencies` graph points at that top-level embedded component.
+  Otherwise it is listed in the top-level `$.components` with `isExternal: true`,
   because the requirement passes up to the artifact that contains the component.
   The `dependencies` graph still records the external requirement on the component that has it.
 
 So `isExternal: true` appears only in the top-level `$.components`,
 which lists, for the whole artifact, everything the environment has to provide.
 An external component may give the versions it accepts as a `versionRange` instead of a `version`.
+Two parts that require the same package with different `version`s or `versionRange`s
+keep one top-level entry each, with its own `bom-ref`,
+and each part's `dependencies` edge points at its own;
+requirements are never intersected or dropped.
 
 The case the contract exists for is content from another ecosystem.
 A JavaScript UI bundled into a WAR is an embedded component of the WAR,
@@ -193,9 +209,13 @@ so the SBOM can be part of a reproducible-build comparison:
 
 - `serialNumber` is a name-based UUID (version 5) derived from the subject's `purl`,
   not a random one,
-  and `version` is `1`;
+  and a build-produced SBOM has `version` `1`;
 - `metadata.timestamp` is taken from `SOURCE_DATE_EPOCH`;
-- arrays are sorted by `bom-ref`,
+- every array of objects is sorted by a canonical key
+  (`bom-ref` for components, `ref` for `dependencies`, `alg` for `hashes`,
+  the SPDX identifier or name for `licenses`, `phase` for `metadata.lifecycles`,
+  `type` then `url` for `externalReferences`, `name` for `properties`),
+  every array of strings (such as `dependsOn`) is sorted lexically,
   and nothing host-specific (absolute paths, user names, tool cache locations) is recorded.
 
 The serial number departs from a recommendation of the specification,
@@ -208,13 +228,13 @@ and a corrected SBOM for the same artifact keeps the serial number and increment
 
 ### 6. Distribution
 
-An SBOM is published **next to its artifact, through the artifact's own channel**,
+An SBOM is published **next to or inside its artifact, as the artifact's own channel dictates**,
 so a consumer finds it where they found the artifact.
 Each adapter declares the channel for its ecosystem
 (for example, the `cyclonedx` classifier on a Maven artifact,
 or the SBOM directory of a wheel's `.dist-info`).
 An artifact published to the project's download area carries its SBOM beside it,
-with the same checksums and signature as the artifact.
+with checksums and a signature of its own, made the same way as the artifact's.
 
 ### 7. Source releases
 
@@ -243,9 +263,12 @@ No ecosystem's metadata records the license and copyright of individual files,
 but a project that follows its release policy already has that data:
 the release's `LICENSE` file names the bundled files under other licenses,
 and its `NOTICE` file carries the copyright attributions they require.
-The source SBOM is their machine-readable counterpart,
-produced from them and required to agree with them.
-A project may also check them against the files' headers,
+The source SBOM is their machine-readable counterpart.
+Its inventory comes from the source tree,
+since `NOTICE` carries attributions rather than paths
+and a `LICENSE` that names a bundled library does not always list each of its files;
+`LICENSE` and `NOTICE` are the cross-check the inventory must agree with.
+A project finds the files from their headers,
 or with a license scanner of its choice;
 as for package SBOMs, the contract fixes what the source SBOM says,
 not which tool produces it.
@@ -260,9 +283,9 @@ each adapter implements the ones that are ecosystem-specific.
 | `detect(checkout)`         | yes                | Finds the ecosystem's build files and the distributable artifacts they produce.                                                                                                                                                                                                                                                                              |
 | `configure(artifact)`      | yes                | The one-time change to the build: adds and configures a generator of the project's choice, or configures the one it already uses.                                                                                                                                                                                                                            |
 | `generate(artifact)`       | yes                | Runs during the build and writes the artifact's SBOM.                                                                                                                                                                                                                                                                                                        |
-| `generate-source(release)` | no                 | Writes the source release's SBOM from its `LICENSE` and `NOTICE` files ([Source releases](#7-source-releases)).                                                                                                                                                                                                                                              |
-| `embed(container, part)`   | no                 | Grafts the SBOM of embedded content into the container's SBOM ([Assemblies](#4-assemblies)): the part's embedded components are nested under the component that contains them, its external components are moved to the top-level `$.components` (merged with the ones already there), `bom-ref`s are kept unique, and the `dependencies` graphs are merged. |
-| `normalize(sbom)`          | no                 | Applies what generators do not: supplier, serial number, timestamp, ordering ([Reproducibility](#5-reproducibility)).                                                                                                                                                                                                                                        |
+| `generate-source(release)` | no                 | Writes the source release's SBOM from its source tree, checked against its `LICENSE` and `NOTICE` files ([Source releases](#7-source-releases)).                                                                                                                                                                                                                                              |
+| `embed(container, part)`   | no                 | Grafts the SBOM of embedded content into the container's SBOM ([Assemblies](#4-assemblies)): the part's embedded components are nested under the component that contains them, its external components that the container embeds are pointed at the container's component, the rest are moved to the top-level `$.components` (one entry per distinct requirement), `bom-ref`s are kept unique, and the `dependencies` graphs are merged. |
+| `normalize(sbom)`          | no                 | Applies what generators do not: supplier, serial number, timestamp, deterministic `bom-ref`s, ordering, and the removal of `scope: excluded` components ([Reproducibility](#5-reproducibility)).                                                                                                                                                                                                                                        |
 | `validate(sbom)`           | no                 | Runs the [conformance checks](#conformance-checks).                                                                                                                                                                                                                                                                                                          |
 | `publish(artifact, sbom)`  | yes                | Attaches the SBOM to the artifact through the ecosystem's channel ([Distribution](#6-distribution)).                                                                                                                                                                                                                                                         |
 
@@ -270,7 +293,7 @@ each adapter implements the ones that are ecosystem-specific.
 and are implemented once, by a deterministic tool,
 not by each adapter.
 `generate-source` is the same for every ecosystem too:
-it reads the release's `LICENSE` and `NOTICE`,
+it reads the source tree and the release's `LICENSE` and `NOTICE`,
 which every release carries whatever its ecosystem.
 
 ## Conformance checks
@@ -286,10 +309,11 @@ with the offending `bom-ref`:
 | C4  | Every component of an ecosystem with a package-URL type has a `purl`.                                                                                                                                   |
 | C5  | Every `licenses` entry is a valid SPDX expression or SPDX license ID; a named license (`license.name`, not on the SPDX list) is reported for review.                                                    |
 | C6  | Every `bom-ref` named in `dependencies` exists in the document, and in a package SBOM every component appears in `dependencies`.                                                                        |
-| C7  | `serialNumber` is the version 5 UUID derived from the subject's `purl`, and `metadata.timestamp` matches `SOURCE_DATE_EPOCH`.                                                                           |
-| C8  | No nested component has `isExternal: true`, and every component that a nested component depends on in `dependencies` is either nested in the same assembly or external in the top-level `$.components`. |
+| C7  | `serialNumber` is the version 5 UUID derived from the subject's `purl`, `metadata.timestamp` matches `SOURCE_DATE_EPOCH`, and every array is in the order rule 5 gives.                                                                           |
+| C8  | No nested component has `isExternal: true`, and every component that a nested component depends on in `dependencies` is nested in the same assembly or is in the top-level `$.components`. |
 | C9  | In a package SBOM, every embedded component in the top-level `$.components` has the same `purl` type as the subject.                                                                                    |
 | C10 | In a source SBOM, every file component has `hashes`, `licenses` and `copyright`, and every license other than the project's own appears in the release's `LICENSE` file.                                |
+| C11 | Every `bom-ref` is the value rule 3 derives for its component, and no component has `scope: excluded`.                                                                                                  |
 
 C9 and the `LICENSE` half of C10 are heuristics, reported for review, not as failures.
 An embedded component from another ecosystem at the top level (C9)
@@ -354,6 +378,9 @@ Each adapter documents any ecosystem-specific keys it adds.
   A source release belongs to no package ecosystem,
   so which `purl` type identifies it in the source SBOM's `metadata.component`
   (and so derives its serial number) is not settled.
+  Until it is, rule 7 is provisional:
+  no source SBOM can meet rule 5's serial number,
+  so C7 is reported for review, not as a failure, on source SBOMs.
 - **Supplier configuration key.**
   Which key of the project or organization manifest names the supplier;
   an organization-level default (the ASF for every ASF project)
