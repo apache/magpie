@@ -158,6 +158,7 @@ A volume create gets the project label and is refused when it names a driver oth
 An exec body is allow-listed to the exec fields, with `Privileged: true` refused; an update body to resource limits and the restart policy.
 
 A denial comes back as `403` with a one-line reason both CLIs print verbatim.
+An inspect of a name that is not one of the project's resources is the exception: it answers `404`, whether the name is missing or another project's, because clients probe for a name with an inspect and carry on only after a `404`.
 `auth` (registry login), image push, swarm, services, tasks, nodes, plugins, secrets, configs, distribution, session and `system/dial-stdio` are denied outright, along with any path not in the allowed families.
 So are `checkpoint`, `restore`, `generate` and `play` (the first two write a host path daemon-side, the last two hand the daemon a Kubernetes manifest), and `export` / `import` as query parameters on any route.
 

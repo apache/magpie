@@ -442,7 +442,10 @@ plain create, pass.
 Rewrites are logged at debug level; denials are returned as
 `403 {"message": "container-gateway: <rule> — <what to change>; see
 docs/setup/sandbox-troubleshooting.md#…"}` so both CLIs print the
-reason verbatim.
+reason verbatim. A failed label check on an inspect is returned as `404`
+with the same body, for a missing name and for another project's alike,
+because clients probe for a name with an inspect and carry on only after
+a `404`.
 
 ### Egress rule
 

@@ -25,13 +25,16 @@ line is rebuilt from the parsed method and ``Request.raw_target()``, never
 copied from the client's own start line, so a target the policy read
 differently than the daemon would cannot survive the trip.
 
-*A failed label check answers 403, never 404.* The client is inside the
-sandbox and the daemon is root-equivalent on the host; answering 404 for
-"exists but belongs to another project" and 403 for "yours" would turn the
-gateway into an existence oracle for every other project's containers. The
-same reasoning makes every indeterminate backend answer (unreachable,
-unparsable, an error status) deny rather than pass: the check fails
-closed.
+*A failed label check on a by-name call never tells "no such resource"
+from "another project's".* The client is inside the sandbox and the daemon is
+root-equivalent on the host; one status for the first and another for the
+second would turn the gateway into an existence oracle for every other
+project's containers. Both get 403, except on an inspect, where both get
+404: the docker CLI, compose and buildx probe for a name with an inspect
+and carry on only when the answer is 404 (an untyped ``docker inspect
+<image>`` asks for a container of that name first). The same reasoning
+makes every indeterminate backend answer (unreachable, unparsable, an
+error status) deny rather than pass: the check fails closed.
 """
 
 from __future__ import annotations
@@ -206,7 +209,7 @@ class Relay:
         """The resource's ID when it carries this project's label, else ``None``.
 
         ``None`` covers "no such resource" and "someone else's resource"
-        alike -- the caller answers 403 either way.
+        alike -- the caller gives both the same answer.
         """
         if route.family is Family.EXEC:
             info = await self._get_json(_inspect_target(Family.EXEC, name, route.libpod))
@@ -373,7 +376,10 @@ class Relay:
             ident = await self.resource_id_if_labelled(allow.route, name)
             if ident is None:
                 log.info("deny %s %s: label-check on %s", req.method, req.path, name)
-                return await _refuse(writer, _denial(f"label-check: {name} does not belong to this project"))
+                status = 404 if allow.route.action == "inspect" else 403
+                return await _refuse(
+                    writer, _denial(f"label-check: {name} does not belong to this project", status)
+                )
             if allow.name_in_query is not None:
                 # The name came out of the query (compat
                 # `POST /commit?container=<id>`), so the resolved id goes
@@ -575,8 +581,8 @@ def _content_type(head: Head) -> str:
     return (head.get("content-type") or "").split(";")[0].strip().lower()
 
 
-def _denial(reason: str) -> bytes:
-    return error_response(403, Deny(reason).message)
+def _denial(reason: str, status: int = 403) -> bytes:
+    return error_response(status, Deny(reason).message)
 
 
 def _label_denial(kind: str, name: str) -> bytes:
