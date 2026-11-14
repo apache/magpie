@@ -34,6 +34,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from .. import ci as shared_ci
 from .. import config, mentions, model
 from ..triage import guards as triage_guards
 from . import body as review_body
@@ -498,7 +499,8 @@ def _decide(
         {k: v for k, v in outdated[i].items() if not k.endswith("_untrusted")}
         for i in dict.fromkeys(args.addressed_thread)
     ]
-    return disposition.pick(
+    # Check if disposition without secondary CI would be eligible for approval
+    tentative = disposition.pick(
         findings,
         ci_state=pr.rollup_state,
         real_ci=selectors.real_ci(pr, cfg),
@@ -520,6 +522,56 @@ def _decide(
         viewer_known=bool(pr.viewer),
         ci_outdated_query=pr.ci_outdated_query,
     )
+
+    needs: list[dict[str, Any]] = []
+    secondary_ci_verified = True
+    secondary_ci_reason = None
+    if tentative["disposition"] == "APPROVE" or tentative.get("fixup", {}).get("eligible"):
+        check_runs_path = _file(args.saved_dir, f"check-runs-{pr.head_sha}.json")
+        if check_runs_path is None:
+            needs.append(
+                _need(
+                    "check-runs",
+                    [pr.head_sha],
+                    f"check-runs-{pr.head_sha}.json",
+                    "secondary confirmation of real CI on head commit",
+                )
+            )
+        else:
+            try:
+                check_runs_data = json.loads(check_runs_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                check_runs_data = None
+            if check_runs_data is None or not shared_ci.check_runs_have_real_ci(check_runs_data, cfg):
+                secondary_ci_verified = False
+                secondary_ci_reason = f"secondary CI confirmation failed — no real CI check runs recorded for head commit {pr.head_sha[:8]}"
+
+    result = disposition.pick(
+        findings,
+        ci_state=pr.rollup_state,
+        real_ci=selectors.real_ci(pr, cfg),
+        unresolved_threads=pr.unresolved_threads - len(resolve_first),
+        other_changes_requested=disposition.other_changes_requested(list(pr.reviews), viewer, pr.author),
+        unanswered_question=args.unanswered_question,
+        ci_diff_caused=args.ci_diff_caused,
+        mergeable=pr.mergeable,
+        merge_state=pr.merge_state,
+        permission=permission,
+        head_pushable=args.head_pushable,
+        resolve_first=resolve_first,
+        auto_merge_allowed=pr.auto_merge_allowed,
+        viewer_can_enable_auto_merge=pr.viewer_can_enable_auto_merge,
+        auto_merge_enabled=pr.auto_merge_enabled,
+        self_authored=viewer.lower() == pr.author.lower(),
+        merge_method=pr.default_merge_method,
+        pending_not_required=pr.pending_not_required,
+        viewer_known=bool(pr.viewer),
+        ci_outdated_query=pr.ci_outdated_query,
+        secondary_ci_verified=secondary_ci_verified,
+        secondary_ci_reason=secondary_ci_reason,
+    )
+    result["needs"] = needs
+    return result
 
 
 def _reviewers(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:

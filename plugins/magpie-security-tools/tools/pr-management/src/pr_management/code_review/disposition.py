@@ -103,6 +103,8 @@ def pick(
     pending_not_required: tuple[str, ...] | list[str] = (),
     viewer_known: bool = True,
     ci_outdated_query: bool = False,
+    secondary_ci_verified: bool = True,
+    secondary_ci_reason: str | None = None,
 ) -> dict[str, Any]:
     resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
@@ -155,6 +157,12 @@ def pick(
         ci_action = (
             "approve or re-run the project's workflows (pr-management-triage), then re-run disposition"
         )
+    elif not secondary_ci_verified:
+        gates.append(
+            secondary_ci_reason or "secondary CI confirmation failed — no real CI check runs on head commit"
+        )
+        if not ci_action:
+            ci_action = "trigger or wait for real CI on head commit, then re-run disposition"
     if unresolved_threads:
         gates.append(f"{unresolved_threads} unresolved review thread(s)")
     if other_changes_requested:

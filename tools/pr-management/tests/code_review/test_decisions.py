@@ -540,3 +540,17 @@ def test_pr_with_outdated_vetted_ops_query_gates_approval_with_upgrade_action() 
     assert result["disposition"] == "COMMENT"
     assert any("vetted-ops is out of date" in g for g in result["approval_gates"])
     assert result["ci_action"] == "upgrade vetted-ops to update GraphQL queries, then re-run disposition"
+
+
+def test_secondary_ci_unverified_blocks_approval() -> None:
+    # Direction 2 of #2034: secondary CI check fails or has 0 real CI checks on head commit
+    result = _pick_findings([], secondary_ci_verified=False)
+    assert result["disposition"] == "COMMENT"
+    assert any("secondary CI confirmation failed" in g for g in result["approval_gates"])
+    assert "trigger or wait for real CI on head commit" in (result["ci_action"] or "")
+
+
+def test_secondary_ci_verified_permits_approval() -> None:
+    result = _pick_findings([], secondary_ci_verified=True)
+    assert result["disposition"] == "APPROVE"
+    assert not result["approval_gates"]

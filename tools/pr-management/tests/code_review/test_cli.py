@@ -1042,3 +1042,26 @@ def test_render_refuses_auto_merge_when_the_read_has_no_viewer(
     _without_viewer(saved)
     with pytest.raises(SystemExit, match="has no viewer"):
         _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
+
+
+def test_disposition_needs_check_runs_before_approving(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_auto_merge(saved)
+    # Head check-runs is not saved yet
+    dis = _disposition(capsys, project, saved)
+    assert any(n["op"] == "check-runs" and n["params"] == [HEAD] for n in dis["needs"])
+    # If check-runs has only bot checks, APPROVE is gated
+    (saved / f"check-runs-{HEAD}.json").write_text(
+        json.dumps({"check_runs": [{"name": "boring-cyborg", "conclusion": "SUCCESS"}]})
+    )
+    dis2 = _disposition(capsys, project, saved)
+    assert dis2["disposition"] == "COMMENT"
+    assert any("secondary CI confirmation failed" in g for g in dis2["approval_gates"])
+    # If check-runs has real CI, APPROVE is unlocked
+    (saved / f"check-runs-{HEAD}.json").write_text(
+        json.dumps({"check_runs": [{"name": "Tests", "conclusion": "SUCCESS"}]})
+    )
+    dis3 = _disposition(capsys, project, saved)
+    assert dis3["disposition"] == "APPROVE"
+    assert not dis3["approval_gates"]
