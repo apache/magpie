@@ -384,9 +384,13 @@ def _security_tool_copies() -> dict[str, str]:
     # framework-relative, so a project inheriting a key from its organization
     # (`cve_authority.tool`, `release_process.automated_signing`) resolves it on a
     # marketplace install too; the session hook copies them under `<framework>`.
-    for manifest in sorted(Path("organizations").glob("*/organization.md")):
+    # Globbed from the repository root, not the working directory: this runs at
+    # import time, and the tests import the module from tools/dev.
+    repo = Path(__file__).resolve().parents[2]
+    for manifest in sorted((repo / "organizations").glob("*/organization.md")):
         if manifest.parent.name != "_template":
-            copies[manifest.as_posix()] = manifest.as_posix()
+            rel = manifest.relative_to(repo).as_posix()
+            copies[rel] = rel
     for name in SECURITY_STATS_DASHBOARD_FILES:
         path = f"tools/security-tracker-stats-dashboard/{name}"
         copies[path] = path
