@@ -65,6 +65,11 @@ from pathlib import Path
 
 SKILLS = Path("skills")
 PLUGINS = Path("plugins")
+# The plugin icon (the Magpie mark from assets/badge.json, on a dark tile), copied
+# into every plugin's `.claude-plugin/`, where `claude plugin validate --strict`
+# looks for it (ICON_MISSING fails the check-claude-mods hook otherwise).
+PLUGIN_ICON_SOURCE = Path("assets/plugin-icon.png")
+PLUGIN_ICON = Path(".claude-plugin/icon.png")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
 ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # version + shared metadata anchor
 UPGRADE_HOOK = Path("plugins/magpie-setup/hooks/check-upgrade.sh")  # magpie-setup SessionStart
@@ -1279,6 +1284,32 @@ def welcome_families(action: str) -> list[str]:
     return [f"{SETUP_PREFLIGHT_PACKAGE}/families.py: {detail} (regenerate with --fix)"]
 
 
+def _plugin_dirs(fam: dict[str, set[str]]) -> list[Path]:
+    return [PLUGINS / name for name in sorted({f"magpie-{f}" for f in fam} | set(SUBSTRATE_PLUGINS))]
+
+
+def check_icons(fam: dict[str, set[str]]) -> list[str]:
+    """Every plugin carries the shared icon, byte for byte."""
+    if not PLUGIN_ICON_SOURCE.is_file():
+        return [f"{PLUGIN_ICON_SOURCE}: missing (the icon every plugin ships)"]
+    want = PLUGIN_ICON_SOURCE.read_bytes()
+    errors = []
+    for pdir in _plugin_dirs(fam):
+        icon = pdir / PLUGIN_ICON
+        if not icon.is_file() or icon.read_bytes() != want:
+            errors.append(f"{icon}: missing or differs from {PLUGIN_ICON_SOURCE} (regenerate with --fix)")
+    return errors
+
+
+def write_icons(fam: dict[str, set[str]]) -> None:
+    want = PLUGIN_ICON_SOURCE.read_bytes()
+    for pdir in _plugin_dirs(fam):
+        icon = pdir / PLUGIN_ICON
+        icon.parent.mkdir(parents=True, exist_ok=True)
+        if not icon.is_file() or icon.read_bytes() != want:
+            icon.write_bytes(want)
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -1290,6 +1321,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
 
     shared, meta_errs = root_metadata()
     errors += meta_errs
+    errors += check_icons(fam)
 
     # 0) Every ecosystem manifest mirrors pyproject.toml's version.
     version, verr = pyproject_version()
@@ -1475,7 +1507,7 @@ def unowned_entries(pdir: Path) -> list[str]:
     unexpected = sorted(p for p in pdir.iterdir() if p not in owned)
 
     if mdir.is_dir():
-        unexpected += sorted(p for p in mdir.iterdir() if p.name != "plugin.json")
+        unexpected += sorted(p for p in mdir.iterdir() if p.name not in ("plugin.json", PLUGIN_ICON.name))
 
     for sdir in link_dirs:
         if sdir.is_dir():
@@ -1580,6 +1612,8 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
         if name in CODEX_FAMILY_HOOKS:
             write_codex_family_hooks(name, manifest["description"], shared)
+
+    write_icons(fam)
 
     # Nothing installs the repo root as a Codex plugin, so its manifest wires no hook.
     root_codex, root_codex_err = load_json(ROOT_CODEX_MANIFEST)
