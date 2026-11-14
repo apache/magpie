@@ -59,6 +59,11 @@ if [ ! -f "$target/.complete" ]; then
     if [ -d "$root/plugins" ]; then
       cp -R "$root/plugins" "$staging/plugins"
     fi
+    # The organization manifests a project inherits keys from (release-config's
+    # org_manifest_chain looks for them under the framework root).
+    if [ -d "$root/organizations" ]; then
+      cp -R "$root/organizations" "$staging/organizations"
+    fi
     # The plugin cache may be read-only; uv writes a .venv and uv.lock beside each project.
     chmod -R u+w "$staging"
     touch "$staging/.complete"

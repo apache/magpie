@@ -444,3 +444,22 @@ def test_load_build_carries_the_voter_inputs(project, load):
     assert build["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
     default = load(project(), None)["build"]
     assert default["rat_excludes_path"] == ".rat-excludes" and default["source_tree_validators"] == []
+
+
+def test_org_manifest_found_in_the_marketplace_framework_copy(tmp_path, monkeypatch):
+    """A tool installed as a dependency cannot reach `organizations/` through `__file__`;
+    the marketplace framework copy under ~/.cache is where the session hook puts it."""
+    from release_config import config
+
+    installed = tmp_path / "venv" / "lib" / "site-packages" / "release_config" / "config.py"
+    monkeypatch.setattr(config, "__file__", str(installed))
+    framework = tmp_path / "framework-current"
+    manifest = framework / "organizations" / "ASF" / "organization.md"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("cve_authority:\n  tool: vulnogram\n", encoding="utf-8")
+    monkeypatch.setattr(config, "MARKETPLACE_FRAMEWORK", framework)
+    adopter = tmp_path / "adopter"
+    adopter.mkdir()
+
+    chain = config.org_manifest_chain(md.Resolver(adopter, None), "ASF")
+    assert [path for path, _ in chain] == [manifest]

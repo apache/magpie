@@ -124,7 +124,7 @@ The ASF-security adapter's `preamble_match` regex,
 `credit_extraction_rule`,
 `contact_handle`
 (the `security@apache.org` default,
-declared org-level in [`organizations/ASF/organization.md`](https://github.com/apache/magpie/blob/main/organizations/ASF/organization.md)
+declared org-level in [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md)
 and inherited through project.md `forwarders.asf-security.contact_handle`),
 and `reporter_addressing_block` convention
 all live in [`tools/gmail/asf-relay.md`](../gmail/asf-relay.md).
@@ -234,7 +234,7 @@ The GitHub-style handle
 (or back-channel identifier, such as a shared-inbox address)
 of the relay contact the skills should `@mention` or address when proposing a draft.
 For ASF Security the org-level default is the `security@apache.org` shared inbox
-(per [`organizations/ASF/organization.md`](https://github.com/apache/magpie/blob/main/organizations/ASF/organization.md));
+(per [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md));
 an adopter whose relays come through an individual liaison
 overrides it with that person's handle (e.g. `@raboof`).
 For huntr the handle would be huntr's program-issued contact.
@@ -378,7 +378,7 @@ a third-person ask"* rule, with the worked GHSA / CVE example.
 
 The org-level default is the `security@apache.org` shared inbox —
 durable across security-team rotations,
-declared once in [`organizations/ASF/organization.md`](https://github.com/apache/magpie/blob/main/organizations/ASF/organization.md).
+declared once in [`organizations/ASF/organization.md`](../../organizations/ASF/organization.md).
 An adopter whose relayed reports are triaged by an individual liaison
 (for the reference adopter's projects,
 Arnout Engelen — `@raboof`, `engelen@apache.org` or

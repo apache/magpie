@@ -17,7 +17,7 @@
 > reports relayed by the ASF Security team (`security@apache.org`). It applies only to a
 > project whose `<project-config>/project.md` declares `organization: ASF`, which is also
 > where its `forwarders.enabled: [asf-security]` default comes from
-> ([`organizations/ASF/`](https://github.com/apache/magpie/blob/main/organizations/ASF/organization.md)).
+> ([`organizations/ASF/`](../../organizations/ASF/organization.md)).
 
 Some reports reach the project's security list via the ASF security
 team — `security@apache.org` itself, or a personal `@apache.org`
