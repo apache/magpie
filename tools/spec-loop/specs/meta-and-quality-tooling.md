@@ -268,6 +268,9 @@ trustworthy as it grows.
   test` on every plugin whose `hooks/hooks.json` declares `modules`,
   with Claude Code pinned in the hook environment, because Claude Code
   silently skips a hooks module that fails its static analysis.
+  That validation type-checks the hooks module, so the mods import their
+  siblings as `./<name>.js` and fix strict-null findings with guards rather
+  than suppressions (#2070).
   Its `check-claude-mods-local` twin runs on ordinary commits with the
   contributor's own Claude Code and skips when it is absent or older than
   the pin; CI skips the twin.

@@ -83,6 +83,9 @@ same directory; the behaviour is unchanged.
   It also ships agent-guard guards under `guards/` (`mark_ready.py`,
   `mention.py`) and the opt-in shadow pre-filter
   `scripts/typed_decision_prefilter.py` with its tests under `tests/`.
+  The skill runs its bundled scripts (`pr_link.py` and the pre-filter) as
+  `<skill-dir>/scripts/…`, because `<framework>` on a marketplace install
+  holds no `skills/` directory (#2063).
 - Skill: `pr-management-stats` — read-only dashboard of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
@@ -101,6 +104,16 @@ same directory; the behaviour is unchanged.
   Selection, scans, the slop threshold, disposition, inline anchoring and the
   review payload run as code in `pr_management.code_review`; the agent judges
   H1/H5/S2, writes the findings and assigns severity.
+  The `pr:` selector names one PR or several (#2055): `pr:N,M`, inclusive
+  ranges `pr:N-M`, optional `#` prefixes and repeated `pr:` tokens, with
+  duplicates dropped and at most 50 PRs; the queue keeps the order the
+  maintainer named, and a named PR missing from the open-PR sweep is listed
+  under `not_open`.
+  The selector output keeps `pr_number` (set when exactly one PR is named)
+  beside `pr_numbers`.
+  `code-review session record --outcome` accepts `FIXUP` beside the three
+  review events and the `skipped` / `slop-comment` / `slop-close` /
+  `dry-run` outcomes, and the session summary counts it as a review (#2056).
   An inline comment carries the finding as the review body does (its
   `quoted_rule` and `suggestion`), minus the excerpt it is anchored on, and
   a folded finding falls back to its suggestion before its rule, never the
@@ -401,8 +414,19 @@ same directory; the behaviour is unchanged.
   disposition --findings <file>` Bash call hydrates the mod's interactive pane
   above the prompt, and the zero-token `/magpie-findings` command (`status`,
   `all`, `none`, `keep`, `drop`, `edit`) tracks per-finding actions.
-  Neither changes what is posted: only the answer typed at the picker reaches
-  `render`.
+  Once the maintainer curates, the mod writes the findings to
+  `<file>.curated.json` (an envelope carrying the PR number and the source
+  file's SHA-256) and the keep answer to `<file>.curated.keep` beside the
+  findings file; the first `disposition` run writes neither, and a write
+  failure, empty findings or a PR mismatch writes an invalidation marker
+  instead, since the mod API cannot delete files (#2005).
+  It refuses to write through a symlink or a non-regular file.
+  `render` uses `<file>.curated.json` only when its PR and source hash
+  match, else the original findings; a curated envelope passed directly
+  must pass every check or the run stops.
+  An answer typed at the picker still wins; an empty answer is passed as
+  `--keep curated`, which uses `<file>.curated.keep` only when the curated
+  findings were used, and `A` otherwise.
   Runtimes without mods keep the text picker alone, and Codex reads the clean
   `hooks/codex-hooks.json` instead (#1992).
 - **Third-party licence scan reads only real copyright notices.**
