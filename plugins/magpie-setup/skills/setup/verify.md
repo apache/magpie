@@ -698,7 +698,6 @@ adopter opted into via
   - `mcp__ponymail__get_source`
   - `mcp__ponymail__list_lists`
   - `mcp__ponymail__list_restrictions`
-  - `Bash(vulnogram-api-record-fetch *)`
 
   (The PonyMail MCP server is installed from the latest `main` of
   `apache/comdev`; see [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md).)
