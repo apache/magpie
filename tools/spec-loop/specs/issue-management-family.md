@@ -128,6 +128,10 @@ unchanged.
   closing the duplicate after the maintainer confirms. Never closes without
   explicit confirmation. Ships `mode: Triage` + `capability: capability:resolve`
   + `experimental`.
+  Under Claude Code the plugin also ships a mod,
+  `plugins/magpie-issue/hooks/duplicate-picker.ts`, wired through
+  `hooks/hooks.json` with its types in `hooks/types.ts` and `types.d.ts`
+  (part 1 of #2075; part 2 wires the candidate-payload session reader and skill integration).
 
 - Family README: `docs/issue-management/README.md` — family overview,
   mode boundary with `pr-management-*` and `security-issue-*`, and a link
@@ -183,6 +187,13 @@ unchanged.
   duplicate pairs within the same tracker. Cross-tracker duplicates (e.g.,
   the same bug reported in both a JIRA project and GitHub Issues) are out
   of scope.
+
+- **The duplicate candidate picker pane is additive.** Under Claude Code, a
+  duplicate candidate payload hydrates the mod's interactive pane above the prompt.
+  The mod renders the deduplication target and candidate issues, allowing maintainers
+  to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept)
+  before any mutation is proposed. Part 1 (#2076) provides the core UI and state
+  management; part 2 connects the file hydration and skill workflow.
 
 ## Out of scope
 
