@@ -266,6 +266,9 @@ def test_the_title_needs_the_project_names(capsys, tmp_path):
         ({"governance_member": True}, None, False),
         ({"governance_member": True, "server_exit": 4}, "recipe", False),
         ({"governance_member": True, "server_exit": 3}, "recipe", False),
+        ({"governance_member": True, "server_exit": 20}, "recipe", False),
+        ({"governance_member": True, "server_exit": 21}, "recipe", False),
+        ({"governance_member": True, "server_exit": 22}, "recipe", False),
         ({"governance_member": True, "server_exit": 0}, None, False),
         (
             {
@@ -290,6 +293,9 @@ def test_the_title_needs_the_project_names(capsys, tmp_path):
         ({"governance_member": True, "server_exit": 0, "allocate_exit": 1}, None, True),
         ({"governance_member": True, "server_exit": 0, "allocate_exit": 2}, None, True),
         ({"governance_member": True, "server_exit": 0, "allocate_exit": 4}, "recipe", False),
+        ({"governance_member": True, "server_exit": 0, "allocate_exit": 20}, "recipe", False),
+        ({"governance_member": True, "server_exit": 0, "allocate_exit": 21}, "recipe", False),
+        ({"governance_member": True, "server_exit": 0, "allocate_exit": 22}, "recipe", False),
     ],
 )
 def test_preflight_picks_the_step_3_path(capsys, tmp_path, data, path, setup):
@@ -301,6 +307,12 @@ def test_preflight_picks_the_step_3_path(capsys, tmp_path, data, path, setup):
             out["setup_command"]
             == "uv run --project '<framework>/tools/cve-tool' cve-tool setup --pmc airflow"
         )
+
+
+def test_preflight_exit_20_names_the_missing_key(capsys, tmp_path):
+    out = ok(capsys, tmp_path, "preflight", {"pmc": "airflow", "governance_member": True, "server_exit": 20})
+    assert out["path"] == "recipe"
+    assert "cve_authority.tool" in out["reason"]
 
 
 @pytest.mark.parametrize(

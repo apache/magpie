@@ -100,7 +100,8 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
             "2. In the *Title* field, paste this:\n\n"
             f"{indented}\n\n"
             "3. Submit the allocation. The CVE tool returns a `CVE-YYYY-NNNNN` ID — for the Vulnogram "
-            "adapter, clicking *Allocate*.\n"
+            "adapter, clicking *Allocate*; for other adapters, wherever the tool delivers it "
+            "(a form result, an ID by email).\n"
             "4. Paste the allocated CVE ID back into this conversation — the skill will pick it up and "
             "update the tracker.\n"
         )
