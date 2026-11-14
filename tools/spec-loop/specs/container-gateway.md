@@ -442,10 +442,12 @@ plain create, pass.
 Rewrites are logged at debug level; denials are returned as
 `403 {"message": "container-gateway: <rule> — <what to change>; see
 docs/setup/sandbox-troubleshooting.md#…"}` so both CLIs print the
-reason verbatim. A failed label check on an inspect is returned as `404`
-with the same body, for a missing name and for another project's alike,
-because clients probe for a name with an inspect and carry on only after
-a `404`.
+reason verbatim. A failed label check on an inspect of a container, pod,
+volume or network is returned as `404` with the same body, for a missing
+name and for another project's alike, because clients probe for a name
+with an inspect and carry on only after a `404`. When the backend gives
+neither a 2xx nor a 404 to the label check, the inspect is refused with
+`403`, so an outage never reads as "not found".
 
 ### Egress rule
 

@@ -752,7 +752,7 @@ A request that reaches the gateway but fails its policy comes back as `403`, and
 The message names the rule that refused the request, and it points back at this very catalog entry.
 The full create-time refusal table lives in [`tools/container-gateway/README.md` → What the policy refuses](../../tools/container-gateway/README.md#what-the-policy-refuses).
 Adjust the request rather than widening the sandbox: a `403` from the gateway is the policy working as intended, not a sandbox misconfiguration.
-One refusal is not a `403`: an inspect of a name that is not one of the project's resources answers `404`, whether the name is missing or another project's, with the same message.
+One refusal is not a `403`: an inspect of a container, pod, volume or network whose name is not one of the project's resources answers `404`, whether the name is missing or another project's, with the same message.
 Clients probe for a name that way and carry on only after a `404`, so an untyped `docker inspect <image>`, which asks for a container of that name first, then finds the image.
 
 A tool that drives the CLI for you can hide that message, by capturing the CLI's output or by calling an HTTP-upgrade endpoint, for which the CLI prints only the status (`unable to upgrade to h2c, received 403`).

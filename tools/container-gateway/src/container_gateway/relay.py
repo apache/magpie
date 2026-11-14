@@ -29,12 +29,14 @@ differently than the daemon would cannot survive the trip.
 from "another project's".* The client is inside the sandbox and the daemon is
 root-equivalent on the host; one status for the first and another for the
 second would turn the gateway into an existence oracle for every other
-project's containers. Both get 403, except on an inspect, where both get
-404: the docker CLI, compose and buildx probe for a name with an inspect
-and carry on only when the answer is 404 (an untyped ``docker inspect
-<image>`` asks for a container of that name first). The same reasoning
-makes every indeterminate backend answer (unreachable, unparsable, an
-error status) deny rather than pass: the check fails closed.
+project's containers. Both get 403, except on an inspect of a container,
+pod, volume or network, where both get 404: the docker CLI, compose and
+buildx probe for a name with an inspect and carry on only when the answer
+is 404 (an untyped ``docker inspect <image>`` asks for a container of that
+name first). The same reasoning makes every indeterminate backend answer
+(unreachable, unparsable, an error status) deny rather than pass: the
+check fails closed, and with a 403 on every route, so that an outage never
+reads as "not found".
 """
 
 from __future__ import annotations
@@ -201,28 +203,27 @@ class Relay:
         finally:
             writer.close()
 
-    async def _get_json(self, target: str) -> Any | None:
-        status, payload = await self._request_json("GET", target)
-        return payload if status is not None and 200 <= status < 300 else None
+    async def resource_id_if_labelled(self, route: Route, name: str) -> tuple[str | None, bool]:
+        """The resource's ID when it carries this project's label, and whether the backend answered.
 
-    async def resource_id_if_labelled(self, route: Route, name: str) -> str | None:
-        """The resource's ID when it carries this project's label, else ``None``.
-
-        ``None`` covers "no such resource" and "someone else's resource"
-        alike -- the caller gives both the same answer.
+        A ``None`` ID covers "no such resource" and "someone else's resource"
+        alike -- the caller gives both the same answer. The flag is false
+        when the backend gave neither a 2xx nor a 404, so that an outage is
+        never reported to the client as "not found".
         """
         if route.family is Family.EXEC:
-            info = await self._get_json(_inspect_target(Family.EXEC, name, route.libpod))
-            cid = info.get("ContainerID") if isinstance(info, dict) else None
+            status, info = await self._request_json("GET", _inspect_target(Family.EXEC, name, route.libpod))
+            answered = _answered(status)
+            cid = info.get("ContainerID") if isinstance(info, dict) and _ok(status) else None
             if not isinstance(cid, str) or not _IDENT_RE.fullmatch(cid):
-                return None
-            owner = await self._get_json(_inspect_target(Family.CONTAINERS, cid, route.libpod))
-            return name if has_label(_labels_of(owner), self.ctx.slug) else None
-        info = await self._get_json(_inspect_target(route.family, name, route.libpod))
-        if not isinstance(info, dict) or not has_label(_labels_of(info), self.ctx.slug):
-            return None
+                return None, answered
+            owner = await self._request_json("GET", _inspect_target(Family.CONTAINERS, cid, route.libpod))
+            return (name if self._owned(*owner) else None), _answered(owner[0])
+        status, info = await self._request_json("GET", _inspect_target(route.family, name, route.libpod))
+        if not self._owned(status, info):
+            return None, _answered(status)
         ident = str(info.get("Id") or info.get("ID") or info.get("Name") or name)
-        return ident if _IDENT_RE.fullmatch(ident) else name
+        return (ident if _IDENT_RE.fullmatch(ident) else name), True
 
     async def _resource_denial(self, allow: Allow) -> bytes | None:
         """403 payload for a named volume / network this project does not own.
@@ -373,10 +374,10 @@ class Relay:
                 # front of it. Nothing to inspect, so nothing to authorise.
                 log.info("deny %s %s: empty resource name", req.method, req.path)
                 return await _refuse(writer, _denial("label-check: empty resource name"))
-            ident = await self.resource_id_if_labelled(allow.route, name)
+            ident, answered = await self.resource_id_if_labelled(allow.route, name)
             if ident is None:
                 log.info("deny %s %s: label-check on %s", req.method, req.path, name)
-                status = 404 if allow.route.action == "inspect" else 403
+                status = 404 if answered and allow.route.action == "inspect" else 403
                 return await _refuse(
                     writer, _denial(f"label-check: {name} does not belong to this project", status)
                 )
@@ -579,6 +580,15 @@ def _is_interim(head: Head) -> bool:
 
 def _content_type(head: Head) -> str:
     return (head.get("content-type") or "").split(";")[0].strip().lower()
+
+
+def _ok(status: int | None) -> bool:
+    return status is not None and 200 <= status < 300
+
+
+def _answered(status: int | None) -> bool:
+    """The backend settled whether the resource exists: it sent a 2xx or a 404."""
+    return _ok(status) or status == 404
 
 
 def _denial(reason: str, status: int = 403) -> bytes:

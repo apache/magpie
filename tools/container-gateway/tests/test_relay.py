@@ -268,6 +268,23 @@ def test_inspect_of_a_foreign_or_missing_resource_is_the_same_404(tmp_path: Path
         assert foreign_body.replace(name.encode(), b"ghost") == ghost_body
         # Only the relay's own unversioned label-check inspect reached the daemon.
         assert all(not seen_target.startswith("/v1.45/") for _, seen_target, _ in backend.seen)
+        owned_status, _, _ = await call(relay, b"GET /v1.45/containers/mine/json HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert owned_status == 200
+
+    run(scenario())
+
+
+def test_inspect_is_403_when_the_backend_cannot_settle_the_label_check(tmp_path: Path) -> None:
+    """An outage must not read as "not found": a client would go on to create the resource."""
+
+    async def refuse() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        raise ConnectionRefusedError
+
+    async def scenario() -> None:
+        _, relay = stack(tmp_path)
+        relay.connect = refuse
+        status, _, body = await call(relay, b"GET /v1.45/containers/mine/json HTTP/1.1\r\nHost: x\r\n\r\n")
+        assert status == 403 and b"label-check" in body
 
     run(scenario())
 
