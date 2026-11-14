@@ -9,10 +9,11 @@ When enabled via `enable_typed_decision_prefilter: true`
 (default `0.85`), run the helper alongside `triage classify` to evaluate classifier accuracy.
 For each classified PR, write its state to a scratch file and invoke:
 ```bash
-uv run --project <framework>/tools/typed-decision python3 <framework>/skills/pr-management-triage/scripts/typed_decision_prefilter.py \
+uv run --project <framework>/tools/typed-decision python3 <skill-dir>/scripts/typed_decision_prefilter.py \
   --file <scratch>/pr-<N>.json \
   --table-classification <label>
 ```
+`<skill-dir>` is the directory holding this skill's `SKILL.md`; `<framework>/skills/` does not exist on a marketplace install.
 - **Contract:**
   The decision table and Real-CI guard result remains authoritative in all cases.
   The shadow pass records predictions alongside the final table classification for telemetry.
