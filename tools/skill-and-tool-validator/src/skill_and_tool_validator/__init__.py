@@ -401,6 +401,7 @@ TOOL_CAPABILITIES = {
     "contract:security-tracker",
     "contract:body-field",
     "contract:hook-manager",
+    "contract:sbom-pipeline",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",

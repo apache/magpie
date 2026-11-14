@@ -61,7 +61,8 @@ Start with [`overview.md`](overview.md), then:
   [`vetted-command-surface.md`](vetted-command-surface.md),
   [`adversarial-review.md`](adversarial-review.md),
   [`sandbox-diagnostics.md`](sandbox-diagnostics.md),
-  [`container-gateway.md`](container-gateway.md).
+  [`container-gateway.md`](container-gateway.md),
+  [`sbom-pipeline.md`](sbom-pipeline.md).
 
 (Agentic Autonomous, the fifth MISSION mode, is deliberately off and has no
 spec — see the note in [`overview.md`](overview.md).)
