@@ -1,7 +1,7 @@
 {
   "name": "magpie-repo-health",
   "description": "Apache Magpie \u2014 Repository maintenance: CI, workflow security, dependency vulnerabilities, licenses and flaky-test audits, plus fixes for audit findings.",
-  "version": "0.9.0.dev202611132325",
+  "version": "0.9.0.dev202611140420",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

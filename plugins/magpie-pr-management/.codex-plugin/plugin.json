@@ -1,7 +1,7 @@
 {
   "name": "magpie-pr-management",
   "description": "Apache Magpie \u2014 Pull requests: triage, statistics, code review, stack review, merge candidates, thread mentoring and reviewer routing.",
-  "version": "0.9.0.dev202611132325",
+  "version": "0.9.0.dev202611140420",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
