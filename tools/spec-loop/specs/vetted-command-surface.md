@@ -282,6 +282,9 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    `pr-management-code-review`'s auto-merge path added `run-rerun`, for a run
    held in `action_required` that `workflow-approve` answers is not waiting for
    approval (#1951).
+   It also reads `check-runs` for the head commit before proposing an
+   approval, the secondary confirmation that real CI ran there (#2072); the
+   read is the triage one, granted to `pr-management-code-review` as well.
    `pr-management-triage`'s recovery journal added two read-only operations,
    `pr-triage-recovery-state` (the PR fields a triage write changes, read
    before each write) and `pr-triage-comment-receipt` (one issue comment by

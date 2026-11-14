@@ -82,6 +82,10 @@ def saved(tmp_path: Path) -> Path:
     (path / "cr-codeowners-github.json").write_text(json.dumps(owners))
     (path / "team-core.txt").write_text("alice\nbob\n")
     (path / "viewer-commits.json").write_text(json.dumps([[]]))
+    # Real CI on the fixture heads, so APPROVE paths pass the secondary head check.
+    real_runs = json.dumps({"check_runs": [{"name": "Tests", "conclusion": "SUCCESS"}]})
+    for head in ("abc1234def", "0123456789abcdef0123456789abcdef01234567"):
+        (path / f"check-runs-{head}.json").write_text(real_runs)
     full = node(7, requested=["alice"], files=["scheduler/job.py"], reviews=[review("bob", "COMMENTED")])
     (path / "cr-pr-7.json").write_text(
         json.dumps(
@@ -1044,13 +1048,26 @@ def test_render_refuses_auto_merge_when_the_read_has_no_viewer(
         _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
 
 
+def test_render_auto_merge_refuses_without_the_head_check_runs(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    """`render --auto-merge` re-runs the decision, so a missing head read cannot slip past it."""
+    _with_auto_merge(saved)
+    (saved / f"check-runs-{HEAD}.json").unlink()
+    with pytest.raises(SystemExit, match="auto-merge is not available"):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
+
+
 def test_disposition_needs_check_runs_before_approving(
     capsys: pytest.CaptureFixture[str], project: Path, saved: Path
 ) -> None:
     _with_auto_merge(saved)
-    # Head check-runs is not saved yet
+    # Head check-runs is not saved yet: the read is asked for, and APPROVE fails closed meanwhile
+    (saved / f"check-runs-{HEAD}.json").unlink()
     dis = _disposition(capsys, project, saved)
     assert any(n["op"] == "check-runs" and n["params"] == [HEAD] for n in dis["needs"])
+    assert dis["disposition"] == "COMMENT"
+    assert any("not read yet" in g for g in dis["approval_gates"])
     # If check-runs has only bot checks, APPROVE is gated
     (saved / f"check-runs-{HEAD}.json").write_text(
         json.dumps({"check_runs": [{"name": "boring-cyborg", "conclusion": "SUCCESS"}]})
