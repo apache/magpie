@@ -282,6 +282,11 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    `pr-management-code-review`'s auto-merge path added `run-rerun`, for a run
    held in `action_required` that `workflow-approve` answers is not waiting for
    approval (#1951).
+   `pr-management-triage`'s recovery journal added two read-only operations,
+   `pr-triage-recovery-state` (the PR fields a triage write changes, read
+   before each write) and `pr-triage-comment-receipt` (one issue comment by
+   numeric id, after a comment write), both against the policy-pinned upstream
+   and granted to `pr-management-triage` (#2065).
    `security-issue-sync` reads a GitHub Security Advisory's comments with
    `advisory-comments` and posts a reply the reporter sees with
    `advisory-comment` (#1964).

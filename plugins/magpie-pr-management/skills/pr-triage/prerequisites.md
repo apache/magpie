@@ -115,6 +115,11 @@ The session cache is `<scratch>/triage-session.json`, written by `triage session
 A PR recorded with a terminal action and an unchanged head is skipped for the rest of the session; a new push produces a new head and re-classifies it.
 A missing file is an empty session; `clear-cache` deletes it.
 The cache skips *classification*, never *verification*: every mutation still guards on fresh reads.
+The same file's `action_log` is the separate structured evidence for [session recovery](recovery.md).
+It binds the saved session to the upstream repository and viewer and stores each operation's intent and observed outcome.
+History/revisit works with old caches, but an old entry has no undo evidence.
+Before `clear-cache`, warn that it discards recovery evidence and require explicit confirmation; never clear it to revisit one PR.
+If a checkpoint fails, stop before the next GitHub write; do not downgrade missing recovery evidence to a warning.
 
 ---
 

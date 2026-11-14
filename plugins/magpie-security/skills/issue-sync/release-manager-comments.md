@@ -22,12 +22,12 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
      If any field is empty / `_No response_` without that exception, propose the fill-fields comment with that field list.
      The issue stays assigned to the remediation developer (in the common case also the fix-PR author and current assignee).
      **Do not propose any RM-related action at Step 11**; that belongs to Step 12.
-  2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state in Vulnogram.
-     If it is still `DRAFT` for any reason (a body field still empty, the push blocked,
+  2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state (`cve-tool fetch --state-only`).
+     If it is still `allocated` (Vulnogram: `DRAFT`) for any reason (a body field still empty, the push blocked,
      or the push landed but the state did not advance because the JSON failed CNA-schema validation),
      **re-fire** the fill-fields comment with the refreshed list of what is still blocking.
-     **Do not** fire the RM hand-off, flip the label to `fix released`, or swap the assignee — those all gate on `state == REVIEW`.
-     A later sync that finds the state promoted to `REVIEW` clears the gate and fires the RM hand-off then.
+     **Do not** fire the RM hand-off, flip the label to `fix released`, or swap the assignee — those all gate on `state == review-ready`.
+     A later sync that finds the state promoted to `review-ready` clears the gate and fires the RM hand-off then.
 
   **Idempotency + PATCH-in-place**. Same shape as the hand-off
   comment: scan for the marker
@@ -77,13 +77,13 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   **This is its own first-class comment, not a rollup entry**: it is the release manager's one-shot orientation,
   which a `<details>` block would bury.
 
-  **Trigger — gated on `state == REVIEW`.** Fires *exactly once* per tracker, at the pass that proposes `pr merged` → `fix released`
-  **AND** finds the CVE record state in Vulnogram is `REVIEW`
-  (verified after Step 5b's push attempt — the push includes the `body.CNA_private.state =
-  "REVIEW"` advance when all six mandatory body fields are populated).
-  When the record is still `DRAFT` after the push attempt, **do not** fire this hand-off;
+  **Trigger — gated on `state == review-ready`.** Fires *exactly once* per tracker, at the pass that proposes `pr merged` → `fix released`
+  **AND** finds the CVE record state is `review-ready`
+  (verified after Step 5b's push attempt — the push includes the `review-ready` advance, for Vulnogram `body.CNA_private.state =
+  "REVIEW"`, when all six mandatory body fields are populated).
+  When the record is still `allocated` after the push attempt, **do not** fire this hand-off;
   fire the *Remediation-developer fill-fields comment* instead and leave the tracker assigned to the remediation developer.
-  **The RM must never receive this hand-off while the record is in `DRAFT`** — the template body asserts it, so the RM can recognise a misfire.
+  **The RM must never receive this hand-off while the record is `allocated`** — the template body asserts it, so the RM can recognise a misfire.
   Do not propose it earlier than Step 12, nor again once posted (idempotency check below).
 
   **Idempotency + variant edit-in-place.** Before proposing, scan
@@ -118,7 +118,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
     `tools/<cve-tool>/release-manager-handoff-comment-oauth-pushed.md`
     (for Vulnogram:
     [`tools/cve-tool-vulnogram/release-manager-handoff-comment-oauth-pushed.md`](../../../../tools/cve-tool-vulnogram/release-manager-handoff-comment-oauth-pushed.md)).
-    Used when Step 5b's `vulnogram-api-record-update` succeeded
+    Used when Step 5b's `cve-tool push` succeeded
     this sync run.
   - **Manual-paste variant (today's default)** —
     `tools/<cve-tool>/release-manager-handoff-comment.md`
@@ -167,10 +167,10 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 - **Publication-ready notification comment** — when this pass proposes populating the *Public advisory URL* body field
   (Step 14 — the *Advisory archived on `<users-list>`* row of the Step 1d table),
   **also** propose a separate publication-ready notification comment telling the release manager that the archive URL is captured,
-  the JSON is regenerated with it as a `vendor-advisory` reference, and the final paste + `READY` → `PUBLIC` move is unblocked.
+  the JSON is regenerated with it as a `vendor-advisory` reference, and the final paste + `publish-ready` → `public` move is unblocked.
 
   **Why a second comment instead of one comment with two states.**
-  The Step 12 hand-off ends at `READY` and points to this follow-up for `PUBLIC`;
+  The Step 12 hand-off ends at `publish-ready` and points to this follow-up for `public`;
   a fresh comment gives the RM a dated surface and a working `@`-mention.
 
   **Trigger.** Fires *exactly once* per tracker, at the pass that proposes the *Public advisory URL* body update —

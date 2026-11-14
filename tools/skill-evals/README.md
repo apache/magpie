@@ -33,7 +33,7 @@ Suites are currently implemented for:
 - **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
 - **pr-management-thread-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
-- **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
+- **pr-management-triage** — 54 cases across 8 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress, action-journal, session-recovery); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 39 cases across 4 steps (runtime-routing, codex-native, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 17 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)

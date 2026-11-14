@@ -3,6 +3,8 @@
 
 # `close-stale` — close a stale draft with its notice
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Batchable, but each PR still shows its preview and waits for `Y` / `n`: these closes are rarely wrong, and very wrong when they are.
 
 1. **Ready-label recheck** — the PR must not carry the ready label (Sweep 4 owns those). The [optimistic lock](deliver-note.md#0-optimistic-lock) read shows the labels; drop the PR from the sweep if it gained the label.

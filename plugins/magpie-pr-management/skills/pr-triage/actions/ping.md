@@ -3,6 +3,8 @@
 
 # `ping` — nudge the author about review feedback
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Deliver the note — [`deliver-note.md`](deliver-note.md), action `ping`.
 The renderer picks the body from the row: the review nudge for [`stale_review`](../classifications/stale-review.md), the thread nudge for [unresolved threads](../classifications/unresolved-threads.md).
 

@@ -3,6 +3,8 @@
 
 # `comment` — deliver the violations without a state change
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 1. **Ready label, when `details.strip_ready_label` is set** — remove it first (a 422 is benign):
 
    ```bash

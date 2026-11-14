@@ -215,6 +215,15 @@ same directory; the behaviour is unchanged.
   template's line, and only for a team of the organisation owning the target.
   One call can add a handle with `--allow-mention <login>` paired with
   `MAGPIE_ALLOW_MENTIONS=1` on the posting command (#1584).
+- **Session-local history and guarded recovery.**
+  `pr-management-triage` journals intent before every operation and verifies its outcome afterwards, including compound actions, skipped PRs and actions without notes.
+  A new structured `action_log` lives beside the existing `prs` cache; neither the history gist nor its pointer file is parsed as action evidence.
+  `[H]istory` revisits any recorded PR in the saved session while `[B]ack to group` retains its navigation meaning.
+  Reclassify bypasses only the selected PR's session suppression, never normal safety rules.
+  Recovery proposes exact inverse operations newest-first on each PR, checks current state and confirmation, preserves unrelated author text and records partial progress.
+  Exact comment IDs, ownership and update times are required for comment deletion; unknown outcomes, moved heads, merged PRs and conflicting edits block rather than guess.
+  Already-sent notifications, workflow approvals, CI execution and branch updates are explicitly non-reversible; a partial recovery is never reported as a full undo.
+  Legacy cache entries are viewable without inventing missing receipts.
 - **Stable per-PR drill-in progress.** `pr-management-triage` prefixes each
   individual drill-in with the PR's original one-based group position and
   group size plus the active `classify → propose <action>` transition.

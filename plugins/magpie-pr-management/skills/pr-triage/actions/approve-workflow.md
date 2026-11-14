@@ -3,6 +3,8 @@
 
 # `approve-workflow` — approve pending CI for a first-time contributor
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 **Inspect the diff first** — [`workflow-approval.md`](../workflow-approval.md) holds the protocol.
 Only after the maintainer confirms the diff is not malicious, re-list the pending runs at action time (another maintainer may have approved since the sweep) and refresh the liveness read (`guard` checks the head against any saved copy, so a stale one reports a head move that never happened):
 

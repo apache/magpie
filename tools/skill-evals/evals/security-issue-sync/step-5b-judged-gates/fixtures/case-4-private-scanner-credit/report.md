@@ -37,4 +37,4 @@ Regenerated JSON excerpt:
 
 Not a follow-up to any earlier CVE.
 
-Adapter session probe (`vulnogram-api-check`): `valid`.
+Adapter session probe (`cve-tool check`): `valid`.

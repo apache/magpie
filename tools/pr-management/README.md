@@ -14,6 +14,7 @@
     - [`triage fold` — splice the note into the PR body](#triage-fold--splice-the-note-into-the-pr-body)
     - [`triage guard` — the pre-mutation checks](#triage-guard--the-pre-mutation-checks)
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
+    - [Session action history and recovery](#session-action-history-and-recovery)
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
     - [`quick-merge screen`: pr-management-merge-candidates](#quick-merge-screen-pr-management-merge-candidates)
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
@@ -141,6 +142,26 @@ uv run --project <framework>/tools/pr-management pr-management triage session su
 
 `record` writes the session cache `triage classify --session` reads: a PR recorded terminal with an unchanged head is suppressed on the next classification.
 `summary` prints the Step 6 counts and a ready-to-print `text` block.
+
+### Session action history and recovery
+
+`triage session checkpoint --session <file> --repo <upstream> --viewer <viewer> --event <event.json>` records action intent and individual operation receipts.
+The event phases are `begin`, `prepare`, `result`, `finish` and `recover`.
+`triage session history` with the same session/repo/viewer lists ordered action metadata without note bodies.
+`triage session undo-plan --session <file> --repo <upstream> --viewer <viewer> --action-id <id> --live <saved-pr.json> [--runs <saved-runs.json>]` previews recovery without executing commands.
+All three commands are offline; the skill owns verified GitHub reads, confirmation, write locking and execution.
+The complete event schemas, native read shapes and execution protocol are in [the triage recovery contract](../../plugins/magpie-pr-management/skills/pr-triage/recovery.md).
+
+The new `action_log` lives alongside the existing `prs` cache in the session JSON.
+Intent is durable before each operation, including actions with no note and compound actions that fail halfway through.
+Recovery checks exact comment IDs and actor/version, preserves author text outside the managed block, and restores only changed label/assignee memberships and PR state.
+Prepared/unknown outcomes block recovery; irreversible operations remain explicitly identified.
+Recovery progress is recorded so reopening the same session or repeating a request does not repeat known successful writes.
+Old cache entries remain viewable but are never treated as undo receipts.
+
+`triage classify --session <file> --revisit <N>` selects one recorded PR and bypasses only its session suppression.
+Refresh that PR's saved reads first; the regular classifier, pre-filters and guards still apply.
+The read-only command does not remove history or repeat an action.
 
 ### `stats build` — the pr-management-stats dashboard
 

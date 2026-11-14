@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/pr-management-triage/actions/deliver-note.md",
-  "step_heading": "# Delivering the maintainer-triage note"
+  "step_heading": "# Delivering the maintainer-triage note",
+  "also_include": [
+    "skills/pr-management-triage/recovery.md"
+  ]
 }

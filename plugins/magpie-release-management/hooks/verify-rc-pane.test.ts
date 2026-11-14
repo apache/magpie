@@ -19,14 +19,14 @@
 
 import { describe, test } from 'claude-code/testing';
 
-import { createDefaultVerifySteps } from './types.ts';
+import { createDefaultVerifySteps } from './types.js';
 import type {
   OverallVerifyStatus,
   StepStatus,
   VerifyRcState,
   VerifyRcStep,
   VerifyStepId,
-} from './types.ts';
+} from './types.js';
 
 import {
   applyJvmSkipRules,
@@ -47,7 +47,16 @@ import {
   setVerifyRcState,
   truncateText,
   verifyRcState,
-} from './verify-rc-pane.ts';
+} from './verify-rc-pane.js';
+
+// Minimal local declaration: the strict mod type-check has no DOM/Node lib for the
+// preview printouts below.
+declare const console: { log(...args: unknown[]): void };
+
+function must<T>(v: T | null | undefined, what = 'value'): T {
+  if (v === null || v === undefined) throw new Error(`missing ${what}`);
+  return v;
+}
 
 function assert(condition: any, message?: string): void {
   if (!condition) {
@@ -212,9 +221,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
       ];
 
       for (let i = 0; i < expectedIds.length; i += 1) {
-        assertStrictEqual(steps[i].id, expectedIds[i]);
-        assertStrictEqual(steps[i].status, 'pending');
-        assert(typeof steps[i].label === 'string' && steps[i].label.length > 0);
+        assertStrictEqual(must(steps[i]).id, expectedIds[i]);
+        assertStrictEqual(must(steps[i]).status, 'pending');
+        assert(typeof must(steps[i]).label === 'string' && must(steps[i]).label.length > 0);
       }
     });
   });
@@ -295,9 +304,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
     test('renders structured Box tree with header, step rows, and footer', () => {
       const $ = createMockEngine();
       const steps = createDefaultVerifySteps();
-      steps[0].status = 'passed';
-      steps[1].status = 'passed';
-      steps[2].status = 'running';
+      must(steps[0]).status = 'passed';
+      must(steps[1]).status = 'passed';
+      must(steps[2]).status = 'running';
 
       const state: VerifyRcState = {
         rcTag: '2.11.0-rc1',
@@ -340,12 +349,12 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
     test('displays inline details for failed or warning steps while keeping passed rows single-line', () => {
       const $ = createMockEngine();
       const steps = createDefaultVerifySteps();
-      steps[2].status = 'failed';
-      steps[2].detail = 'Key 0x1234ABCD not found in KEYS file';
-      steps[3].status = 'warning';
-      steps[3].detail = 'Deprecated md5 digest file staged';
-      steps[0].status = 'passed';
-      steps[0].detail = 'This should not appear in row';
+      must(steps[2]).status = 'failed';
+      must(steps[2]).detail = 'Key 0x1234ABCD not found in KEYS file';
+      must(steps[3]).status = 'warning';
+      must(steps[3]).detail = 'Deprecated md5 digest file staged';
+      must(steps[0]).status = 'passed';
+      must(steps[0]).detail = 'This should not appear in row';
 
       const state: VerifyRcState = {
         rcTag: '2.11.0-rc1',
@@ -411,9 +420,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
     test('renders exact visual text format matching Pane layout specification', () => {
       const $ = createMockEngine();
       const steps = createDefaultVerifySteps();
-      steps[0].status = 'passed';
-      steps[1].status = 'passed';
-      steps[2].status = 'running';
+      must(steps[0]).status = 'passed';
+      must(steps[1]).status = 'passed';
+      must(steps[2]).status = 'running';
 
       const state: VerifyRcState = {
         rcTag: '3.0.0-rc1',
@@ -444,12 +453,12 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
       // Also preview failure state
       const failSteps = createDefaultVerifySteps();
-      failSteps[0].status = 'passed';
-      failSteps[1].status = 'passed';
-      failSteps[2].status = 'failed';
-      failSteps[2].detail = 'Key 0xABCD1234 not found in staged KEYS file from dist.apache.org';
-      failSteps[3].status = 'warning';
-      failSteps[3].detail = 'Deprecated md5 digest file staged alongside sha512';
+      must(failSteps[0]).status = 'passed';
+      must(failSteps[1]).status = 'passed';
+      must(failSteps[2]).status = 'failed';
+      must(failSteps[2]).detail = 'Key 0xABCD1234 not found in staged KEYS file from dist.apache.org';
+      must(failSteps[3]).status = 'warning';
+      must(failSteps[3]).detail = 'Deprecated md5 digest file staged alongside sha512';
       const failState: VerifyRcState = {
         rcTag: '3.0.0-rc1',
         version: '3.0.0',
@@ -527,8 +536,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
     test('strips ANSI escape sequences and truncates overflow in rendered output', () => {
       const $ = createMockEngine();
       const steps = createDefaultVerifySteps();
-      steps[2].status = 'failed';
-      steps[2].detail =
+      must(steps[2]).status = 'failed';
+      must(steps[2]).detail =
         '\x1b[31mKey 0xABCD1234 not found in staged KEYS file from dist.apache.org repository\x1b[0m';
 
       const state: VerifyRcState = {
@@ -743,23 +752,23 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(calculateOverallStatus(steps), 'running');
 
         // If one failed, overall is failed immediately
-        steps[2].status = 'failed';
+        must(steps[2]).status = 'failed';
         assertStrictEqual(calculateOverallStatus(steps), 'failed');
 
         // Reset all to passed or skipped
         for (const s of steps) {
           s.status = 'passed';
         }
-        steps[7].status = 'skipped';
-        steps[8].status = 'skipped';
+        must(steps[7]).status = 'skipped';
+        must(steps[8]).status = 'skipped';
         assertStrictEqual(calculateOverallStatus(steps), 'passed');
 
         // If one has a warning and all else passed/skipped, passed-with-warnings
-        steps[3].status = 'warning';
+        must(steps[3]).status = 'warning';
         assertStrictEqual(calculateOverallStatus(steps), 'passed-with-warnings');
 
         // If one step is still pending, status is running (unless another is failed)
-        steps[12].status = 'pending';
+        must(steps[12]).status = 'pending';
         assertStrictEqual(calculateOverallStatus(steps), 'running');
       });
 
@@ -868,14 +877,14 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           next
         );
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         assert(state !== null);
         assertStrictEqual(state.rcTag, '3.0.0-rc1');
         assertStrictEqual(state.version, '3.0.0');
         assertStrictEqual(state.overallStatus, 'running');
         assertStrictEqual(state.steps.length, 13);
-        assertStrictEqual(state.steps[0].id, 'preflight');
-        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(must(state.steps[0]).id, 'preflight');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
       });
 
       test('initializes VerifyRcState on standalone release-verify inventory command if unpopulated', async () => {
@@ -894,10 +903,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           next
         );
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         assert(state !== null);
         assertStrictEqual(state.rcTag, '3.0.0-rc1');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'inventory').status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'inventory')).status, 'passed');
       });
 
       test('transitions step to running and then to passed upon successful tool output', async () => {
@@ -913,8 +922,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         let wasRunningDuringNext = false;
         const next = async (e: any) => {
-          const intermediateState = await getVerifyRcState($);
-          const sigStep = intermediateState.steps.find((s: any) => s.id === 'signatures');
+          const intermediateState = must(await getVerifyRcState($), 'verifyRcState');
+          const sigStep = must(intermediateState.steps.find((s: any) => s.id === 'signatures'));
           wasRunningDuringNext = sigStep.status === 'running';
           return {
             stdout: JSON.stringify({
@@ -928,8 +937,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         await handleBashToolCall($, { command: 'uv run release-verify signatures' }, next);
 
         assertStrictEqual(wasRunningDuringNext, true);
-        const state = await getVerifyRcState($);
-        const finalSigStep = state.steps.find((s: any) => s.id === 'signatures');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const finalSigStep = must(state.steps.find((s: any) => s.id === 'signatures'));
         assertStrictEqual(finalSigStep.status, 'passed');
         assertStrictEqual(finalSigStep.detail, 'All 3 signatures valid against KEYS');
         assert(typeof finalSigStep.durationMs === 'number');
@@ -958,10 +967,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         }
 
         assertStrictEqual(threw, true);
-        const state = await getVerifyRcState($);
-        const sigStep = state.steps.find((s: any) => s.id === 'signatures');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const sigStep = must(state.steps.find((s: any) => s.id === 'signatures'));
         assertStrictEqual(sigStep.status, 'failed');
-        assert(sigStep.detail.includes('Key 0xABCD1234 not in KEYS file'));
+        assert(must(sigStep.detail).includes('Key 0xABCD1234 not in KEYS file'));
         assertStrictEqual(state.overallStatus, 'failed');
       });
 
@@ -1003,18 +1012,18 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run release-verify all' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'inventory').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'signatures').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'checksums').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'notice-license').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'binary-exclusion').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'source-tree-integrity').status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'version-consistency').status, 'passed');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'inventory')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'signatures')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'checksums')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'notice-license')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'binary-exclusion')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'source-tree-integrity')).status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'version-consistency')).status, 'passed');
 
         // Non-JVM inventory should have caused jvm-artefacts and nexus-staging to be skipped
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'jvm-artefacts').status, 'skipped');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'nexus-staging').status, 'skipped');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'jvm-artefacts')).status, 'skipped');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'nexus-staging')).status, 'skipped');
       });
 
       test('records completedAt timestamp upon verdict step completion', async () => {
@@ -1023,7 +1032,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         for (const s of steps) {
           s.status = 'passed';
         }
-        steps[12].status = 'pending'; // verdict step
+        must(steps[12]).status = 'pending'; // verdict step
 
         await setVerifyRcState($, {
           rcTag: '3.0.0-rc1',
@@ -1043,8 +1052,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run release-verify verdict' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[12].status, 'passed');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[12]).status, 'passed');
         assertStrictEqual(state.overallStatus, 'passed');
         assert(typeof state.completedAt === 'number');
       });
@@ -1095,10 +1104,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           next
         );
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         assert(state !== null);
-        assertStrictEqual(state.steps[0].status, 'failed');
-        assert(state.steps[0].detail!.includes('required key release_manager is missing'));
+        assertStrictEqual(must(state.steps[0]).status, 'failed');
+        assert(must(state.steps[0]).detail!.includes('required key release_manager is missing'));
         assertStrictEqual(state.overallStatus, 'failed');
       });
 
@@ -1120,10 +1129,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           next
         );
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         assert(state !== null);
-        assertStrictEqual(state.steps[0].status, 'warning');
-        assertStrictEqual(state.steps[0].detail, 'KEYS URL uses http instead of https');
+        assertStrictEqual(must(state.steps[0]).status, 'warning');
+        assertStrictEqual(must(state.steps[0]).detail, 'KEYS URL uses http instead of https');
       });
 
       test('handles verdict FAIL by setting status to failed and overall to failed', async () => {
@@ -1147,9 +1156,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run release-verify verdict' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[12].status, 'failed');
-        assertStrictEqual(state.steps[12].detail, 'Failed: signatures, checksums');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[12]).status, 'failed');
+        assertStrictEqual(must(state.steps[12]).detail, 'Failed: signatures, checksums');
         assertStrictEqual(state.overallStatus, 'failed');
         assert(typeof state.completedAt === 'number');
       });
@@ -1175,9 +1184,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run release-verify verdict' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[12].status, 'running');
-        assertStrictEqual(state.steps[12].detail, 'Unresolved: notice-license, source-tree-integrity');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[12]).status, 'running');
+        assertStrictEqual(must(state.steps[12]).detail, 'Unresolved: notice-license, source-tree-integrity');
         assertStrictEqual(state.overallStatus, 'running');
         assertStrictEqual(state.completedAt, null);
       });
@@ -1202,9 +1211,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run verify-rc repro 3.0.0-rc1' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[11].status, 'running');
-        assertStrictEqual(state.steps[11].detail, 'Pending: --compare: what repro-archive compare printed');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[11]).status, 'running');
+        assertStrictEqual(must(state.steps[11]).detail, 'Pending: --compare: what repro-archive compare printed');
       });
 
       test('fails the reproducibility row on a verify-rc repro error payload', async () => {
@@ -1222,9 +1231,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           exitCode: 2,
         }));
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[11].status, 'failed');
-        assertStrictEqual(state.steps[11].detail, 'no such directory: dist');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[11]).status, 'failed');
+        assertStrictEqual(must(state.steps[11]).detail, 'no such directory: dist');
       });
 
       test('keeps the verdict row running when verify-rc report refuses an unresolved verdict', async () => {
@@ -1245,8 +1254,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           exitCode: 2,
         }));
 
-        const state = await getVerifyRcState($);
-        const verdict = state.steps.find((s: any) => s.id === 'verdict');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const verdict = must(state.steps.find((s: any) => s.id === 'verdict'));
         assertStrictEqual(verdict.status, 'running');
         assert(state.overallStatus !== 'failed');
       });
@@ -1282,9 +1291,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        let state = await getVerifyRcState($);
+        let state = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(state.rcTag, '3.0.0-rc1');
-        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
 
         // 2. Now run for rc2
         await handleBashToolCall(
@@ -1300,19 +1309,19 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        state = await getVerifyRcState($);
+        state = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(state.rcTag, '3.0.0-rc2');
         assertStrictEqual(state.version, '3.0.0');
-        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         // All subsequent steps should be reset to pending
-        assertStrictEqual(state.steps[1].status, 'pending');
-        assertStrictEqual(state.steps[2].status, 'pending');
+        assertStrictEqual(must(state.steps[1]).status, 'pending');
+        assertStrictEqual(must(state.steps[2]).status, 'pending');
       });
 
       test('re-running a previously passed step sets target to running in-flight', async () => {
         const $ = createMockEngine();
         const steps = createDefaultVerifySteps();
-        steps[1].status = 'passed'; // inventory previously passed
+        must(steps[1]).status = 'passed'; // inventory previously passed
 
         await setVerifyRcState($, {
           rcTag: '3.0.0-rc1',
@@ -1324,8 +1333,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         let capturedStatusDuringExecution: string | null = null;
         const next = async () => {
-          const intermediateState = await getVerifyRcState($);
-          capturedStatusDuringExecution = intermediateState.steps[1].status;
+          const intermediateState = must(await getVerifyRcState($), 'verifyRcState');
+          capturedStatusDuringExecution = must(intermediateState.steps[1]).status;
           return {
             stdout: JSON.stringify({
               step: 'inventory',
@@ -1363,9 +1372,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run verify-rc repro 3.0.0-rc1 --skip-repro' }, next);
 
-        const state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[11].status, 'passed');
-        assert(state.steps[11].detail!.includes('Reproducibility passed'));
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[11]).status, 'passed');
+        assert(must(state.steps[11]).detail!.includes('Reproducibility passed'));
       });
 
       test('anchored invocation ignores grep or git commit commands referencing tools', async () => {
@@ -1408,10 +1417,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         await handleBashToolCall($, { command: 'uv run release-verify binaries --bad-flag' }, next);
 
-        const state = await getVerifyRcState($);
-        const step = state.steps.find((s: any) => s.id === 'binary-exclusion');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const step = must(state.steps.find((s: any) => s.id === 'binary-exclusion'));
         assertStrictEqual(step.status, 'failed');
-        assert(step.detail.includes('unrecognized arguments: --bad-flag'));
+        assert(must(step.detail).includes('unrecognized arguments: --bad-flag'));
         assertStrictEqual(state.overallStatus, 'failed');
       });
 
@@ -1432,8 +1441,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        let state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[0].status, 'passed');
+        let state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         assertStrictEqual(state.rcTag, '2.11.0-rc1');
 
         // 2. Redirected load runs with empty stdout
@@ -1443,8 +1452,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           async () => ({ stdout: '' })
         );
 
-        state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[0].status, 'passed');
+        state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         assertStrictEqual(state.rcTag, '2.11.0-rc1');
       });
 
@@ -1460,7 +1469,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
         // Arbitrary non-step command with -rc2
         await handleBashToolCall($, { command: 'git show 3.0.0-rc2' }, async () => ({ stdout: 'commit...' }));
-        let state = await getVerifyRcState($);
+        let state = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(state.rcTag, '3.0.0-rc1');
 
         // Step command with --dir containing another rc string
@@ -1471,9 +1480,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             stdout: JSON.stringify({ step: 'inventory', status: 'PASS', found: ['a.tar.gz'] }),
           })
         );
-        state = await getVerifyRcState($);
+        state = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(state.rcTag, '3.0.0-rc1'); // Did not reset to 1.0.0-rc9
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'inventory').status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'inventory')).status, 'passed');
       });
 
       test('processes batch release-verify all failure by marking all batch steps failed', async () => {
@@ -1497,7 +1506,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         const batchIds = [
           'inventory',
           'signatures',
@@ -1508,9 +1517,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           'version-consistency',
         ];
         for (const id of batchIds) {
-          const s = state.steps.find((step: any) => step.id === id);
+          const s = must(state.steps.find((step: any) => step.id === id));
           assertStrictEqual(s.status, 'failed');
-          assert(s.detail.includes('Missing required flag: --keys'));
+          assert(must(s.detail).includes('Missing required flag: --keys'));
         }
         assertStrictEqual(state.overallStatus, 'failed');
       });
@@ -1533,7 +1542,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           assert(err.message.includes('Command timed out'));
         }
 
-        const state = await getVerifyRcState($);
+        const state = must(await getVerifyRcState($), 'verifyRcState');
         const batchIds = [
           'inventory',
           'signatures',
@@ -1544,9 +1553,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           'version-consistency',
         ];
         for (const id of batchIds) {
-          const s = state.steps.find((step: any) => step.id === id);
+          const s = must(state.steps.find((step: any) => step.id === id));
           assertStrictEqual(s.status, 'failed');
-          assert(s.detail.includes('Command timed out after 120s'));
+          assert(must(s.detail).includes('Command timed out after 120s'));
         }
         assertStrictEqual(state.overallStatus, 'failed');
       });
@@ -1577,8 +1586,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const state = await getVerifyRcState($);
-        const invStep = state.steps.find((s: any) => s.id === 'inventory');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const invStep = must(state.steps.find((s: any) => s.id === 'inventory'));
         assertStrictEqual(invStep.status, 'passed');
       });
 
@@ -1613,10 +1622,10 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const state = await getVerifyRcState($);
-        const resolvedNl = state.steps.find((s: any) => s.id === 'notice-license');
+        const state = must(await getVerifyRcState($), 'verifyRcState');
+        const resolvedNl = must(state.steps.find((s: any) => s.id === 'notice-license'));
         assertStrictEqual(resolvedNl.status, 'passed');
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'verdict').status, 'passed');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'verdict')).status, 'passed');
         assertStrictEqual(state.overallStatus, 'passed');
         assert(typeof state.completedAt === 'number');
       });
@@ -1640,8 +1649,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        let state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[0].status, 'passed');
+        let state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         assertStrictEqual(state.overallStatus, 'running');
 
         // 2. Step 1: Inventory (no JVM files)
@@ -1656,11 +1665,11 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[1].status, 'passed');
-        assertStrictEqual(state.steps[7].status, 'skipped'); // jvm-artefacts
-        assertStrictEqual(state.steps[8].status, 'skipped'); // nexus-staging
-        assertStrictEqual(state.steps[11].status, 'pending'); // reproducibility pending until verify-rc repro
+        state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[1]).status, 'passed');
+        assertStrictEqual(must(state.steps[7]).status, 'skipped'); // jvm-artefacts
+        assertStrictEqual(must(state.steps[8]).status, 'skipped'); // nexus-staging
+        assertStrictEqual(must(state.steps[11]).status, 'pending'); // reproducibility pending until verify-rc repro
 
         // 3. Step 2: Signatures
         await handleBashToolCall(
@@ -1738,8 +1747,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[11].status, 'skipped');
+        state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[11]).status, 'skipped');
 
         // 11. Step 10: Final verdict
         await handleBashToolCall(
@@ -1750,7 +1759,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const finalState = await getVerifyRcState($);
+        const finalState = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(finalState.overallStatus, 'passed');
         assert(typeof finalState.completedAt === 'number');
 
@@ -1802,7 +1811,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const failedState = await getVerifyRcState($);
+        const failedState = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(failedState.overallStatus, 'failed');
         const sigStep = failedState.steps.find((s: any) => s.id === 'signatures')!;
         assertStrictEqual(sigStep.status, 'failed');
@@ -1834,8 +1843,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
             }),
           })
         );
-        let state = await getVerifyRcState($);
-        assertStrictEqual(state.steps[0].status, 'passed');
+        let state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         assertStrictEqual(state.rcTag, '2.11.0-rc1');
 
         // 2. Redirected load command (output saved to scratch, stdout empty)
@@ -1844,9 +1853,9 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           { command: 'uv run release-config load 2.11.0-rc1 > /scratch/verify-rc-load.json' },
           async () => ({ stdout: '' })
         );
-        state = await getVerifyRcState($);
+        state = must(await getVerifyRcState($), 'verifyRcState');
         // Pre-flight must NOT be wiped or reset to running
-        assertStrictEqual(state.steps[0].status, 'passed');
+        assertStrictEqual(must(state.steps[0]).status, 'passed');
         assertStrictEqual(state.rcTag, '2.11.0-rc1');
 
         // 3. Verification steps run
@@ -1878,8 +1887,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         await handleBashToolCall($, { command: 'uv run release-verify notice-license' }, async () => ({
           stdout: JSON.stringify({ step: 'notice-license', status: 'REVIEW', detail: 'Manual review required' }),
         }));
-        state = await getVerifyRcState($);
-        assertStrictEqual(state.steps.find((s: any) => s.id === 'notice-license').status, 'running');
+        state = must(await getVerifyRcState($), 'verifyRcState');
+        assertStrictEqual(must(state.steps.find((s: any) => s.id === 'notice-license')).status, 'running');
         assertStrictEqual(state.overallStatus, 'running');
 
         // Binaries, Symlinks, Version
@@ -1927,19 +1936,19 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
           })
         );
 
-        const finalState = await getVerifyRcState($);
+        const finalState = must(await getVerifyRcState($), 'verifyRcState');
         assertStrictEqual(finalState.overallStatus, 'passed');
         assert(typeof finalState.completedAt === 'number');
 
         // Notice-license reconciled to passed from step_summary
-        const nlStep = finalState.steps.find((s: any) => s.id === 'notice-license');
+        const nlStep = must(finalState.steps.find((s: any) => s.id === 'notice-license'));
         assertStrictEqual(nlStep.status, 'passed');
 
         // Pre-flight still passed
-        assertStrictEqual(finalState.steps[0].status, 'passed');
+        assertStrictEqual(must(finalState.steps[0]).status, 'passed');
 
         // Verdict step itself passed
-        assertStrictEqual(finalState.steps[12].status, 'passed');
+        assertStrictEqual(must(finalState.steps[12]).status, 'passed');
 
         // Render check
         const pane = renderVerifyRcPane($, {}, finalState);
@@ -1980,8 +1989,8 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
       assertStrictEqual(typeof state.overallStatus, 'string');
       assertStrictEqual(typeof state.startedAt, 'number');
       assert(Array.isArray(state.steps));
-      assertStrictEqual(state.steps[0].id, 'signatures');
-      assertStrictEqual(state.steps[0].status, 'passed');
+      assertStrictEqual(must(state.steps[0]).id, 'signatures');
+      assertStrictEqual(must(state.steps[0]).status, 'passed');
     });
   });
 });

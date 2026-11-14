@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 5965
+measured_tokens: 5977
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -195,7 +195,7 @@ Before any work, verify:
 
    Write `{state, labels, body, cve_state}` and run `<sm> hard-stops`; act on its `verdict` and print its `message`:
    `noop` (already closed), `stop` (a CVE in `allocated` / `review-ready` must be **retracted** at the CVE tool first; an advisory label means a published advisory),
-   `escalate` (`publish-ready` / `public`: to `governance.escalation_contact`), `probe` (run `<cve-tool>`'s `fetch_current_state(cve_id)` and pass its state), `ask` (an `unknown` state with a CVE signal), `proceed`.
+   `escalate` (`publish-ready` / `public`: to `governance.escalation_contact`), `probe` (run `cve-tool fetch --cve-id <CVE-ID> --state-only`, the contract's `fetch_current_state`, and pass the state it prints), `ask` (an `unknown` state with a CVE signal), `proceed`.
    The table, the generic CVE states and why both stops are deliberate: [`outcomes/hard-stops.md`](outcomes/hard-stops.md).
 4. **Privacy-LLM contract.** The skill reads the original report to mine the team's reasoning (Step 3) and assembles an outbound draft (Step 6).
    Run the gate-check first — non-zero exit is a hard stop:

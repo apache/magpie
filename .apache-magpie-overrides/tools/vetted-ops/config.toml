@@ -103,6 +103,10 @@ close_reasons = ["completed", "not planned"]
     "upstream-permission",
     "pr-view-with-body",
     "gql-pr-liveness",
+    # The recovery journal's checkpoints (pr-triage recovery.md): a fresh read
+    # of the PR before each write, and the exact comment after a comment write.
+    "pr-triage-recovery-state",
+    "pr-triage-comment-receipt",
 ]
 
 # pr-management-stats is a read-only dashboard: its reads are saved with

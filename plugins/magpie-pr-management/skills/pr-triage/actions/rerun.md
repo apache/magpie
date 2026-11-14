@@ -3,6 +3,8 @@
 
 # `rerun` — rerun the failed CI jobs
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Refresh the liveness read with the runs: `guard` checks the head against any saved copy, so a stale one reports a head move that never happened.
 
 ```bash

@@ -23,7 +23,7 @@ import {
   joinPath,
   type ProcessRunner,
   type ProcessRunResult,
-} from './skills-command.ts';
+} from './skills-command.js';
 
 function assert(condition: any, message?: string): void {
   if (!condition) {

@@ -26,7 +26,7 @@ import {
   parsePep440,
   comparePep440,
   joinPath,
-} from './drift-check.ts';
+} from './drift-check.js';
 
 class MockFsAsync {
   private files = new Map<string, string>();

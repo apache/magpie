@@ -60,10 +60,17 @@ import {
   updateAndSyncReviewFindingsState,
   updateFindingInState,
   updateSelectedIndexInState,
-} from './review-findings.ts';
-import type { ReviewFinding, ReviewFindingsState } from './types.ts';
+} from './review-findings.js';
+import type { ReviewFinding, ReviewFindingsState } from './types.js';
 
-function assert(condition: any, message?: string): void {
+function must<T>(value: T | null | undefined, what = 'value'): T {
+  if (value === null || value === undefined) {
+    throw new Error(`missing ${what}`);
+  }
+  return value;
+}
+
+function assert(condition: any, message?: string): asserts condition {
   if (!condition) {
     throw new Error(message || 'Assertion failed');
   }
@@ -158,7 +165,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       const result = normalizeSeverity('catastrophic', errors);
       assertStrictEqual(result, 'minor');
       assertStrictEqual(errors.length, 1);
-      assert(errors[0].includes("Unrecognized severity 'catastrophic'"));
+      assert(errors[0]?.includes("Unrecognized severity 'catastrophic'"));
     });
 
     test('normalizeFilePath standardizes Windows backslashes and strips leading relative paths', () => {
@@ -186,7 +193,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       assertStrictEqual(normalizeLine('1e2', errors), null);
       assertStrictEqual(normalizeLine('invalid', errors), null);
       assertStrictEqual(errors.length, 4);
-      assert(errors[0].includes("Malformed line number '12.5'"));
+      assert(errors[0]?.includes("Malformed line number '12.5'"));
     });
 
     test('numeric non-integer or negative lines and non-string severities are recorded', () => {
@@ -194,13 +201,13 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       assertStrictEqual(normalizeLine(12.5, lineErrors), null);
       assertStrictEqual(normalizeLine(-3, lineErrors), null);
       assertStrictEqual(lineErrors.length, 2);
-      assert(lineErrors[0].includes("Malformed line number '12.5'"));
-      assert(lineErrors[1].includes("Malformed line number '-3'"));
+      assert(lineErrors[0]?.includes("Malformed line number '12.5'"));
+      assert(lineErrors[1]?.includes("Malformed line number '-3'"));
 
       const severityErrors: string[] = [];
       assertStrictEqual(normalizeSeverity(42, severityErrors), 'minor');
       assertStrictEqual(severityErrors.length, 1);
-      assert(severityErrors[0].includes("Invalid severity type 'number'"));
+      assert(severityErrors[0]?.includes("Invalid severity type 'number'"));
     });
 
     test('normalizeSource validates reviewer source attributes', () => {
@@ -225,7 +232,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       assertStrictEqual(normalizeAction('drop', errors), 'skip');
       assertStrictEqual(normalizeAction(123 as any, errors), 'skip');
       assertStrictEqual(errors.length, 3);
-      assert(errors[0].includes("Unrecognized action 'reject'"));
+      assert(errors[0]?.includes("Unrecognized action 'reject'"));
     });
 
     test('sanitizeFindingText strips ANSI CSI, OSC sequences, and C0/C1 control characters', () => {
@@ -375,8 +382,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       const pythonAnchoredIndices: number[] = [];
       const pythonAnchored = rawDataset.filter((item) => Boolean(item.line));
 
-      for (let i = 0; i < pythonAnchored.length; i += 1) {
-        const item = pythonAnchored[i];
+      for (const [i, item] of pythonAnchored.entries()) {
         if (item.action === 'accept' || item.action === 'edit') {
           pythonAnchoredIndices.push(i + 1);
         }
@@ -481,7 +487,7 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       assertStrictEqual(result.errors.length, 0);
       assertStrictEqual(result.findings.length, 1);
       assertStrictEqual(
-        result.findings[0].fixup,
+        result.findings[0]?.fixup,
         '    def hello():\n        return 42'
       );
     });
@@ -506,7 +512,7 @@ End of observations.
       const result = parseFindings(markdown);
       assertStrictEqual(result.errors.length, 0);
       assertStrictEqual(result.findings.length, 1);
-      const f = result.findings[0];
+      const f = must(result.findings[0], 'finding');
       assertStrictEqual(f.id, 'finding-1');
       assertStrictEqual(f.file, 'providers/foo.py');
       assertStrictEqual(f.line, 100);
@@ -530,8 +536,8 @@ End of observations.
       const result = parseFindings(payload);
       assertStrictEqual(result.errors.length, 0);
       assertStrictEqual(result.findings.length, 1);
-      assertStrictEqual(result.findings[0].body, 'Fix indentation');
-      assertStrictEqual(result.findings[0].severity, 'nit');
+      assertStrictEqual(result.findings[0]?.body, 'Fix indentation');
+      assertStrictEqual(result.findings[0]?.severity, 'nit');
     });
 
     test('handles empty or malformed inputs without throwing exceptions', () => {
@@ -545,7 +551,7 @@ End of observations.
       const invalidJsonResult = parseFindings('invalid { json');
       assertStrictEqual(invalidJsonResult.findings.length, 0);
       assertStrictEqual(invalidJsonResult.errors.length, 1);
-      assert(invalidJsonResult.errors[0].includes('JSON parse error'));
+      assert(invalidJsonResult.errors[0]?.includes('JSON parse error'));
 
       const nonObjectArray = parseFindings(JSON.stringify(['string item', null]));
       assertStrictEqual(nonObjectArray.findings.length, 0);
@@ -759,14 +765,14 @@ End of observations.
 
       register(fakeOn);
       assertStrictEqual(registered.length, 5);
-      assertStrictEqual(registered[0].event, 'session.start');
-      assertStrictEqual(registered[1].event, 'ui.render');
-      assertStrictEqual(registered[1].opts?.component, 'Pane');
-      assertStrictEqual(registered[2].event, 'ui.press');
-      assertStrictEqual(registered[3].event, 'tool.call');
-      assertStrictEqual(registered[3].opts?.tool, 'Bash');
-      assertStrictEqual(registered[4].event, 'command.run');
-      assertStrictEqual(registered[4].opts?.command, 'magpie-findings');
+      assertStrictEqual(registered[0]?.event, 'session.start');
+      assertStrictEqual(registered[1]?.event, 'ui.render');
+      assertStrictEqual(registered[1]?.opts?.component, 'Pane');
+      assertStrictEqual(registered[2]?.event, 'ui.press');
+      assertStrictEqual(registered[3]?.event, 'tool.call');
+      assertStrictEqual(registered[3]?.opts?.tool, 'Bash');
+      assertStrictEqual(registered[4]?.event, 'command.run');
+      assertStrictEqual(registered[4]?.opts?.command, 'magpie-findings');
     });
 
     test('session.start fixture hydration routes through setReviewFindingsState and invalidates UI', async () => {
@@ -807,7 +813,7 @@ End of observations.
         return payload;
       };
 
-      await registered[0].handler(test$, fakePayload, fakeNext);
+      await must(registered[0], 'session.start hook').handler(test$, fakePayload, fakeNext);
       assert(nextCalled, 'Handler should chain to next(e)');
       assertStrictEqual(invalidatedSurface, 'ui.render', 'Expected session.start to invalidate ui.render');
 
@@ -840,7 +846,7 @@ End of observations.
         return payload;
       };
 
-      await registered[0].handler(test$, { surface: 'terminal' }, fakeNext);
+      await must(registered[0], 'session.start hook').handler(test$, { surface: 'terminal' }, fakeNext);
       assert(nextCalled, 'Handler should chain to next(e)');
 
       const currentState = await getReviewFindingsState(test$);
@@ -1009,18 +1015,18 @@ End of observations.
       });
 
       // Original state untouched
-      assertStrictEqual(initial.findings[0].severity, 'minor');
-      assertStrictEqual(initial.findings[0].action, 'accept');
+      assertStrictEqual(initial.findings[0]?.severity, 'minor');
+      assertStrictEqual(initial.findings[0]?.action, 'accept');
 
       // Updated state
-      assertStrictEqual(updated.findings[0].severity, 'blocking');
-      assertStrictEqual(updated.findings[0].action, 'edit');
-      assertStrictEqual(updated.findings[0].body, 'Customized note');
+      assertStrictEqual(updated.findings[0]?.severity, 'blocking');
+      assertStrictEqual(updated.findings[0]?.action, 'edit');
+      assertStrictEqual(updated.findings[0]?.body, 'Customized note');
       assertStrictEqual(updated.summary.blockingCount, 1);
       assertStrictEqual(updated.summary.minorCount, 0);
 
       // Preserves raw field
-      assertDeepStrictEqual((updated.findings[0].raw as any).extra, 'kept');
+      assertDeepStrictEqual((updated.findings[0]?.raw as any).extra, 'kept');
 
       // Out of bounds index returns unmodified state
       const invalid = updateFindingInState(initial, 99, { action: 'skip' });
@@ -1047,13 +1053,13 @@ End of observations.
       };
 
       state = toggleFindingActionInState(state, 0);
-      assertStrictEqual(state.findings[0].action, 'skip');
+      assertStrictEqual(state.findings[0]?.action, 'skip');
 
       state = toggleFindingActionInState(state, 0);
-      assertStrictEqual(state.findings[0].action, 'edit');
+      assertStrictEqual(state.findings[0]?.action, 'edit');
 
       state = toggleFindingActionInState(state, 0);
-      assertStrictEqual(state.findings[0].action, 'accept');
+      assertStrictEqual(state.findings[0]?.action, 'accept');
 
       // Invalid index is safe no-op
       const unchanged = toggleFindingActionInState(state, 5);
@@ -1095,15 +1101,15 @@ End of observations.
 
       // Bulk accept all
       const allAccepted = setBulkActionInState(state, 'accept');
-      assertStrictEqual(allAccepted.findings[0].action, 'accept');
-      assertStrictEqual(allAccepted.findings[1].action, 'accept');
-      assertStrictEqual(allAccepted.findings[2].action, 'accept');
+      assertStrictEqual(allAccepted.findings[0]?.action, 'accept');
+      assertStrictEqual(allAccepted.findings[1]?.action, 'accept');
+      assertStrictEqual(allAccepted.findings[2]?.action, 'accept');
 
       // Bulk skip anchored only
       const anchoredSkipped = setBulkActionInState(allAccepted, 'skip', true);
-      assertStrictEqual(anchoredSkipped.findings[0].action, 'skip');
-      assertStrictEqual(anchoredSkipped.findings[1].action, 'accept'); // Unanchored left intact
-      assertStrictEqual(anchoredSkipped.findings[2].action, 'skip');
+      assertStrictEqual(anchoredSkipped.findings[0]?.action, 'skip');
+      assertStrictEqual(anchoredSkipped.findings[1]?.action, 'accept'); // Unanchored left intact
+      assertStrictEqual(anchoredSkipped.findings[2]?.action, 'skip');
     });
 
     test('updateSelectedIndexInState clamps index within boundaries', () => {
@@ -1286,14 +1292,14 @@ End of observations.
       // Invoke onPress on toggle button
       await toggleBtn?.onPress();
       const updated = await getReviewFindingsState(test$);
-      assertStrictEqual(updated?.findings[0].action, 'skip', 'Expected action toggled to skip');
+      assertStrictEqual(updated?.findings[0]?.action, 'skip', 'Expected action toggled to skip');
 
       // Verify accept-all button
       const allBtn = createdButtons.find((b) => b.key === 'accept-all');
       assert(allBtn !== undefined, 'Expected accept-all Button created');
       await allBtn?.onPress();
       const afterAll = await getReviewFindingsState(test$);
-      assertStrictEqual(afterAll?.findings[0].action, 'accept', 'Expected action set to accept');
+      assertStrictEqual(afterAll?.findings[0]?.action, 'accept', 'Expected action set to accept');
     });
 
     test('handleUiPress toggles finding action on toggle-<N> element', async () => {
@@ -1320,17 +1326,17 @@ End of observations.
       assert(!nextCalled, 'next(e) should not be called when handled');
 
       const s1 = await getReviewFindingsState(test$);
-      assertStrictEqual(s1?.findings[0].action, 'skip');
+      assertStrictEqual(s1?.findings[0]?.action, 'skip');
 
       // Press toggle-1 again: should toggle from skip to edit
       await handleUiPress(test$, { element: 'toggle-1' }, fakeNext);
       const s2 = await getReviewFindingsState(test$);
-      assertStrictEqual(s2?.findings[0].action, 'edit');
+      assertStrictEqual(s2?.findings[0]?.action, 'edit');
 
       // Press toggle-1 again: should toggle from edit to accept
       await handleUiPress(test$, { element: 'toggle-1' }, fakeNext);
       const s3 = await getReviewFindingsState(test$);
-      assertStrictEqual(s3?.findings[0].action, 'accept');
+      assertStrictEqual(s3?.findings[0]?.action, 'accept');
     });
 
     test('handleUiPress handles accept-all and skip-all toolbar elements', async () => {
@@ -1349,15 +1355,15 @@ End of observations.
       const resAll = await handleUiPress(test$, { element: 'accept-all' }, () => {});
       assertStrictEqual(resAll?.handled, true);
       const sAll = await getReviewFindingsState(test$);
-      assertStrictEqual(sAll?.findings[0].action, 'accept');
-      assertStrictEqual(sAll?.findings[1].action, 'accept');
+      assertStrictEqual(sAll?.findings[0]?.action, 'accept');
+      assertStrictEqual(sAll?.findings[1]?.action, 'accept');
 
       // Press skip-all
       const resSkip = await handleUiPress(test$, { element: 'skip-all' }, () => {});
       assertStrictEqual(resSkip?.handled, true);
       const sSkip = await getReviewFindingsState(test$);
-      assertStrictEqual(sSkip?.findings[0].action, 'skip');
-      assertStrictEqual(sSkip?.findings[1].action, 'skip');
+      assertStrictEqual(sSkip?.findings[0]?.action, 'skip');
+      assertStrictEqual(sSkip?.findings[1]?.action, 'skip');
     });
 
     test('handleUiPress handles prev-finding and next-finding navigation', async () => {
@@ -1501,7 +1507,7 @@ End of observations.
       assert(state !== null, 'Expected reviewFindingsState populated from disposition feed');
       assertStrictEqual(state?.prNumber, 1887);
       assertStrictEqual(state?.findings.length, 1);
-      assertStrictEqual(state?.findings[0].file, 'src/core.py');
+      assertStrictEqual(state?.findings[0]?.file, 'src/core.py');
     });
 
     test('handleBashToolCall fails open when read fails or command is unrelated', async () => {
@@ -1570,22 +1576,22 @@ End of observations.
       const resKeep = await handleFindingsCommand(test$, { args: 'keep 1,3' });
       assert(resKeep.text.includes('Kept: 1,3'));
       state = await getReviewFindingsState(test$);
-      assertStrictEqual(state?.findings[0].action, 'accept');
-      assertStrictEqual(state?.findings[1].action, 'skip');
-      assertStrictEqual(state?.findings[2].action, 'accept');
+      assertStrictEqual(state?.findings[0]?.action, 'accept');
+      assertStrictEqual(state?.findings[1]?.action, 'skip');
+      assertStrictEqual(state?.findings[2]?.action, 'accept');
 
       // 5. drop 3
       const resDrop = await handleFindingsCommand(test$, { args: 'drop 3' });
       assert(resDrop.text.includes('Dropped findings: 3'));
       state = await getReviewFindingsState(test$);
-      assertStrictEqual(state?.findings[2].action, 'skip');
+      assertStrictEqual(state?.findings[2]?.action, 'skip');
 
       // 6. edit 1 New explanation note
       const resEdit = await handleFindingsCommand(test$, { args: 'edit 1 Custom explanation for auth' });
       assert(resEdit.text.includes('Updated finding #1 (marked edit with custom note)'));
       state = await getReviewFindingsState(test$);
-      assertStrictEqual(state?.findings[0].action, 'edit');
-      assertStrictEqual(state?.findings[0].body, 'Custom explanation for auth');
+      assertStrictEqual(state?.findings[0]?.action, 'edit');
+      assertStrictEqual(state?.findings[0]?.body, 'Custom explanation for auth');
 
       // 7. empty state
       await setReviewFindingsState(test$, null);
@@ -1656,13 +1662,13 @@ End of observations.
       await handleUiPress(test$, { element: 'toggle-general-1' }, () => {});
       let cur = await getReviewFindingsState(test$);
       assert(cur !== null);
-      assertStrictEqual(cur?.findings[0].action, 'skip');
-      assertStrictEqual(cur?.findings[1].action, 'accept');
+      assertStrictEqual(cur?.findings[0]?.action, 'skip');
+      assertStrictEqual(cur?.findings[1]?.action, 'accept');
 
       // Now simulate pressing toggle-1 (the first anchored finding)
       await handleUiPress(test$, { element: 'toggle-1' }, () => {});
       cur = await getReviewFindingsState(test$);
-      assert(cur?.findings[1].action === 'skip', `Expected skip but got ${cur?.findings[1].action}`);
+      assert(cur?.findings[1]?.action === 'skip', `Expected skip but got ${cur?.findings[1]?.action}`);
     });
 
     test('extractFindingsPathFromCommand handles multiline escaped line breaks in bash commands', () => {
@@ -1847,9 +1853,9 @@ End of observations.
       state = await getReviewFindingsState(test$);
       assert(state !== null);
       // inline-perf-2 (index 2 in state.findings) is now skipped
-      assertStrictEqual(state?.findings[2].action, 'skip');
+      assertStrictEqual(state?.findings[2]?.action, 'skip');
       // inline-auth-1 (index 1 in state.findings) remains accepted
-      assertStrictEqual(state?.findings[1].action, 'accept');
+      assertStrictEqual(state?.findings[1]?.action, 'accept');
 
       // 4. INTERACTION B: Maintainer edits inline comment #1 via /magpie-findings
       const editResult = await handleFindingsCommand(test$, {
@@ -1857,9 +1863,9 @@ End of observations.
       });
       assert(editResult.text.includes('Updated finding #1'));
       state = await getReviewFindingsState(test$);
-      assertStrictEqual(state?.findings[1].action, 'edit');
+      assertStrictEqual(state?.findings[1]?.action, 'edit');
       assertStrictEqual(
-        state?.findings[1].body,
+        state?.findings[1]?.body,
         'Explicitly guard user session token before verification'
       );
 
@@ -1932,7 +1938,7 @@ End of observations.
       const ambientValue: AmbientState = sampleState;
       assert(ambientValue !== null);
       assertStrictEqual(ambientValue?.prNumber, 1887);
-      assertStrictEqual(ambientValue?.findings[0].action, 'accept');
+      assertStrictEqual(ambientValue?.findings[0]?.action, 'accept');
       assertStrictEqual(ambientValue?.summary.total, 1);
       assertStrictEqual(ambientValue?.selectedIndex, 0);
 
@@ -2096,8 +2102,8 @@ End of observations.
       await skipAllCb!();
 
       let curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'skip');
-      assertStrictEqual(curState?.findings[1].action, 'skip');
+      assertStrictEqual(curState?.findings[0]?.action, 'skip');
+      assertStrictEqual(curState?.findings[1]?.action, 'skip');
 
       // Verify disk sync happened from button onPress
       const writtenKeep = await test$.fs.read('/work/saved/findings-1887.json.curated.keep');
@@ -2111,7 +2117,7 @@ End of observations.
 
       curState = await getReviewFindingsState(test$);
       // 'skip' toggles to 'edit'
-      assertStrictEqual(curState?.findings[0].action, 'edit');
+      assertStrictEqual(curState?.findings[0]?.action, 'edit');
 
       const updatedKeep = await test$.fs.read('/work/saved/findings-1887.json.curated.keep');
       assertStrictEqual(updatedKeep, '1');
@@ -2143,9 +2149,9 @@ End of observations.
       await handleFindingsCommand(test$, { args: 'edit 2 Sanitized custom explanation' });
 
       let state = await getReviewFindingsState(test$);
-      assertStrictEqual(state?.findings[0].action, 'skip');
-      assertStrictEqual(state?.findings[1].action, 'edit');
-      assertStrictEqual(state?.findings[1].body, 'Sanitized custom explanation');
+      assertStrictEqual(state?.findings[0]?.action, 'skip');
+      assertStrictEqual(state?.findings[1]?.action, 'edit');
+      assertStrictEqual(state?.findings[1]?.body, 'Sanitized custom explanation');
 
       // 3. Disposition re-runs (e.g. after maintainer [E]dits or checks CI)
       const updatedFindings = JSON.stringify([
@@ -2165,12 +2171,12 @@ End of observations.
       assert(state !== null);
       assertStrictEqual(state?.findings.length, 3);
       // Finding 1 preserved as 'skip'
-      assertStrictEqual(state?.findings[0].action, 'skip');
+      assertStrictEqual(state?.findings[0]?.action, 'skip');
       // Finding 2 preserved as 'edit' with custom body
-      assertStrictEqual(state?.findings[1].action, 'edit');
-      assertStrictEqual(state?.findings[1].body, 'Sanitized custom explanation');
+      assertStrictEqual(state?.findings[1]?.action, 'edit');
+      assertStrictEqual(state?.findings[1]?.body, 'Sanitized custom explanation');
       // Finding 3 is new, defaults to 'accept'
-      assertStrictEqual(state?.findings[2].action, 'accept');
+      assertStrictEqual(state?.findings[2]?.action, 'accept');
     });
 
     test('disposition cleans up orphaned curated files when findings become empty', async () => {
@@ -2224,8 +2230,8 @@ End of observations.
       const badKeepRes = await handleFindingsCommand(test$, { args: 'keep abc' });
       assert(badKeepRes.text.startsWith('Error: Invalid token "abc"'));
       let curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'accept');
-      assertStrictEqual(curState?.findings[1].action, 'accept');
+      assertStrictEqual(curState?.findings[0]?.action, 'accept');
+      assertStrictEqual(curState?.findings[1]?.action, 'accept');
 
       // 2. drop abc must fail validation and NOT touch state
       const badDropRes = await handleFindingsCommand(test$, { args: 'drop abc' });
@@ -2234,30 +2240,30 @@ End of observations.
       // 3. keep g1 must ONLY modify general observations, leaving anchored findings untouched
       await handleFindingsCommand(test$, { args: 'keep g1' });
       curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'accept', 'Anchored 1 must remain accept');
-      assertStrictEqual(curState?.findings[1].action, 'accept', 'Anchored 2 must remain accept');
-      assertStrictEqual(curState?.findings[2].action, 'accept', 'General 1 must remain accept');
+      assertStrictEqual(curState?.findings[0]?.action, 'accept', 'Anchored 1 must remain accept');
+      assertStrictEqual(curState?.findings[1]?.action, 'accept', 'Anchored 2 must remain accept');
+      assertStrictEqual(curState?.findings[2]?.action, 'accept', 'General 1 must remain accept');
 
       // 4. keep 1 must ONLY modify anchored findings, leaving general observations untouched
       await handleFindingsCommand(test$, { args: 'keep 1' });
       curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'accept', 'Anchored 1 kept');
-      assertStrictEqual(curState?.findings[1].action, 'skip', 'Anchored 2 skipped');
-      assertStrictEqual(curState?.findings[2].action, 'accept', 'General 1 must remain accept');
+      assertStrictEqual(curState?.findings[0]?.action, 'accept', 'Anchored 1 kept');
+      assertStrictEqual(curState?.findings[1]?.action, 'skip', 'Anchored 2 skipped');
+      assertStrictEqual(curState?.findings[2]?.action, 'accept', 'General 1 must remain accept');
 
       // 5. drop g1 must mark general observation as skip without touching anchored
       await handleFindingsCommand(test$, { args: 'drop g1' });
       curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'accept');
-      assertStrictEqual(curState?.findings[1].action, 'skip');
-      assertStrictEqual(curState?.findings[2].action, 'skip');
+      assertStrictEqual(curState?.findings[0]?.action, 'accept');
+      assertStrictEqual(curState?.findings[1]?.action, 'skip');
+      assertStrictEqual(curState?.findings[2]?.action, 'skip');
 
       // 6. keep 1, g1 updates both
       await handleFindingsCommand(test$, { args: 'keep 1, g1' });
       curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[0].action, 'accept');
-      assertStrictEqual(curState?.findings[1].action, 'skip');
-      assertStrictEqual(curState?.findings[2].action, 'accept');
+      assertStrictEqual(curState?.findings[0]?.action, 'accept');
+      assertStrictEqual(curState?.findings[1]?.action, 'skip');
+      assertStrictEqual(curState?.findings[2]?.action, 'accept');
     });
 
     test('sync error records syncError on state and displays warning in pane and status', async () => {
@@ -2308,7 +2314,7 @@ End of observations.
 
       const curState = await getReviewFindingsState(failingTest$);
       assert(curState?.syncError !== null && curState?.syncError !== undefined);
-      assert(curState?.syncError.includes('EACCES: permission denied'));
+      assert(curState?.syncError?.includes('EACCES: permission denied'));
 
       // Verify partial file was marked as invalidated on disk so Step 7b falls back to original findings
       const jsonContent = writtenFileContents.get('/work/readonly/findings.json.curated.json');
@@ -2362,13 +2368,13 @@ End of observations.
       // Drop command with general identifier
       await handleFindingsCommand(test$, { args: 'drop g1' });
       const curState = await getReviewFindingsState(test$);
-      assertStrictEqual(curState?.findings[1].action, 'skip');
+      assertStrictEqual(curState?.findings[1]?.action, 'skip');
 
       // Keep command with general identifier: edited finding 1 retains 'edit', unanchored g1 becomes 'accept'
       await handleFindingsCommand(test$, { args: 'keep 1, g1' });
       const keptState = await getReviewFindingsState(test$);
-      assertStrictEqual(keptState?.findings[0].action, 'edit');
-      assertStrictEqual(keptState?.findings[1].action, 'accept');
+      assertStrictEqual(keptState?.findings[0]?.action, 'edit');
+      assertStrictEqual(keptState?.findings[1]?.action, 'accept');
     });
 
     test('serializeFindingsForRender on edit deletes base.comment and overrides explanation', () => {
@@ -2600,16 +2606,16 @@ End of observations.
       // 1. Run keep 1,2: f2 must stay 'edit', f1 'accept', f3 'skip'
       await handleFindingsCommand(test$, { args: 'keep 1,2' });
       let cur = await getReviewFindingsState(test$);
-      assertStrictEqual(cur?.findings[0].action, 'accept');
-      assertStrictEqual(cur?.findings[1].action, 'edit');
-      assertStrictEqual(cur?.findings[2].action, 'skip');
+      assertStrictEqual(cur?.findings[0]?.action, 'accept');
+      assertStrictEqual(cur?.findings[1]?.action, 'edit');
+      assertStrictEqual(cur?.findings[2]?.action, 'skip');
 
       // 2. Press All: f2 must stay 'edit', f3 becomes 'accept'
       await handleFindingsCommand(test$, { args: 'all' });
       cur = await getReviewFindingsState(test$);
-      assertStrictEqual(cur?.findings[0].action, 'accept');
-      assertStrictEqual(cur?.findings[1].action, 'edit');
-      assertStrictEqual(cur?.findings[2].action, 'accept');
+      assertStrictEqual(cur?.findings[0]?.action, 'accept');
+      assertStrictEqual(cur?.findings[1]?.action, 'edit');
+      assertStrictEqual(cur?.findings[2]?.action, 'accept');
 
       // 3. Serialized render output preserves maintainer note
       const jsonStr = await test$.fs.read('/work/saved/findings.json.curated.json');

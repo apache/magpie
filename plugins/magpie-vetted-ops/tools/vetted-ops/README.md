@@ -260,7 +260,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "gql-pr-triage-review-requested", "gql-pr-triage-one", "gql-pr-triage-preflight",
                            "gql-main-recent-failures", "runs-action-required", "runs-at-head", "check-runs",
                            "compare-behind", "team-members", "upstream-permission", "viewer",
-                           "pr-view-with-body",
+                           "pr-view-with-body", "pr-triage-recovery-state", "pr-triage-comment-receipt",
                            "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
                            "pr-comment", "pr-update-branch", "run-rerun-failed",
                            "workflow-approve"]
