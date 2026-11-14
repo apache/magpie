@@ -380,6 +380,13 @@ def _security_tool_copies() -> dict[str, str]:
         "plugins/magpie-release-management/skills/audit-report/audit-record-schema.md",
     ):
         copies[path] = path
+    # The organization manifests `release_config.org_manifest_chain` reads
+    # framework-relative, so a project inheriting a key from its organization
+    # (`cve_authority.tool`, `release_process.automated_signing`) resolves it on a
+    # marketplace install too; the session hook copies them under `<framework>`.
+    for manifest in sorted(Path("organizations").glob("*/organization.md")):
+        if manifest.parent.name != "_template":
+            copies[manifest.as_posix()] = manifest.as_posix()
     for name in SECURITY_STATS_DASHBOARD_FILES:
         path = f"tools/security-tracker-stats-dashboard/{name}"
         copies[path] = path

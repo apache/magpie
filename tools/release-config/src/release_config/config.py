@@ -384,9 +384,23 @@ class Loaded:
         return merged
 
 
+#: Where a marketplace install materialises the framework (magpie-security-tools' session hook).
+MARKETPLACE_FRAMEWORK = Path("~/.cache/apache-magpie/framework/current")
+
+
 def _framework_roots(project_root: Path) -> list[Path]:
-    """Where the framework's `organizations/` may live: this checkout, the adopter's snapshot, the repo itself."""
-    candidates = [Path(__file__).resolve().parents[4], project_root / ".apache-magpie", project_root]
+    """Where the framework's `organizations/` may live.
+
+    This checkout, the adopter's snapshot, the repo itself, then the marketplace
+    framework copy, which a tool installed as a dependency cannot reach through
+    its own `__file__`.
+    """
+    candidates = [
+        Path(__file__).resolve().parents[4],
+        project_root / ".apache-magpie",
+        project_root,
+        MARKETPLACE_FRAMEWORK.expanduser(),
+    ]
     return [root for root in candidates if (root / "organizations").is_dir()]
 
 
