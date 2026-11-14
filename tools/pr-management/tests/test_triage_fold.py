@@ -89,3 +89,48 @@ def test_cli_fold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     report = json.loads(capsys.readouterr().out)
     assert report == {"out": str(out), "replaced": True, "bytes": len(out.read_bytes())}
     assert out.read_text() == "Body.\n\n" + BLOCK
+
+
+@pytest.mark.parametrize("previous", [None, ""])
+@pytest.mark.parametrize(
+    "original,expected",
+    [
+        ("", ""),
+        ("Author text.", "Author text."),
+        ("Author text.\n\n", "Author text."),
+        ("First line.  \nSecond line.\t", "First line.  \nSecond line.\t"),
+    ],
+)
+def test_restore_new_append_removes_only_generated_spacing(
+    original: str, expected: str, previous: str | None
+) -> None:
+    current = F.block(BLOCK)
+    assert current is not None
+    for _ in range(3):
+        applied, _ = F.splice(original, BLOCK)
+        original = F.restore(applied, expected=current, previous=previous)
+        assert original == expected
+
+
+@pytest.mark.parametrize(
+    "prefix,suffix",
+    [
+        ("Author text.\n\n", "\nFooter.  \n\n"),
+        ("Author text.\n\n\n", "\n"),
+        ("\n\n", "\n"),
+        ("Author text.\n", "\n"),
+        ("Author text.\n\n", ""),
+        ("Author text.\r\n\r\n", "\r\n"),
+    ],
+)
+def test_restore_preserves_author_edits_outside_append_layout(prefix: str, suffix: str) -> None:
+    current = F.block(BLOCK)
+    assert current is not None
+    assert F.restore(prefix + current + suffix, expected=current, previous=None) == prefix + suffix
+
+
+def test_restore_previous_block_keeps_surrounding_spacing() -> None:
+    current = F.block(BLOCK)
+    assert current is not None
+    body = "Author text.\n\n" + current + "\n"
+    assert F.restore(body, expected=current, previous=OTHER) == "Author text.\n\n" + OTHER + "\n"

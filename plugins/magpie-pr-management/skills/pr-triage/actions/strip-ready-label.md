@@ -3,6 +3,8 @@
 
 # `strip-ready-label` — hand an author-court PR back
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Used by [Sweep 4](../classifications/sweep-4-stale-ready-label.md) only, when the next move to make the PR mergeable is the author's.
 A maintainer-court PR is never passed here.
 

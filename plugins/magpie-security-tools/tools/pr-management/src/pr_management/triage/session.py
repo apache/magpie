@@ -38,6 +38,7 @@ ACTION_LABELS: dict[str, str] = {
     "draft": "drafted",
     "comment": "commented",
     "close": "closed",
+    "close-stale": "stale PRs closed",
     "rebase": "rebased",
     "rerun": "reruns triggered",
     "mark-ready": "marked ready",
@@ -89,6 +90,8 @@ def load(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {"prs": {}}
     data = json.loads(path.read_text(encoding="utf-8") or "{}")
+    if not isinstance(data, dict) or not isinstance(data.get("prs", {}), dict):
+        raise ValueError("session cache must be an object with a prs object")
     data.setdefault("prs", {})
     return data
 
@@ -153,6 +156,8 @@ def summary(
     acted: Counter[str] = Counter()
     skipped: Counter[str] = Counter()
     for entry in prs.values():
+        if entry.get("journal_status") in {"failed", "unchanged"}:
+            continue
         action = entry.get("action_taken")
         if action in ACTION_LABELS:
             acted[action] += 1
@@ -192,6 +197,13 @@ def summary(
         + ("   (classified but the group was not decided)" if pending else "")
     )
     lines += ["", f"Throughput: {actions_total} actions / {minutes}m = {per_hour} PRs/h"]
+    log = data.get("action_log", {}).get("actions", [])
+    recovery_counts = dict(Counter(a["status"] for a in log))
+    if log:
+        lines += [
+            "",
+            "Action history: " + ", ".join(f"{n} {status}" for status, n in sorted(recovery_counts.items())),
+        ]
     text = "\n".join(lines)
     result = {
         "started_at": _iso(start),
@@ -206,6 +218,8 @@ def summary(
         "per_hour": per_hour,
         "text": text,
     }
+    if log:
+        result["action_history"] = recovery_counts
     data["last_summary"] = {k: v for k, v in result.items() if k != "text"}
     save(path, data)
     return result

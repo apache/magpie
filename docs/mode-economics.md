@@ -261,6 +261,11 @@ to input.
 tokens per item and 50 items per week gives 500K-1.5M tokens/week. The measured
 replay above exceeds that per-item assumption; validate it for your workload.
 
+PR triage's session recovery adds the [recording and recovery protocol](../plugins/magpie-pr-management/skills/pr-triage/recovery.md) to the context loaded when applying actions.
+Every actual mutation now also needs an intent checkpoint, a fresh result read and a result checkpoint; no-op fields need no mutation receipt.
+History and recovery are loaded on demand, and undo planning remains deterministic Python.
+These extra reads and receipts scale with operations, not just PR count; the broad estimates above have not been re-benchmarked for this path and must not be read as measured recovery costs.
+
 ### Mentoring
 
 Agentic Mentoring is conversational and per-reply: the agent reads thread

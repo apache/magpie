@@ -61,12 +61,10 @@ No maintainer is ever assigned or `@`-mentioned; the agent-guard `mention` guard
 
 ## 4. Record
 
-After each PR's mutations:
-
-```bash
-uv run --project <framework>/tools/pr-management pr-management triage session record --session <scratch>/triage-session.json \
-  --pr <N> --head <head_sha> --action <action> --classification <classification> --terminal
-```
+Checkpoint the note and assignment results under the parent action's IDs using the [action recording protocol](../recovery.md#action-recording-protocol).
+Return to the parent action file for any remaining close, label or other operations.
+Do not finish the action inside note delivery: for example, `close` closes and labels only after this file returns.
+The parent finishes its journal on completion or the stop/error path, including partial execution.
 
 ## Label names
 

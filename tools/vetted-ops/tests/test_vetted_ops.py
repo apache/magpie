@@ -1709,3 +1709,23 @@ def test_a_symlink_on_the_committed_policy_path_is_refused(
     target.symlink_to(writable)
     with pytest.raises(config.ConfigError, match="symlink"):
         config.load(cwd=repo)
+
+
+@pytest.mark.parametrize(
+    "name,param", [("pr-triage-recovery-state", "12"), ("pr-triage-comment-receipt", "123456")]
+)
+def test_triage_recovery_reads_are_scoped_and_read_only(policy: config.Config, name: str, param: str) -> None:
+    op = ops.resolve(name)
+    assert not op.writes
+    params, _ = cli._validate_params(op, [param], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    if name == "pr-triage-recovery-state":
+        assert argv[:6] == ["gh", "pr", "view", "12", "--repo", "acme/product"]
+        assert {"headRefOid", "body", "isDraft", "state", "mergedAt", "labels", "assignees"} <= set(
+            argv[-1].split(",")
+        )
+    else:
+        assert argv == ["gh", "api", "repos/acme/product/issues/comments/123456"]
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["../other-repo"], policy)

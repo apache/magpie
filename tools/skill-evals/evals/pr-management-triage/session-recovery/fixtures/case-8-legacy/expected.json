@@ -1,0 +1,8 @@
+{
+  "remote_write": false,
+  "claim_full_undo": false,
+  "has_next_decision": true,
+  "has_remote_decision": true,
+  "has_completion_decision": true,
+  "has_safe_legacy_route": true
+}

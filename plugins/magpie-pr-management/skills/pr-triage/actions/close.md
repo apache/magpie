@@ -3,6 +3,8 @@
 
 # `close` — close with the reasoning and the quality-violations label
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Always per PR, never batched — even inside a `close` group the maintainer confirms each one.
 Deliver the reasoning **first**, so the description already explains the close when the close notification fires.
 
