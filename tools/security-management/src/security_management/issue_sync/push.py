@@ -45,9 +45,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cve_allocate.title import TRACKER_PREFIXES, strip
-from security_management.shared import selectors
+from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
-from security_management.shell import w
 
 GATES = (
     "title_strip_cascade",
@@ -64,9 +63,11 @@ JUDGED = (
     "anonymise_private_finder",
     "conservative_affected_range",
 )
+# The regenerated JSON is Vulnogram-shaped (generate-cve-json), so its
+# CNA_private.state is native; `cve-tool fetch --state-only` already prints the
+# generic state. `_state` reads either.
 NATIVE = {"DRAFT": "allocated", "REVIEW": "review-ready", "READY": "publish-ready", "PUBLIC": "public"}
 LATER = ("review-ready", "publish-ready", "public")
-OAUTH_API = "<framework>/tools/cve-tool-vulnogram/oauth-api"
 _UPGRADE = re.compile(r"upgrade[^.\n]{0,80}?\b[A-Za-z][\w.-]{0,60} v?\d+\.\d+(?:\.\d+)?\b", re.IGNORECASE)
 _CWE_LONG = re.compile(r"^CWE-\d+: \S")
 
@@ -94,7 +95,6 @@ def _state(value: object) -> str | None:
 
 def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = one_line(data.get("cve_id"))
-    oauth_api = w(str(data.get("oauth_api") or OAUTH_API))
 
     def out(action: str, why: str, **extra: Any) -> dict[str, Any]:
         return {
@@ -144,12 +144,10 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     stuck = transition and before == "allocated"
     probe = one_line(data.get("session")).lower() or None
     if probe is None:
-        return out(
-            "pending", "probe the CVE tool session", next=f"uv run --project {oauth_api} vulnogram-api-check"
-        )
+        return out("pending", "probe the CVE tool session", next=cve_tool.command(data, "check"))
     if probe in ("expired", "not-configured"):
         why = (
-            "the session expired: remind the operator to re-run vulnogram-api-setup --pmc <project>; manual-paste hand-off this run"
+            "the session expired: remind the operator to re-run cve-tool setup --pmc <project>; manual-paste hand-off this run"
             if probe == "expired"
             else "no session is configured: manual-paste hand-off through the source tab"
         )
@@ -163,7 +161,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
         return out(
             "pending",
             "push the regenerated JSON",
-            next=f"uv run --project {oauth_api} vulnogram-api-record-update --cve-id {w(cve_id)} --json-file {w(json_file)}",
+            next=cve_tool.command(data, "push", "--cve-id", cve_id, "--json-file", json_file),
         )
     if int(data["push_exit"]) != 0:
         return out(
@@ -178,7 +176,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             return out(
                 "pending",
                 "verify the state advance",
-                next=f"uv run --project {oauth_api} vulnogram-api-record-fetch --cve-id {w(cve_id)} --state-only",
+                next=cve_tool.command(data, "fetch", "--cve-id", cve_id, "--state-only"),
             )
         if fetched in LATER:
             return out(

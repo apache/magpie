@@ -212,7 +212,7 @@ Every command takes `--input F`, a JSON file.
 | `blockers` | `verdict` (`proceed`, `blocked`), `blockers`, `warnings` (`needs triage`, only when no hard blocker fired), `existing_cve`, `already_wired`, `scope_label`; empty `scope_labels` exits `2`. |
 | `preflight` | `path` (`api`, `recipe`, or `null` with the next check `command`), `reason`, `offer_setup`, `setup_command`. |
 | `title` | `original_title`, `normalized_title`, `word_count`, `changed`, `over_strip_warning` (fewer than 3 words). |
-| `recipe` | `path` (`api`, `recipe`, `relay`), `text`, the `vulnogram-api-allocate` `command` with the title shell-quoted, `bare_refs`; an unanswered authorisation question exits `2`. |
+| `recipe` | `path` (`api`, `recipe`, `relay`), `text`, the `cve-tool allocate` `command` with the title shell-quoted, `bare_refs`; an unanswered authorisation question exits `2`. |
 | `allocate-result` | `next` (`step-4`, `stop`, `setup`, `check-records`, `recipe`), `cve_id`, `message`, `rerun_allocate` (true only after an expired token). |
 | `cve` | `cve_id` and `record_url` from the user's paste-back; none, a malformed token or two IDs exit `2`. |
 | `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification` (`omitted`, `team_member`, `notified`, `draft_pending`) and for a draft `to`, `cc`, `subject`, `backend`, `anchor`, `secondary_threads`. |

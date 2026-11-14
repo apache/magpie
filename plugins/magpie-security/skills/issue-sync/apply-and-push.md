@@ -81,7 +81,7 @@ Use:
 - **Release-manager hand-off comment:** pick the body template per the variant decision in
   [Step 5c](#step-5c--reconcile-the-release-manager-hand-off-comment) —
   `tools/<cve-tool>/release-manager-handoff-comment-oauth-pushed.md`
-  when this run's `vulnogram-api-record-update` push succeeded,
+  when this run's `cve-tool push` succeeded,
   `tools/<cve-tool>/release-manager-handoff-comment.md` (manual-paste) otherwise.
   Substitute the placeholders (per the *Release-manager hand-off comment* bullet in Step 2b; the OAuth-pushed variant also takes `PUSH_TIMESTAMP`) and write the result to a temp file.
   This fires whenever the tracker's proposal carries the hand-off item —
@@ -124,7 +124,7 @@ Use:
   the RM has none left after sending the advisory email.
 
   Placeholders: `CVE_ID`, `RM_HANDLE` (from the release-manager identity resolved in Step 1f / `release-trains.md`),
-  `PUBLISH_TIMESTAMP` (from the just-completed `vulnogram-api-record-publish` call),
+  `PUBLISH_TIMESTAMP` (from the just-completed `cve-tool publish` call),
   `ADVISORY_URL` (the archive URL captured in the same apply), and the conditional `MILESTONE_BULLET`.
 
   **`MILESTONE_BULLET` is the only conditional in the template.**
@@ -154,22 +154,20 @@ Use:
   then the ticked item `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
   which records the security-pages step as done.
   A failed command posts nothing; report it in the recap with the command's output.
-- **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
-  [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
-  CLI to flip the record's `CNA_private.state` over the OAuth API.
-  It refuses the transition unless the current state is `REVIEW` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);
-  `--allow-state REVIEW --allow-state READY` also accepts a record moved to `READY` manually, and no earlier state can be published:
+- **CVE record state transition (`review-ready → public`):** run the CVE-tool interface's `publish` operation
+  ([`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md); for Vulnogram it flips the record's `CNA_private.state` from `REVIEW` to `PUBLIC` over the OAuth API).
+  It refuses the transition unless the current state is `review-ready` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);
+  `--allow-state review-ready --allow-state publish-ready` also accepts a record moved to `publish-ready` manually, and no earlier state can be published:
 
   ```bash
-  uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api \
-    vulnogram-api-record-publish --cve-id <CVE-YYYY-NNNNN>
+  uv run --project <framework>/tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
   ```
 
   Use it only as part of the *Advisory archived on `<users-list>`* combined apply in [Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet):
   the trigger is *"the advisory has provably shipped on `<users-list>`"*, the signal a human would use before clicking the Vulnogram `REVIEW → PUBLIC` button.
   Outside that trigger, the state transition stays manual.
 
-  Idempotent: re-running on a record already in `PUBLIC` exits 0 with an informational message.
+  Idempotent: re-running on a record already `public` exits 0 with an informational message.
   Exit codes match `record-update` (2 = token expired, 3 = unexpected state, 5 = save failed, 6 = other API error, 7 = unexpected envelope), plus 4 = no `vendor-advisory` reference.
   On a non-zero exit, the combined apply stops and the failure surfaces in the recap;
   the partial state (URL captured, labels flipped, JSON re-pushed, tracker NOT yet closed) is the recovery starting point for the next sync.
@@ -276,23 +274,22 @@ When any of the report's `normalisation_changes`, `missing_required` or `needs_d
 
 ### A record that is already public
 
-When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change.
-For Vulnogram:
+When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change:
 
 ```bash
-uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch --cve-id <CVE-ID> --state-only
+uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
 ```
 
-If the state is `PUBLIC`, save the live record and pass it as the baseline:
+If the state is `public`, save the live record and pass it as the baseline:
 
 ```bash
-uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
+uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
 uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json --baseline <scratch>/cve-live-<N>.json
 ```
 
 The body still wins for every value it owns; everything else keeps its published value.
 If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
-Never regenerate a `PUBLIC` record without its baseline.
+Never regenerate a `public` record without its baseline.
 
 ### Remediation-developer credit comes from the body field
 
@@ -343,8 +340,8 @@ Capture the printed URL — it deep-links to the `## CVE JSON — paste-ready fo
 ## Step 5b — Push the regenerated JSON to the CVE tool via the adapter
 
 **When the operator's machine has a valid authenticated session** for the adapter named in `cve_authority.tool`
-(one-time setup per `tools/<cve-tool>/README.md`; for Vulnogram,
-`uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-setup --pmc <project>`, see
+(one-time setup: `uv run --project <framework>/tools/cve-tool cve-tool setup …` with the adapter's own flags, per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md);
+for Vulnogram, `cve-tool setup --pmc <project>`, see
 [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
 **sync pushes the JSON to the record directly** through the adapter's `push_update(cve_id, fields, state_transition=None)` method
 (per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md))
@@ -473,20 +470,20 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
 
 3. **Push the update through the adapter's `push_update` method**
    (`push_update(cve_id, fields, state_transition=None)` per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md)).
-   For Vulnogram the entrypoint is `vulnogram-api-record-update`:
+   The `cve-tool push` operation runs it through the configured adapter:
 
    ```bash
-   uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-update \
+   uv run --project <framework>/tools/cve-tool cve-tool push \
      --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
 
-   The push merges into the live record and refuses to rename an affected product or package.
+   For Vulnogram, the push merges into the live record and refuses to rename an affected product or package.
    Two explicit overrides exist; use them only after confirming with the user:
 
    - `--replace-references` — replace `references[]` instead of keeping existing URLs.
      Needed to drop a reference that must no longer appear (a private mailing-list thread, a reverted PR), since merge mode keeps them.
    - `--allow-product-change` — allow a product/package rename.
-     Right when the project's generator config intentionally defines the name (for example a Helm chart with a `pkg:helm` purl) and the live record is still `DRAFT`;
+     Right when the project's generator config intentionally defines the name (for example a Helm chart with a `pkg:helm` purl) and the live record is still `allocated`;
      never on a published record.
 
    `state_transition` is omitted: the JSON already carries the generator-computed state,
@@ -500,7 +497,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    so do not short-circuit "already pushed this JSON":
    every successful run that re-regenerated the JSON re-pushes, keeping the record byte-identical to the tracker body.
 
-5. **The state fetch.** If the fetch entrypoint `push-decision` names is not yet installed on the operator's machine (see [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
+5. **The state fetch.** If the adapter does not implement the `fetch` operation `push-decision` names (`cve-tool` exits `22`, see [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md)),
    read the state from the `push_update` response envelope, which the contract requires to include the saved state.
    On `state_advance`, the Step 6 recap notes *"CVE record state auto-promoted to `review-ready` at `PUSH_TIMESTAMP`."*
    (for Vulnogram, add *"i.e. `DRAFT` → `REVIEW` in the underlying record"*).

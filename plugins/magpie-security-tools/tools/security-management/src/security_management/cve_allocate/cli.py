@@ -38,7 +38,7 @@ COMMANDS = {
     "preflight": "Step 0 item 5: the API pre-flight exits as the Step 3 path",
     "title": "Step 2: the CVE-ready title and the over-strip warning (JSON: title, project_names)",
     "recipe": "Step 3: the API proposal, the self-service recipe or the relay message",
-    "allocate-result": "Step 3: what a vulnogram-api-allocate exit means next",
+    "allocate-result": "Step 3: what a cve-tool allocate exit means next",
     "cve": "Step 3: the one CVE ID in the user's paste-back (JSON: text)",
     "draft-plan": "Step 4 item 5: whether the reporter gets a draft, to whom and how",
     "check-draft": "Step 4 item 5: grep a composed draft for the CVE-tool URL and other leaks",

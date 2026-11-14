@@ -124,7 +124,7 @@ Group them by category:
   and propose self-assigning a team member only if the user explicitly asks.
 
   **Assignee hand-off at the `fix released` transition (and its repair).** At the `fix released` transition (Step 12 — the fix has shipped to PyPI / the Helm registry),
-  ownership moves from the remediation developer to the release manager for Steps 13–15 (advisory send → URL capture → Vulnogram PUBLIC → close).
+  ownership moves from the remediation developer to the release manager for Steps 13–15 (advisory send → URL capture → CVE record public → close).
   **Propose swapping the assignee from the remediation developer to the release manager** in the same sync run that flips `pr merged` → `fix released`,
   as a concrete numbered item.
   Look up the release manager with the three-source cascade from Step 2c
@@ -286,7 +286,7 @@ Group them by category:
 
   - The `Short public summary` already mentions the prior `CVE-YYYY-NNNNN` token but lacks the *"users who applied the prior fix should also..."* clause.
   - The rollup carries a *"sibling tracker"* / *"split for scope clarity"* / *"follow-up to `<PRIOR-CVE-ID>`"* entry.
-  - The body or title mentions *"incomplete fix for `<CVE-ID>`"*, *"follow-up to `<CVE-ID>`"*, or *"split from"* a sibling tracker whose CVE is already PUBLIC;
+  - The body or title mentions *"incomplete fix for `<CVE-ID>`"*, *"follow-up to `<CVE-ID>`"*, or *"split from"* a sibling tracker whose CVE is already public;
     an *"incomplete fix for `<PRIOR-CVE-ID>`"* title parenthetical is stripped by the title-strip cascade, but the relationship is preserved in body / rollup.
   - The CVE record's `affected[]` names a different `packageName` than the prior CVE's record, AND the prior CVE is on the same root-cause class.
 
@@ -329,7 +329,7 @@ Group them by category:
      When neither key is declared, use the thread permalink the archive returned, or ask the release manager; never construct one.
 
      **A search hit is a candidate, not the advisory.** The search matches any public post that mentions the CVE ID
-     (a user question, a reply, a forward), and capturing this URL is what moves the CVE record to `PUBLIC`.
+     (a user question, a reply, a forward), and capturing this URL is what moves the CVE record to `public`.
      For each hit, fetch the thread (`mcp__ponymail__get_thread`, the HTTP API, or the archive's own thread page) for its list, root subject and root sender,
      write `{cve_id, url, thread: {list, subject, from}, advisory_list: <users-list>, mail_archive_url, authorized_senders}` to a file and run
      `security-management issue-sync advisory-archive --input <file>`;

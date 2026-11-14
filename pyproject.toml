@@ -114,6 +114,7 @@ jira-bridge = { workspace = true }
 release-config = { workspace = true }
 github-body-field = { workspace = true }
 generate-cve-json = { workspace = true }
+vulnogram-api = { workspace = true }
 magpie-vcs = { workspace = true }
 
 
@@ -130,6 +131,7 @@ members = [
   "tools/egress-gateway",
   "tools/container-gateway",
   "tools/contributor-metrics",
+  "tools/cve-tool",
   "tools/cve-tool-vulnogram/generate-cve-json",
   "tools/cve-tool-vulnogram/oauth-api",
   "tools/github-body-field",

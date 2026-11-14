@@ -330,6 +330,8 @@ SECURITY_TOOLS = {
     "tools/vcs": "magpie_vcs",
     "tools/cve-tool-vulnogram/generate-cve-json": "generate_cve_json",
     "tools/cve-tool-vulnogram/oauth-api": "vulnogram_api",
+    # The CVE-tool interface the skills call; it runs the adapter above.
+    "tools/cve-tool": "cve_tool",
     "tools/privacy-llm/checker": "checker",
     "tools/asf-security-dash": "magpie_asf_security_dash",
     "tools/gmail/oauth-draft": "oauth_draft",
