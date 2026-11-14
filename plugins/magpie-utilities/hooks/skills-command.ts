@@ -81,7 +81,7 @@ export async function executeMagpieSkills(
     const isVerbose = /(?:--verbose|-v)(?:\s|$)/i.test(args);
     const rootMatch = args.match(/(?:--root[=\s]+)(?:"([^"]+)"|'([^']+)'|([^\s]+))/i);
     const rootCandidate = rootMatch
-      ? (rootMatch[1] ?? rootMatch[2] ?? rootMatch[3]).trim()
+      ? (rootMatch[1] ?? rootMatch[2] ?? rootMatch[3] ?? '').trim()
       : '';
     const targetRoot =
       rootCandidate && !rootCandidate.startsWith('-') ? rootCandidate : workspaceDir;

@@ -26,7 +26,7 @@ import type {
   ReviewFinding,
   ReviewFindingsState,
   ReviewFindingsSummary,
-} from './types.ts';
+} from './types.js';
 
 export interface CuratedFindingsPayload {
   schema_version: 1;
@@ -69,7 +69,7 @@ export function computeFindingsHash(content: string): string {
 
   for (let i = 0; i < padded.length; i += 1) {
     const code = padded.charCodeAt(i);
-    words[i >> 2] |= code << ((3 - (i % 4)) * 8);
+    words[i >> 2] = (words[i >> 2] ?? 0) | (code << ((3 - (i % 4)) * 8));
   }
 
   words[words.length] = (asciiBitLength / maxWord) | 0;
@@ -79,46 +79,48 @@ export function computeFindingsHash(content: string): string {
     const w = words.slice(j, (j += 16));
     const oldHash = [...hash];
     for (let i = 0; i < 64; i += 1) {
-      const w15 = w[i - 15];
-      const w2 = w[i - 2];
-      const a = hash[0];
-      const e = hash[4];
+      const w15 = w[i - 15] ?? 0;
+      const w2 = w[i - 2] ?? 0;
+      const a = hash[0] ?? 0;
+      const e = hash[4] ?? 0;
+      const h1 = hash[1] ?? 0;
+      const h2 = hash[2] ?? 0;
       const s1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
-      const ch = (e & hash[5]) ^ (~e & hash[6]);
+      const ch = (e & (hash[5] ?? 0)) ^ (~e & (hash[6] ?? 0));
       const s0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
-      const maj = (a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]);
+      const maj = (a & h1) ^ (a & h2) ^ (h1 & h2);
 
       const wi =
         i < 16
-          ? w[i]
-          : ((w[i - 16] +
+          ? (w[i] ?? 0)
+          : (((w[i - 16] ?? 0) +
               (((w15 >>> 7) | (w15 << 25)) ^ ((w15 >>> 18) | (w15 << 14)) ^ (w15 >>> 3)) +
-              w[i - 7] +
+              (w[i - 7] ?? 0) +
               (((w2 >>> 17) | (w2 << 15)) ^ ((w2 >>> 19) | (w2 << 13)) ^ (w2 >>> 10))) |
               0);
       w[i] = wi;
 
-      const temp1 = (hash[7] + s1 + ch + k[i] + wi) | 0;
+      const temp1 = ((hash[7] ?? 0) + s1 + ch + (k[i] ?? 0) + wi) | 0;
       const temp2 = (s0 + maj) | 0;
 
-      hash[7] = hash[6];
-      hash[6] = hash[5];
-      hash[5] = hash[4];
-      hash[4] = (hash[3] + temp1) | 0;
-      hash[3] = hash[2];
-      hash[2] = hash[1];
-      hash[1] = hash[0];
+      hash[7] = hash[6] ?? 0;
+      hash[6] = hash[5] ?? 0;
+      hash[5] = e;
+      hash[4] = ((hash[3] ?? 0) + temp1) | 0;
+      hash[3] = h2;
+      hash[2] = h1;
+      hash[1] = a;
       hash[0] = (temp1 + temp2) | 0;
     }
     for (let i = 0; i < 8; i += 1) {
-      hash[i] = (hash[i] + oldHash[i]) | 0;
+      hash[i] = ((hash[i] ?? 0) + (oldHash[i] ?? 0)) | 0;
     }
   }
 
   let result = '';
   for (let i = 0; i < 8; i += 1) {
     for (let j = 3; j >= 0; j -= 1) {
-      const b = (hash[i] >>> (j * 8)) & 255;
+      const b = ((hash[i] ?? 0) >>> (j * 8)) & 255;
       result += (b < 16 ? '0' : '') + b.toString(16);
     }
   }
@@ -228,7 +230,7 @@ export function truncateFilePath(filePath: string, maxLength = 36): string {
   if (parts.length <= 2) {
     return `...${filePath.slice(-(maxLength - 3))}`;
   }
-  const last = parts[parts.length - 1];
+  const last = parts[parts.length - 1] ?? '';
   const prev = parts[parts.length - 2];
   const candidate = `.../${prev}/${last}`;
   if (candidate.length <= maxLength) {
@@ -334,6 +336,9 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
 
     for (let i = 0; i < anchored.length && visibleCount < MAX_VISIBLE; i += 1) {
       const f = anchored[i];
+      if (!f) {
+        continue;
+      }
       visibleCount += 1;
       const actionSpec = formatActionIndicator(f.action);
       const severitySpec = formatSeverityBadge(f.severity);
@@ -410,6 +415,9 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
 
     for (let i = 0; i < unanchored.length && visibleCount < MAX_VISIBLE; i += 1) {
       const f = unanchored[i];
+      if (!f) {
+        continue;
+      }
       visibleCount += 1;
       const actionSpec = formatActionIndicator(f.action);
       const severitySpec = formatSeverityBadge(f.severity);
@@ -800,7 +808,7 @@ export function resolveFindingIndex(
   if (typeof identifier === 'number') {
     if (identifier >= 1 && identifier <= anchored.length) {
       const target = anchored[identifier - 1];
-      return state.findings.indexOf(target);
+      return target ? state.findings.indexOf(target) : -1;
     }
     return -1;
   }
@@ -816,10 +824,10 @@ export function resolveFindingIndex(
   // 2. General finding identifier prefix: g<N> or G<N> (e.g. 'g1', 'g2')
   const generalMatch = trimmed.match(/^[gG](\d+)$/);
   if (generalMatch) {
-    const generalIndex = Number.parseInt(generalMatch[1], 10);
+    const generalIndex = Number.parseInt(generalMatch[1] ?? '', 10);
     if (generalIndex >= 1 && generalIndex <= unanchored.length) {
       const target = unanchored[generalIndex - 1];
-      return state.findings.indexOf(target);
+      return target ? state.findings.indexOf(target) : -1;
     }
     return -1;
   }
@@ -829,7 +837,7 @@ export function resolveFindingIndex(
     const parsed = Number.parseInt(trimmed, 10);
     if (parsed >= 1 && parsed <= anchored.length) {
       const target = anchored[parsed - 1];
-      return state.findings.indexOf(target);
+      return target ? state.findings.indexOf(target) : -1;
     }
     return -1;
   }
@@ -885,6 +893,9 @@ export function toggleFindingActionInState(
     return state;
   }
   const current = state.findings[findingIndex];
+  if (!current) {
+    return state;
+  }
   const nextAction = cycleFindingAction(current.action);
   return updateFindingInState(state, findingIndex, { action: nextAction });
 }
@@ -1394,7 +1405,7 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
     const unanchored = state.findings.filter((f) => !isAnchored(f));
     if (Number.isInteger(parsed) && parsed >= 1 && parsed <= unanchored.length) {
       const target = unanchored[parsed - 1];
-      const targetIdx = state.findings.indexOf(target);
+      const targetIdx = target ? state.findings.indexOf(target) : -1;
       if (targetIdx !== -1) {
         const updated = toggleFindingActionInState(state, targetIdx);
         await updateAndSyncReviewFindingsState($, updated);
@@ -1449,7 +1460,7 @@ export function extractFindingsPathFromCommand(command: string): string | null {
 export function extractPrNumberFromCommand(command: string): number | undefined {
   const match = command.match(/--pr(?:[=\s]+)(\d+)/);
   if (!match) return undefined;
-  const parsed = Number.parseInt(match[1], 10);
+  const parsed = Number.parseInt(match[1] ?? '', 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
@@ -1775,6 +1786,9 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       lines.push('Inline comments:');
       for (let i = 0; i < anchored.length; i += 1) {
         const f = anchored[i];
+        if (!f) {
+          continue;
+        }
         const indicator = formatActionIndicator(f.action);
         lines.push(`  ${indicator.label.slice(0, 3)} ${i + 1}. [${f.severity.toUpperCase()}] ${f.file}:${f.line} - ${truncateText(f.body, 60)}`);
       }
@@ -1788,6 +1802,9 @@ export async function handleFindingsCommand($: any, e: any): Promise<{ text: str
       lines.push('General observations (unanchored):');
       for (let i = 0; i < unanchored.length; i += 1) {
         const f = unanchored[i];
+        if (!f) {
+          continue;
+        }
         const indicator = formatActionIndicator(f.action);
         lines.push(`  ${indicator.label.slice(0, 3)} g${i + 1}. [${f.severity.toUpperCase()}] ${f.file} - ${truncateText(f.body, 60)}`);
       }

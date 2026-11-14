@@ -28,7 +28,7 @@ import {
   resolvePath,
   resolveProjectConfig,
   splitShellCommands,
-} from './public-surface-scrub.ts';
+} from './public-surface-scrub.js';
 
 function assert(condition: any, message?: string): void {
   if (!condition) {

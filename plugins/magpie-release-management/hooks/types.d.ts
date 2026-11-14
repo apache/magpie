@@ -30,9 +30,36 @@ declare module 'claude-code' {
         stagingUrl?: string | null;
         postTo?: string | null;
         overallStatus: 'running' | 'passed' | 'passed-with-warnings' | 'failed';
-        currentStepId?: string | null;
+        currentStepId?:
+          | 'preflight'
+          | 'inventory'
+          | 'signatures'
+          | 'checksums'
+          | 'rat-license-headers'
+          | 'notice-license'
+          | 'binary-exclusion'
+          | 'jvm-artefacts'
+          | 'nexus-staging'
+          | 'source-tree-integrity'
+          | 'version-consistency'
+          | 'reproducibility'
+          | 'verdict'
+          | null;
         steps: Array<{
-          id: string;
+          id:
+            | 'preflight'
+            | 'inventory'
+            | 'signatures'
+            | 'checksums'
+            | 'rat-license-headers'
+            | 'notice-license'
+            | 'binary-exclusion'
+            | 'jvm-artefacts'
+            | 'nexus-staging'
+            | 'source-tree-integrity'
+            | 'version-consistency'
+            | 'reproducibility'
+            | 'verdict';
           label: string;
           status: 'pending' | 'running' | 'passed' | 'failed' | 'warning' | 'skipped';
           detail?: string | null;

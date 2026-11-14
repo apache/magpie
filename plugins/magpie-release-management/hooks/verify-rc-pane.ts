@@ -18,14 +18,14 @@
 // under the License.
 
 import { atom, read, update } from 'claude-code';
-import { createDefaultVerifySteps } from './types.ts';
+import { createDefaultVerifySteps } from './types.js';
 import type {
   VerifyRcState,
   VerifyRcStep,
   VerifyStepId,
   StepStatus,
   OverallVerifyStatus,
-} from './types.ts';
+} from './types.js';
 
 export const verifyRcState = atom(
   { plugin: 'magpie-release-management', key: 'verifyRcState' },
@@ -323,7 +323,8 @@ export function extractRcTag(command: string): string | null {
   for (const inv of invocations) {
     // 1. Explicit flags: --rc-tag <tag>, --rc-tag=<tag>, --tag <tag>, --tag=<tag>
     const flagMatch = inv.match(/(?:--rc-tag|--tag)[=\s]+([0-9A-Za-z_.\-]+-rc\d+)/i);
-    if (flagMatch) return flagMatch[1];
+    const flagTag = flagMatch?.[1];
+    if (flagTag) return flagTag;
 
     // 2. Positional tag in verify-rc, release-verify, or release-config invocations
     // Matches standalone token like '3.0.0-rc1' that is not a directory path or flag argument
@@ -333,9 +334,8 @@ export function extractRcTag(command: string): string | null {
     if (toolMatch) {
       const rest = toolMatch[1] || '';
       const tokens = rest.split(/\s+/);
-      for (let i = 0; i < tokens.length; i++) {
-        const t = tokens[i];
-        const prev = i > 0 ? tokens[i - 1] : '';
+      for (const [i, t] of tokens.entries()) {
+        const prev = tokens[i - 1] ?? '';
         // Skip flag values for path/directory arguments
         if (/^--(?:dir|path|tree|previous|keys|recipe-dir|validator|manifest)\b/i.test(prev)) {
           continue;
@@ -419,7 +419,7 @@ export function mapCliSubcommandToStepId(command: string): VerifyStepId | 'all' 
   for (const inv of invocations) {
     const toolMatch = inv.match(/^(?:(?:\S*\/)?([a-zA-Z0-9_-]+)(?:\.py|\.cli)?)(?:\s+(.*))?$/);
     if (!toolMatch) continue;
-    const tool = toolMatch[1].toLowerCase();
+    const tool = (toolMatch[1] ?? '').toLowerCase();
     const rest = toolMatch[2] || '';
 
     if (tool === 'release-verify' || tool === 'release_verify') {
@@ -743,9 +743,9 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
         if (json && Array.isArray(json.steps) && !isError && (exitCode === 0 || exitCode === undefined)) {
           for (const batchStep of json.steps) {
             const rawStep = String(batchStep.step || batchStep.name || '');
-            const matchedId: VerifyStepId | null = isVerifyStepId(rawStep)
+            const matchedId: VerifyStepId | 'all' | null = isVerifyStepId(rawStep)
               ? rawStep
-              : (mapCliSubcommandToStepId(`release-verify ${rawStep}`) as VerifyStepId | null);
+              : mapCliSubcommandToStepId(`release-verify ${rawStep}`);
             if (matchedId && matchedId !== 'all') {
               const batchTarget = state.steps.find((s) => s.id === matchedId);
               if (batchTarget) {
@@ -776,7 +776,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           }
           state.currentStepId = null;
         }
-      } else if (stepId !== 'all') {
+      } else {
         target = state.steps.find((s) => s.id === stepId);
         if (target) {
           target.durationMs = Date.now() - stepStartTime;
@@ -822,9 +822,9 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
             if (Array.isArray(json.step_summary)) {
               for (const item of json.step_summary) {
                 const stepKey = String(item.step || '');
-                const matchedId: VerifyStepId | null = isVerifyStepId(stepKey)
+                const matchedId: VerifyStepId | 'all' | null = isVerifyStepId(stepKey)
                   ? stepKey
-                  : (mapCliSubcommandToStepId(`release-verify ${stepKey}`) as VerifyStepId | null);
+                  : mapCliSubcommandToStepId(`release-verify ${stepKey}`);
                 if (matchedId && matchedId !== 'all') {
                   const row = state.steps.find((s) => s.id === matchedId);
                   if (row && item.status) {
