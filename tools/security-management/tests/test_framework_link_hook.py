@@ -54,6 +54,20 @@ def test_the_copy_is_writable_and_current_follows_upgrades(tmp_path: Path) -> No
     assert os.readlink(base / "current") == str(base / "2.0")
 
 
+def test_the_organization_manifests_ship_under_the_framework_root(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    root = tmp_path / "plugin-org"
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin" / "plugin.json").write_text('{\n  "version": "1.0"\n}\n')
+    (root / "tools").mkdir()
+    (root / "organizations" / "ASF").mkdir(parents=True)
+    (root / "organizations" / "ASF" / "organization.md").write_text("cve_authority:\n  tool: vulnogram\n")
+    _run(home, root)
+    current = home / ".cache" / "apache-magpie" / "framework" / "current"
+    assert (current / "organizations" / "ASF" / "organization.md").is_file()
+
+
 def test_a_real_directory_at_current_is_left_alone(tmp_path: Path) -> None:
     home = tmp_path / "home"
     current = home / ".cache" / "apache-magpie" / "framework" / "current"

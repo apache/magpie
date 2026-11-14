@@ -22,7 +22,7 @@ import re
 
 import pytest
 
-from pr_management.code_review import data
+from pr_management.code_review import cli, data
 
 # The rule vetted-ops applies to every `--save` name (`_SAVE_NAME` in vetted_ops/ops.py).
 SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
@@ -41,3 +41,147 @@ def test_the_path_commits_save_name_is_one_vetted_ops_accepts(path: str) -> None
 
 def test_long_paths_that_share_a_stem_get_different_names() -> None:
     assert data.slug(LONG) != data.slug(LONG.replace("state.py", "other.py"))
+
+
+def test_from_node_accepts_rollup_when_commit_oid_matches_head_ref_oid() -> None:
+    node = {
+        "number": 1,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "3ac12395",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "build",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3ac12395"
+    assert pr.rollup_state == "SUCCESS"
+    assert len(pr.contexts) == 1
+    assert pr.contexts[0].name == "build"
+    assert pr.contexts[0].conclusion == "SUCCESS"
+
+
+def test_from_node_discards_rollup_when_commit_oid_mismatches_head_ref_oid() -> None:
+    # Guards against a lagging commit edge where latest: commits(last: 1)
+    # has not advanced to headRefOid (Direction 1 of #2034).
+    node = {
+        "number": 272,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "4eb3567c",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {
+                                "nodes": [
+                                    {
+                                        "__typename": "CheckRun",
+                                        "name": "build",
+                                        "conclusion": "SUCCESS",
+                                        "status": "COMPLETED",
+                                    }
+                                ]
+                            },
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3ac12395"
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+    assert pr.pending_not_required == ()
+    assert pr.ci_outdated_query is False
+
+
+def test_from_node_discards_rollup_and_flags_outdated_query_when_commit_oid_missing() -> None:
+    # Simulates query skew: an older vetted-ops installation that did not request `oid`
+    # under latest: commits(last: 1). Rollup is discarded for safety, but flagged as outdated.
+    node = {
+        "number": 1,
+        "headRefOid": "3ac12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+    assert pr.ci_outdated_query is True
+    # The headline names the cause, rather than reading as "none reported".
+    assert "out of date" in cli._ci_line(pr, real=False)
+
+
+def test_from_node_discards_rollup_when_head_ref_oid_missing() -> None:
+    node = {
+        "number": 1,
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "3ac12395",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.rollup_state is None
+    assert pr.contexts == ()
+
+
+def test_from_node_accepts_rollup_case_insensitively() -> None:
+    node = {
+        "number": 1,
+        "headRefOid": "3AC12395",
+        "latest": {
+            "nodes": [
+                {
+                    "commit": {
+                        "oid": "  3ac12395  ",
+                        "statusCheckRollup": {
+                            "state": "SUCCESS",
+                            "contexts": {"nodes": []},
+                        },
+                    }
+                }
+            ]
+        },
+    }
+    pr = data.from_node(node)
+    assert pr.head_sha == "3AC12395"
+    assert pr.rollup_state == "SUCCESS"

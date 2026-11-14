@@ -1,7 +1,7 @@
 {
   "name": "magpie-release-management",
   "description": "Apache Magpie \u2014 Releases: ASF release planning, RC preparation and signing, voting, promotion, announcements, archives and audits.",
-  "version": "0.9.0.dev202611101307",
+  "version": "0.9.0.dev202611132325",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"

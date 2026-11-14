@@ -27,6 +27,8 @@ declare module 'claude-code' {
       reviewFindingsState: {
         prNumber?: number;
         prTitle?: string;
+        findingsPath?: string;
+        sourceHash?: string | null;
         findings: Array<{
           id: string;
           file: string;
@@ -49,6 +51,7 @@ declare module 'claude-code' {
           unanchoredCount: number;
         };
         selectedIndex: number;
+        syncError?: string | null;
       } | null;
     };
   }

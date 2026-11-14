@@ -223,9 +223,9 @@ code lands.
   verification in their own dev loop before posting `+1`.
 - **The verify-rc pane is additive.** Under Claude Code,
   `plugins/magpie-release-management/hooks/verify-rc-pane.ts` draws a live
-  checklist of the skill's 13 steps, JVM artefacts and Nexus staging included.
-  Nothing fills it yet, so it renders nothing and the skill is unchanged;
-  the tool-call interceptor that feeds it is the next part of #2006 (#2007).
+  checklist of the skill's 13 steps, JVM artefacts and Nexus staging included (#2007).
+  The Bash tool-call feed interceptor updates step statuses, details, and the overall
+  verdict in real time as `release-config` and `release-verify` subcommands run (#2013).
 - **The source artefact is a reproducible export of the tag.** With
   `release-build.md § Source archive` at its default
   (`source_archive_method: git-archive`), `release-rc-cut` emits

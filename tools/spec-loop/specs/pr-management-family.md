@@ -369,6 +369,10 @@ same directory; the behaviour is unchanged.
   unfinished CI.
   Failing CI, a rollup green from bot checks only, and workflows waiting for
   approval stay gates, and `ci_action` names what to approve or re-run first.
+  A rollup is used only when its commit is the PR's head commit; when the
+  installed vetted-ops queries do not return that commit's oid, the rollup is
+  dropped, the headline says CI cannot be verified, and `ci_action` names the
+  vetted-ops upgrade.
   The maintainer's confirmation of the disposition covers the auto-merge
   write, and the prompt names it.
   After the approval posts, the skill refreshes the liveness read, re-runs
