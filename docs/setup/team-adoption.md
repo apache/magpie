@@ -129,7 +129,7 @@ this floor before doing anything else, and brings a machine that falls short
 up to it — installing or updating only what the floor names, then stopping
 for a restart — but only acts without asking when the lock's `url` is
 `apache/magpie`; a lock naming any other marketplace is shown to the user
-first. `setup upgrade` can raise the floor as the project's own Magpie moves
+first. `setup update` can raise the floor as the project's own Magpie moves
 forward, but never lowers it. None of this ever limits what a contributor
 may install for themselves — see
 [What a contributor gets on clone](#what-a-contributor-gets-on-clone) below.

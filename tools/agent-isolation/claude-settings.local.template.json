@@ -17,12 +17,6 @@
     "network": {
       "allowedDomains": [
         "api.bitbucket.org",
-        "lists.apache.org",
-        "dist.apache.org",
-        "repository.apache.org",
-        "downloads.apache.org",
-        "archive.apache.org",
-        "cveprocess.apache.org",
         "cve.org",
         "www.cve.org",
         "cveawg.mitre.org",
@@ -57,11 +51,10 @@
       "Bash(gh cache list *)",
       "Bash(gh search *)",
       "Bash(gh browse *)",
-      "Bash(gh auth status*)",
+      "Bash(gh auth status)",
       "Bash(zizmor *)",
       "WebFetch(domain:cveawg.mitre.org)",
-      "WebFetch(domain:pypi.org)",
-      "WebFetch(domain:lists.apache.org)"
+      "WebFetch(domain:pypi.org)"
     ]
   }
 }

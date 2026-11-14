@@ -40,6 +40,7 @@ from .triage import fold as triage_fold
 from .triage import guards as triage_guards
 from .triage import output as triage_output
 from .triage import preflight as triage_preflight
+from .triage import recovery as triage_recovery
 from .triage import render as triage_render
 from .triage import run as triage_run
 from .triage import session as triage_session
@@ -102,6 +103,21 @@ def _triage_classify(args: argparse.Namespace) -> dict[str, Any]:
     session: dict[str, dict[str, Any]] = {}
     if args.session and Path(args.session).is_file():
         session = json.loads(Path(args.session).read_text(encoding="utf-8")).get("prs", {})
+    if args.revisit is not None:
+        logged_prs = set()
+        if args.session:
+            stored = triage_session.load(Path(args.session))
+            if stored.get("action_log"):
+                if not cfg.upstream_repo:
+                    raise ValueError("--revisit of a journaled PR needs upstream_repo in project.md")
+                log = triage_recovery.history(Path(args.session), cfg.upstream_repo, args.viewer)
+                logged_prs = {entry["pr"] for entry in log["actions"]}
+        if str(args.revisit) not in session and args.revisit not in logged_prs:
+            raise ValueError("--revisit needs a PR recorded in --session")
+        if not any(pr.number == args.revisit for pr in prs):
+            raise ValueError("refresh the selected PR's saved read before --revisit")
+        # Bypass only the selected PR's session suppression, never the real triage rules.
+        session.pop(str(args.revisit), None)
     opts = triage_classify.Options(
         viewer=args.viewer, now=_now(args.now), authors=args.authors, session=session
     )
@@ -113,6 +129,8 @@ def _triage_classify(args: argparse.Namespace) -> dict[str, Any]:
         ci.load_action_required(_optional(saved, SAVED["action_required"])),
         ci.load_systemic(_optional(saved, SAVED["main_failures"])),
     )
+    if args.revisit is not None:
+        decisions = [decision for decision in decisions if decision.pr.number == args.revisit]
     result = triage_output.build(decisions, cfg, viewer=args.viewer, pages=page_count)
     prefetch: list[dict[str, Any]] = []
     if cfg.committers_team_slug and team_path is None:
@@ -228,6 +246,34 @@ def _triage_fold(args: argparse.Namespace) -> dict[str, Any]:
 
 def _triage_session(args: argparse.Namespace) -> dict[str, Any]:
     now = _now(args.now) if args.now else None
+    if args.session_command in {"checkpoint", "history", "undo-plan"}:
+        if args.session_command == "checkpoint":
+            event = json.loads(args.event.read_text(encoding="utf-8"))
+            if not isinstance(event, dict):
+                raise ValueError("journal event must be a JSON object")
+            return triage_recovery.checkpoint(
+                args.session,
+                args.repo,
+                args.viewer,
+                event,
+                now=now,
+                ready_label=config.load(args.project_root, args.config_dir).ready_label,
+            )
+        if args.session_command == "history":
+            return triage_recovery.history(args.session, args.repo, args.viewer)
+        live = json.loads(args.live.read_text(encoding="utf-8"))
+        if not isinstance(live, dict):
+            raise ValueError("live read must be a JSON object")
+        if args.runs:
+            live["workflow_runs"] = triage_guards.load_runs(args.runs)
+        return triage_recovery.plan(
+            args.session,
+            args.repo,
+            args.viewer,
+            args.action_id,
+            live,
+            ready_label=config.load(args.project_root, args.config_dir).ready_label,
+        )
     if args.session_command == "record":
         entry = triage_session.record(
             args.session,
@@ -351,6 +397,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     cls.add_argument("--viewer", required=True, help="the authenticated maintainer's login")
     cls.add_argument("--authors", choices=("default", "all", "collaborators"), default="default")
     cls.add_argument("--session", default=None, help="the session cache JSON")
+    cls.add_argument(
+        "--revisit", type=int, help="refresh one recorded PR, bypassing only session suppression"
+    )
     cls.add_argument("--now", default=None, help="evaluate as of this ISO-8601 time (tests, replays)")
     cls.add_argument(
         "--label", default=None, help="keep only PRs with a label matching this glob (e.g. 'area:*')"
@@ -408,6 +457,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     summ.add_argument("--session", type=Path, required=True)
     summ.add_argument("--classify", type=Path, default=None, help="this session's classify output")
     summ.add_argument("--now", default=None)
+    for name, help_text in (
+        ("checkpoint", "record action intent, an operation receipt, or confirmed recovery"),
+        ("history", "list session actions without publishing their contents"),
+        ("undo-plan", "preview recovery from recorded evidence and a fresh PR read; no writes"),
+    ):
+        command = ses_sub.add_parser(name, help=help_text)
+        command.add_argument("--session", type=Path, required=True)
+        command.add_argument("--repo", required=True)
+        command.add_argument("--viewer", required=True)
+        command.add_argument("--now", default=None)
+        if name == "checkpoint":
+            command.add_argument("--event", type=Path, required=True)
+        elif name == "undo-plan":
+            command.add_argument("--action-id", type=int, required=True)
+            command.add_argument("--live", type=Path, required=True)
+            command.add_argument(
+                "--runs", type=Path, help="saved runs-at-head read for restoring ready state"
+            )
 
     _add_stats_parsers(sub)
     plugins = _family_plugins()
@@ -419,13 +486,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.family == "config":
         result = _config(args)
     elif args.family == "triage" and args.command == "classify":
-        result = _triage_classify(args)
+        try:
+            result = _triage_classify(args)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     elif args.family == "triage" and args.command == "render":
         result = _triage_render(args)
     elif args.family == "triage" and args.command == "fold":
         result = _triage_fold(args)
     elif args.family == "triage" and args.command == "session":
-        result = _triage_session(args)
+        try:
+            result = _triage_session(args)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     elif args.family == "triage" and args.command == "preflight":
         result = triage_preflight.check(
             args.saved_dir / "preflight.json", config.load(args.project_root, args.config_dir)

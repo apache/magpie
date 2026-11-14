@@ -28,7 +28,9 @@ OAuth refresh token, trades it for a short-lived access token, and POSTs
 a raw RFC822 message to Gmail's ``drafts.create`` endpoint with both the
 ``threadId`` attachment **and** ``In-Reply-To`` / ``References`` MIME
 headers derived from the last message in the thread. The resulting
-draft threads reliably on every client.
+draft threads reliably on every client. For a message that never reached
+the user's Gmail (only in the PonyMail archive, say), ``--in-reply-to`` /
+``--references`` set those headers from Message-IDs the caller already has.
 
 Pick this backend by setting ``tools.gmail.draft_backend: oauth_curl``
 in your ``config/user.md``. See ``tools/gmail/draft-backends.md`` for
@@ -44,6 +46,7 @@ import email.message
 import email.utils
 import json
 import pathlib
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -110,6 +113,71 @@ def latest_reply_headers(access_token: str, thread_id: str) -> tuple[str | None,
     """Return ``(in_reply_to, references)`` for the last message in ``thread_id``."""
     thread = api_get(access_token, f"/threads/{thread_id}?format=full")
     return headers_from_thread(thread)
+
+
+# Printable ASCII without space, '<', '>' or '@': a Message-ID never carries
+# whitespace, so CR / LF (header injection) cannot get through either.
+_MSG_ID_PART = r"[!-;=?A-~]+"
+_MSG_ID_BODY = re.compile(rf"{_MSG_ID_PART}@{_MSG_ID_PART}")
+
+
+def normalize_message_id(value: str) -> str:
+    """Return ``value`` as a bracketed ``<local@domain>`` Message-ID.
+
+    Angle brackets are optional on input. Anything that is not a single
+    ``local@domain`` token -- whitespace, CR / LF, control or non-ASCII
+    characters, a missing ``@``, unbalanced brackets -- raises ``ValueError``.
+    """
+    body = value
+    if body.startswith("<") and body.endswith(">"):
+        body = body[1:-1]
+    if not _MSG_ID_BODY.fullmatch(body):
+        raise ValueError(f"not a Message-ID (expected <local@domain>): {value!r}")
+    return f"<{body}>"
+
+
+def explicit_reply_headers(in_reply_to: str | None, references: str | None) -> tuple[str | None, str | None]:
+    """Validate caller-supplied threading headers and return ``(in_reply_to, references)``.
+
+    For replying to a message that is not in the user's Gmail (for example a
+    report only in the PonyMail archive), so there is no ``threadId`` to read
+    the headers from. ``references`` is a space-separated list of Message-IDs,
+    root first; it defaults to ``in_reply_to`` alone, and ``in_reply_to`` is
+    appended when the list does not already name it (RFC 5322: a reply's
+    ``References`` is its parent's ``References`` plus the parent's ID).
+    """
+    if not in_reply_to:
+        if references:
+            raise ValueError("references needs in_reply_to")
+        return (None, None)
+    parent = normalize_message_id(in_reply_to)
+    chain = (
+        [normalize_message_id(ref) for ref in re.split(r"[ \t]+", references.strip(" \t"))]
+        if references
+        else []
+    )
+    if parent not in chain:
+        chain.append(parent)
+    return (parent, " ".join(chain))
+
+
+def choose_reply_headers(
+    access_token: str,
+    thread_id: str | None,
+    explicit: tuple[str | None, str | None],
+    no_reply_headers: bool,
+) -> tuple[str | None, str | None]:
+    """Pick the draft's ``(in_reply_to, references)``.
+
+    Headers from :func:`explicit_reply_headers` win over the ones derived from
+    ``thread_id``'s last message, and skip that lookup; ``thread_id`` still
+    attaches the draft to the Gmail thread.
+    """
+    if explicit[0]:
+        return explicit
+    if thread_id and not no_reply_headers:
+        return latest_reply_headers(access_token, thread_id)
+    return (None, None)
 
 
 def build_mime(
@@ -214,7 +282,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Skip setting In-Reply-To / References from the thread's last message. Useful for smoke-testing."
         ),
     )
-    return p.parse_args(argv)
+    p.add_argument(
+        "--in-reply-to",
+        help=(
+            "Message-ID the draft replies to (angle brackets optional). For a message that is not "
+            "in this Gmail account, e.g. one only in the PonyMail archive. Wins over the headers "
+            "derived from --thread-id, which still attaches the draft to that thread."
+        ),
+    )
+    p.add_argument(
+        "--references",
+        help=(
+            "Space-separated Message-IDs for the References header, root first. Needs "
+            "--in-reply-to, which is appended when missing. Default: the --in-reply-to ID alone."
+        ),
+    )
+    args = p.parse_args(argv)
+    if args.no_reply_headers and args.in_reply_to:
+        p.error("--no-reply-headers and --in-reply-to are mutually exclusive")
+    try:
+        args.in_reply_to, args.references = explicit_reply_headers(args.in_reply_to, args.references)
+    except ValueError as e:
+        p.error(str(e))
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -224,10 +314,12 @@ def main(argv: list[str] | None = None) -> int:
     assert creds.from_address is not None  # required=True path above
     access_token = refresh_access_token(creds)
 
-    if args.thread_id and not args.no_reply_headers:
-        in_reply_to, references = latest_reply_headers(access_token, args.thread_id)
-    else:
-        in_reply_to, references = (None, None)
+    in_reply_to, references = choose_reply_headers(
+        access_token,
+        args.thread_id,
+        (args.in_reply_to, args.references),
+        args.no_reply_headers,
+    )
 
     raw = build_mime(
         from_addr=creds.from_address,

@@ -80,6 +80,9 @@ close_reasons = ["completed", "not planned"]
     "cr-commit-files",
     "cr-path-commits",
     "cr-commit-pulls",
+    # The head commit's check runs, read before an APPROVE to confirm real CI
+    # ran there (code-review disposition's secondary check, #2072).
+    "check-runs",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,
@@ -103,6 +106,10 @@ close_reasons = ["completed", "not planned"]
     "upstream-permission",
     "pr-view-with-body",
     "gql-pr-liveness",
+    # The recovery journal's checkpoints (pr-triage recovery.md): a fresh read
+    # of the PR before each write, and the exact comment after a comment write.
+    "pr-triage-recovery-state",
+    "pr-triage-comment-receipt",
 ]
 
 # pr-management-stats is a read-only dashboard: its reads are saved with
@@ -116,9 +123,9 @@ close_reasons = ["completed", "not planned"]
     "team-members",
 ]
 
-# pr-management-quick-merge screens the ready queue from saved reads. Reads only:
+# pr-management-merge-candidates screens the ready queue from saved reads. Reads only:
 # it never merges; the maintainer runs the printed merge command.
-"pr-management-quick-merge" = [
+"pr-management-merge-candidates" = [
     "viewer",
     "gql-pr-triage-preflight",
     "gql-pr-express-ready",
@@ -151,8 +158,8 @@ close_reasons = ["completed", "not planned"]
     "pr-comments",
 ]
 
-# pr-management-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
-"pr-management-mentor" = [
+# pr-management-thread-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
+"pr-management-thread-mentor" = [
     "viewer",
     "repo-issue-view",
     "pr-view-with-body",

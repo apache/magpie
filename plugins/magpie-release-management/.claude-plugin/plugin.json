@@ -1,7 +1,7 @@
 {
   "name": "magpie-release-management",
-  "description": "Apache Magpie \u2014 ASF release lifecycle: plan, RC cut/sign, vote, tally, promote, announce, archive, audit.",
-  "version": "0.9.0.dev202611041445",
+  "description": "Apache Magpie \u2014 Releases: ASF release planning, RC preparation and signing, voting, promotion, announcements, archives and audits.",
+  "version": "0.9.0.dev202611132325",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
@@ -9,5 +9,6 @@
   "homepage": "https://magpie.apache.org/",
   "repository": "https://github.com/apache/magpie",
   "license": "Apache-2.0",
+  "types": "./hooks/types.d.ts",
   "skills": "./skills"
 }

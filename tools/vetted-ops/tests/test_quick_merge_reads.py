@@ -15,7 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""The pr-management-quick-merge reads."""
+"""The pr-management-merge-candidates reads."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ upstream = "acme/product"
 upstream_labels = ["ready for maintainer review"]
 
 [callers]
-"pr-management-quick-merge" = [
+"pr-management-merge-candidates" = [
     "gql-pr-express-ready", "gql-pr-express-one", "gql-pr-review-decision", "pr-live-state",
 ]
 """

@@ -5,4 +5,4 @@ There is no `.apache-magpie.lock` at the repo root. The running agent is Claude
 Code. `claude plugin list --json` reports magpie-setup 0.2.0 and
 magpie-issue 0.2.0 from the `apache-magpie` marketplace; 0.4.0 is available.
 
-The user ran `/magpie-setup upgrade`.
+The user ran `/magpie-setup update`.

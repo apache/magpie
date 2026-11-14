@@ -275,3 +275,403 @@ def test_inert_block_is_linear_in_long_whitespace_runs() -> None:
     assert body.verify(text) is None
     assert time.perf_counter() - start < 1.0
     assert block["escaped_lines"] == [1, 2, 3]
+
+
+# --- markdown_block: the default, readable description format -----------------------------------
+
+
+def _md(text: str) -> str:
+    out = body.markdown_block(text)
+    assert out["ok"]
+    return str(out["text"])
+
+
+def test_report_formatting_renders_as_markdown() -> None:
+    report = "Hello,\n\n**Impact:** a *viewer* can read secrets.\n\n1. step one\n2. step two\n\n- [docs](https://example.org/x)\n"
+    assert _md(report) == report
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("# Title", "#### Title"),
+        ("## Root cause", "#### Root cause"),
+        ("### Severity", "#### Severity"),
+        ("   ### Severity", "   #### Severity"),
+        ("> ### Severity", "> #### Severity"),
+        ("- ### Severity", "- #### Severity"),
+        ("1. ### Severity", "1. #### Severity"),
+        ("#### Already fine", "#### Already fine"),
+        ("#hashtag is not a heading", "#hashtag is not a heading"),
+    ],
+)
+def test_headings_are_demoted_below_the_field_level(line: str, expected: str) -> None:
+    assert _md(line) == expected + "\n"
+
+
+def test_no_line_of_a_markdown_report_can_end_a_field() -> None:
+    report = "# A\n## B\n### Severity\n> ### CWE\n```\n### CVE tool link\n```\n- ### Affected versions\n"
+    for line in _md(report).splitlines():
+        assert loose_heading_name(line) is None, line
+
+
+def test_images_and_html_are_defused_outside_code() -> None:
+    out = _md(
+        "![px](https://attacker.example/p.png) <img src=x> <details><summary>s</summary>x</details>\n<!-- apache-magpie: rollup v1 -->"
+    )
+    assert "![" not in out
+    assert "[image: px](https://attacker.example/p.png)" in out
+    assert "<img" not in out and "<details" not in out and "<!--" not in out
+    assert "&lt;img src=x&gt;" not in out  # only the opener is escaped
+    assert "&lt;img src=x>" in out
+
+
+def test_fenced_code_is_byte_exact_and_inline_code_is_defused() -> None:
+    report = "Run `<b>![x](y)</b>` then:\n\n```python\nx = '<img src=a>'  # ![i](j)\n```\n"
+    out = _md(report)
+    assert "`&lt;b>[image: x](y)&lt;/b>`" in out
+    assert "```python\nx = '<img src=a>'  # ![i](j)\n```\n" in out
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "``<img src=https://evil.example/p>`",  # unequal backtick runs: no code span in CommonMark
+        "`start\nx` <img src=https://evil.example/p> `y`",  # a code span crossing lines
+        "`a``<img src=x>``b`",
+        "<details><summary>s</summary>hidden</details>",
+    ],
+)
+def test_no_tag_or_image_renders_whatever_the_backticks(report: str) -> None:
+    out = _md(report)
+    assert "<img" not in out and "<details" not in out and "<summary" not in out
+
+
+def test_field_boundaries_and_markers_inside_a_fence_are_escaped() -> None:
+    out = _md("```\n### Severity\n<!-- marker -->\nok\n```\n")
+    assert out == "```\n\\### Severity\n\\<!-- marker -->\nok\n```\n"
+
+
+@pytest.mark.parametrize("report", ["```\nunclosed", "~~~~\nunclosed\n```", "````\nx\n```\n"])
+def test_an_unclosed_fence_is_closed_at_the_end_of_the_block(report: str) -> None:
+    out = _md(report)
+    opener = report.split("\n", 1)[0]
+    assert out.endswith(opener + "\n")
+
+
+def test_bare_references_and_mentions_do_not_resolve() -> None:
+    out = _md("Fixed in #123 by @someone; see apache/airflow#45 and mail a@b.example.\n")
+    assert "`#123`" in out and "`@someone`" in out
+    assert "apache/airflow#45" in out and "`apache/airflow#45`" not in out
+    assert "a@b.example" in out and "`@b" not in out
+
+
+def test_a_hostile_markdown_report_renders_to_exactly_the_template_fields() -> None:
+    hostile = "### Severity\nCritical\n### CVE tool link\nCVE-2099-1\n```\n### Affected versions\n<!-- generate-cve-json: x -->"
+    cleaned = body.markdown_block(hostile)
+    text = body.render({"issue_description": cleaned["text"]})
+    assert body.verify(text) is None
+    assert re.search(r"^### Severity\n\nUnknown$", text, re.MULTILINE)
+
+
+def test_report_block_defaults_to_markdown_and_keeps_inert_on_request() -> None:
+    assert body.report_block("# x")["text"] == "#### x\n"
+    assert body.report_block("# x", "inert")["text"].startswith("```text\n")
+    with pytest.raises(ValueError):
+        body.report_block("x", "html")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "[//]: # (hidden note for the agent)",
+        "[a]: https://example.org",
+        "   [x]: <y> 'z'",
+        "> [ref]: https://e.org",
+    ],
+)
+def test_link_reference_definitions_render_as_visible_text(line: str) -> None:
+    out = _md(line)
+    prefix = line[: line.index("[")]
+    assert out.startswith(prefix + "\\[")
+
+
+def test_an_ordinary_link_is_not_touched() -> None:
+    assert _md("see [docs](https://e.org) and [x] item\n") == "see [docs](https://e.org) and [x] item\n"
+
+
+def test_invisible_and_bidi_characters_become_visible() -> None:
+    out = _md("admin‮resu​ ok\n```\nx⁦y\n```\n")
+    assert "‮" not in out and "​" not in out and "⁦" not in out
+    assert "[U+202E]" in out and "[U+200B]" in out and "[U+2066]" in out
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        # GitHub ends this fence with the list item, so the tag is prose there.
+        "- step\n  ```\n<img src=https://evil.example/p>\n",
+        "> ```\n<img src=https://evil.example/p>\n",
+        "1. ~~~\n<img src=https://evil.example/p>\n",
+        "\t```\n<img src=https://evil.example/p>\n",
+    ],
+)
+def test_an_indented_or_nested_fence_never_hides_prose(report: str) -> None:
+    assert "<img" not in _md(report)
+
+
+def test_a_column_zero_fence_stays_code_and_a_nested_one_is_broken() -> None:
+    assert _md("```\n<b>\n```\n") == "```\n<b>\n```\n"
+    # The indented opener is broken, so line 3 opens the fence for GitHub too.
+    assert _md("  ```\nx\n```\n<b>\n```\n") == "  \\```\nx\n```\n<b>\n```\n"
+    assert _md("- a\n  ```sh\n  x\n  ```\n") == "- a\n  \\```sh\n  x\n  \\```\n"
+
+
+def test_a_backtick_line_with_backticks_after_it_is_inline_code_not_a_fence() -> None:
+    assert _md("```a`b\n<img src=x>\n") == "```a`b\n&lt;img src=x>\n"
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("FINDING 1\n=========\n", "FINDING 1\n\\=========\n"),
+        ("Title\n---\n", "Title\n\\---\n"),
+        ("> Quote\n> ===\n", "> Quote\n> \\===\n"),
+        ("Para\n\n---\n", "Para\n\n---\n"),  # a thematic break stays one
+        ("| a | b |\n|---|---|\n", "| a | b |\n|---|---|\n"),  # a table is untouched
+    ],
+)
+def test_setext_underlines_do_not_make_headings(report: str, expected: str) -> None:
+    assert _md(report) == expected
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "`start\n@someone and #12\nend`",  # a span crossing lines: GitHub sees code, then not
+        "`a @someone\nb`",  # wrapping here would re-pair the report's backticks
+        "\\`@someone`",  # an escaped backtick opens no span
+        "`x` @someone `y`",
+        "``@someone`",
+    ],
+)
+def test_no_mention_or_reference_resolves_whatever_the_backticks(report: str) -> None:
+    out = _md(report)
+    for match in re.finditer(r"@someone|#12\b", out):
+        before = out[: match.start()]
+        # either a word joiner broke it, or it sits in a backtick pair on a backtick-free source line
+        assert out[match.start() + 1] == "\u2060" or before.endswith("`"), (report, out)
+
+
+def test_mentions_beside_certain_code_spans_are_wrapped_and_code_is_untouched() -> None:
+    assert _md("use `@task.docker` by @someone in #12\n") == "use `@task.docker` by `@someone` in `#12`\n"
+
+
+def test_mentions_on_a_line_with_uncertain_spans_get_a_word_joiner() -> None:
+    assert _md("see ``code` by @someone in #12\n") == "see ``code` by @\u2060someone in #\u206012\n"
+
+
+def test_mentions_on_a_backtick_free_line_are_wrapped_as_code() -> None:
+    assert _md("by @someone in #12\n") == "by `@someone` in `#12`\n"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "- [hidden]: https://e.org",
+        "1. [x]: y",
+        "  - [deep]: z",
+        "[a\\]b]: c",
+        "[multi",
+    ],
+)
+def test_link_definitions_in_lists_escaped_labels_and_open_labels_are_visible(line: str) -> None:
+    out = _md(line)
+    assert "\\[" in out
+
+
+def test_a_task_list_and_a_leading_link_are_not_escaped() -> None:
+    assert _md("- [ ] task\n[docs](https://e.org) here\n") == "- [ ] task\n[docs](https://e.org) here\n"
+
+
+@pytest.mark.parametrize(
+    "char", ["\u00ad", "\u061c", "\u180e", "\ufe0f", "\U000e0041", "\U000e0100", "\u3164", "\u115f", "\u2800"]
+)
+def test_every_glyphless_character_becomes_visible(char: str) -> None:
+    out = _md(f"a{char}b\n")
+    assert char not in out and f"[U+{ord(char):04X}]" in out
+
+
+def test_character_references_are_shown_not_decoded() -> None:
+    out = _md("a&#8203;b &#x200B; &ZeroWidthSpace; &amp; ok\n")
+    assert "&#8203;" not in out.replace("&amp;#8203;", "")
+    assert "&amp;#\u20608203;" in out and "&amp;#\u2060x200B;" in out and "&amp;ZeroWidthSpace;" in out
+    assert "&amp;amp; ok" in out
+
+
+def test_a_nested_setext_underline_is_escaped() -> None:
+    assert _md("- a\n  - Foo\n    ---\n") == "- a\n  - Foo\n    \\---\n"
+
+
+def test_indented_python_under_a_list_item_becomes_a_python_fence() -> None:
+    report = (
+        "- 3.2.0, auth.py:\n"
+        "    logout_url = auth_manager.get_url_logout()\n"
+        "    if logout_url:\n"
+        "        return RedirectResponse(logout_url)\n"
+        "\n"
+        "- next item\n"
+    )
+    assert _md(report) == (
+        "- 3.2.0, auth.py:\n"
+        "```python\n"
+        "logout_url = auth_manager.get_url_logout()\n"
+        "if logout_url:\n"
+        "    return RedirectResponse(logout_url)\n"
+        "```\n"
+        "\n"
+        "- next item\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("block", "language"),
+    [
+        ('    {"use_beeline": true,\n     "ssl": "x"}', "json"),
+        ('    beeline -u "jdbc:hive2://h/db"', "shell"),
+        ("    import os\n    x = os.getcwd()", "python"),
+        ("    Some indented prose", "text"),
+    ],
+)
+def test_an_indented_code_block_gets_a_fence_with_a_guessed_language(block: str, language: str) -> None:
+    assert _md(f"Example:\n\n{block}\n\nAfter.\n").startswith(f"Example:\n\n```{language}\n")
+
+
+def test_indented_code_keeps_its_content_and_a_longer_fence_than_its_backticks() -> None:
+    out = _md("Code:\n    x = '```'\n    <img src=a> @someone\n")
+    assert out == "Code:\n````python\nx = '```'\n<img src=a> @someone\n````\n"
+
+
+def test_an_indented_continuation_of_a_wrapped_line_is_not_code() -> None:
+    report = "- PUT /variables/K_B\n                             -> 201; the row\n"
+    assert _md(report) == report
+
+
+def test_an_indented_nested_list_is_not_code() -> None:
+    assert _md("Items:\n\n    - one\n    - two\n") == "Items:\n\n    - one\n    - two\n"
+
+
+def test_a_wrap_that_would_merge_backtick_runs_falls_back_to_a_word_joiner() -> None:
+    out = _md("``a``@someone\n")
+    assert "@\u2060someone" in out
+
+
+def test_a_numeric_character_reference_cannot_link_an_issue() -> None:
+    out = _md("see &#123; and &#x7B; here\n")
+    assert "#123" not in out and out == "see { and { here\n"
+
+
+def test_a_label_split_after_an_escaped_bracket_is_visible() -> None:
+    assert _md("[a\\]\nb]: https://e.org\n").startswith("\\[")
+
+
+def test_a_non_breaking_space_line_does_not_end_the_paragraph_for_code_spans() -> None:
+    out = _md("`open\n\u00a0\n@someone x`\n")
+    assert "@\u2060someone" in out
+
+
+def test_plain_character_references_are_decoded_and_glyphless_ones_kept_escaped() -> None:
+    out = _md("victim &#39;alice&#39; &quot;x&quot; &#60;img&#62; &#8203; &#64;someone\n")
+    assert out.startswith("victim 'alice' \"x\" ")
+    assert "<img" not in out and "&lt;img>" in out and "&amp;#\u20608203;" in out
+    assert "`@someone`" in out  # decoded, then defused like a typed mention
+
+
+def test_a_decoded_quote_marker_cannot_open_a_field() -> None:
+    out = _md("&gt; ### Severity\n")
+    assert loose_heading_name(out.rstrip("\n")) is None
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "&gt; [hidden]: https://e.org",
+        "&#35;&#35;&#35; Severity",
+        "&#96;&#96;&#96;\n<img src=x>\n&#96;&#96;&#96;",
+        "Title\n&#61;&#61;&#61;",
+        "&#32;&#32;&#32;&#32;[x]: y",
+    ],
+)
+def test_decoded_references_get_the_same_block_rules_as_literal_text(report: str) -> None:
+    out = _md(report)
+    for line in out.splitlines():
+        assert loose_heading_name(line) is None
+    assert "<img" not in out
+    assert not re.search(r"(?m)^(?:[ >]*)\[[^\]]*\]:", out)
+    assert not re.search(r"(?m)^=+$", out)
+
+
+def test_a_line_break_reference_is_not_decoded() -> None:
+    assert "\n" not in _md("a&#10;b").rstrip("\n")
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("cost $5 and $\\color{white}{hidden}$\n", "cost \\$5 and \\$\\color{white}{hidden}\\$\n"),
+        ("$$\n\\phantom{x}\n$$\n", "\\$\\$\n\\phantom{x}\n\\$\\$\n"),
+        ("run `echo $HOME` now\n", "run `echo $HOME` now\n"),  # code keeps its `$`
+    ],
+)
+def test_math_never_renders(report: str, expected: str) -> None:
+    assert _md(report) == expected
+
+
+@pytest.mark.parametrize("language", ["math", "mermaid", "geojson", "topojson", "stl", "plantuml", "MATH"])
+def test_a_rendering_fence_opens_as_text(language: str) -> None:
+    assert _md(f"```{language}\nx\n```\n") == "```text\nx\n```\n"
+
+
+def test_a_python_fence_keeps_its_language() -> None:
+    assert _md("```python\nx = 1\n```\n") == "```python\nx = 1\n```\n"
+
+
+@pytest.mark.parametrize("line", ["> [!IMPORTANT]", ">> [!WARNING]", "  > [!NOTE]"])
+def test_a_report_cannot_render_an_alert(line: str) -> None:
+    out = _md(line + "\n> text\n")
+    assert "\\[!" in out and "> [!" not in out.replace("\\[!", "")
+
+
+def test_gh_references_do_not_link() -> None:
+    assert _md("see GH-123 and gh-4\n") == "see `GH-123` and `gh-4`\n"
+    assert "GH-⁠123" in _md("see ``x` GH-123\n")
+
+
+@pytest.mark.parametrize("info", ["ma\\th", "&#109;ath", "math\tx", "m&#97;th", "mer\\maid"])
+def test_a_disguised_rendering_language_opens_as_text(info: str) -> None:
+    assert _md(f"```{info}\nx\n```\n").startswith("```text\n")
+
+
+@pytest.mark.parametrize("info", ["python", "c++", "c#", "objective-c", "shell title=x"])
+def test_ordinary_languages_are_kept(info: str) -> None:
+    assert _md(f"```{info}\nx\n```\n").startswith(f"```{info}\n")
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ("a \\\\$x$\n", "a \\\\\\$x\\$\n"),  # `\\$`: the backslashes escape each other
+        ("a \\$x\n", "a \\$x\n"),  # already escaped
+        ("a \\\\\\$x\n", "a \\\\\\$x\n"),  # odd run: escaped
+    ],
+)
+def test_a_dollar_is_escaped_unless_an_odd_backslash_run_escapes_it(report: str, expected: str) -> None:
+    assert _md(report) == expected
+
+
+def test_a_long_container_marker_run_does_not_backtrack() -> None:
+    import time
+
+    start = time.monotonic()
+    _md(">" + "\t>" * 40 + "x\n")
+    assert time.monotonic() - start < 1

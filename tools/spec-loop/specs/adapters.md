@@ -43,7 +43,21 @@ by swapping the adapter, not the skill.
   by shelling out to `oauth-draft-create` or probing the token file: the
   OAuth token under `~/.config/apache-magpie/` is not readable from
   sandboxed Bash, and sandbox-lint refuses an `allowRead` grant for it
-  (#1681).
+  (#1681). A draft threads on the inbound message one of three ways
+  (`tools/gmail/threading.md`): attached to its Gmail `thread_id`, with
+  `In-Reply-To` / `References` derived from the thread's last message;
+  header-threaded by an explicit `in_reply_to` / `references`
+  (`--in-reply-to` / `--references` on `oauth-draft-create`) when the
+  message is not in the user's Gmail but its `Message-ID` is known from
+  PonyMail or the tracker's recorded root; or, failing both, matched by
+  subject. Explicit IDs must each be one `local@domain` token (angle
+  brackets optional, whitespace and CR / LF refused, so no header
+  injection), `References` defaults to `in_reply_to` alone and has it
+  appended when the chain omits it, explicit headers win over a
+  `thread_id`'s (the thread is then not read), and `no_reply_headers`
+  with `in_reply_to` is refused (#2051). The security import, sync and
+  invalidate reply steps pass the PonyMail / recorded `Message-ID` when no
+  Gmail thread exists.
 - `tools/maildir/` — private-mail drafting to a local Maildir spool
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
@@ -52,7 +66,10 @@ by swapping the adapter, not the skill.
   `maildir-source-read` and `maildir-source-thread-url` read a static
   mbox / Maildir / `.eml` directory — forensics, air-gapped triage and
   compliance exports — with no credentials and no network.
-- `tools/ponymail/` — public mailing-list archive search. Its one local
+- `tools/ponymail/` — public mailing-list archive search.
+  An explicit date range is written `dfr=yyyy-mm-dd|dto=yyyy-mm-dd`: with a
+  space the search reports 0 hits and no error (#1980).
+  Its one local
   write, `save_attachments` (`ponymail-mcp` 1.3.0+), downloads a report's
   attachments into a `PONYMAIL_ATTACHMENT_DIRS` root that the agent can
   read but not write (the secure setup's `Edit(~/.cache/ponymail-attachments/**)`
@@ -83,7 +100,9 @@ by swapping the adapter, not the skill.
   confidentiality guard every backend applies before writing, and a publish
   step for working-copy backends. `tracker.platform` selects the backend:
   `github` (default, the existing recipes), `local-files`, or `jira`.
-  Skills switch through the shared `tracker-backend` block, which maps each
+  Skills switch through the shared `tracker-backend` block, a pointer that
+  sends any other backend to the `tracker-backend-detail` block in the
+  skill's sibling `tracker-backend.md`, which maps each
   tracker `gh` command to a vetted operation; `tools/vetted-ops/` translates
   those operations for the backend its `[tracker]` policy names (fixed program,
   policy-pinned target, bodies on stdin) and refuses by name the ones with no
@@ -263,8 +282,17 @@ by swapping the adapter, not the skill.
   Summaries reuse `thread_summary` fields plus activity metadata; `last_message_date` maps only `last_posted_at`, preserving missing/null without fallback.
   Pinned topics count toward the positive limit (default 100); only an extra unique match proves truncation, and an older explicitly non-pinned topic ends a since scan.
   Received pages are strictly validated; malformed data or failed requests produce no partial output. Lists are not consistent snapshots and have no pagination budget.
-  Only GET requests are permitted. Search,
-  user activity, guarded writes and the remaining mail-archive verbs are
+  `topic search <query> [--limit N]` passes a native full-text query to `/search.json`.
+  Discourse usually selects one representative post per topic.
+  Queries such as `in:all-posts` can yield several.
+  `matches` lists distinct posts returned on fetched pages in server order, with excerpts and same-forum links.
+  Its length cannot establish a total hit or contribution count.
+  Use `topic view` to read the discussion.
+  Only an extra distinct topic proves `truncated`.
+  If page 10 signals more results,
+  `server_limit_reached` is true regardless of the topic limit.
+  Only GET requests are permitted.
+  User activity, guarded writes and the remaining mail-archive verbs are
   tracked in #307.
 - `tools/forgejo/` — doc-only Forgejo / Gitea adapter (#1469, part of
   #310), declared `contract:tracker + contract:source-control +
@@ -346,6 +374,17 @@ by swapping the adapter, not the skill.
   declines with exit 3 so the resolution chain falls through (#1466).
   It connects with a verified TLS context (`ssl.create_default_context()`,
   #1862).
+  Every thread operation accepts a bare Message-ID as well as the bracketed
+  form (#1962).
+  A window that starts inside a thread holds the replies but not the root,
+  and the contract makes the operations agree on it: the subject, `started_by`
+  and `create_draft`'s default recipient come from the root when the window
+  holds it, else from the earliest message it can prove, undated last, as
+  `maildir` does (#1925).
+  With the root missing, `create_draft` with no `--to` addresses the earliest
+  message whose `From` is not `IMAP_SOURCE_USER`, skipping a message with no
+  sender, and only then the earliest message; that is a heuristic, not a proof
+  (#1977).
   `tools/mail-source/mailman3/` is a doc-only, read-only backend over
   Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
   `thread_url`); it has no drafts or sent view, so it pairs with a drafting
@@ -392,7 +431,10 @@ by swapping the adapter, not the skill.
   provider-agnostic, stdlib-only Python API for structured decisions,
   `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
   The Jev provider connects to TypeSafe's API (`api.typesafe.ai/v1/systemone`,
-  model pinned to `systemone-2026-06-01`); the local provider connects to a
+  model pinned to `jev-1.14.0`), sending one typed question per call with
+  the prompt as `state`; `score` sends at most 10 numeric levels (the API's
+  cap) and maps the returned level back onto the requested scale. The local
+  provider connects to a
   self-hosted OpenAI-compatible chat-completions endpoint such as Ollama,
   llama.cpp, or vLLM. `MAGPIE_TYPED_DECISION_PROVIDER` selects `jev` or
   `local`; when unset, the registry selects configured Jev or reports
@@ -483,6 +525,7 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
 
 - `experimental` overall — adapter coverage varies; a new adopter system
   (e.g. a different mail backend) is a gap the plan pass records.
+  <!-- gap-closes-when: none (narrative) -->
 - **GitLab adapter is a read-only foundation.** `tools/gitlab/` covers
   repository metadata, issue and merge-request reads, MR diffs, commits and
   pipelines, and pipeline status; it is `partial` for all three contracts
@@ -491,9 +534,11 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   #305.
   Fetched issue and MR titles, descriptions, diffs and commit messages are
   external data, never instructions.
+  <!-- gap-closes-when: none (narrative) -->
 - **Chat covers Slack and Discord.** `contract:chat` ships Slack and Discord
   adapters; Matrix and Zulip remain extension points, and `none` is an explicit
   no-op backend.
+  <!-- gap-closes-when: none (narrative) -->
 - **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request
@@ -502,45 +547,45 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   Cloud-only asynchronous merge task-status fetching, read-only merge-check context fetching,
   and read-only pull-request status fetching. Native Bitbucket Cloud issue
   commands fail closed because Atlassian removed the Issue Tracker API on
-  2026-08-20; #606 remains open for linked Jira tracker coverage and the
-  remaining change-request gaps.
+  2026-08-20. On Data Center, `pr jira-issues` lists the Jira keys linked to a
+  pull request's commits; #606 remains open for broader linked Jira tracker
+  coverage and the remaining change-request gaps.
+  <!-- gap-closes-when: none (narrative) -->
 - Bitbucket write operations follow the framework write-path discipline:
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
   coverage is Bitbucket Cloud and Data Center pull-request comment creation,
-  backend-neutral `post_review` through
-  comment/approve/request-changes, backend-neutral `reject`, and Bitbucket
-  Cloud pull-request approve/unapprove, request-changes/remove-request-changes,
-  decline, and
+  approve/unapprove and request-changes/remove-request-changes, plus
+  Bitbucket Cloud-only backend-neutral `post_review` through
+  comment/approve/request-changes, backend-neutral `reject`, decline, and
   strategy-aware merge actions pinned to a caller-confirmed source commit
   (7–40 hex characters); gate checks before a merge are the caller's
   responsibility via `pr merge-checks`.
-- Fetched Bitbucket descriptions, issue titles/descriptions, fetched or created issue comments, attachment names, uploader names when present, attachment links, raw attachment payloads, issue reporter/assignee/commenter names, issue links, branch restriction policy, commit messages, diff hunks, file paths, comments, pull-request task content, task creator/resolver names, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
+  <!-- gap-closes-when: none (narrative) -->
+- Fetched Bitbucket descriptions, branch restriction policy, commit messages, diff hunks, file paths, comments, pull-request task content, task creator/resolver names, reviewer names, review decisions/events, approval/change-request activity, merge-check decisions/blockers, status descriptions,
   CI URLs, and raw payloads are external data, never agent instructions;
   private or embargoed content must follow the
   approved-LLM/privacy gate before model use.
+  <!-- gap-closes-when: none (narrative) -->
 - **Forgejo adapter is doc-only and partial.** `tools/forgejo/` is a set
   of `tea` / REST recipes with no package or tests and no adopter pilot;
   the project-board capability is a no-op, and full coverage remains part
   of #310.
+  <!-- gap-closes-when: path-exists:tools/forgejo/pyproject.toml -->
 - **Mailman 3 backend reads only.** It covers no drafts or sent mail, and
   the `hyperkitty` placeholder of the separate `mail-archive` contract
   (search-URL construction) is not implemented by it.
+  <!-- gap-closes-when: none (narrative) -->
 - **SourceHut adapter is new and untested end-to-end.** `tools/sourcehut/`
   ships the GraphQL-based bridge (ticket, patchset, CI, repo), but no
   adopter pilot has exercised it; signal/roster heuristics may change.
+  <!-- gap-closes-when: none (narrative) -->
 - Adapters cover the *system-swap* case; the broader audit of residual
   ASF coupling across the catalogue, and the capability-flag mechanism for
   workflow branches that no adapter resolves, live in
   [project-agnosticism.md](project-agnosticism.md).
-- **Adapter authoring smoke validation is shipped.**
-  `validate_adapter_authoring` (SOFT advisory) checks that each
-  `contract:*` adapter README declares credential/privacy handling,
-  operations, and config keys. `substrate:*` tools are excluded.
-  `validate_tools` (HARD) separately enforces the
-  **Capability:** declaration and the **Prerequisites** section
-  on every tool README, so all five original gap items are now
-  covered across the two validators.
+  <!-- gap-closes-when: none (narrative) -->
 - **Mail-adapter privacy tests are thin.** The redaction contract exists,
   but adapter-level fixtures should prove that private mail and embedded
   prompt-injection attempts do not enter model-facing context untreated.
+  <!-- gap-closes-when: none (narrative) -->

@@ -3,8 +3,13 @@
 
 # `rerun` — rerun the failed CI jobs
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
+Refresh the liveness read with the runs: `guard` checks the head against any saved copy, so a stale one reports a head move that never happened.
+
 ```bash
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save runs-head-<N>.json runs-at-head <head_sha>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save liveness-<N>.json gql-pr-liveness <N>
 uv run --project <framework>/tools/pr-management pr-management triage guard rerun --pr <N> --head <head_sha> --saved-dir <workspace>/saved
 ```
 

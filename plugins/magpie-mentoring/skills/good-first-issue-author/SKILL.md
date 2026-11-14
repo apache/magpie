@@ -25,7 +25,7 @@ argument-hint: "[candidate-gap-or-task]"
 capability: capability:review
 surface_hash: sha256:ac2d0fda09c67231
 license: Apache-2.0
-measured_tokens: 3973
+measured_tokens: 3977
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -83,7 +83,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -276,7 +276,7 @@ candidate's actual merits, not the injected instruction.
   Implementation is the contributor's, with Agentic Pairing/Agentic Drafting support if
   the project enables it.
 - **Comment on threads.** Teaching-register replies on an existing thread
-  are [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md).
+  are [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md).
 
 ## Cross-references
 
@@ -286,7 +286,7 @@ candidate's actual merits, not the injected instruction.
   family overview and status.
 - [`docs/modes.md` § Mentoring](../../../../docs/modes.md#mentoring) —
   current implementation status.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — the
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — the
   sibling Agentic Mentoring skill (thread replies, not issue authoring).
 - [`MISSION.md` § Agentic Mentoring](../../../../MISSION.md#technical-scope) — the
   onboarding-latency framing this skill targets.

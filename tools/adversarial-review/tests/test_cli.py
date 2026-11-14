@@ -232,6 +232,39 @@ def test_truncated_diff_is_flagged_in_the_report(stub_bin, tmp_path, capsys):
     assert report["reviewers"][0]["status"] == "ok"
 
 
+@pytest.mark.parametrize("empty", [True, False])
+def test_an_empty_repo_dir_is_flagged_in_the_report(stub_bin, tmp_path, capsys, empty):
+    bin_dir, make = stub_bin
+    make(
+        "codex",
+        "import json, sys\na = sys.argv\nopen(a[a.index('-o') + 1], 'w').write(json.dumps({'findings': []}))\n",
+    )
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    if not empty:
+        (repo_dir / "app.py").write_text("x = 1\n", encoding="utf-8")
+    diff = tmp_path / "change.diff"
+    diff.write_text("diff --git a/x b/x\n+x\n", encoding="utf-8")
+    code = main(
+        [
+            "run",
+            "--reviewers",
+            "codex",
+            "--target",
+            f"diff:{diff}",
+            "--project-root",
+            str(tmp_path),
+            "--repo-dir",
+            str(repo_dir),
+        ],
+        env={"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"},
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert any("--repo-dir is empty" in w for w in report["warnings"]) is empty
+    assert report["reviewers"][0]["status"] == "ok"
+
+
 def test_unrunnable_git_is_a_usage_error_not_a_traceback(stub_bin, git_repo, tmp_path, capsys):
     bin_dir, _ = stub_bin
     broken = bin_dir / "git"

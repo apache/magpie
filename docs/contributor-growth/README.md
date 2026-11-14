@@ -5,12 +5,10 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Contributor-growth skill family](#contributor-growth-skill-family)
+- [Committer readiness and onboarding](#committer-readiness-and-onboarding)
   - [Surface information, never rank](#surface-information-never-rank)
   - [Install & first runs](#install--first-runs)
-    - [Before the first run](#before-the-first-run)
-    - [Why the configuration is personal](#why-the-configuration-is-personal)
-    - [Try these first](#try-these-first)
+  - [Why the configuration is personal](#why-the-configuration-is-personal)
   - [Stage coverage](#stage-coverage)
   - [Skills](#skills)
   - [Family boundary](#family-boundary)
@@ -22,19 +20,18 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Contributor-growth skill family
+<a id="contributor-growth-skill-family"></a>
+# Committer readiness and onboarding
 
 > **Scope — `organization: ASF` · 🪶 ASF-specific.** This family encodes Apache Software
 > Foundation processes (the contributor-to-committer path) and assumes an ASF
 > adopter profile by default. Non-ASF projects can still adopt it through the
 > adapter/config layer, but it carries ASF assumptions the generic families do not.
 
-Maintainer-facing skills that span the contributor-to-committer path:
-welcoming first-time contributors, keeping the issue backlog newcomer-
-ready, tracking contribution activity, comparing it with the project's
-reference levels, measuring contributor sentiment, assembling nomination evidence,
-and walking nominators through post-vote onboarding. Nine skills cover the staged path from first contact
-through committer promotion.
+This plugin contains nine maintainer-facing skills for contributor activity,
+nomination evidence, identity mapping, and committer onboarding. Newcomer
+welcomes, good-first-issue authoring, and backlog curation live in the separate
+`magpie-mentoring` plugin.
 
 Why a framework skill family? The contributor-to-committer path is one
 of the highest-leverage levers an open-source project has for long-term
@@ -73,73 +70,10 @@ Every brief and report these skills produce says this at the top.
 
 ## Install & first runs
 
-Install just this family — one plugin, 9 skills. The path-to-committer track.
+[Install & first runs](install.md) has the install command for this family,
+the files to configure before the first run, and the skills to try first.
 
-Once you have [added the marketplace](../setup/marketplace-install.md):
-
-```text
-/plugin install magpie-contributor-growth@apache-magpie
-```
-
-New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup:setup` run, and a recording of it
-happening — plus the other agents and the secure-isolation setup to run next.
-
-The first contributor-growth skill you run opens with a one-minute
-[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/contributor-growth.md):
-the typical flow, what needs configuring, what to ask it, and how to make it yours.
-Dismiss it, or hide it for good, from its last line;
-*"show the contributor-growth welcome again"* or `/magpie-setup:welcome-guide contributor-growth` brings it back.
-
-### Before the first run
-
-<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
-
-![An animated `/magpie-setup:setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
-
-*Illustrative — the real run derives more and asks better. What is true is
-the shape: it runs itself, it writes only your personal layer, and it
-stages nothing.*
-
-Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
-your personal layer first — `.apache-magpie-local/` (gitignored) in a
-project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
-that did not — then `.apache-magpie-overrides/` (committed, the project's).
-
-**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
-(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
-Nothing is staged, nothing is committed, and it works on a repository that
-has never adopted Magpie.
-
-**This configuration stays personal.** `/magpie-setup:setup adopt` never
-promotes or scaffolds it into `.apache-magpie-overrides/`: committed
-thresholds would tell every contributor how to game them.
-
-**Required.** Without these a skill would act on a guess, so it stops and
-says which file is missing.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`committer-onboarding-config.md`](../../plugins/magpie-setup/templates/committer-onboarding-config.md) | Capability-flag vocabulary for committer intake and governance models (`icla`/`dco`/`no-cla`; `asf-pmc`/`github-codeowners`/`maintainer-roster`). | `committer-onboarding` |
-| [`committer-readiness.md`](../../plugins/magpie-setup/templates/committer-readiness.md) | The project's declared committer and PMC thresholds — what a contributor's activity is measured against. | `calibrate`, `candidate-screen`, `contributor-to-committer` |
-| [`contributor-nomination-config.md`](../../plugins/magpie-setup/templates/contributor-nomination-config.md) | Nomination-brief thresholds and assessment window. | `calibrate`, `candidate-screen`, `nomination` |
-| [`contributor-sentiment-config.md`](../../plugins/magpie-setup/templates/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
-| [`onboarding-concierge-config.md`](../../plugins/magpie-setup/templates/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
-| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `calibrate` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `calibrate`, `candidate-screen`, `committer-onboarding`, `contributor-to-committer`, `identity-map`, `nomination`, `onboarding-concierge`, `sentiment` |
-
-**Optional.** Each has a documented fallback; absent, the skill still runs.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`contributor-identities.md`](../../plugins/magpie-setup/templates/contributor-identities.md) | The project's community channels, and confirmed mappings from each contributor's GitHub handle to their Slack, Discord, mailing-list, and social-media handles. Written by `contributor-identity-map` after a maintainer confirms each one. | `committer-onboarding`, `identity-map`, `nomination` |
-| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `activity-sweep`, `calibrate`, `contributor-to-committer`, `nomination`, `sentiment` |
-| [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `candidate-screen`, `nomination` |
-
-<!-- END generated: skill-config -->
-
-### Why the configuration is personal
+## Why the configuration is personal
 
 This family is **personal-recommended and not adoptable by default.**
 Install it for yourself — user scope, or install-only in this repository — on the machine of each maintainer who runs these skills.
@@ -157,45 +91,13 @@ Never commit them to `.apache-magpie-overrides/`;
 `contributor-calibrate` writes its floors to the personal layer and never offers the committed one.
 Maintainers who want the same numbers share them the way they share the deliberation itself, on the private list.
 
-### Try these first
-
-*Illustrative shapes, not real transcripts — your output will differ. Nothing
-below sends, merges, or posts anything without you confirming it.*
-
-**Sweep recent contributor activity.**
-
-```text
-/magpie-contributor-growth:activity-sweep
-```
-
-![An activity-sweep run: ninety days of authored PRs, reviews, issues and comments for one contributor, with a note that mailing lists and release votes are not in the total](../../assets/quickstart/families/contributor-growth/activity-sweep.svg)
-
-**Draft a nomination brief.**
-
-```text
-/magpie-contributor-growth:nomination
-```
-
-![A nomination run summarising a year of GitHub activity, naming the off-GitHub evidence it cannot see, and drafting the discussion thread without sending it](../../assets/quickstart/families/contributor-growth/nomination.svg)
-
-**Onboard a new committer.**
-
-```text
-/magpie-contributor-growth:committer-onboarding
-```
-
-![A committer-onboarding run: two steps done, two waiting on a PMC chair, and the welcome announcement drafted but not sent](../../assets/quickstart/families/contributor-growth/committer-onboarding.svg)
-
 ## Stage coverage
 
 | Stage | Skill | What it does |
 |---|---|---|
-| **First contact** | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Drafts an orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via the GitHub `author_association` field and skips repeat contributors. |
-| **Issue on-ramp** | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Drafts one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. |
-| **Backlog curation** | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweeps the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric; classifies as READY / NEAR-MISS / SKIP and proposes labels after explicit maintainer confirmation. |
 | **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
 | **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC reference levels from the project's own past nomination decisions on the private list, deliberately relaxed well below what the project elected; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
-| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Pre-filters out the long tail of recent contributors, then shows the activity data of everyone else — deliberately more people than the PMC would consider, never scored or compared with thresholds — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: an alphabetical list linked to each person's details, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
+| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Pre-filters out the long tail of recent contributors, then shows the activity data of everyone else — deliberately more people than the PMC would consider, never scored or compared with thresholds — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: a Headline split by target (committer / PMC) with one phrase per person, each full section linked to its detail, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
 | **Activity vs. reference** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Shows a contributor's activity next to the project's committer or PMC reference levels, as plain numbers with the difference, and a short factual summary. No status, band, or readiness verdict. Read-only; never opens a nomination thread. |
 | **Identity mapping** | [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
 | **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence for a committer or PMC discussion: activity breadth, consistency, vendor-neutrality context, and factual narrative prose. Never rates the contributor or says whether they are ready. Read-only; never posts to any list. |
@@ -207,13 +109,17 @@ Every stage is read-only on governance artefacts or propose-before-post:
 no skill modifies a roster, posts an announcement, or files an issue
 without explicit maintainer confirmation.
 
+Related newcomer mentoring skills are installed by `magpie-mentoring`, not
+this plugin: [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md),
+[`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md),
+and [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md).
+See the [mentoring overview](../mentoring/README.md) for their purpose and
+installation instructions.
+
 ## Skills
 
 | Skill | Mode | Status |
 |---|---|---|
-| [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Mentoring | experimental |
-| [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Mentoring | experimental |
-| [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Mentoring | experimental |
 | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Triage | experimental |
 | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Mentoring | experimental |
 | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
@@ -224,19 +130,16 @@ without explicit maintainer confirmation.
 | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Triage | experimental |
 | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
 
-All twelve skills are `experimental`; no adopter has run the full
-contributor-to-committer path under evaluation conditions yet.
+All nine skills installed by this plugin are `experimental`.
+No adopter has run the full contributor-to-committer path under evaluation conditions yet.
 
 ## Family boundary
 
-This family sits **alongside** two overlapping skill families:
+This family sits alongside two related skill families with separate scopes:
 
-- [`docs/mentoring/README.md`](../mentoring/README.md) — the Agentic Mentoring
-  mode spec and family overview. `mentoring-welcome`,
-  `good-first-issue-author`, and `good-first-issue-sweep` carry
-  `mode: Mentoring` and are also listed in that spec. The families
-  cross-reference each other; a later maturity review may clarify the
-  boundary or merge the two into one.
+- [`docs/mentoring/README.md`](../mentoring/README.md) describes the separate
+  `magpie-mentoring` plugin for newcomer welcomes, good-first-issue authoring,
+  and backlog curation. Its skills are not installed by `magpie-contributor-growth`.
 - [`docs/issue-management/README.md`](../issue-management/README.md) —
   general-issue triage and fix workflow. The contributor-growth family
   reads GitHub activity data about contributors, not issue content; the
@@ -252,8 +155,8 @@ direct action.
 
 ## Status
 
-**Experimental.** All eleven skills are on main with eval suites; no
-adopter has run the full contributor-to-committer path end-to-end under
+**Experimental.** All nine installed skills are on main with eval suites.
+No adopter has run the full contributor-to-committer path end-to-end under
 evaluation conditions.
 
 PMC-member promotion is covered: `contributor-nomination` takes
@@ -279,5 +182,5 @@ the read-only inactivity report and the emeritus move strictly apart.
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index, with a purpose line for every file the table under
   *Before the first run* links.
-- [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
+- [Project rules](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

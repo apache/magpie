@@ -81,8 +81,9 @@ def make_pr(
 ):
     """Build one PR node.
 
-    ``include_engagement=False`` simulates the reduced CLOSED_PRS_QUERY schema
-    (no commits / latestReviews / reviewThreads / timelineItems).
+    ``include_engagement=False`` omits commits / latestReviews / reviewThreads.
+    An explicit ``timeline`` is still included, for the closed query's last
+    ClosedEvent actor. Leaving it unset also exercises missing collections.
     """
     node = {
         "number": number,
@@ -97,8 +98,9 @@ def make_pr(
     if include_engagement:
         node["latestReviews"] = {"nodes": reviews or []}
         node["reviewThreads"] = {"nodes": review_threads or []}
-        node["timelineItems"] = {"nodes": timeline or []}
         node["commits"] = {"nodes": commits or []}
+    if include_engagement or timeline is not None:
+        node["timelineItems"] = {"nodes": timeline or []}
     if closed_days_ago is not None:
         node["closedAt"] = _iso(closed_days_ago)
         node["mergedAt"] = _iso(closed_days_ago) if merged else None

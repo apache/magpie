@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 7514
+measured_tokens: 6663
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -81,7 +81,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -177,27 +177,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 Read `tracker.platform` from `<project-config>/project.md` before the first tracker operation; unset or `TODO` means `github`.
 With `github`, every recipe below runs as written.
-With `local-files` or `jira`, never run a `gh` command against `<tracker>`:
-look the command up in the [skill-command → vetted-operation table](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations)
-and run that vetted operation instead — `vetted-op-read` for reads, `vetted-op-tracker` for the rollup, body-field and publish operations, `vetted-op` for the other writes.
-Vetted-ops translates it for the configured backend; issue numbers become the backend's IDs (`SEC-0012`, `FOOSEC-12`), and the returned `url` is the link.
-Operations on `<upstream>` (PRs, code search) do not change.
-A refusal — the backend's confidentiality guard, or an operation the backend does not have — stops the step: report it, never route around it.
-
-**Pre-flight on another backend.** The GitHub checks in Step 0 — `gh api repos/<tracker>` access, the collaborator roster, project-board ids — do not apply.
-Run the `tracker-doctor` vetted operation instead and stop on any failing check; take the security-team roster from `<project-config>/release-trains.md`, and treat the project board as disabled.
-
-**CVE JSON on another backend.** `generate-cve-json <N> --attach` reads and attaches through GitHub, so do not run it.
-Instead: save the body with the `issue-body` vetted operation (`vetted-op-read … --save cve-body issue-body <id>`),
-run `generate-cve-json --stdin --title "<issue title>" --output <workspace>/<CVE-ID>.json` on that saved file —
-adding `--review` when the issue's labels (from `issue-view`) include the release-vote label or a forward-state label the generator's config names, since `--stdin` cannot see labels and would otherwise produce DRAFT —
-and attach the result with the `issue-attach` vetted operation (`<id> <workspace>/<CVE-ID>.json <CVE-ID>.json`).
-
-**Publish local tracker changes before ending.** With `local-files`, nothing reaches the team until it is committed.
-If this run wrote to the tracker, run the `tracker-pending` vetted operation as the last step, show the changed files and any unpushed commits,
-draft a commit message naming the trackers and the action, ending with the project's commit-attribution trailer, and ask.
-Only on the user's confirmation run `tracker-publish` with that message file
-(Git: commit the tracker folder and push; SVN: commit, which publishes).
+With `local-files` or `jira`, read [tracker-backend.md](tracker-backend.md) before the first tracker operation and follow it: it replaces the recipes below, the Step 0 GitHub checks and the CVE JSON commands, and adds a closing publish step.
 
 <!-- END MAGPIE BLOCK: tracker-backend -->
 
@@ -444,33 +424,8 @@ and the note that label flips and board moves stay with `security-issue-sync`. I
 
 ## Item failure budget
 
-This applies to the read and classify phase only. One item whose state
-cannot be read or classified (a missing body, an unparsable timestamp, a
-404 or 410 for that item, a classifier that returns no verdict for it twice)
-does not stop the sweep: record it as `failed` with a one-line reason, skip it
-for the rest of the run, and carry on with the next item.
-The budget is `item_failure_budget` in the config file this skill already
-reads: `issue-tracker-config.md` for the issue skills,
-`project.md` for the security skills, `pr-management-config.md` for the PR
-skills. Its value is `<n>`, `<p>%` of the
-pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
-stops the run before the sweep starts, with an error naming the value and no
-fallback: nothing has been read, so no item is failed or unfinished; the
-maintainer fixes the value and reruns the same selector.
-When more items have failed than the budget allows, stop before the next item:
-the pool is likely broken as a whole, not one item.
-
-The **write phase is not budgeted**: a post, label, close or transition that
-fails still stops at once, and is never retried, because a retry can duplicate
-a visible action.
-
-The recap always has three groups, failed items first in the summary line when
-there are any: **completed** (with their dispositions), **failed** (each with
-its reason), and **unfinished** (not reached because the budget ran out or a
-write stopped the run; say which, once). End with the selector that reruns
-exactly the failed and unfinished items. A sweep with no failures does not
-mention the budget. Contract:
-[`docs/batch-failure-budget.md`](../../../../docs/batch-failure-budget.md).
+If the config file this skill already reads sets `item_failure_budget`, read [item-failure-budget.md](item-failure-budget.md) before the sweep starts.
+Otherwise read it the moment an item cannot be read or classified, or a write fails, and follow it for the rest of the run.
 
 <!-- END MAGPIE BLOCK: item-failure-budget -->
 

@@ -759,7 +759,7 @@ class TestFindRepoRoot:
 # ---------------------------------------------------------------------------
 #
 # Several setup skills ship supporting .md files alongside their SKILL.md:
-#   setup/ → adopt.md, agents.md, overrides.md, upgrade.md, …
+#   setup/ → adopt.md, agents.md, overrides.md, update.md, …
 #
 # The validator must:
 #   • NOT require YAML frontmatter from these files (only SKILL.md gets that).
@@ -831,7 +831,7 @@ class TestSubDocFiles:
         # Sub-docs must not contain hardcoded project references; the placeholder
         # check must run on them regardless of filename.
         skill_dir = self._make_skill_dir(tmp_path)
-        (skill_dir / "upgrade.md").write_text(
+        (skill_dir / "update.md").write_text(
             "# upgrade\n\nClone apache/airflow and run the script.\n",
             encoding="utf-8",
         )
@@ -839,14 +839,14 @@ class TestSubDocFiles:
         violations = [v for v in run_validation(tmp_path) if v.category not in SOFT_CATEGORIES]
         placeholder_violations = [v for v in violations if "apache/airflow" in v.message]
         assert len(placeholder_violations) >= 1, (
-            "hardcoded 'apache/airflow' in upgrade.md should be caught by placeholder validation"
+            "hardcoded 'apache/airflow' in update.md should be caught by placeholder validation"
         )
 
     def test_setup_skill_with_multiple_sub_docs_passes_cleanly(self, tmp_path: Path) -> None:
         # A setup skill directory that mirrors the real layout (SKILL.md + several
         # clean sub-docs) must produce no hard violations.
         skill_dir = self._make_skill_dir(tmp_path, skill_name="setup")
-        for name in ("adopt.md", "agents.md", "overrides.md", "upgrade.md", "verify.md"):
+        for name in ("adopt.md", "agents.md", "overrides.md", "update.md", "verify.md"):
             (skill_dir / name).write_text(
                 "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->\n"
                 f"# {name.removesuffix('.md')}\n\nContent for {name}.\n",

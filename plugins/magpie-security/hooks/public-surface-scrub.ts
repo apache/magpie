@@ -17,7 +17,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { CANONICAL_FORBIDDEN_TERMS, type CanonicalForbiddenTerm } from './forbidden-terms.ts';
+import { CANONICAL_FORBIDDEN_TERMS, type CanonicalForbiddenTerm } from './forbidden-terms.js';
 
 /**
  * Single canonical forbidden-term regexes for public surfaces, derived directly
@@ -142,7 +142,9 @@ export async function resolveProjectConfig(
   }
 
   const prefix = cwd ? `${cwd.replace(/[\\/]+$/, '')}/` : '';
-  const procEnv = typeof process !== 'undefined' ? process.env : undefined;
+  // Read the host's process environment without depending on Node typings: mods may run
+  // where no `process` global exists, and then only `env` (or nothing) supplies HOME.
+  const procEnv = (globalThis as { process?: { env?: { [key: string]: string | undefined } } }).process?.env;
   const homeDir = (env?.HOME || procEnv?.HOME || procEnv?.USERPROFILE || '').replace(/[\\/]+$/, '');
 
   const candidatePaths = [
@@ -170,9 +172,10 @@ export async function resolveProjectConfig(
     const gitFilePath = `${prefix}.git`;
     const gitFileContent = await readFile(gitFilePath);
     if (gitFileContent && typeof gitFileContent === 'string') {
-      const gitDirMatch = gitFileContent.match(/gitdir:\s*([^\r\n]+)/i);
-      if (gitDirMatch) {
-        const resolvedGitDir = resolvePath(cwd, gitDirMatch[1].trim());
+      // The capture group is `+`, so it is a non-empty string whenever the pattern matches.
+      const gitDirTarget = gitFileContent.match(/gitdir:\s*([^\r\n]+)/i)?.[1];
+      if (gitDirTarget) {
+        const resolvedGitDir = resolvePath(cwd, gitDirTarget.trim());
         // In a worktree, gitdir is <commondir>/worktrees/<name>; the common dir is two levels up
         const commonDir = resolvedGitDir.replace(/[\\/]worktrees[\\/][^\\/]+$/, '');
         candidatePaths.unshift(`${commonDir}/apache-magpie/project.md`);
@@ -347,13 +350,14 @@ export function splitShellSubcommands(commandLine: string): ShellSubcommand[] {
         // Strip outer group delimiters and recursively split subcommands inside the group
         const inner = trimmed.slice(1, -1).trim();
         const innerSubs = splitShellSubcommands(inner);
-        if (innerSubs.length > 0) {
+        const firstInner = innerSubs[0];
+        const lastInner = innerSubs[innerSubs.length - 1];
+        if (firstInner && lastInner) {
           if (isSubshell) {
-            innerSubs[0].subshellDepthDeltaBefore = (innerSubs[0].subshellDepthDeltaBefore || 0) + 1;
-            innerSubs[innerSubs.length - 1].subshellDepthDeltaAfter =
-              (innerSubs[innerSubs.length - 1].subshellDepthDeltaAfter || 0) + 1;
+            firstInner.subshellDepthDeltaBefore = (firstInner.subshellDepthDeltaBefore || 0) + 1;
+            lastInner.subshellDepthDeltaAfter = (lastInner.subshellDepthDeltaAfter || 0) + 1;
           }
-          innerSubs[innerSubs.length - 1].separatorAfter = sep;
+          lastInner.separatorAfter = sep;
           if (sep === '|' || sep === '&') {
             for (const sub of innerSubs) sub.inPipedOrBackgroundGroup = true;
           }
@@ -421,7 +425,7 @@ export function splitShellSubcommands(commandLine: string): ShellSubcommand[] {
           } else {
             while (
               pos < commandLine.length &&
-              !/[\s;&|()<>]/.test(commandLine[pos])
+              !/[\s;&|()<>]/.test(commandLine.charAt(pos))
             ) {
               delim += commandLine[pos];
               pos++;
@@ -472,6 +476,7 @@ export function splitShellSubcommands(commandLine: string): ShellSubcommand[] {
             }
             while (pendingHeredocs.length > 0 && i + 1 < commandLine.length) {
               const target = pendingHeredocs[0];
+              if (!target) break; // unreachable: the loop condition checked the length
               const lineStart = i + 1;
               let lineEnd = commandLine.indexOf('\n', lineStart);
               let hasCr = false;
@@ -533,8 +538,9 @@ export function splitShellSubcommands(commandLine: string): ShellSubcommand[] {
 
   // Fail closed if a quote is still open at the end and commandLine contains git or gh
   if ((inSingle || inDouble) && /\b(?:git|gh)\b/i.test(commandLine)) {
-    if (result.length > 0) {
-      result[result.length - 1].hasUnclosedQuoteWithBinary = true;
+    const lastSub = result[result.length - 1];
+    if (lastSub) {
+      lastSub.hasUnclosedQuoteWithBinary = true;
     } else {
       result.push({ raw: commandLine, hasUnclosedQuoteWithBinary: true });
     }
@@ -567,7 +573,7 @@ export function tokenizeShellWords(subcommand: string): string[] {
   let hasToken = false;
 
   for (let i = 0; i < subcommand.length; i++) {
-    const char = subcommand[i];
+    const char = subcommand.charAt(i);
 
     if (isEscaped) {
       current += char;
@@ -677,6 +683,10 @@ export interface ParsedSubcommand {
   hasDynamicInput: boolean;
   isGraphqlMutation?: boolean;
   isLiteralUnknownEndpoint?: boolean;
+  /** For `gh api`: the REST endpoint path, with any host, `v3` prefix and query string stripped. */
+  apiEndpoint?: string;
+  /** For `gh api`: the HTTP method given with `-X` / `--method`, upper-cased. */
+  apiMethod?: string;
   hasGitDirOrWorkTree?: boolean;
   /** The command runs with environment set for it: a leading `NAME=value` or an `env` wrapper, after any prefix. */
   setsOwnEnvironment?: boolean;
@@ -714,7 +724,7 @@ export function hasDynamicShellConstructs(subcommand: string): boolean {
     if (!inSingle) {
       if (char === '`') return true;
       if (char === '$' && i + 1 < subcommand.length) {
-        const next = subcommand[i + 1];
+        const next = subcommand.charAt(i + 1);
         if (next === '(' || next === '{' || /[a-zA-Z_]/.test(next)) {
           return true;
         }
@@ -741,6 +751,8 @@ function extractPositionalUrlRepo(tokens: string[], startIndex: number): string 
   const urlRegex = /^https?:\/\/github\.com\/([a-z0-9_.-]+\/[a-z0-9_.-]+)\/(?:pull|issues)\/\d+$/i;
   for (let i = startIndex; i < tokens.length; i++) {
     const token = tokens[i];
+    if (token === undefined) break; // unreachable: i < tokens.length
+    if (token === undefined) break; // unreachable: i < tokens.length
     // Skip flags that take an argument
     if (
       (token === '-b' ||
@@ -775,9 +787,10 @@ function extractPositionalUrlRepo(tokens: string[], startIndex: number): string 
     if (token.startsWith('-')) {
       continue;
     }
-    const match = token.match(urlRegex);
-    if (match) {
-      return match[1].toLowerCase();
+    // The slug group is `+`, so it is non-empty whenever the URL pattern matches.
+    const slug = token.match(urlRegex)?.[1];
+    if (slug) {
+      return slug.toLowerCase();
     }
   }
   return undefined;
@@ -808,11 +821,15 @@ export function parseMessageAndFileFlags(
   result: ParsedSubcommand
 ): number {
   const token = tokens[i];
+  // No token at i means nothing to parse; callers only pass an index inside tokens.
+  if (token === undefined) return i;
+  // The flag's value, when there is a next token; `undefined` stands for `i + 1 >= tokens.length`.
+  const nextToken = tokens[i + 1];
 
   // -F <file>, -F<file>, --file <file>, --file=<file>
   if (token === '-F' || token === '--file') {
-    if (i + 1 < tokens.length) {
-      const file = tokens[i + 1];
+    if (nextToken !== undefined) {
+      const file = nextToken;
       if (file === '-') {
         result.hasDynamicInput = true;
       } else {
@@ -843,8 +860,8 @@ export function parseMessageAndFileFlags(
 
   // -m <msg>, -m<msg>, --message <msg>, --message=<msg>
   if (token === '-m' || token === '--message') {
-    if (i + 1 < tokens.length) {
-      result.extractedTexts.push(tokens[i + 1]);
+    if (nextToken !== undefined) {
+      result.extractedTexts.push(nextToken);
       return i + 1;
     }
     return i;
@@ -865,8 +882,8 @@ export function parseMessageAndFileFlags(
     if (mIdx !== -1) {
       if (mIdx < token.length - 1) {
         result.extractedTexts.push(token.slice(mIdx + 1));
-      } else if (i + 1 < tokens.length) {
-        result.extractedTexts.push(tokens[i + 1]);
+      } else if (nextToken !== undefined) {
+        result.extractedTexts.push(nextToken);
         return i + 1;
       }
     } else if (fIdx !== -1) {
@@ -877,8 +894,8 @@ export function parseMessageAndFileFlags(
         } else {
           result.referencedFiles.push(file);
         }
-      } else if (i + 1 < tokens.length) {
-        const file = tokens[i + 1];
+      } else if (nextToken !== undefined) {
+        const file = nextToken;
         if (file === '-') {
           result.hasDynamicInput = true;
         } else {
@@ -905,9 +922,13 @@ export function parseBodyFlags(
   bodyFileFlag: string = '--body-file'
 ): number {
   const token = tokens[i];
+  // No token at i means nothing to parse; callers only pass an index inside tokens.
+  if (token === undefined) return i;
+  // The flag's value, when there is a next token; `undefined` stands for `i + 1 >= tokens.length`.
+  const nextToken = tokens[i + 1];
 
-  if ((token === '-b' || token === '--body') && i + 1 < tokens.length) {
-    result.extractedTexts.push(tokens[i + 1]);
+  if ((token === '-b' || token === '--body') && nextToken !== undefined) {
+    result.extractedTexts.push(nextToken);
     return i + 1;
   }
   if (token.startsWith('-b') && token.length > 2) {
@@ -918,8 +939,8 @@ export function parseBodyFlags(
     result.extractedTexts.push(token.slice('--body='.length));
     return i;
   }
-  if ((token === '-F' || token === bodyFileFlag) && i + 1 < tokens.length) {
-    const file = tokens[i + 1];
+  if ((token === '-F' || token === bodyFileFlag) && nextToken !== undefined) {
+    const file = nextToken;
     if (file === '-') {
       result.hasDynamicInput = true;
     } else {
@@ -959,8 +980,12 @@ export function parseTitleFlags(
   result: ParsedSubcommand
 ): number {
   const token = tokens[i];
-  if ((token === '-t' || token === '--title') && i + 1 < tokens.length) {
-    result.extractedTexts.push(tokens[i + 1]);
+  // No token at i means nothing to parse; callers only pass an index inside tokens.
+  if (token === undefined) return i;
+  // The flag's value, when there is a next token; `undefined` stands for `i + 1 >= tokens.length`.
+  const nextToken = tokens[i + 1];
+  if ((token === '-t' || token === '--title') && nextToken !== undefined) {
+    result.extractedTexts.push(nextToken);
     return i + 1;
   }
   if (token.startsWith('-t') && token.length > 2) {
@@ -984,8 +1009,12 @@ export function parseCommentFlags(
   result: ParsedSubcommand
 ): number {
   const token = tokens[i];
-  if ((token === '-c' || token === '--comment') && i + 1 < tokens.length) {
-    result.extractedTexts.push(tokens[i + 1]);
+  // No token at i means nothing to parse; callers only pass an index inside tokens.
+  if (token === undefined) return i;
+  // The flag's value, when there is a next token; `undefined` stands for `i + 1 >= tokens.length`.
+  const nextToken = tokens[i + 1];
+  if ((token === '-c' || token === '--comment') && nextToken !== undefined) {
+    result.extractedTexts.push(nextToken);
     return i + 1;
   }
   if (token.startsWith('-c') && token.length > 2) {
@@ -1009,8 +1038,12 @@ export function parseReleaseNotesFlags(
   result: ParsedSubcommand
 ): number {
   const token = tokens[i];
-  if ((token === '-n' || token === '--notes') && i + 1 < tokens.length) {
-    result.extractedTexts.push(tokens[i + 1]);
+  // No token at i means nothing to parse; callers only pass an index inside tokens.
+  if (token === undefined) return i;
+  // The flag's value, when there is a next token; `undefined` stands for `i + 1 >= tokens.length`.
+  const nextToken = tokens[i + 1];
+  if ((token === '-n' || token === '--notes') && nextToken !== undefined) {
+    result.extractedTexts.push(nextToken);
     return i + 1;
   }
   if (token.startsWith('-n') && token.length > 2) {
@@ -1021,8 +1054,8 @@ export function parseReleaseNotesFlags(
     result.extractedTexts.push(token.slice('--notes='.length));
     return i;
   }
-  if ((token === '-F' || token === '--notes-file') && i + 1 < tokens.length) {
-    const file = tokens[i + 1];
+  if ((token === '-F' || token === '--notes-file') && nextToken !== undefined) {
+    const file = nextToken;
     if (file === '-') {
       result.hasDynamicInput = true;
     } else {
@@ -1098,8 +1131,10 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
   // Detect file redirection operators in subcommand (> or >>)
   for (let i = 0; i < rawTokens.length; i++) {
     const t = rawTokens[i];
-    if ((t === '>' || t === '>>' || t === '1>' || t === '1>>') && i + 1 < rawTokens.length) {
-      result.redirectedFiles.push(rawTokens[i + 1]);
+    if (t === undefined) break; // unreachable: i < rawTokens.length
+    const redirectTarget = rawTokens[i + 1];
+    if ((t === '>' || t === '>>' || t === '1>' || t === '1>>') && redirectTarget !== undefined) {
+      result.redirectedFiles.push(redirectTarget);
       i++;
     } else if (t.startsWith('>') || t.startsWith('>>') || t.startsWith('1>') || t.startsWith('1>>')) {
       const target = t.replace(/^(?:1?>{1,2})/, '');
@@ -1130,6 +1165,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
   let cmdIdx = 0;
   while (cmdIdx < tokens.length) {
     const t = tokens[cmdIdx];
+    if (t === undefined) break; // unreachable: cmdIdx < tokens.length
     if (TRANSPARENT_SHELL_PREFIXES.has(t)) {
       cmdIdx++;
     } else if (t === 'command') {
@@ -1140,10 +1176,12 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     } else if (t === 'env') {
       result.setsOwnEnvironment = true;
       cmdIdx++;
-      while (cmdIdx < tokens.length && tokens[cmdIdx].startsWith('-')) {
+      while (cmdIdx < tokens.length) {
         const envTok = tokens[cmdIdx];
-        if ((envTok === '-C' || envTok === '--chdir') && cmdIdx + 1 < tokens.length) {
-          result.gitCwd = result.gitCwd ? resolvePath(result.gitCwd, tokens[cmdIdx + 1]) : tokens[cmdIdx + 1];
+        if (envTok === undefined || !envTok.startsWith('-')) break;
+        const envArg = tokens[cmdIdx + 1];
+        if ((envTok === '-C' || envTok === '--chdir') && envArg !== undefined) {
+          result.gitCwd = result.gitCwd ? resolvePath(result.gitCwd, envArg) : envArg;
           cmdIdx += 2;
         } else if (envTok.startsWith('--chdir=')) {
           const dir = envTok.slice('--chdir='.length);
@@ -1153,7 +1191,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
           const dir = envTok.slice(2);
           result.gitCwd = result.gitCwd ? resolvePath(result.gitCwd, dir) : dir;
           cmdIdx++;
-        } else if (envTok === '-u' && cmdIdx + 1 < tokens.length) {
+        } else if (envTok === '-u' && envArg !== undefined) {
           cmdIdx += 2;
         } else {
           cmdIdx++;
@@ -1172,7 +1210,8 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
   tokens = tokens.slice(cmdIdx);
   cmdIdx = 0;
 
-  if (tokens.length === 0) {
+  const firstToken = tokens[0];
+  if (firstToken === undefined) {
     return result;
   }
 
@@ -1180,7 +1219,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     return cmd.split(/[/\\]/).pop()?.toLowerCase().replace(/\.exe$/, '') ?? cmd.toLowerCase();
   };
 
-  const binary = getCommandBasename(tokens[0]);
+  const binary = getCommandBasename(firstToken);
 
   // Check for eval and sh/bash/zsh -c executing git or gh
   if (binary === 'eval') {
@@ -1228,7 +1267,9 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
   if (binary !== 'git' && binary !== 'gh' && binary !== 'cd' && binary !== 'pushd') {
     if (KNOWN_WRAPPERS.has(binary)) {
       for (let i = 1; i < tokens.length; i++) {
-        const innerCmd = getCommandBasename(tokens[i]);
+        const wrappedToken = tokens[i];
+        if (wrappedToken === undefined) break; // unreachable: i < tokens.length
+        const innerCmd = getCommandBasename(wrappedToken);
         if (innerCmd === 'git' || innerCmd === 'gh') {
           result.isPublicSurfaceCommand = true;
           result.hasDynamicInput = true;
@@ -1266,10 +1307,12 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     // Parse git global options before the git subcommand
     for (let i = cmdIdx + 1; i < tokens.length; i++) {
       const token = tokens[i];
+      if (token === undefined) break; // unreachable: i < tokens.length
 
       // -C <dir> or -C=<dir> (case-sensitive; repeated -Cs compose!)
-      if (token === '-C' && i + 1 < tokens.length) {
-        gitCwd = gitCwd ? resolvePath(gitCwd, tokens[i + 1]) : tokens[i + 1];
+      const cDirArg = tokens[i + 1];
+      if (token === '-C' && cDirArg !== undefined) {
+        gitCwd = gitCwd ? resolvePath(gitCwd, cDirArg) : cDirArg;
         i++; // skip directory argument
         continue;
       }
@@ -1325,6 +1368,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
 
       for (let i = subcmdIndex + 1; i < tokens.length; i++) {
         const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
 
         // Message reuse options: dynamically reuse text from history -> flag as dynamic input (fail closed)
         if (
@@ -1341,10 +1385,11 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
           token.startsWith('--squash=')
         ) {
           result.hasDynamicInput = true;
+          const reuseArg = tokens[i + 1];
           if (
             (token === '-C' || token === '-c' || token === '--reuse-message' || token === '--reedit-message' || token === '--fixup' || token === '--squash') &&
-            i + 1 < tokens.length &&
-            !tokens[i + 1].startsWith('-')
+            reuseArg !== undefined &&
+            !reuseArg.startsWith('-')
           ) {
             i++;
           }
@@ -1361,8 +1406,9 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         }
 
         // --trailer <val>, --trailer=<val>
-        if (token === '--trailer' && i + 1 < tokens.length) {
-          result.extractedTexts.push(tokens[i + 1]);
+        const trailerArg = tokens[i + 1];
+        if (token === '--trailer' && trailerArg !== undefined) {
+          result.extractedTexts.push(trailerArg);
           i++;
           continue;
         }
@@ -1392,6 +1438,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         let tagFound = false;
         for (let i = subcmdIndex + 1; i < tokens.length; i++) {
           const token = tokens[i];
+          if (token === undefined) break; // unreachable: i < tokens.length
 
           const nextIdx = parseMessageAndFileFlags(tokens, i, result);
           if (nextIdx !== i) {
@@ -1430,6 +1477,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         let hasBranchRef = false;
         for (let i = subcmdIndex + 1; i < tokens.length; i++) {
           const token = tokens[i];
+          if (token === undefined) break; // unreachable: i < tokens.length
 
           const nextIdx = parseMessageAndFileFlags(tokens, i, result);
           if (nextIdx !== i) {
@@ -1467,8 +1515,10 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     // Extract repository flag (-R owner/repo, --repo owner/repo, -R=..., --repo=...)
     for (let i = cmdIdx + 1; i < tokens.length; i++) {
       const token = tokens[i];
-      if ((token === '-R' || token === '--repo') && i + 1 < tokens.length) {
-        result.targetRepo = tokens[i + 1].toLowerCase();
+      if (token === undefined) break; // unreachable: i < tokens.length
+      const repoArg = tokens[i + 1];
+      if ((token === '-R' || token === '--repo') && repoArg !== undefined) {
+        result.targetRepo = repoArg.toLowerCase();
         break;
       }
       if (token.startsWith('--repo=')) {
@@ -1500,6 +1550,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
 
       for (let i = cmdIdx + 3; i < tokens.length; i++) {
         const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
         if (token === '-f' || token === '--fill' || token.startsWith('--fill-')) {
           result.hasDynamicInput = true;
           continue;
@@ -1575,8 +1626,10 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
 
       for (let i = cmdIdx + 3; i < tokens.length; i++) {
         const token = tokens[i];
-        if (token === '--subject' && i + 1 < tokens.length) {
-          result.extractedTexts.push(tokens[i + 1]);
+        if (token === undefined) break; // unreachable: i < tokens.length
+        const subjectArg = tokens[i + 1];
+        if (token === '--subject' && subjectArg !== undefined) {
+          result.extractedTexts.push(subjectArg);
           i++;
           continue;
         }
@@ -1686,6 +1739,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
       let tagFound = false;
       for (let i = cmdIdx + 3; i < tokens.length; i++) {
         const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
         let nextIdx = parseTitleFlags(tokens, i, result);
         if (nextIdx !== i) {
           i = nextIdx;
@@ -1737,6 +1791,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
 
       for (let i = cmdIdx + 2; i < tokens.length; i++) {
         const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
 
         if (token.startsWith('-')) {
           if (GH_API_VALUE_FLAGS.has(token) && i + 1 < tokens.length) {
@@ -1749,6 +1804,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         let endpoint = token.replace(/^(?:https?:\/\/[^/]+)?\/+/, '');
         // Strip optional v3 or api/v3 prefix
         endpoint = endpoint.replace(/^(?:api\/)?v3\/+/, '');
+        result.apiEndpoint = endpoint.replace(/[?#].*$/, '');
 
         if (endpoint.startsWith('repos/')) {
           const parts = endpoint.slice('repos/'.length).split('/');
@@ -1780,7 +1836,8 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
           'installations',
         ]);
 
-        const firstSegment = endpoint.split('/')[0].toLowerCase();
+        const firstSlash = endpoint.indexOf('/');
+        const firstSegment = (firstSlash === -1 ? endpoint : endpoint.slice(0, firstSlash)).toLowerCase();
         if (!GITHUB_API_NON_REPO_ROUTES.has(firstSegment) && /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+/.test(endpoint)) {
           const parts = endpoint.split('/');
           result.targetRepo = `${parts[0]}/${parts[1]}`.toLowerCase();
@@ -1796,10 +1853,25 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
 
       for (let i = cmdIdx + 2; i < tokens.length; i++) {
         const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
+        const methodArg = tokens[i + 1];
+        if ((token === '-X' || token === '--method') && methodArg !== undefined) {
+          result.apiMethod = methodArg.toUpperCase();
+        } else if (token.startsWith('--method=')) {
+          result.apiMethod = token.slice('--method='.length).toUpperCase();
+        } else if (/^-X[A-Za-z]+$/.test(token)) {
+          result.apiMethod = token.slice(2).toUpperCase();
+        }
+      }
+
+      for (let i = cmdIdx + 2; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token === undefined) break; // unreachable: i < tokens.length
 
         // --input <file>, --input=<file>
-        if (token === '--input' && i + 1 < tokens.length) {
-          const file = tokens[i + 1];
+        const inputArg = tokens[i + 1];
+        if (token === '--input' && inputArg !== undefined) {
+          const file = inputArg;
           if (file === '-') {
             result.hasDynamicInput = true;
           } else {
@@ -1819,8 +1891,8 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         }
 
         // -f <name>=<val>, -F <name>=<val>, --field <name>=<val>, --raw-field <name>=<val>
-        if ((token === '-f' || token === '-F' || token === '--field' || token === '--raw-field') && i + 1 < tokens.length) {
-          const fieldArg = tokens[i + 1];
+        const fieldArg = tokens[i + 1];
+        if ((token === '-f' || token === '-F' || token === '--field' || token === '--raw-field') && fieldArg !== undefined) {
           const eqIdx = fieldArg.indexOf('=');
           if (eqIdx !== -1) {
             const val = fieldArg.slice(eqIdx + 1);
@@ -1835,9 +1907,10 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         }
 
         // Attached short field forms: -fbody="...", -Fbody=@file, -fquery="...", etc.
-        const attachedFieldMatch = token.match(/^-([fF])([a-zA-Z0-9_.-]+)=(.*)$/s);
-        if (attachedFieldMatch) {
-          const val = attachedFieldMatch[3];
+        // Group 3 is `(.*)`, so it is a string (possibly empty) whenever the pattern matches.
+        const attachedFieldVal = token.match(/^-([fF])([a-zA-Z0-9_.-]+)=(.*)$/s)?.[3];
+        if (attachedFieldVal !== undefined) {
+          const val = attachedFieldVal;
           if (val.startsWith('@')) {
             result.referencedFiles.push(val.slice(1));
           } else {
@@ -1846,9 +1919,10 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
           continue;
         }
 
-        const fieldMatch = token.match(/^(?:--field|--raw-field)=(.*?)=(.*)$/s);
-        if (fieldMatch) {
-          const val = fieldMatch[2];
+        // Group 2 is `(.*)`, so it is a string (possibly empty) whenever the pattern matches.
+        const fieldVal = token.match(/^(?:--field|--raw-field)=(.*?)=(.*)$/s)?.[2];
+        if (fieldVal !== undefined) {
+          const val = fieldVal;
           if (val.startsWith('@')) {
             result.referencedFiles.push(val.slice(1));
           } else {
@@ -1922,9 +1996,10 @@ export async function inspectDirectoryRemote(
       const gitFilePath = resolvePath(dir, '.git');
       const gitFileContent = await readFile(gitFilePath);
       if (gitFileContent && typeof gitFileContent === 'string') {
-        const gitDirMatch = gitFileContent.match(/gitdir:\s*([^\r\n]+)/i);
-        if (gitDirMatch) {
-          const resolvedGitDir = resolvePath(dir, gitDirMatch[1].trim());
+        // The capture group is `+`, so it is a non-empty string whenever the pattern matches.
+        const gitDirTarget = gitFileContent.match(/gitdir:\s*([^\r\n]+)/i)?.[1];
+        if (gitDirTarget) {
+          const resolvedGitDir = resolvePath(dir, gitDirTarget.trim());
           const commonDir = resolvedGitDir.replace(/[\\/]worktrees[\\/][^\\/]+$/, '');
           const candidateConfigPaths = [
             resolvePath(commonDir, 'config'),
@@ -1960,7 +2035,9 @@ export async function inspectDirectoryRemote(
     const urlMatches = configLower.matchAll(/url\s*=\s*([^\r\n]+)/g);
     const urls: string[] = [];
     for (const m of urlMatches) {
-      urls.push(m[1].trim());
+      // The capture group is `+`, so it is always set on a match.
+      const url = m[1];
+      if (url !== undefined) urls.push(url.trim());
     }
 
     if (urls.length === 0) {
@@ -2057,6 +2134,66 @@ export function generateBlockingReason(commandType: string, terms: string[]): st
 }
 
 /**
+ * For a blocked `gh api` write that has a vetted route, names that route.
+ *
+ * Advisory discussions and tracker comments are private surfaces whose text legitimately carries
+ * the terms this guard scans for. The guard's decision does not change; the hint only names the
+ * vetted-ops operation that performs the same write, and says the operation has to be granted to
+ * the caller in the adopter's vetted-ops config, which is a maintainer's change, not the agent's.
+ * Returns undefined when the endpoint has no vetted route.
+ */
+export function vettedRouteHint(parsed: ParsedSubcommand): string | undefined {
+  if (parsed.commandType !== 'gh api' || !parsed.apiEndpoint) {
+    return undefined;
+  }
+  const endpoint = parsed.apiEndpoint;
+  const sendsFields = parsed.extractedTexts.length > 0 || parsed.referencedFiles.length > 0;
+  const method = parsed.apiMethod ?? (sendsFields ? 'POST' : 'GET');
+  const grant =
+    'The calling skill needs that operation in its `[callers]` list in ' +
+    '`.apache-magpie-overrides/tools/vetted-ops/config.toml`, and adding it is a maintainer\'s change. ' +
+    'The body file goes under `~/.cache/apache-magpie/vetted-ops-bodies/` (see tools/vetted-ops/README.md).';
+
+  const advisoryComments = endpoint.match(
+    /^repos\/[^/]+\/[^/]+\/security-advisories\/(GHSA-[0-9a-z-]+)\/comments(\/\d+)?\/?$/i,
+  );
+  if (advisoryComments) {
+    if (advisoryComments[2] || method === 'PATCH' || method === 'DELETE') {
+      return 'No vetted operation edits or deletes an advisory comment; do that in the advisory web UI.';
+    }
+    return [
+      'A security advisory discussion is private to its collaborators. Post the comment with the vetted operation instead:',
+      `  vetted-op --caller <skill> advisory-comment ${advisoryComments[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  if (/^repos\/[^/]+\/[^/]+\/security-advisories\/GHSA-[0-9a-z-]+\/?$/i.test(endpoint)) {
+    return 'No vetted operation edits advisory record fields (`cve_id`, `credits`, `severity`, ...); edit them in the advisory web UI.';
+  }
+
+  const commentEdit = endpoint.match(/^repos\/[^/]+\/[^/]+\/issues\/comments\/(\d+)\/?$/);
+  if (commentEdit && method === 'PATCH') {
+    return [
+      'If this comment is on the private tracker, edit it with the vetted operation instead:',
+      `  vetted-op --caller <skill> comment-update ${commentEdit[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  const issueComment = endpoint.match(/^repos\/[^/]+\/[^/]+\/issues\/(\d+)\/comments\/?$/);
+  if (issueComment && method === 'POST') {
+    return [
+      'If this issue is on the private tracker, post the comment with the vetted operation instead:',
+      `  vetted-op --caller <skill> issue-comment ${issueComment[1]} <body-file>`,
+      grant,
+    ].join('\n');
+  }
+
+  return undefined;
+}
+
+/**
  * Commands known to be purely read-only or harmless environment manipulations.
  * If any preceding command on a composite shell line is NOT in this set,
  * subsequent file reads (-F <file>) fail closed as dynamic input.
@@ -2148,22 +2285,24 @@ function mayRedirectLaterCommands(subcommand: string): boolean {
   }
   // A brace group runs in the current shell; its braces change nothing themselves.
   const words = tokenizeShellWords(subcommand.trim()).filter((w) => w !== '{' && w !== '}');
-  if (words.length === 0) {
+  const command = words[0];
+  if (command === undefined) {
     return false;
   }
-  if (words[0] === 'gh') {
+  if (command === 'gh') {
     return !READ_ONLY_GH_VERBS.has(words[2] ?? '');
   }
-  if (!ENVIRONMENT_PRESERVING_COMMANDS.has(words[0])) {
+  if (!ENVIRONMENT_PRESERVING_COMMANDS.has(command)) {
     return true; // includes a leading `VAR=value`, `export`, `builtin`, `eval`, `if`, `f() {`, ...
   }
-  if (words[0] === 'cd') {
+  if (command === 'cd') {
     // Only a plain `cd <dir>` is tracked as a directory change; `cd a b` fails (too many operands)
     // and leaves the shell where it was, and options or `cd -` move it somewhere the tracking
-    // does not model.
-    return words.length !== 2 || words[1].startsWith('-');
+    // does not model. A missing operand counts as a redirect (fail closed).
+    const cdTarget = words[1];
+    return words.length !== 2 || cdTarget === undefined || cdTarget.startsWith('-');
   }
-  if (words[0] === 'git') {
+  if (command === 'git') {
     // `git diff --output=.git/config` writes a file; any `--output` / `-o` option disqualifies.
     return (
       !REPOSITORY_PRESERVING_GIT_SUBCOMMANDS.has(words[1] ?? '') ||
@@ -2499,6 +2638,10 @@ export async function evaluatePublicSurfaceCommand(
     if (matched.length > 0) {
       const uniqueTerms = Array.from(new Set(matched));
       let reason = generateBlockingReason(parsed.commandType, uniqueTerms);
+      const vettedHint = vettedRouteHint(parsed);
+      if (vettedHint) {
+        reason += `\n\n${vettedHint}`;
+      }
       if (trackerFallbackHint) {
         // The Bash tool call carries no cwd, so a command run in the tracker checkout cannot be
         // told apart from one run after an earlier `cd ../<upstream>`; an explicit target can.
@@ -2530,6 +2673,36 @@ export async function evaluatePublicSurfaceCommand(
  * Intercepts Bash tool calls, parses commands, verifies embargo terms,
  * and returns { deny: reason } when embargo terms are detected.
  */
+/**
+ * The deny result for an evaluation, or null to let the command run.
+ * Blocks on `blocked` alone: a block that lost its reason still blocks.
+ */
+export function denyFor(evaluation: { blocked: boolean; reason?: string }): { deny: string } | null {
+  if (!evaluation.blocked) return null;
+  return {
+    deny:
+      evaluation.reason ||
+      'public-surface-scrub: this command would publish embargoed security content to a public surface.',
+  };
+}
+
+/**
+ * The deny result when evaluating a command threw, or null when a human set
+ * MAGPIE_ALLOW_EMBARGO_TERMS=1 (the same escape hatch the evaluation honours).
+ */
+export function denyOnEvaluationError(
+  error: unknown,
+  env: { [key: string]: string | undefined }
+): { deny: string } | null {
+  if (env.MAGPIE_ALLOW_EMBARGO_TERMS === '1') return null;
+  const detail = error instanceof Error ? error.message : String(error);
+  return {
+    deny:
+      `public-surface-scrub: could not check this command (${detail}), so it is blocked. ` +
+      'Report the error; a human may set MAGPIE_ALLOW_EMBARGO_TERMS=1 before the session to override.',
+  };
+}
+
 export function register(on: any): void {
   on('tool.call', { tool: 'Bash' }, async ($: any, e: any, next: any) => {
     const command = e?.command;
@@ -2597,24 +2770,30 @@ export function register(on: any): void {
           // $.env may be absent in mock harnesses
         }
       }
-      const evaluation = await evaluatePublicSurfaceCommand(command, {
-        cwd: initialCwd,
-        isSessionRootFallback,
-        env: hookEnv,
-        readFile: async (filePath: string) => {
-          try {
-            return await $.fs.read(filePath);
-          } catch {
-            return null;
-          }
-        },
-      });
-
-      if (evaluation.blocked && evaluation.reason) {
-        return {
-          deny: evaluation.reason,
-        };
+      let evaluation: { blocked: boolean; matchedTerms: string[]; reason?: string };
+      try {
+        evaluation = await evaluatePublicSurfaceCommand(command, {
+          cwd: initialCwd,
+          isSessionRootFallback,
+          env: hookEnv,
+          readFile: async (filePath: string) => {
+            try {
+              return await $.fs.read(filePath);
+            } catch {
+              return null;
+            }
+          },
+        });
+      } catch (error) {
+        // A gate that throws must not let the command through: fail closed,
+        // unless a human set the documented escape hatch before the session.
+        const denial = denyOnEvaluationError(error, hookEnv);
+        if (denial) return denial;
+        evaluation = { blocked: false, matchedTerms: [] };
       }
+
+      const denial = denyFor(evaluation);
+      if (denial) return denial;
     }
 
     if (typeof next === 'function') {

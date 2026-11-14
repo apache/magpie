@@ -53,6 +53,19 @@ lines — nothing else.
 every sibling linked exactly one level deep from `SKILL.md`; no
 unreferenced sibling left behind.
 
+**Proving a pointer.** A move out of the body only preserves behaviour if an agent still reaches the text.
+
+- Name every trigger in the pointer.
+  *"When a step cannot complete"* hid a table row meaning *"reproducer cannot run, so continue"*.
+- Leave the heading in place and move only the body, so anchors and `surface_hash` stay put.
+  Keep the sibling in the same directory, so its relative links stay byte-identical.
+- Add a pointer-only eval step: `step_heading` is the file's top heading, which extracts the whole body, with no `also_include`.
+  The output spec asks for `files_to_open` and **names no file**, or it hands over the answer.
+  Include cases where nothing should open, and keep each fixture clear of other pointers' triggers.
+- Run those cases against a throwaway copy with the pointers deleted (inside the repository, since `skill_md` is contained to it; delete it afterwards).
+  The real skill must pass and the copy must fail every case that needs a file: a case that passes on both carries no signal.
+  A spec that named the files once passed 6/6 with both pointers deleted.
+
 ---
 
 ## 2. Config-lift — move concrete values into `<project-config>`

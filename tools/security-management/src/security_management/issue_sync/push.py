@@ -33,7 +33,9 @@ previous one printed (`next` names the command to run and pass back):
 4. the push — a non-zero exit is a manual-paste `hand-off` with the error
    as a blocker, never retried this run;
 5. the verify — a push carrying `review-ready` onto an `allocated` record is
-   confirmed with `fetch_current_state`; `allocated` after it is a blocker.
+   confirmed with `fetch_current_state`; `allocated` after it is a blocker
+   that fires the fill-fields comment, and a fetch that failed or came back
+   `unknown` is a blocker that posts nothing about the hand-off this run.
 """
 
 from __future__ import annotations
@@ -43,9 +45,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cve_allocate.title import TRACKER_PREFIXES, strip
-from security_management.shared import selectors
+from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
-from security_management.shell import w
 
 GATES = (
     "title_strip_cascade",
@@ -62,9 +63,11 @@ JUDGED = (
     "anonymise_private_finder",
     "conservative_affected_range",
 )
+# The regenerated JSON is Vulnogram-shaped (generate-cve-json), so its
+# CNA_private.state is native; `cve-tool fetch --state-only` already prints the
+# generic state. `_state` reads either.
 NATIVE = {"DRAFT": "allocated", "REVIEW": "review-ready", "READY": "publish-ready", "PUBLIC": "public"}
 LATER = ("review-ready", "publish-ready", "public")
-OAUTH_API = "<framework>/tools/cve-tool-vulnogram/oauth-api"
 _UPGRADE = re.compile(r"upgrade[^.\n]{0,80}?\b[A-Za-z][\w.-]{0,60} v?\d+\.\d+(?:\.\d+)?\b", re.IGNORECASE)
 _CWE_LONG = re.compile(r"^CWE-\d+: \S")
 
@@ -92,7 +95,6 @@ def _state(value: object) -> str | None:
 
 def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = one_line(data.get("cve_id"))
-    oauth_api = w(str(data.get("oauth_api") or OAUTH_API))
 
     def out(action: str, why: str, **extra: Any) -> dict[str, Any]:
         return {
@@ -142,12 +144,10 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     stuck = transition and before == "allocated"
     probe = one_line(data.get("session")).lower() or None
     if probe is None:
-        return out(
-            "pending", "probe the CVE tool session", next=f"uv run --project {oauth_api} vulnogram-api-check"
-        )
+        return out("pending", "probe the CVE tool session", next=cve_tool.command(data, "check"))
     if probe in ("expired", "not-configured"):
         why = (
-            "the session expired: remind the operator to re-run vulnogram-api-setup --pmc <project>; manual-paste hand-off this run"
+            "the session expired: remind the operator to re-run cve-tool setup --pmc <project>; manual-paste hand-off this run"
             if probe == "expired"
             else "no session is configured: manual-paste hand-off through the source tab"
         )
@@ -161,7 +161,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
         return out(
             "pending",
             "push the regenerated JSON",
-            next=f"uv run --project {oauth_api} vulnogram-api-record-update --cve-id {w(cve_id)} --json-file {w(json_file)}",
+            next=cve_tool.command(data, "push", "--cve-id", cve_id, "--json-file", json_file),
         )
     if int(data["push_exit"]) != 0:
         return out(
@@ -176,7 +176,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             return out(
                 "pending",
                 "verify the state advance",
-                next=f"uv run --project {oauth_api} vulnogram-api-record-fetch --cve-id {w(cve_id)} --state-only",
+                next=cve_tool.command(data, "fetch", "--cve-id", cve_id, "--state-only"),
             )
         if fetched in LATER:
             return out(
@@ -185,10 +185,16 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
                 handoff_variant="oauth-pushed",
                 state_advance="allocated->review-ready",
             )
+        if fetched == "allocated":
+            return out(
+                "push",
+                "pushed, but the record is still allocated: do not post the RM hand-off; fire the fill-fields comment",
+                handoff_variant="oauth-pushed",
+                recap_blocker=True,
+            )
         return out(
             "push",
-            f"pushed, but the record is still {fetched}: do not post the RM hand-off; fire the fill-fields comment",
-            handoff_variant="oauth-pushed",
+            f"pushed, but the state fetch returned {fetched}: surface it as a blocker, post nothing on the RM hand-off front, and retry the verification on the next sync",
             recap_blocker=True,
         )
     return out("push", "pushed; the record's state did not change", handoff_variant="oauth-pushed")

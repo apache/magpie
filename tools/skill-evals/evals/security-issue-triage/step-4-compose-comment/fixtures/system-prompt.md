@@ -46,6 +46,8 @@ best placed to answer>?
 - DEFENSE-IN-DEPTH comments must say explicitly: "defense-in-depth fix is
   welcome via public PR; not a CVE."
 - INFO-ONLY comments must name the exact canned-response template heading.
+- PROBABLE-DUP comments must suggest `security-issue-deduplicate <kept> <new>`:
+  the tracker to keep is the first argument, the duplicate to close is second.
 - UNCERTAIN disposition: phrase as "low-confidence proposal, please
   challenge" and explain the ambiguity before stating the tentative class.
 

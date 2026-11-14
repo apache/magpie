@@ -65,6 +65,11 @@ from pathlib import Path
 
 SKILLS = Path("skills")
 PLUGINS = Path("plugins")
+# The plugin icon (the Magpie mark from assets/badge.json, on a dark tile), copied
+# into every plugin's `.claude-plugin/`, where `claude plugin validate --strict`
+# looks for it (ICON_MISSING fails the check-claude-mods hook otherwise).
+PLUGIN_ICON_SOURCE = Path("assets/plugin-icon.png")
+PLUGIN_ICON = Path(".claude-plugin/icon.png")
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
 ROOT_MANIFEST = Path(".claude-plugin/plugin.json")  # version + shared metadata anchor
 UPGRADE_HOOK = Path("plugins/magpie-setup/hooks/check-upgrade.sh")  # magpie-setup SessionStart
@@ -126,6 +131,10 @@ CODEX_FAMILY_HOOKS = {
         },
     },
     "magpie-pr-management": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
+    "magpie-release-management": {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
     },
@@ -268,16 +277,16 @@ INHERITED = ("version", "author", "homepage", "repository", "license")
 # Per-family descriptions used when (re)generating manifests. Keep in sync with
 # the family README; `check` does not enforce these (only structure/symlinks).
 DESC = {
-    "security": "security-issue handling lifecycle — import through CVE publication, triage, sync, dedup, invalidate. Maintainer-only.",
-    "release-management": "ASF release lifecycle: plan, RC cut/sign, vote, tally, promote, announce, archive, audit.",
-    "setup": "framework install/maintenance: install (adopt), upgrade, verify, override, status, secure-agent setup, shared-config sync.",
-    "pr-management": "PR-queue management: triage, stats, deep code review, stack review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
-    "issue": "issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, dedup, backlog stats.",
-    "repo-health": "read-only repo-health audits: runner labels, workflow security, dependency/license/NOTICE, flaky tests, audit-finding fixes.",
-    "contributor-growth": "path-to-committer: activity sweeps, nominations, sentiment, readiness, committer/post-vote onboarding.",
-    "utilities": "framework meta-skills: write-skill, optimize-skill, skill-reconciler, list-skills.",
-    "mentoring": "newcomer mentoring: welcome, newcomer-issue explanations, good-first-issue authoring + sweep.",
-    "pairing": "pair a change with a structured self-review or a multi-agent adversarial review.",
+    "security": "Security reports: import through CVE publication, triage, sync, deduplication and invalidation. Maintainer-only.",
+    "release-management": "Releases: ASF release planning, RC preparation and signing, voting, promotion, announcements, archives and audits.",
+    "setup": "Framework setup: installation, updates, verification, project rules, agent isolation and shared configuration.",
+    "pr-management": "Pull requests: triage, statistics, code review, stack review, merge candidates, thread mentoring and reviewer routing.",
+    "issue": "Issue management: triage, reproduction, fix drafting, reassessment, stale sweeps, deduplication and backlog statistics.",
+    "repo-health": "Repository maintenance: CI, workflow security, dependency vulnerabilities, licenses and flaky-test audits, plus fixes for audit findings.",
+    "contributor-growth": "Committer readiness and onboarding: activity, calibration, nominations, sentiment and post-vote onboarding.",
+    "utilities": "Skill tools: skill discovery, authoring, optimization, maintenance and framework bug reporting.",
+    "mentoring": "Mentoring: newcomer welcomes, issue explanations, good-first-issue authoring and discovery.",
+    "pairing": "Local code review: structured self-review or independent adversarial review of a local change.",
 }
 
 
@@ -321,6 +330,8 @@ SECURITY_TOOLS = {
     "tools/vcs": "magpie_vcs",
     "tools/cve-tool-vulnogram/generate-cve-json": "generate_cve_json",
     "tools/cve-tool-vulnogram/oauth-api": "vulnogram_api",
+    # The CVE-tool interface the skills call; it runs the adapter above.
+    "tools/cve-tool": "cve_tool",
     "tools/privacy-llm/checker": "checker",
     "tools/asf-security-dash": "magpie_asf_security_dash",
     "tools/gmail/oauth-draft": "oauth_draft",
@@ -376,6 +387,17 @@ def _security_tool_copies() -> dict[str, str]:
         "plugins/magpie-release-management/skills/audit-report/audit-record-schema.md",
     ):
         copies[path] = path
+    # The organization manifests `release_config.org_manifest_chain` reads
+    # framework-relative, so a project inheriting a key from its organization
+    # (`cve_authority.tool`, `release_process.automated_signing`) resolves it on a
+    # marketplace install too; the session hook copies them under `<framework>`.
+    # Globbed from the repository root, not the working directory: this runs at
+    # import time, and the tests import the module from tools/dev.
+    repo = Path(__file__).resolve().parents[2]
+    for manifest in sorted((repo / "organizations").glob("*/organization.md")):
+        if manifest.parent.name != "_template":
+            rel = manifest.relative_to(repo).as_posix()
+            copies[rel] = rel
     for name in SECURITY_STATS_DASHBOARD_FILES:
         path = f"tools/security-tracker-stats-dashboard/{name}"
         copies[path] = path
@@ -1275,6 +1297,32 @@ def welcome_families(action: str) -> list[str]:
     return [f"{SETUP_PREFLIGHT_PACKAGE}/families.py: {detail} (regenerate with --fix)"]
 
 
+def _plugin_dirs(fam: dict[str, set[str]]) -> list[Path]:
+    return [PLUGINS / name for name in sorted({f"magpie-{f}" for f in fam} | set(SUBSTRATE_PLUGINS))]
+
+
+def check_icons(fam: dict[str, set[str]]) -> list[str]:
+    """Every plugin carries the shared icon, byte for byte."""
+    if not PLUGIN_ICON_SOURCE.is_file():
+        return [f"{PLUGIN_ICON_SOURCE}: missing (the icon every plugin ships)"]
+    want = PLUGIN_ICON_SOURCE.read_bytes()
+    errors = []
+    for pdir in _plugin_dirs(fam):
+        icon = pdir / PLUGIN_ICON
+        if not icon.is_file() or icon.read_bytes() != want:
+            errors.append(f"{icon}: missing or differs from {PLUGIN_ICON_SOURCE} (regenerate with --fix)")
+    return errors
+
+
+def write_icons(fam: dict[str, set[str]]) -> None:
+    want = PLUGIN_ICON_SOURCE.read_bytes()
+    for pdir in _plugin_dirs(fam):
+        icon = pdir / PLUGIN_ICON
+        icon.parent.mkdir(parents=True, exist_ok=True)
+        if not icon.is_file() or icon.read_bytes() != want:
+            icon.write_bytes(want)
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -1286,6 +1334,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
 
     shared, meta_errs = root_metadata()
     errors += meta_errs
+    errors += check_icons(fam)
 
     # 0) Every ecosystem manifest mirrors pyproject.toml's version.
     version, verr = pyproject_version()
@@ -1471,7 +1520,7 @@ def unowned_entries(pdir: Path) -> list[str]:
     unexpected = sorted(p for p in pdir.iterdir() if p not in owned)
 
     if mdir.is_dir():
-        unexpected += sorted(p for p in mdir.iterdir() if p.name != "plugin.json")
+        unexpected += sorted(p for p in mdir.iterdir() if p.name not in ("plugin.json", PLUGIN_ICON.name))
 
     for sdir in link_dirs:
         if sdir.is_dir():
@@ -1576,6 +1625,8 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
         if name in CODEX_FAMILY_HOOKS:
             write_codex_family_hooks(name, manifest["description"], shared)
+
+    write_icons(fam)
 
     # Nothing installs the repo root as a Codex plugin, so its manifest wires no hook.
     root_codex, root_codex_err = load_json(ROOT_CODEX_MANIFEST)

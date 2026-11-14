@@ -11,6 +11,8 @@ A one-minute tour, then straight back to what you asked for.
 2. 🔎 **Sweep** the backlog for newcomer-ready tasks — *"find good first issues"*
 3. ✍️ **Author** one self-contained beginner issue — *"draft a good first issue for this small task"*
 4. 📖 **Explain** an existing issue in beginner terms — *"explain issue 123 to a newcomer"*
+5. **Mentor a thread** with `/magpie-pr-management:thread-mentor` when a contributor needs context or convention guidance.
+   Install `magpie-pr-management` to use this workflow.
 
 Magpie drafts first. Comments, new issues, and labels require explicit maintainer confirmation.
 

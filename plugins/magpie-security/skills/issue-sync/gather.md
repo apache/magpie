@@ -275,7 +275,7 @@ each becomes a proposed body-field update, label change, or next-step recommenda
 | Advisory message sent to `<announce-list>` / `<users-list>` but archive URL not yet visible | No-op transition; **do not** flip the `fix released → announced` labels here. The flip belongs to the combined apply above and fires only once the archive URL is confirmed live on `<mail-archive-url>`: a `[VOTE]/[ANNOUNCE]` thread in flight without an archived URL is ambiguous. |
 | Project-board column drifted from the issue's label-derived state (e.g. a tracker carries `pr merged` but is still in the `PR created` column on Project 2 (`<project-board-url>`), or `announced` + *Public advisory URL* body field populated but the column is still `Fix released`) | Propose moving the project item to the correct column per the mapping table in Step 2b; the board is the team's primary overview surface. |
 | `announced` label set and CVE record on `<cve-tool-url>` now reports state PUBLISHED (checked via `curl -s <cve-tool-url>/cve5/<CVE-ID>.json` / the CVE tool API, or an explicit release-manager comment on the issue stating the CVE-tool push is done) | Propose closing the issue. Do not update any labels. This is the terminal transition. |
-| CVE record has open **review comments / reviewer proposals** — detected in Step 1e from the record's own `comments[]` via the CVE-tool adapter's authenticated record fetch (ASF default: `vulnogram-api-record-fetch --comments-only`), with the `<security-list>` notification as the fallback signal source and the thread the courtesy reply lands on. Which comments are *open* is computed by slug against the processed-ledger markers in the status rollup (Step 1e). | Surface each open review comment in Step 2a, verbatim-quoted, with **clickable links** to the Gmail thread and to the CVE record on `<cve-tool-url>` (the reader can authenticate in-browser to see live state). For each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b: the body is the source of truth for the CVE JSON, so the Step 5 regen carries the update and the release manager is left with the Vulnogram paste + comment-resolution click. Comments that map to no body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. Search recipe, mapping table and courtesy reply: Step 1e. |
+| CVE record has open **review comments / reviewer proposals** — detected in Step 1e from the record's own `comments[]` via the CVE-tool adapter's authenticated record fetch (`cve-tool fetch --comments-only`), with the `<security-list>` notification as the fallback signal source and the thread the courtesy reply lands on. Which comments are *open* is computed by slug against the processed-ledger markers in the status rollup (Step 1e). | Surface each open review comment in Step 2a, verbatim-quoted, with **clickable links** to the Gmail thread and to the CVE record on `<cve-tool-url>` (the reader can authenticate in-browser to see live state). For each one that maps cleanly to a tracking-issue body field (CWE, Affected versions, Reporter credited as, Public advisory URL, Short public summary), **propose the matching body-field update** as a numbered item in Step 2b: the body is the source of truth for the CVE JSON, so the Step 5 regen carries the update and the release manager is left with the Vulnogram paste + comment-resolution click. Comments that map to no body field (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim and flagged for human decision. Search recipe, mapping table and courtesy reply: Step 1e. |
 | The referenced `<upstream>` PR has been opened but is still in `open` state | Propose `pr created` label; update the *"PR with the fix"* body field with the PR URL. |
 | The referenced `<upstream>` PR moved to `merged` | Propose swapping `pr created` → `pr merged`; update the milestone to the shipping release if now known. **Also** check that all six mandatory CVE body fields are populated (*CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix*). *Reporter credited as* also counts as populated when it is empty / `_No response_` **and** the status rollup records a no-finder decision under the [finder-credit policy](../../../../tools/cve-tool-vulnogram/finder-credit-policy.md) — the reporter declined credit, the report earned none (Rule 1), or an internal / scanner finding has no public credit name (Rule 2); the other five are populated only when filled. If any is empty / `_No response_` without that exception, propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per [the dedicated bullet in Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet); the tracker stays assigned to the remediation developer until the fields are complete. This is the **first** of two firing points for the fill-fields comment; the second is the `pr merged` → `fix released` row below. |
 | The *"PR with the fix"* body field has at least one PR URL **and** the *"Remediation developer"* body field is missing the PR author's name (or is `_No response_`) | Propose appending the PR author's display name (`author.name`, else `author.login`, from the Step 1b PR fetch — no extra call) to the *"Remediation developer"* body field. **Append, never overwrite**: manual edits (co-authors added by the triager, name spelling corrections, "Anonymous" overrides) must survive later syncs. Run once per fresh PR URL added to the field; skip if the resolved name is already present (case-insensitive substring match). **Apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md) to the resolved name + handle first** — if the PR author matches the bot detection rule (`*[bot]` suffix, known-bot list, `*-bot`/`*-ai`/`*-agent`/`*-gpt` suffix patterns), do **not** propose the append; surface *"skipped credit: `<handle>` (matches bot policy — `<rule>`)"* in Step 2 instead. The user can override per the policy doc. The CVE JSON generator emits one `type: "remediation developer"` credit per line of the field on its next regeneration; see the *"Auto-resolve --remediation-developer"* note in Step 5 for the historical CLI-flag fallback. |
@@ -289,7 +289,7 @@ each becomes a proposed body-field update, label change, or next-step recommenda
 | The *"CWE"* body field is populated with a bare `CWE-NNN` token (no description text) — e.g. `CWE-22` or `CWE-502` alone, without the canonical short description that follows in the format `CWE-NNN: <Title>` | Propose expanding the field to `CWE-NNN: <Canonical Title>` per the MITRE CWE catalog (e.g. `CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')`, `CWE-502: Deserialization of Untrusted Data`, `CWE-601: URL Redirection to Untrusted Site ('Open Redirect')`). **Prefer a CWE from the project's *advised CWEs* list** when one is declared in [`<project-config>/scope-labels.md`](../../../../<project-config>/scope-labels.md) or the project's CVE-tool config. The published `problemTypes[].descriptions[].description` is the text readers see, and a bare number tells them nothing. Apply on every sync run that surfaces a bare CWE token; then regenerate the CVE JSON attachment so `problemTypes[]` carries the expanded form. |
 | The tracker's *Security mailing list thread* body field references a **private scanner product** (declared in [`<project-config>/scanner-products.md`](../../../../<project-config>/scanner-products.md) — e.g. internal SAST, partner-shared scan, unpublished bug-bounty pipeline) **AND** the *Reporter credited as* body field names a person rather than `anonymous` / a public handle, **AND** there is no signal the finder consented to public credit (no inbound `security@` message from them under their own name, no public HackerOne / huntr.dev report URL on the thread, no explicit *"please credit me as `<name>`"* line). | Propose rewriting the *Reporter credited as* field to the scanner's **public credit name** (the `Public credit name` column in [`<project-config>/scanner-products.md`](../../../../<project-config>/scanner-products.md)), which the CVE-JSON generator emits with `type: "tool"` per [`bot-credits-policy.md`](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md) — and, when the scanner declares no public credit name, **omitting the `finder` credit** rather than writing a placeholder, per [Rule 2 of the finder-credit policy](../../../../tools/cve-tool-vulnogram/finder-credit-policy.md) — and stripping the scanner product name from the *Short public summary for publish* body field text (e.g. *"Mythos scan flagged that…"* → drop the scanner-product clause; *"Imported from internal SAST"* → drop). **Audit-trail surfaces stay untouched**: the *Security mailing list thread* body field, the status-rollup comment, and the Gmail thread keep the original scanner-product + person-name references for security-team auditing; only the CVE-record-bound surfaces (summary, credit) get the scrub. Scanner product names are commercial / IP-sensitive, privately sourced finders have not consented to public credit, and the combination leaks the discovery channel. Apply on every sync run that surfaces the signal; the generator reads *Reporter credited as* verbatim into `credits[]` and the summary into `descriptions[].value`. The same scrub re-runs as the sixth pre-push hygiene gate in [Step 5b 1b](apply-and-push.md#decision-flow), for a body update missed at proposal time. **Exempt cases**: when the finder already self-credited under a public name (HackerOne report URL, huntr.dev public report URL, the reporter's own `security@` message naming themselves), keep the named credit. |
 | The **issue title** contains adopter-specific or internal noise that would otherwise ship to the public CVE record — leading or trailing project-name tokens (e.g. ``<vendor> <product>:`` / ``in <vendor> <product>`` / ``(<vendor> <product> X.Y)``), internal split markers (``(split from #NNN)`` / ``(split for scope clarity from #NNN)``), report-form classifiers (``[ Security Report ]`` / ``[Security Issue]``), external-tracker IDs in parentheses or brackets (``[GHSA-xxxx-xxxx-xxxx]``, ``(ZDRES-NNNNN)``, ``(HUNTR-NNNNN)``, ``(GHSL-NNNN-NNN)``), version-noise suffixes (``(v3.2.1)``, ``(3.x)``), prior-CVE-relationship parentheticals anywhere in the title (``(CVE-YYYY-NNNNN)`` / ``(possible CVE-YYYY-NNNNN variant)`` / ``(incomplete fix for CVE-YYYY-NNNNN)`` / ``(fix-bypass of CVE-YYYY-NNNNN)`` — the cross-CVE relationship belongs in the public summary's Gate #3 clause, never in the title), or trailing reporter-name attribution parentheticals (``(Evan Ricafort follow-up)`` / ``(<name> follow-up)`` — reporter attribution belongs in the credits field, never in the public title). The check applies on every sync pass, including trackers whose title was previously clean but has drifted since allocation. | Propose updating the title via `gh issue edit <N> --title "<cleaned>"`. **Reuse the [`security-cve-allocate` Step 2 title-strip cascade](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title)** — both the leading-pattern set (project-name tokens, `Security (Report\|Issue\|Vulnerability\|Bug)` prefixes) and the trailing-pattern set (`in (<vendor> )?<product>`, GHSA/ZDRES/HUNTR/GHSL trailing IDs, `(split from #N)` parentheticals). Re-run it on every pass even though `security-cve-allocate` strips at allocation time: the CVE-JSON generator reads the title **verbatim** into `containers.cna.title`, and titles drift after allocation (manual edits, sibling-tracker splits, GHSA-relay imports that append the GHSA ID). **Preserve stripped context as audit trail** in the issue body (a `### Related references` section near the bottom) or in the rollup — internal pointers like *"split from [#NNN](https://github.com/<tracker>/issues/<N>)"* move off the title, not out of the tracker. After updating the title, regenerate the CVE JSON attachment so the published `title` reflects the cleaned value. If the strip would leave fewer than 3 words, **flag the ambiguity** in the proposal (as `security-cve-allocate` does) and let the user override — over-stripping is worse than one redundant word. |
-| A release carrying the fix has shipped. Detection is **scope-dependent**: each scope label can ride its own release train, with its own *"is it released?"* signal (which artifact registry to consult, what to query, how to map a tracker's milestone to it, partial-release edge cases), per [`<project-config>/scope-labels.md` — *Detecting that a fix release has shipped*](../../../../<project-config>/scope-labels.md#detecting-that-a-fix-release-has-shipped). An explicit *fix shipped in X.Y.Z* comment counts for every scope. **Read the release signal from an authoritative source:** the project's release **announcement** (mailing-list `[ANNOUNCE]` / registry release feed) and, where available, the package **changelog naming the fix PR** and/or the **git-ancestry of the fix commit under the release tag** (e.g. a `compare <release-tag>...<merge-commit>` that reports the commit as an ancestor). **Do not infer release state from a prose-summarizing fetch of a large package-index JSON API**: an LLM `WebFetch`-style summary can mangle the version / upload date into a *false "not released"*, stranding a shippable advisory at `pr merged` with no RM hand-off; use a structured read or the announcement instead. A false negative withholds a hand-off, so when the signals disagree, trust the announcement + changelog over any summarized fetch. | **Two-stage gate: every mandatory CVE field must be populated AND the CVE record state in Vulnogram must be `REVIEW`.** Run both checks before proposing the label swap or the assignee swap. **Stage 1 — body fields**: all six populated (not empty, not `_No response_`): *CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix* — with the same rollup-recorded no-finder exception for *Reporter credited as* as the `pr merged` row above. If any is missing, **do NOT propose the hand-off**; propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per the dedicated bullet in Step 2b — the issue stays assigned to the remediation developer; no label swap, no assignee swap, no RM hand-off. **Stage 2 — CVE state**: with Stage 1 clear, Step 5b's `vulnogram-api-record-update` push includes `body.CNA_private.state = "REVIEW"` (auto-promote; see Step 5b). After the push, verify the record state is `REVIEW` (via `vulnogram-api-record-fetch` / the equivalent state probe). If it is still `DRAFT` (push failed, CNA-schema validation rejected the JSON, transient error), **re-fire the fill-fields comment** with the refreshed blocker description, and **do NOT propose the hand-off / label swap / assignee swap on this pass**: the RM never receives a hand-off while the record is in `DRAFT`. **When both stages are clear (state == REVIEW)**: propose swapping `pr merged` → `fix released` (Step 12), the release manager's cue to own Steps 13–15 (advisory send → URL capture → Vulnogram PUBLIC → close). **Also propose swapping the assignee from the remediation developer to the release manager**, looked up via the three-source cascade in Step 2c ([`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md) "Release managers for releases currently relevant to the security tracker" → Release Plan wiki → `[RESULT][VOTE]` thread on `dev@`). Full rule: the *Assignee hand-off at the `fix released` transition* paragraph under **Assignees** in Step 2b. |
+| A release carrying the fix has shipped. Detection is **scope-dependent**: each scope label can ride its own release train, with its own *"is it released?"* signal (which artifact registry to consult, what to query, how to map a tracker's milestone to it, partial-release edge cases), per [`<project-config>/scope-labels.md` — *Detecting that a fix release has shipped*](../../../../<project-config>/scope-labels.md#detecting-that-a-fix-release-has-shipped). An explicit *fix shipped in X.Y.Z* comment counts for every scope. **Read the release signal from an authoritative source:** the project's release **announcement** (mailing-list `[ANNOUNCE]` / registry release feed) and, where available, the package **changelog naming the fix PR** and/or the **git-ancestry of the fix commit under the release tag** (e.g. a `compare <release-tag>...<merge-commit>` that reports the commit as an ancestor). **Do not infer release state from a prose-summarizing fetch of a large package-index JSON API**: an LLM `WebFetch`-style summary can mangle the version / upload date into a *false "not released"*, stranding a shippable advisory at `pr merged` with no RM hand-off; use a structured read or the announcement instead. A false negative withholds a hand-off, so when the signals disagree, trust the announcement + changelog over any summarized fetch. | **Two-stage gate: every mandatory CVE field must be populated AND the CVE record state must be `review-ready`.** Run both checks before proposing the label swap or the assignee swap. **Stage 1 — body fields**: all six populated (not empty, not `_No response_`): *CWE*, *Affected versions*, *Severity*, *Reporter credited as*, *Short public summary for publish*, *PR with the fix* — with the same rollup-recorded no-finder exception for *Reporter credited as* as the `pr merged` row above. If any is missing, **do NOT propose the hand-off**; propose posting (or PATCH-updating) the *Remediation-developer fill-fields comment* per the dedicated bullet in Step 2b — the issue stays assigned to the remediation developer; no label swap, no assignee swap, no RM hand-off. **Stage 2 — CVE state**: with Stage 1 clear, Step 5b's `cve-tool push` includes the `review-ready` state (for Vulnogram, `body.CNA_private.state = "REVIEW"`; auto-promote, see Step 5b). After the push, verify the record state is `review-ready` (via `cve-tool fetch --state-only`). If it is still `allocated` (push failed, CNA-schema validation rejected the JSON, transient error), **re-fire the fill-fields comment** with the refreshed blocker description, and **do NOT propose the hand-off / label swap / assignee swap on this pass**: the RM never receives a hand-off while the record is `allocated`. **When both stages are clear (state == review-ready)**: propose swapping `pr merged` → `fix released` (Step 12), the release manager's cue to own Steps 13–15 (advisory send → URL capture → CVE record public → close). **Also propose swapping the assignee from the remediation developer to the release manager**, looked up via the three-source cascade in Step 2c ([`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md) "Release managers for releases currently relevant to the security tracker" → Release Plan wiki → `[RESULT][VOTE]` thread on `dev@`). Full rule: the *Assignee hand-off at the `fix released` transition* paragraph under **Assignees** in Step 2b. |
 | New or edited comment on the GHSA discussion (`<sm> ghsa-discussion`, [`github-advisory.md`](github-advisory.md#read-the-advisory-discussion)) | Treat a reporter or other non-team comment like a new `<security-list>` message from the reporter: extract its signals with this table, quote it into the observed state with its `#advisory-comment-<id>` link, and, when `awaiting_team_reply`, propose a reporter reply through the advisory comments API. Advance the `ghsa-discussion` marker in the apply. |
 | GHSA state transition (opened, accepted, published, rejected) in a GHSA-forwarded email | If the GHSA is closed as "not accepted" but the security team accepted the report on `security@`, flag the divergence in the status comment so it is not lost. |
 | Team member saying *"let's also backport to v3-2-test"* / *"please mark X for backport"* | Note the requested backport label on the public PR as an item for Step 9 of the `security-issue-fix` workflow. |
@@ -313,198 +313,7 @@ Do **not** act on signals automatically: each becomes a numbered proposal item i
 
 ### 1e. Check the CVE record for reviewer comments
 
-Whenever the tracking issue has a CVE ID allocated (the *CVE tool link* body field is populated, or the `cve allocated` label is set),
-check whether a CVE reviewer has left comments on the record.
-
-**Read the record's comments directly.** When the CVE-tool adapter exposes an authenticated record read —
-for the ASF default, [`vulnogram-api-record-fetch`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md),
-on the Bearer token stored by `vulnogram-api-setup --pmc <project>` —
-the reviewer comments are a **first-class field on the record** and that read is the primary signal path:
-
-```bash
-uv run --project <framework>/tools/<cve-tool>/oauth-api \
-  vulnogram-api-record-fetch --cve-id <CVE-ID> --comments-only
-```
-
-It prints a JSON array — `[]` when the record has no comments, else one object per comment:
-
-```json
-[{"createdAt":"2026-09-18T07:54:24.359Z","updatedAt":"2026-09-18T07:54:24.359Z",
-  "author":"engelen","slug":"Z-W0dqqdM7EfxmNnyg--",
-  "hypertext":"… I think it would be good if the title mentioned the impact …"}]
-```
-
-This is the record's own state: every comment, whichever inbox the notification reached, with `hypertext` verbatim.
-Run it for **every** tracker with an allocated CVE, not only those in `REVIEW` —
-reviewers comment on records that have moved on, and a comment on a `PUBLIC` record still needs an answer.
-
-> **Which records to poll.** One cheap, read-only fetch per tracker with an allocated CVE; it needs a live token.
-> On an expired-token error, re-run `vulnogram-api-setup --pmc <project>` before continuing; if that is not possible this run,
-> fall back to the mail path below and flag the gap in Step 2c rather than reporting *"no reviewer comments"* —
-> a failed read is not an empty result.
-
-**Which comments are unprocessed.** Comments carry no resolved/unresolved flag on the record,
-so sync tracks what it has already acted on by **`slug`**, the stable per-comment id in the array above. On every run:
-
-1. Read the tracker's status-rollup comment (from the comments the 1a fetch returned) and collect every slug from
-   its processed-ledger markers, which have the fixed form:
-
-   ```markdown
-   <!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
-   ```
-
-2. `unprocessed = {slugs on the record} - {slugs in the ledger}`.
-3. Surface and act on the unprocessed set only.
-   Anything already in the ledger is steady state and must not be re-proposed.
-
-A comment whose `updatedAt` is newer than its `createdAt` was **edited after** it was first left:
-treat it as unprocessed again even when its slug is in the ledger,
-and say so in the proposal (*"reviewer edited this comment after we processed it"*) so the reader knows why it is back.
-
-**Acknowledgement-only comments still get ledgered.** A bare *"LGTM"* / *"looks good"* / *"approved"* needs no body change and no reply,
-but unledgered it re-surfaces on every sync.
-Propose the ledger line with no other action, and note in Step 2a that the reviewer signed off
-(the signal the release manager needs for the `REVIEW` → `READY` move).
-
-**The mail path is the complement, not the duplicate.** The CVE tool also emails `<security-list>` when a reviewer comments.
-That mail is the **only** path for an adopter whose CVE-tool adapter has no authenticated read,
-and its thread is where the courtesy reply below lands, since the reviewer watches the notification thread, not the record.
-Use it as the signal source only when the record read is unavailable.
-
-**Backend selection for the mail path.** When PonyMail MCP is enabled and authenticated (Step 0) **and** `<security-list>` is in
-the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`, **PonyMail MCP is the primary path** for reviewer-comment archive queries:
-
-```text
-mcp__ponymail__search_list(
-  list: "security",
-  domain: "<project>.apache.org",
-  query: "<CVE-ID>",
-  timespan: "lte=90d"
-)
-```
-
-The archive returns every notification that reached the list, whatever one triager's inbox holds.
-Gmail is the fallback when (a) PonyMail is not enabled / not authenticated,
-(b) the private list is not in this user's allowlist, or
-(c) the comment is so recent that the Gmail inbox has it before the archive indexes it.
-
-**Search recipe.** Use the CVE-review-comment query templates in
-[`tools/gmail/search-queries.md`](../../../../tools/gmail/search-queries.md#security-issue-sync--cve-review-comment-search),
-substituting the adopting project's `<security-list-domain>` (declared in
-[`<project-config>/project.md`](../../../../<project-config>/project.md#gmail-and-ponymail)),
-and run them via `search_threads` per
-[`tools/gmail/operations.md`](../../../../tools/gmail/operations.md#search-threads).
-
-Stay inside the skill's Gmail budget: **≤ 2 extra searches per issue** for the CVE-review path, on top of the Step 1c reporter-thread budget.
-When the record read already produced the comment set, the mail search only *finds the notification thread to reply on*
-for comments that earned a courtesy reply — skip it entirely for comments that did not.
-
-**Filtering the mail results.** Not every hit is a reviewer comment. Discard:
-
-- the GitHub-notifications mirror of the tracking issue (already excluded by the `-from:` filters, but double-check each hit's `From:`);
-- the original reporter's thread (the sender is Step 1c's `reporter.email`) — it mentions the CVE but is not a reviewer comment;
-- `[RESULT][VOTE]` or other `<dev-list>` release-train messages that list the CVE in the advisory body — post-publication announcements;
-- our own outbound messages to `security@` announcing the CVE or pasting the JSON — the sender is a security-team member.
-
-A reviewer comment is a message to `<security-list>` with the CVE ID in the subject,
-whose sender is **not** the reporter, not a security-team collaborator, and not the CNA's own tooling
-(typically the CNA team's reviewers, `cve@mitre.org`, or an individual security <governance-body> member).
-The body usually carries explicit proposals — *"Please update the CWE to CWE-NNN"*, *"The affected range should be `< X.Y.Z`"*,
-*"Credits are missing a remediation-developer entry"*, etc.
-
-> **Identify the reviewer from the mail, not from the record.** The record's `author` field is the CVE tool's account handle (e.g. `engelen`),
-> not an address and not always the name the person signs with.
-> Resolve it through the notification thread's `From:` before naming them in a proposal or addressing a reply to them.
-
-Read each matching thread **once** with `mcp__claude_ai_Gmail__get_thread(threadId, messageFormat='FULL_CONTENT')`
-to extract the comment bodies verbatim — here the body text is the signal.
-Every other `get_thread` call in this skill stays `MINIMAL`, per the
-[get-thread default rule](../../../../tools/gmail/operations.md#get-thread).
-
-**Absence of signal is the common case.** Most CVEs go through REVIEW and PUBLISHED with no reviewer pushback.
-When the record read returns `[]` and the mail search is empty, record `cve_review_comments: []` and move on —
-**only** when a read actually succeeded (see *Which records to poll* above).
-
-For every actionable review comment, include in the Step 2a **observed state**:
-
-- a clickable link to the Gmail thread where the comment landed;
-- a clickable link to the CVE record on `<cve-tool-url>` (the reader can authenticate in the browser to see the live state);
-- a verbatim short quote of the reviewer's ask.
-
-Then map **each** open review comment to a concrete proposal on the **tracking issue**, not the CVE record,
-and surface it as a numbered item in Step 2b.
-The body is the single source of truth for the CVE JSON:
-*reviewer asks → body field updated → CVE JSON regenerated (Step 5, automatic after apply) → record rewritten via
-[`vulnogram-api-record-update`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md) (fallback: the `#source` paste)*,
-so nobody hand-edits the record.
-
-Map common review comments to body fields like this:
-
-| Reviewer comment shape | Proposed body update |
-|---|---|
-| *"CWE should be CWE-NNN, not CWE-MMM"* / *"This looks like CWE-NNN"* | Propose updating the issue's **CWE** field to the new value, with a quoted pointer back to the comment (*"per reviewer comment on `<cve-tool-url>/cve5/<CVE-ID>`"*). |
-| *"Affected range looks wrong — should be `< X.Y.Z`"* / *"The fix first shipped in X.Y.Z, not the version listed"* | Propose updating the issue's **Affected versions** field to the range the reviewer asked for. |
-| *"Missing `vendor-advisory` reference"* / *"No public advisory URL in references"* | Propose populating the issue's **Public advisory URL** body field via the Step 1d users@-archive-scan path (regeneration turns it into a `vendor-advisory` reference — no manual edit of `references[]`). |
-| *"Credit line `X` is missing"* / *"Move `X` from `finder` to `reporter`"* / *"`Y` asked to be credited as `Z` — please update"* | Propose updating the **Reporter credited as** body field for `finder` credits or the **Remediation developer** body field for `remediation developer` credits (one line per credit in either; the generator preserves order, and the Step 5 regeneration picks the change up). |
-| *"Severity score should be `<X>` / CVSS vector is wrong"* | Surface the comment in the observed state but **do not** auto-propose a body change: severity/CVSS needs independent scoring by a security-team member, and the [`AGENTS.md`](../../../../AGENTS.md#reporter-supplied-cvss-scores-are-informational-only--never-propagate-them) reporter-CVSS rule extends to third-party reviewer asks. Flag it as *"needs security-team scoring before addressing"* in Step 2c. |
-| *"The title should mention the impact"* / *"the title leaves me asking 'so what?'"* / *"title is too vague / too implementation-focused"* | Propose updating the **tracker issue title**, not just the CVE record — the title ships verbatim into the record's `title` field, so editing one without the other re-opens the same comment on the next regeneration. Re-run the [title strip cascade](../cve-allocate/SKILL.md) over the proposed wording first, so it does not smuggle back a project-name prefix or a `[Security Report]` tag. *Impact* means the consequence (what the attacker achieves), not the mechanism (which code path is wrong); the tracker's CWE is usually the shortest correct name for it. |
-| *"Fix the description wording — it should say …"* | Propose updating the **Short public summary for publish** body field with the reviewer's suggested text verbatim; flag explicitly in the proposal that it is a paste-as-is and the user should re-read before confirming. |
-| *"Mark this as duplicate of CVE-YYYY-NNNN"* / *"This is actually `out of scope` per the Security Model"* | Do **not** auto-propose closing / rejecting. Surface as a blocker requiring a human decision and link the security-team members who last commented on the issue. |
-| *"Please re-open for review — I've updated the …"* | No issue-body change; include in Step 2c as *"go back to Vulnogram and click Re-request Review"*. |
-
-A review comment that fits no row above goes into Step 2a verbatim and is flagged in Step 2c for human decision — do not guess a body mapping:
-a wrong change applied silently propagates through the regenerated CVE JSON into a broken PUBLISHED record.
-
-Never ask anyone to resolve the comment on the record: Vulnogram has no resolve action for comments, neither in the API nor in the UI.
-A comment counts as handled once the body change it asked for is applied, its slug is in the processed ledger, and the reviewer has a courtesy reply.
-The courtesy reply is what tells the reviewer; nothing on the record changes.
-
-**Also propose a courtesy reply to the reviewer on their notification thread.** Vulnogram does not notify reviewers when a record changes;
-they watch the thread of their *"Comment added on `<CVE-ID>`"* notification, so without a reply they do not learn that the comment was answered.
-The draft:
-
-- **To:** the reviewer's address (the `From:` of the original notification).
-- **Cc:** `security_cc` from the shared
-  [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution),
-  plus any broader security list the original notification CC'd.
-  Block the draft if no security CC resolves.
-- **Subject:** `Re: <original notification subject>` (typically `Re: Comment added on <CVE-ID>`).
-- **Body shape:** one paragraph acknowledging what was changed in response, the CVE-tool URL,
-  and one line asking the reviewer to re-review when they have a moment.
-  Same backend selection as the reporter-draft path in Step 5d
-  (`maildir` when the drafting backend resolves to it, else `oauth_curl` preferred and `claude_ai_mcp` discouraged — it rewrites embedded URLs; see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
-  Always a draft — never sent.
-
-Restrict this draft to comments that mapped cleanly to a body-field update (the mapping table above).
-Comments that need human judgement (severity/CVSS, out-of-scope challenges, free-form rewrites) are surfaced verbatim with no draft:
-their resolution is a security-team conversation, not a *"please re-review"* ping.
-
-**Answer a reviewer through the tracker body, never by hand-editing the record.**
-Sync writes the record in this run (Step 5b, via
-[`vulnogram-api-record-update`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md))
-only as the *output* of regenerating from the body;
-a field changed only on the record is silently reverted by the next regeneration.
-
-Reviewer proposals that are not a body-field change (wholesale re-descriptions, duplicate declarations, out-of-scope challenges)
-are a judgement call for the security-team member owning the issue.
-Sync surfaces the open comments, lands the body updates that answer the mechanical ones, and re-pushes.
-
-**Always propose the ledger line.** Every comment this run acts on, acknowledgement-only ones included,
-gets its slug appended to the processed-ledger marker in the Step 4 status-rollup entry:
-
-```markdown
-<!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
-```
-
-One marker per CVE ID per entry; slugs comma-separated, no spaces.
-The ledger makes this sub-step idempotent, so it lands in the same confirmed batch as the actions it records, never as a follow-up.
-
-If no CVE ID is allocated yet (the *CVE tool link* body field is `_No response_` and `cve allocated` is not set),
-skip this subsection entirely — there is no record to review-check yet.
-
-If **both** read paths fail (the record fetch errors *and* the mail search 500s or times out), skip this subsection for this sync run
-and flag it as a retry in Step 2c; do not hold up the whole proposal, and never report it as *"no reviewer comments"*:
-*"could not look"* may be an unanswered reviewer.
+Whenever the tracking issue has a CVE ID allocated (the *CVE tool link* body field is populated, or the `cve allocated` label is set), run this sub-step from [`cve-record-comments.md`](cve-record-comments.md).
 
 ### 1f. Locate the process step
 
@@ -524,7 +333,7 @@ and determine which numbered step of the process the issue is currently at:
 | Release with the fix has shipped, advisory not sent yet (swap `pr merged` → `fix released`) | 12 |
 | `fix released` set, advisory not yet sent — release manager owns the advisory | 13 |
 | Advisory sent, no archive URL yet (no labels flipped; the `fix released → announced` label flip is deferred to the combined "archive URL captured" apply) | 13 → 14 |
-| **Archive URL captured** — sync's combined close-out apply fires at this moment: URL and public short summary into the body, `fix released → announced - emails sent + announced`, JSON regen + re-push, Vulnogram record `REVIEW → PUBLIC` via API, board to `Announced` (when the project declares that column), close the tracker, **archive the tracker from the board**, **close the milestone if last-sibling**, and post the purely-informational wrap-up comment as a timeline marker (no manual asks). Full sequence: the `Advisory archived on <users-list>` row in [1d](#1d-mine-comments-and-mail-messages-for-actionable-signals). | 14 → 15 |
+| **Archive URL captured** — sync's combined close-out apply fires at this moment: URL and public short summary into the body, `fix released → announced - emails sent + announced`, JSON regen + re-push, CVE record `review-ready → public` via `cve-tool publish`, board to `Announced` (when the project declares that column), close the tracker, **archive the tracker from the board**, **close the milestone if last-sibling**, and post the purely-informational wrap-up comment as a timeline marker (no manual asks). Full sequence: the `Advisory archived on <users-list>` row in [1d](#1d-mine-comments-and-mail-messages-for-actionable-signals). | 14 → 15 |
 | **Closed**, `announced` set, cve.org check **not yet run** for this tracker since close | post-15 (cve.org publication check — see [1g](#1g-recently-closed-trackers--check-cveorg-publication-state)) |
 | Closed, credits missing | 16 |
 
@@ -536,122 +345,8 @@ Both can coexist on the same issue — for example, a typical mid-flight issue c
 
 ### 1g. Recently-closed trackers — check cve.org publication state
 
-For **closed** trackers carrying the `announced` label (which `sync all` includes alongside open issues),
-the CNA-tool record is `PUBLIC` and the issue closed at Step 15, but propagation to `cve.org` takes minutes to days.
-Once cve.org shows it published, the reporter is owed a final *"CVE is live"* email.
-
-The check is read-only and uses the MITRE CVE Services API v2
-([`tools/cve-org/tool.md`](../../../../tools/cve-org/tool.md#publication-state-check--check-published)).
-For each closed-`announced` tracker in this run:
-
-1. Extract the `CVE-YYYY-NNNNN` ID from the tracker's *CVE tool link* body field.
-2. Call the API as a plain command (a pipe keeps it inside the sandbox under the secure setup),
-   and read `.cveMetadata.state` and `.cveMetadata.datePublished` from its JSON output:
-   ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
-   ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
-   and run `<sm> closed-announced`. Its `cve_org` is the move:
-   `notify` (propose the *CVE-published* reporter email in Step 2b), `already_notified` (a prior *"CVE-published reporter notification drafted"* comment and a sent message on the thread — record it),
-   `wait` (*"cve.org shows RESERVED; propagation not complete yet"*), `blocker` (the record was rejected after publication: no email, flag it to the security team),
-   `retry` (*"cve.org lookup failed — try again next sync"*; never propose a notification on an absent response) or `skip` (no CVE ID: a closing disposition, dropped from the sweep).
-
-**Gmail-budget.** The cve.org check is one HTTP call per tracker, not metered against the Gmail budget,
-but within the "≤ 1 extra HTTP round-trip per tracker" soft limit for closed-bucket scans:
-with several closed trackers in scope, run the checks in parallel via the subagent fanout (one `vetted-op-read` per subagent), not serially in the orchestrator.
-
-**Security-pages checklist.** The same closed-`announced` bucket is the only place the post-announcement security-pages step can be observed:
-the Step 14 close-out adds `announced` and closes the tracker in one apply, so an open tracker never carries the trigger state.
-The same command scans the body and every comment the 1a fetch returned — no extra API call — for the ticked checklist item
-`- [x] <!-- apache-magpie: security-pages-checklist v1 -->` and for a comment opening with `<!-- apache-magpie: security-pages-reminder v1 -->`,
-and sets `security_pages_reminder_pending` only when the *Public advisory URL* is populated and neither exists
-(an unticked box in the hand-off comment is the pending state, not the satisfied one).
-Step 2b turns a pending flag into the *Security-pages reminder comment* proposal ([`signals-to-actions.md`](signals-to-actions.md)).
-
-**Advisory records.** When [`<project-config>/project.md`](../../../../<project-config>/project.md#advisory-records) declares an `advisory_records` block,
-sync also records the CVE in the project's own security records — a site repository over Git or Subversion
-([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
-Without the block, record *"advisory records: not configured — skipped"* in the observed state and do nothing else.
-With it, `security_pages_reminder_pending` is always `false`: sync proposes the edit itself instead of reminding the release manager.
-`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists), `waiting_for_cve_org` (not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`, then:
-
-3. Write the record to the session scratch directory:
-   `uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --output <scratch>/<CVE-ID>.json`.
-4. Run the planner as a plain command, without `--apply`.
-   Each `advisory_records` key maps to the flag of the same name (`layout`, `vcs`, `repository`, `branch`, `remote`, `commit_message`,
-   and the layout's `path`, `indent` → `--json-indent`, `keep_cna_private`, `format`, `release_line_parts`, `section_name`, `section_template`, `entry_template`, `fix_commit_template`, `section_parent`);
-   the working copy is `user.md → environment.advisory_records_clone`, else `advisory_records.working_copy`:
-   ```bash
-   uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json advisory-records --layout <layout> --working-copy <path> --path '<path template>' --record <scratch>/<CVE-ID>.json --cve-org-state PUBLISHED --date-published <datePublished> [--reported-date <date>] [layout flags]
-   ```
-   For `release-page`, pass `--reported-date` (the date of the first message on the *Security mailing list thread*).
-   When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
-   in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.
-5. Pass the planner's exit code (and `proposed` / `unchanged`, and a refusal's reason) back to `closed-announced`:
-   `pending` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands for Step 2b;
-   `already_recorded`; `pending_checkout` → `advisory_records_pending: true` with the single `checkout` command;
-   `refused` → a blocker when the page cannot be parsed or already holds the CVE under another release; `config_error` → show the user.
-
-**When the tracker has no CVE ID.** Closed trackers without a `CVE-YYYY-NNNNN` in the *CVE tool link* body field
-are closing dispositions (`invalid` / `duplicate` / `wontfix`):
-skip the cve.org check entirely and drop the tracker from the closed-bucket sweep.
+For **closed** trackers carrying the `announced` label (which `sync all` includes alongside open issues), run this sub-step from [`closed-tracker-check.md`](closed-tracker-check.md).
 
 ### 1h. Detect active release-vote threads (opt-in, ASF projects)
 
-**Opt-in.** This sub-step fires only when the project has enabled release-vote gating in the CVE-JSON generator's config —
-`[workflow].release_vote_gating` is `true` in
-[`<project-config>/tools/cve-tool-vulnogram/cve-json-config.toml`](../../../../<project-config>/tools/cve-tool-vulnogram/cve-json-config.toml).
-Adopters that publish advisories without a separate release-vote step leave the flag off;
-the sync skips this sub-step for them and never proposes the `rc voting` label.
-
-**Why this step exists.** With gating on, the generator's `CNA_private.state` goes `DRAFT` → `REVIEW` once an RC for the carrier release is being voted → `PUBLIC` after the advisory ships
-(state machine in [`tools/cve-tool-vulnogram/generate-cve-json/SKILL.md`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)).
-A tracker label drives it (`[workflow].rc_voting_label`, default `"rc voting"`),
-and this sub-step is the **only place** the sync skill proposes adding or removing that label.
-
-**Which trackers this applies to.** Only trackers in the `pr merged` → `fix released` window:
-
-- the tracker carries `pr merged` (fix landed in `<upstream>`);
-- it does **not** yet carry `fix released` (the release has not shipped);
-- a fix-PR milestone is known and parseable (e.g. `<product> 3.2.3`, `<scope-b> 2026-04-21`);
-  without a target release version there is nothing to match against.
-
-Trackers outside this window are skipped:
-
-- `cve allocated` only (no public PR yet) — too early; nothing to vote on.
-- `fix released` — too late; the release shipped, and any remaining `rc voting` label is removed
-  by the existing `pr merged` → `fix released` transition (see the Step 2b *Labels* bullet).
-- `announced` / closed — out of scope entirely.
-
-**Backend selection.** PonyMail is the primary read source here, since `<dev-list>` is public;
-fall back to Gmail only when PonyMail MCP is not enabled / not authenticated.
-Per-tracker budget: ≤ 1 archive search (adds to the Step 1d combined envelope).
-
-**Resolving the dev-list address.** Default to `dev@<project-domain>` derived from the project's `project_url`;
-`[workflow].release_vote_list` in the same TOML config overrides it when the vote runs on another list.
-
-**Query shape (PonyMail).** Search the dev list for `[VOTE]` threads from the **last 21 days**,
-long enough to span re-cut RCs, short enough to keep the result set manageable.
-
-```text
-mcp__ponymail__search_list(
-  list: "dev",
-  domain: "<project-domain>",
-  query: "[VOTE]",
-  timespan: "lte=21d",
-  emails_only: true
-)
-```
-
-**Matching against the tracker's fix milestone.** Write `{gating, labels, fix_milestone, release_product, messages}` — the search results' `subject` and `url`,
-the milestone on the fix **PR** (it carries the carrier version, e.g. `<product> 3.2.3`, where the tracker's may be a wave label like `<scope-b> 2026-04-21`) —
-and run `<sm> release-vote`. It takes the first version after `Release` in each `[VOTE] Release <Project> <X.Y.Z> from <X.Y.Z>rcN` subject,
-treats a `[RESULT][VOTE]` message in the same result set as a closed vote (no label add: the release shipped or the vote failed and a fresh RC follows),
-and records `release_vote_in_progress` and `release_vote_thread_url` for a tracker in the `pr merged` window with a matching open vote;
-`release_product` keeps a component wave's vote to its own `[VOTE] Release <scope-b> …` thread.
-
-**Hard rule — no auto-apply.** The result feeds Step 2b's proposal and applies only after the user confirms.
-Never add `rc voting` silently: the next regen flips `CNA_private.state` to `REVIEW`,
-so the human read of *"yes, that vote is for our carrier release"* is the required gate.
-
----
+When `[workflow].release_vote_gating` is `true` in [`<project-config>/tools/cve-tool-vulnogram/cve-json-config.toml`](../../../../<project-config>/tools/cve-tool-vulnogram/cve-json-config.toml), run this sub-step from [`release-vote-detection.md`](release-vote-detection.md).

@@ -13,6 +13,7 @@ source: >
   tools/pilot-report-validator/, tools/vendor-neutrality-score/,
   tools/preflight-audit/, tools/spec-inventory/,
   tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py,
+  tools/dev/refresh-reconciled-stamp.py,
   tools/dev/ci-pytest-batches.py, and
   the write-skill / list-skills utility skills.
 acceptance:
@@ -88,6 +89,13 @@ trustworthy as it grows.
   match its journal and, with `--against <ref>`, on a committed record that
   was edited or removed; `import-readme` migrates a pre-journal table into
   `legacy: true` records (#1626).
+  The model comes from the best evidence available, and `model_source` says
+  which: `--journal-model`, a `--model` flag in the `--cli` string, then for a
+  `claude` CLI `ANTHROPIC_MODEL` and the `model` key of its settings files, so
+  runs through the sandboxed wrapper still record one; nothing found is
+  recorded as null, never guessed (#1946).
+  `skill-eval-journal flaky` lists the cases that failed in some but not all
+  runs of one batch, never pooling runs across models or commits (#1947).
   A step with no `user-prompt-template.md` gets a neutral user prompt: the
   case report followed by "Return JSON only."; a step that needs the
   `{corpus}` / `{roster}` / `{report}` framing carries its own template, as
@@ -105,6 +113,9 @@ trustworthy as it grows.
 - `tools/spec-inventory/` — deterministic `uv` tool that summarizes
   specs, skills, and tools into a compact routing inventory for spec-loop
   prompts.
+  A skill edit, which `git diff` reports under `plugins/<plugin>/skills/<alias>/`,
+  maps back to `skills/<name>/` through the repository's symlinks, so a spec's
+  skill bullet matches it (#1936).
 - `tools/pilot-report-validator/` — validates adopter pilot-report files
   against the required schema defined in `docs/pilot-report-template.md`.
   Checks required frontmatter keys (`skill`, `date`, `target_repo`,
@@ -140,6 +151,9 @@ trustworthy as it grows.
   SPDX-License-Identifier header, Validation code block present,
   filesystem paths in Validation blocks must exist under repo root);
   the spec-side counterpart to `skill-and-tool-validator`.
+  It also checks `gap-closes-when` predicates on Known gaps and cross-spec
+  "N-skill family" counts (#1940; see
+  [`spec-gap-staleness.md`](spec-gap-staleness.md)).
 - Skills: `write-skill` (author/update a skill; its Step 7 runs
   `optimize-skill` on every new skill before it ships, unconditionally),
   `optimize-skill` (restructure an existing skill or sweep a set: split
@@ -222,6 +236,9 @@ trustworthy as it grows.
   measured with `skill-token-count` before and after every pass; the
   always-on frontmatter budget is spent on first, because it is paid in
   every session for every skill (#1331, #1332).
+  It also estimates a run cost per path, because the body understates what
+  an invocation reads, and every new pointer is proved with a pointer-only
+  eval run against a copy with the pointers deleted (#2000).
   Every pass other than the rewrite is behaviour-preserving: moved bytes
   are identical bytes, heading level excepted, and a heading that moves
   takes its references with it — eval `step-config.json` `step_heading`
@@ -251,6 +268,9 @@ trustworthy as it grows.
   test` on every plugin whose `hooks/hooks.json` declares `modules`,
   with Claude Code pinned in the hook environment, because Claude Code
   silently skips a hooks module that fails its static analysis.
+  That validation type-checks the hooks module, so the mods import their
+  siblings as `./<name>.js` and fix strict-null findings with guards rather
+  than suppressions (#2070).
   Its `check-claude-mods-local` twin runs on ordinary commits with the
   contributor's own Claude Code and skips when it is absent or older than
   the pin; CI skips the twin.
@@ -261,6 +281,16 @@ trustworthy as it grows.
   whole-repo result, which is why a whole-tree prek run before pushing
   is a required pre-flight (#1317; the tests in it are scoped since #1764,
   below).
+- **A dev bump restamps the checkout's reconciliation and follows a spec sync.**
+  `bump-dev-version.yml` also runs `tools/dev/refresh-reconciled-stamp.py`,
+  which moves the framework checkout's own `reconciled:` stamp in
+  `.apache-magpie.lock` to the new version and stamps every skill at its
+  current `surface_hash`, except the declined skills listed in
+  `tools/dev/reconciled-stamp-excluded.txt`; entries for skills that no
+  longer exist are dropped, and a listed name that no longer exists fails
+  the run, so a rename updates the list.
+  A dev bump is preceded by a local spec sync, since the sync needs an agent
+  and the workflow has none.
 - **Workspace pytest runs only the affected members, batched.**
   `tools/dev/ci-pytest-batches.py` picks the members that get pytest (a
   `[tool.pytest.ini_options]` section and no `[tool.magpie.checks]` opt-out,
@@ -419,41 +449,17 @@ uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tool
 
 ## Known gaps
 
-- **Eval coverage is complete.** All 83 shipped skills have a matching
-  suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
-  `skill-and-tool-validator` (check #8) warns when a newly added skill has
-  no suite, keeping coverage complete going forward.
 - **Frontmatter validation is still shallow.** Current validation covers
   required fields, but the next pass should make `mode`, `status`,
   `capability`, `organization`, and `source` combinations explicit and
   test-backed.
-- **Capability taxonomy drift is now checked.**
-  `validate_capability_taxonomy_coverage` parses the Axis 1 / Axis 2
-  vocabulary tables in `docs/labels-and-capabilities.md`, surfaces
-  taxonomy rows that no skill/tool implements (entries marked
-  *(reserved)* / *(future)* are exempt), and cross-checks the
-  `SKILL_CAPABILITIES` / `TOOL_CAPABILITIES` code constants against the
-  doc — all SOFT advisories. Undocumented frontmatter capability values
-  are rejected by skill validation separately.
-- **`docs/modes.md` is no longer manually synced.**
-  `validate_modes_doc_consistency` compares the doc's per-mode tables
-  against live skill frontmatter — missing skills, mode mismatches,
-  skill-count mismatches, and unlisted skills — as SOFT advisories.
-- **Tool README prerequisites are normalized and enforced.** The HARD
-  `tool-prerequisites-fields` check requires the bold sub-field labels
-  (**Runtime:**, **CLIs:**, **Credentials / auth:**, **Network:**) or
-  the pure-contract delegation shorthand in every tool README, so the
-  normalize-then-tighten ordering this bullet used to track is done.
-- **Pilot evidence shape is now defined and validated.** `docs/pilot-report-template.md`
-  defines the required frontmatter schema and body sections; `tools/pilot-report-validator/`
-  enforces the schema on every `.md` file with a YAML frontmatter block.
-  The "no common shape" gap is closed; the remaining gap is adoption —
-  no adopter pilot has yet submitted a validated report against the template.
-- **Vendor-neutrality measurement is available but unscheduled.** `tools/vendor-neutrality-score/`
-  ships and can be run ad hoc, but is not yet wired into CI or the
-  build loop. Score drift is not automatically surfaced.
-- **The 500-line cap is advisory and still exceeded.** `skill-line-limit`
-  is a SOFT check. After the family trims and deep splits (#1390
-  pr-management, #1400 issue, #1435 to #1438 and #1672 security, #1620
-  release-management, and the setup isolated-setup splits), one `SKILL.md`
-  remains over 500 lines: `security-issue-import-from-pr` (516).
+  <!-- gap-closes-when: none (narrative) -->
+- **No adopter pilot has submitted a validated report.** The shape is defined
+  in `docs/pilot-report-template.md` and enforced by
+  `tools/pilot-report-validator/`, but the template is the only file in the
+  tree carrying that frontmatter.
+  <!-- gap-closes-when: none (narrative) -->
+- **The 500-line cap is advisory.** `skill-line-limit` is a SOFT check, so
+  nothing blocks a `SKILL.md` growing past it. No `SKILL.md` is over 500 lines
+  today; the largest, `issue-triage`, sits at exactly 500.
+  <!-- gap-closes-when: none (narrative) -->

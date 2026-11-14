@@ -18,7 +18,7 @@
 // under the License.
 
 import { atom, read, update } from 'claude-code';
-import { executeMagpieStatus } from './status-command.ts';
+import { executeMagpieStatus } from './status-command.js';
 
 export const driftNotice = atom(
   { plugin: 'magpie-setup', key: 'driftNotice' },
@@ -138,7 +138,7 @@ export function joinPath(...segments: string[]): string {
   }
   const result = parts.join('/');
   if (result === '') return '/';
-  if (segments[0].startsWith('/') && !result.startsWith('/')) {
+  if ((segments[0] ?? '').startsWith('/') && !result.startsWith('/')) {
     return '/' + result;
   }
   return result || '.';
@@ -159,7 +159,8 @@ export function parsePep440(v: string): Pep440Version | null {
   let epoch = 0;
   const epochMatch = s.match(/^(\d+)!/);
   if (epochMatch) {
-    epoch = parseInt(epochMatch[1], 10);
+    // The pattern's (\d+) group always matches when epochMatch does.
+    epoch = parseInt(epochMatch[1] ?? '0', 10);
     s = s.slice(epochMatch[0].length);
   }
 
@@ -183,7 +184,8 @@ export function parsePep440(v: string): Pep440Version | null {
   let pre: { type: string; num: number } | undefined = undefined;
   const preMatch = s.match(/[.-]?(a|alpha|b|beta|rc|c|preview)(\d+)?$/i);
   if (preMatch) {
-    let type = preMatch[1].toLowerCase();
+    // Group 1 is a required alternation, so it is always set on a match.
+    let type = (preMatch[1] ?? '').toLowerCase();
     if (type === 'alpha') type = 'a';
     if (type === 'beta') type = 'b';
     if (type === 'c' || type === 'preview') type = 'rc';
@@ -339,7 +341,7 @@ export async function checkSetupDrift(
         isAdopted: true,
         hasDrift: true,
         message:
-          'Apache Magpie: Empty `.apache-magpie.lock` detected. Run `/magpie-setup upgrade` to populate.',
+          'Apache Magpie: Empty `.apache-magpie.lock` detected. Run `/magpie-setup:upgrade` to populate.',
       };
     }
 
@@ -351,7 +353,7 @@ export async function checkSetupDrift(
         isAdopted: true,
         hasDrift: true,
         message:
-          'Apache Magpie: Malformed `.apache-magpie.lock` detected. Run `/magpie-setup upgrade` to repair.',
+          'Apache Magpie: Malformed `.apache-magpie.lock` detected. Run `/magpie-setup:upgrade` to repair.',
       };
     }
 
@@ -365,7 +367,7 @@ export async function checkSetupDrift(
           isAdopted: true,
           hasDrift: true,
           message:
-            'Apache Magpie: Malformed `.apache-magpie.lock` (missing min_version). Run `/magpie-setup upgrade` to repair.',
+            'Apache Magpie: Malformed `.apache-magpie.lock` (missing min_version). Run `/magpie-setup:upgrade` to repair.',
         };
       }
 
@@ -378,7 +380,7 @@ export async function checkSetupDrift(
             hasDrift: true,
             lockVersion: minVersion,
             currentVersion,
-            message: `Apache Magpie: Installed plugin version (${currentVersion}) is below adoption floor (${minVersion}). Run \`/magpie-setup upgrade\` to reconcile.`,
+            message: `Apache Magpie: Installed plugin version (${currentVersion}) is below adoption floor (${minVersion}). Run \`/magpie-setup:upgrade\` to reconcile.`,
           };
         }
 
@@ -417,7 +419,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Local snapshot lockfile missing (`.apache-magpie.local.lock`). Run `/magpie-setup upgrade` to fetch snapshot.',
+            'Apache Magpie: Local snapshot lockfile missing (`.apache-magpie.local.lock`). Run `/magpie-setup:upgrade` to fetch snapshot.',
         };
       }
 
@@ -429,7 +431,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Empty `.apache-magpie.local.lock` detected. Run `/magpie-setup upgrade` to refresh.',
+            'Apache Magpie: Empty `.apache-magpie.local.lock` detected. Run `/magpie-setup:upgrade` to refresh.',
         };
       }
 
@@ -442,7 +444,7 @@ export async function checkSetupDrift(
           hasDrift: true,
           lockVersion: committedPin,
           message:
-            'Apache Magpie: Malformed `.apache-magpie.local.lock` detected. Run `/magpie-setup upgrade` to repair.',
+            'Apache Magpie: Malformed `.apache-magpie.local.lock` detected. Run `/magpie-setup:upgrade` to repair.',
         };
       }
 
@@ -458,7 +460,7 @@ export async function checkSetupDrift(
             isAdopted: true,
             hasDrift: true,
             lockVersion: committedPin,
-            message: `Apache Magpie: Snapshot drift detected (${localPin} -> ${committedPin}). Run \`/magpie-setup upgrade\` to reconcile snapshot and overrides.`,
+            message: `Apache Magpie: Snapshot drift detected (${localPin} -> ${committedPin}). Run \`/magpie-setup:upgrade\` to reconcile snapshot and overrides.`,
           };
         }
 
@@ -475,7 +477,7 @@ export async function checkSetupDrift(
             isAdopted: true,
             hasDrift: true,
             lockVersion: lockData.ref,
-            message: `Apache Magpie: Snapshot drift detected (${localData.source_ref} -> ${lockData.ref}). Run \`/magpie-setup upgrade\` to reconcile snapshot and overrides.`,
+            message: `Apache Magpie: Snapshot drift detected (${localData.source_ref} -> ${lockData.ref}). Run \`/magpie-setup:upgrade\` to reconcile snapshot and overrides.`,
           };
         }
 
@@ -491,7 +493,7 @@ export async function checkSetupDrift(
       isAdopted: true,
       hasDrift: true,
       message:
-        'Apache Magpie: Malformed `.apache-magpie.lock` (unknown or missing method). Run `/magpie-setup upgrade` to repair.',
+        'Apache Magpie: Malformed `.apache-magpie.lock` (unknown or missing method). Run `/magpie-setup:upgrade` to repair.',
     };
   } catch {
     return {

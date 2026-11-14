@@ -75,9 +75,8 @@ blocker.
 
 ## Security team roster
 
-Not applicable — Apache Magpie has no private security tracker; security
-reports follow the ASF default process via `security@apache.org`, handled
-by the Magpie PMC (see `pmc-roster.md`).
+Security reports arrive at `security@apache.org` under the ASF process.
+They are tracked in the private `apache/magpie-security` repository and handled by the Magpie PMC (see `pmc-roster.md`).
 
 Template guidance: the **authoritative** source is the collaborator list of the
 tracker repository — anyone listed as a collaborator, regardless of

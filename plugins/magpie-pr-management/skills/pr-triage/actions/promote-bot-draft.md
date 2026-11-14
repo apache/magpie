@@ -3,6 +3,8 @@
 
 # `promote-bot-draft` — flip a bot draft to ready and label it
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Golden rule 1b applies: guard on the head's runs first.
 
 ```bash

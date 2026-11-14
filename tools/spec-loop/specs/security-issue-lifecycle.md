@@ -94,8 +94,9 @@ publication, with a human gate and an audit-log entry at every step.
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
-  matrix, and renders the tracker body (the report as an inert fenced
-  block, `_No response_` for empty fields, headings from
+  matrix, and renders the tracker body (the report as defanged markdown
+  under a fixed `> [!NOTE]` data marker, or an inert fenced block with
+  `description_format: inert`, `_No response_` for empty fields, headings from
   `tracker.body_fields`), the rollup entry,
   the rejections-ledger record, the fix-already-public reply and the
   Step 8 recap. Classification, field extraction, PII identification,
@@ -111,7 +112,8 @@ publication, with a human gate and an audit-log entry at every step.
   For `security-issue-import-from-md` it parses the findings file
   (`not-a-findings-file` on another shape, `UNKNOWN` severity and
   `<upstream>` fallback with warnings), cleans the search keyword, and
-  renders the body (each section an inert block, the Recommended-fix
+  renders the body (each section defanged markdown, or an inert block
+  with `description_format: inert`, the Recommended-fix
   `<details>`), rollup entry, proposal table and recap; duplicate
   judgement and the credit decision stay with the model.
   For `security-issue-import-via-forwarder` it runs the Step 0 checks,
@@ -227,7 +229,14 @@ publication, with a human gate and an audit-log entry at every step.
   team marks for the reporter proposed for the advisory), and walks the
   Step 5b push flow,
   checking the title, upgrade-target and CWE gates itself and taking the
-  four judged gates as the model's verdicts. The Step 1 observations
+  four judged gates as the model's verdicts. A state fetch that fails after
+  the push is a recap blocker that posts nothing about the hand-off that run.
+  The stage-specific Step 2b bullets live in `release-manager-comments.md`
+  and `post-advisory-records.md`, read when `signals-to-actions.md` says so.
+  The conditional Step 1 sub-steps live in `cve-record-comments.md` (1e),
+  `closed-tracker-check.md` (1g) and `release-vote-detection.md` (1h), read
+  when `gather.md` says so.
+  The Step 1 observations
   that are arithmetic are code too: the disclosure-window flags, reporter
   staleness, the closed-`announced` cve.org move with the security-pages
   markers and the advisory-records step, and the release-vote match; mining signals, gathering
@@ -236,7 +245,8 @@ publication, with a human gate and an audit-log entry at every step.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
-  `gh api -F title=@<file>`), and the import skills and
+  `gh api -F title=@<file>`), though the importers now use
+  `issue-create-labeled` instead (#1982), and the import skills and
   `security-issue-invalidate` point at `tools/github/project-board.md`
   for the orphan-issue, introspection and archive board recipes.
 - Status rollups are written by `tools/github-rollup/`
@@ -310,20 +320,34 @@ publication, with a human gate and an audit-log entry at every step.
   Without the tool, or for a Gmail-only report, the proposal lists the names
   as not fetched; `get_source`, `get_mbox` and downloads are never used to
   recover one.
-- **Report text is inert in the tracker (#1672).** The importers put
-  reporter-derived long text (the mail body, the PR description, each
-  findings-file section) into the body as one fenced block with info
-  string `text`, its fence one backtick longer than the longest backtick
-  run in the text. Nothing in it renders — no image, HTML, heading, link
-  or mention — and its content is byte-exact except two escapes: a line
-  that would end a field (`###` then a space, a tab or nothing, at column
-  0 or behind `>`, list markers or indent, whatever the name), and a line
-  starting with `<!--` (a machine marker), each get a leading `\` and are
-  listed in `escaped_lines`. Short fields
-  stay one-line escaped values. The rendered body must pass
-  github-body-field's normaliser (exactly the template fields once each,
-  nothing to decide) or the render is refused. Reporter formatting
-  therefore shows as plain text.
+- **Report text is defanged in the tracker (#1672, #2048).** The
+  importers put reporter-derived long text (the mail body, the PR
+  description, each findings-file section) into the body in the project's
+  `tracker.description_format` (`shared/body.py` `report_block`). The
+  default `markdown` keeps the reporter's formatting readable and
+  neutralises only what could change the tracker or leak: `#`–`###`
+  headings (also behind `>` / list markers) are demoted to `####` and
+  setext underlines escaped, so no line ends or opens a field; every HTML
+  opener and image is defused (no tag, comment, `<details>` or tracking
+  pixel renders); `$` math, GitHub alert markers and link reference
+  definitions are escaped to visible text, and math / diagram fences open
+  as `text`; glyphless characters (format, bidi, variation selectors,
+  fillers) show as `[U+XXXX]`; bare `#NNN`, `GH-NNN` and `@`-mentions are
+  wrapped as inline code, or broken with a word joiner where code-span
+  boundaries are uncertain; only column-0 fenced code stays byte-exact
+  (a `###` / `<!--` line in it gains a leading `\`), an indented or
+  nested fence is broken and escaped as prose, a mail client's indented
+  code block becomes a column-0 fence with a guessed language, and an
+  unclosed fence is closed before the next field. Every changed line is
+  listed in `escaped_lines`. `security-issue-import` puts the report
+  under a fixed `> [!NOTE]` marking it as the reporter's data
+  (`DATA_NOTE`). `description_format: inert` restores one fenced block
+  with info string `text`, its fence one backtick longer than the longest
+  backtick run, byte-exact except the same field-ending and `<!--`
+  escapes, so nothing in it renders. Short fields stay one-line escaped
+  values. The rendered body must pass github-body-field's normaliser
+  (exactly the template fields once each, nothing to decide) or the
+  render is refused.
 - **Field reads and writes fail closed (#1672).** github-body-field is the
   one implementation of the body-field contract, for reading and writing;
   generate-cve-json and vetted-ops (a byte-identical copy) read through
@@ -414,6 +438,19 @@ publication, with a human gate and an audit-log entry at every step.
   `MAGPIE_ALLOW_EMBARGO_TERMS=1` is the maintainer's escape hatch after
   disclosure, and the block message does not tell the agent how to
   bypass it.
+  It fails closed (#2071): a throw while evaluating a command blocks it
+  unless that escape hatch is set, and a blocked evaluation with no reason
+  still blocks, under a fallback reason.
+  When a blocked `gh api` write has a vetted route, the reason names the
+  exact operation (#2057): a POST to an advisory's comments endpoint maps to
+  `advisory-comment`, a PATCH to `issues/comments/<id>` to `comment-update`
+  and a POST to `issues/<N>/comments` to `issue-comment`.
+  The reason adds that the calling skill needs the operation in its
+  `[callers]` list in the adopter's vetted-ops config, which is a
+  maintainer's change.
+  Advisory record field edits and advisory comment edits have no vetted
+  operation, and the reason points at the advisory web UI.
+  The block decision itself is unchanged.
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared
@@ -426,9 +463,14 @@ publication, with a human gate and an audit-log entry at every step.
   The review never runs against the private tracker checkout, and its
   findings are advisory data that never block the flow.
 - **Attacker-controlled titles never reach a shell argument.** Tracker
-  creation from a report title goes through the safe-create recipe
-  (title written to a file, passed by `-F title=@<file>`), never
+  creation from a report title never uses
   `gh issue create --title '<title>'` (#1437).
+  `security-issue-import`, `-from-md` and `-from-pr` create a GitHub tracker
+  through the vetted `issue-create-labeled` operation: the title goes to a
+  workspace file the dispatcher reads, the body travels on stdin, and the
+  policy-approved labels apply at creation (#1982).
+  A failure stops the import and never falls back to raw `gh`, and a
+  non-GitHub tracker keeps its backend's `issue-create`.
 - **Import dedup searches follow a provisional class.**
   `security-issue-import` Steps 2a and 2c skip their searches for a
   candidate whose provisional class, read from the root message, is
@@ -661,9 +703,11 @@ publication, with a human gate and an audit-log entry at every step.
 5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
    field carries that ID, and the bulk pre-flight never prints a private
    comment body (#1554, #1558).
-6. An imported report renders as one inert block, and every body-field
-   reader in the tree finds exactly the template fields once each in the
-   result, whatever fences or fake `###` lines the report holds (#1672).
+6. An imported report renders as defanged markdown (or, with
+   `description_format: inert`, one inert block) in which no HTML, image,
+   reference or mention takes effect, and every body-field reader in the
+   tree finds exactly the template fields once each in the result,
+   whatever fences or fake `###` lines the report holds (#1672, #2048).
 7. Dashboard mode and `magpie-asf-security-dash` stop for any project whose
    `project.md` does not declare `organization: ASF`, before a session
    cookie or the network is touched (#1798).
@@ -688,9 +732,11 @@ python3 tools/dev/check-family-plugins.py
 
 - The flow is `stable`; gaps surface as drift between a skill's documented
   steps and the adapters it calls — the loop's plan pass catches those.
+  <!-- gap-closes-when: none (narrative) -->
 - The generic rollup recipe in `tools/github/status-rollup.md` still
   spells only the `uv run --directory … github-rollup` CLI and does not
   mention `vetted-op-tracker`, although the security skills themselves
   switched to it in #1451.
   An adopter following that recipe under the secure setup hits the
   sandboxed-`gh` failure the entry point exists to avoid.
+  <!-- gap-closes-when: none (narrative) -->

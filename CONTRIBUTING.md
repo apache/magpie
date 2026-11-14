@@ -262,14 +262,18 @@ and bundled scripts. The skill router reads only the frontmatter
 `description` field to decide whether to load the skill; the body
 is loaded only after the decision.
 
-| Family | Skills | Purpose |
+| Family | Skills (flat names) | Purpose |
 |---|---|---|
-| `security-*` | `security-issue-import`, `security-issue-import-from-md`, `security-issue-import-from-pr`, `security-issue-triage`, `security-issue-sync`, `security-issue-deduplicate`, `security-cve-allocate`, `security-issue-fix`, `security-issue-invalidate` | Full lifecycle of a security report from arrival on `<security-list>` through CVE publication. |
-| `pr-management-*` | `pr-management-triage`, `pr-management-code-review`, `pr-management-mentor`, `pr-management-stats` | Maintainer-side PR queue management — sweep, classify, review, mentor first-time contributors, surface backlog trends. |
-| `issue-*` | `issue-triage`, `issue-fix-workflow`, `issue-reproducer`, `issue-reassess`, `issue-reassess-stats` | Issue-tracker triage, agent-drafted fixes for confirmed bugs, automated reproduction of bug reports, reassessment of EOL backlogs. |
-| `setup-*` | `setup`, `setup-isolated-setup-install`, `setup-isolated-setup-verify`, `setup-isolated-setup-update`, `setup-isolated-setup-doctor`, `setup-override-upstream`, `setup-shared-config-sync` | Framework adoption, sandbox install + verify + update + diagnostic, override-promotion workflow, shared-config sync. |
-| `contributor-nomination` | one skill | Build the evidence brief for a committer or PMC nomination. |
-| Meta-skills | `write-skill`, `list-skills` | Author new skills following framework conventions; print a human-readable skill index. |
+| Security reports (`security-*`) | `security-issue-*`, `security-cve-*`, `security-model-*` | Confidential report handling, CVE publication, and security-model maintenance. See [`docs/security/`](docs/security/README.md). |
+| Pull requests (`pr-management-*`) | `pr-management-triage`, `pr-management-code-review`, `pr-management-thread-mentor`, `pr-management-merge-candidates`, `pr-management-stats` | Maintainer-side PR queue management, review, and contributor mentoring. See [`docs/pr-management/`](docs/pr-management/README.md). |
+| Mentoring (`magpie-mentoring`) | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` | Welcome contributors, explain issues, and prepare newcomer tasks. See [`docs/mentoring/`](docs/mentoring/README.md). |
+| Issues (`issue-*`) | `issue-*` | Issue triage, reproduction, fix drafting, reassessment, and backlog reporting. See [`docs/issue-management/`](docs/issue-management/README.md). |
+| Project rules and setup (`setup-*`) | `setup`, `setup-isolated-setup-install`, `setup-isolated-setup-verify`, `setup-isolated-setup-update`, `setup-isolated-setup-doctor`, `setup-override-upstream`, `setup-shared-config-sync` | Framework adoption, agent isolation, project rules, and shared-config sync. See [`docs/setup/`](docs/setup/README.md). |
+| Repository maintenance (`repo-health-*`) | Audits and `audit-finding-fix` | Audits and fixes for dependency, workflow, license, runner, and test-maintenance findings. See [`docs/repo-health/`](docs/repo-health/README.md). |
+| Local code review (`pairing-*`) | `pairing-self-review`, `pairing-multi-agent-review` | Developer-side self-review and multi-agent review before opening a pull request. See [`docs/pairing/`](docs/pairing/README.md). |
+| Committer readiness and onboarding (`contributor-growth-*`) | `contributor-*`, `committer-onboarding`, `onboarding-concierge` | Readiness signals, nomination support, and onboarding. ASF-specific. See [`docs/contributor-growth/`](docs/contributor-growth/README.md). |
+| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
+| Releases (`release-*`) | `release-*` | ASF release lifecycle and records. ASF-specific. See [`docs/release-management/`](docs/release-management/README.md). |
 
 Each skill's frontmatter `description` is the agent-router contract.
 Be precise — vague descriptions cause the router to load the wrong
@@ -586,7 +590,7 @@ domains, and paths for your own tools such as GnuPG or Docker) ships as
 [`tools/agent-isolation/claude-settings.local.template.json`](tools/agent-isolation/claude-settings.local.template.json)
 and belongs in your gitignored `.claude/settings.local.json`, which Claude Code layers on
 top. [`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) puts it
-in place, and `setup upgrade` reconciles it whenever the template changes; both hand you
+in place, and `setup update` reconciles it whenever the template changes; both hand you
 the copy, since an agent cannot write its own settings. The local file is per
 worktree; `setup worktree-init` reconciles each new one. Keep your own additions in the
 same file: reconciliation only adds what the template gained and asks before removing
@@ -614,7 +618,7 @@ clone (gitignored) and listing the skills you want disabled:
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "skillOverrides": {
     "magpie-pr-management-code-review": "off",
-    "magpie-pr-management-mentor": "off",
+    "magpie-pr-management-thread-mentor": "off",
     "magpie-pr-management-stats": "off",
     "magpie-pr-management-triage": "off",
     "magpie-security-cve-allocate": "off",
@@ -939,6 +943,13 @@ still, an adopter running that command is told they are already current
 however far behind they are. `docs/setup/marketplace.md` covers *when*
 a bump is wanted; this section covers the machinery.
 
+**Sync the specs first.** A dev bump is what carries merged work to adopters, so the
+specs in [`tools/spec-loop/specs/`](tools/spec-loop/specs/) must describe it before the
+bump goes out. Check `tools/spec-loop/.last-sync` against the `main` tip; if it is
+behind, run `tools/spec-loop/loop.sh update` (or update the affected specs and
+`.last-sync` by hand for a small gap) and merge that `sync-specs` PR before
+starting the workflow. The workflow cannot do this itself: the sync needs an agent.
+
 Start it from the Actions tab — **bump dev version** -> *Run workflow*.
 There is no automatic trigger: whether a bump is wanted is a judgement,
 not something a merge can decide. `workflow_dispatch` is restricted by
@@ -969,7 +980,12 @@ prepare ──> open-pr   draft PR
 
 - **`prepare`** runs the three documented steps —
   [`bump-dev-version.py`](tools/dev/bump-dev-version.py), then
-  `check-family-plugins.py --fix` and `uv lock` — and commits the result
+  `check-family-plugins.py --fix` and `uv lock` — then
+  [`refresh-reconciled-stamp.py`](tools/dev/refresh-reconciled-stamp.py),
+  which moves this checkout's `reconciled:` stamp in `.apache-magpie.lock`
+  to the new version with every skill at its current surface hash, except
+  the declined ones listed in
+  [`reconciled-stamp-excluded.txt`](tools/dev/reconciled-stamp-excluded.txt). It commits the result
   onto a branch. The commit is made through GitHub's
   `createCommitOnBranch` API by
   [`gh-signed-commit.py`](tools/dev/gh-signed-commit.py) rather than

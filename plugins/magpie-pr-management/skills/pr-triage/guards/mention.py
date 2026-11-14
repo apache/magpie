@@ -45,7 +45,7 @@ Two further surfaces:
   surface — the same key every `pr-management` renderer honours. Only a
   reviewed, merged change can put a handle there; a local edit, commit or
   scratch repository cannot.
-* **The mentoring hand-off**: `pr-management-mentor` hands a thread to the
+* **The mentoring hand-off**: `pr-management-thread-mentor` hands a thread to the
   maintainers with a body that opens "@<team> — handing this off:". That one
   mention is allowed when <team> is the `maintainer_team_handle` of the
   `.apache-magpie-overrides/mentoring-config.md` on the target

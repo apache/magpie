@@ -110,6 +110,7 @@ class PR:
     default_merge_method: str | None = None
     auto_merge_enabled: bool = False
     pending_not_required: tuple[str, ...] = ()
+    ci_outdated_query: bool = False
     #: The last two commits with parents, verified signer and linked author logins (fixup checks).
     head_commits: tuple[dict[str, Any], ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
@@ -205,7 +206,24 @@ def _commit_authors(commit: dict[str, Any]) -> tuple[str, ...]:
 
 def from_node(node: dict[str, Any]) -> PR:
     latest = _nodes(node.get("latest"))
-    rollup = ((latest[-1].get("commit") if latest else None) or {}).get("statusCheckRollup") or {}
+    latest_commit = (latest[-1].get("commit") if latest else None) or {}
+    head_sha = str(node.get("headRefOid") or "").strip().lower()
+    commit_oid = str(latest_commit.get("oid") or "").strip().lower()
+
+    # Golden rule 8: the CI status check rollup must strictly belong to the PR's head commit.
+    # If commit OID matches headRefOid, the rollup is accepted.
+    # If commit OID mismatches headRefOid (e.g. lagging commit edge), fail closed by discarding.
+    # If statusCheckRollup exists but commit OID is missing, the installed vetted-ops queries are
+    # out of date (older vetted-ops without `oid` under `latest`). Fail closed to protect the gate,
+    # but flag `ci_outdated_query` so disposition can give an actionable upgrade instruction.
+    ci_outdated_query = False
+    if head_sha and commit_oid and head_sha == commit_oid:
+        rollup = latest_commit.get("statusCheckRollup") or {}
+    elif latest_commit.get("statusCheckRollup") and not commit_oid:
+        rollup = {}
+        ci_outdated_query = True
+    else:
+        rollup = {}
     users, teams = _requests(node)
     threads = _nodes(node.get("reviewThreads"))
     reviews_raw = _nodes(node.get("reviews")) or _nodes(node.get("latestReviews"))
@@ -263,6 +281,7 @@ def from_node(node: dict[str, Any]) -> PR:
         rollup_state=rollup.get("state") if rollup else None,
         contexts=_contexts(rollup),
         pending_not_required=_pending_not_required(rollup) if rollup else (),
+        ci_outdated_query=ci_outdated_query,
         head_commits=_head_commits(node),
         node_id=node.get("id"),
         thread_details=tuple(threads),

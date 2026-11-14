@@ -766,6 +766,33 @@ _register(
 
 _register(
     Op(
+        name="pr-triage-recovery-state",
+        params=("number",),
+        summary="Read the complete upstream PR state needed to journal and recover triage operations.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,url,headRefOid,state,isDraft,mergedAt,labels,assignees,body,mergeable,mergeStateStatus,updatedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-triage-comment-receipt",
+        params=("comment_id",),
+        summary="Read one upstream triage comment by its exact REST ID, including its actor and update time.",
+        build=lambda cfg, comment_id: ["gh", "api", f"repos/{_upstream(cfg)}/issues/comments/{comment_id}"],
+    )
+)
+
+_register(
+    Op(
         name="pr-checks",
         params=("number",),
         summary="Read the CI rollup for one upstream PR.",

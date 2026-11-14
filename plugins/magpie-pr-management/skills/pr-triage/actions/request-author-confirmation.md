@@ -3,6 +3,8 @@
 
 # `request-author-confirmation` — ask the author whether the feedback is addressed
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Deliver the note — [`deliver-note.md`](deliver-note.md), action `request-author-confirmation`.
 The renderer picks the `confirmation_handback_mode` variant and keeps the marker `ready for maintainer review confirmation` verbatim: it is what the next sweep looks for.
 

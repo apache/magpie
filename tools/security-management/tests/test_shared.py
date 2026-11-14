@@ -22,7 +22,7 @@ import subprocess
 
 import pytest
 
-from security_management.shared import keyword, refs, rollup, titles
+from security_management.shared import cve_tool, keyword, refs, rollup, titles
 
 
 def test_bare_refs_are_found_outside_code_and_links() -> None:
@@ -169,3 +169,16 @@ def test_tracker_link_per_backend() -> None:
         refs.tracker_link("o/r", "SEC-1", "javascript:alert(1) x", "local-files")
     with pytest.raises(ValueError):
         refs.tracker_link("o/r", "[x](y)", None, "jira")
+
+
+def test_cve_tool_command_quotes_each_raw_argument() -> None:
+    command = cve_tool.command({}, "push", "--cve-id", "CVE-2026-1", "--json-file", "/s/my file.json")
+    assert command == (
+        "uv run --project '<framework>/tools/cve-tool' cve-tool push --cve-id CVE-2026-1 --json-file '/s/my file.json'"
+    )
+
+
+def test_cve_tool_command_quotes_a_placeholder_shaped_value() -> None:
+    # A title comes from the tracker; one shaped like `<a placeholder>` must not reach the shell bare.
+    command = cve_tool.command({}, "allocate", "--title", "<Some title>")
+    assert command.endswith("cve-tool allocate --title '<Some title>'")

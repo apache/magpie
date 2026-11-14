@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:fb90bdc45aec5f8a
 license: Apache-2.0
-measured_tokens: 5873
+measured_tokens: 5318
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -80,7 +80,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -466,48 +466,14 @@ itself before presenting it.
 
 ## Item failure budget
 
-This applies to the read and classify phase only. One item whose state
-cannot be read or classified (a missing body, an unparsable timestamp, a
-404 or 410 for that item, a classifier that returns no verdict for it twice)
-does not stop the sweep: record it as `failed` with a one-line reason, skip it
-for the rest of the run, and carry on with the next item.
-The budget is `item_failure_budget` in the config file this skill already
-reads: `issue-tracker-config.md` for the issue skills,
-`project.md` for the security skills, `pr-management-config.md` for the PR
-skills. Its value is `<n>`, `<p>%` of the
-pool, or `max(<n>, <p>%)`; unset means `max(3, 10%)`. A malformed value
-stops the run before the sweep starts, with an error naming the value and no
-fallback: nothing has been read, so no item is failed or unfinished; the
-maintainer fixes the value and reruns the same selector.
-When more items have failed than the budget allows, stop before the next item:
-the pool is likely broken as a whole, not one item.
-
-The **write phase is not budgeted**: a post, label, close or transition that
-fails still stops at once, and is never retried, because a retry can duplicate
-a visible action.
-
-The recap always has three groups, failed items first in the summary line when
-there are any: **completed** (with their dispositions), **failed** (each with
-its reason), and **unfinished** (not reached because the budget ran out or a
-write stopped the run; say which, once). End with the selector that reruns
-exactly the failed and unfinished items. A sweep with no failures does not
-mention the budget. Contract:
-[`docs/batch-failure-budget.md`](../../../../docs/batch-failure-budget.md).
+If the config file this skill already reads sets `item_failure_budget`, read [item-failure-budget.md](item-failure-budget.md) before the sweep starts.
+Otherwise read it the moment an item cannot be read or classified, or a write fails, and follow it for the rest of the run.
 
 <!-- END MAGPIE BLOCK: item-failure-budget -->
 
 ## Failure modes
 
-| Symptom | Likely cause | Remediation |
-|---|---|---|
-| Selector resolves to zero issues | Pool empty or selector mismatched | Surface and stop; do not fall back to a wider selector |
-| Classifier flags `UNCERTAIN` on every issue | Step 2 state-gather hit an error (e.g., tracker timeout, body missing) and classifier has nothing to anchor on | Stop, surface the underlying failure, ask user to retry after prerequisite is restored |
-| `@`-mention routing finds an empty roster | `<project-config>/release-trains.md` missing relevant component roster | Stop, point at the missing config; do not guess handles |
-| User confirms `all` but a post call fails mid-loop | Transient tracker error, rate-limit, or auth expiry | Stop, surface the failed item, instruct the user to retry the remaining items with an explicit selector |
-| Reproducer hand-off says *"can't run"* | Build broken or runtime unavailable on the current `<default-branch>` | Continue without runtime evidence; the proposal notes the limitation rather than blocking |
-| Bulk-mode subagent reports it called a write tool | Subagent prompt was incomplete or ignored the read-only rule | Stop, surface as a bug; orchestrator marks the apply phase as *"do not run"* until investigated |
-
----
+Read [failure-modes.md](failure-modes.md) on any of these: a selector with zero issues, `UNCERTAIN` on every issue, an empty `@`-mention roster, a failed post, a reproducer that cannot run, or a bulk-mode subagent that called a write tool.
 
 ## References
 

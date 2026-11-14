@@ -130,8 +130,12 @@ unchanged.
   + `experimental`.
 
 - Family README: `docs/issue-management/README.md` — family overview,
-  mode boundary with `pr-management-*` and `security-issue-*`, and the
-  adopter-config scaffold.
+  mode boundary with `pr-management-*` and `security-issue-*`, and a link
+  to the adopter scaffold index. Its install page,
+  `docs/issue-management/install.md` (*Install & first runs*), carries the
+  `/plugin install` line, the generated *Before the first run* config table
+  and *Try these first*; `tools/dev/check-doc-sync.py` requires that page
+  for every live family.
 
 - Adopter config (templates in `plugins/magpie-setup/templates/`, which
   `projects/_template/` links to): `project.md`,

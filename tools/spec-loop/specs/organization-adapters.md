@@ -54,6 +54,9 @@ identical "ASF default" values in its own `project.md`.
   GitHub Releases, no list/forwarder/metadata backends); inherited by
   `projects/non-asf-example/`.
 - `organizations/_template/` — authoring skeleton.
+- `tools/dev/check-skill-source-drift.py` and
+  `.github/workflows/skill-source-drift.yml` — the weekly check of every
+  curated `organizations/*/skill-sources.md` against its source (#2040).
 - Resolution contract: `AGENTS.md` §"Configuration resolution order".
 - The project-manifest template that names the organization,
   `plugins/magpie-setup/templates/project.md` (`projects/_template/` links to
@@ -84,8 +87,8 @@ identical "ASF default" values in its own `project.md`.
   `security-issue-sync`'s dashboard mode (Step D0) and the
   `magpie-asf-security-dash` CLI (exit `3` otherwise, before the cookie or
   network is touched; HTML comments and fenced examples are ignored when
-  reading the key), `permission-audit --organization` (PonyMail,
-  apache-projects and Vulnogram recommendations only for `ASF`, as passed
+  reading the key), `permission-audit --organization` (PonyMail
+  and Vulnogram recommendations only for `ASF`, as passed
   by setup verify), `dependency-license-audit`'s `asf` default policy
   (`allowlist` for every other project), `workflow-optimization`'s
   GitHub Actions Policy / `.asf.yaml` / `creation_cap` checks (or, with no
@@ -107,6 +110,22 @@ identical "ASF default" values in its own `project.md`.
   [security@apache.org]`, the organization-wide CVE bookkeeping sender.
   A project list replaces, never merges with, an organization list, so a
   project override repeats the inherited entries.
+- **Curated skill sources are checked against their source weekly (#2040).**
+  An organization's `skill-sources.md` pins each source to a tag and may
+  carry a catalogue between `BEGIN` / `END SKILL-SOURCE CATALOGUE` markers
+  listing every skill the source ships, its install status (`pinned`,
+  `untagged`, `single-file`, `draft`) and the agent marketplaces that list
+  it.
+  The ASF adapter catalogues every skill under `apache/incubator`'s
+  `tools/skills/`, and since the Incubator tags each skill on its own, each
+  pinned skill is its own descriptor pinned to its own `<skill>-<version>` tag.
+  `tools/dev/check-skill-source-drift.py` reads each GitHub source through
+  the REST API and reports added, removed or re-laid-out skills, a pin
+  whose tag no longer resolves to the recorded commit, a newer or first tag,
+  and a marketplace column that disagrees with the source's catalogs; it is
+  read-only and exits `0` in sync, `1` on drift and `2` when it could not run.
+  The weekly `skill-source-drift` workflow runs it and keeps one issue open
+  while there is drift, closing it once a run finds everything in sync.
 - An organization declares only org-wide values. Per-project
   values (security-list address, scope labels, product name, roster,
   tracker label/body-field vocabulary) stay in `project.md`.

@@ -203,7 +203,7 @@ An older copy under the personal layer (`.apache-magpie-local/setup_preflight/`,
 once the new one answers.
 
 The shared copy serves every project without one of its own, so the
-last `config` or `upgrade` from a plugin decides its version. The checker
+last `config` or `update` from a plugin decides its version. The checker
 reads each project's own lock and configuration, so a project pinned to
 an older framework is still checked against its own pin.
 
@@ -411,7 +411,7 @@ applied to two stores.
   surface that migrates it there.
 - **Already adopted** (`<committed-lock>` exists) → write **no**
   `version`, `at`, or `skills` entry anywhere, ever. The committed stamp
-  is `adopt`'s, `reconcile`'s, and `upgrade`'s to write — never
+  is `adopt`'s, `reconcile`'s, and `update`'s to write — never
   `config`'s, because staging into a committed file from an unattended
   pre-flight run is exactly what this sub-action must never do (see
   [Hard rule 1](#hard-rules)), and this skill's own
@@ -611,6 +611,52 @@ Detect, then propose; never assume Git and never assume Subversion.
      With no GitHub repository, leave it `TODO` and say which skills then do not apply ([list](../../../../tools/vcs/README.md#skills-that-assume-github)).
 4. **A declined proposal** leaves `vcs_backend` `TODO`; say that the skills then treat the project as Git.
 
+## Step 3h — Container gateway sockets (optional)
+
+Run this only when the operator has installed the [container gateway](../../../../tools/container-gateway/README.md) (isolated setup Step L: `~/.claude/scripts/container-gateway-hook.sh` exists).
+Otherwise skip it and say nothing.
+A sandboxed `podman` / `docker` reaches the gateway only when the per-machine `.claude/settings.local.json` points `CONTAINER_HOST` / `DOCKER_HOST` at the gateway's sockets and lists both in `sandbox.network.allowUnixSockets`.
+
+Every command below runs the operator's own gateway install, never a copy under `<framework>` or the repository: the write leaves the sandbox, and code the agent can edit must never run outside it.
+
+1. **Gate on git ignoring the file.** Run `git -C <repo-root> check-ignore -q .claude/settings.local.json`.
+   Continue only on exit 0.
+   Exit 1 means the file would be committable, and any other exit (128 outside a git repository) means it cannot be told: skip this step and say why, so nothing this run writes can reach a commit.
+2. **Find the vetted gateway.** Ask the hook which interpreter and source it would run, without running anything:
+
+   ```bash
+   CLAUDE_PROJECT_DIR=<repo-root> MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 ~/.claude/scripts/container-gateway-hook.sh stop </dev/null
+   ```
+
+   It prints one line, `<python> -I -S <src> container_gateway stop --project=<repo-root>`, after the same checks it applies at every session start: an interpreter and a source tree outside every sandbox-writable root.
+   No line means the hook found no usable install: skip this step and point at isolated setup Step L.
+3. **Compute the block** with that interpreter and source, from the gateway's own run directory, so the paths are the ones it binds:
+
+   ```bash
+   <python> -I -S -c 'import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)' <src> settings --project <repo-root>
+   ```
+
+   It prints `proposal.env` and `proposal.sandbox` and writes nothing.
+   It takes no `--run-dir`: the run directory is always the gateway's default, and one `serve` would refuse (a symlinked or foreign-owned component, or no default at all) exits 2.
+   An install too old to know `settings` fails with a usage error: skip this step and point at `setup-isolated-setup-update`.
+4. **Put one item in Step 3's batch** showing both `env` values and both socket paths, and apply it only on the user's yes, with the same two paths:
+
+   ```bash
+   <python> -I -S -c 'import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)' <src> settings --project <repo-root> --apply <repo-root>/.claude/settings.local.json
+   ```
+
+   The merge is additive: it adds the two `env` keys and two socket entries, keeps everything else, takes a lock, re-reads the file under it, and refuses to replace it if the file changed meanwhile, in place or by a rename.
+   The file is outside the sandbox's writable set, so this one command needs the operator to approve running it outside the sandbox; never retry it a different way.
+   The approval shows the exact command: say that `<python>` and `<src>` are the paths step 2 printed, and that the sockets are the gateway's own run directory, never a daemon socket.
+5. **Read the result.**
+   - `status: unchanged` — the block was already there; say so.
+   - Exit `3` — an `env` key already holds a different value. Name the key and both values; the operator's value stays, and changing it is their call.
+     When `status` is `written`, the other `env` key and the sockets in `added_sockets` were still added: list them as written.
+   - Exit `2` — the file is not mergeable JSON, is a symlink or sits under a symlinked directory, changed during the merge, or the run directory was refused. Nothing was written; show the error.
+6. **On Linux** the socket list is ignored, and a sandboxed CLI reaches the gateway only with `sandbox.network.allowAllUnixSockets: true` plus `denyRead` entries for the host's daemon sockets.
+   That widening is the operator's decision: point at [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets) and never write it.
+   Never add the real daemon socket to `allowUnixSockets` under any name.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -627,6 +673,9 @@ Tell the user, in this order:
    add one line that `contributor-calibrate` can derive the contributor
    thresholds from past nominations — state it, do not ask.
    List any delegate Step 3f wrote, with its Magpie skill and mode.
+   When Step 3h wrote the gateway block, name `.claude/settings.local.json`
+   and the two `env` keys and sockets it added, and say the next session
+   picks them up.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the personal layer's `reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just
@@ -634,7 +683,7 @@ Tell the user, in this order:
    an already-adopted project, only the skill(s) whose missing
    configuration **this run actually wrote**, each recorded as an
    `acknowledged.skills` entry instead, and that the committed stamp is
-   untouched — `adopt`, `reconcile`, or `upgrade` write that. A skill
+   untouched — `adopt`, `reconcile`, or `update` write that. A skill
    that was already fully configured before this run gets nothing here
    on an adopted project, even though it is in scope — say so plainly
    rather than letting silence read as an oversight. Say plainly, too,
@@ -675,9 +724,13 @@ will see.
    user's home (never inside a repository), only the ones the user ticked,
    and never on a run entered from a skill's pre-flight — Step 3e's
    personal `tools.mail_create` lines in `user.md`, written only after the
-   user saw them; and Step 3a's `.magpie-tracker.json`, written only into
+   user saw them; Step 3a's `.magpie-tracker.json`, written only into
    the tracker folder the user named, left uncommitted, and only after the
-   user answered the access question.
+   user answered the access question; and Step 3h's container-gateway block
+   in `.claude/settings.local.json`, written only when git ignores that
+   file, only through the gateway's locked additive merge run from the
+   operator's own gateway install (never `<framework>`), and only after
+   the user saw the block and said yes.
 2. **Never fabricate a value.** A value you cannot derive is a question
    or a `TODO`, never a plausible-looking guess. A wrong `upstream_repo`
    sends a skill at the wrong repository.

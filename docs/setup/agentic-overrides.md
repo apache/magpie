@@ -5,7 +5,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Agentic overrides — modifying framework workflows in an adopter](#agentic-overrides--modifying-framework-workflows-in-an-adopter)
+- [Project rules](#project-rules)
   - [Two directories, one lookup chain — for overrides *and* configuration](#two-directories-one-lookup-chain--for-overrides-and-configuration)
     - [`.gitignore`, and the case where there is none](#gitignore-and-the-case-where-there-is-none)
   - [What an override file may contain](#what-an-override-file-may-contain)
@@ -37,7 +37,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
-# Agentic overrides — modifying framework workflows in an adopter
+<a id="agentic-overrides--modifying-framework-workflows-in-an-adopter"></a>
+# Project rules
 
 The framework's skills are project-agnostic by design. An
 adopter project that needs to modify a framework workflow's
@@ -456,7 +457,7 @@ A framework agent NEVER:
 - Modifies the snapshot under
   `<adopter-repo>/.apache-magpie/`. The snapshot is a build
   artefact — every modification gets blown away on the next
-  `/magpie-setup:setup upgrade`. Local mods go into
+  `/magpie-setup:setup update`. Local mods go into
   the personal layer (`<git-common-dir>/apache-magpie/` or
   `.apache-magpie-local/`) or `.apache-magpie-overrides/` (shared).
 - Commits or pushes personal-layer content. The
@@ -478,7 +479,7 @@ A framework agent NEVER:
 
 ## Reconciliation on framework upgrade
 
-When `/magpie-setup upgrade` refreshes the snapshot, it
+When `/magpie-setup update` refreshes the snapshot, it
 walks every override file and surfaces:
 
 - Overrides whose target framework skill no longer exists
@@ -507,13 +508,13 @@ project with no stamp yet, or whose overrides and configuration need
 a full pass, gets it from `/magpie-setup:setup reconcile`, the on-demand
 sweep available to any adopted or configured project regardless of
 method. Snapshot adopters (`git-branch`, `git-tag`, `svn-zip`)
-additionally reach the walk above through `/magpie-setup upgrade`,
+additionally reach the walk above through `/magpie-setup update`,
 which refreshes the snapshot and then performs it — a second,
 method-specific route to the same checks, not a different mechanism.
 Marketplace adopters have no snapshot to refresh, so the always-on
 stamp check and `reconcile` are the whole story for them; for
-snapshot adopters the two run alongside `upgrade`, catching drift
-between refreshes that nobody has run `upgrade` to surface yet.
+snapshot adopters the two run alongside `update`, catching drift
+between refreshes that nobody has run `update` to surface yet.
 
 ## Upstreaming an override
 
@@ -524,7 +525,7 @@ adopters), the right move is **a PR against the framework**:
 1. Read the latest `apache/magpie` `main`.
 2. Implement the change in the framework skill's source.
 3. Open the PR.
-4. Once merged, the next `/magpie-setup:setup upgrade` in the
+4. Once merged, the next `/magpie-setup:setup update` in the
    adopter pulls the framework change.
 5. The adopter's now-redundant override gets deleted.
 

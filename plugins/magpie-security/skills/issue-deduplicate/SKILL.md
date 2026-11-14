@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6264
+measured_tokens: 5851
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -87,7 +87,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -161,27 +161,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 Read `tracker.platform` from `<project-config>/project.md` before the first tracker operation; unset or `TODO` means `github`.
 With `github`, every recipe below runs as written.
-With `local-files` or `jira`, never run a `gh` command against `<tracker>`:
-look the command up in the [skill-command → vetted-operation table](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations)
-and run that vetted operation instead — `vetted-op-read` for reads, `vetted-op-tracker` for the rollup, body-field and publish operations, `vetted-op` for the other writes.
-Vetted-ops translates it for the configured backend; issue numbers become the backend's IDs (`SEC-0012`, `FOOSEC-12`), and the returned `url` is the link.
-Operations on `<upstream>` (PRs, code search) do not change.
-A refusal — the backend's confidentiality guard, or an operation the backend does not have — stops the step: report it, never route around it.
-
-**Pre-flight on another backend.** The GitHub checks in Step 0 — `gh api repos/<tracker>` access, the collaborator roster, project-board ids — do not apply.
-Run the `tracker-doctor` vetted operation instead and stop on any failing check; take the security-team roster from `<project-config>/release-trains.md`, and treat the project board as disabled.
-
-**CVE JSON on another backend.** `generate-cve-json <N> --attach` reads and attaches through GitHub, so do not run it.
-Instead: save the body with the `issue-body` vetted operation (`vetted-op-read … --save cve-body issue-body <id>`),
-run `generate-cve-json --stdin --title "<issue title>" --output <workspace>/<CVE-ID>.json` on that saved file —
-adding `--review` when the issue's labels (from `issue-view`) include the release-vote label or a forward-state label the generator's config names, since `--stdin` cannot see labels and would otherwise produce DRAFT —
-and attach the result with the `issue-attach` vetted operation (`<id> <workspace>/<CVE-ID>.json <CVE-ID>.json`).
-
-**Publish local tracker changes before ending.** With `local-files`, nothing reaches the team until it is committed.
-If this run wrote to the tracker, run the `tracker-pending` vetted operation as the last step, show the changed files and any unpushed commits,
-draft a commit message naming the trackers and the action, ending with the project's commit-attribution trailer, and ask.
-Only on the user's confirmation run `tracker-publish` with that message file
-(Git: commit the tracker folder and push; SVN: commit, which publishes).
+With `local-files` or `jira`, read [tracker-backend.md](tracker-backend.md) before the first tracker operation and follow it: it replaces the recipes below, the Step 0 GitHub checks and the CVE JSON commands, and adds a closing publish step.
 
 <!-- END MAGPIE BLOCK: tracker-backend -->
 
@@ -209,7 +189,7 @@ does **not** auto-pick. Practical guidance to offer when asked:
   the rich content survives in the "Second independent report" section of Step 3.
 - If **both** trackers carry an allocated CVE ID, keep the one whose record is further along the state machine
   (`publish-ready` over `review-ready`, `review-ready` over `allocated`).
-  The Step 5 apply loop then retracts the duplicate's CVE record via `<cve-tool>`'s `retract(cve_id, reason)` per
+  The Step 5 apply loop then retracts the duplicate's CVE record with `cve-tool retract` (the contract's `retract(cve_id, reason)`) per
   [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#retractcve_id-reason-to-ok).
   **Refuse the merge** if either CVE record is already `public`:
   folding a shipped advisory into another tracker is an errata announcement (Step 16 of the handling process), not a dedupe.
@@ -264,7 +244,7 @@ gh issue view <drop>  --repo <tracker> --json number,title,state,body,labels,mil
 `comments` stays in the field set: Step 2's CVE-JSON-attachment check reads it, and so does the legacy-bot-comment detection behind Step 5's fold-legacy sub-step; `createdAt` orders the mailing threads in Step 3, earliest report first.
 
 Write `{tracker, scope_labels, keep, drop}` — each side `{number, state, labels, cve_link, cve_state}`, the *CVE tool link* read from its body — and run `<sm> classify`.
-Its `verdict` is `proceed`, `blocked` (show every `blockers` entry) or `probe` (run `<cve-tool>`'s `fetch_current_state` for each `probe` CVE, pass the state as `cve_state`, and classify again).
+Its `verdict` is `proceed`, `blocked` (show every `blockers` entry) or `probe` (run `cve-tool fetch --cve-id <CVE-ID> --state-only` for each `probe` CVE, pass the state it prints as `cve_state`, and classify again).
 It checks:
 
 - Both trackers are in state `open`.
@@ -330,11 +310,12 @@ it refuses while a blocker is open. Run its `steps` in order, writing each `writ
 3. the same on the dropped tracker with the `Merge (dropped)` entry;
 4. the `duplicate` label on the dropped tracker;
 5. the close of the dropped tracker as `not planned` (GitHub's `duplicate` reason is not exposed by `gh` on all versions; with the label it carries the same signal) — re-check that it is the dropped side;
-6. the kept tracker's CVE JSON — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md) — and, when it has a CVE, `<cve-tool>`'s `push_update(cve_id, fields)` per
+6. the kept tracker's CVE JSON — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md) — and, when it has a CVE, `uv run --project <framework>/tools/cve-tool cve-tool push --cve-id <CVE-ID> --json-file <path>` (the contract's `push_update(cve_id, fields)`) per
    [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#push_updatecve_id-fields-state_transitionnone-to-diff) with no state transition, so the merged credits and references land on the record;
-7. only when both trackers carried a CVE, `<cve-tool>`'s `retract(cve_id, reason)` per
+7. only when both trackers carried a CVE, `cve-tool retract --cve-id <CVE-ID>` (the contract's `retract(cve_id, reason)`) per
    [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#retractcve_id-reason-to-ok) for the dropped side's —
    governance-gated (`governance.cve_allocation_gate`), so surface the gate before firing; the contract refuses a `public` record, which Step 1 already blocked.
+   An adapter without `retract` exits `22` with a hint (for Vulnogram: reject the record in its UI); pass that ask to the user and record it in the recap.
 
 The rollup and body-field writes run through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks);
 without it, the same operations are `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`,

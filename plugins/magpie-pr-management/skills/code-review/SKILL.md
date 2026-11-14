@@ -22,9 +22,9 @@ when_to_use: |
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:97ef701d93960492
+surface_hash: sha256:871da2459ce53192
 license: Apache-2.0
-measured_tokens: 4119
+measured_tokens: 4142
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -82,7 +82,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -260,7 +260,7 @@ last update with PRs whose real CI never ran last.
 Selectors (`pr:<N>`, `area:<LBL>`, `collab:true|false`, `team:<NAME>`, `ready`,
 `*-only` / `no-*`, `since:<window>`, `max:<N>`, `dry-run`, `inline:off`,
 `with-reviewers:<list>`, `with-reviewer:<command>`, `no-adversarial`, `repo:<owner>/<name>`,
-`lookahead:<N>`, `no-prefetch`) compose by AND; `pr:<N>` overrides the rest. `code-review
+`lookahead:<N>`, `no-prefetch`) compose by AND; `pr:<N>` (or a list, `pr:<N>,<M>` / `pr:<N>-<M>`) overrides the rest. `code-review
 resolve <args…>` parses them; the full reference with examples is
 [`invocation.md`](invocation.md). If the resolved queue is empty, say so and exit — never
 widen it silently.

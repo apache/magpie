@@ -18,7 +18,7 @@
 
 - `api` (a governance-authorised user, pre-flight `api`): one proposal to
   allocate through the CVE tool's API, with the form URL as the fallback and
-  the one `vulnogram-api-allocate` command to run on a yes.
+  the one `cve-tool allocate` command to run on a yes.
 - `recipe` (authorised, any other pre-flight outcome): open the allocation
   URL, paste the title, submit, paste the ID back.
 - `relay` (not authorised): a terse request for an authorised member — the
@@ -33,14 +33,11 @@ and is shell-quoted in the API command, since it is reporter-influenced.
 from __future__ import annotations
 
 import re
-import shlex
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from security_management.cve_allocate.gate import OAUTH_API
-from security_management.shared import refs
+from security_management.shared import cve_tool, refs
 from security_management.shared.rollup import one_line
-from security_management.shell import w
 
 PASTE_BACK = "Paste the allocated `CVE-YYYY-NNNNN` back here when done."
 _HANDLE = re.compile(r"^@?([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))$")
@@ -85,15 +82,14 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         pmc = one_line(data.get("pmc"))
         if not pmc:
             return {"ok": False, "refused": "the API path needs cna_private_owner (the PMC) from project.md"}
-        oauth_api = str(data.get("oauth_api") or OAUTH_API)
         path = "api"
         text = (
-            f"**Allocate a CVE for {link}** through the Vulnogram API, for `{pmc}`, with this title:\n\n"
+            f"**Allocate a CVE for {link}** through the CVE tool's API, for `{pmc}`, with this title:\n\n"
             f"{block}\n\n"
             "This reserves a CVE ID immediately and cannot be undone.\n"
             f"(Fallback, if the API path fails: the form at {url}.)\n"
         )
-        command = f"uv run --project {w(oauth_api)} vulnogram-api-allocate --pmc {w(pmc)} --title {shlex.quote(title)}"
+        command = cve_tool.command(data, "allocate", "--pmc", pmc, "--title", title)
     elif member:
         path = "recipe"
         indented = "\n".join("   " + line for line in block.split("\n"))

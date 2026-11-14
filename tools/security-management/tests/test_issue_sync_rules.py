@@ -373,7 +373,7 @@ def test_case_1_skip_5a_skipped_invalid(capsys, tmp_path):
 def test_case_2_expired_session_fix_released(capsys, tmp_path):
     out = decide(capsys, tmp_path, session="expired", record_state="DRAFT", fix_released_transition=True)
     assert (out["action"], out["handoff_variant"], out["recap_blocker"]) == ("hand-off", "manual-paste", True)
-    assert "vulnogram-api-setup" in out["reason"]
+    assert "cve-tool setup --pmc" in out["reason"]
 
 
 def test_case_3_title_gate_ghsa_prefix(capsys, tmp_path):
@@ -394,11 +394,14 @@ def test_case_4_private_scanner_credit(capsys, tmp_path):
 
 def test_case_5_clean_push_fix_released(capsys, tmp_path):
     base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True}
-    assert decide(capsys, tmp_path, **base)["next"].endswith(
-        "--json-file '<scratch>/cve-CVE-2026-41107.json'"
+    assert decide(capsys, tmp_path, **base)["next"] == (
+        "uv run --project '<framework>/tools/cve-tool' cve-tool push"
+        " --cve-id CVE-2026-41107 --json-file '<scratch>/cve-CVE-2026-41107.json'"
     )
     pending = decide(capsys, tmp_path, **base, push_exit=0)
-    assert "vulnogram-api-record-fetch --cve-id CVE-2026-41107" in pending["next"]
+    assert pending["next"] == (
+        "uv run --project '<framework>/tools/cve-tool' cve-tool fetch --cve-id CVE-2026-41107 --state-only"
+    )
     out = decide(capsys, tmp_path, **base, push_exit=0, fetched_state="REVIEW")
     assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
         "push",
@@ -406,6 +409,18 @@ def test_case_5_clean_push_fix_released(capsys, tmp_path):
         "allocated->review-ready",
         False,
     )
+
+
+@pytest.mark.parametrize("fetched", ["REVIEW", "review-ready"])
+def test_verify_reads_the_generic_state_cve_tool_fetch_prints(capsys, tmp_path, fetched):
+    base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True, "push_exit": 0}
+    out = decide(capsys, tmp_path, **base, fetched_state=fetched)
+    assert (out["action"], out["state_advance"]) == ("push", "allocated->review-ready")
+
+
+def test_cve_tool_project_overrides_the_command_path(capsys, tmp_path):
+    out = decide(capsys, tmp_path, cve_tool_project="/opt/magpie/tools/cve-tool")
+    assert out["next"] == "uv run --project /opt/magpie/tools/cve-tool cve-tool check"
 
 
 def test_case_6_public_record_advisory_closeout(capsys, tmp_path):
@@ -460,6 +475,38 @@ def test_an_unjudged_gate_is_asked_for_and_a_failed_push_hands_off(capsys, tmp_p
         capsys, tmp_path, session="valid", record_state="DRAFT", push_exit=0, fetched_state="DRAFT"
     )
     assert (stuck["action"], stuck["state_advance"], stuck["recap_blocker"]) == ("push", None, True)
+
+
+@pytest.mark.parametrize("fetched", ["unknown", "failed"])
+def test_a_failed_state_fetch_posts_nothing_on_the_hand_off_front(capsys, tmp_path, fetched):
+    out = decide(capsys, tmp_path, session="valid", record_state="DRAFT", push_exit=0, fetched_state=fetched)
+    assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
+        "push",
+        None,
+        None,
+        True,
+    )
+    assert "fill-fields" not in out["reason"]
+    assert "next sync" in out["reason"]
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Stored XSS in the task instance notes view in Apache Airflow 2.10.5",
+        "Stored XSS in the task instance notes view (Airflow 2.10.5)",
+        "Stored XSS in the task instance notes view in Airflow 2.10.5",
+    ],
+)
+def test_a_version_noise_suffix_fails_the_title_gate(capsys, tmp_path, title):
+    out = decide(capsys, tmp_path, record=record(title=title))
+    assert (out["action"], out["gate_failed"]) == ("block", "title_strip_cascade")
+
+
+def test_a_short_name_with_no_version_stays_in_the_title(capsys, tmp_path):
+    title = "Stored XSS in the task instance notes view in Airflow"
+    out = decide(capsys, tmp_path, record=record(title=title), session="expired")
+    assert out["action"] == "hand-off"
 
 
 def test_a_malformed_cve_id_never_reaches_a_command(capsys, tmp_path):

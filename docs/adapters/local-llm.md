@@ -22,6 +22,7 @@
     - [Floor 2: 8B–14B bounded class](#floor-2-8b14b-bounded-class)
   - [Sovereign and air-gapped operations](#sovereign-and-air-gapped-operations)
   - [Clean-environment wrapper and isolation](#clean-environment-wrapper-and-isolation)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [See also](#see-also)
 
@@ -241,6 +242,11 @@ agent-iso opencode --model llama3.3:70b
 ```
 
 The `agent-iso` launcher strips unapproved environment variables and enforces isolated execution baselines.
+
+## Upgrade Magpie
+
+Upgrading follows the frontend you drive the model with: [OpenCode](opencode.md#upgrade-magpie), [Aider](aider.md#upgrade-magpie) or [Goose](goose.md#upgrade-magpie).
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

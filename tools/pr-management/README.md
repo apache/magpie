@@ -14,12 +14,13 @@
     - [`triage fold` — splice the note into the PR body](#triage-fold--splice-the-note-into-the-pr-body)
     - [`triage guard` — the pre-mutation checks](#triage-guard--the-pre-mutation-checks)
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
+    - [Session action history and recovery](#session-action-history-and-recovery)
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
-    - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
+    - [`quick-merge screen`: pr-management-merge-candidates](#quick-merge-screen-pr-management-merge-candidates)
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
     - [`stack-review` — pr-management-stack-review](#stack-review--pr-management-stack-review)
     - [`code-review` — pr-management-code-review](#code-review--pr-management-code-review)
-    - [`mentor` — pr-management-mentor](#mentor--pr-management-mentor)
+    - [`mentor`: pr-management-thread-mentor](#mentor-pr-management-thread-mentor)
     - [`reviewer-routing` — reviewer-routing](#reviewer-routing--reviewer-routing)
     - [`pre-first-pr` — pre-first-pr-check](#pre-first-pr--pre-first-pr-check)
     - [`config`](#config)
@@ -142,6 +143,26 @@ uv run --project <framework>/tools/pr-management pr-management triage session su
 `record` writes the session cache `triage classify --session` reads: a PR recorded terminal with an unchanged head is suppressed on the next classification.
 `summary` prints the Step 6 counts and a ready-to-print `text` block.
 
+### Session action history and recovery
+
+`triage session checkpoint --session <file> --repo <upstream> --viewer <viewer> --event <event.json>` records action intent and individual operation receipts.
+The event phases are `begin`, `prepare`, `result`, `finish` and `recover`.
+`triage session history` with the same session/repo/viewer lists ordered action metadata without note bodies.
+`triage session undo-plan --session <file> --repo <upstream> --viewer <viewer> --action-id <id> --live <saved-pr.json> [--runs <saved-runs.json>]` previews recovery without executing commands.
+All three commands are offline; the skill owns verified GitHub reads, confirmation, write locking and execution.
+The complete event schemas, native read shapes and execution protocol are in [the triage recovery contract](../../plugins/magpie-pr-management/skills/pr-triage/recovery.md).
+
+The new `action_log` lives alongside the existing `prs` cache in the session JSON.
+Intent is durable before each operation, including actions with no note and compound actions that fail halfway through.
+Recovery checks exact comment IDs and actor/version, preserves author text outside the managed block, and restores only changed label/assignee memberships and PR state.
+Prepared/unknown outcomes block recovery; irreversible operations remain explicitly identified.
+Recovery progress is recorded so reopening the same session or repeating a request does not repeat known successful writes.
+Old cache entries remain viewable but are never treated as undo receipts.
+
+`triage classify --session <file> --revisit <N>` selects one recorded PR and bypasses only its session suppression.
+Refresh that PR's saved reads first; the regular classifier, pre-filters and guards still apply.
+The read-only command does not remove history or repeat an action.
+
 ### `stats build` — the pr-management-stats dashboard
 
 The skill saves the reads, from the [pr-management-stats reads](../vetted-ops/README.md#the-pr-management-stats-reads):
@@ -171,7 +192,9 @@ After a first `gh gist create`, `pr-management stats record-gist <id>` stores th
 CODEOWNERS is read from the adopter checkout (`.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`).
 `--fetch-with-gh [--repo owner/name]` fetches through `gh` directly instead of the saved files, for a CI job outside the sandbox; it uses the search index for closed PRs.
 
-### `quick-merge screen` — pr-management-quick-merge
+<a id="quick-merge-screen--pr-management-quick-merge"></a>
+
+### `quick-merge screen`: pr-management-merge-candidates
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management quick-merge screen --saved-dir <workspace>/saved [--tier A|B] [--max-churn N] [--pr N] [--session <file>]
@@ -222,7 +245,7 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 
 | Subcommand | Prints |
 |---|---|
-| `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector) |
+| `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector), and `not_open`: PRs a `pr:` list named that are not open |
 | `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result, the unresolved threads GitHub marks outdated (`outdated_threads`) |
 | `slop-outcome` | the slop outcome once the agent has judged H1, H5 and S2 |
 | `deps` | the dependency-constraint ledger: `broken`, `compatible` or `unknown` |
@@ -238,7 +261,9 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 When a saved read is missing, a subcommand returns `needs: [{op, params, save, why}]`; the skill runs each bare `vetted-op-read --save` and re-runs it.
 The agent keeps reading the diff, writing findings and judging severity.
 
-### `mentor` — pr-management-mentor
+<a id="mentor--pr-management-mentor"></a>
+
+### `mentor`: pr-management-thread-mentor
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management mentor config

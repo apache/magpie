@@ -7,6 +7,19 @@
     "field": "has_security_model_quote",
     "type": "field_true"
   },
+  "has_kept_tracker_first": {
+    "field": "comment_body",
+    "type": "regex",
+    "flags": "im",
+    "pattern": "(?<![\\w:/-])/?(?:magpie-security:)?(?:security-)?(?:issue-)?(?:dedupe|deduplicate)\\s+#?212\\s+#?250(?=[ \\t]*(?:`|$))"
+  },
+  "has_no_reversed_dedupe_command": {
+    "field": "comment_body",
+    "type": "regex",
+    "negate": true,
+    "flags": "i",
+    "pattern": "(?<![\\w:/-])/?(?:magpie-security:)?(?:security-)?(?:issue-)?(?:dedupe|deduplicate)\\s+#?250\\s+#?212(?![\\w/#-])"
+  },
   "mention_handles": {
     "field": "mention_handles",
     "type": "regex",

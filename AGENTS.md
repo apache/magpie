@@ -503,7 +503,7 @@ snapshot that [`setup`](skills/setup/SKILL.md) manages; the project's
 pinned version is the committed `.apache-magpie.lock`. Every skill
 compares the per-machine `.apache-magpie.local.lock` against the
 committed pin at the top of its run and, on drift, proposes
-`/magpie-setup upgrade`. There is no `git submodule update` step — the
+`/magpie-setup update`. There is no `git submodule update` step — the
 snapshot mechanism replaces it.
 
 **Run the agent in the credential-isolation setup.** The skills operate
@@ -635,7 +635,8 @@ to a home-dir path and update the tool to read from there.
 - **Spec-sync pre-check before pushing a functionality PR.** The specs in
   [`tools/spec-loop/specs/`](tools/spec-loop/specs/) are the source of truth
   and must not fall behind the code. Before pushing a PR that ships or changes
-  a skill, tool, or mode — **and before pushing a rebase of one onto a `main`
+  a skill, tool, or mode, **before every dev-version bump**
+  ([Bumping the dev version](CONTRIBUTING.md#bumping-the-dev-version)) — **and before pushing a rebase of one onto a `main`
   that has moved** — confirm `tools/spec-loop/.last-sync` is at (or near) the
   current `main` tip and that the affected specs reflect what actually
   shipped. If they have drifted, run the sync
@@ -1052,6 +1053,11 @@ change). Use em dashes sparingly; do not add emojis.
 Format prose across the repository (skills, docs, canned responses) using **semantic line breaks** ([SemBr](https://sembr.org)).
 Break lines at natural linguistic boundaries — specifically one sentence per line (or at clause boundaries when helpful).
 Because English is the programming language of Magpie skills, single-sentence changes produce single-line diffs rather than paragraph re-wraps.
+
+**Every skill family has the same documentation pages.**
+At the least, `docs/<family>/README.md` (the overview, with an `## Install & first runs` section linking the install page) and `docs/<family>/install.md` (titled `# Install & first runs`, with the family's `/plugin install` line, then `## Before the first run` and `## Try these first`).
+A family may add further pages, never fewer, so every family unfolds the same way in the site's sidebar.
+`tools/dev/check-doc-sync.py` enforces this on commit.
 
 The full editorial playbook — reporter-facing tone, email brevity, Gmail threading, ASF-security-relay drafting, the "point to the Security Model, don't re-explain it" rule, dependency-claim phrasing, semantic line breaks, and the CVE / tracker-issue / PR link formats — lives in [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md).
 **Load that file before drafting or editing any reporter-facing or

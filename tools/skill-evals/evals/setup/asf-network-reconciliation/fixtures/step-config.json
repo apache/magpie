@@ -1,0 +1,8 @@
+{
+  "skill_md": "skills/setup/update.md",
+  "step_heading": "### Reconcile the local agent settings",
+  "also_include": [
+    "skills/setup/worktree-init.md",
+    "skills/setup/update.md"
+  ]
+}

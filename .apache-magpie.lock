@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202610280340
-  at:      2026-10-29
+  version: 0.9.0.dev202611132325
+  at:      2026-11-13
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -16,45 +16,70 @@ reconciled:
     audit-report:               sha256:ecab5c5c3e52d580
     backlog-stats:              sha256:0f124437a9fa54f9
     calibrate:                  sha256:9c623c35a58589e5
-    candidate-screen:           sha256:a1767d466ee963d1
-    code-review:                sha256:0e09164d15647a70
+    candidate-screen:           sha256:0d00099fe9910caa
+    ci-runner-audit:            sha256:c6da72e64ac4808d
+    code-review:                sha256:871da2459ce53192
     committer-onboarding:       sha256:fc0108bae9d7b687
     contributor-to-committer:   sha256:bdf92c88a304ddea
     deduplicate:                sha256:10a3cb1b8a2892e2
-    dependency-audit:           sha256:19ba62ec34a55604
+    dependency-license-audit:   sha256:9723ef52fb16204e
+    dependency-vulnerability-audit: sha256:19ba62ec34a55604
     fix-workflow:               sha256:cdd7487f53514882
     flaky-test-triage:          sha256:eda3c3891897f08d
     good-first-issue-author:    sha256:ac2d0fda09c67231
     good-first-issue-sweep:     sha256:591ae352325ca83d
     identity-map:               sha256:78eccfcead182fca
+    isolated-setup-doctor:      sha256:f8a5db3da24024cb
+    isolated-setup-install:     sha256:cb0c81b693d9aa76
+    isolated-setup-update:      sha256:1f327e069312dad2
+    isolated-setup-verify:      sha256:4866c98daeb1e5c4
     issue-fix:                  sha256:550eabe3b9bb3689
     issue-import-from-scan:     sha256:7adfbe73f79606b1
     issue-import-via-forwarder: sha256:43894008501eb56d
     keys-sync:                  sha256:61e10c986bb0d3ec
     license-compliance-audit:   sha256:b40b2993e5f18f54
-    mentor:                     sha256:bdf8343d503d01ef
+    list-skills:                sha256:5b9c9751b398f81b
+    merge-candidates:           sha256:99ac70a7b7f1228c
+    model-prepare:              sha256:db4f1e33c6b3fab3
+    model-update:               sha256:5f058bd378b65f45
+    model-verify:               sha256:03ecb6b8514583b2
+    multi-agent-review:         sha256:d1b0ba75f03a00c1
     newcomer-issue-explainer:   sha256:8cfe453a3113abe2
-    nomination:                 sha256:d088479a32dcc0cf
+    nomination:                 sha256:f216f3944b7d94c2
     onboarding-concierge:       sha256:4105a6571bcb70c2
+    optimize-skill:             sha256:be9968c266788028
+    override-upstream:          sha256:6aa9dd2488726450
     pr-stale-sweep:             sha256:086e859fb8751476
     pr-triage:                  sha256:54dc4ba1be7b36d4
     pre-first-pr-check:         sha256:4219bd5fdce4e81d
     prepare:                    sha256:9380580d6421d8b4
     privacy-llm:                sha256:49a65c36a0dc49ab
     promote:                    sha256:ecfb43e47fa5905e
-    quick-merge:                sha256:99ac70a7b7f1228c
     rc-cut:                     sha256:60623e456e72bbf6
     reassess:                   sha256:cb023dff6e95a57a
     reassess-stats:             sha256:44c7826660a3ae71
+    report-framework-issue:     sha256:f14640fa1249c172
     reproducer:                 sha256:85440f7009f84de6
     reviewer-routing:           sha256:159e840396b7a667
+    self-review:                sha256:ea0a2e29bb2aa0e0
     sentiment:                  sha256:c325db1d99634a51
+    setup:                      sha256:7915f16976882871
+    shared-config-sync:         sha256:bc445ef323563cd8
+    skill-reconciler:           sha256:964dbda42cb402ce
     stack-review:               sha256:f0872f2cf794b6d2
     stale-sweep:                sha256:65673690910c37f0
     stats:                      sha256:9e5dedfbf2f9f716
+    status:                     sha256:85dfb8b48739fc11
+    submit-to-oss-scan:         sha256:cefbd533dc1009f2
+    thread-mentor:              sha256:bdf8343d503d01ef
     triage:                     sha256:fb90bdc45aec5f8a
-    verify-rc:                  sha256:68f688faf6363ba7
+    upgrade:                    sha256:dca13f574cb22384
+    upstream-fix:               sha256:ac2752440081dd6c
+    verify-rc:                  sha256:594e276d2b0a7906
     vote-draft:                 sha256:6d70a52ead840ca2
     vote-tally:                 sha256:34592bfacb7cf955
     welcome:                    sha256:a61c6575d69da08a
+    welcome-guide:              sha256:3dafaec43fc7bd00
+    workflow-optimization:      sha256:bbfe83b236640f9e
     workflow-security-audit:    sha256:e50eafff464d131a
+    write-skill:                sha256:31626428a2545bce

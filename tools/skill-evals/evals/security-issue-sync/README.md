@@ -19,6 +19,8 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | D0 | Dashboard mode is ASF-only | 3 | An ASF project proceeds; an `independent` project and an unset (`TODO`) organization stop without asking for a dashboard session |
 | D4 | Dashboard-mode proposals | 3 | A dashboard-triage finding beside an untracked report; two findings for the ASF Security team; an untriaged case that may be a standing label |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
+| Pointer routing | `signals-to-actions.md` alone, no sibling text | 10 | The agent finds `release-manager-comments.md` and `post-advisory-records.md` from the pointers alone, including from an existing marker comment with no transition and on a tracker whose next label is blocked, and opens neither on a routine pass; the output spec names no file, so removing a pointer fails the case |
+| Pointer routing (gather) | Step 1 alone, no sibling text | 7 | The agent finds `cve-record-comments.md`, `closed-tracker-check.md` and `release-vote-detection.md` from their conditions alone, and opens none for an open tracker with no CVE or a closed one without `announced`; the output spec names no file, so removing a pointer fails the case |
 
 ## Hard rules exercised
 
@@ -47,3 +49,14 @@ a CVE-affecting tracker is walked individually in ascending order, a reporter CV
 a bare CVE ID is flagged on markdown surfaces and the CVE-tool URL in a reporter email, the first layer declaring a CC key wins (an explicit null disables the fallback),
 an admin-only advisory change at the collaborator tier (or after a `403`, never retried) is a draft relay and never a tracker comment,
 the push is skipped, blocked at the first failing gate or handed off on an expired or missing session, and no bare `#NNN`.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-13 | `c22d5769` (feat/cve-tool-interface) | `claude-sonnet-5-5` | 10 | `step-2b-proposed-changes/case-2-milestone-missing-create` failed 1 of 2; `step-2b-proposed-changes/case-5-pre-announce-distributors` failed 2 of 2; `step-2b-proposed-changes/case-6-reporter-unresponsive` errored 1 of 2 | cross-model check for #1800; cross-model check for #1800 (re-run of infra failures) |

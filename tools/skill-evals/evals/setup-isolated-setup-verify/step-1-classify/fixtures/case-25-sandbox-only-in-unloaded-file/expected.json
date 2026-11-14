@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✗",
+      "evidence": "no loaded settings file sets sandbox.enabled: true; deny and ask come from .claude/settings.json, the sandbox block from ~/.claude/settings.json without an enabled key"
+    },
+    {
+      "n": 6,
+      "status": "✗",
+      "evidence": "no file of the walk sets sandbox.enabled; it is true only in ~/.claude/settings.local.json, which Claude Code does not load, so the session runs with no sandbox"
+    }
+  ]
+}

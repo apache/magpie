@@ -1233,7 +1233,7 @@ snapshot is shared by every worktree via the
 An adopter upgrading from a version that *did* install the copy
 should delete the leftover `.claude/hooks/agent-guard.py` and
 `.claude/hooks/guards.d/` (and drop the two `.gitignore` lines);
-[`upgrade`](upgrade.md#step-6b--sync-locally-installed-hooks-and-configuration)
+[`update`](update.md#step-6b--sync-locally-installed-hooks-and-configuration)
 reports them. An adopter who keeps their own non-framework guards
 outside the framework tree points `$MAGPIE_GUARD_DIRS` at them.
 
@@ -1679,7 +1679,7 @@ through it:
    asserts it is on `main` and not behind `origin/main`, and
    [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md)
    runs the live `git fetch` + prints the `git pull --ff-only`.
-   `setup verify` (check 8e) and `setup upgrade`
+   `setup verify` (check 8e) and `setup update`
    (Step 6e) re-surface the same prereq so an ASF adopter does not
    have to remember to run the isolated-setup skills separately.
 4. **Reflect the outcome** in the Step 9b `user.md` `tools` blocks
@@ -1746,10 +1746,10 @@ Same hands-off contract as 9c — **surface, do not run**:
    is then usable by **any** agent session on the machine, Magpie-related
    or not (see [`tools/gmail/oauth-draft/README.md` → MCP server](../../../../tools/gmail/oauth-draft/README.md#mcp-server)).
 3. **Reflect the outcome** in the recommended permission allow-list
-   (add `mcp__gmail-plaintext__create_draft` alongside the Gmail read
-   tools — see [`verify.md`](verify.md) check 8d). It only ever creates
-   **unsent** drafts the human reviews and sends, so allow-listing it
-   avoids a prompt on every draft.
+   (add `mcp__gmail-plaintext__check_auth` alongside the Gmail read
+   tools — see [`verify.md`](verify.md) check 8d). Leave
+   `mcp__gmail-plaintext__create_draft` off it: each draft keeps its
+   harness prompt, so the operator sees it being created.
 4. **Tell the operator what to do next**, as a numbered list:
    1. Run the `claude mcp add gmail-plaintext …` command above.
    2. Restart the agent, so the `mcp__gmail-plaintext__*` tools load.
@@ -1856,7 +1856,7 @@ the next `post-checkout` fires the helper automatically.
 
 Earlier versions of this hook also copied the agent-guard into each
 new worktree. They no longer need to, and an adopter still carrying
-that block should let [`upgrade`](upgrade.md#step-6b--sync-locally-installed-hooks-and-configuration)
+that block should let [`update`](update.md#step-6b--sync-locally-installed-hooks-and-configuration)
 re-install the current template: a hook that seeds a per-worktree
 copy keeps alive the wiring that breaks **every** `Bash` call in any
 worktree the copy did not reach.
@@ -1906,7 +1906,7 @@ framework before they hit a "skill not found" error:
    framework via a snapshot mechanism. The framework provides
    maintainer-facing skills (e.g. `pr-management-triage`,
    `pr-management-code-review`, `pr-management-stats`,
-   `pr-management-mentor`, and the `security-*` family)
+   `pr-management-thread-mentor`, and the `security-*` family)
    exposed as agent skills in agent harnesses such as Claude
    Code.
 
@@ -2264,7 +2264,7 @@ Four passes, in this order:
      this project + N worktrees".
 
    This pass is the same as
-   [`upgrade.md` Step 6c](upgrade.md#step-6c--propagate-to-every-worktree-run-worktree-init-unconditionally)'s
+   [`update.md` Step 6c](update.md#step-6c--propagate-to-every-worktree-run-worktree-init-unconditionally)'s
    trailing helper-invocation step — both rely on `worktree-init`
    having run first (pass 2 above) so the worktree list is the
    one to feed the helper.
@@ -2327,7 +2327,7 @@ a PR.
 
 - **Existing `<repo-root>/.apache-magpie/` and
   `<committed-lock>` are out of sync** → drift; suggest
-  `setup upgrade`.
+  `setup update`.
 - **Existing committed skill conflicts with a framework
   skill symlink** → stop, name the conflict, let the user
   resolve.

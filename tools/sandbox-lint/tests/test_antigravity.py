@@ -151,3 +151,25 @@ GUARD = 'python3 "/opt/magpie/tools/agent-guard/src/agent_guard/__init__.py" --a
 )
 def test_guard_registration(hooks: dict, ok: bool) -> None:
     assert (check_antigravity_hooks(hooks) == []) is ok
+
+
+def test_default_antigravity_profile_has_no_asf_network_grants() -> None:
+    """User-scope defaults must not grant ASF-only network access."""
+    asf_hosts = (
+        "lists.apache.org",
+        "dist.apache.org",
+        "repository.apache.org",
+        "downloads.apache.org",
+        "archive.apache.org",
+        "cveprocess.apache.org",
+    )
+
+    allows = SETTINGS["permissions"]["allow"]
+
+    for host in asf_hosts:
+        assert f"read_url({host})" not in allows
+
+    # General-purpose public services remain available.
+    assert "read_url(github.com)" in allows
+    assert "read_url(pypi.org)" in allows
+    assert "read_url(cve.org)" in allows

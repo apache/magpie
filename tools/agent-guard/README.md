@@ -297,7 +297,7 @@ per-repository copy:
 
 Every worktree already symlinks `.apache-magpie/` to the main checkout's
 snapshot ([`worktree-init`](../../skills/setup/worktree-init.md)), so this path
-resolves in a worktree without seeding anything else. `/magpie-setup upgrade`
+resolves in a worktree without seeding anything else. `/magpie-setup update`
 refreshes the engine with the rest of the snapshot.
 
 The user-scope secure setup installs the engine once at

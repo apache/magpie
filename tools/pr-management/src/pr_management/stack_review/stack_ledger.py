@@ -46,6 +46,7 @@ import fnmatch
 import hashlib
 import json
 import keyword
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -733,7 +734,8 @@ def main(argv: list[str] | None = None) -> int:
         "--generated-globs", default="", help="comma-separated extra generated-file globs"
     )
     ledger_cmd.add_argument(
-        "--gitattributes", help="a .gitattributes whose linguist-generated entries count as generated"
+        "--gitattributes",
+        help="read linguist-generated entries from this .gitattributes when present",
     )
     ledger_cmd.add_argument(
         "--read-budget",
@@ -771,8 +773,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.generated_globs:
         globs.extend(g.strip() for g in args.generated_globs.split(",") if g.strip())
     if args.gitattributes:
-        with open(args.gitattributes, encoding="utf-8") as fh:
-            globs.extend(parse_gitattributes_generated(fh.read()))
+        try:
+            with open(args.gitattributes, encoding="utf-8") as fh:
+                globs.extend(parse_gitattributes_generated(fh.read()))
+        except FileNotFoundError:
+            # A checkout can legitimately omit its .gitattributes.
+            parent = os.path.dirname(args.gitattributes) or os.curdir
+            if not os.path.exists(parent):
+                print(
+                    f"Could not read attributes at {args.gitattributes!r}. "
+                    "Using built-in and --generated-globs patterns.",
+                    file=sys.stderr,
+                )
     layers: dict[int, list[FileDiff]] = {}
     for position, path in args.layer:
         with open(path, encoding="utf-8", errors="replace") as fh:

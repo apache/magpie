@@ -41,7 +41,7 @@ adoption is fully wired and stop — do not invent work.
 | Add an agent target | `setup install agents:<full desired set>` |
 | Enable an opt-in family | `setup install skill-families:<full desired set>` |
 | Repair dangling / missing symlinks | `setup verify --auto-fix-symlinks` |
-| Sync drift / fetch snapshot | `setup upgrade` |
+| Sync drift / fetch snapshot | `setup update` |
 | Adopt from scratch | `setup` |
 
 **The `agents:` and `skill-families:` flags replace the set for

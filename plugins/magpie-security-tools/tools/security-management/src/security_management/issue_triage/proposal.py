@@ -160,7 +160,7 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         if not kept:
             return {"ok": False, "refused": "PROBABLE-DUP needs the kept tracker"}
         extra.append(
-            f"Kept tracker: {refs.tracker_link(tracker, kept)}; next: `security-issue-deduplicate {number} {int(kept)}`."
+            f"Kept tracker: {refs.tracker_link(tracker, kept)}; next: `security-issue-deduplicate {int(kept)} {number}`."
         )
     if klass == "FIX-ALREADY-PUBLIC":
         try:

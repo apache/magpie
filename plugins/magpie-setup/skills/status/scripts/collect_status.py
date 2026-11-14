@@ -27,7 +27,7 @@ post-checkout hook, and the .gitignore coverage — and emits a single JSON docu
 
 The script never fetches over the network and never writes: the
 upstream-tip drift check and any remediation belong to
-``setup verify`` / ``setup upgrade``.
+``setup verify`` / ``setup update``.
 
 Usage::
 
@@ -584,7 +584,7 @@ def hook_status(root: Path) -> dict:
         "has_sandbox_helper": "sandbox-add-project-root.sh" in content,
         # The hook template dropped `<slash-command> verify --auto-fix-symlinks`
         # long ago (a slash command is not shell-callable, so it errored on
-        # every checkout). A hook still carrying it is stale — `setup upgrade`
+        # every checkout). A hook still carrying it is stale — `setup update`
         # re-installs the current template.
         "has_stale_verify_line": "--auto-fix-symlinks" in content,
     }
@@ -717,7 +717,7 @@ def render_markdown(d: dict) -> str:
     elif not dr.get("checked"):
         drift_line = f"n/a ({dr.get('reason', '')})"
     else:
-        drift_line = "⚠️ drift → `setup upgrade`"
+        drift_line = "⚠️ drift → `setup update`"
     if d["self_adopted"]:
         snap = "in-repo source (local)"
     elif d["mode"] == "marketplace":

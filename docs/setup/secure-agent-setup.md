@@ -40,6 +40,8 @@
     - [Term canonicalization](#term-canonicalization)
     - [Scoping and fail-closed gates](#scoping-and-fail-closed-gates)
     - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
+  - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
+    - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -177,7 +179,7 @@ select. The end state and verification commands are documented in the
 5. When you want to be on the framework's latest: on the
    marketplace install, run `/plugin marketplace update
    apache-magpie` then `/plugin update <plugin>@apache-magpie`; on
-   the pinned-snapshot fallback, run `/magpie-setup upgrade` instead
+   the pinned-snapshot fallback, run `/magpie-setup update` instead
    — pulls your local magpie checkout to origin/main with
    --ff-only, refuses to touch a dirty working tree, surfaces what
    arrived. Either way, then run
@@ -196,7 +198,7 @@ The skills are at
 [`.claude/skills/magpie-setup/verify.md`](../../skills/setup/verify.md),
 [`.claude/skills/setup-isolated-setup-install/`](../../skills/setup-isolated-setup-install/SKILL.md),
 [`.claude/skills/setup-isolated-setup-verify/`](../../skills/setup-isolated-setup-verify/SKILL.md),
-[`.claude/skills/magpie-setup/upgrade.md`](../../skills/setup/upgrade.md),
+[`.claude/skills/magpie-setup/update.md`](../../skills/setup/update.md),
 [`.claude/skills/setup-isolated-setup-update/`](../../skills/setup-isolated-setup-update/SKILL.md),
 [`.claude/skills/setup-shared-config-sync/`](../../skills/setup-shared-config-sync/SKILL.md).
 Each skill references back into the canonical sections of this
@@ -584,13 +586,16 @@ The full block below is the two merged, annotated.
         // for a project that has not adopted Magpie)
         // never the daemon socket itself: that is host access, see sandbox-troubleshooting.md
       ],
-      "allowedDomains": [          // every host the framework legitimately reaches
+      "allowedDomains": [
+        // ASF-only domains are not generic defaults. The reviewed
+        // claude-settings.asf.fragment.json is selected through
+        // setup_preflight.organization_network for explicit ASF projects.
+        // General-purpose hosts the framework legitimately reaches
         "github.com", "api.github.com", "api.bitbucket.org",
         "raw.githubusercontent.com",
         "objects.githubusercontent.com", "codeload.github.com", "uploads.github.com",
         "pypi.org", "files.pythonhosted.org",
-        "lists.apache.org", "dist.apache.org", "repository.apache.org", "downloads.apache.org", "archive.apache.org",
-        "cveprocess.apache.org", "cve.org", "www.cve.org", "cveawg.mitre.org", "api.osv.dev",
+        "cve.org", "www.cve.org", "cveawg.mitre.org", "api.osv.dev",
         // `*.crates.io` + `static.rust-lang.org` let the `lychee` rust
         // hook bootstrap a rustup toolchain and `cargo install` lychee
         // on first run: prek downloads `rustup-init` from
@@ -674,7 +679,7 @@ The full block below is the two merged, annotated.
       "Bash(gh workflow view *)", "Bash(gh workflow list *)",
       "Bash(gh release view *)", "Bash(gh release list *)",
       "Bash(gh label list *)", "Bash(gh cache list *)",
-      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status*)",
+      "Bash(gh search *)", "Bash(gh browse *)", "Bash(gh auth status)",
       // The vetted-ops READ dispatcher. Safe to `allow` rather than `ask`
       // because it refuses every write operation before it consults policy or
       // --caller, so no argv can talk it into a mutation. The write dispatcher
@@ -693,25 +698,25 @@ The full block below is the two merged, annotated.
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",   // same dispatcher, the form bulk gatherer agents use
       // Read-only MCP tools the security skills call on every sync / import /
-      // triage run. Without these, each archive or mailbox read prompts, and a
-      // bulk sync fans out into hundreds of prompts. Write tools stay off this
-      // list (drafts, logins, label/thread mutations keep their prompt), with
-      // one exception: gmail-plaintext `create_draft` only creates an unsent
-      // draft the operator reviews in Gmail.
-      "mcp__ponymail__search_list", "mcp__ponymail__get_thread", "mcp__ponymail__get_email",
+      // triage run. Without these, each read of a named thread or message
+      // prompts, and a bulk sync fans out into hundreds of prompts. Whole-mailbox
+      // and whole-list searches stay off this list, as do write tools (drafts,
+      // logins, label/thread mutations): these sessions read untrusted reports,
+      // so the operator sees those calls.
+      "mcp__ponymail__get_thread", "mcp__ponymail__get_email",
       "mcp__ponymail__get_source", "mcp__ponymail__list_lists", "mcp__ponymail__list_restrictions",
       "mcp__ponymail__auth_status",
-      "mcp__claude_ai_Gmail__search_threads", "mcp__claude_ai_Gmail__get_thread",
-      "mcp__claude_ai_Gmail__get_message", "mcp__claude_ai_Gmail__list_drafts", "mcp__claude_ai_Gmail__get_draft",
-      "mcp__gmail-plaintext__create_draft", "mcp__gmail-plaintext__check_auth",
+      "mcp__claude_ai_Gmail__get_thread", "mcp__claude_ai_Gmail__get_message",
+      "mcp__claude_ai_Gmail__list_drafts", "mcp__claude_ai_Gmail__get_draft",
+      "mcp__gmail-plaintext__check_auth",
       "mcp__apache-projects__get_committee", "mcp__apache-projects__get_group_members",
       "mcp__apache-projects__get_person", "mcp__apache-projects__search_people",
       "mcp__apache-projects__project_stats", "mcp__apache-projects__get_releases",
       "mcp__apache-projects__get_repositories", "mcp__apache-projects__list_committees",
       "mcp__apache-projects__search_projects",
       // Read-only fetches of public registries the skills consult: cve.org
-      // publication state, PyPI release detection, the public ASF list archive.
-      "WebFetch(domain:cveawg.mitre.org)", "WebFetch(domain:pypi.org)", "WebFetch(domain:lists.apache.org)"
+      // publication state and PyPI release detection.
+      "WebFetch(domain:cveawg.mitre.org)", "WebFetch(domain:pypi.org)"
     ],
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
@@ -1223,7 +1228,7 @@ auditable:
   invocation of the helper happens in a context where the operator
   is already approving setup actions.
 - **`dangerouslyDisableSandbox: true` from agent sessions.**
-  `/magpie-setup:setup install`, `upgrade`, and `worktree-init` invoke the
+  `/magpie-setup:setup install`, `update`, and `worktree-init` invoke the
   helper with explicit sandbox bypass. Every bypass triggers
   [`sandbox-bypass-warn.sh`](../../tools/agent-isolation/sandbox-bypass-warn.sh)'s
   bold-red banner naming the command, the reason, and the file
@@ -1306,7 +1311,7 @@ The helper is invoked from four points in the framework's lifecycle:
    pre-existing worktrees has every working-tree path covered
    without an extra round-trip through
    `setup-isolated-setup-install`.
-3. **During upgrade** — `/magpie-setup:setup upgrade` Step 6c, after
+3. **During upgrade** — `/magpie-setup:setup update` Step 6c, after
    the per-worktree `worktree-init` chain, runs the helper with
    `--all-worktrees` so any worktree added since adopt has its
    path written into its own settings.local.json.
@@ -2011,6 +2016,32 @@ static scope.
   before starting the session. The escape hatch serves as a zero-token deterministic
   guard against accidental leaks; inline environment variables passed to the command
   line (e.g. `MAGPIE_ALLOW_EMBARGO_TERMS=1 git commit ...`) are ignored by the hook.
+
+## Review findings curation mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pr-management` plugin, the review findings interactive pane mod ([`plugins/magpie-pr-management/hooks/review-findings.ts`](../../plugins/magpie-pr-management/hooks/review-findings.ts)) provides an interactive terminal overview of findings during PR review triage and synchronizes maintainer curation decisions directly to disk beside the findings file.
+
+### Unsandboxed filesystem writes (`$.fs.write`)
+
+As established in [`docs/when-to-use-mods.md`](../when-to-use-mods.md), Claude Code mod hooks run outside the container sandbox with direct user privileges.
+The review findings mod introduces the framework's first use of `$.fs.write` in a mod hook.
+
+- **Rationale**: The mod communicates maintainer curation decisions (action toggles, inline keep selections, and edited review bodies) to the downstream deterministic CLI tool (`pr-management code-review render`) running in subsequent skill steps.
+  Writing sidecars avoids spawning background daemons, opening IPC sockets, or modifying global environment state.
+- **Write boundaries and unsandboxed execution**: Because Claude Code mod hooks execute outside the container sandbox with user privileges, `$.fs.write` targets the host filesystem directly.
+  The write destination is the directory of the `--findings` path intercepted from the preceding `code-review disposition` command (typically the session or scratch directory).
+  Sidecar creation is strictly restricted to sibling files (`<file>.curated.json` and `<file>.curated.keep`) beside an existing findings file.
+  Invalidation markers update existing sidecar paths when curation is cleaned up or when findings become empty.
+  To prevent symlink traversal outside the intended directory, writes refuse to follow paths that exist as symbolic links or non-regular files.
+  The fixed `.curated.*` suffixes and existence precheck ensure executable scripts, dotfiles, or unrelated system files are never overwritten.
+- **Fail-open design and clean fallback**: Filesystem write operations are non-blocking and fail open.
+  If `$.fs.write` encounters permission errors, read-only volumes, or quota exhaustion, execution never halts or crashes.
+  Instead, the failure records `syncError` in state, displays an explicit warning in the interactive pane footer and `/magpie-findings status`, and invalidates partial sidecars on disk.
+  Downstream skill steps fall back cleanly to original findings and the interactive sequential text picker prompt.
+- **Self-invalidation lifecycle**: Because the Claude Code mod filesystem API provides no `remove` or `unlink` methods, sidecars manage their lifecycle via deterministic self-invalidation rather than file deletion.
+  The curated JSON payload embeds the active PR number and the source findings file's SHA-256 digest in a metadata envelope.
+  When a write fails, when findings become empty, or when a disposition re-run detects a mismatched PR number, the hook writes explicit invalidation markers to disk.
+  Downstream CLI tools (`render`) validate the PR number and source hash directly before loading `<file>.curated.json`, ensuring stale, orphaned, or invalidated curation files are refused or bypassed.
 
 ## Sandbox-error hint hook
 
@@ -2999,7 +3030,7 @@ This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) P
 - **This project's containers only.**
   Every resource the gateway creates is labelled with the project slug, and every read or act call is filtered to that label, so two projects sharing one daemon see disjoint worlds.
 - **Same egress policy as the shell.**
-  Containers get the egress gateway as their HTTP proxy, so tools inside them that honour proxy variables are bound by the same host allow-list as sandboxed commands.
+  Containers get the egress gateway as their HTTP proxy, so tools inside them that honour proxy variables are bound by the gateway's host allow-list.
 
 ### Install (user-scope)
 
@@ -3116,7 +3147,7 @@ and `<git-common-dir>/apache-magpie/run/<worktree-id>/` when it has not — insi
 `git rev-parse --git-common-dir` prints the common directory (the main checkout's `.git`, also from a linked worktree);
 `<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
 use its absolute path in place of `<project>/.apache-magpie-local` in the block below.
-(`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup:setup config` does **not** write it, and automating it there is a recorded follow-up.)
+(`setup-isolated-setup-install` Step L proposes the same block as a settings diff, and `/magpie-setup:setup config` Step 3h offers to write it for you: `container-gateway settings` prints it from the gateway's own run directory, and `--apply` merges it on your yes, additively and under a lock. It never writes the Linux `allowAllUnixSockets` widening below. The `--apply` run needs your approval to run outside the sandbox, because it writes the settings file the sandbox protects: approve it only when the command runs the interpreter and the `~/.claude/scripts/container-gateway/src` install the gateway hook uses, and the sockets it names are the gateway's run directory, never a daemon socket.)
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine)
@@ -3174,7 +3205,7 @@ Deny `/run/user/<uid>` whole: the user manager answers on `systemd/private` even
 One channel stays open whatever `denyRead` says: on Linux the flag also unblocks `AF_VSOCK` sockets (per Claude Code's settings schema), which have no path to deny. On WSL2 that is a channel to the Windows host. Treat it as residual risk.
 
 ```jsonc
-// per machine: ~/.claude/settings.local.json, or the project's .claude/settings.local.json
+// per machine: the project's .claude/settings.local.json
 {
   "sandbox": {
     "network": { "allowAllUnixSockets": true },
@@ -3544,6 +3575,32 @@ sub-section that follows.
    - The `permissions.ask` list — add any project-specific
      write-side commands you want to confirm explicitly (e.g. a
      custom release-publishing CLI).
+   **ASF-only network access:** For a tracker that explicitly declares
+   `organization: ASF` in its resolved `project.md`, first establish a
+   trusted `setup_preflight` package. A fresh manual installation must
+   not assume the checker has already been installed. Either follow
+   [setup `config` Step 2a](../../plugins/magpie-setup/skills/setup/config.md)
+   to install the pre-flight checker from the trusted framework, or run
+   the selector directly from the trusted framework checkout using
+   `PYTHONPATH=<framework-root>/plugins/magpie-setup/skills/setup`
+   (the directory containing `setup_preflight/`).
+
+   Use `setup_preflight.organization_network` from that trusted source
+   before finalising network permissions. Never import a package from
+   the adopter's own working tree. Run
+   `python3 -P -m setup_preflight.organization_network --project-root
+   <absolute-tracker-path>` with `PYTHONPATH` set to the trusted
+   preflight checker installation directory (not the tracker's files).
+   A `{}` result means no additional permissions; a nonzero exit means
+   stop rather than guessing.
+
+   Merge only the returned `sandbox.network.allowedDomains` and
+   `permissions.allow` entries into the tracker's **gitignored**
+   `.claude/settings.local.json`, keeping the committed floor neutral.
+   Show the proposed diff and obtain explicit approval before
+   installing it. Preserve existing local settings. Do not copy the
+   fragment into user-scope settings or widen the shared egress gateway.
+
 3. Make `claude-iso` available on your shell — either per-repo
    (sourcing the script from the framework snapshot) or globally
    (copying the script to `~/.claude/agent-isolation/` and
@@ -4122,8 +4179,8 @@ A project turns the warning off for every contributor with `isolation_warning: o
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:complete-upgrade` (or `/magpie-setup:setup upgrade`) has refreshed it.
-The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh in one approved run.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:upgrade` (or `/magpie-setup:setup update`) has refreshed it.
+The prompt after each plugin update tells you to run `/magpie-setup:upgrade`, which covers that refresh in one approved run.
 
 ### Direct steps
 

@@ -86,6 +86,23 @@ def real_ci_ran(pr: PR, cfg: Config) -> bool:
     return any(not _is_bot_check(n) for n in names)
 
 
+def check_runs_have_real_ci(document: dict[str, Any] | list[Any], cfg: Config) -> bool:
+    """Verify that the commit's check-runs document contains at least one real CI execution."""
+    pages = document if isinstance(document, list) else [document]
+    names: list[str] = []
+    for page in pages:
+        if isinstance(page, dict):
+            for run in page.get("check_runs") or []:
+                name = run.get("name")
+                if name:
+                    names.append(str(name))
+    if not names:
+        return False
+    if cfg.real_ci_patterns:
+        return any(re.match(p, n, flags=re.IGNORECASE) for p in cfg.real_ci_patterns for n in names)
+    return any(not _is_bot_check(n) for n in names)
+
+
 def collaborator_engaged(pr: PR) -> bool:
     if any(r.association in COLLABORATOR_ASSOCIATIONS and r.author != pr.author for r in pr.reviews):
         return True

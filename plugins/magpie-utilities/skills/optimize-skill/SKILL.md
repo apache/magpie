@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 3580
+measured_tokens: 3852
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -75,7 +75,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -128,7 +128,14 @@ Reference baseline: 75 skills; body median 4,614 tokens, p90 10,613,
 largest 28,346; always-on median 200, largest 398.
 `PRINCIPLES.md` P15's 500-line structural cap still applies.
 
-Report both numbers in Step 5 whether or not the pass moved them.
+Also estimate the **run cost**: what one invocation actually reads, which the body alone understates.
+`security-issue-sync` has a body of about 6k tokens, yet a routine run reads about 46k and its heaviest path about 53k, before any tool output.
+Walk the steps for the routine path and the heaviest path, and add up `SKILL.md`, each sibling that path reads (file size ÷ 4), and a rough figure for what its tools return, such as issue bodies, mail threads or PR diffs.
+Count a sibling behind a pointer only on a path whose trigger fires.
+This is a guess, not a measurement: give it per path, state the assumptions, and keep the tool-output figure separate from the file total.
+Prefer the pass that moves the routine path most, since that is what most runs pay.
+
+Report both numbers and the run cost in Step 5 whether or not the pass moved them.
 
 ## Inputs
 
@@ -205,6 +212,8 @@ Route through a deterministic tool such as
 [`github-body-field`](../../../../tools/github-body-field/README.md) or
 [`github-rollup`](../../../../tools/github-rollup/README.md).
 If human-facing proposals change, stop and use normal review.
+Before cutting prose because a tool "already does this", compare the two line by line:
+where they disagree, cutting the prose changes behaviour, so fix the tool first, with a test that fails before the fix.
 
 **The extract-code pass** removes complete programs from model context.
 Keep the command's purpose and output interpretation in the body, then
@@ -280,6 +289,8 @@ was its only gate.
 
 For restructure, match body deletions to sibling additions plus the new
 pointer.
+A suite that pastes the moved text into its prompt with `also_include` shows the rule still works, never that an agent reaches it,
+so prove every new pointer as [`patterns.md`](patterns.md) describes under *Split*.
 For rewire, show that human-facing proposals stayed unchanged.
 For rewrite, the approved paragraph diff is the record.
 

@@ -27,12 +27,14 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import shlex
 from pathlib import Path
 from typing import Any
 
+from .. import ci as shared_ci
 from .. import config, mentions, model
 from ..triage import guards as triage_guards
 from . import body as review_body
@@ -246,6 +248,7 @@ def _queue(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "queue": [r for r in rows if r["skip"] is None],
         "auto_skipped": [r for r in rows if r["skip"] is not None],
         "count": sum(1 for r in rows if r["skip"] is None),
+        "not_open": [n for n in sel.pr_numbers if n not in {r["number"] for r in rows}],
         "empty_message": None
         if rows
         else f"No PRs match {' '.join(args.selector) or 'my reviews'}. Nothing to review.",
@@ -266,6 +269,8 @@ def _queue_docs(sel: selectors.Selector, rows: list[dict[str, Any]]) -> list[str
 
 
 def _ci_line(pr: data.PR, real: bool) -> str:
+    if pr.ci_outdated_query:
+        return "CI: cannot verify (vetted-ops queries are out of date; upgrade vetted-ops)"
     state = pr.rollup_state or "none reported"
     if state == "SUCCESS" and not real:
         return "CI: no real CI has run (bot checks only)"
@@ -367,7 +372,7 @@ def _context(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "needs": needs,
         "headline": "\n".join(headline),
         "files_tab": f"{pr.url}/files" if pr.url else None,
-        "ci": {"state": pr.rollup_state, "real_ci": real},
+        "ci": {"state": pr.rollup_state, "real_ci": real, "outdated_query": pr.ci_outdated_query},
         "mergeable": pr.mergeable,
         "merge_state": pr.merge_state,
         "stack": stack,
@@ -388,9 +393,81 @@ def _doc_name(category: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", category.lower().split(" (")[0]).strip("-")
 
 
+CURATED_JSON_SUFFIX = ".curated.json"
+CURATED_KEEP_SUFFIX = ".curated.keep"
+
+
+def _check_envelope(envelope: dict[str, Any], source: Path, pr_number: int | None) -> str | None:
+    """Return why a curated envelope may not be used for `source`, or None when it may."""
+    if envelope.get("invalidated"):
+        return "curated findings envelope is marked invalidated"
+    if pr_number is not None and envelope.get("pr") != pr_number:
+        return f"curated findings envelope PR mismatch (envelope has PR {envelope.get('pr')}, expected {pr_number})"
+    if not source.is_file():
+        return f"curated findings envelope has no source findings file at {source}"
+    if envelope.get("source_sha256") != hashlib.sha256(source.read_bytes()).hexdigest():
+        return "curated findings envelope source hash mismatch"
+    if not isinstance(envelope.get("findings"), list):
+        return "curated findings envelope has no findings list"
+    return None
+
+
+def _resolve_findings(
+    path: Path | str | None, pr_number: int | None = None
+) -> tuple[list[dict[str, Any]], Path | None]:
+    """Load the findings, preferring a valid `<file>.curated.json`; also return the curated file used."""
+    if not path:
+        return [], None
+    p = Path(path)
+    if not p.exists():
+        raise SystemExit(f"pr-management: findings file not found: {p}")
+
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    if isinstance(raw, dict):
+        # A curated envelope passed directly: it must pass every check, or the run stops.
+        if not p.name.endswith(CURATED_JSON_SUFFIX):
+            raise SystemExit(
+                f"pr-management: {p} is an object, not a findings list or a {CURATED_JSON_SUFFIX} envelope"
+            )
+        source = p.with_name(p.name[: -len(CURATED_JSON_SUFFIX)])
+        reason = _check_envelope(raw, source, pr_number)
+        if reason:
+            raise SystemExit(f"pr-management: {reason}")
+        return raw["findings"], p
+
+    if isinstance(raw, list):
+        curated_path = p.with_name(p.name + CURATED_JSON_SUFFIX)
+        if curated_path.is_file():
+            try:
+                curated_raw = json.loads(curated_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                # An unreadable, malformed, or inaccessible sidecar falls back to the raw findings.
+                return raw, None
+            if isinstance(curated_raw, dict) and _check_envelope(curated_raw, p, pr_number) is None:
+                return curated_raw["findings"], curated_path
+        return raw, None
+    return [], None
+
+
+def _load_findings(path: Path | str | None, pr_number: int | None = None) -> list[dict[str, Any]]:
+    return _resolve_findings(path, pr_number)[0]
+
+
+def _curated_keep(curated_path: Path | None) -> str:
+    """The keep answer saved beside a curated envelope that passed validation, else `A`."""
+    if curated_path is None:
+        return "A"
+    keep_path = curated_path.with_name(curated_path.name[: -len(CURATED_JSON_SUFFIX)] + CURATED_KEEP_SUFFIX)
+    try:
+        answer = keep_path.read_text(encoding="utf-8").strip() if keep_path.is_file() else ""
+    except (OSError, UnicodeDecodeError):
+        answer = ""
+    return answer if answer and answer != "INVALIDATED" else "A"
+
+
 def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
-    findings = json.loads(Path(args.findings).read_text(encoding="utf-8")) if args.findings else []
+    findings = _load_findings(args.findings, pr_number=args.pr)
     result = _decide(args, cfg, pr, findings, args.viewer)
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
@@ -422,27 +499,68 @@ def _decide(
         {k: v for k, v in outdated[i].items() if not k.endswith("_untrusted")}
         for i in dict.fromkeys(args.addressed_thread)
     ]
-    return disposition.pick(
+    # Shared by both picks below, so a new gate input cannot reach only one of them.
+    pick_kwargs: dict[str, Any] = {
+        "ci_state": pr.rollup_state,
+        "real_ci": selectors.real_ci(pr, cfg),
+        "unresolved_threads": pr.unresolved_threads - len(resolve_first),
+        "other_changes_requested": disposition.other_changes_requested(list(pr.reviews), viewer, pr.author),
+        "unanswered_question": args.unanswered_question,
+        "ci_diff_caused": args.ci_diff_caused,
+        "mergeable": pr.mergeable,
+        "merge_state": pr.merge_state,
+        "permission": permission,
+        "head_pushable": args.head_pushable,
+        "resolve_first": resolve_first,
+        "auto_merge_allowed": pr.auto_merge_allowed,
+        "viewer_can_enable_auto_merge": pr.viewer_can_enable_auto_merge,
+        "auto_merge_enabled": pr.auto_merge_enabled,
+        "self_authored": viewer.lower() == pr.author.lower(),
+        "merge_method": pr.default_merge_method,
+        "pending_not_required": pr.pending_not_required,
+        "viewer_known": bool(pr.viewer),
+        "ci_outdated_query": pr.ci_outdated_query,
+    }
+    # Would the disposition approve without the secondary CI check?
+    tentative = disposition.pick(findings, **pick_kwargs)
+
+    needs: list[dict[str, Any]] = []
+    secondary_ci_verified = True
+    secondary_ci_reason = None
+    if tentative["disposition"] == "APPROVE" or tentative.get("fixup", {}).get("eligible"):
+        check_runs_path = _file(args.saved_dir, f"check-runs-{pr.head_sha}.json")
+        if check_runs_path is None:
+            needs.append(
+                _need(
+                    "check-runs",
+                    [pr.head_sha],
+                    f"check-runs-{pr.head_sha}.json",
+                    "secondary confirmation of real CI on head commit",
+                )
+            )
+            # Fail closed until the read is saved: `render --auto-merge` checks the
+            # decision, not `needs`, so a missing read must not leave APPROVE standing.
+            secondary_ci_verified = False
+            secondary_ci_reason = (
+                f"check runs for head commit {pr.head_sha[:8]} are not read yet — save them, then re-run"
+            )
+        else:
+            try:
+                check_runs_data = json.loads(check_runs_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                check_runs_data = None
+            if check_runs_data is None or not shared_ci.check_runs_have_real_ci(check_runs_data, cfg):
+                secondary_ci_verified = False
+                secondary_ci_reason = f"secondary CI confirmation failed — no real CI check runs recorded for head commit {pr.head_sha[:8]}"
+
+    result = disposition.pick(
         findings,
-        ci_state=pr.rollup_state,
-        real_ci=selectors.real_ci(pr, cfg),
-        unresolved_threads=pr.unresolved_threads - len(resolve_first),
-        other_changes_requested=disposition.other_changes_requested(list(pr.reviews), viewer, pr.author),
-        unanswered_question=args.unanswered_question,
-        ci_diff_caused=args.ci_diff_caused,
-        mergeable=pr.mergeable,
-        merge_state=pr.merge_state,
-        permission=permission,
-        head_pushable=args.head_pushable,
-        resolve_first=resolve_first,
-        auto_merge_allowed=pr.auto_merge_allowed,
-        viewer_can_enable_auto_merge=pr.viewer_can_enable_auto_merge,
-        auto_merge_enabled=pr.auto_merge_enabled,
-        self_authored=viewer.lower() == pr.author.lower(),
-        merge_method=pr.default_merge_method,
-        pending_not_required=pr.pending_not_required,
-        viewer_known=bool(pr.viewer),
+        **pick_kwargs,
+        secondary_ci_verified=secondary_ci_verified,
+        secondary_ci_reason=secondary_ci_reason,
     )
+    result["needs"] = needs
+    return result
 
 
 def _reviewers(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
@@ -520,10 +638,11 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     saved: Path = args.saved_dir
     pr = data.load_pr(saved / f"cr-pr-{args.pr}.json")
     files = difflib.parse((saved / f"diff-{args.pr}.patch").read_text(encoding="utf-8", errors="replace"))
-    findings = json.loads(Path(args.findings).read_text(encoding="utf-8"))
+    findings, curated_path = _resolve_findings(args.findings, pr_number=args.pr)
     summary = Path(args.summary).read_text(encoding="utf-8").strip()
     anchored = [f for f in findings if f.get("line")]
-    picked = review_body.pick(args.keep or "A", len(anchored)) if args.inline == "on" else {"keep": []}
+    keep = _curated_keep(curated_path) if args.keep == "curated" else (args.keep or "A")
+    picked = review_body.pick(keep, len(anchored)) if args.inline == "on" else {"keep": []}
     allow = mentions.allowed(cfg)
     inline = review_body.inline_comments(findings, picked["keep"], files, allow)
     kept = [k for k in picked["keep"] if k not in {u["index"] for u in inline["unanchorable"]}]
@@ -592,7 +711,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
             args,
             cfg,
             pr,
-            json.loads(Path(args.findings).read_text(encoding="utf-8")),
+            findings,
             args.viewer,
         )
         if not decision["auto_merge"]["eligible"]:
@@ -772,7 +891,11 @@ def add_parsers(sub: Any) -> None:
     ren.add_argument("--summary", required=True, help="a file holding the one-sentence summary line")
     ren.add_argument("--disposition", choices=("APPROVE", "REQUEST_CHANGES", "COMMENT"), required=True)
     ren.add_argument("--out-dir", type=Path, required=True)
-    ren.add_argument("--keep", default=None, help="the inline picker's answer (A, N, 1,3, -2)")
+    ren.add_argument(
+        "--keep",
+        default=None,
+        help="the inline picker's answer (A, N, 1,3, -2), or `curated` for the curated keep answer when the curated findings were used",
+    )
     ren.add_argument("--inline", choices=("on", "off"), default="on")
     ren.add_argument("--reviewers", default=None, help="the reviewers command's output")
     ren.add_argument("--security-note", default=None)

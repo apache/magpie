@@ -77,7 +77,7 @@ every install; the other eight are opt-in (see
 | `family:issue` | opt-in | `issue-*` skills (`issue-triage`, `issue-reproducer`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) ([`docs/issue-management/`](issue-management/README.md)) |
 | `family:pr-management` | opt-in | `pr-management-*` skills plus `pr-stale-sweep`, `pre-first-pr-check`, `reviewer-routing` ([`docs/pr-management/`](pr-management/README.md)) |
 | `family:release-management` | opt-in | `release-*` skills — planning, RC cut, `[VOTE]` draft + tally, promote, `[ANNOUNCE]`, archive sweep, audit report, keys sync ([`docs/release-management/`](release-management/README.md)) |
-| `family:repo-health` | opt-in | Read-only repository audits and their follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `workflow-optimization`, `dependency-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
+| `family:repo-health` | opt-in | Repository maintenance audits and follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `workflow-optimization`, `dependency-vulnerability-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
 | `family:pairing` | opt-in | `pairing-self-review`, `pairing-multi-agent-review` ([`docs/pairing/`](pairing/README.md)) |
 | `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
 | `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `contributor-candidate-screen`, `committer-onboarding`, `contributor-identity-map`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
@@ -236,20 +236,20 @@ Capabilities for every skill currently in
 | `pr-stale-sweep` | `capability:triage` |
 | `security-issue-triage` | `capability:triage` |
 | `ci-runner-audit` | `capability:triage` |
-| `dependency-audit` | `capability:triage` |
+| `dependency-vulnerability-audit` | `capability:triage` |
 | `dependency-license-audit` | `capability:triage` |
 | `workflow-security-audit` | `capability:triage` |
 | `workflow-optimization` | `capability:triage` |
 | `license-compliance-audit` | `capability:triage` |
 | `flaky-test-triage` | `capability:triage` |
 | `reviewer-routing` | `capability:triage` *(scores the configured reviewer roster on area match, git-history familiarity, and open-review load; proposes a primary reviewer plus optional backup — read-only, propose-then-confirm)* |
-| `pr-management-quick-merge` | `capability:triage` + `capability:review` *(screens the ready-for-review queue for trivial, all-gates-green PRs — triage; submits the maintainer's approve on per-PR confirmation — review)* |
+| `pr-management-merge-candidates` | `capability:triage` + `capability:review` *(screens the ready-for-review queue for trivial, all-gates-green PRs — triage; submits the maintainer's approve on per-PR confirmation — review)* |
 | `pr-management-code-review` | `capability:review` |
 | `pr-management-stack-review` | `capability:review` *(stack-level review of a GitHub stacked pull request; posts one `COMMENT`, never a review event)* |
 | `pairing-self-review` | `capability:review` |
 | `pairing-multi-agent-review` | `capability:review` |
 | `pre-first-pr-check` | `capability:review` *(newcomer-facing pre-flight checklist: SPDX headers, commit shape, Generated-by trailer, placeholder convention — read-only)* |
-| `pr-management-mentor` | `capability:review` |
+| `pr-management-thread-mentor` | `capability:review` |
 | `good-first-issue-author` | `capability:review` *(authors a newcomer-ready good first issue — contributor mentoring on the supply side)* |
 | `good-first-issue-sweep` | `capability:review` + `capability:triage` *(sweeps the open issue backlog for GFI candidates; scores each against the G1–G7 rubric and proposes the label on maintainer confirmation — a triage sweep in the mentoring family)* |
 | `mentoring-welcome` | `capability:review` *(drafts a first-contact orientation comment for first-time contributors on issues and PRs)* |
@@ -303,7 +303,7 @@ Capabilities for every skill currently in
 | `setup-isolated-setup-install` | `capability:platform` |
 | `setup-isolated-setup-verify` | `capability:platform` |
 | `setup-isolated-setup-update` | `capability:platform` |
-| `setup-complete-upgrade` | `capability:platform` |
+| `setup-upgrade` | `capability:platform` |
 | `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
 | `setup-override-upstream` | `capability:platform` |
 | `setup-welcome-guide` | `capability:platform` *(shows the framework's own welcome guides and turns a dismissed one back on)* |
@@ -332,11 +332,11 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/asf-svn`](../tools/asf-svn/) | `contract:source-control` | ASF SVN tool adapter: source-control binding for `svn.apache.org` working copies (centralized model), `svn` CLI operation catalogue, `dist.apache.org` release-distribution helpers (stage/promote/prune), ASF committer/PMC authorization, and optional svnpubsub site publishing. The SVN counterpart to `tools/github/` for ASF projects. Also the `land` delegate for the `jira-patch` and `mail-patch` change-request backends (`svn patch` + `svn commit`) |
 | [`tools/change-request`](../tools/change-request/) | `contract:change-request` | Adapter contract for the proposed-change review + merge gate (pull request / merge request / patch). Pure interface spec; no executable code — backends under `tools/github/` (PR), `tools/jira-patch/`, and `tools/mail-patch/` implement it. The seam that lets `pr-management-*` skills run on non-GitHub backends |
 | [`tools/cve-org`](../tools/cve-org/) | `contract:cve-authority` | CVE.org services adapter: publishes records to CVE.org and reads back the resulting CVE state. Implements the `tools/cve-tool/` contract for the CVE.org-direct backend |
-| [`tools/cve-tool`](../tools/cve-tool/) | `contract:cve-authority` | Adapter contract for CNA backends (Vulnogram, MITRE form, CVE.org direct, GHSA). Pure interface spec; no executable code — adapters under sibling `tools/cve-tool-*/` directories implement it. |
+| [`tools/cve-tool`](../tools/cve-tool/) | `contract:cve-authority` | Adapter contract for CNA backends (Vulnogram, MITRE form, CVE.org direct, GHSA), and the `cve-tool` command the skills run: it reads `cve_authority.tool` and dispatches to that backend's adapter, over the sibling `tools/cve-tool-*/` directories. |
 | [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) | `contract:cve-authority` | ASF Vulnogram CVE-allocation adapter. Implements the `tools/cve-tool/` contract. Previously named `tools/vulnogram/`. |
 | [`tools/dashboard-generator`](../tools/dashboard-generator/) | `substrate:analytics` | Self-contained HTML dashboard generator |
 | [`tools/dev`](../tools/dev/) | `substrate:framework-dev` | Framework dev-loop helpers |
-| [`tools/discourse`](../tools/discourse/) | `contract:mail-archive` | Coverage: `partial`. Discourse forum bridge: reads a forum topic and its posts as mail-archive `thread_data`, and lists category activity using `thread_summary` fields with separate activity timestamps ([#307](https://github.com/apache/magpie/issues/307)). Not a complete/selectable backend; the contract verbs remain unimplemented. |
+| [`tools/discourse`](../tools/discourse/) | `contract:mail-archive` | Coverage: `partial`. Discourse forum bridge: reads a forum topic and its posts as mail-archive `thread_data`, lists category activity using `thread_summary` fields with separate activity timestamps, and searches topics with matching post excerpts ([#307](https://github.com/apache/magpie/issues/307)). Not a complete/selectable backend; the contract verbs remain unimplemented. |
 | [`tools/egress-gateway`](../tools/egress-gateway/) | `substrate:sandbox` | Egress-allowlist forward proxy (proxy.py plugin); host-level egress chokepoint — defence-in-depth for RFC-AI-0003 §4.4 |
 | [`tools/container-gateway`](../tools/container-gateway/) | `substrate:sandbox` | Per-project policy proxy for the podman / docker API; label-scoped, mount- and privilege-checked container access from inside the sandbox |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | `contract:report-relay` | Adapter contract for inbound-relay backends (ASF Security relay, huntr.com, HackerOne triagers). Pure interface spec; adapters declare detection + credit-extraction + reporter-addressing rules. |

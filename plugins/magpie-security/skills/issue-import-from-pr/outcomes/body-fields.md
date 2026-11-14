@@ -4,7 +4,7 @@
 # security-issue-import-from-pr — the tracker body fields
 
 From Step 5b, as the table carried it; `security-management issue-import-from-pr render-body` fills every row except *Affected versions*, which the agent passes in.
-Two differences from the table: the PR body goes in as an inert fenced block (byte-exact, info string `text`, a fence longer than any backtick run in it, so it renders as plain text and none of its headings, images or references take effect),
+Two differences from the table: the PR body goes in as safe markdown (headings raised to `####`, HTML and images defused, bare references and mentions shown as inline code, code byte-exact; `description_format: inert` keeps the previous plain-text fenced block),
 and the sentinel names the PR by its URL, as [`tracker-body-template.md`](../tracker-body-template.md) always did.
 
 | Field | Value |

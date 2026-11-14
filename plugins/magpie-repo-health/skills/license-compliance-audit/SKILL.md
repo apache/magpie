@@ -22,7 +22,7 @@ argument-hint: "[--repo owner/name | --path /path/to/checkout] [--declared-spdx 
 capability: capability:triage
 surface_hash: sha256:b40b2993e5f18f54
 license: Apache-2.0
-measured_tokens: 4947
+measured_tokens: 4950
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -82,7 +82,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -431,7 +431,7 @@ skill does not provide).
   scaffold.
 - [`ci-runner-audit`](../ci-runner-audit/SKILL.md) — sibling repo-health
   skill; same read-only/propose pattern.
-- `dependency-audit` — sibling skill for dependency vulnerability hygiene.
+- `dependency-vulnerability-audit` — sibling skill for dependency vulnerability hygiene.
 - [Apache License 2.0, Section 4(d)](https://www.apache.org/licenses/LICENSE-2.0#redistribution)
   — the NOTICE file requirement for Apache-2.0 licensed software.
 - [SPDX License List](https://spdx.org/licenses/) — canonical SPDX

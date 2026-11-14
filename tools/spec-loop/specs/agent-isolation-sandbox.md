@@ -374,7 +374,10 @@ See `docs/adapters/goose.md`.
   `core.hooksPath` is set, gets `GIT_CONFIG_GLOBAL=/dev/null` and has no
   home (#1822).
   The `lefthook-hooks-path` agent guard blocks `lefthook install --force`
-  and `--reset-hooks-path` while that path is the framework's.
+  and `--reset-hooks-path` while that path is the framework's, failing closed
+  behind global options and package runners (`npx`, `pnpm exec`, `yarn
+  exec` / `dlx`, `bunx`, `corepack`), including a command line a runner hands
+  to a shell (#1948).
   The settings template likewise denies `Edit(~/.cache/ponymail-attachments/**)`
   (#1828): the PonyMail MCP saves report attachments there from outside the
   sandbox, and a sandboxed command that could rename directories under that
@@ -396,7 +399,8 @@ See `docs/adapters/goose.md`.
   `registry.json` registers prek (install strategy `git-dir-flag`),
   overcommit (`hooks-path-env`, with `install.runtime_env` so the
   dispatcher exports the same `core.hooksPath` at run time), lefthook
-  (`hide-global-config`, no home), plus four
+  (`hide-global-config`, no home), captainhook (`hooks-path-env`, #1899),
+  plus four
   managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:
   `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
@@ -408,6 +412,14 @@ See `docs/adapters/goose.md`.
   exported run-time override reaches git commands the hook starts,
   including ones aimed at another repository, which is recorded as a
   known limitation of the strategy.
+  CaptainHook's Symfony Console CLI takes global options before the command
+  and resolves a prefix of it, so its adapter sets `install.match: prefix`
+  (`captainhook -n install`, `captainhook inst`); `install.vendor_bin` lets the
+  shim fall back to `<repository root>/vendor/bin/<tool>`, where Composer keeps
+  it off `PATH`.
+  Its Composer plugins install behind the shim on every `composer install` and
+  `composer update`, so an install through the shim warns when `composer.json`
+  leaves one enabled, and verify reports the same as ⚠.
   A `none` manager gets no shim; its worktree caveats (cargo-husky skips
   hook install in a linked worktree, the JGit plugins target
   `<worktree>/hooks`) are recorded in the README's adapter table.
@@ -523,7 +535,7 @@ The reference model is four layers, layered:
      token` / `gh auth refresh` denied) and 4 (`gh` writes gated by
      `ask`).
    - the vetted-ops **read** dispatcher, which spawns `gh` and so
-     inherits the same need; only the read dispatcher, never
+     inherits the same need; it alone is also `allow`ed, never
      `vetted-op` itself, because `--caller` is argv. Both invocation
      forms are excluded and allowed — `uv run --project … vetted-op-read`
      and the `uvx --from … vetted-op-read` form the read-only gatherer
@@ -643,6 +655,13 @@ The reference model is four layers, layered:
    `releases.astral.sh` for the node and python hook environments
    (#1565). sandbox-lint's `expected.json` carries all five, and the
    update skill reports any of them missing as drift.
+   Apache-specific hosts are not in those shared defaults (#1978).
+   `tools/agent-isolation/claude-settings.asf.fragment.json` carries them,
+   and setup adds it only for a project whose resolved `project.md` holds one
+   explicit `organization: ASF` declaration:
+   `setup_preflight/organization_network.py` ignores comments, fences and
+   examples, treats anything else as not ASF, and refuses a fragment whose
+   grants differ from the reviewed set.
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
@@ -672,19 +691,26 @@ The reference model is four layers, layered:
 
    The **allow** half ships too (#1393). `setup-isolated-setup-install`
    carries the reference `permissions.allow` set into an adopter's
-   settings merge alongside `deny` and `ask` — `gh` reads, both
-   vetted-ops read forms, the read-only archive / mailbox / roster MCP
-   tools, and the registry `WebFetch` hosts (`cveawg.mitre.org`,
-   `pypi.org`, `lists.apache.org`) — and `setup-isolated-setup-update`
-   diffs it, because a missing read-only entry is a prompt on every skill
-   run. Only read-only entries belong there; `vetted-op` (writes) stays
+   settings merge alongside `deny` and `ask` — `gh` reads (with
+   `gh auth status` allowed only as the bare command, so a call with
+   flags prompts, #2019), both vetted-ops read forms, the archive and
+   mailbox MCP tools that read one named thread, message or draft or
+   report auth state, the roster MCP tools, and the registry `WebFetch`
+   hosts (`cveawg.mitre.org`, `pypi.org`, `lists.apache.org`) — and
+   `setup-isolated-setup-update` diffs it, because a missing read-only
+   entry is a prompt on every skill run. Whole-mailbox and whole-list
+   searches and draft creation (`mcp__gmail-plaintext__create_draft`)
+   stay off it, so those calls reach the operator as a prompt (#2020).
+   Only read-only entries belong there; `vetted-op` (writes) stays
    on `ask`.
    Install Step V now describes three entry points over one catalogue and
-   adds `vetted-op-tracker` to both `ask` and `sandbox.excludedCommands`.
-   The update skill reports `vetted-op-tracker` in `allow`, or `vetted-op`
-   in `excludedCommands`, as a must-fix, and a missing tracker exclusion
-   or `ask` entry as drift; the verify skill fails the check when
-   `vetted-op` is in `excludedCommands` (#1448).
+   adds `vetted-op-tracker` and `vetted-op` to both `ask` and
+   `sandbox.excludedCommands`.
+   The update skill reports either write dispatcher in `allow`, or an
+   excluded one with no matching `ask` rule, as a must-fix, and a missing
+   exclusion or `ask` entry as drift; the verify skill fails the check on an
+   excluded write dispatcher with no `ask` rule, and on a missing `vetted-op`
+   exclusion (#1448, #1956).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates. The window is the
@@ -740,9 +766,11 @@ uv run --project tools/setup-preflight --group dev pytest \
 
 - `stable`; drift shows up when a new state-mutating command is added to a
   skill without a matching `ask` rule — the plan pass flags it.
+  <!-- gap-closes-when: none (narrative) -->
 - **`tools/agent-guard/` and `tools/egress-gateway/` are new additions**
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
+  <!-- gap-closes-when: none (narrative) -->
 
 ## Antigravity setup lifecycle
 

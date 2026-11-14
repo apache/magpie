@@ -200,7 +200,7 @@ repos:
   # .gitignore inside `.venv`, so a synced workspace stays out of the
   # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.51.1
+    rev: v1.52.0
     hooks:
       - id: typos
         name: typos
@@ -352,7 +352,7 @@ repos:
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|pr-management|typed-decision|release-config|release-management|release-verify|reproducible-archive|contributor-metrics|permission-audit|privacy-llm/redactor|github-body-field|github-rollup|vcs|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|pr-management|typed-decision|release-config|release-management|release-verify|reproducible-archive|contributor-metrics|permission-audit|privacy-llm/redactor|github-body-field|github-rollup|vcs|cve-tool|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
   # Claude Code mods — `claude plugin validate --strict` and `claude plugin
   # test` on every plugin whose `hooks/hooks.json` declares `modules`
@@ -392,7 +392,7 @@ repos:
         name: check-claude-mods (claude plugin validate --strict / test)
         language: node
         entry: tools/dev/check-claude-mods.sh
-        additional_dependencies: ["@anthropic-ai/claude-code@2.1.317"]
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.322"]
         files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
         stages: [manual]

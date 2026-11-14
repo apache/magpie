@@ -147,8 +147,8 @@ this before assigning health:
 
 | Signal | `method:local` (self-adoption) | `method:marketplace` | normal adopter (git/svn) |
 |---|---|---|---|
-| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ✅ expected — installed via the plugin manager, nothing is fetched into the repo | ❌ snapshot missing → `setup upgrade` |
-| `local_lock == null` | ✅ expected — no per-machine fetch | ✅ expected — the plugin manager tracks its own installed state; there is nothing to lock | ⚠️ snapshot not fetched here → `setup upgrade` |
+| `snapshot.present == false` | ✅ expected — links go to in-repo `skills/` | ✅ expected — installed via the plugin manager, nothing is fetched into the repo | ❌ snapshot missing → `setup update` |
+| `local_lock == null` | ✅ expected — no per-machine fetch | ✅ expected — the plugin manager tracks its own installed state; there is nothing to lock | ⚠️ snapshot not fetched here → `setup update` |
 | `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not applicable — no framework symlinks exist under this method | not the pattern used; ignore |
 | `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | not applicable — no framework symlinks exist under this method | ✅ expected — symlinks gitignored, bootstrap tracked |
 | `drift.checked == false` | ✅ nothing to drift against | ✅ nothing to drift against — see `committed_lock.plugins` / `min_version` instead, via [`/magpie-setup:setup verify`](../setup/verify.md#adoption-floor) | depends on `reason` (see [`collect.md`](collect.md#drift)) |

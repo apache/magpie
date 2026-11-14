@@ -42,7 +42,7 @@ grouped, prioritised report → wait for confirmation before any write.
   labels and macOS architecture mismatches), `workflow-security-audit`
   (zizmor-backed Actions security findings — injection, excessive
   permissions, unpinned external actions, fork-secret leaks),
-  `dependency-audit` (known-vulnerable / outdated dependencies),
+  `dependency-vulnerability-audit` (known-vulnerable / outdated dependencies),
   `license-compliance-audit` (LICENSE presence, NOTICE completeness, and
   SPDX-header consistency), and `flaky-test-triage` (per-job failure-rate
   analysis over CI run history, separating intermittent from
@@ -62,10 +62,10 @@ grouped, prioritised report → wait for confirmation before any write.
   project's license policy, and reports incompatible or unknown-license
   dependencies). This closes a gap the existing pair leaves open:
   `license-compliance-audit` covers only the project's own LICENSE, NOTICE,
-  and SPDX headers (and excludes vendored code), while `dependency-audit`
+  and SPDX headers (and excludes vendored code), while `dependency-vulnerability-audit`
   checks dependencies for known vulnerabilities, not license terms. Before
   it, no shipped skill audited the license of the dependency tree. It
-  reuses `dependency-audit`'s manager detection, resolves each dependency's
+  reuses `dependency-vulnerability-audit`'s manager detection, resolves each dependency's
   declared license from ecosystem metadata (`pip-licenses` / PyPI,
   `license-checker` for npm, `cargo-deny` / `cargo license` for Rust, or
   `trivy` license scanning for multi-language), and classifies each result
@@ -91,7 +91,9 @@ grouped, prioritised report → wait for confirmation before any write.
   Step 1. The GitHub Actions Policy, `.asf.yaml` and `creation_cap` checks
   run only when `project.md` declares `organization: ASF`.
 - Design docs: `docs/repo-health/README.md` — family overview and the
-  adopter-config scaffold.
+  adopter contract; `docs/repo-health/install.md` (*Install & first runs*)
+  — the `/plugin install` line, the generated *Before the first run* config
+  table, *Works well with* and *Try these first*.
 - Adopter config: `plugins/magpie-setup/templates/repo-health-config.md`
   (shipped inside the `magpie-setup` plugin) —
   per-skill switches (deprecated-runner families, zizmor rule classes,
@@ -148,7 +150,7 @@ grouped, prioritised report → wait for confirmation before any write.
 - **Security-class vulnerabilities.** CVE-rated dependency issues flow
   through the security-issue lifecycle
   ([security-issue-lifecycle.md](security-issue-lifecycle.md)); the
-  `dependency-audit` candidate handles non-CVE dependency hygiene.
+  `dependency-vulnerability-audit` candidate handles non-CVE dependency hygiene.
 
 ## Acceptance criteria
 
@@ -164,7 +166,7 @@ grouped, prioritised report → wait for confirmation before any write.
 ```bash
 test -f .agents/skills/magpie-ci-runner-audit/SKILL.md
 test -f .agents/skills/magpie-workflow-security-audit/SKILL.md
-test -f .agents/skills/magpie-dependency-audit/SKILL.md
+test -f .agents/skills/magpie-dependency-vulnerability-audit/SKILL.md
 test -f .agents/skills/magpie-license-compliance-audit/SKILL.md
 test -f .agents/skills/magpie-flaky-test-triage/SKILL.md
 test -f .agents/skills/magpie-workflow-optimization/SKILL.md
@@ -174,7 +176,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 ## Known gaps
 
 - **Six audit skills deep — feature-complete.** `ci-runner-audit`,
-  `workflow-security-audit`, `dependency-audit`, `license-compliance-audit`,
+  `workflow-security-audit`, `dependency-vulnerability-audit`, `license-compliance-audit`,
   `flaky-test-triage`, and `dependency-license-audit` have all shipped
   (read-only, `experimental`, each with an eval suite). No further candidate
   skills remain designed; the family is complete pending adopter-pilot

@@ -26,10 +26,6 @@ from egress_gateway.allowlist import _parse_extra, host_allowed
 @pytest.mark.parametrize(
     "host",
     [
-        "whimsy.apache.org",
-        "lists.apache.org",
-        "issues.apache.org",
-        "projects.apache.org",
         "github.com",
         "api.github.com",
         "raw.githubusercontent.com",
@@ -70,9 +66,9 @@ def test_loopback_always_allowed() -> None:
 
 
 def test_port_and_trailing_dot_normalised() -> None:
-    assert host_allowed("whimsy.apache.org:443") is True
-    assert host_allowed("whimsy.apache.org.") is True
-    assert host_allowed("WHIMSY.Apache.ORG") is True
+    assert host_allowed("github.com:443") is True
+    assert host_allowed("github.com.") is True
+    assert host_allowed("GITHUB.COM") is True
 
 
 def test_suffix_match_requires_dot_boundary() -> None:
@@ -97,3 +93,38 @@ def test_parse_extra_ignores_blanks() -> None:
 def test_parse_extra_empty() -> None:
     assert _parse_extra(None) == (frozenset(), ())
     assert _parse_extra("") == (frozenset(), ())
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "whimsy.apache.org",
+        "lists.apache.org",
+        "issues.apache.org",
+        "projects.apache.org",
+        "cveprocess.apache.org",
+        "dist.apache.org",
+    ],
+)
+def test_asf_hosts_denied_by_default(host: str) -> None:
+    assert host_allowed(host) is False
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "whimsy.apache.org:443",
+        "whimsy.apache.org.",
+        "WHIMSY.Apache.ORG",
+    ],
+)
+def test_asf_host_normalization_does_not_bypass_policy(host: str) -> None:
+    assert host_allowed(host) is False
+
+
+def test_asf_hosts_require_explicit_gateway_override() -> None:
+    exact, suffixes = _parse_extra("issues.apache.org,.apache.org")
+
+    assert host_allowed("issues.apache.org", extra_exact=exact, extra_suffixes=suffixes)
+    assert host_allowed("whimsy.apache.org", extra_exact=exact, extra_suffixes=suffixes)
+    assert not host_allowed("apache.org.evil.com", extra_exact=exact, extra_suffixes=suffixes)

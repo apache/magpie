@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/security-issue-import-from-pr/SKILL.md",
-  "step_heading": "## Step 6 — User confirmation"
+  "step_heading": "## Step 6 \u2014 User confirmation",
+  "also_include": [
+    "skills/security-issue-import-from-pr/pre-pr-adversarial-review.md"
+  ]
 }

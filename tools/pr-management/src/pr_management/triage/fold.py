@@ -65,3 +65,32 @@ def splice(body: str, block: str) -> tuple[str, bool]:
     block = block.replace("\r\n", "\n").strip("\n")
     new = f"{kept}\n\n{block}\n" if kept else f"{block}\n"
     return new, replaced
+
+
+def block(body: str) -> str | None:
+    """Return the one complete managed block; ambiguous markup is unsafe to undo."""
+    starts = list(re.finditer(r"<!--[ \t]*" + re.escape(FOLD_OPEN) + r":", body))
+    ends = list(re.finditer(r"<!--[ \t]*" + re.escape(FOLD_CLOSE) + r"[ \t]*-->", body))
+    if not starts and not ends:
+        return None
+    if len(starts) != 1 or len(ends) != 1 or ends[0].start() < starts[0].end():
+        raise ValueError("description has incomplete or multiple Magpie blocks; inspect it manually")
+    return body[starts[0].start() : ends[0].end()]
+
+
+def restore(body: str, *, expected: str | None, previous: str | None) -> str:
+    """Restore our block, removing splice spacing only for a new, unchanged append."""
+    current = block(body)
+    if current != expected:
+        raise ValueError("the Magpie block changed after this action")
+    if current is not None:
+        if not previous:
+            prefix, _, suffix = body.partition(current)
+            # Only undo splice's exact append layout; leave edited boundaries alone.
+            if suffix == "\n":
+                if not prefix:
+                    return ""
+                if len(prefix) > 2 and prefix.endswith("\n\n") and not prefix.endswith("\n\n\n"):
+                    return prefix[:-2]
+        return body.replace(current, previous or "", 1)
+    return body + ("\n\n" if body else "") + (previous or "")

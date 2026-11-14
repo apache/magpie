@@ -3,11 +3,14 @@
 
 # `approve-workflow` — approve pending CI for a first-time contributor
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 **Inspect the diff first** — [`workflow-approval.md`](../workflow-approval.md) holds the protocol.
-Only after the maintainer confirms the diff is not malicious, re-list the pending runs at action time (another maintainer may have approved since the sweep):
+Only after the maintainer confirms the diff is not malicious, re-list the pending runs at action time (another maintainer may have approved since the sweep) and refresh the liveness read (`guard` checks the head against any saved copy, so a stale one reports a head move that never happened):
 
 ```bash
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save runs-head-<N>.json runs-at-head <head_sha>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save liveness-<N>.json gql-pr-liveness <N>
 uv run --project <framework>/tools/pr-management pr-management triage guard approve-workflow --pr <N> --head <head_sha> --saved-dir <workspace>/saved
 ```
 
@@ -15,6 +18,12 @@ uv run --project <framework>/tools/pr-management pr-management triage guard appr
 
   ```bash
   gh api -X POST repos/<upstream>/actions/runs/<run_id>/approve
+  ```
+
+  GitHub accepts this only for first-time contributors' runs. A run that answers HTTP 403 *"This workflow run is not waiting for approval"* needs a full re-run instead; one that then answers *"already running"* is done:
+
+  ```bash
+  gh run rerun <run_id> --repo <upstream>
   ```
 
 - `proceed: false` with "already approved" → nothing to do; say so in one line, so the no-op is visible.

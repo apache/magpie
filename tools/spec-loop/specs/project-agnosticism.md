@@ -275,7 +275,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   the same h2 section headings. The live tree produces no `template-drift`
   violations.
 - **Example-only project names remain in skill bodies.** A case-insensitive
-  search finds 40 `airflow` mentions under `plugins/magpie-*/skills/`, almost
+  search finds 32 `airflow` mentions under `plugins/magpie-*/skills/`, almost
   all `e.g.` examples or illustrative path globs (for instance the
-  `quick-merge` candidate-rules example); `check-placeholders.sh` guards the
+  `merge-candidates` example path in `actions/present.md`); `check-placeholders.sh` guards the
   operational forms, and the remaining mentions are judged by a human.
+  <!-- gap-closes-when: none (narrative) -->

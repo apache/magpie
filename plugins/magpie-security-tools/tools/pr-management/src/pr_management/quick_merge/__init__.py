@@ -14,4 +14,4 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""pr-management-quick-merge: the express-lane screen over the ready-for-review queue."""
+"""pr-management-merge-candidates: the express-lane screen over the ready-for-review queue."""

@@ -18,7 +18,7 @@
 
 Next steps by class: VALID → `security-cve-allocate N`; INVALID and INFO-ONLY
 → `security-issue-invalidate N`; PROBABLE-DUP → `security-issue-deduplicate
-N KEPT`; FIX-ALREADY-PUBLIC → `security-issue-invalidate N` only after the
+KEPT N`; FIX-ALREADY-PUBLIC → `security-issue-invalidate N` only after the
 reporter confirms the PR fixes their report (else `--retriage`);
 DEFENSE-IN-DEPTH has none. The recap always says label flips and board moves
 are `security-issue-sync`'s, never this skill's.
@@ -36,7 +36,7 @@ NEXT = {
     "VALID": "/security-cve-allocate {n}",
     "INVALID": "/security-issue-invalidate {n}",
     "INFO-ONLY": "/security-issue-invalidate {n}",
-    "PROBABLE-DUP": "/security-issue-deduplicate {n} {kept}",
+    "PROBABLE-DUP": "/security-issue-deduplicate {kept} {n}",
     "FIX-ALREADY-PUBLIC": "/security-issue-invalidate {n}",
 }
 FIX_PUBLIC_NOTE = (

@@ -127,8 +127,8 @@ Stdlib-only runtime; the dev group adds `pytest`, `ruff`, `mypy`.
 ## CLI
 
 ```bash
-permission-audit audit-any [--dir <project-root>] [--families security,issue] [--organization ASF]
-permission-audit audit <settings-path> [--families security,issue] [--organization ASF]
+permission-audit audit-any [--dir <project-root>] [--families security,release-management] [--organization ASF]
+permission-audit audit <settings-path> [--families security,release-management] [--organization ASF]
 permission-audit apply <settings-path> [--add <entry>]... [--remove <entry>]... [--create-if-missing]
 permission-audit list-known
 ```
@@ -208,7 +208,7 @@ $ permission-audit audit .claude/settings.local.json --families security
   "missing_recommended": [
     {
       "severity": "missing-recommended",
-      "pattern": "mcp__claude_ai_Gmail__list_labels",
+      "pattern": "mcp__claude_ai_Gmail__get_message",
       "json_pointer": null,
       "family": "security"
     }

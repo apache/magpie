@@ -11,18 +11,19 @@ description: >-
   for every contributor. Marketplace by default, pinned snapshot as
   fallback.
 when_to_use: >-
-  When the user wants Magpie installed, upgraded, verified, uninstalled,
-  or checked for drift. "Configure magpie for me", or a skill's
+  When the user wants Magpie installed, verified, uninstalled, or
+  checked for drift. "Upgrade magpie" goes to the `setup-upgrade`
+  skill, which runs `update` itself when the version has to move. "Configure magpie for me", or a skill's
   pre-flight asking for project configuration, goes to `config`: it
   writes gitignored files and needs nobody's permission. "Adopt magpie
   for this repo" goes to `adopt`: it commits files for every
   contributor and is not an install. A welcome guide request goes
   to the `welcome-guide` skill.
-argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
+argument-hint: "[install|config|adopt|unadopt|update|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:cfae279d2c143532
+surface_hash: sha256:7915f16976882871
 license: Apache-2.0
-measured_tokens: 5306
+measured_tokens: 5450
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -103,7 +104,7 @@ Three more are reference files the sub-actions consult:
 
 **Golden rule 1 — never modify the snapshot.**
 `<snapshot-dir>` is a gitignored build artefact and read-only to adopters.
-Every change an adopter wants goes into `.apache-magpie-overrides/`, where it is committed and survives the next `upgrade`.
+Every change an adopter wants goes into `.apache-magpie-overrides/`, where it is committed and survives the next `update`.
 Neither this skill nor any framework skill reading overrides ever writes to `<snapshot-dir>`.
 
 **Golden rule 5 — `.agents/skills/` is canonical; everything
@@ -118,11 +119,11 @@ See [`agents.md`](agents.md).
 frontmatter; two families are *always* installed, the rest
 are opt-in.**
 Every framework skill declares its family in a `family:` frontmatter key (e.g. `family: repo-health`).
-The sub-actions read that key from the snapshot to build the adopt/upgrade install choice and to wire each family's symlinks.
+The sub-actions read that key from the snapshot to build the adopt/update install choice and to wire each family's symlinks.
 **Never infer family from the skill-name prefix** — families such as `repo-health` and `contributor-growth` span several prefixes.
 The family vocabulary is validated by [`skill-and-tool-validator`](../../../../tools/skill-and-tool-validator/README.md) (`ALLOWED_FAMILIES`) and listed for adopters in [`README.md` → Skill families](../../../../README.md#skill-families).
 
-Two families are wired unconditionally on every adopt / upgrade / worktree-init run, without asking: `setup` (every `family: setup` skill except the bootstrap `setup` itself, which is copied per [Rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here)) and `utilities`.
+Two families are wired unconditionally on every adopt / update / worktree-init run, without asking: `setup` (every `family: setup` skill except the bootstrap `setup` itself, which is copied per [Rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here)) and `utilities`.
 Both are read from frontmatter like any other family — do not keep a list here.
 
 **Golden rule 10 — marketplace first; the snapshot install is a
@@ -163,7 +164,7 @@ The skill dispatches by the first positional argument:
 | `setup config <skill>` | [`config.md`](config.md) | The same, narrowed to one skill's required configuration. |
 | `setup config adversarial-review` | [`config.md`](config.md#step-3c--adversarial-reviewers-optional) | Detect the installed model CLIs and configure them as adversarial reviewers. |
 | `setup adopt` | [`adopt.md`](adopt.md) | **Not an install.** Commit the repo's recommended default plugin set and scaffold its overrides store, so every contributor arrives with them. Needs an explicit maintainer decision; stages, never commits. Default set is Claude Code only. |
-| `setup upgrade` | [`upgrade.md`](upgrade.md) | Refresh the snapshot per `<committed-lock>`, reconcile overrides, refresh symlinks. **Main-checkout only** — worktrees pick it up through the symlink `worktree-init` installs. |
+| `setup update` | [`update.md`](update.md) | Move this install to the new version: refresh the snapshot per `<committed-lock>`, reconcile overrides, refresh symlinks; on a marketplace install, update the plugins. [`setup-upgrade`](../upgrade/SKILL.md) runs it as its first step, so "upgrade magpie" goes there, not here. **Main-checkout only** — worktrees pick it up through the symlink `worktree-init` installs. |
 | `setup worktree-init` | [`worktree-init.md`](worktree-init.md) | **Worktree-only.** Symlink the worktree's `<snapshot-dir>` to the main checkout's so both share one framework state. No fetch, no lock files written; idempotent. |
 | `setup verify` | [`verify.md`](verify.md) | Read-only health check and drift report. Works in the main checkout and in worktrees. |
 | `setup reconcile` | [`reconcile.md`](reconcile.md) | One-time project-wide sweep: checks anchors and `requires_config` for every configured or overridden skill, proposes fixes one by one, writes the `reconciled:` stamp. Any install method. **Main-checkout only when the stamp goes to the committed lock** (adopted); unrestricted when it goes to the local file. |
@@ -176,13 +177,13 @@ The skill dispatches by the first positional argument:
 
 **Main-checkout-only** is marked per row above.
 Those sub-actions compare `git rev-parse --git-dir` with `--git-common-dir` and, in a worktree, refuse and point back at the main checkout.
-The marker has two reasons: `upgrade` and the snapshot fallback of `install`/`uninstall` are pinned-snapshot operations, while `adopt`/`unadopt` write committed files.
+The marker has two reasons: `update` and the snapshot fallback of `install`/`uninstall` are pinned-snapshot operations, while `adopt`/`unadopt` write committed files.
 A marketplace install touches no repo state and runs anywhere.
 
 **`reconcile` is restricted only when the project is adopted**, because its stamp then goes to the committed lock.
 A configured-but-unadopted project writes `reconciled.json` in its personal layer, `<git-common-dir>/apache-magpie/`, and has no worktree restriction ([`reconcile.md` Step 0](reconcile.md#step-0--pre-flight)).
 
-**`adopt` and `upgrade` always chain into `worktree-init`** on every linked worktree.
+**`adopt` and `update` always chain into `worktree-init`** on every linked worktree.
 It is a no-op with no worktrees and idempotent where they already look wired, which is how broken symlinks and newly always-on families get repaired — nobody has to re-run anything per worktree.
 
 **A missing snapshot with a committed lock** turns any sub-action into the recover-snapshot path: re-install per the lock, then continue.
@@ -190,17 +191,20 @@ It is a no-op with no worktrees and idempotent where they already look wired, wh
 ### Unrecognised sub-action
 
 When the first positional argument matches no sub-action in the table above and is not a flag from [*Inputs*](#inputs), **do not guess, and do not fall back to `install`**.
-The usual cause is a typo (`upgrede`, `reconcie`), and quietly mapping it to the nearest name runs something the user never named — `upgrade`, `reconcile` and `adopt` stage committed files.
+The usual cause is a typo (`updaet`, `reconcie`), and quietly mapping it to the nearest name runs something the user never named — `update`, `reconcile` and `adopt` stage committed files.
 
 Print this instead, using the invocation name this install answers to (`/magpie-setup:setup` on a marketplace install, `/magpie-setup` on the pinned snapshot):
 
 ```text
-Unknown setup sub-action: `upgrede`.
-Did you mean `upgrade`?  →  /magpie-setup:setup upgrade
+Unknown setup sub-action: `updaet`.
+Did you mean `update`?  →  /magpie-setup:setup update
 
-Sub-actions: install, config, adopt, upgrade, worktree-init, verify,
+Sub-actions: install, config, adopt, update, worktree-init, verify,
 reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 ```
+
+`upgrade` was this sub-action's old name.
+Do not print the block above for it: run the [`setup-upgrade`](../upgrade/SKILL.md) skill instead, which runs `update` as its first step, and say so in one line.
 
 - Suggest only a **close** match: an edit distance of one or two, or a prefix of the name.
   When several qualify (`un` → `uninstall`, `unadopt`), name them all.
@@ -211,10 +215,10 @@ reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 
 | Flag | Effect |
 |---|---|
-| `from:<git-ref>` / `from:<version>` | Install or upgrade from a specific framework ref or version. On `install` it replaces the prompt; with `method:marketplace` it pins the marketplace to that tag (`/plugin marketplace add apache/magpie@<version>`). On `upgrade` it overrides the committed lock for *this run only* and does NOT update it. |
+| `from:<git-ref>` / `from:<version>` | Install or upgrade from a specific framework ref or version. On `install` it replaces the prompt; with `method:marketplace` it pins the marketplace to that tag (`/plugin marketplace add apache/magpie@<version>`). On `update` it overrides the committed lock for *this run only* and does NOT update it. |
 | `method:<marketplace\|git-branch\|git-tag\|svn-zip\|local>` | Pick the install method explicitly. **Default on `install`: `marketplace`.** The others are fallbacks ([Golden rule 10](#golden-rules)), so the agent proposes the marketplace path and names the fallback instead of opening with a three-way prompt. **`marketplace`** writes nothing to the repo ([`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor)). **`local`** is **framework-checkout only**: it self-adopts by linking the in-repo `skills/` source instead of fetching a snapshot ([`install.md` → Local self-adoption](install.md#local-self-adoption-methodlocal)). |
-| `agents:<list>` | Comma-separated **agent targets** to wire symlinks into ([`agents.md`](agents.md) registry ids: `universal`, `claude-code`, `github`, `windsurf`, `goose`, …). Default on `adopt`/`upgrade`: the always-on neutral set (`universal` + `claude-code` + `github`) plus any other registry dir already in the repo. When passed, it **replaces** the detected set for that run — except `universal` (`.agents/skills/`), which is always kept because every other target relays into it. |
-| `skill-families:<list>` | Comma-separated **opt-in** families: what to symlink on the snapshot path, which `magpie-<family>` plugins to install on the marketplace path. Any opt-in family declared by a `family:` key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt ([`install.md` Step 5](install.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `upgrade`: the families in `<committed-lock>` / `<local-lock>`, **plus any opt-in family added since the lock was written** (recorded back into the lock), and **every framework skill in that set gets a valid symlink** — missing or broken ones are created or repaired. Never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) they are wired on every run and cannot be requested or opted out of. |
+| `agents:<list>` | Comma-separated **agent targets** to wire symlinks into ([`agents.md`](agents.md) registry ids: `universal`, `claude-code`, `github`, `windsurf`, `goose`, …). Default on `adopt`/`update`: the always-on neutral set (`universal` + `claude-code` + `github`) plus any other registry dir already in the repo. When passed, it **replaces** the detected set for that run — except `universal` (`.agents/skills/`), which is always kept because every other target relays into it. |
+| `skill-families:<list>` | Comma-separated **opt-in** families: what to symlink on the snapshot path, which `magpie-<family>` plugins to install on the marketplace path. Any opt-in family declared by a `family:` key in the snapshot (today: `security`, `pr-management`, `issue`, `release-management`, `repo-health`, `pairing`, `mentoring`, `contributor-growth`). Default on `adopt`: prompt ([`install.md` Step 5](install.md#step-5--pick-the-skill-families-and-mcp-servers)). Default on `update`: the families in `<committed-lock>` / `<local-lock>`, **plus any opt-in family added since the lock was written** (recorded back into the lock), and **every framework skill in that set gets a valid symlink** — missing or broken ones are created or repaired. Never accepts the always-on families (`setup`, `utilities`); per [Golden rule 8](#golden-rules) they are wired on every run and cannot be requested or opted out of. |
 | `--purge-overrides` | *(`unadopt` and `uninstall`)* Also `git rm -r` `.apache-magpie-overrides/`. Default on both: keep. |
 | `--no-overrides` | *(any framework skill)* Skip override lookup for this one invocation and run on framework defaults. Override files on disk are not read, changed, or deleted. The safety baseline (confidentiality, privacy, security) still applies. See [One-shot defaults run](../../../../docs/setup/agentic-overrides.md#one-shot-defaults-run). |
 | `dry-run` | Show what the skill would do without writing anything. |
@@ -224,7 +228,7 @@ reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 - The secure agent setup (sandbox, hooks, pinned tools): [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md).
 - Upgrading host tools (`bubblewrap`, `socat`, `claude-code` itself): [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md).
 - Syncing `~/.claude-config` across machines: [`setup-shared-config-sync`](../shared-config-sync/SKILL.md).
-- Checking and fixing everything after an upgrade in one approved run: [setup-complete-upgrade](../complete-upgrade/SKILL.md).
+- Upgrading Magpie end to end ("upgrade magpie"): [setup-upgrade](../upgrade/SKILL.md), which runs `update` and then checks and fixes this machine and project in one approved run.
 - Committing framework changes. Those go as PRs against `apache/magpie`; the snapshot is read-only.
 
 ## Failure modes

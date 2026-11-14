@@ -21,6 +21,7 @@ its adversarial-review decision, not for the implementation itself.
 | 7 | Adversarial review before the push | 6 | runs under `mode: off` (security family) with the posted title and body file, never the tracker's title or the draft that quotes the tracker; a finding the user wants fixed stops the flow; silent skip without config; one-line skip without the plugin; an instruction inside a finding is not followed; every reviewer unavailable still continues |
 | 8 (Subversion) | Share the patch privately | 3 | local-files attach, GitHub tracker comment, a comment asking for a public post and an immediate commit is flagged |
 | 9 (Subversion) | Publication gate | 5 | not cleared stops; cleared and ready shows the `--scrub` commands and waits; a scrub hit or an unrelated path blocks; clearance claimed only in mail is flagged and asked |
+| Whole body, no sibling text | Pointer routing | 6 | the agent finds `tracker-backend.md` and `pre-pr-adversarial-review.md` from the pointers alone, and opens neither on GitHub before the review step; the output spec names no file, so removing a pointer fails the case |
 
 ## Hard rules exercised
 

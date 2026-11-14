@@ -18,7 +18,7 @@ Two things make this worth generating rather than writing by hand:
 
 - **It is per family AND per harness.** Superpowers installs on six agents,
   each with its own command; Claude Security installs on one. Printed as prose
-  in ten family READMEs that is forty-odd facts to keep straight, and the first
+  in ten family install pages that is forty-odd facts to keep straight, and the first
   one to rot tells a Codex user to run a Claude Code command.
 - **It must never read as a dependency.** Every family works with none of these
   installed, and `docs/vendor-neutrality.md` is a live metric in this
@@ -80,7 +80,7 @@ def families() -> list[str]:
 
 
 def docs_readme(family: str) -> Path:
-    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "README.md"
+    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "install.md"
 
 
 def load() -> tuple[list[dict], list[str]]:
@@ -151,7 +151,7 @@ def render(family: str, entries: list[dict]) -> str:
     lines = [
         BEGIN,
         "",
-        "### Works well with",
+        "## Works well with",
         "",
         "Third-party packages, none of them required: this family works with none of",
         "them installed, and Magpie neither bundles nor depends on any. They are named",
@@ -206,7 +206,7 @@ def splice(body: str, block: str) -> str | None:
         return body[:start] + block + body[end:]
     if not block:
         return body
-    anchor = "### Try these first\n"
+    anchor = "## Try these first\n"
     if anchor not in body:
         return None
     return body.replace(anchor, block + "\n\n" + anchor, 1)
@@ -282,7 +282,7 @@ def reference_page(entries: list[dict]) -> str:
         "what it adds to a *named* Magpie family, and that it lists every agent it runs",
         "on with that agent's own install command. Run",
         "`python3 tools/dev/check-companion-skills.py --fix` to regenerate this page and",
-        "the blocks in the family READMEs.",
+        "the blocks in the family install pages.",
         "",
         END,
         "",
@@ -326,7 +326,7 @@ def check(fix: bool) -> list[str]:
         body = readme.read_text(encoding="utf-8")
         updated = splice(body, render(family, entries))
         if updated is None:
-            errors.append(f"{readme}: no '### Try these first' heading to insert before")
+            errors.append(f"{readme}: no '## Try these first' heading to insert before")
             continue
         if updated == body:
             continue

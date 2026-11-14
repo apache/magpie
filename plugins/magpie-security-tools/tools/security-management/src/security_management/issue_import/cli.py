@@ -87,8 +87,8 @@ def add_parsers(sub: Any) -> None:
     command("linkify", "link every bare #NNN / owner/repo#NNN", ("--input", "JSON: text, repo, kind"))
     command(
         "render-body",
-        "Step 7.1: render the tracker body, the description as an inert block",
-        ("--input", "JSON: fields{role: value}, body_fields, callout"),
+        "Step 7.1: render the tracker body, the description as safe markdown (or an inert block)",
+        ("--input", "JSON: fields{role: value}, body_fields, callout, description_format"),
     )
     command("render-rollup", "Step 7.5: the import rollup entry", ("--input", "JSON: see the README"))
     command("render-ledger", "Step 7 non-import 4: the rejection v1 record", ("--input", "JSON"))
@@ -100,14 +100,18 @@ def add_parsers(sub: Any) -> None:
 
 def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     fields = dict(data.get("fields") or {})
-    cleaned = body.inert_block(str(fields.get("issue_description") or ""))
+    fmt = str(data.get("description_format") or "markdown")
+    cleaned = body.report_block(str(fields.get("issue_description") or ""), fmt)
     if not cleaned["ok"]:
         return {
             "ok": False,
             "refused": f"the report body is malformed ({cleaned['indicator']}); it is not rendered",
             "malformed_indicator": cleaned["indicator"],
         }
-    fields["issue_description"] = cleaned["text"]
+    report = str(cleaned["text"])
+    fields["issue_description"] = (
+        f"{body.DATA_NOTE}\n\n{report}" if fmt == "markdown" and report.strip() else report
+    )
     text = body.render(fields, data.get("body_fields"), callout=bool(data.get("callout")))
     problem = body.verify(text, data.get("body_fields"))
     if problem is not None:

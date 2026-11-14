@@ -27,6 +27,7 @@ judgement).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -374,7 +375,7 @@ def test_render_proposal_class_additions(capsys, tmp_path):
     _, out = run(
         capsys, tmp_path, "render-proposal", proposal(**{"class": "PROBABLE-DUP", "kept_tracker": 198})
     )
-    assert "`security-issue-deduplicate 212 198`" in out["text"]
+    assert "`security-issue-deduplicate 198 212`" in out["text"]
     prs = [{"number": 39100, "author": "dev1", "state": "MERGED", "date": "2026-09-01T00:00:00Z"}]
     data = proposal(**{"class": "FIX-ALREADY-PUBLIC", "upstream": "apache/airflow", "prs": prs})
     _, out = run(capsys, tmp_path, "render-proposal", data)
@@ -537,7 +538,7 @@ def test_step7_case_1_mixed_dispositions(capsys, tmp_path):
         "/security-cve-allocate 212",
         "/security-issue-invalidate 215",
         "/security-issue-invalidate 218",
-        "/security-issue-deduplicate 220 212",
+        "/security-issue-deduplicate 212 220",
     ]
     assert [t["comment_url"] for t in out["trackers"]] == [
         url(212, 1001),
@@ -546,6 +547,47 @@ def test_step7_case_1_mixed_dispositions(capsys, tmp_path):
         url(220, 1004),
     ]
     assert out["sync_note"] is True and out["bare_refs"] == []
+
+
+@pytest.mark.parametrize("source", ["proposal", "recap"])
+@pytest.mark.parametrize(("number", "kept"), [(250, 212), (212, 250)])
+def test_probable_dup_handoff_keeps_selected_tracker(capsys, tmp_path, source, number, kept):
+    if source == "proposal":
+        code, out = run(
+            capsys,
+            tmp_path,
+            "render-proposal",
+            proposal(**{"number": number, "class": "PROBABLE-DUP", "kept_tracker": kept}),
+        )
+        assert code == 0
+        assert f"Kept tracker: [{TRACKER}#{kept}]" in out["text"]
+        match = re.search(r"next: `([^`]+)`", out["text"])
+        assert match is not None
+        command = match[1]
+    else:
+        out = recap(
+            capsys,
+            tmp_path,
+            [{"number": number, "class": "PROBABLE-DUP", "kept": kept, "comment_url": url(number, 1)}],
+        )
+        [command] = out["next_steps"]
+        assert f"`{command}`" in out["text"]
+    path = tmp_path / "dedupe-selector.json"
+    path.write_text(json.dumps({"tracker": TRACKER, "invocation": command}), encoding="utf-8")
+    assert main(["issue-deduplicate", "selector", "--input", str(path)]) == 0
+    resolved = json.loads(capsys.readouterr().out)
+    assert (resolved["keep"], resolved["drop"]) == (kept, number)
+
+
+def test_recap_probable_dup_needs_kept_tracker(capsys, tmp_path):
+    code, out = run(
+        capsys,
+        tmp_path,
+        "render-recap",
+        {"tracker": TRACKER, "posted": [{"number": 250, "class": "PROBABLE-DUP"}]},
+    )
+    assert code == 2
+    assert "PROBABLE-DUP needs the kept tracker" in out["refused"]
 
 
 def test_step7_case_2_all_valid(capsys, tmp_path):

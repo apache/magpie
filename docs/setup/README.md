@@ -7,9 +7,7 @@
 
 - [Setup skill family](#setup-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [The first run](#the-first-run)
-    - [Before the first run](#before-the-first-run)
-    - [Try these first](#try-these-first)
+  - [Agent isolation](#agent-isolation)
   - [Security mailing-list configuration](#security-mailing-list-configuration)
   - [Skills](#skills)
   - [Deep documentation](#deep-documentation)
@@ -51,85 +49,16 @@ framework safe to use.
 
 ## Install & first runs
 
-Install just this family — one plugin, 12 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+[Install & first runs](install.md) has the install command for this family,
+the files to configure before the first run, and the skills to try first.
 
-Once you have [added the marketplace](../setup/marketplace-install.md):
+## Agent isolation
 
-```text
-/plugin install magpie-setup@apache-magpie
-```
-
-New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup:setup` run, and a recording of it
-happening — plus the other agents and the secure-isolation setup to run next.
-
-The `setup` skill (`/magpie-setup:setup`) opens with a one-minute
-[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/setup.md):
-the typical flow, what needs configuring, what to ask it, and how to make it yours.
-If no Magpie skill has run here before, the general Magpie welcome comes first and this one on the next `setup` run.
-The other setup-family skills do not show it.
-Dismiss it, or hide it for good, from its last line;
-*"show the setup welcome again"* or `/magpie-setup:welcome-guide setup` brings it back.
-
-### The first run
-
-This family is what the other nine defer to. `/magpie-setup:setup` (`/magpie-setup`
-on a [pinned-snapshot install](marketplace.md#skill-names-differ-by-install-method)) works out how
-Magpie should be wired into the checkout in front of it, prints the plan, and
-waits — the same run the quick start opens with:
-
-![A `/magpie-setup:setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
-
-Nothing is written before you approve it.
-
-### Before the first run
-
-<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
-
-**Nothing here has to be configured.** These skills read the file below
-when it exists — yours in your personal layer or the project's in
-`.apache-magpie-overrides/` — and fall back to a documented default when
-it does not.
-
-**Optional.** Each has a documented fallback; absent, the skill still runs.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`magpie-setup.md`](../../plugins/magpie-setup/templates/magpie-setup.md) | Overrides for the setup family's own checks. Every key has a default. | `setup` |
-| [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `privacy-llm` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `isolated-setup-install`, `setup` |
-| [`skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md) | The install gate for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup:setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../skill-sources/README.md). | `setup` |
-
-<!-- END generated: skill-config -->
-
-### Try these first
-
-*Illustrative shapes, not real transcripts — your output will differ. Nothing
-below sends, merges, or posts anything without you confirming it.*
-
-**Put the agent in its sandbox.**
-
-```text
-/magpie-setup:isolated-setup-install
-```
-
-![An isolated-setup-install run listing three proposed changes — settings.json, the user scripts directory, and the shell rc — and waiting for confirmation before any of them](../../assets/quickstart/families/setup/isolated-setup-install.svg)
-
-**Check it landed.**
-
-```text
-/magpie-setup:isolated-setup-verify
-```
-
-![An isolated-setup-verify run: four green checks across the settings wiring and pinned tools, and one warning that the docker socket is not exposed inside the sandbox](../../assets/quickstart/families/setup/isolated-setup-verify.svg)
-
-**See what is wired up.**
-
-```text
-/magpie-setup:status
-```
-
-![A status run: the install method, the installed plugins, the project's committed floor, and two green checks saying this machine is at or above it](../../assets/quickstart/families/setup/status.svg)
+These commands require the `magpie-setup` plugin.
+Install the sandbox with `/magpie-setup:isolated-setup-install`.
+Verify its configuration with `/magpie-setup:isolated-setup-verify`.
+Diagnose sandbox setup failures with `/magpie-setup:isolated-setup-doctor`.
+Refresh the isolated setup with `/magpie-setup:isolated-setup-update`.
 
 ## Security mailing-list configuration
 
@@ -159,8 +88,8 @@ for the complete rule.
 | [`setup-isolated-setup-update`](../../skills/setup-isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
 | [`setup-privacy-llm`](../../skills/setup-privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
 | [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
-| [`setup upgrade`](../../skills/setup/upgrade.md) | Pinned-snapshot install: re-fetch the snapshot per the committed lock, refresh symlinks, reconcile overrides, and refresh the personal layer's pre-flight checker. A marketplace install upgrades through the agent's plugin update instead. |
-| [`setup-complete-upgrade`](../../skills/setup-complete-upgrade/SKILL.md) | Finish a Magpie upgrade in one run: check this machine and project against the installed version, apply one approved plan, re-check, and print exact commands for what is out of reach. |
+| [`setup update`](../../skills/setup/update.md) | Move this install to the new version: on a pinned snapshot, re-fetch it per the committed lock, refresh symlinks, reconcile overrides and refresh the personal layer's pre-flight checker; on a marketplace install, run the agent's plugin update. `setup-upgrade` runs it for you. |
+| [`setup-upgrade`](../../skills/setup-upgrade/SKILL.md) | Upgrade Magpie in one run ("upgrade magpie"): move to the new version with `setup update` when needed, check this machine and project, apply one approved plan, re-check, and print exact commands for what is out of reach. Every skill offers it until it has run after a version change; see [Upgrading Magpie](marketplace.md#upgrading-magpie). |
 | [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
 | [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |

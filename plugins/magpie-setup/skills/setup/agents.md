@@ -10,7 +10,7 @@ byte-identical no matter which agent loads it; there is **no
 per-agent compile, adapter, or content transform**. The only thing
 that genuinely differs between agents is **where on disk each one
 looks for skills**. This file is the registry of those locations —
-the single source of truth `adopt`, `upgrade`, `verify`,
+the single source of truth `adopt`, `update`, `verify`,
 `unadopt`, and `worktree-init` consult to decide *which directories*
 to wire, refresh, health-check, and tear down.
 
@@ -92,7 +92,7 @@ for `setup`.)
 
 ## Active-target selection — which dirs `adopt` wires
 
-On every `adopt` / `upgrade` / `worktree-init`, the **active
+On every `adopt` / `update` / `worktree-init`, the **active
 target set** is computed as the union of:
 
 1. **The always-on neutral targets** — `universal`

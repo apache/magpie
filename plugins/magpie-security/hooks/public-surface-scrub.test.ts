@@ -19,6 +19,8 @@
 
 import { describe, test } from 'claude-code/testing';
 import {
+  denyFor,
+  denyOnEvaluationError,
   evaluatePublicSurfaceCommand,
   findForbiddenTerms,
   inspectDirectoryRemote,
@@ -28,7 +30,7 @@ import {
   resolvePath,
   resolveProjectConfig,
   splitShellCommands,
-} from './public-surface-scrub.ts';
+} from './public-surface-scrub.js';
 
 function assert(condition: any, message?: string): void {
   if (!condition) {
@@ -2443,4 +2445,67 @@ upstream_repo: apache/kafka
     });
   });
 
+  describe('a blocked gh api write names its vetted route', () => {
+    const projectConfig = { trackerRepo: 'airflow-s/airflow-s', upstreamRepo: 'apache/airflow' };
+    const evaluate = (cmd: string) =>
+      evaluatePublicSurfaceCommand(cmd, { projectConfig, readFile: async () => 'Fixed as CVE-2026-1234.' });
+
+    test('an advisory comment post is still blocked and points at advisory-comment', async () => {
+      const res = await evaluate(
+        'gh api -X POST repos/apache/airflow/security-advisories/GHSA-abcd-efgh-ijkl/comments -F body=@/tmp/b.md',
+      );
+      assertStrictEqual(res.blocked, true);
+      assert(res.reason?.includes('advisory-comment GHSA-abcd-efgh-ijkl <body-file>'), res.reason);
+      assert(res.reason?.includes('[callers]'), res.reason);
+    });
+
+    test('an advisory field edit is still blocked and says no vetted operation exists', async () => {
+      const res = await evaluate('gh api --method PATCH repos/apache/airflow/security-advisories/GHSA-abcd-efgh-ijkl -f cve_id=CVE-2026-1234');
+      assertStrictEqual(res.blocked, true);
+      assert(res.reason?.includes('No vetted operation edits advisory record fields'), res.reason);
+    });
+
+    test('an advisory comment edit says to use the web UI', async () => {
+      const res = await evaluate('gh api -X PATCH repos/apache/airflow/security-advisories/GHSA-abcd-efgh-ijkl/comments/12 -F body=@/tmp/b.md');
+      assertStrictEqual(res.blocked, true);
+      assert(res.reason?.includes('No vetted operation edits or deletes an advisory comment'), res.reason);
+    });
+
+    test('a comment edit and a comment post point at comment-update and issue-comment', async () => {
+      const edit = await evaluate('gh api -X PATCH repos/apache/airflow/issues/comments/987 -F body=@/tmp/b.md');
+      assertStrictEqual(edit.blocked, true);
+      assert(edit.reason?.includes('comment-update 987 <body-file>'), edit.reason);
+
+      const post = await evaluate('gh api repos/apache/airflow/issues/42/comments -F body=@/tmp/b.md');
+      assertStrictEqual(post.blocked, true);
+      assert(post.reason?.includes('issue-comment 42 <body-file>'), post.reason);
+    });
+
+    test('other gh api writes get no vetted-route hint', async () => {
+      const res = await evaluate('gh api -X POST repos/apache/airflow/pulls/5/comments -f body="Fixes CVE-2026-1234"');
+      assertStrictEqual(res.blocked, true);
+      assert(!res.reason?.includes('vetted-op'), res.reason);
+    });
+
+    test('the tracker exemption is unchanged', async () => {
+      const res = await evaluate('gh api -X PATCH repos/airflow-s/airflow-s/issues/comments/987 -F body=@/tmp/b.md');
+      assertStrictEqual(res.blocked, false, JSON.stringify(res));
+    });
+  });
+
+  describe('fail-closed gate decisions', () => {
+    test('a block without a reason still blocks', () => {
+      const denial = denyFor({ blocked: true });
+      assert(denial !== null && denial.deny.length > 0, 'expected a deny with a fallback reason');
+      assertStrictEqual(denyFor({ blocked: true, reason: 'leak' })?.deny, 'leak');
+      assertStrictEqual(denyFor({ blocked: false, reason: 'ignored' }), null);
+    });
+
+    test('an evaluation error blocks unless the human escape hatch is set', () => {
+      const denial = denyOnEvaluationError(new Error('tokenizer exploded'), {});
+      assert(denial !== null && denial.deny.includes('tokenizer exploded'), JSON.stringify(denial));
+      assertStrictEqual(denyOnEvaluationError(new Error('x'), { MAGPIE_ALLOW_EMBARGO_TERMS: '1' }), null);
+      assert(denyOnEvaluationError('not an Error', { MAGPIE_ALLOW_EMBARGO_TERMS: '0' }) !== null);
+    });
+  });
 });

@@ -179,7 +179,7 @@ def test_the_repo_health_family_guide_comes_on_the_next_run(project: Path, versi
     for skill in (
         "audit-finding-fix",
         "ci-runner-audit",
-        "dependency-audit",
+        "dependency-vulnerability-audit",
         "dependency-license-audit",
         "flaky-test-triage",
         "license-compliance-audit",
@@ -561,7 +561,7 @@ def test_show_color_off_a_tty_prints_no_escapes(capsys, monkeypatch) -> None:
     assert welcome.main(["show", "--family", "security", "--color"]) == 0
     out = capsys.readouterr().out
     assert "\033[" not in out
-    assert "Magpie here" in out
+    assert "Security reports" in out
     assert "**" not in out
     assert '*"' not in out, "italic markers survive the terminal rendering"
     assert "`" not in out

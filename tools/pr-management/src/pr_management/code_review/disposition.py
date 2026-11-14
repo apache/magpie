@@ -102,6 +102,9 @@ def pick(
     merge_method: str | None = None,
     pending_not_required: tuple[str, ...] | list[str] = (),
     viewer_known: bool = True,
+    ci_outdated_query: bool = False,
+    secondary_ci_verified: bool = True,
+    secondary_ci_reason: str | None = None,
 ) -> dict[str, Any]:
     resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
@@ -134,9 +137,17 @@ def pick(
             + ", ".join(f"`{n}`" for n in pending_not_required)
             + " (not a required check)"
         )
+        # `release-runs` needs an approval, which this gate withholds, so held runs go through triage.
+        ci_action = (
+            "wait for those checks; if their runs are waiting for workflow approval, "
+            "approve them (pr-management-triage); then re-run disposition"
+        )
     elif ci_state == "EXPECTED":
         gates.append("CI is waiting for workflow approval — the project's real CI has not run")
         ci_action = "approve the waiting workflow runs (pr-management-triage), then re-run disposition"
+    elif ci_outdated_query:
+        gates.append("CI rollup cannot be verified — vetted-ops is out of date (latest commit lacks OID)")
+        ci_action = "upgrade vetted-ops to update GraphQL queries, then re-run disposition"
     elif ci_state != "SUCCESS" and not held_by_auto_merge:
         gates.append(f"CI is {ci_state or 'not reported'}")
         if ci_state == "PENDING" and not real_ci:
@@ -146,6 +157,12 @@ def pick(
         ci_action = (
             "approve or re-run the project's workflows (pr-management-triage), then re-run disposition"
         )
+    elif not secondary_ci_verified:
+        gates.append(
+            secondary_ci_reason or "secondary CI confirmation failed — no real CI check runs on head commit"
+        )
+        if not ci_action:
+            ci_action = "trigger or wait for real CI on head commit, then re-run disposition"
     if unresolved_threads:
         gates.append(f"{unresolved_threads} unresolved review thread(s)")
     if other_changes_requested:

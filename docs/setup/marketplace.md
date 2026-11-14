@@ -9,6 +9,7 @@
   - [Two manifest families: Agent Plugins 1.0 and client-specific](#two-manifest-families-agent-plugins-10-and-client-specific)
   - [Choosing a plugin: which families](#choosing-a-plugin-which-families)
   - [Skill names differ by install method](#skill-names-differ-by-install-method)
+    - [Renamed commands](#renamed-commands)
   - [Supported agents](#supported-agents)
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
@@ -25,6 +26,7 @@
   - [Auto-install: arriving Magpie-ready](#auto-install-arriving-magpie-ready)
     - [What each harness supports](#what-each-harness-supports)
     - [Claude Code: the default set](#claude-code-the-default-set)
+  - [Upgrading Magpie](#upgrading-magpie)
   - [Automatic upgrade detection](#automatic-upgrade-detection)
     - [Reconciliation when a skill first runs after an upgrade](#reconciliation-when-a-skill-first-runs-after-an-upgrade)
   - [Versioning](#versioning)
@@ -280,6 +282,23 @@ reader installed it. If you are on the snapshot install, translate
 `/<plugin>:<alias>` to the single token `/magpie-<directory-name>` using the
 table above — note it is the **directory** name, not the alias.
 
+### Renamed commands
+
+These skill renames keep the family plugins unchanged. Existing config filenames such as `pr-management-quick-merge-config.md` and `mentoring-config.md` remain valid.
+In a copied `mentoring-config.md`, change `mentoring_invocation_command` from `/magpie-pr-management:mentor` to `/magpie-pr-management:thread-mentor`, or the mentoring sweep invokes a command that no longer exists.
+
+| Old marketplace command | New marketplace command | Old portable command | New portable command |
+|---|---|---|---|
+| `/magpie-pr-management:mentor` | `/magpie-pr-management:thread-mentor` | `/magpie-pr-management-mentor` | `/magpie-pr-management-thread-mentor` |
+| `/magpie-pr-management:quick-merge` | `/magpie-pr-management:merge-candidates` | `/magpie-pr-management-quick-merge` | `/magpie-pr-management-merge-candidates` |
+| `/magpie-repo-health:dependency-audit` | `/magpie-repo-health:dependency-vulnerability-audit` | `/magpie-dependency-audit` | `/magpie-dependency-vulnerability-audit` |
+
+Per-skill override files follow the new flat names.
+Rename existing personal or committed overrides from `pr-management-mentor.md`, `pr-management-quick-merge.md`, or `dependency-audit.md` to `pr-management-thread-mentor.md`, `pr-management-merge-candidates.md`, or `dependency-vulnerability-audit.md`, respectively.
+Update custom vetted-ops caller allowlists to the same new flat names.
+Then approve the edited policy again: reads run only under the approved copy in `~/.config/apache-magpie/vetted-ops/`, and until it carries the new names they are refused.
+The runtime `pr-management mentor` and `pr-management quick-merge` tool commands are unchanged.
+
 ## Supported agents
 
 Every agent below adds the **same** Apache Magpie Marketplace — the
@@ -318,7 +337,7 @@ Adding the marketplace clones the repo and reads
 **Updating** is `/plugin marketplace update apache-magpie` followed by
 `/plugin update magpie-<family>@apache-magpie` for each family you installed.
 On a version change the `magpie-setup` plugin's bundled `SessionStart` hook
-also prompts you to run `/magpie-setup:complete-upgrade`.
+also prompts you to run `/magpie-setup:upgrade`.
 
 Adding the marketplace from a tag rather than untagged pins which version the
 install tracks — see [Versioning](#versioning).
@@ -430,7 +449,7 @@ natively, so no Antigravity-specific context file ships. Antigravity replaced
 Gemini CLI, which Google retired for individual accounts on 2026-06-18;
 Magpie no longer ships a Gemini extension.
 
-No upgrade prompt fires on Antigravity yet: re-run `/magpie-setup:complete-upgrade`
+No upgrade prompt fires on Antigravity yet: re-run `/magpie-setup:upgrade`
 after refreshing the plugin. The secure setup is per user; see
 [the Antigravity adapter](../adapters/antigravity.md).
 
@@ -657,11 +676,49 @@ if the project would rather not track `main`.
 Contributors keep the last word: a plugin enabled this way still appears in
 `/plugin`, and anyone can disable it locally.
 
+## Upgrading Magpie
+
+There is one command for it on every install method: the **`upgrade`** skill.
+Say *"upgrade magpie"*, or invoke it by name (`/magpie-setup:upgrade` on a marketplace install, `/magpie-setup-upgrade` on a pinned snapshot; the harness table below has each agent's spelling).
+A run has two phases:
+
+1. **Move the version**, when it has to move.
+   On a pinned snapshot that lags the committed `.apache-magpie.lock`, it runs [`setup update`](../../plugins/magpie-setup/skills/setup/update.md), which fetches the pinned version, refreshes the links and reconciles overrides.
+   On a marketplace install with a newer version available, `setup update` runs the agent's plugin update (or prints the command where the agent has no CLI for it); the new plugins load in a new session, so you restart the agent and run `upgrade` again.
+   When the new version is already installed (auto-update, `/plugin update`, a framework `git pull`), this phase does nothing.
+2. **Check and fix.**
+   It checks this machine and this project against the running version: install health, project configuration, local changes and the secure agent setup.
+   It shows one plan, applies only what you approve, re-checks, and prints the exact commands for anything a hard line keeps out of its reach, such as committed files.
+
+**You are asked until you have upgraded.**
+Every Magpie skill's pre-flight compares the Magpie version running now with the version this project was last installed, configured or upgraded to.
+While they differ, the skill asks *"Upgrade now?"* before doing anything else, and asks again on the next skill you run until `upgrade` has run here.
+Answer *not now* and the skill carries on with what you asked for.
+The comparison needs the running version, which the pre-flight reads from the agent's plugin listing or from the marker the session-start hook writes; where neither is readable (the *Prompted on every skill* column below), run `upgrade` yourself after updating.
+A pinned snapshot is asked on every harness: a snapshot behind the committed lock stops each skill and proposes `upgrade`.
+
+| Agent | Invoke | How the version moves | Prompted on every skill |
+|---|---|---|---|
+| **Claude Code** | `/magpie-setup:upgrade` | `/plugin marketplace update apache-magpie`, then `/plugin update <plugin>@apache-magpie`, or auto-update | ✅ (session hook marker) |
+| **Codex CLI** | `$magpie-setup:upgrade` (Codex lists it under the plugin name on a snapshot too) | `codex plugin marketplace upgrade apache-magpie` | ✅ when `codex plugin list` is readable; the session hook prompts once ([trust it first](#automatic-upgrade-detection)) |
+| **Antigravity** | `/magpie-setup:upgrade` | re-run `agy plugin install https://github.com/apache/magpie` | ✅ when the plugin listing is readable |
+| **VS Code / Copilot, Cursor, Kiro (AP1 plugin)** | `/magpie-setup:upgrade` | the editor's plugin update | ❌ run it after updating |
+| **Copilot CLI** | `magpie-setup-upgrade` | the pinned snapshot: `upgrade` runs `setup update` | ✅ snapshot drift |
+| **Pi** | `/skill:upgrade` | `pi update --extensions` | ❌ run it after updating |
+| **Goose** | `magpie:upgrade` | `goose plugin update magpie`, then the `npm ci` from [the Goose page](../adapters/goose.md#install) | ❌ run it after updating |
+| **Grok Build** | `/magpie-setup:upgrade` | the Claude-compatible plugin update | not verified; run it after updating |
+| **Cursor, Junie, OpenCode, Aider** (`.agents/skills/` from a pinned snapshot) | `magpie-setup-upgrade` (Aider: load its `SKILL.md` with `/read-only`) | `upgrade` runs `setup update` | ✅ snapshot drift |
+| **Kiro CLI** (per-skill installs) | `setup-upgrade`, when installed | re-install each skill from the new tag | ❌ run it after re-installing |
+
+A framework checkout that links its own skills (`method: local`) upgrades with `git pull`; `upgrade` then does the check-and-fix phase.
+
 ## Automatic upgrade detection
 
 When the marketplace updates the plugin to a new version, Magpie prompts you
-to run **`/magpie-setup:complete-upgrade`** — which checks this machine and this
-project against the new version and applies the fixes you approve. This is **detect-and-prompt, not auto-run**:
+to run **`/magpie-setup:upgrade`** — which checks this machine and this
+project against the new version and applies the fixes you approve.
+From then on every skill you run asks the same question until you have (see [Upgrading Magpie](#upgrading-magpie)).
+This is **detect-and-prompt, not auto-run**:
 a plugin hook cannot invoke a slash command, and Magpie never mutates an
 adopter repo without the guided skill's confirmation, so the *trigger* is
 automatic while the *changes* stay confirmed.
@@ -670,11 +727,11 @@ automatic while the *changes* stay confirmed.
 |---|---|
 | **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
 | **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), on the same `startup` `SessionStart` event, wired in [`plugins/magpie-setup/hooks/codex-hooks.json`](../../plugins/magpie-setup/hooks/codex-hooks.json) as `/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"`. The plugin's [`.codex-plugin/plugin.json`](../../plugins/magpie-setup/.codex-plugin/plugin.json) names that file, because Codex cannot parse the Claude Code `hooks/hooks.json` (see [Which manifest Codex reads](#which-manifest-codex-reads)). `PLUGIN_ROOT` is the installed `magpie-setup` root, where the script finds its manifests and `skills/setup`. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. It runs only once you have trusted it — see the caveat below. |
-| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:complete-upgrade` after updating. |
-| **Antigravity** | None yet. Plugins can carry a `SessionStart` hook, but Magpie does not ship one for Antigravity until a plugin-root path for it is verified. Run `/magpie-setup:complete-upgrade` after refreshing the plugin. |
-| **Pi** | None. Run `/skill:complete-upgrade` after `pi update --extensions`. |
-| **Goose** | None. Run `magpie:complete-upgrade` after `goose plugin update magpie` and the `npm ci` that restores the sandbox runtime. |
-| Other agents | Run `/magpie-setup:complete-upgrade` manually after updating the package. |
+| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:upgrade` after updating. |
+| **Antigravity** | None yet. Plugins can carry a `SessionStart` hook, but Magpie does not ship one for Antigravity until a plugin-root path for it is verified. Run `/magpie-setup:upgrade` after refreshing the plugin. |
+| **Pi** | None. Run `/skill:upgrade` after `pi update --extensions`. |
+| **Goose** | None. Run `magpie:upgrade` after `goose plugin update magpie` and the `npm ci` that restores the sandbox runtime. |
+| Other agents | Run `/magpie-setup:upgrade` manually after updating the package. |
 
 > [!IMPORTANT]
 > **Codex hooks require a separate trust decision.** Current Codex supports plugin-local hooks, but skips non-managed definitions until the operator reviews them in `/hooks`.
@@ -786,9 +843,11 @@ Bump when the work needs to reach installed copies: before pointing anyone at
 `claude plugin update`, before announcing a change adopters should take, or
 when a batch of merged work has piled up behind a stale stamp.
 
-**How to bump.** From the Actions tab: **bump dev version** -> *Run workflow*.
+**How to bump.** Sync the specs first (see
+[Bumping the dev version](../../CONTRIBUTING.md#bumping-the-dev-version)), then from the
+Actions tab: **bump dev version** -> *Run workflow*.
 [`bump-dev-version.yml`](../../.github/workflows/bump-dev-version.yml) runs the
-three steps below, puts the result through the same checks a pull request gets,
+three steps below, refreshes the framework checkout's own reconciliation stamp, puts the result through the same checks a pull request gets,
 and opens it as a **draft PR** crediting whoever pressed the button. Review the
 diff, press *Ready for review* to start the required checks, then merge.
 `workflow_dispatch` is restricted by GitHub to accounts with write access, so

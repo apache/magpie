@@ -53,9 +53,12 @@ export interface ReviewFindingsSummary {
 export interface ReviewFindingsState {
   prNumber?: number;
   prTitle?: string;
+  findingsPath?: string;
+  sourceHash?: string | null;
   findings: ReviewFinding[];
   summary: ReviewFindingsSummary;
   selectedIndex: number;
+  syncError?: string | null;
 }
 
 export interface ParseFindingsResult {

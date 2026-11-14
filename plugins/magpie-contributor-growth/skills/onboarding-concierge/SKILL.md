@@ -21,7 +21,7 @@ argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
-measured_tokens: 3599
+measured_tokens: 3601
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -78,7 +78,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -313,7 +313,7 @@ or handle the thread directly. The skill does not post anything.
   overview and status.
 - [`mentoring-welcome`](../../../magpie-mentoring/skills/welcome/SKILL.md) — sibling skill
   for first-contact orientation on a thread.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — sibling
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — sibling
   skill for teaching-register interventions on existing code-review threads.
 - [`good-first-issue-author`](../../../magpie-mentoring/skills/good-first-issue-author/SKILL.md) —
   authors newcomer-ready issues so the "where do I start?" answer has

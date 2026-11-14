@@ -3,6 +3,8 @@
 
 # `rebase` — update the PR branch with its base
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 Never on a conflicting PR: GitHub's update-branch side-merges the base and refuses on conflicts, returning 422.
 Guard on the live state:
 

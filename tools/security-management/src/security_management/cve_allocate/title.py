@@ -54,10 +54,13 @@ def _patterns(names: Sequence[str], short: Sequence[str], prefixes: Sequence[str
     for name in names:
         n = re.escape(name)
         leading.append(rf"^[ \t]*{n}{_VERSION}[ \t]*{_MARK}?[ \t]*")
-        trailing.append(rf"[ \t]+in[ \t]+{n}[ \t]*\.?$")
+        trailing.append(rf"[ \t]+in[ \t]+{n}{_VERSION}[ \t]*\.?$")
         trailing.append(rf"[ \t]*\({n}{_VERSION}\)\.?[ \t]*$")
     for name in short:
         leading.append(rf"^[ \t]*{re.escape(name)}{_VERSION}[ \t]*{_MARK}[ \t]*")
+        trailing.append(rf"[ \t]*\({re.escape(name)}{_VERSION}\)\.?[ \t]*$")
+        # The version is required: a bare short name may be a real noun in the title.
+        trailing.append(rf"[ \t]+in[ \t]+{re.escape(name)}[ \t]+v?\d+(?:\.\d+)*(?:\.x)?[ \t]*\.?$")
     # Reporter attribution belongs in the credits field; kept end-anchored because
     # the pattern is loose enough to eat a substantive clause mid-title.
     trailing.append(r"[ \t]*\([\w.][\w. -]*[ \t]+follow-up\)\.?[ \t]*$")

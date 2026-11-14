@@ -142,3 +142,36 @@ def test_known_counts_for_fixture(tmp_path, monkeypatch):
     assert dash["ready_count"] == 1
     assert dash["untriaged_count"] == 1
     assert dash["partial"] is False
+
+
+def test_collaborator_self_activity_counts_in_written_sidecars(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        f"{__name__}._open_fixture",
+        lambda: [
+            make_pr(
+                1,
+                author="maintainer",
+                assoc="MEMBER",
+                timeline=[
+                    {
+                        "__typename": "LabeledEvent",
+                        "actor": {"login": "maintainer"},
+                        "label": {"name": "area:docs"},
+                    }
+                ],
+            ),
+            make_pr(
+                2,
+                author="maintainer",
+                assoc="MEMBER",
+                comments=[comment("Looking into this.", author="maintainer", assoc="MEMBER")],
+            ),
+        ],
+    )
+
+    for module, stem in [(reference, "reference"), (dashboard, "dashboard")]:
+        with monkeypatch.context() as m:
+            sidecar = _run(m, module, tmp_path / f"{stem}.html")
+        assert sidecar["engaged_count"] == 2
+        if module is dashboard:
+            assert sidecar["hero"]["defacto"] == 2

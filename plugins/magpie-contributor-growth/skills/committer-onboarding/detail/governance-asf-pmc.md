@@ -35,10 +35,11 @@ The ASF only accepts new account requests from PMC chairs and ASF Members.
 Ask the nominator: *"Are you the PMC chair for this project, or an ASF Member?"*
 If they are neither, they must ask the PMC chair (or any ASF Member on the PMC) to submit it on their behalf; identify who will send it before drafting.
 
-**Check whether the ICLA already triggered an automatic request.**
-If the candidate's ICLA filled in the project name and desired Apache ID, the secretary may already have initiated the account request, and no separate email is needed.
-Ask the nominator: *"Did the candidate's ICLA include the project name and desired Apache ID?"*
-If yes, confirm with the nominator whether the secretary has already acknowledged the request before sending a duplicate.
+**Check whether the ICLA already triggered the request.**
+When the candidate's ICLA names the project and a desired Apache ID, the secretary files the account request when recording it:
+the PMC's private list receives the ICLA acknowledgement and a `[FORM] Account Request` message to root@apache.org.
+Look for both on the private list before drafting anything, and do not send a duplicate request when they are there.
+Draft a separate request only when the ICLA was filed without the project, or the candidate already had an ICLA on file.
 
 If a separate request is still needed, fill the template in [`detail/email-templates.md`](email-templates.md) § Secretary account-creation request, addressed to root@apache.org (cc secretary@apache.org).
 

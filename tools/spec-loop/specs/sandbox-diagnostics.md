@@ -102,7 +102,12 @@ error, and two skills that probe or verify the setup on demand.
   `~/.claude/scripts/container-gateway/src` (a marketplace install); with
   no report it fails as "gateway status unavailable" rather than "not
   running", and a `status` that exits 2 without a report as "refused the
-  run directory" (#1815). Probe 7 checks that `prek` and `uv` run inside
+  run directory" (#1815).
+  An operator copy the sandbox cannot read, because the project's wiring has
+  no `allowRead` grant for `~/.claude/scripts/container-gateway/`, is named as
+  that rather than blamed on `python3`; the probe tests a file, since the
+  directory's metadata stays visible (#1967).
+  Probe 7 checks that `prek` and `uv` run inside
   the sandbox and can write `~/.cache`, telling a missing grant (⚠)
   from a tool that is not installed (⊘) by reading the worktree's
   `settings.local.json`, since a read-denied `~/.local/bin` looks the
@@ -130,7 +135,8 @@ error, and two skills that probe or verify the setup on demand.
   sandbox, whose unreadability is ✗), the vetted-ops split, the touch
   overlay and signing key (check 10), the `gh` exclusion (check 11),
   the container gateway (check 12; 12a accepts the hooks in
-  `~/.claude/settings.json` or `~/.claude/settings.local.json`, fails a
+  the managed drop-in or `~/.claude/settings.json`, fails entries found
+  only in `~/.claude/settings.local.json`, fails a
   registered absolute path that does not exist on this machine, and marks
   one in a `settings.json` linked into a synced config repo as ◐, #1797),
   the eval-harness exclusion
@@ -307,26 +313,34 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- The doctor runs 9 probes over the catalog's 12 entries: the two
-  touch-overlay entries (`cannot exec` of the wrapper, and the
-  runtime-state directory) have no live probe. Verify check 10 covers
-  the wrapper's `allowRead` grant statically; the runtime-state entry
-  is reached only through the hint hook.
-- The `uv python install` / `uv tool install` entry (#1785) has neither a
-  hint-hook branch nor a doctor probe, and has no **Notes** section at all
-  (acceptance 1's four sections), so it breaks the "catalog entry first,
-  hook branch beside it" rule; the session-start hook's grant cleanup and `isolated-setup-update`'s
-  must-fix report are its only other surfaces.
+- The doctor runs 9 probes over the catalog's 16 entries. Probe 5's
+  `signing-program` half reaches the `cannot exec` wrapper entry, and verify
+  check 10 covers the wrapper's `allowRead` grant statically. Six entries have
+  no live probe: the touch-overlay runtime-state entry, reached only through
+  the hint hook, and the `uv python install`, lefthook, CaptainHook, `bwrap`
+  and `git status` placeholder entries. The lefthook, CaptainHook and
+  `git status` entries have no hint-hook branch either, and are not among the
+  two exceptions acceptance 1 allows.
+  <!-- gap-closes-when: none (narrative) -->
+- The `uv python install` / `uv tool install` entry (#1785) has no doctor
+  probe; its other surfaces are the hint hook's `share/uv/` branch, the
+  session-start hook's grant cleanup, `isolated-setup-update`'s must-fix report
+  and verify check 19.
+  <!-- gap-closes-when: none (narrative) -->
 - Probes 2, 4 and 6–9 still have no script tests.
+  <!-- gap-closes-when: none (narrative) -->
 - A command that spells a working directory with a literal `~` still
   prompts under the read block even when the directory is listed. For
   the vetted-ops commands the setup closes this by requiring the read
   block off (verify check 16); for any other such command it stays open.
+  <!-- gap-closes-when: none (narrative) -->
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the
   catalog entry, the probe text and the verify check all need the same
   edit on that day.
+  <!-- gap-closes-when: none (narrative) -->
 - Linux / bubblewrap is not measured for the `gh` entry: Go uses its
   own root store there, so the TLS half may not apply while the keyring
   half still can.
+  <!-- gap-closes-when: none (narrative) -->

@@ -10,6 +10,7 @@ examples a maintainer can paste:
 |---|---|
 | Walk through everything in **"my reviews"**, newest first | `pr-management-code-review` |
 | Review a single PR (the most common ad-hoc trigger) | `pr-management-code-review pr:65981` |
+| Review several named PRs in one session, in that order | `pr-management-code-review pr:1929,1944,2013` (or `pr:2005-2008`) |
 | Just the PRs where I'm a CODEOWNER, ignore the rest | `pr-management-code-review codeowner-only` |
 | PRs that explicitly `@`-mention me, skip the noise | `pr-management-code-review mentioned-only` |
 | Re-look at the PRs I already reviewed (follow-ups after author push) | `pr-management-code-review reviewed-before-only` |
@@ -38,7 +39,7 @@ everything you'd reasonably be expected to look at.
 
 | Selector / flag | Effect |
 |---|---|
-| `pr:<N>` | review only PR `<N>` |
+| `pr:<N>` | review only PR `<N>`; `pr:<N>,<M>`, `pr:<N>-<M>` and repeated `pr:` tokens name several (at most 50), reviewed in the order given |
 | `area:<LBL>` | restrict to PRs carrying `area:<LBL>` (wildcards supported) |
 | `collab:true|false` | restrict to PRs whose author is / isn't a collaborator |
 | `team:<NAME>` | restrict to PRs requesting review from a team `<viewer>` is on |

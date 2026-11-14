@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5544
+measured_tokens: 5542
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -68,7 +68,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 ## Snapshot drift
 
 Also at the top of every run, this skill compares the gitignored `.apache-magpie.local.lock` (per-machine fetch) against the committed `.apache-magpie.lock` (the project pin).
-On mismatch it surfaces the gap and proposes [`setup upgrade`](../setup/upgrade.md).
+On mismatch it surfaces the gap and proposes [`setup update`](../setup/update.md).
 The proposal is non-blocking — the user may defer if they want to run with the local snapshot for now.
 Full flow: [`docs/quick-start/other-install-methods.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection).
 
@@ -226,7 +226,7 @@ If everything is in sync and verification still passes, say so explicitly and st
 If something is out-of-date or has drifted, name the concrete follow-up:
 
 - Framework checkout behind `origin/main` → the `git pull --ff-only` that check 1 printed, run by the user.
-- Snapshot drift (the local lock differs from the committed `.apache-magpie.lock`) → run [`setup upgrade`](../setup/upgrade.md), which refreshes the gitignored snapshot per the committed `.apache-magpie.lock` after the same pre-flight checks this skill recommends and surfaces what arrived in the new snapshot.
+- Snapshot drift (the local lock differs from the committed `.apache-magpie.lock`) → run [`setup update`](../setup/update.md), which refreshes the gitignored snapshot per the committed `.apache-magpie.lock` after the same pre-flight checks this skill recommends and surfaces what arrived in the new snapshot.
 - Pinned-tool (`bubblewrap` / `socat`) upgrade candidate worth adopting → manifest bump PR per [Bumping a pinned version](../../../../docs/setup/secure-agent-setup.md#bumping-a-pinned-version).
 - `claude-code` newer build available, or below the `min_version` floor → `npm install -g --no-save @anthropic-ai/claude-code@latest` (no manifest bump — the runtime is unpinned; below-floor is a hard-fail in `setup-isolated-setup-verify`).
 - comdev MCP checkout behind `origin/main` → run the printed `git pull --ff-only` + `npm install`; no manifest bump or cooldown (these track `main` by design).

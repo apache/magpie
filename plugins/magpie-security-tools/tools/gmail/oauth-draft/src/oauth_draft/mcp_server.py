@@ -145,18 +145,22 @@ def _create_draft_impl(
     thread_id: str | None,
     no_reply_headers: bool,
     credentials_path: str | None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
 ) -> dict[str, str]:
     """Shared implementation, kept plain so the tests can call it directly."""
     credentials_path = _vetted_credentials_path(credentials_path)
+    if no_reply_headers and in_reply_to:
+        raise ValueError("no_reply_headers and in_reply_to are mutually exclusive")
+    explicit = _cd.explicit_reply_headers(in_reply_to, references)
     with _as_tool_error():
         creds = Credentials.load(locate_credentials(credentials_path))
         assert creds.from_address is not None  # require_from_address=True default
         access_token = refresh_access_token(creds)
 
-        if thread_id and not no_reply_headers:
-            in_reply_to, references = _cd.latest_reply_headers(access_token, thread_id)
-        else:
-            in_reply_to, references = (None, None)
+        in_reply_to, references = _cd.choose_reply_headers(
+            access_token, thread_id, explicit, no_reply_headers
+        )
 
         raw = _cd.build_mime(
             from_addr=creds.from_address,
@@ -190,6 +194,8 @@ def create_draft(
     thread_id: str | None = None,
     no_reply_headers: bool = False,
     credentials_path: str | None = None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
 ) -> dict[str, str]:
     """Create a Gmail draft as PLAIN TEXT ONLY (no HTML, no tracking).
 
@@ -210,9 +216,23 @@ def create_draft(
             so the draft threads reliably on every mail client.
         no_reply_headers: Skip the thread lookup / reply headers. Only useful
             for smoke tests — production replies always want the headers.
+            Cannot be combined with ``in_reply_to``.
         credentials_path: Override the OAuth credentials JSON path. Defaults
             to ``$GMAIL_OAUTH_CREDENTIALS`` or
             ``~/.config/apache-magpie/gmail-oauth.json``.
+        in_reply_to: Optional RFC-5322 ``Message-ID`` this draft replies to
+            (``<local@domain>``; angle brackets optional). Use it when the
+            message is not in this Gmail account — e.g. a report that exists
+            only in the PonyMail archive — so there is no ``thread_id`` to
+            derive the headers from. Sets ``In-Reply-To``. When ``thread_id``
+            is also given, the draft is still attached to that thread, but
+            these explicit headers win over the thread-derived ones.
+        references: Optional space-separated ``Message-ID`` chain for the
+            ``References`` header, root first (the parent message's own
+            ``References``). Needs ``in_reply_to``, which is appended when the
+            chain does not already name it. Defaults to ``in_reply_to`` alone.
+            Whitespace, CR / LF or anything not shaped ``local@domain`` in
+            either value is rejected.
 
     Returns:
         ``{draft_id, message_id, thread_id, gmail_url, content_type}``.
@@ -226,6 +246,8 @@ def create_draft(
         thread_id=thread_id,
         no_reply_headers=no_reply_headers,
         credentials_path=credentials_path,
+        in_reply_to=in_reply_to,
+        references=references,
     )
 
 

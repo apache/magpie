@@ -306,15 +306,15 @@ def test_prose_mentioning_a_plugin_is_not_a_table_row(repo: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 6. Per-family skill counts in the family READMEs
+# 6. Per-family skill counts on the family install pages
 # ---------------------------------------------------------------------------
 
 
 def _family_readme(repo: Path, directory: str, plugin_family: str, declared: int) -> None:
-    target = repo / "docs" / directory / "README.md"
+    target = repo / "docs" / directory / "install.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        f"# {directory}\n\n## Install & first runs\n\n"
+        f"# Install & first runs\n\n"
         f"Install just this family — one plugin, {declared} skills.\n\n"
         f"```text\n/plugin install magpie-{plugin_family}@apache-magpie\n```\n",
         encoding="utf-8",
@@ -472,7 +472,7 @@ def test_the_setup_mechanism_is_never_flagged(repo: Path) -> None:
     """`/magpie-setup` names the install mechanism, not a skill a marketplace
     user invokes, so it stays legal on every page."""
     _skill(repo, "setup", "setup", "Triage")
-    _doc(repo, "Run `/magpie-setup upgrade` to refresh the snapshot.\n")
+    _doc(repo, "Run `/magpie-setup update` to refresh the snapshot.\n")
     assert _errors(mod.check_portable_form_is_flagged) == []
 
 
@@ -554,6 +554,7 @@ def test_main_exits_1_and_names_every_problem(repo: Path, capsys: pytest.Capture
 def test_main_exits_0_on_a_consistent_tree(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _skill(repo, "a", "security", "Triage")
     _readme_family(repo, "security", 1)
+    _family_docs(repo, "security", "security")
     _modes(repo, [("Triage", 1)])
     _specs(repo, ["adapters.md"], ["adapters.md"], ["adapters.md"])
     _dev(repo, ["check-x.sh"], ["check-x.sh"])
@@ -753,3 +754,79 @@ def test_a_design_document_may_quote_the_command(repo: Path) -> None:
         "/plugin marketplace add apache/magpie\n", encoding="utf-8"
     )
     assert _errors(mod.check_marketplace_add_is_not_repeated) == []
+
+
+# ---------------------------------------------------------------------------
+# 13. Every skill family has the same documentation pages
+# ---------------------------------------------------------------------------
+
+
+def _family_docs(
+    repo: Path, directory: str, family: str, *, readme: str | None = None, install: str | None = None
+) -> None:
+    docs = repo / "docs" / directory
+    docs.mkdir(parents=True, exist_ok=True)
+    (docs / "README.md").write_text(
+        readme
+        if readme is not None
+        else f"# {directory}\n\n## Install & first runs\n\n[Install & first runs](install.md) has it.\n",
+        encoding="utf-8",
+    )
+    (docs / "install.md").write_text(
+        install
+        if install is not None
+        else "# Install & first runs\n\nInstall just this family — one plugin, 1 skills.\n\n"
+        f"```text\n/plugin install magpie-{family}@apache-magpie\n```\n\n"
+        "## Before the first run\n\nNothing.\n\n## Try these first\n\nA run.\n",
+        encoding="utf-8",
+    )
+
+
+def test_family_with_both_pages_is_silent(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_docs(repo, "pairing", "pairing")
+    assert _errors(mod.check_family_docs_layout) == []
+
+
+def test_family_docs_dir_override_is_honoured(repo: Path) -> None:
+    _skill(repo, "a", "issue", "Triage")
+    _family_docs(repo, "issue-management", "issue")
+    assert _errors(mod.check_family_docs_layout) == []
+
+
+def test_single_page_family_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_docs(repo, "pairing", "pairing")
+    (repo / "docs" / "pairing" / "install.md").unlink()
+    errs = _errors(mod.check_family_docs_layout)
+    assert len(errs) == 1
+    assert "docs/pairing/install.md: missing" in errs[0]
+
+
+def test_readme_without_install_pointer_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_docs(repo, "pairing", "pairing", readme="# pairing\n\n## Skills\n")
+    errs = _errors(mod.check_family_docs_layout)
+    assert len(errs) == 1
+    assert "Install & first runs" in errs[0]
+
+
+def test_install_page_sections_are_required_in_order(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_docs(
+        repo,
+        "pairing",
+        "pairing",
+        install="# Install & first runs\n\n/plugin install magpie-pairing@apache-magpie\n\n"
+        "## Try these first\n\nA run.\n\n## Before the first run\n\nNothing.\n",
+    )
+    errs = _errors(mod.check_family_docs_layout)
+    assert len(errs) == 1
+    assert "out of order" in errs[0]
+
+
+def test_install_page_for_the_wrong_family_is_reported(repo: Path) -> None:
+    _skill(repo, "a", "pairing", "Pairing")
+    _family_docs(repo, "pairing", "mentoring")
+    errs = _errors(mod.check_family_docs_layout)
+    assert any("/plugin install magpie-pairing@" in e for e in errs)

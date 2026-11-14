@@ -52,7 +52,7 @@ ENV_CONFIG_PATH = "PRIVACY_LLM_CONFIG"
 # `.apache-magpie-local/`), then the committed `.apache-magpie-overrides/`.
 #
 # `.apache-magpie/` is deliberately NOT looked in: it is the gitignored
-# framework snapshot, replaced wholesale by `/magpie-setup upgrade`, and the
+# framework snapshot, replaced wholesale by `/magpie-setup update`, and the
 # framework ships no `privacy-llm.md` at its root, so nothing legitimate
 # lives there. Earlier versions looked there and in the overrides only,
 # which meant the `privacy-llm.md` that `setup-privacy-llm` writes to the

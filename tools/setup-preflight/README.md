@@ -64,7 +64,7 @@ file tool but never *executed* by a shell — and a sandboxed marketplace
 install is exactly the environment the reconciliation check was written
 for. So `/magpie-setup:setup config` copies this module under the
 per-user `~/.cache/apache-magpie/preflight/`, with or without version
-control, and `/magpie-setup:setup upgrade` refreshes that copy against the
+control, and `/magpie-setup:setup update` refreshes that copy against the
 framework version now installed. Where exactly depends on where the copy
 comes from (`layers.checker_install_dir`):
 
@@ -72,7 +72,7 @@ comes from (`layers.checker_install_dir`):
   and never inside the project) — a harness's plugin install, or the framework copy
   under the user's home — it goes in the shared `checker_dir` itself and
   serves every project without a copy of its own. The last `config` or
-  `upgrade` from a plugin decides its version; it reads each project's own
+  `update` from a plugin decides its version; it reads each project's own
   lock and configuration, so it serves projects pinned to different versions.
 - **From anywhere else** — a pinned snapshot at `<project>/.apache-magpie/`,
   which a tarball can carry as easily as a real install, or any other
@@ -202,7 +202,7 @@ The user's answer is recorded under `welcome.<guide>` (`welcome.general`, `welco
 The version is the `magpie-setup` plugin's, read beside this package,
 in the project's framework tree or in its pinned snapshot;
 the personal-layer copy of a marketplace install has no manifest,
-so there it is a fingerprint of this package, which `/magpie-setup:setup upgrade` refreshes.
+so there it is a fingerprint of this package, which `/magpie-setup:setup update` refreshes.
 The finding is skipped where there is no personal layer to record into,
 `--no-welcome` leaves it out, and a personal layer holding nothing but that record
 does not make the project count as configured.

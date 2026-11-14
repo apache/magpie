@@ -24,7 +24,7 @@ argument-hint: "[issue-number or issue-URL]"
 capability: capability:review
 surface_hash: sha256:8cfe453a3113abe2
 license: Apache-2.0
-measured_tokens: 3796
+measured_tokens: 3798
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -81,7 +81,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -307,7 +307,7 @@ and hands off.
   authors net-new good first issues from supplied candidates.
 - [`good-first-issue-sweep`](../good-first-issue-sweep/SKILL.md) —
   curates the existing backlog to surface GFI candidates.
-- [`pr-management-mentor`](../../../magpie-pr-management/skills/mentor/SKILL.md) — teaching-
+- [`pr-management-thread-mentor`](../../../magpie-pr-management/skills/thread-mentor/SKILL.md) — teaching-
   register replies on existing issue and PR threads.
 - `onboarding-concierge` — answers "how do I contribute here" questions
   from `CONTRIBUTING.md` (skill in progress).

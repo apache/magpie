@@ -14,6 +14,7 @@
     - [Pinned snapshot](#pinned-snapshot)
   - [Trust and security boundary](#trust-and-security-boundary)
   - [Guard behavior](#guard-behavior)
+  - [Upgrade Magpie](#upgrade-magpie)
   - [Verify](#verify)
   - [Update and uninstall](#update-and-uninstall)
   - [Spec-loop runner](#spec-loop-runner)
@@ -129,6 +130,12 @@ that exits 2 blocks the tool call even without deny JSON. A missing Python hook
 target likewise produced exit 2 and blocked the shell call. Installation
 verification should still exercise a known allow and a known denial rather than
 treating configuration presence as sufficient.
+
+## Upgrade Magpie
+
+Ask *"upgrade magpie"* or run `/magpie-setup:upgrade` after the plugin update.
+Whether Grok runs the `magpie-setup` session-start upgrade notice is not verified, so run it after every update.
+Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

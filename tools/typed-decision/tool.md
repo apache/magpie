@@ -128,7 +128,8 @@ class DecisionProvider(ABC):
 The reference backend [`providers/jev.py`](src/typed_decision/providers/jev.py) connects to TypeSafe's Jev API:
 
 - **Endpoint:** `https://api.typesafe.ai/v1/systemone`
-- **Pinned Model:** The model version is pinned to an explicit constant (`systemone-2026-06-01`), **never "latest"**, ensuring behavioral stability and reproducible benchmark evaluations (RFC-AI-0004 § Principle 3).
+- **Pinned Model:** The model version is pinned to an explicit constant (`jev-1.14.0`), **never "latest"**, ensuring behavioral stability and reproducible benchmark evaluations (RFC-AI-0004 § Principle 3).
+- **Wire Format:** Each operation sends one question to the System One API, with the prompt as `state`. `score` sends numeric levels, at most 10 because the API caps them, and maps the returned level position back onto the requested scale. Levels are sent as bare numbers, so callers must say in the prompt what high and low mean on the scale.
 - **Zero Third-Party Dependencies:** Implemented using Python's standard `urllib.request` library.
 - **Credential Storage:** Follows framework credential isolation (`AGENTS.md`): reads `TYPESAFE_API_KEY` (or `JEV_API_KEY`) from environment or from home directory storage (`~/.config/apache-magpie/typesafe.key`).
 - **Construction Gate:** If credentials are missing at construction time, `JevProvider` raises `TypedDecisionUnavailable` immediately, signaling unavailability to the registry.

@@ -56,15 +56,15 @@ a project can offer a first-time contributor.
   `good-first-issue-sweep`, `newcomer-issue-explainer`),
   `plugins/magpie-contributor-growth/skills/`
   (`contributor-to-committer`, `onboarding-concierge`), and
-  `plugins/magpie-pr-management/skills/mentor/`
-  (`pr-management-mentor`).
+  `plugins/magpie-pr-management/skills/thread-mentor/`
+  (`pr-management-thread-mentor`).
 - Adopter config scaffolds in `plugins/magpie-setup/templates/`
   (`projects/_template` is a symlink to it): `mentoring-config.md`
-  (`pr-management-mentor`; its `out_of_scope_topics` also gates
+  (`pr-management-thread-mentor`; its `out_of_scope_topics` also gates
   `mentoring-welcome`), `mentoring-welcome-config.md`,
   `good-first-issue-config.md`, `onboarding-concierge-config.md`,
   `newcomer-issue-explainer-config.md`, and `committer-readiness.md`.
-- Skill: `pr-management-mentor` — drafts a teaching-register comment on
+- Skill: `pr-management-thread-mentor` — drafts a teaching-register comment on
   a single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
 - Skill: `good-first-issue-author`. Drafts one net-new good first issue
@@ -170,7 +170,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/newcomer-i
 ## Known gaps
 
 - **The family now covers the newcomer journey end to end.**
-  All seven skills ship: `pr-management-mentor`, `good-first-issue-author`,
+  All seven skills ship: `pr-management-thread-mentor`, `good-first-issue-author`,
   `mentoring-welcome` (first-contribution welcome / orientation),
   `onboarding-concierge` (how-to-contribute answers),
   `newcomer-issue-explainer` (beginner explanation of a filed issue),

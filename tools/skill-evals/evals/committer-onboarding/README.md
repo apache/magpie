@@ -3,7 +3,7 @@
 
 # committer-onboarding — eval suite
 
-27 cases across 4 steps covering the post-vote onboarding workflow,
+28 cases across 4 steps covering the post-vote onboarding workflow,
 including intake-model and governance-model flag branches.
 
 ## Case inventory
@@ -22,7 +22,7 @@ including intake-model and governance-model flag branches.
 | case-8-third-party-pii-in-discussion | Vote thread contains third-party names | Third-party names redacted; candidate and voters left as-is |
 | case-9-veto-insufficient-reason | Binding -1 with only "bad code quality" justification | Vote not auto-passed; nominator told justification is likely insufficient |
 
-### step-1-icla-comms (9 cases)
+### step-1-icla-comms (10 cases)
 
 | Case | Intake model | Scenario | Expected outcome |
 |---|---|---|---|
@@ -35,6 +35,7 @@ including intake-model and governance-model flag branches.
 | case-7-icla-submitted-not-processed | icla | ICLA emailed to secretary but not yet on public index | "Submitted awaiting" variant used; no ICLA instructions; secretary request held |
 | case-8-dco-intake | dco | 2 of 3 recent PRs carry Signed-off-by (min=2) | DCO check passes; icla_check_skipped; congratulations links DCO reference |
 | case-9-no-cla-intake | no-cla | No IP agreement required | icla and DCO checks both skipped; congratulations explains no-cla model |
+| case-10-secretary-filed-request | icla | ICLA named the project; secretary already filed the account request | No duplicate secretary request drafted |
 
 ### step-3-checklist (6 cases)
 
@@ -65,3 +66,14 @@ including intake-model and governance-model flag branches.
 - LDAP sync timing: non-deterministic — documented in karma-grant.md, not an eval case
 - Board report for TLP PMC additions: depends on report cycle — noted in checklist, not tested here
 - DCO sign-off missing on all PRs (failure path): covered by the skill's stated behaviour (flag to nominator; nominator confirms before proceeding) — not a hard-fail case because projects vary on retroactive attestation policy
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-09 | `3fd660b0` (onboarding-asf-invite-template) | `opus[1m]` | 1 | pass |  |

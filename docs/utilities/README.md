@@ -5,11 +5,8 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Utilities skill family](#utilities-skill-family)
+- [Skill tools](#skill-tools)
   - [Install & first runs](#install--first-runs)
-    - [Before the first run](#before-the-first-run)
-    - [Works well with](#works-well-with)
-    - [Try these first](#try-these-first)
   - [Skills](#skills)
   - [When to adopt this family](#when-to-adopt-this-family)
   - [Adopter contract](#adopter-contract)
@@ -21,12 +18,13 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Utilities skill family
+<a id="utilities-skill-family"></a>
+# Skill tools
 
 > **Scope.** Works on any project, ASF or not — no
 > Apache-Software-Foundation-specific assumptions baked in.
 
-Framework meta-skills — the tools you use to **build and maintain skills
+Framework meta-skills — the tools you use to **discover, build, and maintain skills
 themselves**, rather than to run a maintainership mode on your project. They
 sit outside the MISSION mode taxonomy (Agentic Triage, Agentic Mentoring,
 Agentic Drafting, Agentic Pairing, Agentic Autonomous): nothing here acts on
@@ -43,95 +41,8 @@ They are for skill authors and framework contributors.
 
 ## Install & first runs
 
-Install just this family — one plugin, 5 skills. Framework meta-skills: author, restructure, and index your own skills.
-
-Once you have [added the marketplace](../setup/marketplace-install.md):
-
-```text
-/plugin install magpie-utilities@apache-magpie
-```
-
-New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup:setup` run, and a recording of it
-happening — plus the other agents and the secure-isolation setup to run next.
-
-The first utilities skill you run opens with a one-minute
-[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/utilities.md):
-the typical flow, what needs configuring, what to ask it, and how to make it yours.
-Dismiss it, or hide it for good, from its last line;
-*"show the utilities welcome again"* or `/magpie-setup:welcome-guide utilities` brings it back.
-
-### Before the first run
-
-<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
-
-**Nothing here has to be configured.** These skills read the file below
-when it exists — yours in your personal layer or the project's in
-`.apache-magpie-overrides/` — and fall back to a documented default when
-it does not.
-
-**Optional.** Each has a documented fallback; absent, the skill still runs.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `list-skills`, `optimize-skill`, `report-framework-issue`, `skill-reconciler`, `write-skill` |
-
-<!-- END generated: skill-config -->
-
-<!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->
-
-### Works well with
-
-Third-party packages, none of them required: this family works with none of
-them installed, and Magpie neither bundles nor depends on any. They are named
-because they are what a maintainer goes looking for next, and because the
-answer differs by agent.
-
-**[Superpowers](https://github.com/obra/superpowers)** — obra (community)
-
-A skills library and development methodology: brainstorming, plan writing, subagent-driven execution, systematic debugging.
-
-*With this family:* write-skill and optimize-skill author Magpie skills; Superpowers' brainstorming and plan-writing skills are the discipline for deciding what a skill should do before writing it.
-
-Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Antigravity**, **Cursor**, **OpenCode**.
-
-Installing it means first adding a marketplace Magpie does not publish — `obra/superpowers-marketplace`. The install flow asks before it does, and names whose it is.
-
-Ships a plugin manifest per harness and one shared skills/ tree, the same shape Magpie uses, so it is not a Claude Code-only package.
-
-Install commands per agent are in
-[**Companion skill packages**](../setup/companion-skills.md).
-
-<!-- END generated: companion-skills -->
-
-### Try these first
-
-*Illustrative shapes, not real transcripts — your output will differ. Nothing
-below sends, merges, or posts anything without you confirming it.*
-
-**List everything installed.**
-
-```text
-/magpie-utilities:list-skills
-```
-
-![A list-skills run showing the three plugins installed here and the seven families available in the marketplace but not installed](../../assets/quickstart/families/utilities/list-skills.svg)
-
-**Author a new skill.**
-
-```text
-/magpie-utilities:write-skill
-```
-
-![A write-skill run that drafted a new skill with conforming frontmatter, pre-flight and hard rules, and flagged the missing eval suite](../../assets/quickstart/families/utilities/write-skill.svg)
-
-**Report a framework bug upstream.**
-
-```text
-/magpie-utilities:report-framework-issue
-```
-
-![A report-framework-issue run that searched the framework repository for an existing report, found none, and drafted one](../../assets/quickstart/families/utilities/report-framework-issue.svg)
+[Install & first runs](install.md) has the install command for this family,
+the files to configure before the first run, and the skills to try first.
 
 ## Skills
 

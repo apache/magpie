@@ -474,8 +474,8 @@ one pass sync:
    signal that the advisory has shipped. The exact wire
    mechanism depends on the adapter (`cve_authority.publication_propagation`
    declares whether sync `poll`s for the result, awaits a
-   `webhook`, or treats the move as `manual`); for the
-   Vulnogram adapter the implementation is
+   `webhook`, or treats the move as `manual`); sync runs
+   `cve-tool publish`, which for the Vulnogram adapter calls
    [`vulnogram-api-record-publish`](../../tools/cve-tool-vulnogram/oauth-api/README.md)
    under `poll`.
 7. Moves the project-board column to `Announced`.

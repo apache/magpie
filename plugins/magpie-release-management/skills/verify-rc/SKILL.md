@@ -21,9 +21,9 @@ when_to_use: |
   it. Runs standalone.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:68f688faf6363ba7
+surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 6529
+measured_tokens: 6574
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -86,7 +86,7 @@ Never add one.
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
-  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
+  it or `/magpie-setup:setup update` to refresh it, and carry on with the work.
 
 **Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
@@ -438,6 +438,13 @@ the comment carries the attestation block `release-promote` Step 0 looks for:
 
 Without `--trusted-hardware`, or with any non-`identical` result, the
 comment carries no attestation and says why.
+
+---
+
+## Interactive verification checklist pane (Claude Code)
+
+Under Claude Code, the `verify-rc-pane` mod shows each step's live status from the commands above.
+Other harnesses see the plain command output.
 
 ---
 

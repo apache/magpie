@@ -151,7 +151,10 @@ acceptance:
   - Writing the committed default-set block touches only
     `extraKnownMarketplaces`, `enabledPlugins` and the derived `mcp__…`
     entries of `permissions.allow` (the MCP tools the adopted families
-    call, from `skills/setup/family-mcp-allows.json`) in
+    call, from `skills/setup/family-mcp-allows.json`, which lists only
+    tools that read one named item or report state — a tool that sends,
+    posts, deletes, creates a draft, or searches a whole mailbox or list
+    stays behind the harness prompt) in
     `.claude/settings.json`, preserves every other top-level key and an
     existing `apache-magpie` marketplace definition, adds only the floor
     members missing from an existing `enabledPlugins` and removes nothing,
@@ -208,7 +211,7 @@ acceptance:
     configuration that run actually wrote. `/magpie-setup:setup adopt` migrates
     an existing local stamp's `skills` map into the lock, and
     `/magpie-setup:setup unadopt` migrates it back before removing the lock.
-    `/magpie-setup:setup upgrade` runs the
+    `/magpie-setup:setup update` runs the
     `requires_config` check before writing the stamp, so it never stamps a
     false clean.
   - The shared pre-flight block never reads the marketplace clone on any
@@ -238,11 +241,11 @@ committed version with drift detection.
 
 ## Where it lives
 
-- Skill: `setup` (install, config, adopt/unadopt, verify, upgrade,
+- Skill: `setup` (install, config, adopt/unadopt, verify, update,
   override, reconcile — the one-time project-wide reconciliation sweep) at
   `plugins/magpie-setup/skills/setup/`: one `SKILL.md` plus a sibling
   detail file per sub-action (`install.md`, `config.md`, `adopt.md`,
-  `upgrade.md`, `verify.md`, `reconcile.md`, `locks.md`, …).
+  `update.md`, `verify.md`, `reconcile.md`, `locks.md`, …).
   `skills/setup` is the flat-tree mirror symlink, like every other skill's
   `skills/<dir>`; the sibling setup skills below live beside it under
   `plugins/magpie-setup/skills/`.
@@ -277,8 +280,14 @@ committed version with drift detection.
   `.apache-magpie-local/` in an unadopted repo; `local_overrides_ignored`
   is `null` when unadopted, since the git-directory home needs no ignore
   entry.
-- Skill: `setup-complete-upgrade` (`/magpie-setup:complete-upgrade`, snapshot
-  `/magpie-setup-complete-upgrade`) — after a Magpie version change, gathers
+- Skill: `setup-upgrade` (`/magpie-setup:upgrade`, snapshot
+  `/magpie-setup-upgrade`; renamed from `complete-upgrade`) — the one
+  upgrade command, triggered by "upgrade magpie". Phase 1 moves the version
+  when it has to: on a pinned snapshot behind the committed lock, or a
+  marketplace install with a newer version and an explicit upgrade request, it
+  runs `setup update` (renamed from `setup upgrade`; the old sub-action name
+  routes here) under that flow's own rules; after a marketplace update it asks
+  for a restart and a second run. Phase 2 gathers
   the state of this machine and project, shows one plan grouped **Fix**,
   **Update**, **Add**, **Check** (one line per item, `[bypass]` prefix when
   `dangerouslyDisableSandbox: true` is needed), and applies only the approved
@@ -286,14 +295,26 @@ committed version with drift detection.
   Trigger: the session-start hook prints `Apache Magpie updated (<old> -> <new>)`
   on any change of the installed version string, once per version through its
   `magpie-plugin-version` marker.
+  Every skill's pre-flight also raises `upgrade-pending` (rules section
+  `step-15`) while the running Magpie version differs from the project's
+  baseline: the personal stamp's `upgraded.version`, else its `version`, else
+  the committed lock's `reconciled.version`. The running version comes from the
+  harness plugin listing, else the hook's `magpie-plugin-version` marker
+  (Claude Code plugin data directory, or `$XDG_STATE_HOME/magpie`). It is
+  skipped on snapshot methods (the `step-2` drift finding covers them) and on
+  `method: local`, and when either version is unknown. The skill asks
+  "upgrade now?" on every run, with no suppression on a decline, until
+  `python3 -P -m setup_preflight.upgrade record` writes `upgraded`
+  (`version`, `at`) to the personal layer's `reconciled.json` after an approved
+  run.
   Hard lines, never crossed even with approval: never write the vetted-ops
   policy; never edit a committed file (`.claude/settings.json`, `.gitignore`,
   `.apache-magpie.lock`, `.apache-magpie-overrides/**`); never weaken a deny
   rule or remove a sandbox restriction; never read credential files.
-  It never commits, never runs `adopt`/`unadopt`, never updates plugins or
-  bumps snapshots.
-  Stamps: none of its own; it writes only the existing skills' stamps through
-  their own commands, and records `"isolated_setup": {"enabled": false}` in the
+  It never commits and never runs `adopt`/`unadopt`; staging committed
+  files happens only inside the `setup update` flow of phase 1.
+  Stamps: its own `upgraded` block, plus the existing skills' stamps through
+  their own commands; it records `"isolated_setup": {"enabled": false}` in the
   personal layer's `reconciled.json` when the user declines the isolated setup.
   On a non-Claude harness every `[bypass]` item becomes a *Run these yourself*
   command.
@@ -311,7 +332,7 @@ committed version with drift detection.
   A script entry that is not a plain-content copy is routed to the
   `setup-isolated-setup-install` step that installs it (K, P.3, L, M, or the
   agent-guard wiring of P).
-  `setup upgrade` ends by pointing at it.
+  `setup update` ends by pointing at it, or hands back to it when it started the run.
   Skill names here are the marketplace form.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites, `commit-attribution.md`).
@@ -356,7 +377,7 @@ committed version with drift detection.
   snapshot methods, or is brought up to its floor on `method: marketplace`.
 - **Drift detection** at the top of every framework skill: if the
   gitignored local lock has drifted from the committed pin, the skill
-  proposes `/magpie-setup:setup upgrade`.
+  proposes `/magpie-setup:setup update`.
   The check is the shared pre-flight block's `setup_preflight` run (see
   criteria 4 and 24); skills carry no `## Snapshot drift` section of their
   own (removed in #1470).
@@ -364,7 +385,7 @@ committed version with drift detection.
   ships a Claude Code mod, `plugins/magpie-setup/hooks/drift-check.ts`
   (registered in `hooks/hooks.json`, #1552), that reads the committed lock
   at session start, spends no model tokens, and shows a warning above the
-  prompt naming `/magpie-setup upgrade` when it finds drift.
+  prompt naming `/magpie-setup update` when it finds drift.
   On `method: marketplace` it applies floor semantics: drift only when the
   installed plugin version is below `min_version` (PEP 440, dev segment
   included).
@@ -372,7 +393,7 @@ committed version with drift detection.
   `.apache-magpie.local.lock`'s `source_ref` / `fetched_commit`; on
   `svn-zip` it compares `ref` with `source_ref`; a missing, empty or
   malformed lock of either kind is reported as drift.
-  `upgrade`, `verify` and a re-install also resolve a `git-tag` pin
+  `update`, `verify` and a re-install also resolve a `git-tag` pin
   upstream and compare it with the committed `commit` anchor: a moved
   tag stops them with both commits named, as `skill-sources` does for a
   trusted source; only a deliberate `bump-committed` re-pins.
@@ -383,7 +404,7 @@ committed version with drift detection.
 - **The session-start command hook runs only code the sandbox cannot
   rewrite** (#1791, #1794).
   `check-upgrade.sh` prints `Apache Magpie updated (<old> -> <new>)` (or a
-  first-activation line) naming `/magpie-setup:complete-upgrade` on any change
+  first-activation line) naming `/magpie-setup:upgrade` on any change
   of the installed version string, once per version.
   It runs outside the sandbox, so nothing the session environment sets may
   choose what runs: `hooks.json` wires it as `/bin/bash -p <path>` (the
@@ -417,7 +438,7 @@ committed version with drift detection.
   project hook, `.grok/hooks/magpie-agent-guard.json`, derived from
   `plugins/magpie-setup/templates/grok-agent-guard-hook.json` (only the
   executable path changes, to the snapshot's `agent_guard/__init__.py`).
-  `install`, `upgrade` and `uninstall` touch only that file, surface a diff
+  `install`, `update` and `uninstall` touch only that file, surface a diff
   before replacing or removing a hand-edited copy, leave every other
   `.grok/hooks/*` file and `.grok/config.toml` alone, and never grant or
   reset Grok's project-hook trust, which stays the operator's decision.
@@ -485,7 +506,7 @@ committed version with drift detection.
 - **Committed floor, local rest.** The committed `.claude/settings.json`
   holds only what every contributor shares; personal settings, and the MCP
   tools of families installed on one machine but not adopted, live in
-  `.claude/settings.local.json`. `setup upgrade` reconciles that file (the
+  `.claude/settings.local.json`. `setup update` reconciles that file (the
   framework checkout's template plus the registry) and hands the write to
   the user, adding missing entries and removing dropped ones only on
   confirmation.
@@ -502,15 +523,30 @@ committed version with drift detection.
   `setup` sub-action it is reported as n/a and the run continues; no policy
   is written to get past it. Every other skill, and a policy that exists but
   fails to load, still stops.
+- **An import caller's grants and labels are part of a clean reconcile.**
+  `setup reconcile` check 3a and `setup config` compare each configured
+  security issue-import caller's `[callers]` entry with the vetted-ops README's
+  configuration example, whatever tracker backend is selected, and for GitHub
+  imports check `[values] labels` against the labels each importer sets (#1749,
+  #1982).
+  A missing grant or label is a finding, proposed as a minimal diff the user
+  saves; setup never writes the policy itself, and never creates a missing one.
+  A skill is stamped clean only after re-reading the saved policy proves the
+  grants and labels are there; a declined, unapplied or unreadable one stays
+  unresolved.
 - **The isolated-setup warning is shown once per session, in adopted repos
   only.** `magpie-setup`'s `SessionStart` hook warns while the machine has no
-  isolated setup (its stamp, or a sandbox enabled in the project's or the
-  user's `settings.json` or `settings.local.json`, #1763): optional for a trial, recommended for longer use, the
+  isolated setup (its stamp, or else the most specific explicit
+  `sandbox.enabled` among the project's `settings.local.json`, the project's
+  `settings.json` and the user's `settings.json`, as Claude Code resolves it,
+  so a `/sandbox` toggle-off in the project's `settings.local.json` overrides
+  a wider `true`; the home directory's `settings.local.json` is not loaded and
+  does not count): optional for a trial, recommended for longer use, the
   consequences of running without it, and a warning against pointing skills
   at untrusted content. A project opts out with `isolation_warning: off` in
   the committed `.apache-magpie-overrides/project.md`, which `adopt` asks
   about; a personal layer cannot opt out.
-- **`upgrade` splits on adoption:** nothing repo-side when the project
+- **`update` splits on adoption:** nothing repo-side when the project
   has not adopted; `min_version` raised — never lowered — and staged
   when it has.
 - **An unrecognised sub-action is never guessed** (#1391). A first
@@ -519,8 +555,9 @@ committed version with drift detection.
   distance one or two, or a prefix; every candidate when several qualify)
   and the full sub-action list, then waits.
   It runs a suggested sub-action only after the user confirms it, and
-  never falls back to `install`, because `upgrade`, `reconcile` and
-  `adopt` stage committed files.
+  never falls back to `install`, because `update`, `reconcile` and
+  `adopt` stage committed files. The old sub-action name `upgrade` is not
+  treated as unknown: it runs the `setup-upgrade` skill instead.
 - **Stacked PRs only with write access** (#1430). The agent conventions
   block `install` writes into an adopter's `AGENTS.md`, like this repo's own
   `AGENTS.md`, tells agents how to open a series of dependent PRs.
@@ -561,7 +598,7 @@ committed version with drift detection.
 - **`method: local` has nothing to drift** (#1414). The framework
   checkout's self-adoption writes `method: local` with a `source:` key; the
   checker's lock parser accepts that key and returns no project findings
-  for the method, and `upgrade` on it only refreshes the pre-flight
+  for the method, and `update` on it only refreshes the pre-flight
   checker from the in-repo package and stops.
   Each canonical `.agents/skills/magpie-<n>` link of a self-adopted checkout
   targets the skill's real directory, `../../plugins/<family>/skills/<alias>`
@@ -596,7 +633,7 @@ committed version with drift detection.
    the recorded floor without capping it there.
 4. Drift between local and committed locks is surfaced with a remedy that
    fits it: a missing local lock proposes `/magpie-setup:setup`; a differing
-   `ref` or `commit` proposes `/magpie-setup:setup upgrade`; a differing `method`
+   `ref` or `commit` proposes `/magpie-setup-upgrade`, which runs `setup update`; a differing `method`
    or `url` (the machine fetched the framework another way, or from
    another source) proposes a full re-install with `/magpie-setup:setup`,
    because an upgrade cannot fix it. `setup_preflight` compares all four
@@ -639,7 +676,7 @@ committed version with drift detection.
     nothing and asks first.
 11. Version comparison is PEP 440: `0.10.0` satisfies a `0.9.0` floor, and
     `0.2.0` satisfies a `0.2.0.dev202609110041` floor.
-12. `upgrade` writes nothing to the repo when the project has not adopted,
+12. `update` writes nothing to the repo when the project has not adopted,
     and raises — never lowers — `min_version` when it has.
 13. `verify` reports a missing lock and an ahead-of-floor machine as not
     faults, and a shortfall as one.
@@ -688,7 +725,7 @@ committed version with drift detection.
     outright is recorded (`acknowledged.sweep`) against the version the
     stamp itself records — the installed plugin version on a
     marketplace install, the framework version otherwise — and does not
-    repeat until that version changes. `/magpie-setup:setup upgrade` records
+    repeat until that version changes. `/magpie-setup:setup update` records
     no decline at all.
 19. `/magpie-setup:setup reconcile` walks every skill an override file names
     **or** whose `requires_config:` entries resolve from the project's
@@ -698,7 +735,9 @@ committed version with drift detection.
     entry when both stores name the same skill, and — on confirmation —
     writes the stamp; a project with no adoption or configuration
     evidence at all reports nothing to reconcile and stops.
-20. `/magpie-setup:setup upgrade` reconciles the overrides its walk covers and
+    An import skill is not stamped clean while its vetted-ops caller grants
+    or required labels are missing or unverified.
+20. `/magpie-setup:setup update` reconciles the overrides its walk covers and
     writes the stamp only for one that passes the target-skill, anchor,
     and `requires_config` checks — an override with an unresolved
     `requires_config` entry is left out rather than stamped clean.
@@ -753,13 +792,13 @@ committed version with drift detection.
     resolved, never inside the project), the project's own
     `projects/<key>/` copy, with its `root-id`, from anything else — never inside
     a project) by `/magpie-setup:setup config` and refreshed
-    there by `/magpie-setup:setup upgrade`, because Bash can neither read nor
+    there by `/magpie-setup:setup update`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
     sandbox. The copy's source is the package inside the installed
     `magpie-setup` plugin on a marketplace install, and
     `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/` (the same
     files, through the mirror link) on a snapshot install. `config` states that it installed an executable, since it may
-    run unattended from a skill's pre-flight. `upgrade` skips the refresh
+    run unattended from a skill's pre-flight. `update` skips the refresh
     when no copy exists rather than creating one; it moves a copy an
     earlier version left in an adopted project's `.apache-magpie-local/`
     or in the project's `.git/apache-magpie/` or `.svn/apache-magpie/`.
@@ -790,7 +829,7 @@ committed version with drift detection.
     runs the update and never blocks the skill.
 28. The memoised project verdict is keyed on the lock files, the plugin
     listing, and the checker's own `core.py` and `lockfile.py`, so a
-    checker refreshed by `upgrade` never serves the previous code's
+    checker refreshed by `update` never serves the previous code's
     answer (#1414). A `method: local` lock, `source:` key included,
     parses and yields no project findings.
 29. An unrecognised `setup` sub-action is answered with close-match
@@ -866,7 +905,7 @@ committed version with drift detection.
     `welcome enable` (the `setup-welcome-guide` skill). The guide never
     blocks the requested work, is skipped where there is no personal layer,
     and a layer holding only that record does not count as configured.
-    Checker verification during `config` and `upgrade` uses `--no-welcome`;
+    Checker verification during `config` and `update` uses `--no-welcome`;
     unreadable optional guides do not suppress actual setup findings, and
     guide names cannot select Markdown files outside the shipped guides.
     The setup family runs no shared pre-flight, so the `setup` skill alone
@@ -909,18 +948,14 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   *default* way an adopter takes the framework; the snapshot install described
   here is the fallback. The skills delivered are the same tree either way —
   only the namespace of their invocation differs.
+  <!-- gap-closes-when: none (narrative) -->
 
 - **The `setup` welcome check is silent until the checker is in its
   `checker_dir` on a sandboxed marketplace install,** where the plugin cache cannot
   be executed, and on a machine whose installed checker predates the
-  `due` action until `setup upgrade` refreshes it.
+  `due` action until `setup update` refreshes it.
+  <!-- gap-closes-when: none (narrative) -->
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
-- **Built since first recorded as gaps:** the personal override surface
-  (acceptance 6; `.apache-magpie-local/` when adopted,
-  `<git-common-dir>/apache-magpie/` when only installed, since #1533/#1535) and the one-shot default-run
-  switch (acceptance 7, the `--no-overrides` flag in
-  `docs/setup/agentic-overrides.md` § One-shot defaults run) both ship.
-  They were tracked as work items `magpie-local-convention` and
-  `override-bypass-one-shot` in the plan.
+  <!-- gap-closes-when: none (narrative) -->

@@ -31,7 +31,7 @@ FAMILY = "quick-merge"
 
 
 def add_parsers(sub: Any) -> None:
-    family = sub.add_parser(FAMILY, help="pr-management-quick-merge")
+    family = sub.add_parser(FAMILY, help="pr-management-merge-candidates")
     commands = family.add_subparsers(dest="command", required=True)
     scr = commands.add_parser("screen", help="the three-stage screen over the saved ready queue")
     scr.add_argument("--saved-dir", type=Path, required=True)

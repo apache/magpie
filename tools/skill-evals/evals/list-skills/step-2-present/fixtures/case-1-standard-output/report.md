@@ -15,7 +15,7 @@ issue/  (5)
 
 pr-management/  (4)
   /magpie-pr-management-code-review  Review open pull requests against the project quality criteria.
-  /magpie-pr-management-mentor       Draft a mentor reply to a pull request.
+  /magpie-pr-management-thread-mentor       Draft a mentor reply to a pull request.
   /magpie-pr-management-stats        Produce a health dashboard for the open-PR backlog.
   /magpie-pr-management-triage       Triage a batch of open pull requests.
 

@@ -4,8 +4,10 @@
     "instead of granted to everyone. setup adopt/upgrade write the allows for the families in",
     ".apache-magpie.lock into the committed .claude/settings.json (a derived key, like",
     "enabledPlugins); reconciliation adds the allows for families installed only on one machine",
-    "to .claude/settings.local.json. List read-only or draft-only tools only: a tool that sends,",
-    "posts or deletes stays behind the harness prompt and never belongs here.",
+    "to .claude/settings.local.json. List tools that read one named item or report state only:",
+    "a tool that sends, posts or deletes, creates a draft, or searches a whole mailbox or list",
+    "stays behind the harness prompt and never belongs here, because these sessions read",
+    "untrusted content and the operator should see those calls.",
     "The claude_ai_Gmail entries are reads; drafting goes through gmail-plaintext, which writes",
     "plain text with no tracking links."
   ],
@@ -32,7 +34,6 @@
       ],
       "tools": [
         "get_thread",
-        "search_threads",
         "get_message",
         "list_drafts",
         "get_draft"
@@ -44,7 +45,6 @@
         "security"
       ],
       "tools": [
-        "create_draft",
         "check_auth"
       ]
     },
@@ -55,7 +55,6 @@
         "security"
       ],
       "tools": [
-        "search_list",
         "auth_status",
         "get_thread",
         "get_email",

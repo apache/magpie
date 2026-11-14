@@ -40,17 +40,17 @@ Checks:
   skill cannot leave a picture of a command nobody can run;
 - every `.txt` has an `.svg` beside it, every `.svg` has a `.txt`, and every
   `.svg` still regenerates byte-identically from its source;
-- every screenshot is embedded by its family README, and every family README
-  embeds at least one;
+- every screenshot is embedded by its family install page
+  (`docs/<family>/install.md`), and every family install page embeds at least one;
 - `magpie-setup.svg` — the whole first run, including the secure-agent setup
   that follows it — regenerates from `render-wizard.py`, is embedded by the
-  quick start, and the setup family's README embeds it rather than a copy.
+  quick start, and the setup family's install page embeds it rather than a copy.
   It used to be the repository's one *recording*, and it was wrong: it opened
   with the marketplace install, which became a prerequisite with its own page,
   and re-cutting it needed a terminal, a scratch project and a human. Nothing
   here is captured any more;
 - the per-family wizard animations regenerate from the frontmatter they are
-  derived from, and each is embedded by its family README. These have no
+  derived from, and each is embedded by its family install page. These have no
   transcript to pair with -- their source is `requires_config:` -- so the
   pairing rule does not apply to them and the staleness rule does;
 - the first-run walkthrough's screenshots are paired and embedded by the
@@ -137,7 +137,7 @@ def families() -> list[str]:
 
 
 def docs_readme(family: str) -> Path:
-    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "README.md"
+    return Path("docs") / DOCS_DIR_OVERRIDES.get(family, family) / "install.md"
 
 
 def family_skills(family: str) -> set[str]:
@@ -386,7 +386,7 @@ def main() -> int:
     errors: list[str] = []
 
     # The first-run animation. The setup family's first run *is* that run, so
-    # its README embeds it rather than a copy.
+    # its install page embeds it rather than a copy.
     for svg, doc in TOP_LEVEL.items():
         errors += check_svg(svg)
         errors += check_embedded(doc, svg)

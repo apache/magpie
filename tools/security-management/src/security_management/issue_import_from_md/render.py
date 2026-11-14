@@ -16,7 +16,7 @@
 # under the License.
 """Steps 3, 4 and 6 of the findings-file import: body, rollup, proposal table, recap.
 
-Every finding section becomes its own inert block (`shared.body.inert_block`),
+Every finding section becomes its own safe-markdown block (`shared.body.report_block`),
 and the rendered body must pass `shared.body.verify` or the render is refused. What stays
 the model's: the duplicate judgement, the credit decision under the bot/AI
 policy, and the confirmation reply.
@@ -40,11 +40,11 @@ class Refused(ValueError):
     """A render the skill must not emit."""
 
 
-def _clean(name: str, text: object, escaped: dict[str, list[int]]) -> str:
+def _clean(name: str, text: object, escaped: dict[str, list[int]], fmt: str = "markdown") -> str:
     raw = "" if text is None else str(text).strip("\n")
     if not raw.strip():
         return body.NO_RESPONSE
-    out = body.inert_block(raw)
+    out = body.report_block(raw, fmt)
     if not out["ok"]:
         raise Refused(f"section {name!r} is malformed ({out['indicator']}); it is not rendered")
     if out["escaped_lines"]:
@@ -65,12 +65,13 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     upstream = str(data["upstream"])
     security_list = one_line(data.get("security_list") or "security@")
     escaped: dict[str, list[int]] = {}
+    fmt = str(data.get("description_format") or "markdown")
     try:
-        details = _clean("Details", finding.get("details"), escaped)
-        impact = _clean("Impact", finding.get("impact"), escaped)
-        repro = _clean("Reproduction steps", finding.get("repro_steps"), escaped)
+        details = _clean("Details", finding.get("details"), escaped, fmt)
+        impact = _clean("Impact", finding.get("impact"), escaped, fmt)
+        repro = _clean("Reproduction steps", finding.get("repro_steps"), escaped, fmt)
         fix = finding.get("recommended_fix")
-        fix_text = _clean("Recommended fix", fix, escaped) if one_line(fix) else None
+        fix_text = _clean("Recommended fix", fix, escaped, fmt) if one_line(fix) else None
     except Refused as exc:
         return {"ok": False, "refused": str(exc)}
     note = (

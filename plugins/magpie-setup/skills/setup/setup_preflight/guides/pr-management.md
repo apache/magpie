@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# 🐦 Magpie here — your PR-management sidekick
+# Pull requests
 
 A one-minute tour, then straight back to what you asked for.
 
@@ -26,13 +26,13 @@ Neither requires the other.
 1. **Triage the queue** — propose a disposition for each PR — *"triage the open PRs"*
 2. **Route reviewers** — use the roster to suggest the right people — *"who should review this PR?"*
 3. **Review** — inspect the diff and draft inline feedback — *"review this PR against our criteria"*
-4. **Quick-merge** — screen easy candidates and propose the command for you to run — *"which PRs are ready for quick-merge?"*
+4. **Merge candidates** — screen easy candidates and propose the command for you to run — *"which pull requests are ready to merge?"*
 5. **Mentor** — help a contributor through the next step — *"draft helpful feedback for this contributor"*
 6. **Stale sweep** — propose follow-ups for inactive PRs — *"show me the stale PRs"*
 7. **Stats** — see where the queue needs attention — *"summarise the PR backlog by area"*
 
 Nothing is written, posted, labelled or closed without your explicit confirmation.
-Quick-merge never merges for you: it hands you the command.
+`merge-candidates` never merges for you: it hands you the command.
 
 ## 💬 Just ask
 
@@ -41,7 +41,7 @@ Quick-merge never merges for you: it hands you the command.
 - *"who should review this PR?"*
 - *"review this PR against our criteria"*
 - *"review this PR stack in dependency order"*
-- *"which PRs are ready for quick-merge?"*
+- *"which pull requests are ready to merge?"*
 - *"help this contributor understand the requested change"*
 - *"what changed in the queue since the last sweep?"*
 - *"summarise the PR backlog by area"*

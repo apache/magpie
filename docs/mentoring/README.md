@@ -7,8 +7,6 @@
 
 - [Agentic Mentoring skill family](#agentic-mentoring-skill-family)
   - [Install & first runs](#install--first-runs)
-    - [Before the first run](#before-the-first-run)
-    - [Try these first](#try-these-first)
   - [Skills](#skills)
     - [What each skill covers](#what-each-skill-covers)
   - [Adopter contract](#adopter-contract)
@@ -45,101 +43,14 @@ behaviour and can be evolved without editing the skill body.
 
 ## Install & first runs
 
-Install just this family — one plugin, 4 skills. Newcomer-facing mentoring — welcome, explain, and curate first issues.
-
-Once you have [added the marketplace](../setup/marketplace-install.md):
-
-```text
-/plugin install magpie-mentoring@apache-magpie
-```
-
-New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup:setup` run, and a recording of it
-happening — plus the other agents and the secure-isolation setup to run next.
-
-The first mentoring skill you run opens with a one-minute
-[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/mentoring.md):
-the typical flow, what needs configuring, what to ask it, and how to make it yours.
-Dismiss it, or hide it for good, from its last line;
-*"show the mentoring welcome again"* or `/magpie-setup:welcome-guide mentoring` brings it back.
-
-### Before the first run
-
-<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
-
-![An animated `/magpie-setup:setup config` run for the mentoring family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/mentoring.svg)
-
-*Illustrative — the real run derives more and asks better. What is true is
-the shape: it runs itself, it writes only your personal layer, and it
-stages nothing.*
-
-Every skill here resolves project-specific values from the adopter's
-[`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
-your personal layer first — `.apache-magpie-local/` (gitignored) in a
-project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
-that did not — then `.apache-magpie-overrides/` (committed, the project's).
-
-**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
-(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
-Nothing is staged, nothing is committed, and it works on a repository that
-has never adopted Magpie.
-
-**For the project:** [`/magpie-setup:setup adopt`](../setup/team-adoption.md)
-commits them for every contributor, either scaffolded directly or promoted
-from what you configured locally.
-
-**Required.** Without these a skill would act on a guess, so it stops and
-says which file is missing.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`good-first-issue-config.md`](../../plugins/magpie-setup/templates/good-first-issue-config.md) | What counts as a good first issue here: labels, size limits, and the areas safe to hand to a newcomer. | `good-first-issue-author`, `good-first-issue-sweep` |
-| [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `good-first-issue-author`, `good-first-issue-sweep` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `good-first-issue-author`, `good-first-issue-sweep`, `newcomer-issue-explainer`, `welcome` |
-
-**Optional.** Each has a documented fallback; absent, the skill still runs.
-
-| File | What it carries | Read by |
-|---|---|---|
-| [`mentoring-welcome-config.md`](../../plugins/magpie-setup/templates/mentoring-welcome-config.md) | Wording and triggers for first-time-contributor welcomes. | `welcome` |
-| [`newcomer-issue-explainer-config.md`](../../plugins/magpie-setup/templates/newcomer-issue-explainer-config.md) | How much context an explanation carries, and the register it is written in. | `newcomer-issue-explainer` |
-
-<!-- END generated: skill-config -->
-
-### Try these first
-
-*Illustrative shapes, not real transcripts — your output will differ. Nothing
-below sends, merges, or posts anything without you confirming it.*
-
-**Welcome a first-time contributor.**
-
-```text
-/magpie-mentoring:welcome
-```
-
-![A welcome run drafting a distinct greeting for each of three first-time contributors, naming what each PR actually changed](../../assets/quickstart/families/mentoring/welcome.svg)
-
-**Curate the good-first-issue backlog.**
-
-```text
-/magpie-mentoring:good-first-issue-sweep
-```
-
-![A good-first-issue-sweep run: two issues ready for a newcomer, two that are close but missing context or need a design decision](../../assets/quickstart/families/mentoring/good-first-issue-sweep.svg)
-
-**Explain an issue to a newcomer.**
-
-```text
-/magpie-mentoring:newcomer-issue-explainer
-```
-
-![A newcomer-issue-explainer run: what breaks, the two files to touch, the one test to run, and a comment drafted in a teaching register](../../assets/quickstart/families/mentoring/newcomer-issue-explainer.svg)
+[Install & first runs](install.md) has the install command for this family,
+the files to configure before the first run, and the skills to try first.
 
 ## Skills
 
 | Skill | Purpose | Status |
 |---|---|---|
-| [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
+| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
 | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. | experimental |
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via the GitHub `author_association` field; skips repeat contributors. | experimental |
 | [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain a single issue's context, relevant code paths, and expected approach to a newcomer who has claimed it; teaching register, never gatekeeps. | experimental |
@@ -152,7 +63,7 @@ confirmation in-session.
 
 ### What each skill covers
 
-- **`pr-management-mentor`** — the thread-level Agentic Mentoring skill. Reads an
+- **`pr-management-thread-mentor`** — the thread-level Agentic Mentoring skill. Invoke it with `/magpie-pr-management:thread-mentor`. The `magpie-pr-management` plugin provides it. It reads an
   issue or PR thread, decides whether a teaching-register intervention is
   warranted (clarifying question, convention pointer, paired example from a
   prior PR), drafts the comment, and waits for maintainer confirmation before
@@ -192,7 +103,7 @@ confirmation in-session.
 ## Adopter contract
 
 The generated table under
-[*Before the first run*](#before-the-first-run) lists every file these skills
+[*Before the first run*](install.md#before-the-first-run) lists every file these skills
 read. The [spec's adopter-contract section](spec.md#adopter-contract) documents
 the keys inside each one.
 
@@ -221,5 +132,5 @@ uv run --project tools/pilot-report-validator pilot-report-validate <your-report
   protocol, adopter contract.
 - [`projects/_template/README.md`](../../plugins/magpie-setup/templates/README.md) —
   adopter scaffold index.
-- [`docs/setup/agentic-overrides.md`](../setup/agentic-overrides.md) —
+- [Project rules](../setup/agentic-overrides.md) —
   the override mechanism every skill in this family supports.

@@ -3,6 +3,8 @@
 
 # `mark-ready` — add the ready-for-maintainer-review label
 
+Use the [action recording protocol](../recovery.md#action-recording-protocol) around every operation below; the parent action finishes only after all operations or its stop/error path.
+
 The label is the signal; no note is posted, except the ✅ flip when the PR carries a triage fold (`details.fold_flip`).
 
 **Golden rule 1b: never mark ready while workflow approval is pending.** Read the live state, then guard:

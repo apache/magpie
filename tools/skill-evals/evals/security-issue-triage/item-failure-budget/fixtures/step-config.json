@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/security-issue-triage/SKILL.md",
-  "step_heading": "## Item failure budget"
+  "step_heading": "## Item failure budget",
+  "also_include": [
+    "skills/security-issue-triage/item-failure-budget.md"
+  ]
 }

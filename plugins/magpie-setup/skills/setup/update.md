@@ -1,0 +1,1216 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/legal/release-policy.html -->
+
+# update — move this install to the new version
+
+**Scope: the pinned snapshot install.** On the default
+**marketplace** install there is no snapshot and no lock to drift
+— the agent's plugin manager owns the version, and upgrading
+means updating the plugin (see
+[Step 0](#step-0--pre-flight) item 2 for the commands).
+
+The upgrade flow is **drift-driven**. It detects mismatch
+between `<committed-lock>` (project pin) and `<local-lock>`
+(per-machine fetch), then re-installs per the committed lock,
+refreshes symlinks, and reconciles overrides.
+
+Most runs start from [`setup-upgrade`](../upgrade/SKILL.md), which runs this as its first phase when the version has to move and then checks and fixes the machine and project.
+Two trigger paths also land here directly:
+
+1. **User-initiated** — explicit `setup update`,
+   e.g. after a colleague bumped `<committed-lock>` to a
+   new framework version and the user wants to align.
+2. **Drift-triggered from a framework skill** — any
+   framework skill (or `setup verify`) detected
+   drift on its pre-flight check and the user accepted the
+   proposal to upgrade.
+
+Both paths run the same flow.
+
+## Inputs
+
+- `from:<git-ref>` / `from:<version>` — bring the snapshot
+  to a specific framework ref **for this run only**. Does
+  NOT update `<committed-lock>` (use a project-level commit
+  for that). Useful for testing a candidate version before
+  pinning it.
+- `bump-committed` — also update `<committed-lock>` to the
+  new ref. Use when this run is the project-level decision
+  to move to a newer version (the diff lands in the user's
+  next commit).
+- `dry-run` — show what would change without modifying
+  anything.
+
+## Step 0 — Pre-flight
+
+1. **Confirm we are in the main checkout, not a git worktree.**
+   Compare `git rev-parse --git-dir` against
+   `git rev-parse --git-common-dir`. If different, stop with:
+
+   > *"`update` runs in the main checkout, not a worktree.
+   > From the main: `cd <main-path> && setup update`.
+   > Every worktree automatically picks up the refreshed
+   > snapshot once the main upgrade lands, because each
+   > worktree's `<snapshot-dir>` is a symlink to the main's
+   > (per [`worktree-init.md`](worktree-init.md))."*
+
+   `<main-path>` resolves to
+   `$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd)")` —
+   surface it explicitly so the operator can `cd` there.
+2. Read `<committed-lock>`. If missing, this repo is not on the
+   pinned snapshot install. Before saying "not installed",
+   check whether Magpie is **plugin-installed** (the signals in
+   [`install.md` Step M1](install.md#step-m1--is-magpie-already-plugin-installed)).
+   If it is, the upgrade the user wants is the plugin's — print
+   it, give the companion pointer below, and stop:
+
+   ```text
+   /plugin marketplace update apache-magpie
+   /plugin update <plugin>@apache-magpie
+   ```
+
+   (Codex: `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
+   `agy plugin install https://github.com/apache/magpie`; Pi: `pi update --extensions`; Goose: `goose plugin update magpie`, then
+   `npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie`.) When any of `magpie-security`, `magpie-setup`, `magpie-pr-management`, `magpie-release-management`, `magpie-contributor-growth` and `magpie-utilities` is installed
+   and `magpie-security-tools` is not, add
+   `/plugin install magpie-security-tools@apache-magpie`: those families
+   run their framework tools from it (the name is historical). After the plugin refresh,
+   run `setup-isolated-setup-update` for any installed harness profile;
+   plugin updates do not merge workspace configuration. The companion
+   pointer is the one in [Step 0b](#step-0b--marketplace-method-the-floor-split) — this is the path every no-lock marketplace upgrade
+   takes, so it is where most operators see a new companion.
+   The marketplace update
+   comes first: `plugin update` compares **version strings**
+   against the local marketplace clone, so skipping it reports
+   "already at the latest version" however far behind the clone
+   has fallen. If neither install is present, suggest
+   `setup install` and stop.
+   **`method: local`** is the framework checkout linking its own
+   `skills/` source ([`install.md`](install.md#local-self-adoption-methodlocal)).
+   Its skills are the working tree, so there is no snapshot to
+   fetch, no `<local-lock>`, and nothing to drift; `git pull`
+   is its upgrade. Run only
+   [Refresh the pre-flight checker](#refresh-the-pre-flight-checker),
+   copying from this skill's own `setup_preflight/` directory, and
+   [Reconcile the local agent settings](#reconcile-the-local-agent-settings),
+   then stop.
+3. Read `<local-lock>`. If missing (gitignored, fresh
+   clone), the local install hasn't been initialised yet —
+   route as a recover-snapshot install per the committed
+   lock, not as an upgrade. Continue at Step 3.
+
+## Step 0b — Marketplace method: the floor split
+
+Read `.apache-magpie.lock`. **If `method` is one of the three snapshot
+methods, skip this step entirely** and continue at Step 1 — the
+snapshot flow below owns those, unchanged. No lock at all is not a skip
+condition: it is the "No lock" column of the split below, handled by
+this step.
+
+For `method: marketplace`, this step *is* the upgrade, and Steps 1–9
+below do not apply: there is no snapshot to delete, no symlink to
+refresh and no local lock to rewrite.
+
+**Update the machine either way.** Run the agent's plugin update for
+every installed Magpie plugin and report the versions before and after.
+Where there is no such CLI, print the commands instead. When every
+installed plugin is already at the latest available version, that run
+changes nothing — say so plainly instead of claiming an update
+happened.
+
+**Then point at companions, once.** Offer the
+[companion page](../../../../docs/setup/companion-skills.md) entries
+(on a marketplace install, fetch
+`https://raw.githubusercontent.com/apache/magpie/main/docs/setup/companion-skills.md`,
+which can be newer than the installed version; if neither can be read, say
+so in one line and skip the offer)
+whose **Pairs with** line names an installed family, that have a heading
+for this agent, and that are not already on the machine (`command -v`
+for a CLI such as `roborev`, the plugin list for a plugin) — exactly as
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next)
+item 3 does, printed and never run, naming the companion's sandbox step in
+`setup-isolated-setup-install` on the same line when the agent is Claude
+Code and its note names one (roborev: Step B). An upgrade is where a family grows a
+companion the operator has not heard of, so this runs whether or not any
+plugin version moved; when nothing matches, say nothing about it. Offer
+each companion once: append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
+`copilot`, `antigravity`, `cursor`, `opencode`, `kiro`) line for each companion offered to
+`~/.cache/apache-magpie/companions-offered`, the same per-user file
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) writes,
+and skip the `<id> <agent>` pairs already listed, so a decline is not
+repeated on every upgrade. If the file cannot be written, skip the record. It covers
+marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
+here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
+the companion page is where they find one.
+
+Before reconciling, [refresh the pre-flight checker](#refresh-the-pre-flight-checker) from the newly updated, trusted `magpie-setup` plugin. Follow its marketplace source and cache installation rules, including the user-run terminal step when the plugin cache is inaccessible inside the sandbox. Verify that `setup_preflight.organization_network` and its bundled ASF fragment are present in the refreshed checker. If refresh fails, stop the ASF reconciliation rather than falling back to a stale checker.
+
+Then [reconcile the local agent settings](#reconcile-the-local-agent-settings).
+
+Then split on whether the project has adopted Magpie:
+
+| | No lock | `method: marketplace` |
+|---|---|---|
+| Updates the plugins | yes | yes |
+| Writes to the repo | **nothing** | raises `min_version`, regenerates the derived wiring |
+| Commits | — | **never**; `git add` only |
+
+**Not adopted** → report the new versions and stop. Do not offer to
+write a lock here: adopting is
+[`adopt`](adopt.md), a deliberate act with a different blast radius,
+and an upgrade is not the moment to slip it in.
+
+**Adopted** → after the update, set `min_version` to the version now
+installed and regenerate `.claude/settings.json` from the lock, under
+the merge rules in [`adopt.md`](adopt.md#merge-rules). Show the diff,
+`git add` both, and say plainly that the bump lands through the
+project's normal review like any other committed file.
+
+**Before you regenerate that wiring, check the lock's `url`.** The regenerated
+`extraKnownMarketplaces` entry names it, and on Claude Code that file
+*is* the auto-install mechanism for every contributor who clones this
+repo. So if `url` is anything other than `apache/magpie`, do **not**
+regenerate the wiring on your own: show the entry you would write, name
+the marketplace it points at, and get an explicit confirmation first.
+The lock is a committed file in whatever repository happened to be
+opened, and staging a settings change from it unasked would make
+opening a repository enough to propose someone else's code to the whole
+project. Same boundary as the pre-flight's, through a different door —
+[`locks.md`](locks.md#url-is-a-security-boundary). The `min_version`
+bump is not gated; only the derived wiring is.
+
+**`min_version` only ever rises.** If the installed version is somehow
+*below* the committed floor — an update that could not reach the latest,
+a machine pinned by other means — leave the floor where it is and say
+so. A floor going backwards would silently withdraw a requirement the
+project already made.
+
+**If nothing moved, stage nothing.** An upgrade that finds everything
+already current is a no-op with a one-line report, not an empty diff to
+review.
+
+## Step 1 — Compute drift
+
+Compare `<committed-lock>` to `<local-lock>` and to upstream
+where applicable:
+
+| Method | Drift signal |
+|---|---|
+| `git-branch` | `<local-lock>.fetched_commit` vs upstream's current tip of `<committed-lock>.ref` (the branch). Drift if upstream has commits the local snapshot does not. |
+| `git-tag` | `<committed-lock>.ref` vs `<local-lock>.source_ref`, and `<committed-lock>.commit` vs `<local-lock>.fetched_commit`. Drift if either differs. Also resolve the tag upstream (`git ls-remote <committed.url> "refs/tags/<committed.ref>^{}" "refs/tags/<committed.ref>"` — the peeled `^{}` line wins for an annotated tag) and compare it with `<committed-lock>.commit`: a mismatch means **the tag moved** — a supply-chain signal. Stop the upgrade before deleting anything, name both commits, and do not re-fetch. Re-pinning to the moved tag is a deliberate act: only with `bump-committed`, after showing both commits and getting an explicit confirmation. |
+| `svn-zip` | `<committed-lock>.ref` (version) vs `<local-lock>.source_ref`. Drift if they differ. Also: if `sha512` differs, surface as a security-flagged drift (the released zip changed under the same version — investigate). |
+
+Also check method change: if
+`<committed-lock>.method != <local-lock>.source_method`, the
+project switched install methods — surface as a drift that
+needs a full re-install.
+
+If no drift detected, surface and stop — the local snapshot
+matches the committed pin, no upgrade needed.
+
+## Step 2 — Surface what changed
+
+For each kind of drift, present:
+
+- **Commits between `<local>` and `<committed>`** — for
+  `git-branch` and `git-tag` methods, list the commit log
+  (`git log --oneline <local-commit>..<committed-commit>`)
+  via the GitHub API or by re-cloning to a temp dir.
+- **Files touched in the framework's skill set** —
+  grouped by skill family. Call out any change to a skill
+  the adopter has an override for (the override will need
+  reconciliation in Step 5).
+- **`setup` skill changed in the framework** —
+  surface as a separate note. The adopter's *committed*
+  copy of `setup` will be auto-overwritten from the
+  new snapshot in [Step 4b](#step-4b--overwrite-the-committed-setup-from-the-new-snapshot--reload-in-flight)
+  and then the skill **reloads in-flight** before the rest
+  of the upgrade runs, so the bootstrap stays in sync with
+  the framework version the project just pinned and the
+  remaining steps execute against the new content.
+
+Ask for explicit confirmation before deleting and re-
+installing.
+
+## Step 3 — Delete the old snapshot
+
+```bash
+rm -rf .apache-magpie
+```
+
+The snapshot is gitignored — destroying it loses no
+committed work. Do this **before** the new install to avoid
+"new layered on top of old" partial state.
+
+**Sandboxed agents:** the snapshot's nested `.git/` (its
+`config` + `hooks/*.sample`) sits in Claude Code's built-in
+git-internals write-deny set, so this `rm -rf` fails with
+`operation not permitted` and leaves the snapshot half-deleted.
+Propose a sandbox bypass to the operator *before* running it —
+the same propose-then-bypass pattern Step 6c uses for its
+`.claude/` writes.
+
+## Step 4 — Install per the committed lock
+
+Per `<committed-lock>.method`:
+
+- **`git-branch`** — `git clone --depth=1 --branch
+  <committed.ref> <committed.url> .apache-magpie`. If
+  `from:<git-ref>` was passed, use that branch instead of
+  the committed one (this run only).
+- **`git-tag`** — `git clone --depth=1 --branch
+  <committed.ref> <committed.url> .apache-magpie`. If
+  `from:<git-ref>` overrides, use it. Then resolve `HEAD` and
+  confirm it equals the committed `commit` anchor; a mismatch
+  aborts the upgrade (the tag moved — a supply-chain signal):
+  delete the fresh clone, write no `<local-lock>`, and report
+  both commits. Only `from:<git-ref>` or `bump-committed` — a
+  deliberate re-pin the user asked for — skips the comparison,
+  and then Step 8 records the new `commit`.
+- **`svn-zip`** — `curl` the zip + verify `sha512` +
+  `unzip` to `.apache-magpie/`. The verification step is
+  **mandatory**; mismatched SHA-512 stops the upgrade and
+  surfaces the discrepancy.
+
+**Sandboxed agents (git methods):** writing the clone's nested
+`.apache-magpie/.git/hooks/*.sample` hits the same git-internals
+write-deny set, so `git clone` fails with `operation not
+permitted`. The fetch host is already allowlisted — only the
+local `.git/` write needs the bypass; propose it before cloning,
+as in Step 3.
+
+After install, capture the actual on-disk state for the
+new `<local-lock>`:
+
+- `source_method`, `source_url`, `source_ref` — from
+  whatever method was used in this run (committed lock or
+  `from:` override).
+- `fetched_commit` — `git -C .apache-magpie rev-parse
+  HEAD` for git methods; the version for svn-zip.
+- `fetched_at` — current ISO-8601 timestamp.
+
+## Step 4b — Overwrite the committed `setup` from the new snapshot + reload in-flight
+
+This step **must run before Steps 5+** so the remainder of
+this upgrade executes against the framework version the
+project just pinned to, not against the pre-upgrade
+bootstrap logic. It implements
+[`snapshot-model.md` Golden rule 9](snapshot-model.md#the-golden-rules-that-bind-only-here).
+
+1. Compute the diff between the canonical committed copy
+   `.agents/skills/magpie-setup/` and the snapshot's
+   `.apache-magpie/skills/setup/`.
+2. **If the adopter has local modifications** to their
+   committed copy beyond what the snapshot ships — surface
+   the diff and stop. Do **not** silently overwrite local
+   work. The user either (a) confirms the modifications can
+   be discarded, (b) decides to upstream them as a PR
+   against `apache/magpie` first, or (c) defers
+   the bootstrap-skill update to a later upgrade run.
+3. **If there are no local modifications** (or the user
+   confirmed in 2), copy the snapshot's `setup`
+   over the committed copy:
+
+   ```bash
+   # Overwrite the canonical committed copy:
+   rm -rf .agents/skills/magpie-setup
+   cp -r .apache-magpie/skills/setup \
+         .agents/skills/magpie-setup
+   # The relay symlinks (.claude/skills/magpie-setup,
+   # .github/skills/magpie-setup) point at
+   # ../../.agents/skills/magpie-setup and resolve to the
+   # refreshed content automatically — nothing to touch there.
+   ```
+
+4. **Reload in-flight.** Immediately after the copy lands —
+   before doing anything else in this run — re-read the
+   updated `.agents/skills/magpie-setup/SKILL.md`,
+   the just-overwritten `update.md` (this file), and any
+   helper file you have already opened in this run
+   (`agents.md`, `overrides.md`, `verify.md`). Resume
+   the upgrade from the step *after* this one, executing
+   the reloaded content — not the version of this file
+   that was in memory when the upgrade started.
+
+5. The new bootstrap-skill content lands as **modified files
+   in `git status`** at the adopter's committed-skill path.
+   The user reviews the diff and commits it as part of the
+   upgrade PR; on merge, every other contributor's next
+   `setup` run loads the matching version.
+
+The adopter shouldn't modify the bootstrap copy locally —
+the framework's hard rule is *"local mods go in
+`.apache-magpie-overrides/`, framework changes go via PR
+to `apache/magpie`"*. But if they did, step (2)
+catches it before the overwrite would erase their work.
+
+## Step 5 — Reconcile overrides
+
+**This reconciles overrides, not configuration.** It checks only the
+skills `.apache-magpie-overrides/` names — nothing about a skill this
+project has configured (via the personal layer) but never
+overridden. [`reconcile.md`](reconcile.md) is the full, project-wide
+pass; this is the narrower slice that rides along with a snapshot
+refresh.
+
+For each file in `<repo-root>/.apache-magpie-overrides/`:
+
+1. **Target skill check** — does the named framework skill
+   exist in the new snapshot? If not (skill renamed or
+   removed):
+   - Surface as conflict.
+   - The user updates the override's target skill name OR
+     deletes the override.
+2. **Anchor check** — read the target skill's `SKILL.md` **and every
+   sibling `*.md` detail file directly inside that skill's directory**
+   (a multi-file skill such as `setup` or `pr-management-triage` keeps
+   steps and golden rules in those detail files, not only in
+   `SKILL.md` — the same anchor-resolution surface
+   [`reconcile.md`](reconcile.md#the-sweep) check 2 defines). If the
+   override references framework structure (step numbers, golden
+   rules, decision-table rows) that has changed anywhere in that set
+   in the new framework version:
+   - Surface as conflict, with the specific anchors that
+     have moved.
+   - The user re-anchors the override against the new
+     structure.
+3. **`requires_config` check** — resolve every one of the target
+   skill's `requires_config:` entries through the lookup chain
+   (the personal layer's `<file>`, then `.apache-magpie-overrides/<file>`).
+   An entry that resolves through neither is a finding — the same
+   [`reconcile.md`](reconcile.md#the-sweep) check 3 surfaces — propose
+   `/magpie-setup:setup config <skill>` for it. Unlike check 2, this needs
+   only files already in the repository, so it always completes even in
+   a sandboxed session where the plugin cache is unreadable.
+
+The skill **does not** auto-rewrite overrides. Agentic
+interpretation means the right call is human judgement, not
+pattern-matching.
+
+**Write the stamp only for what all three checks just confirmed.** Every
+override whose target skill still exists, whose anchors still resolve,
+and whose `requires_config` entries all resolve — no conflict or finding
+surfaced for it above — is, at this moment, reconciled against the
+snapshot this upgrade just fetched (the `fetched_commit` / `source_ref`
+Step 4 captured). **An override with intact anchors but an unresolved
+`requires_config` entry is not stamped** — stamping it clean would make
+every later pre-flight go silent on a skill that is not actually
+reconciled, a false clean worse than not stamping at all. For every
+skill that does pass all three, write its current `surface_hash`, keyed
+by that skill's frontmatter `name:` (e.g.
+`code-review`), alongside `version` and `at`
+(today) into the reconciliation stamp
+([`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)),
+in whichever store [`reconcile.md`'s Step
+0.2](reconcile.md#step-0--pre-flight) would pick for this project — the
+committed lock's `reconciled.skills` map when adopted,
+the personal layer's `reconciled.json` otherwise. `git add` the lock
+alongside this upgrade's other committed-file changes when the target is
+the lock; never commit.
+
+Leave out any override this walk flagged as a conflict or a
+`requires_config` finding — it is not reconciled until the user resolves
+it, and the next `setup verify` or `reconcile` run will still name it.
+
+### Refresh the pre-flight checker
+
+The `setup_preflight/` directory under your per-user
+`~/.cache/apache-magpie/preflight/` — the shared copy, or this project's
+own `projects/<key>/` copy on a snapshot install; never inside a project,
+so that nothing a project carries, its `.git/` or `.svn/` included, is
+what pre-flight imports — is a **copy** of the `setup_preflight/` package in this skill's
+own directory, taken when
+[`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
+An upgrade moves the framework underneath it, so replace that copy with
+the one the newly-installed version ships, from the same source this
+upgrade took everything else from.
+
+Copy the files, not a link to them.
+`tools/setup-preflight/src/setup_preflight` is a relative symlink to that
+same package, so a plain `cp -R` from it leaves a link in the
+install directory that points nowhere.
+Copy from the skill's directory, or follow the link with `cp -RL`.
+For marketplace installs, use the `setup_preflight/` directory next
+to this skill in the installed plugin. The destination follows the
+source exactly as in
+[`config` Step 2a](config.md#step-2a--install-the-pre-flight-checker):
+a source in a known framework location (the installed plugin) refreshes
+the shared copy, and anything else (a pinned snapshot) refreshes only this
+project's own copy, rewriting its `root-id` — never
+the shared one.
+The marketplace cache under `~/.claude/plugins/cache/` is read-denied
+to a sandboxed shell. For a marketplace install, ask the user to run
+the following commands in their own terminal, outside the sandbox.
+For a readable snapshot install, the commands can run in the sandbox.
+
+Set `source_dir` to that installed skill's `setup_preflight/` directory,
+`checker_dir` to what `config` Step 2a's install-directory command prints
+for it (run from the project root), `personal_dir` to the personal layer
+`setup_preflight.layers` reports, and `vcs_dir` to the project's
+`<git-common-dir>/apache-magpie` (`.svn/apache-magpie` in a Subversion
+working copy, empty with no version control), before running the
+commands. Use their actual paths, not placeholders. Check the new copy
+before replacing the old one:
+
+```bash
+(
+  target="$checker_dir/setup_preflight"
+  legacy="$personal_dir/setup_preflight"
+  legacy_vcs="${vcs_dir:+$vcs_dir/setup_preflight}"
+
+  if [ -e "$target" ] || [ -L "$target" ] || [ -e "$legacy" ] ||
+     { [ -n "$legacy_vcs" ] && [ -e "$legacy_vcs" ]; }; then
+    mkdir -p -m 700 "$checker_dir" || exit 1
+    temp="$(mktemp -d "$checker_dir/.preflight.XXXXXX")" || exit 1
+    cp -RL "$source_dir" "$temp/setup_preflight" &&
+      PYTHONPATH="$temp" python3 -P -m setup_preflight --skill magpie-setup --no-welcome ||
+      { rm -rf "$temp"; exit 1; }
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
+    fi
+    mv "$temp/setup_preflight" "$target" ||
+      { if [ -e "$temp/old" ]; then mv "$temp/old" "$target"; fi; exit 1; }
+    rm -rf "$temp"
+  fi
+)
+```
+
+The other conditions move a checker an earlier version installed inside
+the project — in an adopted project's `.apache-magpie-local/`, or in the
+project's `.git/apache-magpie/` or `.svn/apache-magpie/`. Pre-flight no
+longer imports from inside a project, so those copies are dead. Say so,
+and offer to delete `$legacy` and `$legacy_vcs` once the new copy
+answers; never delete them unasked.
+
+The fresh copy also carries the new version's isolated-setup
+fingerprint. When the secure-setup files changed in this upgrade, the
+next skill's pre-flight on a machine that uses the isolated setup
+proposes `setup-isolated-setup-update` — the refresh is what makes that
+happen on a marketplace install, where there is no framework source to
+hash.
+
+Skip it when no copy exists: a project that never ran `config` has
+nothing to refresh, and `config` is what installs the checker.
+
+A stale copy is the likeliest cause of a skill reporting that its
+pre-flight checker is missing or broken (*step-0* of
+`preflight-detail.md`), which is precisely the state an upgrade
+introduces and this step closes. Verify the refreshed copy answers before
+reporting the upgrade complete:
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill magpie-setup --no-welcome
+```
+
+Skip this write entirely when `.apache-magpie-overrides/` is empty or
+absent — the only surface this walk checks, so there is nothing to
+confirm and nothing to stamp. (A project with configuration but no
+overrides may still have unreconciled skills; that gap is
+`reconcile.md`'s to close, not this walk's — it has no overrides to
+iterate over in the first place.)
+
+### Reconcile the local agent settings
+
+The committed `.claude/settings.json` holds only what every contributor
+must share (the sandbox, every `deny` and `ask` rule, the plugin wiring,
+and the MCP tools of the adopted families). Everything else is personal
+and lives in the gitignored `.claude/settings.local.json`, which Claude
+Code layers on top. An upgrade can move what belongs there, so bring it
+up to date:
+
+1. **Build the proposed local entries** from applicable sources:
+   First apply the [ASF network fragment selection](#asf-network-fragment-selection) below. Add its validated entries to the proposal only for ASF projects; otherwise use the neutral sources listed here.
+   - in the framework checkout, the template
+     `tools/agent-isolation/claude-settings.local.template.json` (the
+     `gh` read allows, the remaining sandbox exclusions, network domains
+     and tool paths);
+   - in any project, the MCP tools from
+     [`family-mcp-allows.json`](family-mcp-allows.json) for each family
+     installed on this machine **but not** in the lock's `plugins`
+     (an adopted family's tools are already committed).
+
+2. **Compare with `.claude/settings.local.json`.** Drop any proposed
+   entry the committed `.claude/settings.json` already contains (in the
+   framework checkout that is every family's MCP tools), then add every
+   remaining one the local file lacks. Before finalising the proposal,
+   perform the [historical ASF grant migration](#historical-asf-grant-migration)
+   for existing entries as well as new ones. Once the user confirms the copy,
+   record the template, selected ASF fragment and registry entries under
+   `local_settings`, keyed by this worktree's root
+   (`git rev-parse --show-toplevel`), in the personal layer's
+   `reconciled.json`; an entry recorded there that
+   the current template and registry no longer propose was dropped
+   upstream, so ask before removing it. An entry that was never recorded
+   is the user's own: never touch it.
+3. **Never add a `deny` or `ask` rule, and never set a value the
+   committed file sets.** Protective rules belong in the committed floor,
+   and a local scalar overrides the committed one (a local
+   `sandbox.enabled: false` would switch the sandbox off).
+4. **Hand the write to the user.** Claude Code does not let an agent
+   write its own settings files, sandbox or not. Write the merged result
+   to the scratch directory, show the diff, give one copy command for the
+   user to run, and confirm the file afterwards.
+
+Skip it, and say nothing, when there is nothing to add or remove.
+
+### ASF network fragment selection
+
+During local settings reconciliation, select the ASF network fragment
+in addition to the existing template and MCP entries only when the
+project explicitly declares ASF.
+
+Use `setup_preflight.organization_network` from the current trusted
+setup skill or refreshed preflight checker. The reviewed ASF fragment is
+bundled alongside that module; the framework source also retains a copy
+under `tools/agent-isolation/`.
+
+Resolve the target project's `project.md` using Magpie's existing
+personal-first configuration precedence. Never infer ASF membership
+from the repository name or Git remote.
+
+Run the read-only selector using the trusted installed checker:
+
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root /absolute/path/to/target`
+
+The default fragment is bundled beside `organization_network.py` inside the trusted installed `setup_preflight` package. Use the installed preflight checker's parent directory as `PYTHONPATH` (or the trusted setup skill's parent directory when invoking it directly). On a pinned snapshot, refresh the checker before running the selector. Do not resolve the fragment from the adopter's working tree.
+
+An empty JSON object means no ASF additions. A nonzero exit means
+the proposed settings must not be applied.
+
+Merge the selected ASF entries into the proposed project-local
+`.claude/settings.local.json`, not user-scope or committed settings.
+Keep the existing reconciliation rules: preserve user-owned entries,
+record applied entries in `reconciled.json`, request approval before
+removing previously recorded entries, and stage the result for the
+user to install.
+
+Never put ASF grants into the shared egress gateway's default
+allowlist. Explicit gateway environment overrides are process-wide,
+not project-scoped.
+
+### Historical ASF grant migration
+
+When upgrading from a version that supplied ASF network permissions
+unconditionally, inspect the existing effective Claude Code settings
+before proposing an update. Removing an entry from a template does not
+remove an older copy already installed on the machine.
+
+Check the committed `.claude/settings.json`, the current worktree's
+`.claude/settings.local.json`, and applicable user-scope settings for
+the six ASF hosts in the reviewed network fragment and
+`WebFetch(domain:lists.apache.org)`. Perform this inspection for both
+ASF and non-ASF projects.
+
+For **non-ASF projects**, propose removal of historical ASF grants.
+For **ASF projects**, retain or propose only the reviewed project-local
+fragment; flag copies in shared or user-scope settings for migration
+to project-local scope. A committed grant requires a separate,
+explicitly approved repository change, not just a local-file update.
+
+Use existing `reconciled.json` provenance to identify entries previously
+applied by Magpie. For grants without provenance, distinguish a likely
+historical template entry from a deliberate project/user exception,
+and request the operator's decision. Never silently delete an
+untracked permission or assume it is safe merely because it matches
+a former default.
+
+Show the affected files, exact proposed additions/removals, and the
+resulting effective permissions before requesting approval. Preserve
+unrelated settings. For settings Claude prevents the agent from writing,
+stage the changes and provide the user-run copy command as usual.
+If approval is withheld, keep the entry unchanged, explicitly report
+the remaining network exposure, and do not claim that migration finished.
+
+## Step 6 — Refresh framework-skill symlinks
+
+This step refreshes symlinks for **every active target dir**
+([`agents.md`](agents.md)), not just the `.claude/`/`.github/`
+pair. Compute the **active target set** the same way `adopt`
+does: the always-on neutral targets `.agents/skills/`
+(`universal` — the path shared by Codex, Cursor, Antigravity,
+Copilot, OpenCode, …), `.claude/skills/` (`claude-code`), and
+`.github/skills/` (`github`), **plus any registry holdout
+already present in the repo** (`.windsurf/skills/`,
+`.goose/skills/`, …). When the framework has added a new
+always-on target since the last run, it joins the active set and
+gets its symlinks created on this upgrade — the same way the
+effective family set below picks up newly-introduced families.
+Wiring is the **canonical-plus-relay** model
+([`agents.md`](agents.md)), applied identically regardless of any
+pre-existing `.claude/`/`.github/` layout: `.agents/skills/` holds
+the canonical `magpie-<n>` → snapshot links; every other active
+target gets relay `magpie-<n>` → `../../.agents/skills/magpie-<n>`
+links.
+
+Read the opt-in skill families from `<committed-lock>`
+(falling back to `<local-lock>` if the committed lock is
+silent on families). Compose the **effective family set**
+for this upgrade as:
+
+- **Opt-in families** the project recorded (`security`,
+  `pr-management`, `issue`, `release-management`, `repo-health`,
+  `pairing`, `mentoring`, `contributor-growth`, or any
+  combination).
+- **Newly-introduced opt-in families** — families the
+  framework now ships that did not exist when the lock was
+  written. Detect by reading the distinct `family:` frontmatter
+  keys across the snapshot's `SKILL.md` files, dropping the
+  always-on families (`setup`, `utilities`), and comparing the
+  remaining opt-in set against the lock's recorded set — **not**
+  by name prefix, since families such as `repo-health` and
+  `contributor-growth` span several prefixes. Any family present
+  in the snapshot but absent from the lock is auto-added to the
+  effective set on this run, and the addition is **written back
+  to `<committed-lock>`** (same fields as
+  [`install.md` Step 4](install.md#step-4--write-committed-lock-fresh-only)).
+  Surface the added family in the upgrade summary so the
+  operator sees it; do not prompt — per the framework's
+  policy each opt-in family is maintainer-grade and an
+  adopter that has already adopted the framework is in scope
+  for any opt-in family the framework grows.
+- **Always-on families** (always added — never read from
+  the lock, never user-configurable, per
+  [`SKILL.md` Golden rule 8](SKILL.md#golden-rules)):
+  - every `family: setup` skill in the new snapshot *except*
+    `setup` itself, and
+  - every `family: utilities` skill in the new snapshot.
+
+Compute the always-on set fresh from the snapshot's `family:`
+keys on disk — it expands automatically when the framework adds
+a new `family: setup` or `family: utilities` skill in a release,
+and contracts on a rename / removal without code changes here.
+
+Before creating symlinks for a newly-introduced opt-in
+family — or for a newly-present active target dir — reconcile
+the adopter's `.gitignore` so the new snapshot symlinks are
+gitignored. Append the `.gitignore` lines from
+[`install.md` Step 7](install.md#step-7--gitignore-entries-fresh-only)
+for **each active target dir** ([`agents.md`](agents.md)). Every
+framework skill is symlinked under the `magpie-` prefix, so a
+single `magpie-*` glob (plus the `!…/magpie-setup` negation that
+keeps the committed bootstrap tracked) covers them all per
+target — no per-family lines:
+
+One **uniform** two-line block per active target dir (canonical
+and relays alike), no per-layout variation:
+
+```text
+/.agents/skills/magpie-*
+!/.agents/skills/magpie-setup
+/.claude/skills/magpie-*
+!/.claude/skills/magpie-setup
+/.github/skills/magpie-*
+!/.github/skills/magpie-setup
+```
+
+Add the analogous two lines for any present holdout
+(`.windsurf/skills/`, `.goose/skills/`, …).
+
+The append is idempotent — skip lines that already exist.
+The same idempotence covers adopters whose `.gitignore`
+already had the entries (e.g. from a manually-edited block
+or a previous adopt run).
+
+The post-upgrade state must be: *in every active target dir,
+every framework skill in the new snapshot that belongs to the
+effective family set has a valid symlink*, and *no symlink (in
+any target dir) points at a framework skill that no longer
+exists in the snapshot*.
+
+Run two passes **per active target dir** ([`agents.md`](agents.md)):
+
+1. **Ensure every family-member skill is linked.** For each
+   framework skill in the new snapshot that belongs to the
+   effective family set, check `<target>/magpie-<skill>` in each
+   active target dir (`.agents/skills/`, `.claude/skills/`,
+   `.github/skills/`, plus any present holdout):
+   - If the symlink exists and points at the expected target
+     for that dir (canonical → snapshot; relay →
+     `../../.agents/skills/magpie-<skill>`), leave it alone.
+   - If it's missing, create it.
+   - If it exists but is broken (target gone, points at the
+     wrong path), repair it.
+
+   Do this unconditionally — do not skip skills whose
+   symlinks "should" already be there. A contributor who
+   ran `git clean -fdx`, blew away a target dir by
+   accident, or merged a branch that removed the symlinks
+   gets the full set restored in **every** target without
+   per-symlink re-prompting. The aggregated list of created /
+   repaired links is reported in the upgrade summary (Step 8
+   output block, under the `+` and `↻` rows). A newly-present
+   target dir (a holdout that just appeared, or a new always-on
+   target the framework added) gets its full set created here.
+
+2. **Reconcile stale symlinks.** Walk **each active target
+   dir** looking for symlinks that point at framework skills no
+   longer in the new snapshot (rename, removal). For each:
+   - If renamed (the framework documented a rename in its
+     release notes), offer to re-symlink to the new name.
+   - If removed, offer to remove the stale symlink.
+
+Per-target symlink layers to refresh:
+
+- **Canonical target (`.agents/skills/`)** — refresh the
+  canonical layer at `.agents/skills/magpie-<n>` →
+  `../../.apache-magpie/skills/<n>/`.
+- **Relay targets (`.claude/skills/`, `.github/skills/`, any
+  present holdout)** — refresh the relay layer at
+  `<target>/skills/magpie-<n>` → `../../.agents/skills/magpie-<n>`.
+  Repair a relay if it is missing, broken, or still points at the
+  old snapshot path directly (a pre-canonical-model layout) rather
+  than at the canonical `.agents/skills/` entry.
+
+## Step 6b — Sync locally-installed hooks and configuration
+
+The framework ships hooks and config files an adopter
+*carries locally* (in the working tree or under `.git/`)
+rather than pulls in via symlink. Examples:
+
+- `<repo-root>/.git/hooks/post-checkout` (the worktree-aware
+  hook installed during installation). Its expected content is the
+  [`install.md` Step 10](install.md#step-10--worktree-aware-post-checkout-hook-fresh-only)
+  template — which chains the sandbox-allowlist helper. An adopter
+  on an older hook (one that also seeded a per-worktree
+  agent-guard copy, or the long-removed `--auto-fix-symlinks`
+  line) is re-installed to the current template by this drift
+  sync.
+- The `settings.local.json` `hooks.PreToolUse` wiring for the
+  deterministic guard ([`tools/agent-guard`](../../../../tools/agent-guard/README.md)).
+  The engine itself is **not** copied anywhere: the wiring resolves
+  it inside the snapshot, so `update` refreshing the snapshot
+  refreshes the engine and every skill-owned guard with it. An
+  adopter whose entry still names the retired per-repository copy
+  (`$CLAUDE_PROJECT_DIR/.claude/hooks/agent-guard.py`) is rewritten
+  to the snapshot path — that stale entry breaks every `Bash` call
+  in any worktree that has no copy. Any leftover
+  `<repo-root>/.claude/hooks/agent-guard.py` and `guards.d/` are
+  reported as removable.
+- The committed `.codex/config.toml` and `.codex/rules/magpie.rules`:
+  compare them with the current snapshot policy. Preserve unrelated
+  Codex settings; surface conflicts and hand edits rather than
+  overwriting them. Run `sandbox-lint --codex .codex` after the merge
+  and never modify Codex project trust.
+  Include native guard-hook registration and the [vetted-operation rules](../../../../docs/adapters/codex.md#vetted-operations) in the drift comparison.
+  Preserve installed stable paths and user rule files; do not hardcode a new plugin version into native prefixes.
+  Changed hook definitions need operator review in `/hooks`; never reset or grant hook trust automatically.
+  When the guard is plugin-owned, omit a duplicate project registration and run lint with `--guard-from-plugin`, then inspect plugin registration and trust separately.
+- A user-scope Antigravity guard registration that points into this snapshot:
+  follow [the Antigravity update lifecycle](../../../../docs/adapters/antigravity.md#update) to report drift, then use its install merge for approved repairs.
+  It lives in `~/.gemini/`, not the repository; preserve the user's unrelated hooks and rules, and verify after restarting the runtime.
+- The user-scope Pi package: a snapshot upgrade does not touch it.
+  Report its ref per [the Pi update lifecycle](../../../../docs/adapters/pi.md#update) and leave the `pi update --extensions` refresh to the user.
+- The user-scope Goose plugin: a snapshot upgrade does not touch it either.
+  Report its ref per [the Goose update lifecycle](../../../../docs/adapters/goose.md#update) and leave the `goose plugin update magpie` and `npm ci` refresh to the user.
+- Grok action-guard wiring, when Grok is an adopted runtime.
+  For a marketplace/plugin install, leave repository hook state alone and let the plugin manager update the bundled `magpie-agent-guard` executable and hook.
+  Do not create a project hook or snapshot merely because the plugin was upgraded.
+  For a source or pinned-snapshot install, compare only `<repo-root>/.grok/hooks/magpie-agent-guard.json` with the current expected hook shape.
+  Preserve every other `.grok/hooks/*` entry and never modify `.grok/config.toml`.
+  If the Magpie hook is stock-but-stale, refresh it.
+  If it appears hand-edited, surface the diff and ask before replacing it.
+  Do not grant or reset Grok project-hook trust during upgrade.
+  Trust remains an explicit operator decision.
+- Any future hook or local config the framework adds.
+
+These can drift independently of the snapshot — an
+adopter who never re-runs `setup` after a
+framework upgrade keeps the old hook content even after the
+snapshot updates. This step closes that gap.
+
+For each hook / local config file the framework declares as
+"adopter-installed":
+
+1. Compute the snapshot's *expected* content for that file
+   (the framework ships the expected content under
+   `.apache-magpie/skills/setup/` or a
+   sibling location — locate the canonical source for each
+   file).
+2. Compare against the local copy.
+3. If unchanged — ✓, move on.
+4. If drifted and the diff is consistent with a stock
+   framework refresh (no operator hand-edits) — overwrite
+   silently.
+5. If the local copy looks hand-edited — surface the diff,
+   ask the user whether to overwrite, keep, or move-aside.
+
+Run this sync unconditionally on every upgrade and every
+adopt run, regardless of whether the snapshot changed. It
+catches the "local config drifted while the snapshot didn't"
+case (e.g. a contributor accidentally edited
+`.git/hooks/post-checkout`).
+
+## Step 6c — Propagate to every worktree (run `worktree-init` unconditionally)
+
+The main checkout drives the upgrade, but each worktree
+carries its own gitignored canonical + relay framework-skill
+symlinks. Those symlinks need refreshing too — otherwise a
+developer sitting in a worktree sees the new snapshot via the
+shared `<snapshot-dir>` symlink (per
+[`worktree-init.md`](worktree-init.md)) but their per-target
+`magpie-*` symlinks may still point at *missing* skills
+(a family the upgrade added) or *renamed* ones (a framework
+rename).
+
+`worktree-init` is **always run on every worktree** at the
+end of an upgrade, even when the user did not ask for it,
+even when the worktree looks "already wired", because
+`worktree-init` is idempotent (a no-op when state is
+correct) and the cost of running it unnecessarily is
+trivially small. Conversely, *not* running it leaves worktree
+state inconsistent with the new framework version. Nothing
+else covers it: the `post-checkout` hook only syncs the sandbox
+allowlist and never touches symlinks, so upgrade re-aligning
+the existing worktrees **now** is the only thing that does.
+
+Procedure:
+
+<!-- BEGIN MAGPIE BLOCK: worktree-enumeration — generated from tools/dev/blocks/worktree-enumeration.md -->
+
+1. Enumerate worktrees with `git worktree list --porcelain`.
+   Filter to linked worktrees only — skip the main checkout
+   (already handled earlier in this run) and skip any bare
+   worktrees.
+2. If the list is empty, this pass is a no-op; record "no
+   linked worktrees" in the recap and continue.
+3. For each linked worktree, invoke
+   `setup worktree-init` with that worktree's
+   working directory as the `cwd`. The sub-action picks up
+   the family set from `<main>/.apache-magpie.lock` (the
+   committed lock the worktree shares via git) plus the
+   always-on families per
+   [`SKILL.md` Golden rule 8](SKILL.md#golden-rules), and
+   reconciles both the snapshot symlink and the canonical +
+   relay framework-skill symlinks (see
+   [`worktree-init.md` Step 1 + Step 1b](worktree-init.md)).
+
+<!-- END MAGPIE BLOCK: worktree-enumeration -->
+
+4. Collect each invocation's recap into a per-worktree row
+   for the upgrade summary's `Worktrees:` section
+   (Step 8 output block).
+
+**Failure handling per worktree:**
+
+- If a worktree is on a branch that does not carry the
+  adopter's committed `setup` skill (e.g. a feature
+  branch from before adoption landed), the worktree-init
+  invocation refuses with "main checkout not adopted from
+  this branch's perspective". Surface as a ⚠ row in the
+  summary and continue with the next worktree — the user
+  resolves it later by merging the adoption commit forward.
+- If a worktree has a hand-maintained `<snapshot-dir>` that
+  is **not** a symlink to the main's, the move-aside flow
+  in [`worktree-init.md` Step 0 row 4](worktree-init.md)
+  asks for confirmation. Surface to the user; either
+  confirm and continue, or defer that worktree and move on.
+
+Do **not** abort the whole upgrade because one worktree
+failed — the main is already upgraded and the other
+worktrees still benefit from the propagation. The summary
+makes the skipped worktrees easy to come back to.
+
+**After the per-worktree loop**, run the
+sandbox-allowlist helper once with `--all-worktrees` to
+ensure each worktree's project root is in that worktree's
+own `.claude/settings.local.json` (defensive against
+[issue #197](https://github.com/apache/magpie/issues/197);
+see
+[`setup-isolated-setup-install/SKILL.md` → Step P](../isolated-setup-install/SKILL.md#step-p--project-root-coverage-in-the-sandbox-allowlists)).
+**Invoke with `dangerouslyDisableSandbox: true`** — the
+target settings files are in Claude Code's built-in sandbox
+`denyWithinAllow` set, so a sandboxed Bash write fails with
+`operation not permitted`.
+
+<!-- BEGIN MAGPIE BLOCK: sandbox-allowlist-helper — generated from tools/dev/blocks/sandbox-allowlist-helper.md -->
+
+```bash
+~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees
+```
+
+Surface the bypass proposal to the operator *before*
+invoking — name the helper, name the target files, and
+confirm. The reason for the bypass is *"writing
+project-local sandbox-allowlist entries (issue #197 fix)"*.
+The bypass triggers `sandbox-bypass-warn.sh`'s bold-red
+banner as a backstop, but the agent must propose the bypass
+first; do not silently approve.
+
+<!-- END MAGPIE BLOCK: sandbox-allowlist-helper -->
+
+The helper enumerates `git worktree list --porcelain` and
+writes each worktree's path into that worktree's own
+project-local `settings.local.json` (gitignored, never the
+committed project-scope file). Idempotent — already-present
+paths are skipped. If
+`~/.claude/scripts/sandbox-add-project-root.sh` is absent,
+surface as ⚠ in the upgrade summary with a pointer at
+`setup-isolated-setup-install` and continue (do not block
+upgrade — secure-agent setup is independent of framework
+upgrade). The recap row in Step 8's output goes under a new
+`Sandbox allowlist:` section.
+
+## Step 6d — Audit framework template genericity
+
+A defensive hygiene pass over the framework's
+`<snapshot-dir>/projects/_template/` directory. Templates
+are meant to be **project-agnostic scaffolds** that adopters
+copy and customise — they should contain placeholders
+(`<Project Name>`, `<github-org>/<team-slug>`, etc.),
+generic examples, and no hardcoded project identity.
+
+In practice the framework's `_template/` files have at
+times been seeded from one specific adopter's data
+(originally the project the framework grew out of) and
+not always generalised back. This step surfaces the
+residue so it can be filed as an issue against
+`apache/magpie` and fixed upstream.
+
+For each file under `<snapshot-dir>/projects/_template/`,
+scan for adopter-specific signals:
+
+- **Hardcoded project names in titles or prose** — H1
+  headings, doc body text, calibration sentences. A
+  genuine template starts with `# TODO: <Project Name> —
+  ...` or uses a `<PROJECT>` placeholder; if a concrete
+  name appears there instead, that is the residue.
+- **Hardcoded URLs** pointing at a specific adopter —
+  `github.com/<org>/<repo>/...` paths in body text,
+  mailing-list addresses tied to a specific TLD,
+  project-specific chat URLs. Template URLs should be
+  `<placeholder>` or annotated "Example: …".
+- **Hardcoded org / team identifiers** — committer-team
+  slugs (e.g. `<org>/<team>-committers`), real maintainer
+  handles, project-specific issue-tracker keys. Same
+  rule: placeholder, or marked as an example.
+- **Project-specific calibration prose** — references
+  to contributor counts, specific issue numbers,
+  incident postmortems, or other particulars an
+  arbitrary adopter wouldn't share.
+
+Surface the findings as a `Framework templates:` block in
+the upgrade summary (see [Step 8 output](#output-to-the-user))
+— one ⚠ row per file with a short summary of what looks
+adopter-specific. **Do not modify the snapshot** (it is
+read-only per
+[`SKILL.md` Golden rule 1](SKILL.md#golden-rules)). The
+recap is purely advisory; the operator decides whether to
+open a tracking issue / PR against
+`apache/magpie`.
+
+The check is intentionally heuristic — false positives are
+acceptable because the cost is one line in the summary, not
+a blocked upgrade. False negatives are also acceptable; the
+operator's read of the upgrade summary is the real signal.
+**Never attempt to auto-fix.**
+
+If every template scans clean, surface the section as
+`✓ all framework templates look generic`.
+
+## Step 6e — Refresh comdev MCP checkouts (ASF projects)
+
+**Run this step only for ASF projects.**
+
+<!-- BEGIN MAGPIE BLOCK: asf-detection — generated from tools/dev/blocks/asf-detection.md -->
+
+Detect ASF the same way as
+[`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects):
+`<project-config>/project.md` declares `project_metadata.mandatory:
+true` or `Mail sources` `ponymail` `mandatory: yes`. Skip otherwise
+(the two MCP servers are optional for non-ASF adopters).
+
+<!-- END MAGPIE BLOCK: asf-detection -->
+
+The [PonyMail](../../../../tools/ponymail/tool.md) and
+[Apache Projects](../../../../tools/apache-projects/tool.md) MCP
+servers are installed from a local `apache/comdev` checkout and are
+**tracked at `main`, not pinned** (no tagged releases — contrast
+the cooldown-pinned system tools in the secure-setup update flow).
+An ASF adopter running `setup update` should refresh that
+checkout in the same pass, so it does not silently rot between
+framework upgrades.
+
+For each of `ponymail` / `apache-projects` registered in the
+user/project `mcpServers` config, resolve the checkout root from
+its `args` path (`<comdev>/mcp/<server>/index.js`), then — **surface
+only, never auto-pull** (same contract as Step 6b):
+
+1. Confirm `origin` is an `apache/comdev` URL and the checkout is on
+   `main` (`git -C <root> rev-parse --abbrev-ref HEAD`). Flag a
+   detached HEAD / feature branch; remediation
+   `git -C <root> checkout main`.
+2. `git -C <root> fetch origin main` and report the behind-count
+   (`git -C <root> rev-list --count HEAD..origin/main`). When
+   behind, print — do not run:
+
+   ```bash
+   git -C <root> pull --ff-only
+   ( cd <root>/mcp/<server> && npm install )
+   ```
+
+   with the `github.com/apache/comdev/compare/<sha>...main` link.
+
+This is the adoption-flow mirror of
+[`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md)'s
+comdev-MCP check — it exists here so the prereq rides along with the
+upgrade an ASF adopter actually runs. If a registered MCP is
+missing entirely, point the operator at
+[`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects)
+to (re-)install it.
+
+## Step 6f — Re-fetch trusted external sources
+
+If `<project-config>/skill-sources.md` lists any source, reconcile
+the source snapshots the same way this upgrade reconciled the
+framework one — but from the **committed
+`.apache-magpie.sources.lock`** pins, not the framework lock, and
+**without** deleting them alongside `<snapshot-dir>` (source
+snapshots are a separate, sibling tree — see
+[Step 3](#step-3--delete-the-old-snapshot), which deletes only
+`.apache-magpie/`):
+
+1. **Source drift.** For each source, compare its
+   `.apache-magpie.sources.lock` block (committed pin) against its
+   `.apache-magpie.sources.local.lock` block (what this machine
+   fetched). Report any gap in the upgrade summary, exactly like
+   the framework drift row.
+2. **Re-fetch per the committed pin.** Run the
+   [`skill-sources`](skill-sources.md) fetch + verify for every
+   trusted source (git-tag `commit` / svn-zip `sha512` re-checked),
+   refresh `.apache-magpie-sources/<id>/`, and refresh the
+   canonical + relay `magpie-<name>` symlinks — adding skills a
+   source newly `provides`, removing ones it dropped, repairing
+   broken links. This is the source counterpart of
+   [Step 6](#step-6--refresh-framework-skill-symlinks).
+3. **Update the source local lock** to the new fetch fingerprint.
+
+Nothing happens when the trust list is absent or empty. Because
+each worktree shares main's `.apache-magpie-sources/` through the
+snapshot symlink [`worktree-init`](worktree-init.md) seeds
+(alongside `<snapshot-dir>`), the refreshed source **content** is
+visible to every worktree immediately; a worktree that predates a
+newly-`provides`-d source skill picks up its per-worktree symlink
+on its next `worktree-init` or
+`setup verify --auto-fix-symlinks`.
+
+## Step 6g — Re-derive auto-sourced configuration fields (drift reconciliation)
+
+If live metadata is accessible via `gh repo view`:
+1. **Re-derive the stable fields**, following the same organization split as
+   [`install.md` Step 4b](install.md#step-4b--read-fit-signals-fresh-only):
+   - *Organization-agnostic* (any adopter): repo name, default branch,
+     homepage/product URL, labels — from GitHub repo metadata.
+   - *ASF-specific* (**only when `organization: ASF`**): mailing lists from
+     `.asf.yaml`. Skip the `.asf.yaml`/mailing-list re-derivation for a
+     non-ASF `organization` — there is nothing to reconcile against.
+2. **Detect config drift**: Compare these re-derived values against the committed values in `.apache-magpie-overrides/project.md`.
+3. **Surface and reconcile**: If any value has changed (e.g., branch renamed, or — for ASF projects — a mailing-list address updated in `.asf.yaml`), display the drift to the user. Offer to update `.apache-magpie-overrides/project.md` with the new values in place. If confirmed by the user, write the updated configuration to `.apache-magpie-overrides/project.md` and stage the file (`git add`).
+
+## Step 7 — Update `<local-lock>`
+
+Write the new local lock with the values captured in Step
+4.
+
+## Step 8 — (optional) Update `<committed-lock>`
+
+If `bump-committed` was passed, update
+`<committed-lock>.ref` (and per-method extras: `commit` for
+tag, `sha512` for svn-zip) to the new fetch. Surface the
+diff to the user before writing.
+
+Without `bump-committed`, the committed lock is unchanged —
+this upgrade is a *local* sync to the project pin.
+
+## Step 9 — Sanity check
+
+Run [`verify.md`](verify.md)'s checklist as a final step.
+
+## Output to the user
+
+```text
+Drift remediated:
+  Method:    <method>
+  Project:   <committed.ref>      (committed)
+  Local:     <local.fetched-commit-or-version>  → <new>
+  Snapshot:  refreshed at .apache-magpie/
+
+setup (bootstrap):
+  ✓ in sync   OR   ↻ overwritten from snapshot (reloaded in-flight)
+
+Symlinks (main checkout):
+  Opt-in families:     <e.g. security, pr-management, release-management>   (from lock)
+  Newly added opt-in:  <e.g. repo-health>   (introduced since lock was written; lock updated)
+  Always-on families:  setup, utilities       (per Golden rule 8)
+  ✓ <list of unchanged symlinks>
+  + <list of newly-created symlinks (skill present in the
+     effective family set but missing from an active target dir)>
+  ↻ <list of repaired symlinks (existed but broken / pointing
+     at the wrong path)>
+  - <list of removed stale symlinks>
+
+.gitignore reconcile:
+  ✓ all active-target magpie-* globs already gitignored   OR
+  + <list of /.agents/skills/magpie-*, /.claude/skills/magpie-*,
+     /.github/skills/magpie-* (+ any holdout) lines appended for
+     newly-introduced families or newly-present target dirs>
+
+Hooks + local config:
+  ✓ <list of files in sync>
+  ↻ <list of files re-synced from the snapshot>
+  ⚠ <list of files with hand-edits that need operator review>
+
+Worktrees (worktree-init was run on each, idempotently):
+  ✓ <worktree-path>   (snapshot symlink + family symlinks aligned)
+  ↻ <worktree-path>   (refreshed by worktree-init)
+  ⚠ <worktree-path>   (skipped — branch missing adopter's setup)
+  - <none>            (when this repo has no linked worktrees)
+
+Sandbox allowlist (sandbox-add-project-root.sh --all-worktrees):
+  ✓ already covers this project + N worktrees   OR
+  + <list of <worktree>/.claude/settings.local.json files updated>   OR
+  ⚠ helper not installed — run setup-isolated-setup-install
+
+Overrides:
+  ✓ <list of overrides whose target is unchanged>
+  ⚠ <list of overrides flagged for re-anchoring> (open the
+     file and update against the new framework structure)
+
+Reconciliation stamp:
+  written to <.apache-magpie.lock | <personal layer>/reconciled.json>
+  skills:  <N> entries confirmed by this walk   (<K> left out — conflicts above)
+  - <none written>   (when Overrides above had nothing to confirm)
+
+Framework templates (projects/_template/):
+  ✓ all templates look generic   OR
+  ⚠ <_template/foo.md>           (e.g. H1 title hardcoded to a specific project name)
+  ⚠ <_template/bar.md>           (e.g. `committers_team` set to a concrete org/team without placeholder)
+  → file an issue against apache/magpie to upstream a fix
+
+Recommended follow-ups:
+  - Run setup-isolated-setup-update if the secure-setup blast
+    radius (settings.json, agent-isolation/, pinned-versions.toml)
+    appears in the diff.
+  - Open .apache-magpie-overrides/<name>.md for any ⚠ entry above.
+
+Then run /magpie-setup:upgrade to check and fix the machine and project for the new version.
+```
+
+When [`setup-upgrade`](../upgrade/SKILL.md) started this run, leave that last line out and hand back to it: it carries on with the check-and-fix phase in the same run.
+
+## Failure modes
+
+- **`<committed-lock>` missing** → repo not adopted; suggest
+  `setup install`.
+- **Network failure** → stop, surface error, user retries.
+  The skill never leaves a half-deleted snapshot — Step 3's
+  `rm -rf` runs only after Step 2's user confirmation.
+- **SHA-512 mismatch on svn-zip** → stop. The released zip
+  has changed content under the same version, which is a
+  serious signal. The user investigates (re-check the
+  project's announcement, re-fetch the official KEYS,
+  consider whether the project re-released).
+- **Conflict during reconcile** → not a failure per se. The
+  skill surfaces the conflict and finishes the upgrade up
+  to Step 7. The user's next step is editing the override
+  file.

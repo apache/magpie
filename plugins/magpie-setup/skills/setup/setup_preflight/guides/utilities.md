@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# 🐦 Magpie here — your skill-authoring sidekick
+# Skill tools
 
 A one-minute tour, then straight back to what you asked for.
 

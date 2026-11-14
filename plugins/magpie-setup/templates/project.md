@@ -54,7 +54,7 @@ this directory.
 **Note on Auto-sourcing:** Stable fields under Identity and Repositories
 (`upstream_repo`, `upstream_default_branch`, `product_family_url`, labels)
 can be automatically derived from GitHub repository metadata via
-`gh repo view` during `/magpie-setup:setup adopt` or `/magpie-setup:setup upgrade`, for
+`gh repo view` during `/magpie-setup:setup adopt` or `/magpie-setup:setup update`, for
 any adopter. The **Mailing lists** are auto-sourced **only for
 `organization: ASF`** projects (from `.asf.yaml`, with `*.apache.org`
 defaults); a non-ASF `organization` fills them in by hand. Hand-editing is
@@ -504,6 +504,13 @@ tracker:
     mailing_thread: "Mailing list thread URL"
     affected_versions: "Affected versions"
 
+  # How an imported report reaches the issue description.
+  #   markdown (default): readable — headings raised to ####, HTML and images
+  #                       defused, bare #NNN / @-mentions as inline code.
+  #   inert:              the whole report in a plain-text ```text fence.
+  # Consumed by: security-issue-import, -import-from-pr, -import-from-md.
+  description_format: markdown
+
   # Tracker labels — role -> the concrete label name in this project.
   # Consumed by: security-issue-triage, security-issue-sync, pr-management-triage.
   labels:
@@ -669,7 +676,7 @@ bare-name → handle map and release managers:
 roster:
   # Mailing-list threads reference contributors by first name; this binds
   # those to GitHub handles for @-mentions.
-  # Consumed by: security-issue-sync, pr-management-mentor.
+  # Consumed by: security-issue-sync, pr-management-thread-mentor.
   bare_name_handles:
     # Example (replace with your project's contributors):
     "<FirstName>": "@<handle>"
