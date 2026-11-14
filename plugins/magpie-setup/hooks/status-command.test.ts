@@ -18,7 +18,7 @@
 // under the License.
 
 import { describe, test } from 'claude-code/testing';
-import { executeMagpieStatus, type ProcessRunner, type ProcessRunResult } from './status-command.ts';
+import { executeMagpieStatus, type ProcessRunner, type ProcessRunResult } from './status-command.js';
 
 function assert(condition: any, message?: string): void {
   if (!condition) {
