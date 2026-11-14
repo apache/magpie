@@ -42,6 +42,7 @@
     - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
   - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
     - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
+  - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2042,6 +2043,20 @@ The review findings mod introduces the framework's first use of `$.fs.write` in 
   The curated JSON payload embeds the active PR number and the source findings file's SHA-256 digest in a metadata envelope.
   When a write fails, when findings become empty, or when a disposition re-run detects a mismatched PR number, the hook writes explicit invalidation markers to disk.
   Downstream CLI tools (`render`) validate the PR number and source hash directly before loading `<file>.curated.json`, ensuring stale, orphaned, or invalidated curation files are refused or bypassed.
+
+## Duplicate candidate picker mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-issue` plugin, the duplicate candidate interactive pane mod ([`plugins/magpie-issue/hooks/duplicate-picker.ts`](../../plugins/magpie-issue/hooks/duplicate-picker.ts)) provides an interactive terminal overview of candidate duplicates during issue triage and deduplication.
+The pane has no input until part 2 of #2075 wires the candidates file, and this part's capability surface is session state and UI rendering only.
+Part 2 will add the `$.fs` IPC surface, which this section will then document.
+
+- **Threat model and untrusted content boundaries**: Inbound candidate issue titles, excerpts, and author handles are untrusted external data.
+  The mod strictly sanitizes text, stripping ANSI escapes, control codes, zero-width characters, and Unicode bidirectional overrides while preserving legitimate syntax like `Map<String, Foo>`.
+  It renders inert text components within the UI pane, never evaluates issue content as instructions, and never executes unverified scripts.
+- **State boundary and human sign-off**: The mod uses an isolated reactive session atom (`magpie-issue.duplicatePickerState`) reset on `session.start`.
+  Adhering to the framework requirement that every agent-authored proposal requires human sign-off, an untouched state remains in `reviewing` status and never drops or closes candidate issues.
+  Candidates are only marked for closure upon deliberate maintainer action via interactive buttons ("Keep Target" or "Set as Kept").
+  Dismissed candidates provide a `Restore` button to undo accidental dismissals, and pressing a kept selection a second time clears the selection back to unselected.
 
 ## Sandbox-error hint hook
 
