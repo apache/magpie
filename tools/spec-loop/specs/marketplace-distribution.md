@@ -134,7 +134,11 @@ which Claude Code would load twice.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
 CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift
-rather than only reporting it. `docs/setup/marketplace.md` is the
+rather than only reporting it.
+It also copies `assets/plugin-icon.png` to `.claude-plugin/icon.png` in every
+plugin and fails when a copy is missing or differs, because
+`claude plugin validate --strict` reports a plugin without an icon (#2069).
+`docs/setup/marketplace.md` is the
 adopter-facing page.
 
 ## Behaviour & contract
@@ -208,6 +212,11 @@ adopter-facing page.
   once per plugin version and points the `current` symlink at it; that is
   `<framework>` on a marketplace install, writable so `uv run --project`
   works, and the hook only ever replaces a symlink at `current`.
+  The plugin also ships `organizations/*/organization.md`, which the hook
+  copies into that tree, and `release_config` looks for organization manifests
+  under `~/.cache/apache-magpie/framework/current` too, so a project
+  inheriting a key from its organization does not fall back to the framework
+  default on a marketplace install (#2068).
   `magpie-agent-guard` is the exception to the symlink (#1516): it carries
   a byte-identical copy of `tools/agent-guard/src/agent_guard` as real
   files, because a marketplace client may drop a link whose target leaves

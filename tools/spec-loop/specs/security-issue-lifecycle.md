@@ -438,6 +438,19 @@ publication, with a human gate and an audit-log entry at every step.
   `MAGPIE_ALLOW_EMBARGO_TERMS=1` is the maintainer's escape hatch after
   disclosure, and the block message does not tell the agent how to
   bypass it.
+  It fails closed (#2071): a throw while evaluating a command blocks it
+  unless that escape hatch is set, and a blocked evaluation with no reason
+  still blocks, under a fallback reason.
+  When a blocked `gh api` write has a vetted route, the reason names the
+  exact operation (#2057): a POST to an advisory's comments endpoint maps to
+  `advisory-comment`, a PATCH to `issues/comments/<id>` to `comment-update`
+  and a POST to `issues/<N>/comments` to `issue-comment`.
+  The reason adds that the calling skill needs the operation in its
+  `[callers]` list in the adopter's vetted-ops config, which is a
+  maintainer's change.
+  Advisory record field edits and advisory comment edits have no vetted
+  operation, and the reason points at the advisory web UI.
+  The block decision itself is unchanged.
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared
