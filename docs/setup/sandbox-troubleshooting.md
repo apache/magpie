@@ -752,6 +752,8 @@ A request that reaches the gateway but fails its policy comes back as `403`, and
 The message names the rule that refused the request, and it points back at this very catalog entry.
 The full create-time refusal table lives in [`tools/container-gateway/README.md` → What the policy refuses](../../tools/container-gateway/README.md#what-the-policy-refuses).
 Adjust the request rather than widening the sandbox: a `403` from the gateway is the policy working as intended, not a sandbox misconfiguration.
+One refusal is not a `403`: an inspect of a container, pod, volume or network whose name is not one of the project's resources answers `404`, whether the name is missing or another project's, with the same message.
+Clients probe for a name that way and carry on only after a `404`, so an untyped `docker inspect <image>`, which asks for a container of that name first, then finds the image.
 
 A tool that drives the CLI for you can hide that message, by capturing the CLI's output or by calling an HTTP-upgrade endpoint, for which the CLI prints only the status (`unable to upgrade to h2c, received 403`).
 The gateway logs every refusal as a `deny <method> <path>: <reason>` line in `<run-dir>/container-gateway.log`, so read the reason there.
@@ -761,9 +763,8 @@ Some workflows cannot pass the gateway, however the request is adjusted:
 - **BuildKit.** `docker buildx build`, and `docker build` wherever buildx is its default, talk to the builder over `POST /grpc` and `/session`, a gRPC stream the gateway cannot inspect, so it refuses both (`deny POST /grpc: unknown-endpoint`).
   A buildx `docker-container` builder container is label-checked like any other resource and is refused when it does not carry the project label (`label-check on buildx_buildkit_default`).
 - **The daemon socket inside a container.** A tool that bind-mounts `DOCKER_HOST`'s socket into its own container is refused, since the run directory is never a bind source.
-- **An untyped `docker inspect <name>`.** The CLI asks for a container of that name first, and a name that is not a project container gets a label-check `403` (`label-check on <image reference>` in the log), where a tool checking whether an image exists may expect a `404`; `docker image inspect` asks for the image directly.
 
-Apache Airflow's `breeze`, for example, runs into all three.
+Apache Airflow's `breeze`, for example, runs into both.
 Excluding it from the sandbox is no way past them, for the reason given under Root cause above.
 
 An agent that meets such a refusal stops and reports it to the user, with the `deny` lines from the log.

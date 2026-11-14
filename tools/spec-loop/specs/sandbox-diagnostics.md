@@ -73,7 +73,7 @@ error, and two skills that probe or verify the setup on demand.
   (`.mcp.json`, `.bash_profile`: the character-device placeholders
   bubblewrap mounts over denied paths, #1809).
   The Docker / Podman entry also covers the container gateway's policy
-  refusals (BuildKit, a socket bind-mount, an untyped `docker inspect`):
+  refusals (BuildKit, a socket bind-mount):
   a tool that drives the docker CLI may hide the 403 body or report only
   `unable to upgrade to h2c, received 403`, and the expected behaviour is
   to report the refusal, never to route around the gateway (#1810).
