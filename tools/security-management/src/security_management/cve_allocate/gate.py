@@ -187,6 +187,13 @@ def _check(scope: str, data: Mapping[str, Any]) -> str:
     return cve_tool.command(data, "check", *flags)
 
 
+_NO_TOOL = {
+    20: "no `cve_authority.tool` declared anywhere; take the recipe path and say which key is missing",
+    21: "the configured CVE tool has no adapter; take the recipe path",
+    22: "the adapter does not implement the check operation; take the recipe path",
+}
+
+
 def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
     pmc = one_line(data.get("pmc"))
     setup = cve_tool.command(data, "setup", "--pmc", pmc or "<pmc>")
@@ -213,6 +220,8 @@ def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
         )
     if server == 3:
         return out("recipe", "network error on the server check; mention it")
+    if server in _NO_TOOL:
+        return out("recipe", _NO_TOOL[server])
     if server != 0:
         return out("recipe", f"unexpected server-check exit {server}")
     if data.get("allocate_exit") is None:
@@ -232,6 +241,8 @@ def preflight(data: Mapping[str, Any]) -> dict[str, Any]:
         return out(None, f"allocate token {state}: offer the setup, then re-run the check", offer_setup=True)
     if code == 4:
         return out("recipe", "unsupported: the server answers HTML")
+    if code in _NO_TOOL:
+        return out("recipe", _NO_TOOL[code])
     return out("recipe", f"allocate check failed (exit {code}); mention the error")
 
 
