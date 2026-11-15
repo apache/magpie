@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:e4037763f0982666
 license: Apache-2.0
-measured_tokens: 5442
+measured_tokens: 5548
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -130,6 +130,8 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
      Only with no sentinel available is 7a **inconclusive**: ask the user to `ls` the candidates from their own terminal, and report ✓ once one exists there that the sandbox cannot see.
    - **7b — clean environment.** List the variable names, never the values: `env | cut -d= -f1 | sort`.
      Flag every credential-shaped name (containing `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `DSN` or `API_KEY`, or a `_`-delimited `AUTH` segment (`(^|_)AUTH(_|$)`, so `GIT_AUTHOR_*` and `XAUTHORITY` do not match), ending in `_KEY` or `_PAT`, or starting with `AWS_`, `GH_`, `GITHUB_` or `AZURE_`) that is not on the `agent-iso.sh` passthrough list; any such name is ⚠, listed by name.
+     Two names the harness itself sets inside the session are not a gap, because no wrapper runs after them: `CLAUDE_CODE_MESSAGING_TOKEN` (Claude Code's messaging channel) and `CLOUDSDK_PROXY_PASSWORD` (the sandbox proxy's credential, set beside `HTTP_PROXY` and `ALL_PROXY`).
+     Leave exactly these two names out of the ⚠ list and name them on one *harness-injected, ignored* line; any other name with the same prefix is still flagged.
      A single empty variable proves nothing: the reference `sandbox.credentials` already unsets `AWS_ACCESS_KEY_ID` for sandboxed commands, wrapper or not.
      An `AGENT_ISO_ALLOW` / `CLAUDE_ISO_ALLOW` opt-in is invisible from inside the session, so ask the user whether a flagged name was opted in before calling it a gap.
      Report `CLAUDE_CODE_ENTRYPOINT`.

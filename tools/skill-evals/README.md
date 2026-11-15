@@ -35,7 +35,7 @@ Suites are currently implemented for:
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 54 cases across 8 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress, action-journal, session-recovery); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
-- **setup-isolated-setup-verify** — 43 cases across 5 steps (runtime-routing, codex-native, checker-report, step-1-classify, step-2-recommend)
+- **setup-isolated-setup-verify** — 44 cases across 5 steps (runtime-routing, codex-native, checker-report, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 17 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
 - **setup-upgrade** — 23 cases across 3 steps (step-plan, step-apply, step-gather)
 - **setup-isolated-setup-doctor** — 29 cases across 3 steps (runtime-routing, interpret-probes, after-report)

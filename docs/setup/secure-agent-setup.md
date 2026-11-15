@@ -3944,7 +3944,11 @@ never delete it:
    PASSWD, CREDENTIAL, DSN, API_KEY, a `_`-delimited AUTH segment,
    `*_KEY`, `*_PAT`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
    the `agent-iso.sh` passthrough list is ⚠ (ask me whether I opted
-   it in with `AGENT_ISO_ALLOW`), and so is a `CLAUDE_CODE_ENTRYPOINT` of an
+   it in with `AGENT_ISO_ALLOW`), except the two names the harness
+   sets inside the session, which no wrapper can strip:
+   `CLAUDE_CODE_MESSAGING_TOKEN` and `CLOUDSDK_PROXY_PASSWORD` (list
+   them as harness-injected and ignore them). So is a
+   `CLAUDE_CODE_ENTRYPOINT` of an
    IDE extension (such as `claude-vscode`), which never went through
    `claude-iso`. (c) `curl https://example.com` is denied.
 8. **Project-root coverage in the sandbox allowlists.** For this
