@@ -21,6 +21,7 @@
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Tracker backends](#tracker-backends)
+  - [Git operations the sandbox blocks](#git-operations-the-sandbox-blocks)
   - [Wiring it into settings](#wiring-it-into-settings)
     - [Codex native rules](#codex-native-rules)
   - [Tests](#tests)
@@ -151,6 +152,7 @@ scripts over one catalogue:
 |---|---|---|
 | `vetted-op-read` | never — refused before policy is consulted | `allow` |
 | `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
+| `vetted-op-git` | only the [git operations](#git-operations-the-sandbox-blocks) — no `gh` operation exists there | `ask`, and excluded from the sandbox |
 | `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
 
 That split is what lets the read path lose its prompts without the write path
@@ -766,6 +768,83 @@ On a non-GitHub tracker the `number` parameter of a tracker operation takes the
 backend's own IDs (`SEC-0012`, `FOOSEC-12`, `2024-007-xss`): letters, digits,
 `-` and `_` only, so an ID can never name a path.
 
+## Git operations the sandbox blocks
+
+Three git steps fail in a sandboxed session however the agent phrases them, and
+used to end in a command the user pasted into their own terminal:
+
+- **Pushing over SSH.** The sandbox routes network through an HTTP proxy, so an
+  SSH transport gets no TCP at all, and a hardware key's touch prompt never
+  reaches the user.
+- **Moving a linked worktree** to a rebased or pushed commit. Harnesses keep
+  `.git/worktrees/<name>/` read-only for worktrees the session did not create,
+  so `git reset`, `git fetch` and `git rebase` in such a worktree stop half-way.
+- **Adding or removing a linked worktree**, for the same reason.
+
+`vetted-op-git` runs exactly those four steps outside the sandbox, as closed
+shapes, behind the harness's confirmation like `vetted-op`:
+
+| Operation | Parameters | What it does |
+|---|---|---|
+| `git-push-branch` | `checkout branch target remote_branch expected hooks` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>`. `expected` is the remote branch's current full SHA, or `new`. `hooks` is `verify` (run the pre-push hook) or `no-verify`. |
+| `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
+| `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
+| `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller <skill> git-push-branch \
+  ~/code/project fix-thing fork fix-thing 0123…(40 hex) verify
+```
+
+The policy's `[git]` table bounds them:
+
+```toml
+[git]
+# Main checkouts the operations may act on; their linked worktrees count too.
+checkouts = ["~/code/project"]
+# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
+fork = "alice/project"
+# Branches a push may create or move on [repos] upstream. Empty or absent: never.
+upstream_push = ["ci-*", "stack/*"]
+# Added to the built-in list (main, master, trunk, develop, gh-pages, release*, v*-test, v*-stable, *-stable, asf-site).
+protected = ["prod"]
+# Directories new worktrees may be created in, directly.
+worktree_roots = ["~/code/project/files"]
+```
+
+What makes running git unsandboxed acceptable here:
+
+- **Closed destinations.** A push goes to a URL built from the policy's
+  repository names, never to a remote the repository configures. Protected
+  branches are refused whatever the policy says, and upstream takes only
+  branches matching `upstream_push`.
+- **Nothing lost silently.** Every push carries a lease on the full SHA the
+  caller expects (`new` for a branch that must not exist yet), so a branch
+  someone else moved is never overwritten. A worktree moves only when it has
+  no local changes, and the previous commit is printed and stays in the reflog.
+- **No repository configuration steers git.** Keys such as `core.sshCommand`,
+  `url.*.insteadOf`, `filter.*`, `core.fsmonitor`, `core.hooksPath` or
+  `include.path` can be planted in a repository's own config; the operation
+  refuses to run while the local or worktree config holds any key outside a
+  short list of inert ones (remotes, branch tracking, `user.name`, …). Global
+  and system configuration are the user's own and stay in effect, so an SSH
+  wrapper or touch overlay configured there keeps working.
+- **No environment steers git.** Every `GIT_*` variable is dropped.
+- **Hooks.** The worktree operations never run hooks. A push runs the
+  `pre-push` hook from `.git/hooks` or the user's global `core.hooksPath`,
+  exactly as the user's own `git push` would, so push-time checks are not
+  silently lost. Such a hook may run code the working tree carries (a hook
+  manager reading its configuration from the tree): that is the one place
+  repository code runs outside the sandbox, and it runs only behind the
+  confirmation. `no-verify` is the special case for a hook that cannot run in
+  this environment; the caller runs the same checks inside the sandbox first
+  and tells the user it skipped the hook.
+
+Everything else git does in a sandboxed session stays there. Rewriting history
+for a branch checked out in a worktree you did not create is done in a scratch
+clone (`git clone --shared <checkout> <scratch>`), fetched back into the main
+checkout, pushed with `git-push-branch` and applied with `git-worktree-sync`.
+
 ## Wiring it into settings
 
 Replace the wildcard `ask` rules with one `allow` entry, and keep an `ask` on
@@ -786,7 +865,9 @@ anything still invoked directly:
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
-    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -820,6 +901,8 @@ fails the same way:
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op *"
   ]
