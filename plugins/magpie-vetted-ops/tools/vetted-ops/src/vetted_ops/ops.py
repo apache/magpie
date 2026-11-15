@@ -1219,9 +1219,13 @@ _register(
             "100",
             "--json",
             "number,title,state,labels,updatedAt,url",
-            # End of options: the query is a positional, whatever it looks like.
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
             "--",
-            query,
+            *query.split(),
         ],
     )
 )
@@ -2211,6 +2215,16 @@ _register(
 #     hard-codes its qualifier in the builder and takes a single validated
 #     login or team slug, so a caller picks *whose* queue to read and never
 #     what to ask.
+#
+#     `issue-search`, `repo-pr-search` and `repo-code-search` are the bounded
+#     exceptions. Each pins its repository from policy and takes one `query`
+#     that the `query()` validator reduces to plain words: one line, at most
+#     200 characters, no `:` (so no `repo:` / `org:` / `is:` qualifier can
+#     re-aim or reshape it), no leading `-`, and passed after `--` so it is
+#     never read as a flag. Such a query can only narrow a search of the pinned
+#     repository. They exist so a read-only gatherer can answer "was this
+#     already fixed upstream?" without falling back to a raw `gh search`
+#     outside the dispatcher.
 #   * `gh run download` — writes artifacts to local disk rather than to the
 #     forge. That is a different risk class (filesystem paths, archive
 #     extraction) and does not belong behind a forge dispatcher.
@@ -2260,6 +2274,58 @@ _register(
                 "this tree; the listing is incomplete. Walk the tree level by "
                 'level instead of relying on recursive=1.") else .tree[].path end'
             ),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-pr-search",
+        params=("query",),
+        summary="Search upstream pull requests (open and closed) for plain words.",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "prs",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,author,closedAt,updatedAt,url",
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
+            "--",
+            *query.split(),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-code-search",
+        params=("query",),
+        summary="Search upstream code on the default branch for plain words (paths only).",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "code",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "path,url",
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
+            "--",
+            *query.split(),
         ],
     )
 )

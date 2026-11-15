@@ -1318,6 +1318,62 @@ def test_a_team_slug_may_not_carry_an_organisation_or_metacharacters(hostile: st
         ops.team(hostile)
 
 
+# --- upstream plain-word search ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "kind"),
+    [("repo-pr-search", "prs"), ("repo-code-search", "code")],
+)
+def test_upstream_search_is_pinned_and_ends_options_before_the_query(
+    policy: config.Config, name: str, kind: str
+) -> None:
+    """The repository comes from policy; the query can only be a positional."""
+    op = ops.resolve(name)
+    assert not op.writes, f"{name} must be a read, served by vetted-op-read"
+    params, _ = cli._validate_params(op, ["  credentials redirect "], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:3] == ["gh", "search", kind]
+    assert argv[argv.index("--repo") + 1] == "acme/product"
+    assert argv[-3:] == ["--", "credentials", "redirect"]
+
+
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+def test_upstream_search_passes_each_word_separately(policy: config.Config, name: str) -> None:
+    """
+    `gh` quotes an argv element that holds a space, so a two-word query passed
+    as one element becomes an exact-phrase search and misses a title with the
+    words apart ("normalise every trailing slash" for "normalise slash").
+    """
+    op = ops.resolve(name)
+    params, _ = cli._validate_params(op, ["normalise   slash"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    tail = argv[argv.index("--") + 1 :]
+    assert tail == ["normalise", "slash"]
+    assert all(" " not in word for word in tail)
+
+
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "repo:other/repo token",  # a qualifier would re-aim the search
+        "org:other secret",
+        "is:merged fix",
+        "line one\nline two",
+        " --repo=other/repo",
+        "",
+        "x" * 201,
+    ],
+)
+def test_upstream_search_refuses_qualifiers_and_flags(policy: config.Config, name: str, hostile: str) -> None:
+    op = ops.resolve(name)
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, [hostile], policy)
+
+
 def test_every_code_review_operation_is_a_read() -> None:
     """The caller in the shipped policy example must reach nothing that writes."""
     read_only = {
