@@ -18,7 +18,7 @@ argument-hint: "--repo owner/name"
 capability: capability:triage
 surface_hash: sha256:bbfe83b236640f9e
 license: Apache-2.0
-measured_tokens: 3280
+measured_tokens: 3301
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -150,8 +150,10 @@ gh api "repos/<owner/repo>/actions/runs?per_page=100&created=>=<YYYY-MM-DD>" --p
 Save the output as `runs.tsv` and summarise it:
 
 ```bash
-python3 <framework>/skills/workflow-optimization/scripts/summarize_runs.py runs.tsv
+python3 <skill-dir>/scripts/summarize_runs.py runs.tsv
 ```
+
+`<skill-dir>` is the directory holding this skill's `SKILL.md`; `<framework>/skills/` does not exist on a marketplace install.
 
 The summary gives runs per workflow and event, the conclusions, and which workflows fail repeatedly.
 
@@ -160,7 +162,7 @@ For the busiest pull request workflow, fetch the jobs of one recent successful r
 ```bash
 gh api "repos/<owner/repo>/actions/runs/<run-id>/jobs" \
   --jq '.jobs[]|[.name,.created_at,.started_at,.completed_at]|@tsv'
-python3 <framework>/skills/workflow-optimization/scripts/summarize_runs.py --jobs jobs.tsv
+python3 <skill-dir>/scripts/summarize_runs.py --jobs jobs.tsv
 ```
 
 This shows how long each job runs against how long it waited for a runner.

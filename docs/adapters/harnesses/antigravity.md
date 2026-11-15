@@ -112,6 +112,9 @@ uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
 agent-iso agy
 ```
 
+`tools/sandbox-lint` needs a framework checkout: no Magpie plugin ships it.
+If the directory resolved in step 1 has no `tools/sandbox-lint/`, run the linter from a framework checkout.
+
 The shipped `deny` rules include writes to `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/` and `.agents/hooks.json`, so an agent cannot widen its own permissions or register a hook.
 Apply the merge from your own terminal or editor; do not drop those rules to bootstrap it.
 
@@ -210,6 +213,8 @@ uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
   --antigravity ~/.gemini/antigravity-cli/settings.json \
   --antigravity-hooks ~/.gemini/config/hooks.json
 ```
+
+As in step 5, `tools/sandbox-lint` needs a framework checkout.
 
 Confirm that the guard path in `~/.gemini/config/hooks.json` exists and resolves to the intended installation.
 The linter must report `OK`; it does not certify a running session.

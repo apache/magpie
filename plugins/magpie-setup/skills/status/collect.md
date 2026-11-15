@@ -16,8 +16,10 @@ The skill renders the dashboard via `--format md`
 json` form is the same data for tooling that wants the raw fields:
 
 ```bash
-python3 <framework>/skills/setup-status/scripts/collect_status.py --format json --pretty
+python3 <skill-dir>/scripts/collect_status.py --format json --pretty
 ```
+
+`<skill-dir>` is the directory holding this skill's `SKILL.md`.
 
 ## Top-level fields
 

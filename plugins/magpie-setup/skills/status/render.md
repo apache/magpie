@@ -7,8 +7,10 @@
 itself — do not hand-rebuild it.** Run:
 
 ```bash
-python3 <framework>/skills/setup-status/scripts/collect_status.py --format md
+python3 <skill-dir>/scripts/collect_status.py --format md
 ```
+
+(`<skill-dir>` is the directory holding this skill's `SKILL.md`.)
 
 and present that output **verbatim** as the dashboard. The
 `--format md` renderer owns the headline, the full agent-target

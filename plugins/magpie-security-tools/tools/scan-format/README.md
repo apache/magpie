@@ -194,13 +194,11 @@ the real disposition from the project's Security Model + precedents.
 
 ## Configuration
 
-The adopter declares, in
-[`<project-config>/project.md`](https://github.com/apache/magpie/blob/main/plugins/magpie-setup/templates/project.md):
-
-- **scan sources** — the GitHub issues and/or report-tree roots the
-  scanner publishes to (reference: `apache/tooling-agents`);
-- **enabled formats** — which adapters under this directory are active
-  (reference: `asvs`).
+There is none.
+The operator names the scan sources (GitHub issues, report-tree roots, disclosure emails) on each run of the consuming skill
+(reference: `apache/tooling-agents`).
+The adapter is picked by the folder shape in the *Recognises* column of [Today's adapters](#todays-adapters);
+every adapter listed there is available, and nothing in `<project-config>/project.md` turns one on or off.
 
 ## What this contract does NOT cover
 

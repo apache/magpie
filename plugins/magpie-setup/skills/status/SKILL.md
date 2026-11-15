@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:85dfb8b48739fc11
 license: Apache-2.0
-measured_tokens: 2402
+measured_tokens: 2389
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -141,12 +141,11 @@ The collector **renders the dashboard itself**. Run it (it never
 writes and never fetches):
 
 ```bash
-python3 <framework>/skills/setup-status/scripts/collect_status.py
+python3 <skill-dir>/scripts/collect_status.py
 ```
 
-(From a normal adopter the script lives under the snapshot at
-`.apache-magpie/skills/setup-status/scripts/`; invoke it via the
-`magpie-setup-status` symlink's resolved path. The default output
+(`<skill-dir>` is the directory holding this skill's `SKILL.md`;
+`<framework>/skills/` does not exist on a marketplace install. The default output
 is the Markdown dashboard; pass `--format json` only when tooling
 needs the raw fields — see [`collect.md`](collect.md).)
 
