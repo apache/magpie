@@ -264,6 +264,11 @@ atr jwt refresh          # exchanges the PAT for a short-lived JWT
 Identical to the `svnpubsub` flow. Run
 [`release-prepare`](../../skills/release-prepare/SKILL.md):
 
+0. For a release of Apache Magpie itself, it first runs
+   [`pre-release-sweep`](../../skills/pre-release-sweep/SKILL.md)
+   and records the result in the planning issue
+   ([`.apache-magpie-overrides/release-prepare.md`](../../.apache-magpie-overrides/release-prepare.md)).
+
 1. It opens the **release-planning issue** (Step 1).
 2. It drafts the **version-bump + `CHANGELOG` + `NOTICE`/`LICENSE`
    PR** (Step 2). Merge it before composing the RC.
@@ -513,6 +518,7 @@ repository for a worked GitHub Actions example.
 
 ## Release Manager checklist
 
+- [ ] (Apache Magpie) `pre-release-sweep` run; its release-blocking PRs and its spec-sync PR merged; deferred findings filed as issues
 - [ ] `atr` client installed (Python 3.12+) and authenticated
       (`atr set asf.uid` / `atr set tokens.pat` / `atr jwt refresh`)
 - [ ] OpenPGP public key registered with the Magpie committee in ATR
