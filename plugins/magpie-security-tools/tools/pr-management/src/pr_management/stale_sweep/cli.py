@@ -35,19 +35,24 @@ FAMILY = "stale-sweep"
 CLASSIFIED = "stale-classify.json"
 
 
+def _add_selector(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--dry-run", action="store_true", help="mark the sweep as a dry run")
+    parser.add_argument(
+        "selector", nargs="*", help="the selector as typed: stale, label:<l>, warn:<N>, 42,88, …"
+    )
+
+
 def add_parsers(sub: Any) -> None:
     family = sub.add_parser(FAMILY, help="pr-stale-sweep")
     cmds = family.add_subparsers(dest="command", required=True)
 
     pln = cmds.add_parser("plan", help="Step 0-1: thresholds, selector validation, the reads to save")
-    pln.add_argument(
-        "selector", nargs="*", help="the selector as typed: stale, label:<l>, warn:<N>, 42,88, …"
-    )
+    _add_selector(pln)
 
     cls = cmds.add_parser("classify", help="Steps 1-3: the pool, the per-PR state, one class per PR")
     cls.add_argument("--saved-dir", type=Path, required=True)
     cls.add_argument("--now", default=None)
-    cls.add_argument("selector", nargs="*")
+    _add_selector(cls)
 
     ren = cmds.add_parser("render", help="Step 4: the comment for one proposal")
     mentions.add_flag(ren)
@@ -74,12 +79,11 @@ def _now(value: str | None) -> dt.datetime:
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     cfg = mentions.apply_flag(config.load(args.project_root, args.config_dir), args)
-    if args.command == "plan":
-        return stale_plan.build(
-            args.selector, args.project_root, args.config_dir, cfg.committers_team
-        ).as_dict()
-    if args.command == "classify":
-        plan = stale_plan.build(args.selector, args.project_root, args.config_dir, cfg.committers_team)
+    if args.command in {"plan", "classify"}:
+        tokens = [*args.selector, "--dry-run"] if args.dry_run else args.selector
+        plan = stale_plan.build(tokens, args.project_root, args.config_dir, cfg.committers_team)
+        if args.command == "plan":
+            return plan.as_dict()
         if plan.error:
             return {"error": plan.error, "plan": plan.as_dict()}
         saved: Path = args.saved_dir

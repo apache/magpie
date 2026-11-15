@@ -352,6 +352,46 @@ def test_record_refuses_a_non_github_url(tmp_path: Path) -> None:
 # --- the CLI ---------------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("command", ["plan", "classify"])
+@pytest.mark.parametrize(
+    ("selector", "dry_run", "warn_days"),
+    [
+        pytest.param(["--dry-run"], True, 45, id="flag-only"),
+        pytest.param(["--dry-run", "stale", "warn:30"], True, 30, id="flag-before-selector"),
+        pytest.param(["stale", "warn:30", "--dry-run"], True, 30, id="flag-after-selector"),
+        pytest.param(["stale", "warn:30", "dry-run"], True, 30, id="bare-token"),
+        pytest.param(["--", "stale", "warn:30", "--dry-run"], True, 30, id="end-of-options"),
+        pytest.param(["stale", "warn:30"], False, 30, id="no-flag"),
+    ],
+)
+def test_cli_dry_run(
+    command: str,
+    selector: list[str],
+    dry_run: bool,
+    warn_days: int,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from pr_management import cli
+
+    args = ["--project-root", str(tmp_path), "stale-sweep", command]
+    if command == "classify":
+        page = [{"data": {"search": {"nodes": [node(42, idle=48)]}}}]
+        (tmp_path / P.PAGES).write_text(json.dumps(page), encoding="utf-8")
+        args += ["--saved-dir", str(tmp_path), "--now", NOW.isoformat()]
+
+    assert cli.main([*args, *selector]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["dry_run"] is dry_run
+    if command == "classify":
+        assert [p["class"] for p in result["proposals"]] == ["REQUEST-UPDATE"]
+        assert result["thresholds"]["warn_days"] == warn_days
+    else:
+        assert result["error"] is None
+        assert result["warn_days"] == warn_days
+
+
 def test_cli_classify_then_render(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from pr_management import cli
 

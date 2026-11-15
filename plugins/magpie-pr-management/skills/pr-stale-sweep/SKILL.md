@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:086e859fb8751476
 license: Apache-2.0
-measured_tokens: 3883
+measured_tokens: 3917
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -164,10 +164,12 @@ defaulting to 45 / 90 / 180.
 
 ## Steps
 
-**Step 0 — plan:** pass the selector exactly as typed:
+**Step 0 — plan.** Keep the selector tokens together and in their original
+order. For a dry run, append `--dry-run` after the complete selector in both
+commands.
 
 ```bash
-uv run --project <framework>/tools/pr-management pr-management stale-sweep plan <selector…>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep plan <selector…> [--dry-run]
 ```
 
 A non-null `error` (for example `warn` not below `close`) stops the run: show it.
@@ -180,7 +182,7 @@ uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-stale-sw
 **Step 1–3 — classify:**
 
 ```bash
-uv run --project <framework>/tools/pr-management pr-management stale-sweep classify --saved-dir <workspace>/saved <selector…>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep classify --saved-dir <workspace>/saved <selector…> [--dry-run]
 ```
 
 When `needs` is non-empty, save those reads and classify again.
