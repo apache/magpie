@@ -190,7 +190,7 @@ reviewers reported each, and every entry in `warnings` verbatim.
 **Scope enforcement.** Render the title, the body and the scope from the steps above; `--files` is every file the diff touches:
 
 ```bash
-prepare prep-pr --load <scratch>/prepare-load.json --version <version> --product-name "<Product Name>" \
+prepare prep-pr --load <scratch>/prepare-load.json --version <version> --product-name "<product-name>" \
   --versions <scratch>/versions.json --changelog <scratch>/changelog.json --previous-tag <tag> \
   --archive-mode <scratch>/archive-mode.json [--notice-summary "<summary>"] \
   [--archive-review proposed|confirmed-existing|skipped] [--archive-entry "<entry>=<reason>" ...] \

@@ -179,6 +179,18 @@ def test_gather_defaults_the_product_name_to_the_project() -> None:
     assert render.gather(loaded)["product_name"] == "airflow"
 
 
+def test_gather_takes_the_resolved_product_name_over_the_config() -> None:
+    out = render.gather(load(product_name=None), product_name="Apache Airflow")
+    assert out["product_name"] == "Apache Airflow"
+
+
+def test_gather_renders_every_spelling_of_the_product_placeholder() -> None:
+    for spelling in ("<product-name>", "<Product Name>", "<product_name>"):
+        out = render.gather(load(announce_subject_template=f"[ANNOUNCE] {spelling} <version>"))
+        by_field = {s["field"]: s for s in out["searches"]}
+        assert by_field["announce_archive_url"]["subject"] == "[ANNOUNCE] Apache Airflow 2.11.0"
+
+
 def test_gather_quotes_a_hostile_target_url() -> None:
     loaded = load()
     loaded["metadata"]["target_url"] = "https://dist.apache.org/x/$(id)/"

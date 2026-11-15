@@ -77,6 +77,10 @@ def add_parsers(sub: Any) -> None:
         "--rc", help="the RC label from the planning issue (e.g. rc1), to render the subjects"
     )
     gather.add_argument("--schema", help=schema_help)
+    gather.add_argument(
+        "--product-name",
+        help="<product-name>: release-management-config.md product_name, else the display name (<PROJECT>)",
+    )
 
     voters = commands.add_parser("voters", help="Step 1: [RESULT] binding voters → roster handles")
     voters.add_argument("--voters", required=True, help="JSON list of From: addresses or Apache IDs")
@@ -117,7 +121,12 @@ def dispatch(args: argparse.Namespace) -> int:
             )
         elif args.command == "gather":
             source = Path(args.schema) if args.schema else record.DEFAULT_SCHEMA
-            out = render.gather(_json(args.load), rc=args.rc, schema_text=source.read_text(encoding="utf-8"))
+            out = render.gather(
+                _json(args.load),
+                rc=args.rc,
+                schema_text=source.read_text(encoding="utf-8"),
+                product_name=args.product_name,
+            )
         elif args.command == "voters":
             entries = _json(args.voters)
             if not isinstance(entries, list):

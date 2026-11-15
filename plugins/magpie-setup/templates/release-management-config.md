@@ -55,11 +55,23 @@ ship in the same adopter directory and are referenced from here:
 | Key | Value |
 |---|---|
 | `project_dist_name` | `foo` |
+| `product_name` | *(optional)* `Apache Foo` |
 | `git_upstream_remote` | `origin` |
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
 | `version_manifest_files` | `setup.cfg`, `foo/__init__.py` |
 | `changelog_label_categories` | *(optional)* e.g. `kind/feature=Features`, `kind/bug-fix=Bug fixes`, `area/docs=Documentation` |
+
+> `product_name` (optional) is the human-readable name a release is
+> published under: the `<product-name>` placeholder in the `release-*`
+> skills and in the subject templates below, used in mail subjects, PR
+> and issue titles, the announcement and the audit record.
+> Unset, it defaults to the project's display name (`<PROJECT>`, from
+> `project.md` → `project_name`).
+> Set it when the released product is named differently from the
+> project, for example a sub-product released on its own train.
+> It is display text only; artefact names and dist paths use
+> `project_dist_name`.
 
 > `changelog_label_categories` (optional) maps PR labels to the
 > `release-prepare prep` changelog sections (*Features*, *Bug fixes*,
@@ -227,8 +239,8 @@ variants* below).
 | `mail_archive_url_template` | `<mail-archive-url>` *(ASF e.g. `https://lists.apache.org/list.html?<dev-list>`)* |
 | `vote_window_hours` | `72` |
 | `vote_pass_rule_overrides` | *(none, uses ASF baseline: 3 binding +1 minimum, more binding +1 than -1)* |
-| `vote_subject_template` | `[VOTE] Release <Product Name> <version> from <version>-rcN` |
-| `result_subject_template` | `[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN` |
+| `vote_subject_template` | `[VOTE] Release <product-name> <version> from <version>-rcN` |
+| `result_subject_template` | `[RESULT] [VOTE] Release <product-name> <version> from <version>-rcN` |
 | `release_approver_roster_path` | `<project-config>/pmc-roster.md` *(the default when unset; read by `release-vote-tally`, `release-promote` and `release-audit-report`; non-ASF: e.g. `<project-config>/release-approvers.md`)* |
 | `vote_verification_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/docs/verifying-a-release-candidate.md` — the human-readable "how to verify this RC" page; `<version>-rcN` is rendered so voters read the page at the tree under vote |
 | `reproducibility_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/.apache-magpie/docs/release-management/reproducibility.md` — or the framework copy on `apache/magpie` |
@@ -288,7 +300,7 @@ variants* below).
 |---|---|
 | `announce_list` | `announce@apache.org` |
 | `announce_cc_lists` | `<dev-list>`, `<users-list>` *(e.g. `dev@foo.apache.org`, `users@foo.apache.org`)* |
-| `announce_subject_template` | `[ANNOUNCE] <Product Name> <version> released` |
+| `announce_subject_template` | `[ANNOUNCE] <product-name> <version> released` |
 | `site_repo` | `<site-repo>` *(e.g. `apache/foo-site`)* |
 | `site_pr_files` | `landing-pages/site/content/en/_index.md`, `landing-pages/site/content/en/announcements/<version>.md` |
 

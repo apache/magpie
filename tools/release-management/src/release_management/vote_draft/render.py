@@ -30,9 +30,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from release_management.product import fill_product
 from release_management.shell import dq, w
 
-DEFAULT_SUBJECT = "[VOTE] Release <Product Name> <version> from <version>-rcN"
+DEFAULT_SUBJECT = "[VOTE] Release <product-name> <version> from <version>-rcN"
 VERIFY_HEADING = "How to verify this candidate"
 POLICY_URL = "https://www.apache.org/legal/release-policy.html#release-approval"
 EMBARGOED = re.compile(r"CVE-\d{4}-\d+|security|vulnerability|vulnerabilities|exploit", re.IGNORECASE)
@@ -235,9 +236,9 @@ class VoteDraft:
 
     def render(self, text: str) -> str:
         return (
-            text.replace("<version>-<rcN>", self.tag)
+            fill_product(text, self.product_name)
+            .replace("<version>-<rcN>", self.tag)
             .replace("<version>-rcN", self.tag)
-            .replace("<Product Name>", self.product_name)
             .replace("<version>", self.version)
             .replace("<rcN>", self.rc)
         )

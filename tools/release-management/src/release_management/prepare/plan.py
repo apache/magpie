@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from release_management.prepare import prev_tag
+from release_management.product import fill_product
 from release_management.shell import dq, w
 
 SCRATCH_PATH = re.compile(r"^<[a-z-]+>/[A-Za-z0-9_.+-]+$")
@@ -270,9 +271,8 @@ def _default_body(fields: dict[str, str], prs: list[dict[str, Any]], version: st
 def _fill_template(
     text: str, fields: dict[str, str], prs: list[dict[str, Any]], version: str, opened: str
 ) -> str:
+    text = fill_product(text, fields["product"])
     subs = {
-        "<Product Name>": fields["product"],
-        "<product-name>": fields["product"],
         "<version>": version,
         "<previous-tag>": fields["previous"],
         "<release-branch-base>": fields["base"],

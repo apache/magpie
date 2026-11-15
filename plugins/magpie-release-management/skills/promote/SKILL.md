@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:ecfb43e47fa5905e
 license: Apache-2.0
-measured_tokens: 6139
+measured_tokens: 6150
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -36,7 +36,7 @@ measured_tokens: 6139
      <upstream>                → adopter's public source repo (e.g. apache/airflow)
      <version>                 → release version string (e.g. 2.11.0)
      <rcN>                     → release candidate number (e.g. rc1)
-     <product-name>            → project display name (e.g. Apache Airflow)
+     <product-name>            → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <dist-dev-url>            → URL to the staged RC in dist/dev/<project>/<version>-rcN/ (release_dist_backend=svnpubsub)
      <dist-release-url>        → URL to the promoted target in dist/release/<project>/<version>/ (release_dist_backend=svnpubsub)
      <result-vote-url>         → Archive URL of the [RESULT] [VOTE] thread
@@ -365,7 +365,7 @@ Return ONLY valid JSON with this structure (the render's fields, without `ok` an
 
 The AI-driven part ends with a hand-back artefact containing:
 
-- **Release identifier** — `<product_name> <version>` (from `<version>-rc<N>`).
+- **Release identifier** — `<product-name> <version>` (from `<version>-rc<N>`).
 - **Staging → release mapping** — the staging URL and target URL, side by side.
 - **Backend-shaped promotion command set** — the paste-ready block from Step 2.
 - **PMC membership note** — either "RM is on PMC roster, proceed" or the full hand-off note.

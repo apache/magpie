@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 5895
+measured_tokens: 5933
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -35,6 +35,7 @@ measured_tokens: 5895
      <project-config>   → adopter's project-config directory path
      <upstream>         → adopter's public source repo (e.g. apache/airflow)
      <version>          → release version string (e.g. 2.11.0)
+     <product-name>     → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <rcN>              → release candidate number (e.g. rc1)
      <version>-<rcN>    → fully-qualified RC identifier (e.g. 2.11.0-rc1)
      <staging-url>      → URL to the staged RC artefact directory
@@ -260,7 +261,7 @@ Read the rest from the planning issue body and the project files; never invent a
 
 | Field | Source | Render flag |
 |---|---|---|
-| `product_name` | `project.md` (the project's display name) | `--product-name` |
+| `product_name` | `<product-name>`: `release-management-config.md` → `product_name`, else `<PROJECT>` | `--product-name` |
 | `staging_url` | planning issue body, under `dist/dev/<project>/<version>-<rcN>/` for `release_dist_backend = svnpubsub` (default: the loaded one) | `--staging-url` |
 | `svn_revision` | `svn info --show-item last-changed-revision <staging_url>` (or `svn log -l1`): **required** when `release_dist_backend = svnpubsub`, since SVN branches are mutable and this pins exactly which artefacts voters reviewed | `--svn-revision` |
 | `tag_url`, `changelog_url` | planning issue body | `--tag-url`, `--changelog-url` |
@@ -279,7 +280,7 @@ Render the draft with the [`release-management`](../../../../tools/release-manag
 
 ```bash
 uv run --project <framework>/tools/release-management release-management vote-draft render --step 2 \
-  --load <scratch>/vote-draft-load.json --product-name "<Product Name>" \
+  --load <scratch>/vote-draft-load.json --product-name "<product-name>" \
   --tag-url <tag_url> --changelog-url <changelog_url> [--staging-url <url>] [--svn-revision <rev>] \
   [--rc-comment <scratch>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
   [--expedited "<neutral reason>"] [--skip-verify-check "<reason>"] [--planning-issue <url>] \
@@ -327,7 +328,7 @@ Ask the RM when they sent the `[VOTE]` (the draft cannot know), then render:
 
 ```bash
 uv run --project <framework>/tools/release-management release-management vote-draft render --step 3 \
-  --load <scratch>/vote-draft-load.json --product-name "<Product Name>" --sent-at <ISO-8601 UTC> \
+  --load <scratch>/vote-draft-load.json --product-name "<product-name>" --sent-at <ISO-8601 UTC> \
   [--subject "<final subject, if the RM edited it>"] [--expedited "<the Step 2 neutral reason>"]
 ```
 

@@ -4,7 +4,7 @@
 # A project `[VOTE]` template (`canned_body`)
 
 When `<project-config>/canned-responses.md` has a `[VOTE]` template block, save it to a file and pass it as `--canned-body`.
-The render substitutes the metadata placeholders (`<vote_list>`, `<Product Name>`, `<version>`, `<version>-rcN`, `<staging_url>`, `<svn_revision>`, `<tag_url>`, `<changelog_url>`, `<keys_url>`, `<vote_window_hours>`, `<swhid>`, `<atr_candidate_url>`, `<planning_issue>`, `<RM name>`)
+The render substitutes the metadata placeholders (`<vote_list>`, `<product-name>`, `<version>`, `<version>-rcN`, `<staging_url>`, `<svn_revision>`, `<tag_url>`, `<changelog_url>`, `<keys_url>`, `<vote_window_hours>`, `<swhid>`, `<atr_candidate_url>`, `<planning_issue>`, `<RM name>`)
 and appends the `[EXPEDITED]` / `[SKIP-VERIFY]` notices when those overrides are in force.
 
 The *How to verify* section is part of every `[VOTE]`, whichever backend sends it and whether the body came from the default template or from `canned_body`:

@@ -36,7 +36,7 @@ source data but falls outside the public audit-log scope appears as
 
 | Field | Type | Description |
 |---|---|---|
-| `product_name` | string | Human-readable product name (defaults to `<project>` from config). |
+| `product_name` | string | Human-readable product name: `<product-name>` (`product_name` key, else `<PROJECT>`). |
 | `cve_ids` | list of strings | Public CVE identifiers closed by this release (e.g. `CVE-2024-12345`). Include only public IDs — the audit log must not reference embargoed CVE detail. |
 | `notes` | string | Free-form notes from the Release Manager, recorded verbatim. |
 

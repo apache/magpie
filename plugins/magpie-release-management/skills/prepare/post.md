@@ -120,7 +120,7 @@ reviewers reported each, and every entry in `warnings` verbatim.
 
 ```bash
 uv run --project <framework>/tools/release-config release-config load --skill prepare post <version> > <scratch>/prepare-load.json
-prepare post-pr --next <scratch>/next.json --load <scratch>/prepare-load.json --product-name "<Product Name>" \
+prepare post-pr --next <scratch>/next.json --load <scratch>/prepare-load.json --product-name "<product-name>" \
   [--next-version <confirmed>] --files <file> [<file> ...] [--confirm-extra <file> ...]
 ```
 

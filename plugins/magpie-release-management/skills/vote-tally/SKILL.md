@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5700
+measured_tokens: 5729
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -38,6 +38,7 @@ measured_tokens: 5700
      <project-config>          → adopter's project-config directory path
      <upstream>                → adopter's public source repo (e.g. apache/airflow)
      <version>                 → release version string (e.g. 2.11.0)
+     <product-name>            → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <rcN>                     → release candidate number (e.g. rc1)
      <version>-<rcN>           → fully-qualified RC identifier (e.g. 2.11.0-rc1)
      <vote-list>               → configured vote mailing list (e.g. dev@airflow.apache.org)
@@ -341,7 +342,7 @@ Save the tally output and render the `[RESULT] [VOTE]` draft:
 
 ```bash
 uv run --project <framework>/tools/release-management release-management vote-tally render \
-  --load <scratch>/vote-tally-load.json --tally <scratch>/tally.json --product-name "<Product Name>" \
+  --load <scratch>/vote-tally-load.json --tally <scratch>/tally.json --product-name "<product-name>" \
   [--result PASSED|FAILED --rule "<rule applied>"] [--rm-name "<RM name>"]
 ```
 

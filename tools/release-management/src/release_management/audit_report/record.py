@@ -243,7 +243,7 @@ def render(data: dict[str, Any], required: list[str]) -> dict[str, Any]:
     if injection and not sources:
         gaps.append("injection_flagged is true but injection_sources is empty")
     if sentinel(product) == MISSING:
-        gaps.append("product_name is absent; supply it (defaults to <project>)")
+        gaps.append("product_name is absent; supply <product-name> (product_name, else <PROJECT>)")
     return {
         "version": version,
         "record_markdown": "\n".join(lines),

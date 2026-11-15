@@ -29,6 +29,7 @@ import re
 from typing import Any
 
 from release_management.audit_report import record
+from release_management.product import fill_product
 from release_management.shell import dq, w
 from release_management.vote_tally import tally
 
@@ -118,11 +119,7 @@ def _render(text: str, version: str, product: str, rc: str | None) -> str:
     out = text
     for spelling in ("<version>-<rcN>", "<version>-rcN", "<version>-rc<N>"):
         out = out.replace(spelling, f"{version}-{rc}" if rc else f"{version}-<rcN>")
-    return (
-        out.replace("<version>", version)
-        .replace("<Product Name>", product)
-        .replace("<product_name>", product)
-    )
+    return fill_product(out, product).replace("<version>", version)
 
 
 def _query(subject: str) -> str:
@@ -153,6 +150,7 @@ def gather(
     version: str | None = None,
     rc: str | None = None,
     schema_text: str | None = None,
+    product_name: str | None = None,
 ) -> dict[str, Any]:
     """Step 1: what to search for each lifecycle URL, the promote-revision recipe and the field list.
 
@@ -166,7 +164,7 @@ def gather(
         raise RenderError("no version: run release-config load with --skill audit-report <version>")
     version = str(version)
     project = str(config.get("project_dist_name") or "<project>")
-    product = str(config.get("product_name") or project)
+    product = str(product_name or config.get("product_name") or project)
     is_ponymail = str(config.get("mail_archive") or "").lower() == "ponymail"
     vote_list = str(config.get("vote_dev_list") or "<dev-list>")
     announce_list = config.get("announce_list")
@@ -175,16 +173,16 @@ def gather(
     subjects = {
         "vote_thread_url": (
             config.get("vote_subject_template")
-            or "[VOTE] Release <Product Name> <version> from <version>-rcN",
+            or "[VOTE] Release <product-name> <version> from <version>-rcN",
             [vote_list],
         ),
         "result_thread_url": (
             config.get("result_subject_template")
-            or "[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN",
+            or "[RESULT] [VOTE] Release <product-name> <version> from <version>-rcN",
             [vote_list],
         ),
         "announce_archive_url": (
-            config.get("announce_subject_template") or "[ANNOUNCE] <Product Name> <version> released",
+            config.get("announce_subject_template") or "[ANNOUNCE] <product-name> <version> released",
             announce_lists,
         ),
     }
@@ -362,7 +360,7 @@ def pr(
     planning = planning_issue_url(given)
     if planning is None or planning != given:
         raise RenderError("planning_issue_url is not a canonical GitHub issue URL")
-    product = " ".join(str(data.get("product_name") or "<project>").split())
+    product = " ".join(str(data.get("product_name") or "<product-name>").split())
     reasons = data.get("redaction_reasons") or {}
     fields_missing = [
         f for f in record.ORDERED_FIELDS if record.sentinel(data.get(f, record.MISSING)) == "MISSING"

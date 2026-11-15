@@ -23,7 +23,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:9380580d6421d8b4
 license: Apache-2.0
-measured_tokens: 5283
+measured_tokens: 5294
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -34,7 +34,7 @@ measured_tokens: 5283
      <upstream>                    → adopter's public source repo (e.g. apache/airflow)
      <default-branch>              → upstream repo default branch
      <version>                     → release version string (e.g. 2.11.0)
-     <product-name>                → project display name (e.g. Apache Airflow)
+     <product-name>                → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <previous-version>            → version tag immediately preceding <version>
      <release-branch-base>         → base branch for the prep PR (from release_branch_base)
      <planning-issue-url>          → URL of the created or existing planning issue

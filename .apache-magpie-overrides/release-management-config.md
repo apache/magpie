@@ -213,8 +213,8 @@ variants* below).
 | `mail_archive_url_template` | `<mail-archive-url>` *(ASF e.g. `https://lists.apache.org/list.html?<dev-list>`)* |
 | `vote_window_hours` | `72` |
 | `vote_pass_rule_overrides` | *(none, uses ASF baseline: 3 binding +1 minimum, more binding +1 than -1)* |
-| `vote_subject_template` | `[VOTE] Release <Product Name> <version> from <version>-rcN` |
-| `result_subject_template` | `[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN` |
+| `vote_subject_template` | `[VOTE] Release <product-name> <version> from <version>-rcN` |
+| `result_subject_template` | `[RESULT] [VOTE] Release <product-name> <version> from <version>-rcN` |
 | `release_approver_roster_path` | `<project-config>/pmc-roster.md` *(ASF default); non-ASF: e.g. `<project-config>/release-approvers.md`)* |
 | `vote_verification_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/docs/verifying-a-release-candidate.md` — the human-readable "how to verify this RC" page; `<version>-rcN` is rendered so voters read the page at the tree under vote |
 | `reproducibility_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/.apache-magpie/docs/release-management/reproducibility.md` — or the framework copy on `apache/magpie` |
@@ -274,7 +274,7 @@ variants* below).
 |---|---|
 | `announce_list` | `announce@apache.org` |
 | `announce_cc_lists` | `<dev-list>`, `<users-list>` *(e.g. `dev@foo.apache.org`, `users@foo.apache.org`)* |
-| `announce_subject_template` | `[ANNOUNCE] <Product Name> <version> released` |
+| `announce_subject_template` | `[ANNOUNCE] <product-name> <version> released` |
 | `site_repo` | `<site-repo>` *(e.g. `apache/foo-site`)* |
 | `site_pr_files` | `landing-pages/site/content/en/_index.md`, `landing-pages/site/content/en/announcements/<version>.md` |
 
