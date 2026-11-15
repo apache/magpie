@@ -1009,3 +1009,34 @@ def test_damaged_jar_variants_emit_the_report(tmp_path: Path, variant: str) -> N
     assert observations["timestamp_signal"][0]["signal"] == "unreadable"
     assert observations["namespace_signal"][0]["signal"] == "unreadable"
     assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}
+
+
+@pytest.mark.parametrize(
+    "prolog",
+    [
+        '<!DOCTYPE project [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;">]>\n',
+        '<!DOCTYPE project SYSTEM "file:///etc/passwd">\n',
+    ],
+    ids=["entity-expansion", "external-dtd"],
+)
+def test_pom_with_dtd_is_refused_unparsed(tmp_path: Path, prolog: str) -> None:
+    pom = tmp_path / "foo-1.0.pom"
+    pom.write_text(
+        '<?xml version="1.0"?>\n' + prolog + "<project><artifactId>&b;</artifactId></project>\n",
+        encoding="utf-8",
+    )
+    parsed = mav.parse_pom(pom)
+    assert "error" in parsed
+    assert "DTD or entity declaration" in parsed["error"]
+    assert "artifact_id" not in parsed
+
+
+def test_plain_pom_still_parses(tmp_path: Path) -> None:
+    pom = tmp_path / "foo-1.0.pom"
+    pom.write_text(
+        '<?xml version="1.0"?>\n<project><groupId>org.example</groupId><artifactId>foo</artifactId><version>1.0</version></project>\n',
+        encoding="utf-8",
+    )
+    parsed = mav.parse_pom(pom)
+    assert "error" not in parsed
+    assert parsed["artifact_id"] == "foo"

@@ -163,9 +163,17 @@ def _normalize_ws(text: str) -> str:
 
 
 def parse_pom(path: Path) -> dict:
-    """Parse one POM into a plain dict of the fields the checks need."""
+    """Parse one POM into a plain dict of the fields the checks need.
+
+    A staged artefact is untrusted input, and a POM has no use for a
+    document type declaration, so any POM carrying one is refused before
+    the XML parser sees it: no entity is ever expanded.
+    """
+    data = path.read_bytes()
+    if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+        return {"path": path, "error": "POM carries a DTD or entity declaration, which a POM never needs; refused unparsed"}
     try:
-        root = ET.parse(path).getroot()
+        root = ET.fromstring(data)
     except ET.ParseError as exc:
         return {"path": path, "error": f"XML parse error: {exc}"}
 
