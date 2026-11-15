@@ -25,24 +25,28 @@ section is the map of what exists and how to add what does not.
 
 ## Harnesses
 
+Running something else? [**Adding a new agent harness**](add-a-harness.md)
+names every step to wire a new runtime in so it loads skills and enforces
+the action guard like the rest.
+
 One page per supported agentic harness, each declaring
 `capability:platform`:
 
-- [**Aider**](aider.md) — terminal pair programming agent harness.
-- [**Antigravity**](antigravity.md) — plugin install, user-scope `PreToolUse`
+- [**Aider**](harnesses/aider.md) — terminal pair programming agent harness.
+- [**Antigravity**](harnesses/antigravity.md) — plugin install, user-scope `PreToolUse`
   guard, terminal sandbox and permission rules. Experimental.
-- [**Codex**](codex.md) — first-class harness.
-- [**Copilot CLI**](copilot.md) — standalone CLI and Coding Agent.
-- [**Cursor**](cursor.md) — Composer and the Agent CLI.
-- [**Grok Build**](grok.md) — `PreToolUse` action-guard integration.
-- [**JetBrains Junie**](junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
-- [**Goose**](goose.md) — per-user plugin with a `PreToolUse` guard hook;
+- [**Codex**](harnesses/codex.md) — first-class harness.
+- [**Copilot CLI**](harnesses/copilot.md) — standalone CLI and Coding Agent.
+- [**Cursor**](harnesses/cursor.md) — Composer and the Agent CLI.
+- [**Grok Build**](harnesses/grok.md) — `PreToolUse` action-guard integration.
+- [**JetBrains Junie**](harnesses/junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
+- [**Goose**](harnesses/goose.md) — per-user plugin with a `PreToolUse` guard hook;
   `agent-iso goose` runs the whole process in sandbox-runtime, in approve mode. Experimental.
-- [**Kiro CLI**](kiro.md) — per-skill installs, no marketplace; guard on
+- [**Kiro CLI**](harnesses/kiro.md) — per-skill installs, no marketplace; guard on
   `preToolUse`.
-- [**Local LLM**](local-llm.md) — Ollama, llama.cpp, vLLM.
-- [**OpenCode**](opencode.md) — guard plugin on `tool.execute.before`.
-- [**Pi**](pi.md) — one per-user package install: skills, action guard,
+- [**Local LLM**](harnesses/local-llm.md) — Ollama, llama.cpp, vLLM.
+- [**OpenCode**](harnesses/opencode.md) — guard plugin on `tool.execute.before`.
+- [**Pi**](harnesses/pi.md) — one per-user package install: skills, action guard,
   permission rules and an OS sandbox for bash. Experimental.
 
 ### What isolation each harness actually gets
@@ -77,10 +81,6 @@ That is a gap in the framework, not in those tools: `agent-guard`'s core is
 harness-neutral and each supported harness needed only a thin adapter. See
 [`tools/agent-guard/README.md`](../../tools/agent-guard/README.md) for the shape
 one takes, and [adding a harness](add-a-harness.md) for where it plugs in.
-
-Running something else? [**Adding a new agent harness**](add-a-harness.md)
-names every step to wire a new runtime in so it loads skills and enforces
-the action guard like the rest.
 
 ## Adapters
 

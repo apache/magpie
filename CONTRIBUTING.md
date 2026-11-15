@@ -385,7 +385,7 @@ apply the sandbox from `setup-isolated-setup-install`. A third runtime,
 [OpenAI Codex](https://github.com/openai/codex), reads the
 `.agents/skills/` tree natively and ships an in-tree sandbox profile and
 HITL exec-policy rules; its adapter is **experimental** — see the
-[Codex harness guide](docs/adapters/codex.md).
+[Codex harness guide](docs/adapters/harnesses/codex.md).
 
 RFC-AI-0004 §3 commits the framework to **vendor neutrality across
 LLM backends** — [`docs/prerequisites.md`](docs/quick-start/prerequisites.md) and
@@ -397,16 +397,16 @@ authoritative agent harness matrix. The current state per harness:
 | OpenCode | Reference implementation, fully supported | — |
 | Claude Code | Reference implementation, fully supported | — |
 | Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
-| Antigravity (CLI `agy`) | Experimental agent harness, the successor to Gemini CLI: native skills, user-scope action guard, runner, terminal sandbox and permission rules; sandbox parity gaps remain — see the [harness guide](docs/adapters/antigravity.md) | [#314](https://github.com/apache/magpie/issues/314) |
-| Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [harness guide](docs/adapters/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
-| Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
-| Aider | Multi-model terminal pair programming CLI; per-action confirmation and on-demand skill ingestion — see the [harness guide](docs/adapters/aider.md) | [#317](https://github.com/apache/magpie/issues/317) |
-| GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
-| Goose (CLI `goose`) | Experimental agent harness: one per-user plugin install adds the skills and a `PreToolUse` guard hook, and `agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
+| Antigravity (CLI `agy`) | Experimental agent harness, the successor to Gemini CLI: native skills, user-scope action guard, runner, terminal sandbox and permission rules; sandbox parity gaps remain — see the [harness guide](docs/adapters/harnesses/antigravity.md) | [#314](https://github.com/apache/magpie/issues/314) |
+| Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [harness guide](docs/adapters/harnesses/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
+| Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/harnesses/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
+| Aider | Multi-model terminal pair programming CLI; per-action confirmation and on-demand skill ingestion — see the [harness guide](docs/adapters/harnesses/aider.md) | [#317](https://github.com/apache/magpie/issues/317) |
+| GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/harnesses/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
+| Goose (CLI `goose`) | Experimental agent harness: one per-user plugin install adds the skills and a `PreToolUse` guard hook, and `agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode — see the [harness guide](docs/adapters/harnesses/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
-| JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
+| JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/harnesses/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
-| Pi (CLI `pi`) | Experimental agent harness: native skills, and one per-user package install that adds an action guard, permission rules and an OS sandbox for bash, which Pi itself lacks — see the [harness guide](docs/adapters/pi.md) | — |
+| Pi (CLI `pi`) | Experimental agent harness: native skills, and one per-user package install that adds an action guard, permission rules and an OS sandbox for bash, which Pi itself lacks — see the [harness guide](docs/adapters/harnesses/pi.md) | — |
 
 The table lists **harnesses** — the agent that reads the skills — not the
 editors they run in. A JetBrains IDE, for instance, hosts an agent rather than

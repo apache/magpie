@@ -46,7 +46,7 @@ could not list `~/.ssh`, could not write under `$HOME`, and had no network (DNS 
 Domains allowed by `read_url(…)` join the sandbox's outbound allowlist.
 The sandbox covers terminal commands only: native file tools are governed by the permission rules,
 and the model, web tools, hooks, and MCP servers run outside it.
-See `docs/adapters/antigravity.md`.
+See `docs/adapters/harnesses/antigravity.md`.
 
 Pi ships no approval prompts and no sandbox, so Magpie supplies both in a user-scope Pi extension
 (`tools/agent-isolation/pi/magpie.ts`), installed with the skills by one `pi install git:github.com/apache/magpie`
@@ -59,7 +59,7 @@ domain allowlist and credential-variable denies; only a plain-words command the 
 sandbox (read-only `gh`) runs outside it, and bash is refused when the sandbox cannot start.
 An observed probe on Pi 1.4.0 (macOS) could not read `~/.ssh` or write under `$HOME`, could read `~/.gitconfig`,
 reached `api.github.com` but not `example.com`, and saw an empty `$GH_TOKEN`.
-See `docs/adapters/pi.md`.
+See `docs/adapters/harnesses/pi.md`.
 
 Goose ships no sandbox, and its hooks can allow or block a tool call but cannot wrap one, so Magpie isolates the
 whole process: `agent-iso goose` runs `tools/agent-isolation/goose/launch.ts` from the per-user plugin
@@ -76,7 +76,7 @@ The sandbox runtime comes from an `npm ci` of the committed lockfile into the pl
 An observed probe on Goose 1.56.0 (macOS) could not read `~/.ssh`, write under `$HOME` or append to Goose's
 `config.yaml`, reached `api.github.com` but not `example.com`, saw an empty `$GH_TOKEN`, and had the hook deny
 a `--no-verify` commit, `curl`, a `load` of `~/.aws/credentials` and a write of Goose's `permission.yaml`.
-See `docs/adapters/goose.md`.
+See `docs/adapters/harnesses/goose.md`.
 
 ## Where it lives
 
@@ -225,7 +225,7 @@ See `docs/adapters/goose.md`.
   `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) so reads never
   prompt and leaves anything else to Copilot's own permission flow, and a
   `--junie` adapter for JetBrains Junie's Early Access `PreToolUse` hook
-  (`~/.junie/config.json`, #1666; guide in `docs/adapters/junie.md`), which blocks with exit `2` and a
+  (`~/.junie/config.json`, #1666; guide in `docs/adapters/harnesses/junie.md`), which blocks with exit `2` and a
   `decision` JSON, the one signal Junie honours, because Junie ignores the
   Claude-shaped `hookSpecificOutput` deny; inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
@@ -775,7 +775,7 @@ uv run --project tools/setup-preflight --group dev pytest \
 ## Antigravity setup lifecycle
 
 The four `setup-isolated-setup-*` skills route Antigravity requests to
-`docs/adapters/antigravity.md` and stop before the Claude-specific procedure.
+`docs/adapters/harnesses/antigravity.md` and stop before the Claude-specific procedure.
 The install route proposes merging the user-scope profile into
 `~/.gemini/antigravity-cli/settings.json` and a single guard registration into
 `~/.gemini/config/hooks.json`, preserving unrelated settings and hooks and
@@ -789,7 +789,7 @@ before uninstalling the source.
 
 ## Pi setup lifecycle
 
-The four `setup-isolated-setup-*` skills route Pi requests to `docs/adapters/pi.md`
+The four `setup-isolated-setup-*` skills route Pi requests to `docs/adapters/harnesses/pi.md`
 and stop before the Claude-specific procedure.
 The install route proposes the one per-user `pi install git:github.com/apache/magpie`,
 which brings the skills, the guard, the rules and the bash sandbox together;
@@ -800,7 +800,7 @@ uninstall is `pi remove git:github.com/apache/magpie`, which removes the secure 
 
 ## Goose setup lifecycle
 
-The four `setup-isolated-setup-*` skills route Goose requests to `docs/adapters/goose.md`
+The four `setup-isolated-setup-*` skills route Goose requests to `docs/adapters/harnesses/goose.md`
 and stop before the Claude-specific procedure.
 The install route proposes the per-user `goose plugin install https://github.com/apache/magpie`
 and the `npm ci` of the sandbox runtime into the plugin, then the `agent-iso goose` launch;

@@ -764,7 +764,7 @@ Paths are absolute, with no version glob or general `uv` allow rule.
 
 These native rules provide Codex’s approval path for networked reads; they do not create a sandbox exclusion or a file-write deny.
 Keep the dispatcher outside writable roots and verify authentication through a permitted read.
-The [Codex adapter](https://github.com/apache/magpie/blob/main/docs/adapters/codex.md#vetted-operations) specifies install, verification, and remaining differences from Claude’s tamper protection.
+The [Codex adapter](https://github.com/apache/magpie/blob/main/docs/adapters/harnesses/codex.md#vetted-operations) specifies install, verification, and remaining differences from Claude’s tamper protection.
 
 ## Tests
 

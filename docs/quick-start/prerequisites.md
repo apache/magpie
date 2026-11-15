@@ -66,35 +66,35 @@ on any single vendor for either — any agent that reads the shared
   canonical `.agents/skills/` tree natively and ships an in-tree sandbox
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested harness version and an adopter pilot are
-  recorded; see [the Codex harness guide](../adapters/codex.md).
+  recorded; see [the Codex harness guide](../adapters/harnesses/codex.md).
 - **[Antigravity](https://antigravity.google/)** (CLI `agy`), the successor to
   Gemini CLI, reads Magpie's canonical `.agents/skills/` tree and `AGENTS.md`
   natively, with a user-scope `PreToolUse` action-guard adapter, a spec-loop
   profile, the terminal sandbox, and permission rules. The adapter is
   **experimental**: it was validated with CLI 1.3.6 on macOS, and the sandbox
   hides only sensitive home-directory paths;
-  see [the harness guide's known limitations](../adapters/antigravity.md#known-limitations).
+  see [the harness guide's known limitations](../adapters/harnesses/antigravity.md#known-limitations).
 - **[Pi](https://pi.dev/)** (CLI `pi`) reads Magpie's canonical
   `.agents/skills/` tree and `AGENTS.md` natively. Pi itself has no approval
   prompts or sandbox, so Magpie's Pi package adds them per user: an action
   guard, permission rules and an OS sandbox for bash. The adapter is
   **experimental**: it was validated with Pi 1.4.0 on macOS;
-  see [the Pi harness guide](../adapters/pi.md#limits).
+  see [the Pi harness guide](../adapters/harnesses/pi.md#limits).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
-  and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
+  and clean-environment isolation; see [the Cursor harness guide](../adapters/harnesses/cursor.md).
 - **[Goose](https://github.com/aaif-goose/goose)** (CLI `goose`) loads Magpie's
   skills from a per-user plugin install. Goose itself has no sandbox, so the
   plugin adds an action-guard hook and `agent-iso goose` runs the whole Goose
   process in sandbox-runtime, in approve mode. The adapter is **experimental**:
   it was validated with Goose 1.56.0 on macOS;
-  see [the Goose harness guide](../adapters/goose.md#limits).
+  see [the Goose harness guide](../adapters/harnesses/goose.md#limits).
 - **[Aider](https://aider.chat/)** is an open-source, multi-model terminal pair programming CLI
   with per-action confirmation and native local/cloud model support;
-  see [the Aider harness guide](../adapters/aider.md).
+  see [the Aider harness guide](../adapters/harnesses/aider.md).
 - **[GitHub Copilot](https://github.com/features/copilot)** provides a standalone terminal agent (`copilot`)
   and server-side Coding Agent PR authoring;
-  see [the GitHub Copilot harness guide](../adapters/copilot.md).
+  see [the GitHub Copilot harness guide](../adapters/harnesses/copilot.md).
 
 Support for more runtimes (Amazon Q, …) is tracked in
 the
@@ -109,7 +109,7 @@ the
   [`llm.apache.org`](https://llm.apache.org) endpoint for ASF projects;
 - an **open-weight model** — hosted on a provider of your choice, or run
   **locally** (Ollama, llama.cpp, vLLM) for sovereign or air-gapped use;
-  see [the Local LLM harness guide](../adapters/local-llm.md).
+  see [the Local LLM harness guide](../adapters/harnesses/local-llm.md).
 
 Because **OpenCode is model-agnostic it is the reference tool — it allows
 all of the above**; Claude Code is the complete alternative for the

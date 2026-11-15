@@ -33,7 +33,7 @@ Cursor provides interactive and headless agent capabilities via Cursor Composer 
 This guide documents how Cursor operates as a first-class Apache Magpie skill runtime for [#316](https://github.com/apache/magpie/issues/316).
 
 Cursor integrates with Magpie without requiring custom skill copies, translation passes, or proprietary prompt wrappers.
-The integration follows [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../rfcs/RFC-AI-0004.md) and [Adding a new agent harness](add-a-harness.md).
+The integration follows [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../../rfcs/RFC-AI-0004.md) and [Adding a new agent harness](../add-a-harness.md).
 
 ## Harness contract
 
@@ -74,7 +74,7 @@ cursor-agent --print --workspace /path/to/repo "Run the magpie-list-skills skill
 
 ## Human-in-the-loop and Auto-Run controls
 
-Magpie enforces strict [Human-in-the-Loop principles](../rfcs/RFC-AI-0004.md): no state mutation (closing issues, writing files, dispatching emails, pushing branches) occurs without explicit human approval.
+Magpie enforces strict [Human-in-the-Loop principles](../../rfcs/RFC-AI-0004.md): no state mutation (closing issues, writing files, dispatching emails, pushing branches) occurs without explicit human approval.
 
 In Cursor:
 - **Default mode**: Every terminal command and write action requires an explicit **Approve** or **Run** click in the Composer UI.
@@ -92,7 +92,7 @@ When running in environments where `agent-guard` is enabled:
 
 ## Spec-loop runner
 
-The `cursor` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) invokes the CLI headlessly:
+The `cursor` profile in [`tools/spec-loop/lib.sh`](../../../tools/spec-loop/lib.sh) invokes the CLI headlessly:
 
 ```bash
 cursor agent --print --force --trust --workspace "$root" "<prompt>"
@@ -101,7 +101,7 @@ cursor-agent --print --force --trust --workspace "$root" "<prompt>"
 ```
 
 Cursor does not provide a per-invocation reasoning-effort flag, so the runner omits reasoning-level parameters.
-See the [spec-loop guide](../../tools/spec-loop/README.md) for full options.
+See the [spec-loop guide](../../../tools/spec-loop/README.md) for full options.
 
 ## Clean-environment wrapper
 
@@ -120,7 +120,7 @@ Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
 On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
 Every skill stops on a snapshot behind the committed lock and proposes it.
 With the AP1 plugin install, update the plugin, then run `/magpie-setup:upgrade`: nothing prompts you there.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -142,7 +142,7 @@ uv run prek run doctoc --all-files
 
 ## See also
 
-- [`docs/adapters/add-a-harness.md`](add-a-harness.md) — recipe for adding runtime harnesses.
-- [`skills/setup/agents.md`](../../skills/setup/agents.md) — agent-target registry (`universal` canonical path).
-- [`docs/rfcs/RFC-AI-0004.md`](../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and HITL.
-- [`docs/vendor-neutrality.md`](../vendor-neutrality.md) — framework vendor neutrality index.
+- [`docs/adapters/add-a-harness.md`](../add-a-harness.md) — recipe for adding runtime harnesses.
+- [`skills/setup/agents.md`](../../../skills/setup/agents.md) — agent-target registry (`universal` canonical path).
+- [`docs/rfcs/RFC-AI-0004.md`](../../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and HITL.
+- [`docs/vendor-neutrality.md`](../../vendor-neutrality.md) — framework vendor neutrality index.

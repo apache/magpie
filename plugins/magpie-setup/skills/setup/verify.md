@@ -900,12 +900,12 @@ uv run --project tools/sandbox-lint sandbox-lint --codex <repo-root>/.codex
 
 When `.codex/` is absent this check is skipped — the Codex profile is
 opt-in per runtime; see
-[the Codex adapter](../../../../docs/adapters/codex.md).
+[the Codex adapter](../../../../docs/adapters/harnesses/codex.md).
 
 ### 8h. Antigravity user-scope profile (if present)
 
 When `~/.gemini/antigravity-cli/settings.json` or `~/.gemini/config/hooks.json` carries Magpie's profile or guard registration, run the static checks in
-[the Antigravity verification contract](../../../../docs/adapters/antigravity.md#verify).
+[the Antigravity verification contract](../../../../docs/adapters/harnesses/antigravity.md#verify).
 The profile is per user, so this check reads the home directory, never the repository.
 Report missing components and configuration drift without modifying files.
 An absent profile is skipped unless Antigravity secure setup was requested; in that case, point to `setup-isolated-setup-install`.
@@ -928,12 +928,12 @@ verification that the configured hook, packaged runtime, and Magpie policy are
 actually enforcing together.
 
 Never grant, reset, or otherwise change Grok project-hook trust during verification.
-See [the Grok verification contract](../../../../docs/adapters/grok.md#verify).
+See [the Grok verification contract](../../../../docs/adapters/harnesses/grok.md#verify).
 
 ### 8h.2. Pi package (if present)
 
 When `pi list` shows `git:github.com/apache/magpie`, check that it is recorded in the user's `~/.pi/agent/settings.json` rather than a project `.pi/settings.json`, then follow
-[the Pi verification contract](../../../../docs/adapters/pi.md#verify).
+[the Pi verification contract](../../../../docs/adapters/harnesses/pi.md#verify).
 The secure setup is per user: a project-scope install of the package is reported as a finding, never repaired by writing into the repository.
 An absent package is skipped unless Pi secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Pi.
@@ -941,7 +941,7 @@ A static pass does not replace live verification in Pi.
 ### 8h.3. Goose plugin (if present)
 
 When `~/.agents/plugins/magpie/` exists, check that its `hooks/hooks.json` and the sandbox runtime under its `node_modules/` are present, and that no project `.agents/plugins/magpie/` shadows it, then follow
-[the Goose verification contract](../../../../docs/adapters/goose.md#verify).
+[the Goose verification contract](../../../../docs/adapters/harnesses/goose.md#verify).
 The secure setup is per user: a project-scope plugin is reported as a finding, never repaired by writing into the repository.
 A missing sandbox runtime (after `goose plugin update`) is reported with the `npm ci` command that restores it.
 An absent plugin is skipped unless Goose secure setup was requested; in that case, point to `setup-isolated-setup-install`.

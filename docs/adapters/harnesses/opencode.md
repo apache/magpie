@@ -33,7 +33,7 @@ through a different registration mechanism.
 
 | Magpie requirement | OpenCode implementation |
 |---|---|
-| Skill discovery | OpenCode is part of the cluster that converged on `.agents/skills/`, which is the canonical target the `universal` row in [`agents.md`](../../skills/setup/agents.md) already writes. It also reads `.opencode/skills/` and `.claude/skills/` in the project, and `~/.config/opencode/skills/`, `~/.claude/skills/` and `~/.agents/skills/` for the user. OpenCode has no plugin marketplace (`opencode plugin <module>` installs npm modules only, and Magpie is not on npm), so a personal install links skill directories from a framework checkout into `~/.agents/skills/`. |
+| Skill discovery | OpenCode is part of the cluster that converged on `.agents/skills/`, which is the canonical target the `universal` row in [`agents.md`](../../../skills/setup/agents.md) already writes. It also reads `.opencode/skills/` and `.claude/skills/` in the project, and `~/.config/opencode/skills/`, `~/.claude/skills/` and `~/.agents/skills/` for the user. OpenCode has no plugin marketplace (`opencode plugin <module>` installs npm modules only, and Magpie is not on npm), so a personal install links skill directories from a framework checkout into `~/.agents/skills/`. |
 | Deterministic guard | A [plugin](https://opencode.ai/docs/plugins/) on `tool.execute.before` forwards each `bash` command to `agent-guard.py --opencode` and throws the deny reason, which aborts the tool call. |
 | Spec-loop | The `opencode` profile passes the prompt positionally to `opencode run`, with `--auto`, `--model`, and `--format json`. |
 | Credential isolation | `opencode-iso` launches the CLI through the clean-environment wrapper. |
@@ -42,7 +42,7 @@ through a different registration mechanism.
 
 OpenCode aborts a tool call whose `tool.execute.before` handler throws, which
 is the OpenCode equivalent of a Claude Code `PreToolUse` deny. The plugin in
-[`tools/agent-guard/opencode/plugin.js`](../../tools/agent-guard/opencode/plugin.js)
+[`tools/agent-guard/opencode/plugin.js`](../../../tools/agent-guard/opencode/plugin.js)
 forwards each `bash` command to the shared `dispatch()` core and throws with
 the reason the core returns.
 
@@ -61,11 +61,11 @@ second copy of the script, and honours
 Because both harnesses call the same `dispatch()`, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
 byte-for-byte identical across the two. Full wiring notes are in the
-[agent-guard OpenCode recipe](../../tools/agent-guard/README.md#opencode).
+[agent-guard OpenCode recipe](../../../tools/agent-guard/README.md#opencode).
 
 ## Spec-loop runner
 
-The `opencode` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh)
+The `opencode` profile in [`tools/spec-loop/lib.sh`](../../../tools/spec-loop/lib.sh)
 runs `opencode run --auto --model … "<prompt>"` from the repository root and
 asks for stream JSON with `--format json`. Setting `SPEC_LOOP_AGENT=opencode`
 is normally the whole configuration:
@@ -78,7 +78,7 @@ SPEC_LOOP_AGENT=opencode SPEC_LOOP_MODEL=anthropic/claude-sonnet-4-5 \
 OpenCode is the one harness whose reasoning-effort band is not an identity
 mapping: the runner translates the neutral `low` / `medium` / `high` to
 `--variant minimal` / `medium` / `max`. See the
-[spec-loop guide](../../tools/spec-loop/README.md).
+[spec-loop guide](../../../tools/spec-loop/README.md).
 
 ## Clean-environment wrapper
 
@@ -91,7 +91,7 @@ opencode-iso
 adds no settings grant: OpenCode takes its filesystem isolation from the
 OS-level sandbox rather than from a per-launch allowlist. Network restrictions
 and tool approval are separate controls, described in the
-[secure-agent setup](../setup/secure-agent-setup.md).
+[secure-agent setup](../../setup/secure-agent-setup.md).
 
 ## Upgrade Magpie
 
@@ -99,7 +99,7 @@ Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
 On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
 Every skill stops on a snapshot behind the committed lock and proposes it.
 A personal install linked from a framework checkout upgrades with `git pull` in that checkout; then run the skill for the check-and-fix phase.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

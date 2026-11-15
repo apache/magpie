@@ -47,7 +47,7 @@ explicit confirmation before any write.
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.
 > If Antigravity secure setup was installed, first follow the
-> [Antigravity cleanup contract](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle)
+> [Antigravity cleanup contract](../../../../docs/adapters/harnesses/antigravity.md#setup-isolated-lifecycle)
 > to propose removing the user-scope guard registration before uninstalling the plugin.
 > On Pi, `pi remove` takes the guard, rules and sandbox with the skills, so
 > nothing else needs cleaning up — say so, since the user loses the secure
@@ -148,7 +148,7 @@ every artefact).
 | Framework-skill symlinks | **Every active target dir** ([`agents.md`](agents.md)): the canonical `.agents/skills/` (always present), the `.claude/skills/` + `.github/skills/` relay pair, and any present holdout (`.windsurf/skills/`, `.goose/skills/`) | each `magpie-*` symlink — canonical entries resolving into `<snapshot-dir>/skills/`, relays resolving into `.agents/skills/magpie-*` — in **each** target dir |
 | Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` (older hooks additionally seeded `.claude/hooks/agent-guard.py`) |
 | agent-guard wiring | the `hooks.PreToolUse` entry in `<repo-root>/.claude/settings.local.json`, plus any leftover `<repo-root>/.claude/hooks/agent-guard.py` + `guards.d/` | exist (gitignored, per-machine). Unlike the committed `settings.json`, `settings.local.json` is agent-writable, so remove the entry directly rather than surfacing it for manual removal. The `magpie-agent-guard` **plugin**, if installed, is outside this repo — uninstalling the framework from a repo does not touch it; say so rather than silently leaving the guard active. |
-| Antigravity guard | `~/.gemini/config/hooks.json` (user scope, not in the repo) | when its `magpie-agent-guard` entry points into this snapshot, propose removing it per [the adapter](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle); never touch the user's other hooks or permission rules |
+| Antigravity guard | `~/.gemini/config/hooks.json` (user scope, not in the repo) | when its `magpie-agent-guard` entry points into this snapshot, propose removing it per [the adapter](../../../../docs/adapters/harnesses/antigravity.md#setup-isolated-lifecycle); never touch the user's other hooks or permission rules |
 | Codex policy | `.codex/config.toml`, `.codex/rules/magpie.rules` | identify Magpie-owned values separately from unrelated adopter Codex configuration |
 | Doc section: `README.md` | `<repo-root>/README.md` | contains the `## Agent-assisted contribution (apache-magpie)` heading |
 | Doc section: `AGENTS.md` | `<repo-root>/AGENTS.md` | contains the `## apache-magpie framework` heading |
@@ -318,7 +318,7 @@ pointing at a deleted snapshot.
    Magpie values and ask before applying it. Never alter Codex project
    trust.
    When the user-scope Antigravity guard points into this snapshot, follow
-   [the Antigravity cleanup contract](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle)
+   [the Antigravity cleanup contract](../../../../docs/adapters/harnesses/antigravity.md#setup-isolated-lifecycle)
    before deleting the snapshot, so no hook points at a missing script.
    Preserve the user's unrelated hooks and permission rules.
 

@@ -95,7 +95,7 @@ uv run --project tools/sandbox-lint sandbox-lint \
   --antigravity-hooks ~/.gemini/config/hooks.json
 ```
 
-These are static checks; the account's permission preset and live enforcement require [runtime verification](../../docs/adapters/antigravity.md#verify).
+These are static checks; the account's permission preset and live enforcement require [runtime verification](../../docs/adapters/harnesses/antigravity.md#verify).
 
 **Harnesses without a dedicated config profile (Cursor, Grok, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the

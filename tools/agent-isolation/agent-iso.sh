@@ -274,7 +274,7 @@ agent_iso_run() {
 
   # Goose has no sandbox of its own, so the whole process runs inside the
   # sandbox runtime, in approve mode, through the launcher of the installed
-  # Magpie plugin (docs/adapters/goose.md). Refuse rather than fall back to an
+  # Magpie plugin (docs/adapters/harnesses/goose.md). Refuse rather than fall back to an
   # unsandboxed Goose when the launcher or Node is missing.
   if [[ "$agent" == "goose" ]]; then
     local goose_plugin="${MAGPIE_GOOSE_PLUGIN:-$HOME/.agents/plugins/magpie}"

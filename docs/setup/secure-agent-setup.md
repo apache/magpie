@@ -140,15 +140,15 @@ each layer, see
 [`secure-agent-internals.md`](secure-agent-internals.md).
 
 Codex has a harness-native project policy and rules contract. Read the
-[Codex first-class harness adapter](../adapters/codex.md) for that
+[Codex first-class harness adapter](../adapters/harnesses/codex.md) for that
 runtime's exact install, sandbox, HITL, verification, and Windows
 mapping. The long-form sections below remain the canonical Claude Code
 setup; the four `setup-isolated-*` skills route Codex to the adapter
 before entering any Claude-only settings flow.
 
-The same four skills route Antigravity to its [setup lifecycle](../adapters/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
-They route Pi to its [setup lifecycle](../adapters/pi.md#setup-isolated-lifecycle): one per-user package install carries the action guard, the permission rules and an OS sandbox for bash, all derived from the same Claude Code baseline.
-They route Goose to its [setup lifecycle](../adapters/goose.md#setup-isolated-lifecycle): one per-user plugin install carries the guard hook and the baseline's deny rules, and `agent-iso goose` runs the whole Goose process in sandbox-runtime in approve mode.
+The same four skills route Antigravity to its [setup lifecycle](../adapters/harnesses/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
+They route Pi to its [setup lifecycle](../adapters/harnesses/pi.md#setup-isolated-lifecycle): one per-user package install carries the action guard, the permission rules and an OS sandbox for bash, all derived from the same Claude Code baseline.
+They route Goose to its [setup lifecycle](../adapters/harnesses/goose.md#setup-isolated-lifecycle): one per-user plugin install carries the guard hook and the baseline's deny rules, and `agent-iso goose` runs the whole Goose process in sandbox-runtime in approve mode.
 
 ### Agent-guided (recommended)
 
@@ -161,7 +161,7 @@ privilege-elevating runs without you saying so.
 With Codex, start the repository through `agent-iso codex`, invoke the
 same skills by their `$magpie-*` names, and follow the Codex branch they
 select. The end state and verification commands are documented in the
-[Codex adapter](../adapters/codex.md#setup-isolated-lifecycle).
+[Codex adapter](../adapters/harnesses/codex.md#setup-isolated-lifecycle).
 
 ```text
 1. Open Claude Code in your tracker repo (or any directory).
@@ -256,7 +256,7 @@ unnoticed.
 
 The equivalent Codex end state uses `workspace-write`, network disabled,
 and native exec-policy decisions; see the
-[Codex security model](../adapters/codex.md#security-model).
+[Codex security model](../adapters/harnesses/codex.md#security-model).
 
 The rest of this document is the long-form reference behind each
 of those steps. If you used the agent-guided path, you can read

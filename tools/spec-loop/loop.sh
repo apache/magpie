@@ -36,10 +36,10 @@
 #   `--dangerously-bypass-approvals-and-sandbox`, or Cursor's `--force`).
 #   Antigravity (`agy`) instead never gets --dangerously-skip-permissions;
 #   headless calls needing approval are soft-denied (exit 0, `denied_actions`).
-#   See docs/adapters/antigravity.md#spec-loop-runner.
+#   See docs/adapters/harnesses/antigravity.md#spec-loop-runner.
 #   Pi has no approval flag at all; Magpie's user-scope Pi extension refuses
 #   every command that would ask when there is no UI.
-#   See docs/adapters/pi.md#spec-loop-runner.
+#   See docs/adapters/harnesses/pi.md#spec-loop-runner.
 #   Auto-approval bypasses the agent permission layer but NOT the
 #   external OS sandbox (clean-env + filesystem/network). Per the project's
 #   security model it MUST be launched inside the sandbox harness, with no

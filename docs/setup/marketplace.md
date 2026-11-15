@@ -451,7 +451,7 @@ Magpie no longer ships a Gemini extension.
 
 No upgrade prompt fires on Antigravity yet: re-run `/magpie-setup:upgrade`
 after refreshing the plugin. The secure setup is per user; see
-[the Antigravity adapter](../adapters/antigravity.md).
+[the Antigravity adapter](../adapters/harnesses/antigravity.md).
 
 ### Cursor
 
@@ -510,7 +510,7 @@ cluster:
 - **Personal** — link the skill directories from a framework checkout into
   `~/.agents/skills/`.
 
-[The OpenCode adapter](../adapters/opencode.md) covers the guard plugin.
+[The OpenCode adapter](../adapters/harnesses/opencode.md) covers the guard plugin.
 
 ### Pi
 
@@ -520,7 +520,7 @@ Pi has no marketplace; it installs packages from git, npm or a local path, and
 the repository root is a Pi package. Its `package.json` `pi` key names the
 `skills/` tree and the Magpie extension, so one per-user install brings the
 skills and the secure setup together. Pi installs the extension's runtime
-dependency itself. See [the Pi adapter](../adapters/pi.md).
+dependency itself. See [the Pi adapter](../adapters/harnesses/pi.md).
 
 ### Goose
 
@@ -533,7 +533,7 @@ the whole checkout into `~/.agents/plugins/magpie/`. Its
 hook. Goose does not install npm dependencies, so the sandbox runtime
 `agent-iso goose` runs Goose in comes from an `npm ci` of the committed
 lockfile into the plugin, repeated after every `goose plugin update`.
-See [the Goose adapter](../adapters/goose.md).
+See [the Goose adapter](../adapters/harnesses/goose.md).
 
 ### JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)
 
@@ -562,7 +562,7 @@ elsewhere is a separate project and installs separately.
 > [!NOTE]
 > This is about running *Claude Code* (or another agent with a JetBrains
 > plugin) inside a JetBrains IDE. **JetBrains' own agent, Junie, is a separate
-> harness** — see the [Junie guide](../adapters/junie.md)
+> harness** — see the [Junie guide](../adapters/harnesses/junie.md)
 > ([#321](https://github.com/apache/magpie/issues/321)). It reads the
 > canonical `.agents/skills/` path, so no marketplace plugin is involved.
 
@@ -705,7 +705,7 @@ A pinned snapshot is asked on every harness: a snapshot behind the committed loc
 | **VS Code / Copilot, Cursor, Kiro (AP1 plugin)** | `/magpie-setup:upgrade` | the editor's plugin update | ❌ run it after updating |
 | **Copilot CLI** | `magpie-setup-upgrade` | the pinned snapshot: `upgrade` runs `setup update` | ✅ snapshot drift |
 | **Pi** | `/skill:upgrade` | `pi update --extensions` | ❌ run it after updating |
-| **Goose** | `magpie:upgrade` | `goose plugin update magpie`, then the `npm ci` from [the Goose page](../adapters/goose.md#install) | ❌ run it after updating |
+| **Goose** | `magpie:upgrade` | `goose plugin update magpie`, then the `npm ci` from [the Goose page](../adapters/harnesses/goose.md#install) | ❌ run it after updating |
 | **Grok Build** | `/magpie-setup:upgrade` | the Claude-compatible plugin update | not verified; run it after updating |
 | **Cursor, Junie, OpenCode, Aider** (`.agents/skills/` from a pinned snapshot) | `magpie-setup-upgrade` (Aider: load its `SKILL.md` with `/read-only`) | `upgrade` runs `setup update` | ✅ snapshot drift |
 | **Kiro CLI** (per-skill installs) | `setup-upgrade`, when installed | re-install each skill from the new tag | ❌ run it after re-installing |
@@ -739,7 +739,7 @@ automatic while the *changes* stay confirmed.
 > After installing `magpie-setup`, open `/hooks`, review its `SessionStart` upgrade hook (source `hooks/codex-hooks.json`), and trust it; it then runs from the next new session.
 > Do the same for the guard and vetted-ops hooks, and again after any update that changes a hook definition, since Codex keys trust to the definition's hash; then verify they actually run.
 > Older versions affected by [openai/codex#16430](https://github.com/openai/codex/issues/16430) still need manual upgrade checks.
-> See [the native hook contract](../adapters/codex.md#deterministic-guard-rules) and [OpenAI’s hook documentation](https://learn.chatgpt.com/docs/hooks).
+> See [the native hook contract](../adapters/harnesses/codex.md#deterministic-guard-rules) and [OpenAI’s hook documentation](https://learn.chatgpt.com/docs/hooks).
 
 The hook writes its prompt to **stdout**, which is what a `SessionStart` hook
 exiting 0 has added to the session context — stderr on a zero exit reaches only

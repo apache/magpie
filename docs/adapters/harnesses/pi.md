@@ -31,7 +31,7 @@
 Out of the box it runs every tool call without asking and has no sandbox, so Magpie ships the secure setup as a Pi extension: an action guard, permission rules, and an OS sandbox for bash.
 The setup is **per user, never per repository**: one `pi install` adds the skills and the extension to the user's `~/.pi/agent/settings.json`, and the extension reads no project configuration, so a repository cannot weaken it.
 The adapter is **experimental**: it was validated with Pi 1.4.0 on macOS; Linux and Windows have not been verified.
-The integration follows the harness contract in [add-a-harness](add-a-harness.md) and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
+The integration follows the harness contract in [add-a-harness](../add-a-harness.md) and [RFC-AI-0004](../../rfcs/RFC-AI-0004.md).
 
 ## Harness contract
 
@@ -40,27 +40,27 @@ The integration follows the harness contract in [add-a-harness](add-a-harness.md
 | Skill discovery | Pi reads `.agents/skills/` from the working directory up to the repository root, the canonical `universal` row in `skills/setup/agents.md`. The Pi package adds the framework's `skills/`. Each skill is also a `/skill:<name>` command. |
 | Repository instructions | Pi loads `AGENTS.md` (and `CLAUDE.md`) natively, before project trust. |
 | Tool bridges | Skills invoke the existing `tools/*` CLI adapters through the `bash` tool, subject to the extension's rules and sandbox. |
-| Deterministic guard | The extension sends every bash command to `agent_guard/__init__.py --pi` before it runs; a deny blocks the call. See [agent-guard](../../tools/agent-guard/README.md#pi). |
-| Permission rules | The extension derives them from the Claude Code baseline ([`expected.json`](../../tools/sandbox-lint/expected.json)): denied commands are blocked, asked ones need confirmation, and native reads and writes of credential paths, `.env` files, agent settings and Pi's own configuration are refused. |
+| Deterministic guard | The extension sends every bash command to `agent_guard/__init__.py --pi` before it runs; a deny blocks the call. See [agent-guard](../../../tools/agent-guard/README.md#pi). |
+| Permission rules | The extension derives them from the Claude Code baseline ([`expected.json`](../../../tools/sandbox-lint/expected.json)): denied commands are blocked, asked ones need confirmation, and native reads and writes of credential paths, `.env` files, agent settings and Pi's own configuration are refused. |
 | Filesystem and network | Bash runs in [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime), the engine of Claude Code's sandbox, with the baseline's `denyRead` / `allowRead` / `allowWrite` and domain allowlist. |
 | Credential isolation | The sandbox strips the baseline's credential variables (`GH_TOKEN`, cloud keys, …) from bash; `agent-iso pi` launches Pi through the generic clean-environment wrapper. |
 | Spec-loop | The `pi` profile runs `pi -p` headless; see [Spec-loop runner](#spec-loop-runner). |
 | MCP servers | Pi has no built-in MCP; Magpie's skills use the `tools/*` CLI adapters instead. |
 
-The extension is [`tools/agent-isolation/pi/magpie.ts`](../../tools/agent-isolation/pi/magpie.ts); its decisions live in [`policy.ts`](../../tools/agent-isolation/pi/policy.ts), which reads the same baseline the Claude Code profile is linted against, so the two profiles cannot drift apart.
-The repository's root [`package.json`](../../package.json) makes the repository a Pi package that carries both the skills and the extension.
+The extension is [`tools/agent-isolation/pi/magpie.ts`](../../../tools/agent-isolation/pi/magpie.ts); its decisions live in [`policy.ts`](../../../tools/agent-isolation/pi/policy.ts), which reads the same baseline the Claude Code profile is linted against, so the two profiles cannot drift apart.
+The repository's root [`package.json`](../../../package.json) makes the repository a Pi package that carries both the skills and the extension.
 
 ## Install
 
 Use Pi **1.4.0 or later** and Python 3.11+ (for the guard).
-On Linux the sandbox also needs `bubblewrap`, `socat` and `ripgrep`; use the framework's [sandbox primitive versions](../../tools/agent-isolation/pinned-versions.toml).
+On Linux the sandbox also needs `bubblewrap`, `socat` and `ripgrep`; use the framework's [sandbox primitive versions](../../../tools/agent-isolation/pinned-versions.toml).
 
 ```bash
 pi install git:github.com/apache/magpie
 ```
 
 That one command is the whole install, for every repository: Pi clones the framework, installs the pinned sandbox dependency, and records the package in `~/.pi/agent/settings.json`.
-Pi runs `npm install --omit=dev --legacy-peer-deps` in its clone, which honours the committed [`package-lock.json`](../../package-lock.json): every package in the sandbox runtime's tree is pinned to an exact version and integrity hash, and none has an install script.
+Pi runs `npm install --omit=dev --legacy-peer-deps` in its clone, which honours the committed [`package-lock.json`](../../../package-lock.json): every package in the sandbox runtime's tree is pinned to an exact version and integrity hash, and none has an install script.
 To refresh the lockfile, resolve with the same flags and the repository's 7-day cooldown, without installing or running anything:
 
 ```bash
@@ -127,15 +127,15 @@ If the sandbox cannot start, the extension refuses bash rather than running it u
 
 ## Spec-loop runner
 
-The `pi` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) runs `pi -p`, forwarding `--model` and `--thinking` when supplied.
+The `pi` profile in [`tools/spec-loop/lib.sh`](../../../tools/spec-loop/lib.sh) runs `pi -p`, forwarding `--model` and `--thinking` when supplied.
 A non-interactive run has no UI, so every command that would ask is refused: a build iteration needing a push or a mutating `gh` call cannot complete unattended.
-See the [spec-loop guide](../../tools/spec-loop/README.md).
+See the [spec-loop guide](../../../tools/spec-loop/README.md).
 
 ## Upgrade Magpie
 
 Ask *"upgrade magpie"* or run `/skill:upgrade` after `pi update --extensions`.
 Pi has no session hook and no plugin listing the pre-flight can read, so nothing prompts you: run it after every update.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

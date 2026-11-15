@@ -325,27 +325,27 @@ giving every other agent directory (`.claude/skills/`,
 `.github/skills/`, …) a pointer to the same entry
 ([`README.md` § snapshot + override](../README.md)). Users already run
 Magpie under several different agentic CLIs. Codex now has a
-[first-class adapter](adapters/codex.md) (experimental); adding another
+[first-class adapter](adapters/harnesses/codex.md) (experimental); adding another
 runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture.
-Antigravity, the successor to Gemini CLI, also has an [experimental agent harness integration](adapters/antigravity.md) that reads Magpie's canonical `.agents/skills/` tree.
-Its guide covers the user-scope setup, permission rules, verification, and [known limitations](adapters/antigravity.md#known-limitations), including the remaining sandbox parity gaps.
-Pi has an [experimental agent harness integration](adapters/pi.md) too: Pi reads the same `.agents/skills/` tree, and Magpie's per-user Pi package supplies the action guard, permission rules and OS sandbox that Pi does not ship itself.
+Antigravity, the successor to Gemini CLI, also has an [experimental agent harness integration](adapters/harnesses/antigravity.md) that reads Magpie's canonical `.agents/skills/` tree.
+Its guide covers the user-scope setup, permission rules, verification, and [known limitations](adapters/harnesses/antigravity.md#known-limitations), including the remaining sandbox parity gaps.
+Pi has an [experimental agent harness integration](adapters/harnesses/pi.md) too: Pi reads the same `.agents/skills/` tree, and Magpie's per-user Pi package supplies the action guard, permission rules and OS sandbox that Pi does not ship itself.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
-[Cursor harness guide](adapters/cursor.md).
+[Cursor harness guide](adapters/harnesses/cursor.md).
 Local LLMs (Ollama, llama.cpp, vLLM) serve open-weight models via
 OpenAI-compatible endpoints with calibrated capability floors; see the
-[Local LLM harness guide](adapters/local-llm.md).
-Goose has an [experimental agent harness integration](adapters/goose.md) as well:
+[Local LLM harness guide](adapters/harnesses/local-llm.md).
+Goose has an [experimental agent harness integration](adapters/harnesses/goose.md) as well:
 a per-user plugin install adds the skills and Magpie's guard hook, and
 `agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode.
 Aider is an open-source terminal pair programming CLI with per-action confirmation,
 multi-model routing, and local LLM support; see the
-[Aider harness guide](adapters/aider.md).
+[Aider harness guide](adapters/harnesses/aider.md).
 GitHub Copilot operates across a standalone terminal agent (`copilot`) and server-side Coding Agents with
 Draft PR review gating; see the
-[GitHub Copilot harness guide](adapters/copilot.md).
+[GitHub Copilot harness guide](adapters/harnesses/copilot.md).
 The remaining extension points are
 already open, labelled `good first issue`:
 [Amazon Q](https://github.com/apache/magpie/issues/320),
@@ -519,7 +519,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); [Pi adapter](adapters/pi.md) (experimental); [Goose adapter](adapters/goose.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/harnesses/codex.md) (experimental); [Antigravity adapter](adapters/harnesses/antigravity.md) (experimental); [Pi adapter](adapters/harnesses/pi.md) (experimental); [Goose adapter](adapters/harnesses/goose.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)); Discourse topic reads, category activity lists and full-text search ([`tools/discourse`](../tools/discourse/), `partial`) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |

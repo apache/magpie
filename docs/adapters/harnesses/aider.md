@@ -37,7 +37,7 @@
 
 [Aider](https://aider.chat/) is an open-source (Apache 2.0 licensed), model-agnostic terminal pair programming agent harness.
 This guide documents how Aider operates as an agent harness for Apache Magpie for [#317](https://github.com/apache/magpie/issues/317).
-Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../rfcs/RFC-AI-0004.md), which guarantees that Magpie adopters can drive all framework workflows using fully open-source, non-proprietary agent harnesses.
+Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../../rfcs/RFC-AI-0004.md), which guarantees that Magpie adopters can drive all framework workflows using fully open-source, non-proprietary agent harnesses.
 
 Aider provides an open-source execution stack with:
 1. **Model independence:** Native connectivity to Anthropic Claude, OpenAI GPT, DeepSeek, Google Gemini, OpenRouter, and local open-weight inference runners (Ollama, llama.cpp, vLLM).
@@ -144,7 +144,7 @@ When a skill requires running a tool command:
 
 ## Human-in-the-loop and git confirmation
 
-Magpie enforces strict [Human-in-the-Loop principles](../rfcs/RFC-AI-0004.md): no destructive action or git state mutation occurs without explicit human approval.
+Magpie enforces strict [Human-in-the-Loop principles](../../rfcs/RFC-AI-0004.md): no destructive action or git state mutation occurs without explicit human approval.
 
 > [!IMPORTANT]
 > **Aider auto-commit policy:** By default, Aider automatically commits every code modification to git.
@@ -166,7 +166,7 @@ When operating with auto-commits disabled:
 
 ## Multi-model routing and model floors
 
-Aider supports multi-provider model routing, allowing adopters to calibrate model power against task complexity per [docs/mode-economics.md](../mode-economics.md).
+Aider supports multi-provider model routing, allowing adopters to calibrate model power against task complexity per [docs/mode-economics.md](../../mode-economics.md).
 
 ### Architect and editor model split
 
@@ -182,7 +182,7 @@ aider --architect \
 
 ### Local LLM connectivity (Ollama / vLLM)
 
-For sovereign or air-gapped deployments where data cannot leave the local host (see [docs/adapters/local-llm.md](local-llm.md)):
+For sovereign or air-gapped deployments where data cannot leave the local host (see [docs/adapters/harnesses/local-llm.md](local-llm.md)):
 
 ```bash
 # Connect Aider to a local Ollama instance
@@ -203,14 +203,14 @@ agent-iso aider --model <model> --no-auto-commits
 The `agent-iso` launcher scrubs ambient cloud tokens while preserving local developer tooling (`git`, `uv`, `gh`, `aider`).
 
 > [!WARNING]
-> **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Aider receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operating with `--no-auto-commits` and operator diligence.
+> **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Aider receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operating with `--no-auto-commits` and operator diligence.
 
 ## Upgrade Magpie
 
 After a new Magpie version, load the upgrade skill and ask Aider to follow it: `/read-only .agents/skills/magpie-setup-upgrade/SKILL.md`, then *"upgrade magpie"*.
 On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
 Every skill stops on a snapshot behind the committed lock and proposes it.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -232,10 +232,10 @@ uv run prek run doctoc --all-files
 
 ## See also
 
-- [`docs/rfcs/RFC-AI-0004.md`](../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-source harnesses.
-- [`docs/vendor-neutrality.md`](../vendor-neutrality.md) — framework vendor neutrality index across agent harnesses.
-- [`docs/adapters/local-llm.md`](local-llm.md) — running open-weight models via local inference engines.
-- [`docs/adapters/goose.md`](goose.md) — Block's Goose agent harness guide.
-- [`docs/adapters/add-a-harness.md`](add-a-harness.md) — step-by-step guide for integrating agent harnesses.
-- [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md) — clean-environment launcher.
+- [`docs/rfcs/RFC-AI-0004.md`](../../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-source harnesses.
+- [`docs/vendor-neutrality.md`](../../vendor-neutrality.md) — framework vendor neutrality index across agent harnesses.
+- [`docs/adapters/harnesses/local-llm.md`](local-llm.md) — running open-weight models via local inference engines.
+- [`docs/adapters/harnesses/goose.md`](goose.md) — Block's Goose agent harness guide.
+- [`docs/adapters/add-a-harness.md`](../add-a-harness.md) — step-by-step guide for integrating agent harnesses.
+- [`tools/agent-isolation/README.md`](../../../tools/agent-isolation/README.md) — clean-environment launcher.
 - [Aider documentation](https://aider.chat/) — official Aider installation and usage guides.

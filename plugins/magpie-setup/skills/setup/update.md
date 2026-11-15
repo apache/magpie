@@ -792,17 +792,17 @@ rather than pulls in via symlink. Examples:
   Codex settings; surface conflicts and hand edits rather than
   overwriting them. Run `sandbox-lint --codex .codex` after the merge
   and never modify Codex project trust.
-  Include native guard-hook registration and the [vetted-operation rules](../../../../docs/adapters/codex.md#vetted-operations) in the drift comparison.
+  Include native guard-hook registration and the [vetted-operation rules](../../../../docs/adapters/harnesses/codex.md#vetted-operations) in the drift comparison.
   Preserve installed stable paths and user rule files; do not hardcode a new plugin version into native prefixes.
   Changed hook definitions need operator review in `/hooks`; never reset or grant hook trust automatically.
   When the guard is plugin-owned, omit a duplicate project registration and run lint with `--guard-from-plugin`, then inspect plugin registration and trust separately.
 - A user-scope Antigravity guard registration that points into this snapshot:
-  follow [the Antigravity update lifecycle](../../../../docs/adapters/antigravity.md#update) to report drift, then use its install merge for approved repairs.
+  follow [the Antigravity update lifecycle](../../../../docs/adapters/harnesses/antigravity.md#update) to report drift, then use its install merge for approved repairs.
   It lives in `~/.gemini/`, not the repository; preserve the user's unrelated hooks and rules, and verify after restarting the runtime.
 - The user-scope Pi package: a snapshot upgrade does not touch it.
-  Report its ref per [the Pi update lifecycle](../../../../docs/adapters/pi.md#update) and leave the `pi update --extensions` refresh to the user.
+  Report its ref per [the Pi update lifecycle](../../../../docs/adapters/harnesses/pi.md#update) and leave the `pi update --extensions` refresh to the user.
 - The user-scope Goose plugin: a snapshot upgrade does not touch it either.
-  Report its ref per [the Goose update lifecycle](../../../../docs/adapters/goose.md#update) and leave the `goose plugin update magpie` and `npm ci` refresh to the user.
+  Report its ref per [the Goose update lifecycle](../../../../docs/adapters/harnesses/goose.md#update) and leave the `goose plugin update magpie` and `npm ci` refresh to the user.
 - Grok action-guard wiring, when Grok is an adopted runtime.
   For a marketplace/plugin install, leave repository hook state alone and let the plugin manager update the bundled `magpie-agent-guard` executable and hook.
   Do not create a project hook or snapshot merely because the plugin was upgraded.

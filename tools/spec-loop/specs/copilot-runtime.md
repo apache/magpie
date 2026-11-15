@@ -9,7 +9,7 @@ mode: infra
 source: >
   RFC-AI-0004 Principle 3 (vendor neutrality) and issue #318.
   Implemented by the canonical .agents/skills tree, the .github/skills
-  relay, .github/copilot-instructions.md, docs/adapters/copilot.md,
+  relay, .github/copilot-instructions.md, docs/adapters/harnesses/copilot.md,
   the .github/hooks/magpie.json guard hook (tools/agent-guard --copilot),
   and tools/agent-isolation.
 acceptance:
@@ -50,7 +50,7 @@ machine and the other on shared cloud infrastructure.
 - `.github/skills/` - the relay path Copilot also discovers.
 - `.github/copilot-instructions.md` - repository instructions, read
   alongside `AGENTS.md`.
-- `docs/adapters/copilot.md` - the harness adapter guide.
+- `docs/adapters/harnesses/copilot.md` - the harness adapter guide.
 - `~/.copilot/mcp-config.json` - MCP servers for the CLI; the Coding
   Agent configures its own in repository Copilot settings.
 - `tools/agent-isolation/agent-iso.sh` - the clean-environment launcher.
@@ -166,7 +166,7 @@ uv run prek run doctoc --all-files
   lives in repository Copilot settings, so it cannot be reviewed in a
   PR the way `.mcp.json` or the CLI's `~/.copilot/mcp-config.json` can.
 - **No `.github/copilot-instructions.md` in the framework repository.**
-  `docs/adapters/copilot.md` shows the file as something an adopter
+  `docs/adapters/harnesses/copilot.md` shows the file as something an adopter
   configures, but this repository ships none, so acceptance criterion 2 is
   met only in adopters that add it.
 - **A Copilot reviewer keeps its MCP servers.** Copilot CLI has no switch to

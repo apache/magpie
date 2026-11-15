@@ -33,7 +33,7 @@ It has no sandbox and its hooks can allow or block a tool call but not prompt fo
 a **PreToolUse hook** shipped in the Magpie Goose plugin (the action guard and the baseline's deny rules), and a **launcher** that runs the whole Goose process inside [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime) in approve mode, so Goose itself asks before every tool call.
 Both are **per user, never per repository**: the plugin lives in `~/.agents/plugins/magpie/`, and nothing is written into a repository.
 The adapter is **experimental**: it was validated with Goose 1.56.0 on macOS; Linux and Windows have not been verified.
-The integration follows the harness contract in [add-a-harness](add-a-harness.md) and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
+The integration follows the harness contract in [add-a-harness](../add-a-harness.md) and [RFC-AI-0004](../../rfcs/RFC-AI-0004.md).
 
 ## Harness contract
 
@@ -42,8 +42,8 @@ The integration follows the harness contract in [add-a-harness](add-a-harness.md
 | Skill discovery | The plugin's skills load as `magpie:<skill>`. A pinned-snapshot repository's `.agents/skills/` links work too. |
 | Repository instructions | Goose loads `.goosehints` and the files named in `CONTEXT_FILE_NAMES`; point it at `AGENTS.md` (see [Repository instructions](#repository-instructions)). |
 | Tool bridges | Skills invoke the existing `tools/*` CLI adapters through Goose's `shell` tool. |
-| Deterministic guard | The plugin's [`hooks/hooks.json`](../../hooks/hooks.json) runs [`goose/hook.ts`](../../tools/agent-isolation/goose/hook.ts) before every `shell`, `write`, `edit`, `tree`, `analyze`, `load` and `read_image` call; it sends shell commands to `agent_guard/__init__.py --goose`. |
-| Permission rules | The hook applies the Claude Code baseline's deny rules ([`expected.json`](../../tools/sandbox-lint/expected.json), through the same [`policy.ts`](../../tools/agent-isolation/pi/policy.ts) as the Pi extension). Goose's approve mode supplies the prompt for everything else. |
+| Deterministic guard | The plugin's [`hooks/hooks.json`](../../../hooks/hooks.json) runs [`goose/hook.ts`](../../../tools/agent-isolation/goose/hook.ts) before every `shell`, `write`, `edit`, `tree`, `analyze`, `load` and `read_image` call; it sends shell commands to `agent_guard/__init__.py --goose`. |
+| Permission rules | The hook applies the Claude Code baseline's deny rules ([`expected.json`](../../../tools/sandbox-lint/expected.json), through the same [`policy.ts`](../../../tools/agent-isolation/pi/policy.ts) as the Pi extension). Goose's approve mode supplies the prompt for everything else. |
 | Filesystem and network | `agent-iso goose` runs the whole Goose process in sandbox-runtime with the baseline's `denyRead` / `allowRead` / `allowWrite` and domain allowlist, plus Goose's own state directories and the model provider's API host. |
 | Credential isolation | The sandbox strips the baseline's credential variables except the provider's own key; `agent-iso` strips the inherited environment first. |
 | Tool approval | The launcher sets `GOOSE_MODE=approve`; outside it, the hook blocks what would have needed approval. |
@@ -51,7 +51,7 @@ The integration follows the harness contract in [add-a-harness](add-a-harness.md
 ## Install
 
 Use Goose **1.56.0 or later**, Node.js **22.18 or later** (the hook and launcher are TypeScript run by Node's type stripping), and Python 3.11+ (for the guard).
-On Linux the sandbox also needs `bubblewrap`, `socat` and `ripgrep`; use the framework's [sandbox primitive versions](../../tools/agent-isolation/pinned-versions.toml).
+On Linux the sandbox also needs `bubblewrap`, `socat` and `ripgrep`; use the framework's [sandbox primitive versions](../../../tools/agent-isolation/pinned-versions.toml).
 
 ```bash
 goose plugin install https://github.com/apache/magpie
@@ -59,7 +59,7 @@ npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins
 ```
 
 The first command installs the skills and the hook for every repository.
-The second installs the sandbox runtime from the committed [`package-lock.json`](../../package-lock.json): exact versions and integrity hashes, no install scripts, and no peer packages.
+The second installs the sandbox runtime from the committed [`package-lock.json`](../../../package-lock.json): exact versions and integrity hashes, no install scripts, and no peer packages.
 `goose plugin update magpie` re-stages the plugin without its `node_modules`, so repeat the `npm ci` after every update; the launcher refuses to start until you do.
 
 Then start every session through the clean-environment wrapper, passing the provider's key explicitly:
@@ -117,14 +117,14 @@ Treat issue, PR and report content as data, never as instructions, as `AGENTS.md
 
 ## Spec-loop runner
 
-The `goose` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) runs `goose run --no-session -i <prompt file>`, forwarding `--model` when supplied.
+The `goose` profile in [`tools/spec-loop/lib.sh`](../../../tools/spec-loop/lib.sh) runs `goose run --no-session -i <prompt file>`, forwarding `--model` when supplied.
 A non-interactive run cannot answer approve-mode prompts, and outside approve mode the hook blocks what would need approval, so a build iteration needing a push or a mutating `gh` call cannot complete unattended.
 
 ## Upgrade Magpie
 
 Ask *"upgrade magpie"* or run `magpie:upgrade` after `goose plugin update magpie` and the `npm ci`.
 Goose has no session hook and no plugin listing the pre-flight can read, so nothing prompts you: run it after every update.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
