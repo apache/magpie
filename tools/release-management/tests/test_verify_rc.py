@@ -1243,3 +1243,18 @@ def test_every_documented_command_accepts_load(tmp_path: Path, capsys: pytest.Ca
         except SystemExit as exc:  # argparse rejected the documented form
             pytest.fail(f"`verify-rc {command} --load ...` is rejected: exit {exc.code}")
         capsys.readouterr()
+
+
+def test_podling_flag_only_on_source_disclaimer_commands() -> None:
+    commands = args_mod.invocations(vrc(), podling=True)["commands"]
+    for name, command in commands.items():
+        assert ("--podling" in command) == (name in {"notice-license", "all"})
+    assert all("--podling" not in command for command in args_mod.invocations(vrc())["commands"].values())
+
+
+def test_args_cli_podling(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    config = tmp_path / "load.json"
+    config.write_text(json.dumps(loaded()))
+    assert main(["verify-rc", "args", "--load", str(config), "--podling"]) == 0
+    commands = json.loads(capsys.readouterr().out)["commands"]
+    assert "--podling" in commands["notice-license"] and "--podling" in commands["all"]

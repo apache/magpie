@@ -1,0 +1,10 @@
+{
+  "step": "notice-license",
+  "status": "FAIL",
+  "notice_present": true,
+  "license_present": true,
+  "notice_diff_lines": null,
+  "license_diff_lines": null,
+  "disclaimer_present": false,
+  "diff_summary": "DISCLAIMER or DISCLAIMER-WIP absent from artefact root"
+}

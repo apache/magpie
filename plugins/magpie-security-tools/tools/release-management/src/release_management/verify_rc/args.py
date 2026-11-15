@@ -62,6 +62,7 @@ def invocations(
     keys_file: str = "<keys-file>",
     unpacked_dir: str | None = None,
     previous_dir: str | None = None,
+    podling: bool = False,
 ) -> dict[str, Any]:
     """Every `release-verify` command of Steps 1-3 and 5-8, plus `all`, resolved from the config."""
     tree = unpacked_dir or v.unpacked_dir
@@ -82,12 +83,15 @@ def invocations(
     validators = [f"--validator {dq(c)}" for c in v.meta.get("source_tree_validators") or []]
     manifests = [f"--manifest {q(str(m))}" for m in v.meta.get("version_manifest_files") or []]
     previous = [f"--previous {q(previous_dir)}"] if previous_dir else []
+    disclaimer = ["--podling"] if podling else []
     staged, unpacked = q(staging_copy), q(tree)
     commands = {
         "inventory": _join(f"{RELEASE_VERIFY} inventory", [f"--dir {staged}", *expect, *digest]),
         "signatures": _join(f"{RELEASE_VERIFY} signatures", [f"--dir {staged}", *expect, *keys]),
         "checksums": _join(f"{RELEASE_VERIFY} checksums", [f"--dir {staged}", *expect, *digest]),
-        "notice-license": _join(f"{RELEASE_VERIFY} notice-license", [f"--tree {unpacked}", *previous]),
+        "notice-license": _join(
+            f"{RELEASE_VERIFY} notice-license", [f"--tree {unpacked}", *previous, *disclaimer]
+        ),
         "binaries": _join(f"{RELEASE_VERIFY} binaries", [f"--tree {unpacked}", *prohibit, *accept]),
         "symlinks": _join(f"{RELEASE_VERIFY} symlinks", [f"--tree {unpacked}", *validators]),
         "version": _join(
@@ -102,6 +106,7 @@ def invocations(
                 *digest,
                 *keys,
                 *previous,
+                *disclaimer,
                 *prohibit,
                 *accept,
                 *validators,

@@ -13,13 +13,13 @@ Behavioural eval suite for the
 | `step-0-preflight` | Step 0 — Pre-flight check | 3 | JSON pre-flight verdict (proceed/blocked), staging URL derivation, config validation |
 | `step-2-verify-signatures` | Step 2 — Verify GPG signatures | 2 | Signature classification (PASS/FAIL/KEY-NOT-IN-KEYS), paste recipe |
 | `step-3-verify-checksums` | Step 3 — Verify checksums | 2 | Checksum classification (PASS/MISMATCH/MISSING-DIGEST), deprecated md5 detection |
-| `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
+| `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 3 | File presence including podling disclaimers (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
 | `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 3 | Reading `verify-rc jvm`'s classification: the POM-licence and missing-companion-signature finding wording, and observations (a groupId outside `org.apache.*`, a consistent timestamp signal) that never change the verdict |
 | `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 1 | The anonymous voter path: `STATE-UNVERIFIED` on a `401` stays a warning while a missing companion `.asc` fails, and the recipe carries no credentialed or write call |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
 
-Total: **17 cases** across 8 step suites.
+Total: **18 cases** across 8 step suites.
 
 ## Where the scripted cases went
 

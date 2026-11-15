@@ -46,6 +46,8 @@ No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, 
 A render that would emit something a skill must refuse (a `dist/release/` staging target, an MD5 or SHA-1 digest, an unconfigured backend)
 exits `2` with `{"ok": false, "refused": "<why>"}` instead of printing a block.
 
+For ASF incubating projects, `verify-rc args --podling` passes the explicit source-disclaimer check to the generated `notice-license` and `all` commands; other commands and the default behavior are unchanged.
+
 ## Prerequisites
 
 - **Runtime:** Python 3.11+, stdlib only; run with `uv run --project <framework>/tools/release-management`.

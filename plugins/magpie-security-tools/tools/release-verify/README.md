@@ -27,6 +27,14 @@ Judgement stays with the reader: whether a NOTICE / LICENSE diff is material, an
 
 Guarantees: nothing is written outside a throwaway `GNUPGHOME`; the user's keyring is never read or changed; nothing is signed; a `KEYS` file containing private-key material is refused; nothing touches the network — the caller downloads the staged files and `KEYS` first.
 
+For an ASF incubating project, add `--podling` to `notice-license` or `all` to require
+a `DISCLAIMER` or `DISCLAIMER-WIP` file alongside `NOTICE` and `LICENSE`.
+The JSON includes `disclaimer_present`; a missing file makes this check `FAIL`,
+even when a previous release contains one.
+Without the flag the existing output and checks are unchanged.
+This checks file presence only, not the disclaimer wording or approval of a release.
+The [Incubator release guide](https://incubator.apache.org/guides/releasemanagement.html#choice-of-disclaimers) describes the two disclaimer choices.
+
 ## Prerequisites
 
 - **Runtime:** Python 3.11+ (stdlib only); run via `uv run --project tools/release-verify` or as a plain `python3 <framework>/tools/release-verify/src/release_verify/__init__.py`.
@@ -46,7 +54,7 @@ RV="uv run --project <framework>/tools/release-verify release-verify"
 $RV inventory  --dir <staging> --expect '<pattern>'... [--expect-optional '<pattern>']... --digest sha512 [--digest sha256]
 $RV signatures --dir <staging> --expect '<pattern>'... [--expect-optional '<pattern>']... --keys KEYS --keys-url <keys-url> [--extra-key <signer.pub>]
 $RV checksums  --dir <staging> --expect '<pattern>'... [--expect-optional '<pattern>']... --digest sha512 [--digest sha256]
-$RV notice-license --tree <tree> [--previous <dir with the previous release's NOTICE and LICENSE>]
+$RV notice-license --tree <tree> [--podling] [--previous <dir with the previous release's NOTICE and LICENSE>]
 $RV binaries   --tree <tree> [--prohibit '<glob>']... [--accept '<glob>']...
 $RV symlinks   --tree <tree> [--validator '<command>']...
 $RV version    --tree <tree> --rc-tag <version>-rcN --manifest <path>[=<regex>]...

@@ -75,6 +75,7 @@ def add_parsers(sub: Any) -> None:
         "--unpacked-dir", help="unpacked source artefact (default: its filename without extension)"
     )
     p.add_argument("--previous-dir", help="directory holding the previous release's NOTICE and LICENSE")
+    p.add_argument("--podling", action="store_true", help="check the ASF podling source disclaimer")
 
     p = with_load("rat", "Step 4: RAT exit code and report → PASS / FAIL; no RAT config → SKIP + WARN")
     p.add_argument("--exit-code", type=int, help="RAT's exit code")
@@ -166,6 +167,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             keys_file=args.keys_file,
             unpacked_dir=args.unpacked_dir,
             previous_dir=args.previous_dir,
+            podling=args.podling,
         )
     if args.command == "rat":
         return checks.rat(
