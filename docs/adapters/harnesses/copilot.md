@@ -43,7 +43,7 @@
 
 [GitHub Copilot](https://github.com/features/copilot) provides AI-assisted developer tooling across standalone terminal agents (`copilot`) and server-side autonomous coding agents.
 This guide documents how GitHub Copilot operates as an agent harness for Apache Magpie for [#318](https://github.com/apache/magpie/issues/318).
-Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../rfcs/RFC-AI-0004.md), ensuring that Magpie adopters can drive framework skills and security workflows using GitHub-native tooling while enforcing strict Human-in-the-Loop (HITL) and credential safety boundaries.
+Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../../rfcs/RFC-AI-0004.md), ensuring that Magpie adopters can drive framework skills and security workflows using GitHub-native tooling while enforcing strict Human-in-the-Loop (HITL) and credential safety boundaries.
 
 GitHub Copilot spans two distinct operational surfaces:
 1. **Interactive CLI (Copilot CLI):** Standalone terminal-native agent (`copilot`) for human triagers and maintainers executing interactive skill workflows with per-action confirmation.
@@ -175,7 +175,7 @@ GitHub Copilot supports Model Context Protocol (MCP) servers across its operatio
 
 ## Human-in-the-loop and security boundaries
 
-Magpie enforces strict [Human-in-the-Loop principles](../rfcs/RFC-AI-0004.md): no destructive action or state mutation occurs without explicit human approval.
+Magpie enforces strict [Human-in-the-Loop principles](../../rfcs/RFC-AI-0004.md): no destructive action or state mutation occurs without explicit human approval.
 
 ### Interactive CLI confirmation
 
@@ -195,7 +195,7 @@ When using the Copilot CLI:
 > [!CAUTION]
 > **Privacy-LLM Boundary:** The server-side GitHub Coding Agent runs on shared cloud infrastructure and must **never be dispatched on private security tracker issues, discussions, or code reviews** (requested by adding Copilot as a reviewer).
 >
-> Copilot CLI is not local inference: it routes prompt and context data to GitHub-hosted models, which are not in the default-approved set in [`tools/privacy-llm/models.md`](../../tools/privacy-llm/models.md). Therefore, using the Copilot CLI on `<security-list>` or `<private-list>` material requires explicit adopter opt-in declaration in `<project-config>/privacy-llm.md` (see [docs/setup/privacy-llm.md](../setup/privacy-llm.md)).
+> Copilot CLI is not local inference: it routes prompt and context data to GitHub-hosted models, which are not in the default-approved set in [`tools/privacy-llm/models.md`](../../../tools/privacy-llm/models.md). Therefore, using the Copilot CLI on `<security-list>` or `<private-list>` material requires explicit adopter opt-in declaration in `<project-config>/privacy-llm.md` (see [docs/setup/privacy-llm.md](../../setup/privacy-llm.md)).
 >
 > Running under `agent-iso` strips local ambient environment variables, but does not alter the cloud-hosted inference boundary.
 
@@ -211,19 +211,19 @@ agent-iso copilot
 The `agent-iso` launcher scrubs ambient cloud tokens while preserving local developer tooling (`git`, `uv`, `gh`, `copilot`).
 
 > [!WARNING]
-> **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Copilot receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operator diligence, keeping `--allow-all` / `--yolo` off, and branch protection rules.
+> **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Copilot receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operator diligence, keeping `--allow-all` / `--yolo` off, and branch protection rules.
 
 ## Install
 
 Copilot CLI has no committed sandbox profile, so the isolated setup is a
 **hook plus a short user-level allow list**, installed with no questions asked.
-The hook is the [`--copilot` adapter](../../tools/agent-guard/README.md#copilot-cli)
+The hook is the [`--copilot` adapter](../../../tools/agent-guard/README.md#copilot-cli)
 of agent-guard, registered in `.github/hooks/magpie.json`
-(the [committed file](../../.github/hooks/magpie.json) in a framework checkout; adopters point it at
+(the [committed file](../../../.github/hooks/magpie.json) in a framework checkout; adopters point it at
 `.apache-magpie/tools/agent-guard/...`).
 
 The install is non-interactive by design ([PRINCIPLES.md §1, *Avoiding prompt
-fatigue*](../../PRINCIPLES.md)). The skill proposes the whole change as one
+fatigue*](../../../PRINCIPLES.md)). The skill proposes the whole change as one
 diff and applies it on a single confirmation:
 
 1. **Register the hook.** Merge one `magpie-agent-guard` `preToolUse` entry into
@@ -270,7 +270,7 @@ Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
 On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
 Every skill stops on a snapshot behind the committed lock and proposes it.
 With the VS Code plugin install, update the plugin in the editor, then run `/magpie-setup:upgrade`: nothing prompts you there.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -320,13 +320,13 @@ after the Copilot branch.
 
 ## See also
 
-- [`docs/rfcs/RFC-AI-0004.md`](../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-source harnesses.
-- [`docs/vendor-neutrality.md`](../vendor-neutrality.md) — framework vendor neutrality index across agent harnesses.
-- [`docs/adapters/cursor.md`](cursor.md) — Cursor IDE and agent CLI harness guide.
-- [`docs/adapters/goose.md`](goose.md) — Block's Goose agent harness guide.
-- [`docs/adapters/antigravity.md`](antigravity.md) — Google Antigravity harness guide.
-- [`docs/adapters/codex.md`](codex.md) — OpenAI Codex harness guide.
-- [`docs/adapters/local-llm.md`](local-llm.md) — Local LLM endpoints harness guide.
-- [`docs/adapters/add-a-harness.md`](add-a-harness.md) — step-by-step guide for integrating agent harnesses.
-- [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md) — clean-environment launcher.
+- [`docs/rfcs/RFC-AI-0004.md`](../../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-source harnesses.
+- [`docs/vendor-neutrality.md`](../../vendor-neutrality.md) — framework vendor neutrality index across agent harnesses.
+- [`docs/adapters/harnesses/cursor.md`](cursor.md) — Cursor IDE and agent CLI harness guide.
+- [`docs/adapters/harnesses/goose.md`](goose.md) — Block's Goose agent harness guide.
+- [`docs/adapters/harnesses/antigravity.md`](antigravity.md) — Google Antigravity harness guide.
+- [`docs/adapters/harnesses/codex.md`](codex.md) — OpenAI Codex harness guide.
+- [`docs/adapters/harnesses/local-llm.md`](local-llm.md) — Local LLM endpoints harness guide.
+- [`docs/adapters/add-a-harness.md`](../add-a-harness.md) — step-by-step guide for integrating agent harnesses.
+- [`tools/agent-isolation/README.md`](../../../tools/agent-isolation/README.md) — clean-environment launcher.
 - [GitHub Copilot Documentation](https://docs.github.com/copilot) — official GitHub Copilot reference.

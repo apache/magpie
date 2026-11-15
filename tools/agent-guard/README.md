@@ -311,7 +311,7 @@ Codex supports native synchronous `PreToolUse` hooks with the canonical `Bash` e
 Register `python3 <engine-path>/__init__.py --codex` in `.codex/config.toml`, resolving the engine from the git root for source or snapshot installs.
 The marketplace plugin’s existing Claude-compatible hook also works in Codex without a second registration.
 The explicit adapter emits a native JSON deny on guard hits and no output on ordinary calls, leaving Codex approvals in charge.
-See the [Codex adapter](../../docs/adapters/codex.md#deterministic-guard-rules) for wiring, trust review, and verification.
+See the [Codex adapter](../../docs/adapters/harnesses/codex.md#deterministic-guard-rules) for wiring, trust review, and verification.
 
 Prefer the installed plugin or user-scope engine outside writable roots for routine adopter sessions.
 A project source or snapshot engine can be edited by the agent without changing the trusted hook definition; report that limitation during verification.
@@ -362,7 +362,7 @@ pi install git:github.com/apache/magpie
 
 It resolves the engine relative to its own file, so the installed package
 carries everything it runs. The same extension adds the permission rules and
-the OS sandbox for bash; see [the Pi harness](../../docs/adapters/pi.md).
+the OS sandbox for bash; see [the Pi harness](../../docs/adapters/harnesses/pi.md).
 
 ### Goose
 
@@ -383,7 +383,7 @@ goose plugin install https://github.com/apache/magpie
 ```
 
 The same hook applies the baseline's deny rules, and `agent-iso goose` runs the
-whole Goose process in an OS sandbox; see [the Goose harness](../../docs/adapters/goose.md).
+whole Goose process in an OS sandbox; see [the Goose harness](../../docs/adapters/harnesses/goose.md).
 
 ### Kiro CLI
 
@@ -461,7 +461,7 @@ Verified against Antigravity CLI 1.3.6 on macOS: `agy plugin install` staged the
 
 A missing interpreter or script leaves the session running, so verify a known denial after installation.
 The hook covers shell commands; native file, browser and MCP tools still need the permission rules, and shell execution still needs the terminal sandbox.
-See the [harness contract](../../docs/adapters/antigravity.md).
+See the [harness contract](../../docs/adapters/harnesses/antigravity.md).
 
 ### Copilot CLI
 
@@ -494,7 +494,7 @@ Manual registration, with the path replaced by the resolved framework directory:
 }
 ```
 
-See [the Copilot install lifecycle](../../docs/adapters/copilot.md#install).
+See [the Copilot install lifecycle](../../docs/adapters/harnesses/copilot.md#install).
 
 ### Grok
 
@@ -535,7 +535,7 @@ exited 2 was also blocked. Installation verification should still include a
 known live denial so wiring, packaging, and runtime policy are exercised
 together.
 
-See the [Grok adapter contract](../../docs/adapters/grok.md).
+See the [Grok adapter contract](../../docs/adapters/harnesses/grok.md).
 
 ### Junie CLI
 
@@ -546,7 +546,7 @@ Junie hooks must therefore invoke `--junie` explicitly.
 The adapter blocks with exit `2`, the one signal Junie honours regardless of output,
 and also prints a `decision` JSON and the reason on stderr.
 Other non-zero exits only warn in Junie, so the adapter never uses them.
-See [the Junie adapter](../../docs/adapters/junie.md).
+See [the Junie adapter](../../docs/adapters/harnesses/junie.md).
 
 ### Harness-neutral path (any runtime)
 

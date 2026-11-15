@@ -38,7 +38,7 @@
 **Harness:** Local LLM (Ollama / llama.cpp / vLLM)
 
 This guide documents how Apache Magpie operates against **local and on-premise open-weight LLMs** for [#315](https://github.com/apache/magpie/issues/315).
-Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../rfcs/RFC-AI-0004.md), which explicitly commits the framework to open-weight models, self-hosted endpoints, and zero cloud-only skill requirements.
+Grounding is established by [RFC-AI-0004 Principle 3 (Vendor Neutrality)](../../rfcs/RFC-AI-0004.md), which explicitly commits the framework to open-weight models, self-hosted endpoints, and zero cloud-only skill requirements.
 
 Local LLM runtimes serve three primary operational requirements:
 1. **Sovereign deployments:** Projects and foundations bound by strict data-residency laws (such as EU GDPR, public sector, or defense-orbit OSS) that cannot transmit vulnerability or tracker content to external cloud APIs.
@@ -192,7 +192,7 @@ goose run --model llama3.3:70b
 ## Model capability floors and calibration
 
 Skills vary in their cognitive demands.
-Based on calibration against the framework evaluation suite under [`tools/skill-evals/`](../../tools/skill-evals/), local deployments must respect model size floors to ensure reliable execution.
+Based on calibration against the framework evaluation suite under [`tools/skill-evals/`](../../../tools/skill-evals), local deployments must respect model size floors to ensure reliable execution.
 
 ### Floor 1: 70B+ reasoning class
 
@@ -246,7 +246,7 @@ The `agent-iso` launcher strips unapproved environment variables and enforces is
 ## Upgrade Magpie
 
 Upgrading follows the frontend you drive the model with: [OpenCode](opencode.md#upgrade-magpie), [Aider](aider.md#upgrade-magpie) or [Goose](goose.md#upgrade-magpie).
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -268,8 +268,8 @@ uv run prek run doctoc --all-files
 
 ## See also
 
-- [`docs/rfcs/RFC-AI-0004.md`](../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-weight models.
-- [`docs/vendor-neutrality.md`](../vendor-neutrality.md) — framework vendor neutrality index across LLM backends.
-- [`docs/adapters/add-a-harness.md`](add-a-harness.md) — step-by-step guide for integrating runtime harnesses.
-- [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md) — clean-environment launcher.
-- [`tools/skill-evals/`](../../tools/skill-evals/) — empirical evaluation suite for model capability calibration.
+- [`docs/rfcs/RFC-AI-0004.md`](../../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and open-weight models.
+- [`docs/vendor-neutrality.md`](../../vendor-neutrality.md) — framework vendor neutrality index across LLM backends.
+- [`docs/adapters/add-a-harness.md`](../add-a-harness.md) — step-by-step guide for integrating runtime harnesses.
+- [`tools/agent-isolation/README.md`](../../../tools/agent-isolation/README.md) — clean-environment launcher.
+- [`tools/skill-evals/`](../../../tools/skill-evals) — empirical evaluation suite for model capability calibration.

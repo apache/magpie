@@ -36,7 +36,7 @@ Antigravity is Google's agent harness and the successor to Gemini CLI, which Goo
 It runs Magpie's shared skills with repository instructions, an action guard, a terminal sandbox, and allow / ask / deny permission rules.
 Magpie's secure setup for Antigravity is **per user, never per repository**: the sandbox, the permission rules and the guard all live in the user's `~/.gemini/` configuration and apply to every repository the user opens.
 The adapter is **experimental**: it was validated with Antigravity CLI 1.3.6 on macOS; Linux, Windows, the App and the IDE have not been verified.
-The integration follows the harness contract in [add-a-harness](add-a-harness.md) and [RFC-AI-0004](../rfcs/RFC-AI-0004.md).
+The integration follows the harness contract in [add-a-harness](../add-a-harness.md) and [RFC-AI-0004](../../rfcs/RFC-AI-0004.md).
 
 ## Harness contract
 
@@ -45,19 +45,19 @@ The integration follows the harness contract in [add-a-harness](add-a-harness.md
 | Skill discovery | Antigravity reads workspace skills from `.agents/skills/<name>/SKILL.md`, the canonical `universal` row in `skills/setup/agents.md`. A plugin install adds the framework's skills from the plugin's `skills/` directory. Each skill is also a slash command. |
 | Repository instructions | Antigravity loads `AGENTS.md` directly, walking up from the edited file to the workspace root. No harness-specific context file is needed. |
 | Tool bridges | Skills invoke the existing `tools/*` CLI adapters through `run_command`, subject to the permission rules and sandbox below. |
-| Deterministic guard | A user-scope `PreToolUse` hook on `run_command` in `~/.gemini/config/hooks.json` runs `agent_guard/__init__.py --antigravity`. See [agent-guard](../../tools/agent-guard/README.md#antigravity). |
+| Deterministic guard | A user-scope `PreToolUse` hook on `run_command` in `~/.gemini/config/hooks.json` runs `agent_guard/__init__.py --antigravity`. See [agent-guard](../../../tools/agent-guard/README.md#antigravity). |
 | Spec-loop | The `antigravity` profile runs `agy -p` headless; see [Spec-loop runner](#spec-loop-runner). |
 | Credential isolation | `agent-iso agy` launches the CLI through the generic clean-environment wrapper. Antigravity keeps its session token in the OS keyring, so no credential variable is passed through. |
 | Filesystem and network | `enableTerminalSandbox: true` runs shell commands in the OS sandbox (Seatbelt on macOS, namespaces on Linux). `allowNonWorkspaceAccess: false` keeps native file tools in the workspace. |
 | Tool approval | `toolPermission: proceed-in-sandbox` runs sandboxed commands without a prompt and asks before anything that must leave the sandbox. The shipped `permissions` rules mirror the Claude Code reference: credential reads and exports are denied, mutating `git` / `gh` commands ask. |
 | MCP servers | Register servers in `~/.gemini/config/mcp_config.json`; see [Reuse framework MCP servers](#reuse-framework-mcp-servers). MCP calls ask by default. |
 
-The shipped profile is [`tools/agent-isolation/antigravity/`](../../tools/agent-isolation/antigravity/): `settings.json` merges into `~/.gemini/antigravity-cli/settings.json`, and `hooks.json` merges into `~/.gemini/config/hooks.json`.
-Those files are the profile's source of truth; [sandbox-lint](../../tools/sandbox-lint/README.md) derives the required ask and deny rules from the Claude Code baseline, so the two profiles cannot drift apart.
+The shipped profile is [`tools/agent-isolation/antigravity/`](../../../tools/agent-isolation/antigravity): `settings.json` merges into `~/.gemini/antigravity-cli/settings.json`, and `hooks.json` merges into `~/.gemini/config/hooks.json`.
+Those files are the profile's source of truth; [sandbox-lint](../../../tools/sandbox-lint/README.md) derives the required ask and deny rules from the Claude Code baseline, so the two profiles cannot drift apart.
 
 ## Invoke a Magpie skill
 
-Install Magpie as an [Antigravity plugin](../setup/marketplace-install.md#google-antigravity), or open a repository whose `.agents/skills/` links point at a pinned snapshot.
+Install Magpie as an [Antigravity plugin](../../setup/marketplace-install.md#google-antigravity), or open a repository whose `.agents/skills/` links point at a pinned snapshot.
 Both methods expose the same skill sources.
 
 1. Complete [installation](#install) and launch `agy` through the clean-environment wrapper.
@@ -119,7 +119,7 @@ On a business or enterprise account, the App uses the *previous permission setti
 
 ### Authentication with the clean-environment wrapper
 
-The [clean-environment wrapper](../../tools/agent-isolation/README.md#explicit-environment-opt-in) strips inherited credentials and non-essential configuration variables.
+The [clean-environment wrapper](../../../tools/agent-isolation/README.md#explicit-environment-opt-in) strips inherited credentials and non-essential configuration variables.
 Sign in once with an interactive `agy` session in a normal terminal; Antigravity stores the session token in the OS keyring, and later wrapped sessions read it from there.
 On Linux, if the keyring is unreachable through the wrapper, pass its bus address: `AGENT_ISO_ALLOW=DBUS_SESSION_BUS_ADDRESS agent-iso agy`.
 A headless run without cached credentials exits with `authentication required` rather than prompting.
@@ -172,33 +172,33 @@ Prefix rules are a friction layer, not a shell parser; the guard and the sandbox
 
 ### Deterministic guard rules
 
-The user-scope `PreToolUse` hook passes every `run_command` call to Magpie's shared [action guard](../../tools/agent-guard/README.md#antigravity).
+The user-scope `PreToolUse` hook passes every `run_command` call to Magpie's shared [action guard](../../../tools/agent-guard/README.md#antigravity).
 A deny returns `{"decision": "deny", "reason": …}`, which blocks the call and shows the reason to the model; anything else returns `allow`, which defers to the permission rules instead of approving the call.
 The guard retains the shared engine's fail-open behavior for malformed events, and covers shell calls only.
 
 ## Reuse framework MCP servers
 
 Register the servers selected by the adopter's tool configuration with `agy mcp add`, or in `~/.gemini/config/mcp_config.json`.
-Reuse each adapter's server command, prerequisites, and home-directory credential storage; for example, the [Apache Projects](../../tools/apache-projects/tool.md#1-install-the-mcp-server) and [PonyMail](../../tools/ponymail/tool.md#1-install-the-mcp-server) adapters.
+Reuse each adapter's server command, prerequisites, and home-directory credential storage; for example, the [Apache Projects](../../../tools/apache-projects/tool.md#1-install-the-mcp-server) and [PonyMail](../../../tools/ponymail/tool.md#1-install-the-mcp-server) adapters.
 Register only the servers the workflow needs; `mcp(server/tool)` allow rules are the place for read-only tools, and the default is to ask for every call.
 The terminal sandbox does not confine MCP server processes or their network connections.
 Live MCP connections have not been verified for this profile.
 
 ## Spec-loop runner
 
-The `antigravity` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) runs `agy -p` with `--output-format`, and forwards `--model` and `--effort` when supplied.
+The `antigravity` profile in [`tools/spec-loop/lib.sh`](../../../tools/spec-loop/lib.sh) runs `agy -p` with `--output-format`, and forwards `--model` and `--effort` when supplied.
 It never passes `--dangerously-skip-permissions`.
 In headless mode the permission mode is `request-review`: a tool call that needs approval is soft-denied, the run still exits 0, and the JSON envelope lists it under `denied_actions`.
 The denial also ends the turn: the envelope's `response` is empty even when the model had more to say (observed with CLI 1.4.7).
 A build iteration needing edits therefore cannot complete unattended under this profile; use an interactive session for those operations.
-See the [spec-loop guide](../../tools/spec-loop/README.md).
+See the [spec-loop guide](../../../tools/spec-loop/README.md).
 
 ## Upgrade Magpie
 
 Ask *"upgrade magpie"* or run `/magpie-setup:upgrade`.
-With a newer version available it refreshes the plugin as [the plugin install page](../setup/marketplace-install.md#google-antigravity) describes; restart `agy` and run it again for the check-and-fix phase.
+With a newer version available it refreshes the plugin as [the plugin install page](../../setup/marketplace-install.md#google-antigravity) describes; restart `agy` and run it again for the check-and-fix phase.
 While the plugin listing is readable, every skill asks whether to upgrade until this project has upgraded to the installed version.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -237,7 +237,7 @@ Include the `agy --version` output.
 Report missing rules, changed Magpie values, duplicate guards, and a guard path that no longer resolves.
 Do not apply changes or fetch updates as part of this check.
 
-For a plugin, refresh the source as [the plugin install page](../setup/marketplace-install.md#google-antigravity) describes; for a snapshot, use `setup update`.
+For a plugin, refresh the source as [the plugin install page](../../setup/marketplace-install.md#google-antigravity) describes; for a snapshot, use `setup update`.
 After an approved refresh, repeat the install merge against the new profile, restart `agy`, and repeat [Verify](#verify).
 
 ## Doctor
@@ -285,7 +285,7 @@ uv run --directory tools/agent-guard --group dev pytest
 bash tools/spec-loop/tests/test_runner_fixtures.sh
 ```
 
-Complete the shared [harness validation](add-a-harness.md#step-5--validate-the-full-wiring) before submitting adapter changes.
+Complete the shared [harness validation](../add-a-harness.md#step-5--validate-the-full-wiring) before submitting adapter changes.
 
 ## Upstream references
 

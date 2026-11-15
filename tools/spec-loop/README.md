@@ -65,18 +65,18 @@ the run still exits `0`, and the JSON envelope lists it under `denied_actions`.
 Unattended build iterations that need edits or shell calls therefore cannot complete under this profile.
 An operator who deliberately wants auto-accepted workspace edits wraps `agy --mode accept-edits` in their own `SPEC_LOOP_AGENT` script;
 the runner does not add it.
-See the [Antigravity runner notes](../../docs/adapters/antigravity.md#spec-loop-runner).
+See the [Antigravity runner notes](../../docs/adapters/harnesses/antigravity.md#spec-loop-runner).
 
 **Pi:** Pi has no approval prompts of its own and the `pi` profile adds no approval flag.
 Magpie's user-scope Pi extension refuses every command that would need approval when there is no UI,
 so an iteration that needs a push or a mutating `gh` call cannot complete unattended under this profile,
 and plain bash runs in the extension's OS sandbox.
-See the [Pi runner notes](../../docs/adapters/pi.md#spec-loop-runner).
+See the [Pi runner notes](../../docs/adapters/harnesses/pi.md#spec-loop-runner).
 
 **Goose:** the `goose` profile adds no approval flag either; Goose's mode comes from its settings.
 A headless run cannot answer approve-mode prompts, and outside approve mode Magpie's Goose hook blocks
 everything that would need confirmation, so a push or a mutating `gh` call cannot run unattended.
-See the [Goose runner notes](../../docs/adapters/goose.md#spec-loop-runner).
+See the [Goose runner notes](../../docs/adapters/harnesses/goose.md#spec-loop-runner).
 
 All conventions run the agent non-interactively.
 The profiles other than Antigravity, Pi and Goose request automatic approval; their safety rails (never push, never open a PR) come from

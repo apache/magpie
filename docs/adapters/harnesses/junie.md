@@ -24,7 +24,7 @@
 **Capability:** platform:harness
 
 Junie is JetBrains' own coding agent, available as a CLI and as a JetBrains IDE plugin.
-It is a different harness from Claude Code running inside a JetBrains IDE, which needs nothing extra (see [`marketplace.md`](../setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-)).
+It is a different harness from Claude Code running inside a JetBrains IDE, which needs nothing extra (see [`marketplace.md`](../../setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-)).
 Tracking issue: [#321](https://github.com/apache/magpie/issues/321).
 
 ## Harness contract
@@ -84,7 +84,7 @@ Other non-zero exits only warn in Junie and let the tool run, so the adapter nev
 Ask *"upgrade magpie"* or invoke `magpie-setup-upgrade`.
 On the pinned snapshot it runs `setup update` first, then checks and fixes this machine and project.
 Every skill stops on a snapshot behind the committed lock and proposes it.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

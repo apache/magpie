@@ -38,7 +38,7 @@ which changes how Magpie arrives and nothing about how it behaves once there.
 
 | Magpie requirement | Kiro implementation |
 |---|---|
-| Skill discovery | Native, from `.kiro/skills/`, which the `kiro` row in [`agents.md`](../../skills/setup/agents.md) writes as a relay into the canonical `.agents/skills/` tree. Kiro also installs a skill directly from a GitHub subdirectory on a pinned tag. |
+| Skill discovery | Native, from `.kiro/skills/`, which the `kiro` row in [`agents.md`](../../../skills/setup/agents.md) writes as a relay into the canonical `.agents/skills/` tree. Kiro also installs a skill directly from a GitHub subdirectory on a pinned tag. |
 | Deterministic guard | The `preToolUse` hook. Kiro pipes the event to the hook command and **blocks** the call when it exits `2`, returning stderr to the model — the Kiro equivalent of a Claude Code `PreToolUse` deny. |
 | Spec-loop | The `kiro` profile passes the prompt positionally to `kiro-cli chat`, with `--no-interactive`. |
 | Credential isolation | `kiro-iso` launches the CLI through the clean-environment wrapper. |
@@ -66,7 +66,7 @@ skills you want, one at a time.
 core, and on a deny writes the reason to stderr and exits `2`. Register it in
 the agent configuration's `hooks` field; the full recipe, including the event
 shape Kiro sends, is in the
-[agent-guard Kiro recipe](../../tools/agent-guard/README.md#kiro-cli).
+[agent-guard Kiro recipe](../../../tools/agent-guard/README.md#kiro-cli).
 
 Because Kiro calls the same core as every other harness, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
@@ -100,7 +100,7 @@ filesystem isolation from the OS-level sandbox.
 Kiro has no update command: install each skill again from the new tag.
 If you installed `setup-upgrade` (`skills/setup-upgrade`), ask *"upgrade magpie"* afterwards for the check-and-fix phase.
 Nothing prompts you.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 

@@ -225,10 +225,10 @@ installed everywhere but bypasses no prompt without the sandbox.
 | Harness | What to run |
 |---|---|
 | **Claude Code** | `/magpie-setup:isolated-setup-install` — the guided install below. |
-| **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| **Google Antigravity** | [Antigravity setup lifecycle](adapters/antigravity.md#setup-isolated-lifecycle) — user-scope, never per repository. |
-| **Pi** | [Pi setup lifecycle](adapters/pi.md#setup-isolated-lifecycle) — one per-user `pi install`, never per repository. |
-| **Goose** | [Goose setup lifecycle](adapters/goose.md#setup-isolated-lifecycle) — one per-user plugin install, then `agent-iso goose`. |
+| **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/harnesses/codex.md#setup-isolated-lifecycle). |
+| **Google Antigravity** | [Antigravity setup lifecycle](adapters/harnesses/antigravity.md#setup-isolated-lifecycle) — user-scope, never per repository. |
+| **Pi** | [Pi setup lifecycle](adapters/harnesses/pi.md#setup-isolated-lifecycle) — one per-user `pi install`, never per repository. |
+| **Goose** | [Goose setup lifecycle](adapters/harnesses/goose.md#setup-isolated-lifecycle) — one per-user plugin install, then `agent-iso goose`. |
 | **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter. |
 
 ```text

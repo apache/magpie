@@ -10,7 +10,7 @@ source: >
   RFC-AI-0004 Principle 3 (vendor neutrality) and issue #313.
   Implemented by the canonical .agents/skills tree, the project .codex
   profile, tools/sandbox-lint, tools/agent-isolation,
-  docs/adapters/codex.md, and the setup/setup-isolated lifecycle.
+  docs/adapters/harnesses/codex.md, and the setup/setup-isolated lifecycle.
 acceptance:
   - A maintainer with Codex and no Claude Code can discover and invoke
     Magpie SKILL.md workflows from .agents/skills.
@@ -47,7 +47,7 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 - tools/vetted-ops/ - native per-machine prefix-rule renderer.
 - plugins/magpie-agent-guard/ and plugins/magpie-vetted-ops/ - self-contained
   installed runtimes advertised by the Codex marketplace catalogue.
-- docs/adapters/codex.md - operator contract and lifecycle.
+- docs/adapters/harnesses/codex.md - operator contract and lifecycle.
 - plugins/magpie-setup/skills/setup/ and
   plugins/magpie-setup/skills/isolated-setup-*/ (linked from skills/setup and
   skills/setup-isolated-setup-*) - installation, drift, verification, and

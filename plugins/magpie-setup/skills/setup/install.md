@@ -361,7 +361,7 @@ pi install git:github.com/apache/magpie
 
 Goose, once per user — the plugin carries the guard hook, and its
 sandbox runtime is installed from the committed lockfile into the
-plugin (see [the Goose install](../../../../docs/adapters/goose.md#install)):
+plugin (see [the Goose install](../../../../docs/adapters/harnesses/goose.md#install)):
 
 ```bash
 goose plugin install https://github.com/apache/magpie
@@ -2114,7 +2114,7 @@ Four passes, in this order:
    - Do not edit Codex project trust. Tell the operator to make the
      trust decision in Codex.
 
-   Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/codex.md#install) as well.
+   Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/harnesses/codex.md#install) as well.
    Merge the native `PreToolUse` registration, resolving the engine from the snapshot in adopters and directly from the framework in local self-adoption.
    Ask the operator to review the definition in `/hooks`; do not grant hook trust on their behalf.
    For marketplace installs use the `magpie-agent-guard` and `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
@@ -2127,19 +2127,19 @@ Four passes, in this order:
    <repo-root>/.codex`. Both files are committed adopter
    configuration — nothing under `.codex/` is generated or
    gitignored. See
-   [the Codex adapter](../../../../docs/adapters/codex.md).
+   [the Codex adapter](../../../../docs/adapters/harnesses/codex.md).
 
    **Antigravity writes no project profile.**
    Its sandbox, permission rules and guard are per user, in `~/.gemini/`;
-   when Antigravity is the selected runtime, point to `setup-isolated-setup-install` ([the Antigravity install](../../../../docs/adapters/antigravity.md#install)) instead of writing anything into the repository.
+   when Antigravity is the selected runtime, point to `setup-isolated-setup-install` ([the Antigravity install](../../../../docs/adapters/harnesses/antigravity.md#install)) instead of writing anything into the repository.
 
    **Pi writes no project profile either.**
    Its guard, permission rules and bash sandbox ship in the per-user Pi package;
-   when Pi is the selected runtime, point to `setup-isolated-setup-install` ([the Pi install](../../../../docs/adapters/pi.md#install)) instead of writing anything into the repository, and never record the package in the project's `.pi/settings.json`.
+   when Pi is the selected runtime, point to `setup-isolated-setup-install` ([the Pi install](../../../../docs/adapters/harnesses/pi.md#install)) instead of writing anything into the repository, and never record the package in the project's `.pi/settings.json`.
 
    **Goose writes no project profile either.**
    Its guard hook ships in the per-user Goose plugin and its sandbox comes from `agent-iso goose`;
-   when Goose is the selected runtime, point to `setup-isolated-setup-install` ([the Goose install](../../../../docs/adapters/goose.md#install)) instead of writing anything into the repository, and never install the plugin into a project's `.agents/plugins/`.
+   when Goose is the selected runtime, point to `setup-isolated-setup-install` ([the Goose install](../../../../docs/adapters/harnesses/goose.md#install)) instead of writing anything into the repository, and never install the plugin into a project's `.agents/plugins/`.
    **Grok action guard (when Grok is the selected runtime).**
    First distinguish a marketplace/plugin install from a source or pinned-snapshot install.
    When `magpie-agent-guard` is already available as an enabled marketplace plugin, use that bundled hook and executable.
@@ -2161,7 +2161,7 @@ Four passes, in this order:
    Tell the operator to review and trust the hook in Grok after installation.
    Never invoke or automate Grok's hook-trust action on their behalf.
 
-   See [the Grok adapter lifecycle](../../../../docs/adapters/grok.md#installation).
+   See [the Grok adapter lifecycle](../../../../docs/adapters/harnesses/grok.md#installation).
    Other selected runtimes do not install this profile.
 
 2. **Propagate to every worktree (run `worktree-init`

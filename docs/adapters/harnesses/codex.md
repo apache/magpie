@@ -38,7 +38,7 @@ Claude Code codex delegation plugin: a maintainer with Codex and no Claude Code
 can discover, invoke, and run Magpie skills end to end.
 
 The implementation follows
-[RFC-AI-0004](../rfcs/RFC-AI-0004.md): shared skill sources, a native sandbox,
+[RFC-AI-0004](../../rfcs/RFC-AI-0004.md): shared skill sources, a native sandbox,
 and per-action human confirmation through Codex's own approval and exec-policy
 layers.
 
@@ -166,7 +166,7 @@ is the Codex mapping of RFC-AI-0004 Principle 1 (human-in-the-loop).
 
 Codex supports a synchronous native `PreToolUse` hook for shell commands, including unified exec.
 The canonical hook event names these calls `Bash` and supplies `tool_input.command` and `cwd`.
-The `--codex` adapter in [`tools/agent-guard`](../../tools/agent-guard/README.md#codex) passes them to the same `dispatch()` core as Claude Code.
+The `--codex` adapter in [`tools/agent-guard`](../../../tools/agent-guard/README.md#codex) passes them to the same `dispatch()` core as Claude Code.
 A guard hit emits `hookSpecificOutput.permissionDecision: "deny"`; ordinary commands emit no approval and remain subject to sandbox and native approval policy.
 The marketplace plugin’s existing Claude-compatible registration also accepts Codex’s canonical event.
 
@@ -240,7 +240,7 @@ Ask *"upgrade magpie"* or invoke `$magpie-setup:upgrade`.
 On a marketplace install with a newer version it runs `codex plugin marketplace upgrade apache-magpie`; start a new session and invoke it again for the check-and-fix phase.
 On a pinned snapshot it runs `setup update` first.
 The session hook prompts once per version after you trust it in `/hooks`, and every skill asks again while `codex plugin list` shows a version this project has not upgraded to.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
@@ -319,7 +319,7 @@ must happen before a setup-isolated skill follows Claude-only settings paths.
 ## Comparison with the Claude setup
 
 This compares the framework’s reference profiles, not a certification of a particular running session.
-The Claude checklist is [the verification skill](../../plugins/magpie-setup/skills/isolated-setup-verify/SKILL.md).
+The Claude checklist is [the verification skill](../../../plugins/magpie-setup/skills/isolated-setup-verify/SKILL.md).
 
 | Claude check | Codex equivalent or remaining gap |
 |---|---|

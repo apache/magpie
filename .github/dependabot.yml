@@ -61,7 +61,7 @@ updates:
   # The root package.json makes the repository a Pi package; its lockfile
   # pins the sandbox runtime the Pi extension runs bash in. Regenerate it
   # with the flags Pi installs with, plus `--package-lock-only
-  # --ignore-scripts` (see docs/adapters/pi.md).
+  # --ignore-scripts` (see docs/adapters/harnesses/pi.md).
   - package-ecosystem: "npm"
     directory: "/"
     schedule:

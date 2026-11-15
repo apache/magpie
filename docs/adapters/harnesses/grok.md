@@ -135,7 +135,7 @@ treating configuration presence as sufficient.
 
 Ask *"upgrade magpie"* or run `/magpie-setup:upgrade` after the plugin update.
 Whether Grok runs the `magpie-setup` session-start upgrade notice is not verified, so run it after every update.
-Every harness: [Upgrading Magpie](../setup/marketplace.md#upgrading-magpie).
+Every harness: [Upgrading Magpie](../../setup/marketplace.md#upgrading-magpie).
 
 ## Verify
 
