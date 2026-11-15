@@ -119,6 +119,25 @@ def test_pr_input_uses_gh(stub_bin, tmp_path):
     assert pr_input(tmp_path, 7, "acme/product", env) == (DIFF, "T", "B")
 
 
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "failed to run git: fatal: not a git repository (or any of the parent directories): .git",
+        "none of the git remotes configured for this repository point to a known GitHub host",
+    ],
+)
+def test_pr_input_without_repo_outside_a_checkout_names_the_fix(stub_bin, tmp_path, stderr):
+    """An exported PR head has no git remotes, so gh cannot infer the repository."""
+    bin_dir, make = stub_bin
+    make("gh", f"import sys\nsys.stderr.write({stderr!r} + '\\n')\nsys.exit(1)\n")
+    env = {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+    with pytest.raises(InputError, match="pass --repo OWNER/NAME"):
+        pr_input(tmp_path, 7, None, env)
+    with pytest.raises(InputError) as exc:
+        pr_input(tmp_path, 7, "acme/product", env)
+    assert "pass --repo" not in str(exc.value)
+
+
 def test_tracker_checkout_warns(git_repo):
     subprocess.run(
         ["git", "-C", str(git_repo), "remote", "add", "origin", "git@github.com:acme/tracker.git"], check=True
