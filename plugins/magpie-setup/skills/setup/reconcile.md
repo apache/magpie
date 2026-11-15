@@ -355,10 +355,14 @@ Once every finding has been confirmed, applied, or declined:
   chosen in Step 0, alongside the `skills:` map built above. On an
   adopted project the map splits by scope (sweep step 1): committed-scope
   skills go to the committed lock, personal-only skills to the personal
-  layer's `reconciled.json` `skills` map. This run rewrites that map to
-  hold the personal-only skills it stamped **plus every both-stores
-  collision entry the developer chose to keep** (Step 2), so declining a
-  collision cleanup never loses the entry. If the
+  layer's `reconciled.json` `skills` map. **Update that map in place;
+  never rebuild it from this run alone.** Write the personal-only skills
+  stamped this run, and remove an entry only when its skill is no longer
+  in personal-only scope (it moved to committed scope or left scope) or
+  the developer confirmed a collision cleanup. Every other existing
+  entry stays: a both-stores collision the developer chose to keep, and
+  a skill left `unchecked` this run (check 4), whose previous hash is
+  the only baseline its drift warnings have. If the
   target is the committed lock, stage it (`git add`) and say the change
   lands through the project's normal review like any other committed
   file; do not commit on the operator's behalf.
