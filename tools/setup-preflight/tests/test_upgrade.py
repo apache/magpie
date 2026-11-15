@@ -22,10 +22,11 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from setup_preflight import sections, upgrade
+from setup_preflight import isolated, sections, upgrade
 from setup_preflight.cli import main
 
 from .conftest import personal, write_lock, write_stamp
@@ -173,3 +174,171 @@ def test_every_skill_pre_flight_carries_the_finding(
 
 def test_the_rules_section_ships() -> None:
     assert "upgrade-pending" in sections.load("step-15")
+
+
+# --- gather: the facts setup-upgrade decides its catalogue reads from ---------------
+
+TODAY = date(2026, 11, 15)
+
+
+def _framework_tools(project: Path, body: str = "echo one\n") -> str:
+    """A framework tree with secure-setup files, and its fingerprint."""
+    tools = project / "tools" / "agent-isolation"
+    tools.mkdir(parents=True, exist_ok=True)
+    (tools / "agent-iso.sh").write_text(body)
+    current = isolated.current(project)
+    assert current is not None
+    return current
+
+
+def _isolated(project: Path, **block: object) -> dict[str, object]:
+    write_stamp(project, {"version": "0.9.0", "isolated_setup": block})
+    return upgrade.isolated_summary(project, TODAY)
+
+
+@pytest.mark.parametrize(
+    ("body", "install"),
+    [
+        (None, "none"),
+        ("method: local\n", "local"),
+        ("method: git-tag\nurl: https://github.com/apache/magpie\nref: v0.8.0\n", "snapshot"),
+        (
+            "method: marketplace\nurl: apache/magpie\nmin_version: 0.8.0\nplugins:\n  - magpie-setup\n",
+            "marketplace",
+        ),
+    ],
+)
+def test_gather_names_the_verify_branch_for_the_install(
+    project: Path, body: str | None, install: str
+) -> None:
+    if body is not None:
+        write_lock(project, body)
+    assert upgrade.gather(project, None, None, TODAY)["install"] == install
+
+
+def test_gather_carries_the_project_findings_and_whether_the_listing_was_read(project: Path) -> None:
+    write_lock(project, "method: git-tag\nurl: https://github.com/apache/magpie\nref: v0.8.0\n")
+    facts: dict[str, Any] = upgrade.gather(project, None, None, TODAY)
+    assert [f["code"] for f in facts["project_findings"]] == ["snapshot-never-fetched"]
+    assert facts["listing_known"] is False
+    assert upgrade.gather(project, {"magpie-setup": "0.9.0"}, None, TODAY)["listing_known"] is True
+
+
+def test_gather_reports_an_unconfigured_project(project: Path) -> None:
+    facts: dict[str, Any] = upgrade.gather(project, None, None, TODAY)
+    assert facts["configured"] is False
+    assert facts["shadowed"] == []
+    assert facts["layers"]["personal_dir_exists"] is False
+
+
+def test_a_personal_file_shadowing_a_committed_one_is_listed(project: Path) -> None:
+    # Adopted, so the personal layer is the in-tree `.apache-magpie-local/`.
+    write_lock(project, "method: local\n")
+    local = personal(project)
+    committed = project / ".apache-magpie-overrides"
+    (local / "templates" / "replies").mkdir(parents=True)
+    (committed / "templates" / "replies").mkdir(parents=True)
+    for name, mine, theirs in [
+        ("project.md", "same\n", "same\n"),
+        ("user.md", "mine\n", "theirs\n"),
+        ("templates/replies/ack.md", "a\n", "b\n"),
+    ]:
+        (local / name).write_text(mine)
+        (committed / name).write_text(theirs)
+    (local / "only-mine.md").write_text("gap filled\n")
+    assert upgrade.shadowed(project) == [
+        {"file": "project.md", "layer": str(local), "identical": True},
+        {"file": "templates/replies/ack.md", "layer": str(local), "identical": False},
+        {"file": "user.md", "layer": str(local), "identical": False},
+    ]
+
+
+def test_bookkeeping_and_symlinks_are_never_reported_as_shadowing(project: Path) -> None:
+    local = personal(project)
+    committed = project / ".apache-magpie-overrides"
+    (local / "run").mkdir(parents=True)
+    committed.mkdir()
+    for name in ("reconciled.json", ".preflight-cache.json", "run/gateway.log", "linked.md"):
+        (committed / name).parent.mkdir(parents=True, exist_ok=True)
+        (committed / name).write_text("x\n")
+    (local / "reconciled.json").write_text("{}")
+    (local / ".preflight-cache.json").write_text("{}")
+    (local / "run" / "gateway.log").write_text("x\n")
+    (local / "linked.md").symlink_to(committed / "linked.md")
+    assert upgrade.shadowed(project) == []
+
+
+def test_no_committed_overrides_means_nothing_is_shadowed(project: Path) -> None:
+    local = personal(project)
+    local.mkdir(parents=True)
+    (local / "project.md").write_text("mine\n")
+    assert upgrade.shadowed(project) == []
+
+
+def test_an_isolated_setup_checked_since_the_last_change_needs_no_attention(project: Path) -> None:
+    current = _framework_tools(project)
+    facts = _isolated(project, fingerprint=current, updated_at="2026-11-14")
+    assert facts["state"] == "in-use"
+    assert (facts["changed"], facts["due"], facts["attention"]) == (False, False, False)
+
+
+def test_a_changed_fingerprint_needs_attention(project: Path) -> None:
+    _framework_tools(project)
+    facts = _isolated(project, fingerprint="sha256:0000000000000000", updated_at="2026-11-14")
+    assert (facts["changed"], facts["due"], facts["attention"]) == (True, False, True)
+
+
+def test_a_shown_reminder_is_not_a_check_that_ran(project: Path) -> None:
+    current = _framework_tools(project)
+    facts = _isolated(
+        project, fingerprint="sha256:0000000000000000", acknowledged=current, updated_at="2026-11-14"
+    )
+    assert facts["attention"] is True
+
+
+@pytest.mark.parametrize(("updated_at", "due"), [("2026-11-08", True), ("2026-11-09", False), (None, True)])
+def test_an_old_or_missing_check_is_due(project: Path, updated_at: str | None, due: bool) -> None:
+    current = _framework_tools(project)
+    block: dict[str, object] = {"fingerprint": current}
+    if updated_at is not None:
+        block["updated_at"] = updated_at
+    facts = _isolated(project, **block)
+    assert (facts["due"], facts["attention"]) == (due, due)
+
+
+def test_an_interval_of_zero_turns_the_timer_off(project: Path) -> None:
+    current = _framework_tools(project)
+    personal(project).mkdir(parents=True, exist_ok=True)
+    (personal(project) / "project.md").write_text("isolated_setup_update_interval_days: 0\n")
+    facts = _isolated(project, fingerprint=current, updated_at="2020-01-01")
+    assert (facts["due"], facts["attention"]) == (False, False)
+
+
+def test_an_opted_out_setup_never_needs_attention(project: Path) -> None:
+    _framework_tools(project)
+    facts = _isolated(project, enabled=False)
+    assert (facts["state"], facts["attention"]) == ("opted-out", False)
+
+
+def test_an_unconfirmed_setup_is_unknown_not_absent(project: Path) -> None:
+    _framework_tools(project)
+    facts = upgrade.isolated_summary(project, TODAY)
+    assert facts["state"] == "unknown"
+    assert facts["attention"] is False
+    assert facts["changed"] is True
+
+
+def test_gather_prints_json(project: Path, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    listing = tmp_path / "listing.json"
+    listing.write_text("[]")
+    assert upgrade.main(["gather", "--project-root", str(project), "--plugin-list", str(listing)]) == 0
+    facts = json.loads(capsys.readouterr().out)
+    assert set(facts) == {
+        "configured",
+        "install",
+        "isolated",
+        "layers",
+        "listing_known",
+        "project_findings",
+        "shadowed",
+    }

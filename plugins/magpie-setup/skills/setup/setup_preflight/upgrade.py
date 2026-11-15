@@ -48,11 +48,12 @@ import json
 import os
 import sys
 from collections.abc import Mapping
-from datetime import date
+from dataclasses import asdict
+from datetime import date, datetime
 from pathlib import Path
 
-from .core import SNAPSHOT_METHODS, STAMP_NAME, Finding
-from .layers import LOCK_NAME, personal_dir, personal_layers
+from .core import LOCAL_METHOD, SNAPSHOT_METHODS, STAMP_NAME, Finding, configured_at_all, project_findings
+from .layers import LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
 from .lockfile import MalformedLock, load
 from .version import InvalidVersion, compare
 
@@ -192,13 +193,155 @@ def record(
     return block
 
 
+# --- gather: the facts `setup-upgrade` decides its catalogue reads from -------------
+
+#: Personal-layer entries that are bookkeeping, never configuration a project commits.
+_NOT_CONFIG = frozenset({STAMP_NAME, "setup_preflight", "run"})
+
+
+def _install(method: str | None) -> str:
+    """The `setup verify` branch for this install: `local`, `snapshot`, `marketplace` or `none`."""
+    if method is None:
+        return "none"
+    if method == LOCAL_METHOD:
+        return "local"
+    if method in SNAPSHOT_METHODS:
+        return "snapshot"
+    return "marketplace" if method == "marketplace" else "unknown"
+
+
+def shadowed(root: Path) -> list[dict[str, object]]:
+    """Personal-layer files with a committed `.apache-magpie-overrides/` file at the same path.
+
+    The first personal layer to hold a path wins, as the lookup chain reads
+    them.  `identical` is a byte comparison.  Symlinks are neither followed
+    nor reported, and bookkeeping (the stamp, dot-files, a checker copy,
+    run state) is not configuration.  Read-only.
+    """
+    committed = root / OVERRIDES_DIR
+    if not committed.is_dir():
+        return []
+    found: dict[str, dict[str, object]] = {}
+    for layer in personal_layers(root):
+        if not layer.is_dir():
+            continue
+        for dirpath, dirnames, filenames in os.walk(layer, followlinks=False):
+            base = Path(dirpath)
+            dirnames[:] = sorted(
+                d for d in dirnames if not d.startswith(".") and not (base == layer and d in _NOT_CONFIG)
+            )
+            for name in sorted(filenames):
+                path = base / name
+                rel = path.relative_to(layer).as_posix()
+                if name.startswith(".") or rel in _NOT_CONFIG or rel in found or path.is_symlink():
+                    continue
+                target = committed / rel
+                if target.is_symlink() or not target.is_file():
+                    continue
+                try:
+                    identical = path.read_bytes() == target.read_bytes()
+                except OSError:
+                    continue
+                found[rel] = {"file": rel, "layer": str(layer), "identical": identical}
+    return [found[rel] for rel in sorted(found)]
+
+
+def _day(text: object) -> date | None:
+    if not isinstance(text, str):
+        return None
+    try:
+        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def isolated_summary(root: Path, today: date | None = None, home: Path | None = None) -> dict[str, object]:
+    """The isolated setup as `setup-upgrade` needs it: in use, and changed since its last check.
+
+    `state` is `opted-out` (the stamp's `enabled: false`), `in-use`, or
+    `unknown`, never `absent`: inside the sandbox the user-scope settings
+    are read-denied, so a `False` from `isolated.configured` proves nothing.
+    `changed` is true when the secure-setup fingerprint differs from the one
+    the last `setup-isolated-setup-update` run recorded, or either is
+    unknown; a reminder that was only shown (`acknowledged`) is not a check
+    that ran, so it does not count.  `due` is true when that run is at least
+    the interval old, or never happened; an interval of 0 turns it off.
+    `attention` is `in-use` and (`changed` or `due`).
+    """
+    from . import isolated
+
+    raw = _load_stamp(root).get(isolated.BLOCK)
+    block: dict[str, object] = raw if isinstance(raw, dict) else {}
+    if block.get("enabled") is False:
+        state = "opted-out"
+    elif isolated.configured(root, home):
+        state = "in-use"
+    else:
+        state = "unknown"
+    recorded = block.get("fingerprint")
+    current = isolated.current(root)
+    changed = current is None or recorded != current
+    interval = isolated.interval_days(root)
+    updated = _day(block.get("updated_at"))
+    due = interval > 0 and (updated is None or ((today or date.today()) - updated).days >= interval)
+    return {
+        "state": state,
+        "recorded": recorded if isinstance(recorded, str) else None,
+        "current": current,
+        "changed": changed,
+        "updated_at": updated.isoformat() if updated else None,
+        "interval_days": interval,
+        "due": due,
+        "attention": state == "in-use" and (changed or due),
+    }
+
+
+def gather(
+    root: Path,
+    installed: dict[str, str] | None,
+    harness: str | None,
+    today: date | None = None,
+    home: Path | None = None,
+) -> dict[str, object]:
+    """The facts `setup-upgrade`'s Gather decides which catalogue sections to read from.  Read-only."""
+    try:
+        lock = load(root / LOCK_NAME)
+        install = _install(lock.method if lock else None)
+        project = [asdict(f) for f in project_findings(root, installed, harness)]
+    except MalformedLock as exc:
+        install = "unreadable"
+        project = [
+            {"scope": "project", "code": "lock-unreadable", "section": "step-2", "facts": {"error": str(exc)}}
+        ]
+    return {
+        "layers": describe(root),
+        "configured": configured_at_all(root),
+        "install": install,
+        "listing_known": installed is not None,
+        "project_findings": project,
+        "shadowed": shadowed(root),
+        "isolated": isolated_summary(root, today, home),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.upgrade", description=__doc__.split("\n")[0])
-    parser.add_argument("action", choices=["status", "record"])
+    parser.add_argument("action", choices=["status", "record", "gather"])
     parser.add_argument("--project-root", default=".", type=Path)
     parser.add_argument("--version", help="record: the version upgraded to (default: the running one)")
+    parser.add_argument(
+        "--plugin-list",
+        help="gather: harness plugin listing JSON to use instead of running it ('-' for stdin)",
+    )
     args = parser.parse_args(argv)
     root: Path = args.project_root
+    if args.action == "gather":
+        # Imported here: `cli` imports this module for the pre-flight finding.
+        from .cli import read_installed
+
+        harness, installed = read_installed(args.plugin_list)
+        print(json.dumps(gather(root, installed, harness), indent=2, sort_keys=True))
+        return 0
     if args.action == "status":
         print(
             json.dumps(

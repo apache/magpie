@@ -364,7 +364,7 @@ per machine and project after each Magpie version change:
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
 | `committer-onboarding` | One post-vote onboarding walkthrough | 10K–30K | Mostly procedural; podling vs TLP path length | Not measured |
-| `setup-upgrade` | One post-upgrade check, plan and approved apply | 15K–40K | Skill body is 6,635 tokens (`measured_tokens`); the rest is the state gather and one Bash call per applied item. Estimated. | Not measured |
+| `setup-upgrade` | One post-upgrade check, plan and approved apply | 20K–50K | Skill body is 7,224 tokens (`measured_tokens`). Gather reads only the catalogue sections `setup_preflight.upgrade gather` calls for: about 9K tokens on a marketplace or self-adopted install, 19K on a snapshot, plus 23K when the isolated setup changed or is due a check (all whole catalogues, about 58K, before). The rest is one Bash call per applied item. Estimated. | Not measured |
 
 ---
 

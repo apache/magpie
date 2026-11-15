@@ -235,6 +235,15 @@ otherwise read from the generated `isolated_fingerprint.py`, which the
 `python3 -m setup_preflight.isolated record-update | record-reminder`
 writes the stamp.
 
+`python3 -m setup_preflight.upgrade gather` prints, read-only, what
+`setup-upgrade` decides its catalogue reads from: `layers`, `configured`,
+the `install` branch (`local`, `marketplace`, `snapshot`, `none`),
+`listing_known`, the project-scope findings, `shadowed` (personal files with
+a committed file of the same path, and whether they are identical) and
+`isolated` (`state`, `changed` since the last recorded update run, `due`,
+and `attention`, the two combined for a setup in use).
+A reminder that was only shown does not count as a check that ran.
+
 **`end-of-run`** is the periodic `/magpie-setup:setup verify` suggestion, which
 is settled when the run finishes rather than before it starts.
 
