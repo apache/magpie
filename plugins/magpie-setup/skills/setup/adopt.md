@@ -536,7 +536,9 @@ configuration now covers, resolved the same way
 [`reconcile.md`'s sweep](reconcile.md#the-sweep) enumerates scope — a
 skill named by a file under `.apache-magpie-overrides/` (a config file
 matching one of that skill's `requires_config:` entries, from 4a/4b, or
-an override file named `<skill>.md`, from 4c). Nothing this run did not
+an override file named `<override-name>.md`, from 4c — the filename
+the skill's own *Adopter overrides* block names, as the sweep defines
+it). Nothing this run did not
 just configure or override enters the stamp this way; the migration above
 is the one exception, since it carries over what `config` already
 recorded regardless of whether 4a/4b/4c touched that skill on this run.
