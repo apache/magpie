@@ -98,6 +98,12 @@ function createMockEngine(overrides: any = {}): any {
     exists: async (path: string) => {
       return files.has(path);
     },
+    // The mod harness's shape, not Node's `Stats`: what the path leads to, and
+    // whether the path itself is a link.
+    stat: async (path: string) => {
+      if (files.has(path)) return { kind: 'file', size: files.get(path)!.length, mtimeMs: 0, isLink: false };
+      throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+    },
     _files: files,
   };
   return {
@@ -2280,6 +2286,7 @@ End of observations.
       const failingTest$ = createMockEngine({
         fs: {
           exists: async () => true,
+          stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: false }),
           read: async () => '[]',
           write: async (path: string, content: string) => {
             if (path.endsWith('.keep')) {
@@ -2716,14 +2723,14 @@ End of observations.
       assertStrictEqual(match2, undefined);
     });
 
-    test('syncCuratedStateToDisk refuses to write to symlinks or non-regular files', async () => {
+    test('syncCuratedStateToDisk refuses to write through a symbolic link to a regular file', async () => {
       const test$ = createMockEngine({
         fs: {
           stat: async (p: string) => {
             if (p.endsWith('.curated.json')) {
-              return { isFile: () => false, isSymbolicLink: () => true };
+              return { kind: 'file', size: 0, mtimeMs: 0, isLink: true };
             }
-            return { isFile: () => true, isSymbolicLink: () => false };
+            return { kind: 'file', size: 0, mtimeMs: 0, isLink: false };
           },
         },
       });
@@ -2749,9 +2756,9 @@ End of observations.
         fs: {
           stat: async (p: string) => {
             if (p.endsWith('.curated.json')) {
-              return { isFile: () => false, isSymbolicLink: () => true };
+              return { kind: 'file', size: 0, mtimeMs: 0, isLink: true };
             }
-            return { isFile: () => true, isSymbolicLink: () => false };
+            return { kind: 'file', size: 0, mtimeMs: 0, isLink: false };
           },
         },
       });
@@ -2764,6 +2771,71 @@ End of observations.
 
       assertStrictEqual(await test$.fs.read('/work/saved/findings.json.curated.json'), 'symlink_target');
       assertStrictEqual(await test$.fs.read('/work/saved/findings.json.curated.keep'), 'INVALIDATED');
+    });
+
+    test('syncCuratedStateToDisk refuses a dangling link and a directory', async () => {
+      for (const shape of [
+        { kind: 'other', size: 0, mtimeMs: 0, isLink: true },
+        { kind: 'dir', size: 0, mtimeMs: 0, isLink: false },
+      ]) {
+        const test$ = createMockEngine({
+          fs: {
+            stat: async (p: string) => {
+              if (p.endsWith('.curated.keep')) return shape;
+              throw Object.assign(new Error(`ENOENT: ${p}`), { code: 'ENOENT' });
+            },
+          },
+        });
+        test$.fs._files.set('/work/saved/findings.json', '[]');
+        const state: ReviewFindingsState = {
+          prNumber: 42,
+          findingsPath: '/work/saved/findings.json',
+          findings: [{ id: 'f1', file: 'a.py', line: 1, severity: 'minor', body: 'A', action: 'accept' }],
+          summary: calculateSummary([]),
+          selectedIndex: 0,
+        };
+        const res = await syncCuratedStateToDisk(test$, state);
+        assertStrictEqual(res.success, false);
+        assert(!test$.fs._files.has('/work/saved/findings.json.curated.keep'));
+      }
+    });
+
+    test('syncCuratedStateToDisk fails closed when stat fails for another reason', async () => {
+      const test$ = createMockEngine({
+        fs: {
+          stat: async () => {
+            throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+          },
+        },
+      });
+      test$.fs._files.set('/work/saved/findings.json', '[]');
+      const state: ReviewFindingsState = {
+        prNumber: 42,
+        findingsPath: '/work/saved/findings.json',
+        findings: [{ id: 'f1', file: 'a.py', line: 1, severity: 'minor', body: 'A', action: 'accept' }],
+        summary: calculateSummary([]),
+        selectedIndex: 0,
+      };
+      const res = await syncCuratedStateToDisk(test$, state);
+      assertStrictEqual(res.success, false);
+      assert(!test$.fs._files.has('/work/saved/findings.json.curated.json'));
+    });
+
+    test('cleanCuratedFindingsFiles does not write through a dangling link', async () => {
+      const written: string[] = [];
+      const test$ = createMockEngine({
+        fs: {
+          stat: async (p: string) => {
+            if (p.endsWith('.curated.json')) return { kind: 'other', size: 0, mtimeMs: 0, isLink: true };
+            throw Object.assign(new Error(`ENOENT: ${p}`), { code: 'ENOENT' });
+          },
+          write: async (p: string) => {
+            written.push(p);
+          },
+        },
+      });
+      await cleanCuratedFindingsFiles(test$, '/work/saved/findings.json');
+      assertStrictEqual(written.length, 0);
     });
   });
 });

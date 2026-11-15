@@ -1030,6 +1030,33 @@ export function getCuratedFindingsPaths(originalPath: string): {
 }
 
 /**
+ * What stands at a path the mod is about to write, judged on the shape
+ * `$.fs.stat` resolves with in the mod harness: `{ kind, size, mtimeMs, isLink }`
+ * (not Node's `Stats`). `isLink` describes the path itself and `kind` what it
+ * leads to, so a link to a regular file and a link that leads nowhere are both
+ * `unsafe`. Only a missing path (`ENOENT`) is `missing`; any other stat failure
+ * is `unsafe`, so the write fails closed. `$.fs.exists` is not consulted: it
+ * answers for what the path leads to, which says nothing about a link that
+ * leads nowhere.
+ */
+export type WriteTarget = 'missing' | 'regular' | 'unsafe';
+
+function isNotFound(err: any): boolean {
+  return err?.code === 'ENOENT' || /ENOENT/.test(String(err?.message ?? err));
+}
+
+export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
+  let stat: any;
+  try {
+    stat = await $.fs.stat(path);
+  } catch (err: any) {
+    return isNotFound(err) ? 'missing' : 'unsafe';
+  }
+  if (!stat || stat.isLink !== false || stat.kind !== 'file') return 'unsafe';
+  return 'regular';
+}
+
+/**
  * Marks curated findings files (.curated.json and .curated.keep) as invalidated.
  * Called when findings become empty, stale, or during cleanup after write failures.
  * Only writes invalidation markers if curated sidecar files already exist on disk,
@@ -1042,39 +1069,11 @@ export async function cleanCuratedFindingsFiles(
   if (!originalPath) return;
   try {
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(originalPath);
-    let jsonExists = false;
-    let keepExists = false;
-    try {
-      jsonExists = await $.fs.exists(curatedJsonPath);
-    } catch {
-      jsonExists = false;
-    }
-    try {
-      keepExists = await $.fs.exists(curatedKeepPath);
-    } catch {
-      keepExists = false;
-    }
-
-    if (!jsonExists && !keepExists) {
-      return;
-    }
-
-    let jsonIsRegular = jsonExists;
-    if (jsonExists) {
-      try {
-        const stat = await $.fs.stat(curatedJsonPath);
-        const isSymlink =
-          stat &&
-          ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
-            stat.isSymbolicLink === true ||
-            (typeof stat.isFile === 'function' && !stat.isFile()));
-        // A symlinked or non-regular sidecar is left alone; the keep file is still invalidated.
-        if (isSymlink) jsonIsRegular = false;
-      } catch {
-        // fail-open
-      }
-    }
-    if (jsonIsRegular) {
+    // Only a sidecar that already exists as a regular file is overwritten: a
+    // missing one needs no marker, and a link or anything else is left alone.
+    const jsonTarget = await classifyWriteTarget($, curatedJsonPath);
+    const keepTarget = await classifyWriteTarget($, curatedKeepPath);
+    if (jsonTarget === 'regular') {
       const invalidEnvelope: CuratedFindingsPayload = {
         schema_version: 1,
         pr: null,
@@ -1084,18 +1083,7 @@ export async function cleanCuratedFindingsFiles(
       };
       await $.fs.write(curatedJsonPath, JSON.stringify(invalidEnvelope, null, 2));
     }
-    if (keepExists) {
-      try {
-        const stat = await $.fs.stat(curatedKeepPath);
-        const isSymlink =
-          stat &&
-          ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
-            stat.isSymbolicLink === true ||
-            (typeof stat.isFile === 'function' && !stat.isFile()));
-        if (isSymlink) return;
-      } catch {
-        // fail-open
-      }
+    if (keepTarget === 'regular') {
       await $.fs.write(curatedKeepPath, 'INVALIDATED');
     }
   } catch {
@@ -1143,24 +1131,11 @@ export async function syncCuratedStateToDisk(
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(state.findingsPath);
 
     for (const targetPath of [curatedJsonPath, curatedKeepPath]) {
-      try {
-        const exists = await $.fs.exists(targetPath);
-        if (exists) {
-          const stat = await $.fs.stat(targetPath);
-          const isSymlink =
-            stat &&
-            ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
-              stat.isSymbolicLink === true ||
-              (typeof stat.isFile === 'function' && !stat.isFile()));
-          if (isSymlink) {
-            return {
-              success: false,
-              error: `Refusing to write to symlink or non-regular file: ${targetPath}`,
-            };
-          }
-        }
-      } catch {
-        // fail-open
+      if ((await classifyWriteTarget($, targetPath)) === 'unsafe') {
+        return {
+          success: false,
+          error: `Refusing to write to symlink or non-regular file: ${targetPath}`,
+        };
       }
     }
 
