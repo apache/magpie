@@ -202,7 +202,7 @@ A family plugin owns its skills as **real directories** under
 `plugins/magpie-<family>/skills/`. The flat `skills/<skill>` tree every path in
 this repository has always used is the mirror: each entry is a symlink pointing
 back into the plugin that owns it. Nothing is vendored and no skill exists
-twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
+twice — [PRINCIPLES §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies) holds.
 
 > [!IMPORTANT]
 > **The direction matters, and it was measured, not inferred.** It used to run

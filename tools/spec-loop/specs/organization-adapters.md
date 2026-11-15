@@ -147,7 +147,7 @@ identical "ASF default" values in its own `project.md`.
 - Replacing the per-family `asf: true/false` metadata with an optional
   family-level `organization:` scope — a follow-up.
 - Any runtime fetch/install of externally-defined adapters (discovery
-  only; see PRINCIPLES §13).
+  only; see PRINCIPLES §14).
 
 ## Acceptance criteria
 

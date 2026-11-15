@@ -33,7 +33,7 @@ your adapter supplies the concrete backend. This guide is the how-to; the
 | **License** | Apache-2.0 ([§18](../../PRINCIPLES.md#18-contributions-land-under-apache-license-20)) | yours | the author's |
 | **Who reuses it** | every adopter on that backend | your project | anyone who wires it in |
 | **Discovery** | shipped in-tree | committed in your repo | optionally listed in the [registry](registry.md) |
-| **Install** | part of the snapshot | committed override | you wire it in deliberately — never auto-fetched ([§14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)) |
+| **Install** | ships with the framework | committed override | you wire it in deliberately — never auto-fetched ([§14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)) |
 
 All three are first-class. Contribute upstream when the backend is one
 other projects share; keep it in your adopter repo when it is specific to
