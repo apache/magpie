@@ -108,9 +108,19 @@ diff against. That costs the *report* some precision, not the check:
 two questions are answerable from the current tree alone, with no
 baseline required.
 
+**An override file is named by the skill's override name, not its
+`name:`.** `<override-name>` below is the filename the skill's own
+*Adopter overrides* block names (`release-verify-rc` for `verify-rc`,
+`security-issue-triage` for `issue-triage`), the same mapping
+`setup_preflight.delegation.override_name()` applies. Looking for
+`<name>.md` instead misses every prefixed override, so those skills
+drop out of scope and their anchors are never checked. Both layers are
+read: an override in the personal layer counts exactly like a
+committed one.
+
 1. **Enumerate the scope.** A skill is in scope when an **override
-   file names it** (`.apache-magpie-overrides/<skill>.md` or
-   `<skill>.md` in the personal layer), **or** when one of its
+   file names it** (`.apache-magpie-overrides/<override-name>.md` or
+   `<override-name>.md` in the personal layer), **or** when one of its
    `requires_config:` entries **resolves** from the personal layer
    or `.apache-magpie-overrides/`. A project that supplies a skill's
    configuration has configured that skill, whether or not it also
@@ -122,8 +132,8 @@ baseline required.
    widely-read `project.md`.
 
 2. **Anchor resolution.** For every override file
-   (`.apache-magpie-overrides/<skill>.md` or
-   `<skill>.md` in the personal layer), read the target skill's
+   (`.apache-magpie-overrides/<override-name>.md` or
+   `<override-name>.md` in the personal layer), read the target skill's
    `SKILL.md` **and every sibling `*.md` detail file directly inside
    that skill's directory** (a multi-file skill such as `setup` or
    `pr-management-triage` keeps steps and golden rules in those detail
@@ -228,7 +238,7 @@ List every finding from checks 2–3a as a numbered proposal, one item per
 override, `requires_config` gap, or missing import caller grant or required label:
 
 ```text
-1. .apache-magpie-overrides/issue-triage.md anchors to
+1. .apache-magpie-overrides/security-issue-triage.md anchors to
    "Step 3 — Classify the disposition", renamed to
    "Step 3 — Read the report and classify" in magpie-security-issue-triage.
    → re-anchor the override to the new heading.
