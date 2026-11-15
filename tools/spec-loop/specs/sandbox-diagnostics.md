@@ -168,6 +168,15 @@ error, and two skills that probe or verify the setup on demand.
   in the harness, ⚠). Check 9 also fails a vetted-ops rule that
   spells the versioned plugin-cache path with a `*`, since the rule must
   name `~/.claude/magpie/vetted-ops` (#1406).
+  The mechanical checks run as code: `setup_preflight.isolated_verify`
+  (in the `setup_preflight` package, `tools/setup-preflight`) decides
+  checks 1 to 6, the static half of 8, and 11, and evaluates the
+  conditions of 9, 10, 12, 13, 15, 16, 17 and 19, printing one finding
+  per check (`pass`, `fail`, `warn`, `n/a`, `unchecked`, `unknown`,
+  `manual`) with its evidence. Read-only, no network. An input it cannot
+  read inside the sandbox is `unknown` with the path, and the skill
+  finishes that check by hand from `manual-checks.md`, which also holds
+  the full rules for a run without the checker.
   Checks are written to catch false passes (#1808): check 1 evaluates the
   merged project, project-local and user settings, requires the home
   `denyRead` entry, and names the file each key came from; check 7a probes
@@ -293,6 +302,7 @@ error, and two skills that probe or verify the setup on demand.
 uv run --project tools/agent-isolation --group dev python -m pytest \
   tools/agent-isolation/tests/test_sandbox_error_hint.py
 bash -n tools/agent-isolation/sandbox-error-hint.sh
+uv run --directory tools/setup-preflight --project . python -m pytest tests/test_isolated_verify.py
 prek run lychee --files docs/setup/sandbox-troubleshooting.md docs/setup/secure-agent-setup.md
 # every hook anchor must exist as a heading in the catalog
 python3 - <<'PY'

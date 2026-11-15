@@ -1,0 +1,46 @@
+{
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled true, deny/ask lists, allowedDomains and filesystem allowlists present, denyRead covers ~/ (.claude/settings.json)"
+    },
+    {
+      "n": 2,
+      "status": "✓",
+      "evidence": "PreToolUse Bash → sandbox-bypass-warn.sh; PostToolUse Bash → sandbox-error-hint.sh; statusLine → sandbox-status-line.sh"
+    },
+    {
+      "n": 3,
+      "status": "✓",
+      "evidence": "all three hook scripts present and executable"
+    },
+    {
+      "n": 4,
+      "status": "✓",
+      "evidence": "~/.bashrc sources ~/.claude/scripts/agent-iso.sh; alias claude='claude-iso' set"
+    },
+    {
+      "n": 5,
+      "status": "✗",
+      "evidence": "claude-code 2.1.150 is below the min_version floor 2.1.202 under Claude Code: hard fail, upgrade and re-run"
+    },
+    {
+      "n": 6,
+      "status": "✓",
+      "evidence": "effective sandbox.enabled true from .claude/settings.json: [sandbox]"
+    },
+    {
+      "n": 8,
+      "status": "✓",
+      "evidence": "/home/alice/myrepo in allowRead and allowWrite of .claude/settings.local.json; live read of .git/HEAD and write probe OK"
+    },
+    {
+      "n": 11,
+      "status": "✓",
+      "evidence": "\"gh *\" in sandbox.excludedCommands (.claude/settings.json); no catch-all gh ask rule"
+    }
+  ],
+  "hard_stop": true,
+  "ask_for_framework_path": false
+}

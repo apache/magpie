@@ -257,6 +257,9 @@ committed version with drift detection.
   tests and CI job; its `src/setup_preflight` is a symlink inward to the
   plugin's package, and `check-family-plugins.py` fails when the package
   leaves the plugin or the mirror link drifts.
+  The package also carries `isolated_verify`, the read-only checker
+  `setup-isolated-setup-verify` runs for its mechanical checks, so it ships
+  wherever the pre-flight checker does.
 - Project templates: `plugins/magpie-setup/templates/` (#1410), the
   scaffold `setup config` copies adopter configuration from.
   `projects/_template` is a symlink to it, so older paths keep resolving;

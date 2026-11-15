@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/setup-isolated-setup-verify/SKILL.md",
+  "step_heading": "## The checks",
+  "also_include": [
+    "skills/setup-isolated-setup-verify/manual-checks.md"
+  ]
+}

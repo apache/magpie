@@ -3859,6 +3859,12 @@ broken, the command prints the secret.
 
 ### Via a Claude Code prompt
 
+The `setup-isolated-setup-verify` skill runs the list below, with the mechanical checks
+(1 to 6, the static half of 8, 11, and the conditions of the optional ones)
+decided by a read-only checker, `python3 -P -m setup_preflight.isolated_verify check`
+([`tools/setup-preflight`](../../tools/setup-preflight/README.md#isolated-setup-verification)).
+The prompt is the by-hand path.
+
 Paste the following into Claude Code at the start of a fresh
 session in the tracker repo. Claude walks every install step and
 reports what is wired vs missing, without trying to fix anything
