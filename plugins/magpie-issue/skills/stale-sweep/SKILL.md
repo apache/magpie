@@ -8,25 +8,19 @@ requires_config:
   - issue-tracker-config.md
   - project.md
 description: |
-  Sweep open `<issue-tracker>` issues for inactivity past a
-  configurable threshold and propose either a closure (when the
-  issue has been unresponsive long enough to presume abandonment) or
-  an update request (nudge the reporter to confirm the issue is still
-  relevant). Waits for maintainer confirmation before posting any
-  comment or closing anything.
+  Sweep open `<issue-tracker>` issues inactive past a configurable threshold
+  and propose a closure (presumed abandoned) or an update request nudging
+  the reporter. Posts or closes nothing without maintainer confirmation.
 when_to_use: |
-  Invoke when a maintainer says "sweep stale issues", "close stale
-  issues", "nudge reporters on old issues", or "find issues with no
-  activity for N days". Also appropriate as a periodic backlog-hygiene
-  pass or before a major release cut to reduce open-issue noise. Skip
-  when the goal is to reassess resolved / EOL issues — use
-  `issue-reassess` for that — or when the tracker already has its own
-  automated stale bot configured and the maintainer wants to manage it
-  through that instead.
+  Invoke on "sweep stale issues", "close stale issues", "nudge reporters on
+  old issues", "find issues with no activity for N days", or as periodic
+  backlog hygiene, e.g. before a release cut. Skip to reassess resolved /
+  EOL issues (use `issue-reassess`), or when the tracker's own stale bot
+  handles it.
 capability: capability:triage
 surface_hash: sha256:65673690910c37f0
 license: Apache-2.0
-measured_tokens: 5325
+measured_tokens: 5255
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

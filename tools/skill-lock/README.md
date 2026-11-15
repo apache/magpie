@@ -110,8 +110,10 @@ inside the sandbox and needs no exclusion: it touches only the lock directory.
 
 ## How skills use it
 
-The shared prose block [`tools/dev/blocks/write-lock.md`](../dev/blocks/write-lock.md)
-is propagated into the write step of every batch skill that posts:
+The shared prose block [`tools/dev/blocks/write-lock-detail.md`](../dev/blocks/write-lock-detail.md)
+is propagated into the write step of every batch skill that posts
+(where that step sits in `SKILL.md`, as a sibling `write-lock.md` that the
+[`write-lock.md`](../dev/blocks/write-lock.md) pointer block names):
 `issue-triage`, `security-issue-triage`, `issue-stale-sweep`,
 `pr-stale-sweep`, `pr-management-triage` and `good-first-issue-sweep`.
 Read-only skills take no lock. The block says: acquire before the first

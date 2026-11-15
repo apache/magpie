@@ -6,24 +6,22 @@ family: setup
 mode: Meta
 description: >-
   Install Magpie, configure it for yourself, or adopt it for a repo.
-  Installing touches only this machine; configuring writes gitignored
-  local files; adopting commits a floor and the project's configuration
-  for every contributor. Marketplace by default, pinned snapshot as
-  fallback.
+  Installing touches only this machine; configuring writes gitignored local
+  files; adopting commits a floor and the project's configuration for every
+  contributor. Marketplace by default, pinned snapshot as fallback.
 when_to_use: >-
-  When the user wants Magpie installed, verified, uninstalled, or
-  checked for drift. "Upgrade magpie" goes to the `setup-upgrade`
-  skill, which runs `update` itself when the version has to move. "Configure magpie for me", or a skill's
-  pre-flight asking for project configuration, goes to `config`: it
-  writes gitignored files and needs nobody's permission. "Adopt magpie
-  for this repo" goes to `adopt`: it commits files for every
-  contributor and is not an install. A welcome guide request goes
-  to the `welcome-guide` skill.
+  When the user wants Magpie installed, verified, uninstalled, or checked
+  for drift. "Upgrade magpie" goes to `setup-upgrade`, which runs `update`
+  itself when needed. "Configure magpie for me", or a pre-flight asking for
+  project configuration, goes to `config`: gitignored files, nobody's
+  permission needed. "Adopt magpie for this repo" goes to `adopt`: it
+  commits files for every contributor and is not an install. A welcome guide
+  goes to `welcome-guide`.
 argument-hint: "[install|config|adopt|unadopt|update|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
 surface_hash: sha256:7915f16976882871
 license: Apache-2.0
-measured_tokens: 5450
+measured_tokens: 5431
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

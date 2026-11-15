@@ -9,26 +9,24 @@ requires_config:
   - pr-management-quick-merge-config.md
   - project.md
 description: |
-  Identify trivial, low-risk PRs in the `ready for maintainer review` queue
-  of <upstream> that pass every quality gate and touch only supplementary
-  areas (docs, changelog, translations, tests) — the "express lane".
-  Surfaces and ranks candidates with per-PR diff summaries, an
-  all-gates-green attestation, and the exact merge command. On explicit
-  per-PR confirmation it can submit an APPROVE review, exactly as
-  pr-management-code-review does. It never merges itself — automated merge
-  is the deliberately-deferred Agentic Autonomous mode.
+  Find trivial, low-risk PRs in the `ready for maintainer review` queue of
+  <upstream> that pass every quality gate and touch only supplementary areas
+  (docs, changelog, translations, tests): the express lane. Ranks them with
+  a diff summary, an all-gates-green attestation and the exact merge
+  command; on per-PR confirmation it can APPROVE, as
+  pr-management-code-review does. Never merges itself.
 when_to_use: |
   Invoke on "what can I merge quickly", "show me the easy wins", "any
-  trivial PRs ready to merge", "quick-merge candidates", or "clear the
-  easy ready PRs". Run after `pr-management-triage`; alongside
-  `pr-management-code-review` (non-trivial remainder).
+  trivial PRs ready to merge", "quick-merge candidates", or "clear the easy
+  ready PRs". Run after `pr-management-triage`, alongside
+  `pr-management-code-review` for the non-trivial rest.
 argument-hint: "[repo:owner/name] [tier:A|B] [max-churn:N] [clear-cache]"
 capability:
   - capability:triage
   - capability:review
 surface_hash: sha256:99ac70a7b7f1228c
 license: Apache-2.0
-measured_tokens: 3333
+measured_tokens: 3305
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -9,7 +9,7 @@ mode: infra
 source: >
   Two overlapping runs of one batch skill over one repository post the
   same comment or label twice. Implemented by tools/skill-lock/ and the
-  shared prose block tools/dev/blocks/write-lock.md propagated into the
+  shared prose blocks tools/dev/blocks/write-lock*.md propagated into the
   write step of issue-triage, security-issue-triage, issue-stale-sweep,
   pr-stale-sweep, pr-management-triage and good-first-issue-sweep.
 acceptance:
@@ -56,15 +56,20 @@ not prevented, by the re-read of each item just before its write.
   `~/.claude/magpie/skill-lock`, and skills run it with
   `uvx --from ~/.claude/magpie/skill-lock skill-lock …` because the plugin
   cache is read-only.
-- `tools/dev/blocks/write-lock.md`: the shared prose block, propagated by
-  `tools/dev/check-shared-blocks.py --fix` into the write step of each
-  batch skill, with `{override_name}` rendered to the skill's own name.
+- `tools/dev/blocks/write-lock-detail.md` and `write-lock.md`: the shared
+  prose blocks, propagated by `tools/dev/check-shared-blocks.py --fix`, with
+  `{override_name}` rendered to the skill's own name. The first is the rule;
+  the second is a pointer, used where the write step sits in `SKILL.md`,
+  that says to read the skill's sibling `write-lock.md` (which carries the
+  rule) before the step's first write.
 - `skills/issue-triage/compose-and-post.md`,
   `skills/issue-stale-sweep/posting-and-close.md`,
-  `skills/pr-management-triage/interaction-loop.md`,
+  `skills/pr-management-triage/interaction-loop.md`: the rule, inline in the
+  detail file their write step already loads.
   `skills/security-issue-triage/SKILL.md`, `skills/pr-stale-sweep/SKILL.md`,
-  `skills/good-first-issue-sweep/SKILL.md`: the propagated copies, at the
-  "post sequentially" / "apply" / "execute" step.
+  `skills/good-first-issue-sweep/SKILL.md`: the pointer, at the
+  "post sequentially" / "apply" step, with the rule in each skill's sibling
+  `write-lock.md`.
 - `docs/labels-and-capabilities.md`: the `substrate:action-guard` row for
   the tool.
 
@@ -132,8 +137,9 @@ not prevented, by the re-read of each item just before its write.
 6. On every install, including a marketplace install without the security
    family, `~/.claude/magpie/skill-lock` resolves to a copy of the tool shipped
    in `magpie-vetted-ops`, and the block invokes it through that path.
-7. Every batch skill that writes carries the propagated `write-lock`
-   block at its write step, rendered with its own skill name, and
+7. Every batch skill that writes carries the propagated `write-lock-detail`
+   block at its write step, or the `write-lock` pointer there and the rule
+   in its sibling `write-lock.md`, rendered with its own skill name, and
    `check-shared-blocks.py` reports no drift.
 
 ## Validation

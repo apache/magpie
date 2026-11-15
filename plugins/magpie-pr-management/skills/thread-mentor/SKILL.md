@@ -8,24 +8,23 @@ requires_config:
   - project.md
   - mentoring-config.md
 description: |
-  Draft a teaching-register comment on a GitHub issue or PR thread on the
-  configured `<upstream>` repo, aimed at a contributor missing context the
-  maintainer would spell out. Reads the thread, decides
-  whether an intervention is warranted, drafts one comment per the tone
-  guide and convention pointers, and waits for explicit confirmation before
-  posting via `gh`. Escalates on the four hand-off triggers.
+  Draft one teaching-register comment on a GitHub issue or PR thread on
+  `<upstream>` for a contributor missing context a maintainer would spell
+  out. Decides whether to intervene, follows the tone guide and convention
+  pointers, posts via `gh` only on explicit confirmation, and escalates on
+  the four hand-off triggers.
 when_to_use: |
   Invoke on "mentor PR NNN", "help the reporter on issue NNN", "draft a
-  clarifying comment for NNN", or "explain the convention to this
-  contributor on NNN"; also after `pr-management-triage` flags a "first
-  contributor, missing repro / convention" PR. Skip when a PR is mid-review
-  with a maintainer, the thread is security-sensitive, or the maintainer
-  has *deliberately* not replied yet — ask before invoking.
+  clarifying comment for NNN", "explain the convention to this contributor
+  on NNN", or after `pr-management-triage` flags a first-time contributor
+  missing repro or convention. Skip when a maintainer is mid-review or the
+  thread is security-sensitive; ask first if the maintainer may be
+  deliberately holding off.
 argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:bdf8343d503d01ef
 license: Apache-2.0
-measured_tokens: 2956
+measured_tokens: 2927
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

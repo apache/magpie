@@ -8,25 +8,21 @@ requires_config:
   - milestones.md
   - scanner-products.md
 description: |
-  Synchronize a security issue in <tracker> with the state of its
-  GitHub discussion, the <security-list> mailing thread, and any
-  <upstream> PRs that fix it. The skill gathers all relevant signals
-  and proposes label / milestone / assignee / field / draft-email
-  updates — applying only what the user has explicitly confirmed.
-  Suggests the next step in the handling process and prints the CVE
-  allocation link when a CVE is needed.
+  Synchronize a security issue in <tracker> with its GitHub discussion, the
+  <security-list> thread, and any <upstream> fix PRs. Proposes label /
+  milestone / assignee / field / draft-email updates and applies only what
+  the user confirms; suggests the next step and prints the CVE allocation
+  link when a CVE is needed.
 when_to_use: |
-  Invoke when a security team member says "sync issue NNN", "refresh the
-  state of issue NNN", "update issue NNN from the thread", or "walk me
-  through issue NNN". Also appropriate as part of a recurring triage sweep
-  where the team member wants to reconcile a batch of open issues with the
-  current state of the world. For ASF projects, "sync dashboard" reconciles
-  the tracker with dash.security.apache.org.
+  Invoke on "sync issue NNN", "refresh the state of issue NNN", "update
+  issue NNN from the thread", "walk me through issue NNN", or to reconcile a
+  batch of open issues in a triage sweep. For ASF projects, "sync dashboard"
+  reconciles the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:3ee6236a0b32e928
 license: Apache-2.0
-measured_tokens: 7023
+measured_tokens: 6972
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

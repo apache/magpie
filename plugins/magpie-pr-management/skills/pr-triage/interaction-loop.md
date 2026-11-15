@@ -254,13 +254,13 @@ Begin once per confirmed action and affected PR, prepare before each GitHub writ
 This also applies to actions with no note, skipped PRs, and every PR closed by `flag-suspicious`.
 Offer `[H]istory` from the group, drill-in, post-action prompt and summary; it never changes `[B]ack to group` navigation.
 
-<!-- BEGIN MAGPIE BLOCK: write-lock — generated from tools/dev/blocks/write-lock.md -->
+<!-- BEGIN MAGPIE BLOCK: write-lock-detail — generated from tools/dev/blocks/write-lock-detail.md -->
 
-**Write lock (one write phase per skill per repository).** The read and
-classify steps above have no side effects and may overlap with any other
+**Write lock (one write phase per skill per repository).** The skill's read
+and classify steps have no side effects and may overlap with any other
 run. Posting does: two overlapping runs of this skill over the same
 repository post the same comment or label twice, which is what makes
-contributors distrust the bot. So before the first write of this step,
+contributors distrust the bot. So before the first write of the write step,
 take the skill's write lock:
 
 ```bash
@@ -296,7 +296,7 @@ serialised; the re-read before each write narrows that window but does
 not close it. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
 
-<!-- END MAGPIE BLOCK: write-lock -->
+<!-- END MAGPIE BLOCK: write-lock-detail -->
 
 On the maintainer's confirmation, run the group's action file (its `docs` list names it).
 Every action re-checks the PR immediately before it mutates — the optimistic lock: the contributor may have pushed while the maintainer was deciding.
