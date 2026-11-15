@@ -169,7 +169,7 @@ def test_the_claude_marker_runs_only_claudes_listing(
         seen.append(list(argv))
         return _listing_ok(argv, '[{"name": "magpie-setup", "version": "0.2.0"}]')
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     assert read_installed(None, {"CLAUDECODE": "1"}) == ("claude", {"magpie-setup": "0.2.0"})
     assert seen == [["claude", "plugin", "list", "--json"]]
 
@@ -185,7 +185,7 @@ def test_the_codex_marker_runs_codex_listing_with_its_json_flag(
         seen.append(list(argv))
         return _listing_ok(argv, '[{"name": "magpie-setup", "version": "0.3.1"}]')
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     assert read_installed(None, {"CODEX_SANDBOX": "1"}) == ("codex", {"magpie-setup": "0.3.1"})
     assert seen == [["codex", "plugin", "list", "--json"]]
 
@@ -207,13 +207,13 @@ def test_the_antigravity_marker_runs_agy_listing_and_skips_unversioned_plugins(
         seen.append(list(argv))
         return _listing_ok(argv, json.dumps(AGY_LISTING))
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     assert read_installed(None, {"ANTIGRAVITY_CONVERSATION_ID": "c1"}) == ("antigravity", {"magpie": "0.2.0"})
     assert seen == [["agy", "plugin", "list", "--json"]]
 
 
 def test_an_unversioned_entry_still_breaks_another_harness_listing() -> None:
-    from setup_preflight.cli import _parse_listing
+    from setup_preflight.installed import _parse_listing
 
     assert _parse_listing(json.dumps(AGY_LISTING), "claude") is None
 
@@ -230,7 +230,7 @@ def test_the_innermost_marker_wins_when_two_harnesses_inherit(
         seen.append(list(argv))
         return _listing_ok(argv, '[{"name": "magpie", "version": "0.2.0"}]')
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     harness, _ = read_installed(None, {"CLAUDECODE": "1", "CODEX_THREAD_ID": "t"})
     assert harness == "codex"
     assert seen == [["codex", "plugin", "list", "--json"]]
@@ -245,7 +245,7 @@ def test_no_marker_is_unknown_and_no_listing_runs(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise AssertionError("no listing may run without a detected harness")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {}) == (None, None)
 
 
@@ -258,7 +258,7 @@ def test_the_copilot_marker_is_unknown_without_a_listing_cli(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise AssertionError("copilot has no listing command to run")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"COPILOT_CLI": "1"}) == (None, None)
 
 
@@ -272,7 +272,7 @@ def test_the_pi_marker_is_unknown_without_a_versioned_listing(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise AssertionError("pi has no versioned listing to run")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"PI_SESSION_ID": "s1"}) == (None, None)
     assert read_installed(None, {"PI_SESSION_ID": "s1", "CLAUDECODE": "1"}) == (None, None)
 
@@ -286,7 +286,7 @@ def test_the_goose_marker_runs_no_listing_and_wins_over_an_inherited_claude(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise AssertionError("goose has no versioned listing to run")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"AGENT_SESSION_ID": "s1"}) == (None, None)
     assert read_installed(None, {"AGENT_SESSION_ID": "s1", "CLAUDECODE": "1"}) == (None, None)
 
@@ -300,7 +300,7 @@ def test_a_specific_harness_marker_wins_over_goose_s_generic_one(
         seen.append(list(argv))
         return subprocess.CompletedProcess(argv, 0, '{"installed": []}', "")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     read_installed(None, {"AGENT_SESSION_ID": "s1", "CODEX_THREAD_ID": "t"})
     assert seen == [["codex", "plugin", "list", "--json"]]
 
@@ -314,7 +314,7 @@ def test_a_timeout_of_the_running_harness_is_unknown(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise subprocess.TimeoutExpired(cmd=["claude"], timeout=20)
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"CLAUDECODE": "1"}) == (None, None)
 
 
@@ -327,7 +327,7 @@ def test_a_refused_binary_of_the_running_harness_is_unknown(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise PermissionError("sandbox denies execution")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"CLAUDECODE": "1"}) == (None, None)
 
 
@@ -340,7 +340,7 @@ def test_a_missing_binary_of_the_running_harness_is_unknown(
     def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
         raise FileNotFoundError("claude")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", explode)
     assert read_installed(None, {"CLAUDECODE": "1"}) == (None, None)
 
 
@@ -354,7 +354,7 @@ def test_a_failed_listing_of_the_running_harness_is_unknown(
         completed.stdout = ""
         return completed
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     assert read_installed(None, {"CLAUDECODE": "1"}) == (None, None)
 
 
@@ -367,7 +367,7 @@ def test_an_unparsable_listing_of_the_running_harness_is_unknown(
     def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
         return _listing_ok(argv, "magpie-setup 0.3.1 (marketplace)")
 
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    monkeypatch.setattr("setup_preflight.installed.subprocess.run", run)
     assert read_installed(None, {"CLAUDECODE": "1"}) == (None, None)
 
 
@@ -381,7 +381,7 @@ def test_the_finding_names_the_running_harness(
     write_lock(project, MARKETPLACE)
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setattr(
-        "setup_preflight.cli.subprocess.run",
+        "setup_preflight.installed.subprocess.run",
         lambda argv, **_kwargs: _listing_ok(argv, '[{"name": "magpie-setup", "version": "0.1.0"}]'),
     )
     code, payload = run(
@@ -428,7 +428,7 @@ def test_antigravity_plugin_at_or_above_floor_does_not_block(
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
     monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     monkeypatch.setattr(
-        "setup_preflight.cli.subprocess.run",
+        "setup_preflight.installed.subprocess.run",
         lambda argv, **kwargs: _listing_ok(argv, _agy_listing(version)),
     )
     code, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
@@ -442,7 +442,7 @@ def test_antigravity_plugin_below_floor_is_outdated_for_every_family(
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
     monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     monkeypatch.setattr(
-        "setup_preflight.cli.subprocess.run",
+        "setup_preflight.installed.subprocess.run",
         lambda argv, **kwargs: _listing_ok(argv, _agy_listing("0.1.0")),
     )
     _, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
@@ -459,7 +459,7 @@ def test_antigravity_without_a_magpie_plugin_stays_unknown(project: Path, capsys
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
     monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     monkeypatch.setattr(
-        "setup_preflight.cli.subprocess.run",
+        "setup_preflight.installed.subprocess.run",
         lambda argv, **kwargs: _listing_ok(argv, json.dumps([{**AGY_LISTING[1], "name": "other"}])),
     )
     code, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
@@ -497,7 +497,9 @@ def test_codex_live_listing_reads_only_installed_entries(monkeypatch) -> None:
     listing = json.loads(text)
     listing["available"] = [{"name": "magpie-setup", "version": "0.1.0"}]
     text = json.dumps(listing)
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text))
+    monkeypatch.setattr(
+        "setup_preflight.installed.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text)
+    )
     assert read_installed(None, {"CODEX_THREAD_ID": "test"}) == ("codex", {"documents": "26.1015.12040"})
 
 
@@ -505,7 +507,7 @@ def test_codex_envelope_reports_a_below_floor_install(project: Path, capsys, mon
     write_lock(project, MARKETPLACE)
     monkeypatch.setenv("CODEX_THREAD_ID", "test")
     monkeypatch.setattr(
-        "setup_preflight.cli.subprocess.run",
+        "setup_preflight.installed.subprocess.run",
         lambda argv, **kwargs: _listing_ok(
             argv, '{"installed":[{"name":"magpie-setup","version":"0.1.0"}],"available":[]}'
         ),
@@ -527,5 +529,7 @@ def test_codex_envelope_reports_a_below_floor_install(project: Path, capsys, mon
     ],
 )
 def test_unrecognised_or_empty_codex_listing_is_unknown(monkeypatch, text) -> None:
-    monkeypatch.setattr("setup_preflight.cli.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text))
+    monkeypatch.setattr(
+        "setup_preflight.installed.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text)
+    )
     assert read_installed(None, {"CODEX_THREAD_ID": "test"}) == (None, None)

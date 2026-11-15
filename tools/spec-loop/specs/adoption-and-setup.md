@@ -292,7 +292,13 @@ committed version with drift detection.
   runs `setup update` (renamed from `setup upgrade`; the old sub-action name
   routes here) under that flow's own rules; after a marketplace update it asks
   for a restart and a second run. Phase 2 gathers
-  the state of this machine and project, shows one plan grouped **Fix**,
+  the state of this machine and project from `python3 -P -m setup_preflight.upgrade gather`
+  (read-only JSON: `layers`, `configured`, `install` branch, `listing_known`,
+  project-scope findings, `shadowed` personal files, and `isolated` with
+  `state`, `changed`, `due`, `attention`) and reads only the catalogue sections
+  that summary calls for — the isolated-setup catalogues only when
+  `isolated.attention` is true; a checker copy without `gather` reads them all —
+  then shows one plan grouped **Fix**,
   **Update**, **Add**, **Check** (one line per item, `[bypass]` prefix when
   `dangerouslyDisableSandbox: true` is needed), and applies only the approved
   items, one Bash call each.

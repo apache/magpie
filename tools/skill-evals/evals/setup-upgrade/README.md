@@ -5,12 +5,13 @@
 
 Behavioral evals for the `setup-upgrade` skill.
 
-## Suites (18 cases total)
+## Suites (23 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-plan | ## Plan | 14 | mixed groups and bypass marking, hard lines to run-yourself, nothing to do, local-only script lines, linked worktree, non-Claude harness, isolated setup unknown vs absent, settings targets, stale shipped copy vs local edits, no history to compare, per-step install routing, shallow clone, personal layer not created yet |
 | step-apply | ## Apply | 4 | drop applies the rest, changed-since-gathering skip, Check findings go to a second plan, one bypassed call per item |
+| step-gather | ## Gather | 5 | which catalogues the gather summary calls for: isolated setup unchanged, fingerprint changed, update due, opted out, and a checker copy too old to print the summary |
 
 ## Run
 
@@ -32,6 +33,8 @@ uv run --project tools/skill-evals skill-eval \
 - `step-plan/case-5-linked-worktree` pins the main checkout's personal layer path.
 - `step-plan/case-7-isolated-unknown` and `case-8-no-isolated` pin "not known" versus "confirmed absent" for the isolated-setup offer; they also pin the output shape (a `[bypass]` *Check* item and no offer, versus the offer with no items).
 - `step-apply/case-1-drop` reflects that `drop 2,5` applies the rest immediately, with no second round.
+- `step-gather` is a pointer-only step: no sibling file is pasted in, and the output spec names no file, so a case passes only when the `## Gather` text itself routes the read.
+  Its mutation check, run when the suite was added: with the *Isolated setup* row and its attention rule deleted, cases 2, 3 and 5 failed; with the unconditional pre-change Gather, case 1 failed.
 
 ## Run history
 
@@ -42,6 +45,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-15 | `1087814b` (perf/upgrade-gather-reads) | `opus[1m]` | 2 | pass |  |
 | 2026-11-15 | `062c72ed` (perf/optimize-setup-upgrade) | `opus[1m]` | 1 | pass |  |
 | 2026-11-09 | `51e73a33` (upgrade-skill) | `opus[1m]` | 1 | pass |  |
 | 2026-11-05 | `7b6e5bbd` (fix/isolated-configured-user-settings) | `opus[1m]` | 1 | pass |  |

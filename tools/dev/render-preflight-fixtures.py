@@ -200,9 +200,9 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         # Resolve only the fixture's .bat stub; keep harness detection,
         # listing arguments, parsing and the checker itself unchanged.
         launcher = (
-            "from setup_preflight import cli; "
+            "from setup_preflight import cli, installed; "
             f"name = {harness!r}; stub = {str(bin_dir / (harness + '.bat'))!r}; "
-            "[(argv.__setitem__(0, stub)) for h, _, argv in cli.HARNESS_LISTINGS "
+            "[(argv.__setitem__(0, stub)) for h, _, argv in installed.HARNESS_LISTINGS "
             "if h == name and argv is not None]; "
             "raise SystemExit(cli.main())"
         )

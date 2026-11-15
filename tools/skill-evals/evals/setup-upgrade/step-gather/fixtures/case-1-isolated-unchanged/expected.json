@@ -1,0 +1,6 @@
+{
+  "has_install_health": true,
+  "has_isolated_verify": false,
+  "has_isolated_update": false,
+  "has_script_inventory": false
+}

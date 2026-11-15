@@ -1,0 +1,22 @@
+{
+  "has_install_health": {
+    "type": "contains",
+    "field": "files_to_open",
+    "substring": "setup/verify.md"
+  },
+  "has_isolated_verify": {
+    "type": "contains",
+    "field": "files_to_open",
+    "substring": "isolated-setup-verify/"
+  },
+  "has_isolated_update": {
+    "type": "contains",
+    "field": "files_to_open",
+    "substring": "isolated-setup-update/"
+  },
+  "has_script_inventory": {
+    "type": "contains",
+    "field": "files_to_open",
+    "substring": "script-inventory.md"
+  }
+}
