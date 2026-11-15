@@ -107,8 +107,7 @@ the framework's verify check 8d surfaces:
   reason ("just for this session") and easy to forget.
 - **Narrow read-only patterns the framework's skills invoke
   constantly are missing** — the `security` family's Gmail and
-  PonyMail read MCPs, `Bash(vulnogram-api-record-fetch *)`,
-  `Bash(lychee *)`. Pre-allowing them removes the per-call
+  PonyMail read MCPs, `Bash(lychee *)`. Pre-allowing them removes the per-call
   confirmation prompt without expanding the capability surface.
 
 The audit phase is a pure classification — given the allow list +

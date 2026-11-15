@@ -125,13 +125,17 @@ _ASF_PONYMAIL_READ_TOOLS: frozenset[str] = frozenset(
 )
 
 # Organization → family → patterns recommended only to that organization's
-# projects: the ASF's PonyMail archive and its CVE tool
-# mean nothing to a project outside the ASF, so recommending them
-# there would only widen the allow-list.
+# projects: the ASF's PonyMail archive means nothing to a project outside
+# the ASF, so recommending it there would only widen the allow-list.
+#
+# A `Bash(...)` pattern here must match the command a skill actually runs.
+# The security skills reach the ASF CVE tool through
+# `uv run --project <framework>/tools/cve-tool cve-tool fetch …`, whose path
+# differs per install, so no fixed pattern can pre-allow it safely.
 RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
         "release-management": _ASF_PONYMAIL_READ_TOOLS,
-        "security": frozenset(_ASF_PONYMAIL_READ_TOOLS | {"Bash(vulnogram-api-record-fetch *)"}),
+        "security": _ASF_PONYMAIL_READ_TOOLS,
     },
 }
 

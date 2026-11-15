@@ -106,7 +106,7 @@ def test_default_family_always_included_even_when_not_requested():
 
 
 def test_asf_only_recommendations_need_the_asf_organization():
-    """PonyMail and Vulnogram are ASF services."""
+    """PonyMail is an ASF service."""
     asf_only = {
         "mcp__ponymail__auth_status",
         "mcp__ponymail__get_thread",
@@ -114,7 +114,6 @@ def test_asf_only_recommendations_need_the_asf_organization():
         "mcp__ponymail__get_source",
         "mcp__ponymail__list_lists",
         "mcp__ponymail__list_restrictions",
-        "Bash(vulnogram-api-record-fetch *)",
     }
     elsewhere = {f.pattern for f in audit_settings([], ["security"]).missing_recommended}
     independent = {f.pattern for f in audit_settings([], ["security"], "independent").missing_recommended}
@@ -133,6 +132,16 @@ def test_asf_only_recommendations_need_the_asf_organization():
     assert elsewhere == expected_generic
     assert independent == expected_generic
     assert asf == expected_generic | asf_only
+
+
+def test_no_recommendation_for_a_command_the_skills_never_run():
+    """The skills fetch CVE records through `uv run … cve-tool fetch`, never a bare
+    `vulnogram-api-record-fetch`, so recommending that rule left every fetch prompting
+    (and refused in dontAsk mode) while telling adopters it was pre-allowed."""
+    for organization in (None, "independent", "ASF"):
+        for families in ([], ["security"], ["release-management"]):
+            patterns = {f.pattern for f in audit_settings([], families, organization).missing_recommended}
+            assert not {p for p in patterns if "vulnogram-api-" in p}, (organization, families)
 
 
 def _find_family_mcp_allows() -> Path:
