@@ -163,10 +163,10 @@ Grok Build can consume the existing Claude-compatible `magpie-agent-guard` plugi
 The dispatcher selects the Grok protocol from the incoming hook payload shape.
 Neither substrate plugin adds always-on skill context. Pick based on the trade-off between install simplicity and
 always-on token cost (each installed skill advertises a short description to
-the model on **every** turn — see ["always-on" cost](#versioning) below).
+the model on **every** turn — see ["always-on" cost](../mode-economics.md#always-on-skill-tokens)).
 
 Install only the families you use, and the always-on cost stays proportional
-to them: `magpie-security` ≈ 2.0k tokens, `magpie-pairing` ≈ 0.2k. Mixing is
+to them: `magpie-security` ≈ 2.1k tokens, `magpie-pairing` ≈ 0.3k. Mixing is
 the normal case — e.g. `magpie-release-management` + `magpie-security` and
 nothing else. Adding a family later is one more install.
 
@@ -175,22 +175,24 @@ can say so, because it is the floor everything else is managed from.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
-| `magpie-security` | 16 | ~1.2k |
-| `magpie-setup` | 12 | ~0.8k |
-| `magpie-release-management` | 10 | ~0.8k |
-| `magpie-pr-management` | 9 | ~0.8k |
-| `magpie-issue` | 8 | ~0.7k |
-| `magpie-repo-health` | 8 | ~0.7k |
-| `magpie-utilities` | 5 | ~0.4k |
-| `magpie-contributor-growth` | 9 | ~0.6k |
-| `magpie-mentoring` | 4 | ~0.4k |
-| `magpie-pairing` | 2 | ~0.2k |
+| `magpie-security` | 16 | ~2.1k |
+| `magpie-setup` | 12 | ~1.6k |
+| `magpie-release-management` | 10 | ~1.5k |
+| `magpie-pr-management` | 9 | ~1.6k |
+| `magpie-issue` | 8 | ~1.5k |
+| `magpie-repo-health` | 8 | ~1.4k |
+| `magpie-utilities` | 5 | ~0.8k |
+| `magpie-contributor-growth` | 9 | ~1.4k |
+| `magpie-mentoring` | 4 | ~0.7k |
+| `magpie-pairing` | 2 | ~0.3k |
 
 > [!NOTE]
 > **How the token column is measured.** An installed skill advertises its
-> frontmatter `name` and `description` to the model on every turn; the body of
-> `SKILL.md` costs nothing until the skill is actually invoked. The figures
-> above are that advertised surface at ~4 characters per token. Regenerate them
+> frontmatter `name`, `description` and `when_to_use` to the model on every
+> turn; the body of `SKILL.md` costs nothing until the skill is actually
+> invoked. The figures above are that advertised surface at ~4 characters per
+> token, as defined in
+> [Always-on skill tokens](../mode-economics.md#always-on-skill-tokens). Regenerate them
 > with `python3 tools/dev/estimate-skill-tokens.py`; both the counts and the
 > token figures are enforced against the live frontmatter by
 > `tools/dev/check-doc-sync.py`, so a stale number fails the build.

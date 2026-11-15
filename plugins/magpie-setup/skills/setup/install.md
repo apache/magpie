@@ -234,10 +234,10 @@ Three rules for the recommendation:
   goes with every marketplace install. Tick it whenever one of those
   families is ticked, and say so; it adds no always-on context.
 - **Install a family at a time; there is no everything plugin.**
-  Each installed skill advertises its name and description to
-  the model on *every* turn, so all ten families at once would
-  cost ~8.6k always-on tokens whether or not a Magpie skill is
-  used that turn; a family is ~0.2k–2.0k. Per-family works on
+  Each installed skill advertises its name, description and
+  `when_to_use` to the model on *every* turn, so all ten families
+  at once would cost ~13.0k always-on tokens whether or not a
+  Magpie skill is used that turn; a family is ~0.3k–2.1k. Per-family works on
   every supported agent — a family plugin carries its skills as
   real directories, so nothing depends on the client following
   a symlink.

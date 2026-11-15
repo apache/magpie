@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:31626428a2545bce
 license: Apache-2.0
-measured_tokens: 2972
+measured_tokens: 3000
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -192,7 +192,9 @@ skill, not a later cleanup someone may or may not get to.
 
 It checks the new skill against the two budgets in that skill's *What
 counts as small enough*: the body under 5,000 tokens, and
-`description` + `when_to_use` under 200. The second matters most. It is
+the always-on `name` + `description` + `when_to_use` under 200
+([how it is measured](../../../../docs/mode-economics.md#always-on-skill-tokens)).
+The second matters most. It is
 paid in every session, for every skill at once, whether or not anyone
 ever invokes this one — so a wordy description taxes people who will
 never use the skill.

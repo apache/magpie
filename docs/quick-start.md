@@ -122,7 +122,7 @@ whether a family is earning its always-on context.
 > [!IMPORTANT]
 > **There is no install-everything plugin, by design.** Every installed skill
 > advertises itself to the model on every turn, used or not — all ten families
-> at once would be ~8.2k always-on tokens against 0.2–1.9k for a family you
+> at once would be ~13.0k always-on tokens against 0.3–2.1k for a family you
 > picked on purpose. See
 > [Choosing a plugin](setup/marketplace.md#choosing-a-plugin-which-families).
 
