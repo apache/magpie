@@ -1219,9 +1219,13 @@ _register(
             "100",
             "--json",
             "number,title,state,labels,updatedAt,url",
-            # End of options: the query is a positional, whatever it looks like.
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
             "--",
-            query,
+            *query.split(),
         ],
     )
 )
@@ -2289,9 +2293,13 @@ _register(
             "100",
             "--json",
             "number,title,state,author,closedAt,updatedAt,url",
-            # End of options: the query is a positional, whatever it looks like.
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
             "--",
-            query,
+            *query.split(),
         ],
     )
 )
@@ -2311,9 +2319,13 @@ _register(
             "100",
             "--json",
             "path,url",
-            # End of options: the query is a positional, whatever it looks like.
+            # End of options: every word is a positional, whatever it looks like.
+            # One word per argv element: `gh` quotes an element that holds a
+            # space, which would turn "a b" into an exact-phrase search and
+            # miss a title that has both words apart. `query()` has already
+            # refused `:`, so no word can be a qualifier.
             "--",
-            query,
+            *query.split(),
         ],
     )
 )

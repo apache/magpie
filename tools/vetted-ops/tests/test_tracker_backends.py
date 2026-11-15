@@ -318,6 +318,11 @@ def test_github_search_ends_options_before_the_query(tmp_path: Path) -> None:
     argv = ops.OPS["issue-search"].build(config.load(cfg_path).as_mapping(), query="xss")
     assert isinstance(argv, list)
     assert argv[-2:] == ["--", "xss"]
+    # Each word is its own element: `gh` would quote "upload traversal" into
+    # an exact-phrase search and miss "traversal in the upload handler".
+    argv = ops.OPS["issue-search"].build(config.load(cfg_path).as_mapping(), query="upload traversal")
+    assert isinstance(argv, list)
+    assert argv[-3:] == ["--", "upload", "traversal"]
 
 
 def test_a_dash_leading_title_stays_a_value(local_policy: Path, capsys: pytest.CaptureFixture[str]) -> None:

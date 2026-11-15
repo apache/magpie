@@ -1336,7 +1336,23 @@ def test_upstream_search_is_pinned_and_ends_options_before_the_query(
     assert isinstance(argv, list)
     assert argv[:3] == ["gh", "search", kind]
     assert argv[argv.index("--repo") + 1] == "acme/product"
-    assert argv[-2:] == ["--", "credentials redirect"]
+    assert argv[-3:] == ["--", "credentials", "redirect"]
+
+
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+def test_upstream_search_passes_each_word_separately(policy: config.Config, name: str) -> None:
+    """
+    `gh` quotes an argv element that holds a space, so a two-word query passed
+    as one element becomes an exact-phrase search and misses a title with the
+    words apart ("normalise every trailing slash" for "normalise slash").
+    """
+    op = ops.resolve(name)
+    params, _ = cli._validate_params(op, ["normalise   slash"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    tail = argv[argv.index("--") + 1 :]
+    assert tail == ["normalise", "slash"]
+    assert all(" " not in word for word in tail)
 
 
 @pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
