@@ -32,7 +32,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from imap_source.config import ImapConfig
+from imap_source.config import PLAINTEXT_REFUSED, ImapConfig, is_loopback_host, plaintext_connect_host
 
 
 @dataclass(frozen=True)
@@ -79,7 +79,11 @@ class Mailbox:
                 config.host, config.port, ssl_context=ssl.create_default_context()
             )
         else:
-            connection = imaplib.IMAP4(config.host, config.port)
+            # Checked again here, not only in ImapConfig.from_env, so a config
+            # built by hand cannot open a plain connection to a remote host.
+            if not is_loopback_host(config.host):
+                raise ImapOperationError(PLAINTEXT_REFUSED.format(host=config.host))
+            connection = imaplib.IMAP4(plaintext_connect_host(config.host), config.port)
         try:
             connection.login(config.user, config.password)
         except imaplib.IMAP4.error as exc:

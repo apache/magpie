@@ -24,6 +24,7 @@ variables*).
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -37,6 +38,37 @@ DEFAULT_PORT_PLAIN = 143
 
 class ConfigError(SystemExit):
     """Raised when the environment does not declare a usable connection."""
+
+
+def is_loopback_host(host: str) -> bool:
+    """
+    True for ``localhost`` or a literal loopback address (``127.0.0.0/8``, ``::1``).
+
+    The host is matched as written and never resolved: a DNS answer must not
+    be able to make a remote name count as loopback. ``localhost`` itself is
+    pinned to ``127.0.0.1`` when connecting (see ``plaintext_connect_host``).
+    """
+    name = host.strip().lower()
+    if name == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
+
+
+def plaintext_connect_host(host: str) -> str:
+    """
+    The address to open a plain connection to: ``localhost`` becomes
+    ``127.0.0.1`` so the system resolver cannot send it anywhere else.
+    """
+    return "127.0.0.1" if host.strip().lower() == "localhost" else host.strip()
+
+
+PLAINTEXT_REFUSED = (
+    "IMAP_SOURCE_SSL is off, which is allowed only for a loopback host "
+    "(localhost, 127.0.0.0/8 or ::1); got {host!r}. Use TLS for any other server."
+)
 
 
 @dataclass(frozen=True)
@@ -62,6 +94,8 @@ class ImapConfig:
             raise ConfigError("IMAP_SOURCE_USER is not set — see tools/mail-source/imap/README.md")
         password = _read_password(source)
         use_tls = source.get("IMAP_SOURCE_SSL", "1").strip().lower() not in ("0", "false", "no")
+        if not use_tls and not is_loopback_host(host):
+            raise ConfigError(PLAINTEXT_REFUSED.format(host=host))
         default_port = str(DEFAULT_PORT_TLS if use_tls else DEFAULT_PORT_PLAIN)
         try:
             port = int(source.get("IMAP_SOURCE_PORT", default_port).strip())
