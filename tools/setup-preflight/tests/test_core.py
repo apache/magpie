@@ -500,6 +500,17 @@ def test_an_unconfigured_unadopted_project_is_never_cached(project: Path) -> Non
     assert not (project / ".git" / "apache-magpie").exists()
 
 
+def test_an_adopted_project_reads_a_personal_only_skill_from_the_local_stamp(project: Path) -> None:
+    """A skill only the personal layer configures is stamped there, never in
+    the committed lock; the pre-flight compares against that entry."""
+    write_lock(project, stamped("magpie-y", "sha256:abc"))
+    write_stamp(project, {"skills": {"magpie-x": "sha256:OLD"}})
+    assert skill_findings(project, "magpie-x", "sha256:OLD", []) == []
+    found = skill_findings(project, "magpie-x", "sha256:NEW", [])
+    assert codes(found) == ["fingerprint-moved"]
+    assert found[0].facts["in_both_stores"] is False
+
+
 # --- already-shown suppression ------------------------------------------------------
 
 
