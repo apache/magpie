@@ -32,7 +32,7 @@ Per [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades
 installation is permitted **only from a *trusted* source** — one the
 adopter has explicitly vouched for by committing its pin (method + URL +
 ref + verification anchor) to the repo. A trusted install obeys the same
-snapshot-plus-pin discipline the framework uses for itself: a gitignored
+pin discipline as the framework's pinned-snapshot install: a gitignored
 snapshot, a committed lock, a verified and deliberate fetch by the one
 [`setup`](../../skills/setup/SKILL.md) skill — never a git submodule, and
 never an unpinned or unverified auto-fetch. The full rationale and threat

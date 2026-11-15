@@ -8,6 +8,7 @@
 - [RFC-AI-0007: Selective snapshot — fetch only the chosen skill families](#rfc-ai-0007-selective-snapshot--fetch-only-the-chosen-skill-families)
   - [Abstract](#abstract)
   - [Status of this document](#status-of-this-document)
+    - [Notes added after the proposal](#notes-added-after-the-proposal)
   - [Motivation](#motivation)
   - [Proposal](#proposal)
     - [Fetch model — sparse checkout of a computed path set](#fetch-model--sparse-checkout-of-a-computed-path-set)
@@ -52,6 +53,29 @@ selection/closure/lock-format definitions — is the review checkpoint.
 `adopt`/`upgrade`/`verify` integration) plus a worked example — follows on
 approval. This RFC changes only *how much* is fetched; the agent-marketplace
 distribution (the plugin/extension trial channel) ships separately.
+
+### Notes added after the proposal
+
+The proposal below is kept as written.
+These notes correct what has changed since, so a reader does not act on stale facts.
+
+- **2026-11-15 — how the framework installs.**
+  The Abstract and Motivation treat the gitignored `.apache-magpie/` snapshot as the way to adopt Magpie,
+  and the marketplace as a trial channel only.
+  That is no longer true:
+  the framework now installs from the agent marketplace by default,
+  one plugin per skill family,
+  and the pinned snapshot is the fallback
+  (see [`docs/quick-start/`](../quick-start/README.md) and [`other-install-methods.md`](../quick-start/other-install-methods.md)).
+  A marketplace install already fetches only the chosen families,
+  so this proposal, if taken forward, applies to the pinned-snapshot fallback only.
+- **2026-11-15 — principle wording.**
+  This RFC cites the old *snapshot-plus-override* principle as §13 or §14.
+  Read the current [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies),
+  *one easy install that upgrades and reconciles, never vendored copies*:
+  the principles were renumbered when *Avoiding prompt fatigue* became §1,
+  and §14 now covers whichever install mechanism the adopter uses.
+  A family-scoped snapshot stays within it.
 
 ## Motivation
 
@@ -183,10 +207,11 @@ steps are unchanged — they already operate per selected skill.
 - [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md),
   [`install.md`](../../skills/setup/install.md),
   [`update.md`](../../skills/setup/update.md) — the flow this RFC rewires.
-- [`docs/setup/install-recipes.md`](../quick-start/other-install-methods.md) — the
+- [`docs/quick-start/other-install-methods.md`](../quick-start/other-install-methods.md) — the
   fetch recipes that gain the sparse variant.
-- [`PRINCIPLES.md` §14](../../PRINCIPLES.md) — the snapshot-plus-override
-  principle, unchanged by this RFC.
+- [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies) —
+  one easy install that upgrades and reconciles, never vendored copies;
+  this RFC stays within it.
 - [RFC-AI-0006](RFC-AI-0006.md) — the external-source model this
   generalizes toward.
 - Agent-marketplace distribution (plugin/extension manifests) — the

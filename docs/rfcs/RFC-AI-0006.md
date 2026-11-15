@@ -8,6 +8,7 @@
 - [RFC-AI-0006: Trusted external skill sources](#rfc-ai-0006-trusted-external-skill-sources)
   - [Abstract](#abstract)
   - [Status of this document](#status-of-this-document)
+    - [Notes added after acceptance](#notes-added-after-acceptance)
   - [Motivation](#motivation)
   - [Proposal](#proposal)
     - [The three-layer trust model](#the-three-layer-trust-model)
@@ -53,14 +54,35 @@ repository/organization of every source is explicit.
 
 ## Status of this document
 
-**Partially Implemented.** The design checkpoint for **Phase A** is implemented and verified:
+**Implemented.** The design checkpoint for **Phase A** is implemented and verified:
 - The formats and documentation under [`docs/skill-sources/`](../skill-sources/README.md) (README, registry, and authoring guide) exist.
 - The Principle §14 amendment has landed in [`PRINCIPLES.md`](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies).
 - The organization `skill-sources.md` files are created.
 - The `setup` skill has its [`skill-sources.md`](../../skills/setup/skill-sources.md) action documentation.
 - The `skill-and-tool-validator` support is complete.
 
-**Phase B** (the `setup`-skill fetch/lock/symlink wiring, including `.apache-magpie.sources.lock` lock files, `/magpie-setup skill-sources` action, and integration with `adopt`/`upgrade`/`verify`) remains **in progress**.
+**Phase B** (the `setup`-skill fetch/lock/symlink wiring, including `.apache-magpie.sources.lock` lock files, `/magpie-setup skill-sources` action, and integration with `adopt`/`upgrade`/`verify`) landed in [#707](https://github.com/apache/magpie/pull/707).
+
+### Notes added after acceptance
+
+The decision record below is kept as it was accepted.
+These notes correct what has changed since, so a reader does not act on stale facts.
+
+- **2026-11-15 — principle numbering.**
+  Where this RFC says *§13*, read [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies):
+  the principles were renumbered when *Avoiding prompt fatigue* became §1.
+  The wording quoted in [Amending PRINCIPLES §13](#amending-principles-13) is the text this RFC proposed, not the current text.
+- **2026-11-15 — how the framework installs.**
+  The Abstract describes the gitignored `.apache-magpie/` snapshot as the framework's only install mechanism.
+  That is no longer true:
+  the framework now installs from the agent marketplace by default,
+  and the pinned snapshot is the fallback
+  (see [`docs/quick-start/`](../quick-start/README.md) and [`other-install-methods.md`](../quick-start/other-install-methods.md)).
+  The current [§14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies) is *one easy install that upgrades and reconciles, never vendored copies*;
+  it keeps this RFC's carve-out unchanged in substance —
+  skills from outside the framework install only from a trusted source the adopter has vouched for by committing its pin,
+  through the same mechanism and under the same rules, and everything else stays discovery-only.
+  Trusted sources are still fetched, pinned, and verified as described under [Fetch, verify, pin](#fetch-verify-pin).
 
 ## Motivation
 
@@ -257,4 +279,4 @@ sources and the adapter/organization indexes stay discovery-only.
 - [`docs/skill-sources/registry.md`](../skill-sources/registry.md) — the discovery index.
 - [`docs/extending.md`](../extending.md) — the extension model this generalizes.
 - [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md) — the adopt/upgrade/verify flow and the framework snapshot lock model.
-- [`docs/setup/install-recipes.md`](../quick-start/other-install-methods.md) — the fetch/verify recipes reused per source.
+- [`docs/quick-start/other-install-methods.md`](../quick-start/other-install-methods.md) — the fetch/verify recipes reused per source.

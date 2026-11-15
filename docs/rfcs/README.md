@@ -29,7 +29,7 @@ as the explanation of *why* those rules are the way they are.
 | [RFC‑AI‑0003](RFC-AI-0003.md) | Privacy-aware LLM routing for foundation private information | Provisional — pending ASF Privacy VP / Legal |
 | [RFC‑AI‑0004](RFC-AI-0004.md) | Principles of agentic interaction for open-source maintainers | Implemented |
 | [RFC‑AI‑0005](RFC-AI-0005.md) | Framework taxonomy | Implemented |
-| [RFC‑AI‑0006](RFC-AI-0006.md) | Trusted external skill sources | Partially implemented (Phase A) |
+| [RFC‑AI‑0006](RFC-AI-0006.md) | Trusted external skill sources | Implemented |
 | [RFC‑AI‑0007](RFC-AI-0007.md) | Selective snapshot — fetch only the chosen skill families | Proposed |
 | [RFC‑AI‑0008](RFC-AI-0008.md) | The coordinator role — multi-hop relay of security reports | Draft |
 

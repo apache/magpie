@@ -57,17 +57,18 @@ upstream later.
 | **In your adopter repo** | `<project-config>/` + `<project-config>/.apache-magpie-overrides/` (committed) | your repo | yours | it is specific to your project, or not ready to upstream |
 | **External** (another repo) | a repo you (or a community) maintain, **referenced** from config | nothing automatically — you vendor/clone it in deliberately | the author's | a third party maintains it, or it is shared across your repos but not in Magpie |
 
-The middle home is the framework's **snapshot + override** model
+The middle home is the framework's **install + override** model
 ([§14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)):
-the framework is a gitignored snapshot; your additions and tweaks are
-committed agent-readable markdown alongside it. The external home is the
+the framework is installed, never copied into your repo —
+from the agent marketplace by default, or as a gitignored pinned snapshot as the fallback —
+and your additions and tweaks are committed agent-readable markdown alongside it. The external home is the
 same act of wiring-in as the middle one — you just keep the source in
 another repo and the [registry](adapters/registry.md) lists it for
 discovery.
 
 ### How each entity resolves across homes
 
-- **Skills** — framework skills come from the snapshot; project tweaks
+- **Skills** — framework skills come from the installed framework; project tweaks
   live in `.apache-magpie-overrides/<skill>.md` (consulted at run time);
   a wholly new skill you keep can live in your repo's agent-skill dir.
   A skill or skill-family maintained in **another repo** can also be

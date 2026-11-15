@@ -276,7 +276,7 @@ organization profile — you author one, and you have two supported paths:
   the adapter index is **for discovery, never for installation**: nothing is
   auto-fetched, and you wire an external adapter in deliberately, exactly
   as you would a built-in one. (Trusted external *skill* sources are the
-  one installable exception §13 carves out — pinned, verified, and
+  one installable exception §14 carves out — pinned, verified, and
   adopter-vouched; see [`docs/skill-sources/`](skill-sources/README.md).)
 
 Either way the skills stay agnostic: they target the capability, and your

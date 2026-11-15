@@ -220,7 +220,7 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # each family owned its skills as real directories: a plugin whose skills were
 # symlinks out to the flat tree installs on Codex with *zero* skills — it does
 # not fail, it silently ships nothing, which was measured, not inferred.
-# Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
+# Reversing the direction fixed it without vendoring anything (PRINCIPLES §14):
 # the flat `skills/<name>` tree is now the mirror, pointing inward.
 # The all-in-one plugin is gone; installing everything was never the advice.
 CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops", "magpie-security-tools"})

@@ -21,7 +21,7 @@ layer, same eval binding.
 This is the runnable half of the [trusted external skill
 sources](../../../../docs/skill-sources/README.md) feature. The
 formats (source descriptor, `skills/<name>/source.md` pointer),
-the trust model, and the §13 carve-out are defined there and in
+the trust model, and the §14 carve-out are defined there and in
 [`RFC-AI-0006`](../../../../docs/rfcs/RFC-AI-0006.md); this sub-action
 does the fetch, the pin, and the symlink.
 

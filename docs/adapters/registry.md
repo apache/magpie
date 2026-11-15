@@ -33,7 +33,7 @@ the ones that ship in-tree, the open extension points, and links to
 > humans to evaluate, not a supply-chain hook.
 >
 > This applies to the *adapter/organization* index on this page. Skills
-> are different: §13 permits **installing** a skill or skill-family from a
+> are different: §14 permits **installing** a skill or skill-family from a
 > **trusted** external source — pinned, verified, and adopter-vouched.
 > That mechanism and its own discovery index live under
 > [`docs/skill-sources/`](../skill-sources/README.md).
