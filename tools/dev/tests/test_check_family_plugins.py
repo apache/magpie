@@ -616,7 +616,10 @@ def test_the_tools_plugin_ships_every_framework_tool_any_skill_names():
     # Framework-checkout only, by design: the validator checks a framework-shaped
     # tree (docs/modes.md, the capability taxonomy, skills/) that an adopter repo
     # does not have, and skill-reconciler's call to it is optional and non-blocking.
-    checkout_only = {"skill-and-tool-validator"}
+    # sandbox-lint reads its baselines beside itself (tools/agent-isolation/, the
+    # Claude Code floor), so it needs the framework tree too; setup verify's Codex
+    # profile check reports itself unchecked without one.
+    checkout_only = {"skill-and-tool-validator", "sandbox-lint"}
     assert named - checkout_only <= shipped, sorted(named - checkout_only - shipped)
     assert not checkout_only & shipped, "a checkout-only tool is shipped; drop it from checkout_only"
 

@@ -159,6 +159,9 @@ them once per installed version under `~/.cache/apache-magpie/framework/` and po
 install. The plugin cache is read-only to a sandboxed command; the copy is not, so the
 skills' `uv run --project <framework>/tools/<tool> …` works unchanged (and so does
 `uvx --from`). The tools run sandboxed, so the writable copy grants nothing new.
+It does not carry the secure-setup and framework-development tools
+(`tools/agent-isolation`, `tools/sandbox-lint`, `tools/skill-and-tool-validator`):
+the pages that run them say so, and they need a framework checkout or a pinned snapshot.
 Grok Build can consume the existing Claude-compatible `magpie-agent-guard` plugin hook.
 The dispatcher selects the Grok protocol from the incoming hook payload shape.
 Neither substrate plugin adds always-on skill context. Pick based on the trade-off between install simplicity and

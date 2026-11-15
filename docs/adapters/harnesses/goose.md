@@ -69,6 +69,9 @@ source "<framework>/tools/agent-isolation/agent-iso.sh"
 AGENT_ISO_ALLOW="ANTHROPIC_API_KEY" agent-iso goose session
 ```
 
+`<framework>` can be the plugin itself, `~/.agents/plugins/magpie/`, which holds the whole repository, `tools/agent-isolation/` included;
+a framework checkout or pinned snapshot works too ([where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper)).
+
 Name the variables your provider needs (`GOOSE_PROVIDER`, `GOOSE_MODEL`, the key, a custom `*_HOST`).
 Goose's file-based `secrets.yaml` is unreadable inside the sandbox, and a keyring secret would be readable by every command Goose runs, so the key must come in through the environment.
 Set `MAGPIE_GOOSE_DOMAINS` for any extra host a provider needs.

@@ -112,8 +112,9 @@ uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
 agent-iso agy
 ```
 
-`tools/sandbox-lint` needs a framework checkout: no Magpie plugin ships it.
-If the directory resolved in step 1 has no `tools/sandbox-lint/`, run the linter from a framework checkout.
+Both commands take their tool from the directory resolved in step 1: CLI 1.3.6 stages the plugin as a full copy of the repository, `tools/agent-isolation/` and `tools/sandbox-lint/` included.
+If that directory has no `tools/`, use a framework checkout or pinned snapshot instead.
+The Claude Code marketplace plugins ship neither tool, so `~/.cache/apache-magpie/framework/current` is no substitute; see [where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper).
 
 The shipped `deny` rules include writes to `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/` and `.agents/hooks.json`, so an agent cannot widen its own permissions or register a hook.
 Apply the merge from your own terminal or editor; do not drop those rules to bootstrap it.
@@ -214,7 +215,7 @@ uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
   --antigravity-hooks ~/.gemini/config/hooks.json
 ```
 
-As in step 5, `tools/sandbox-lint` needs a framework checkout.
+As in step 5, `tools/sandbox-lint` comes from the directory resolved in step 1, or from a framework checkout or pinned snapshot.
 
 Confirm that the guard path in `~/.gemini/config/hooks.json` exists and resolves to the intended installation.
 The linter must report `OK`; it does not certify a running session.

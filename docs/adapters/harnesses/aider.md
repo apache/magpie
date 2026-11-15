@@ -70,6 +70,9 @@ source <framework>/tools/agent-isolation/agent-iso.sh
 agent-iso aider --model <model> --no-auto-commits --no-dirty-commits
 ```
 
+`<framework>` is a directory holding the framework's `tools/agent-isolation/`: a framework checkout or a pinned snapshot.
+The Claude Code and Codex marketplace plugins do not ship it; see [where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper).
+
 ### Progressive skill disclosure
 
 To prevent context-window exhaustion across Magpie's 70+ workflows, load only the specific skill required for the current task:
