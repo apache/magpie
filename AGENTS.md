@@ -113,11 +113,14 @@ Repo-root files:
 - [`docs/security/how-the-security-team-works.md`](docs/security/how-the-security-team-works.md) — how the security team operates, and the onboarding guide for new members.
 - [`projects/_template/`](plugins/magpie-setup/templates/) — bootstrap scaffold for a new adopter's `<project-config>/`.
 - [`tools/<name>/`](tools/) — tool adapters (GitHub operations, issue-template schema, project-board GraphQL, …) for the external tools the skills invoke.
-- [`skills/<name>/SKILL.md`](skills/) — the agentic workflows.
+- [`plugins/magpie-<family>/skills/<alias>/SKILL.md`](plugins/) — the agentic workflows, each in its family plugin; [`skills/<name>`](skills/) is the flat tree of symlinks into them.
 - `.agents/skills/magpie-<name>/`, `.claude/skills/magpie-<name>/`, `.github/skills/magpie-<name>/` — committed symlinks created by this repo's self-adoption (`/magpie-setup method:local`) so the framework's own skills are callable from any harness while developing it; targets are in-repo so no snapshot or remote fetch is involved. Mechanics: [`skills/setup/install.md`](skills/setup/install.md) → "Local self-adoption".
 
-There is no source code to build or test in this framework
-repository itself. Adopting projects may include project-specific
+There is no application to build here: the skills are Markdown the agent reads.
+The code the repository does carry is the Python tooling under `tools/`
+(the Python projects there are members of one `uv` workspace) and the `tools/dev/` checks,
+which the `ruff` / `mypy` / `pytest` hooks gate (see [Local setup](#local-setup)).
+Adopting projects may include project-specific
 build artifacts (e.g. a `<project-config>/cve-json/` Python helper)
 in their tracker repo.
 
@@ -631,9 +634,7 @@ to a home-dir path and update the tool to read from there.
   plain command (`gh pr close <N>`, `gh issue close <N> --reason "not planned"`).
 - **Target branch for this repository is declared in the project manifest** — see
   [`<project-config>/project.md`](<project-config>/project.md#repositories)
-  (`tracker_default_branch`). The non-default branch (`main`) is used only as a
-  staging branch for the private-PR fallback described in
-  [`README.md`](README.md). Unless the user explicitly says otherwise, base
+  (`tracker_default_branch`). Unless the user explicitly says otherwise, base
   PRs on the tracker's default branch.
 - **Spec-sync pre-check before pushing a functionality PR.** The specs in
   [`tools/spec-loop/specs/`](tools/spec-loop/specs/) are the source of truth
@@ -1122,8 +1123,10 @@ and
 
 ## Reusable skills
 
-Reusable, agent-friendly task definitions live under
-[`skills/`](skills/). Each skill is a plain Markdown file with YAML
+Reusable, agent-friendly task definitions live in the family plugins,
+`plugins/magpie-<family>/skills/<alias>/`,
+and the flat [`skills/`](skills/) tree links to each of them by its full name.
+Each skill is a plain Markdown file with YAML
 frontmatter, so it can be picked up by Claude Code, GitHub Copilot, and
 any other agent that follows the emerging skill convention. When a new
 recurring task is automated, add it as a skill rather than burying the
@@ -1138,12 +1141,15 @@ for its full contract):
 - [`security-issue-sync`](skills/security-issue-sync/SKILL.md) — reconciles an issue with its GitHub discussion, mail thread, and fixing PRs; proposes label / milestone / field / draft-email updates and refreshes the CVE JSON attachment at the end of every run.
 - [`security-cve-allocate`](skills/security-cve-allocate/SKILL.md) — walks the user through the PMC-gated CVE-allocation form (or reshapes it into a relay message for a non-PMC user), normalises the title, updates the tracker in one pass, and hands off to `security-issue-sync`.
 - [`security-issue-fix`](skills/security-issue-fix/SKILL.md) — runs `security-issue-sync`, then (when the fix is clear and small) writes the change in the local `<upstream>` clone, runs checks, and opens a scrubbed public PR via `gh pr create --web`; every public surface is scrubbed for CVE / tracker-slug / `vulnerability` / `security fix` leakage.
-- [`generate-cve-json`](tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) — deterministic `uv run` script that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue, filtering the CVE-tool and `<tracker>` URLs out of `references[]`.
+
+These skills build the CVE record with the [`generate-cve-json`](tools/cve-tool-vulnogram/generate-cve-json/README.md) tool,
+a deterministic `uv run` script (not a skill) that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue,
+filtering the CVE-tool and `<tracker>` URLs out of `references[]`.
 
 When adding a new skill:
 
-- place it under `skills/<skill-name>/SKILL.md`;
-- start with YAML frontmatter containing `name`, `description`, and `when_to_use`;
+- place its content in its family plugin, `plugins/magpie-<family>/skills/<alias>/SKILL.md`, and link it into the flat tree as `skills/<skill-name>` → `../plugins/magpie-<family>/skills/<alias>` (the [`write-skill`](skills/write-skill/SKILL.md) scaffold and `tools/dev/check-family-plugins.py` cover the details);
+- start with YAML frontmatter containing every key the validator requires: `name` (the `<alias>`), `description`, `when_to_use`, `license`, `capability`, `family` and `mode`;
 - make every state-changing action a *proposal* that requires explicit user confirmation before it runs;
 - avoid agent-specific syntax so the skill remains portable across tools;
 - **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). The [`write-skill`](skills/write-skill/SKILL.md) skill prompts for the capability frontmatter on every new-skill scaffold. A skill PR without a matching eval suite is incomplete.

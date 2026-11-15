@@ -50,7 +50,7 @@ Take the roster file path and minimum approvals from `committer_governance_maint
 
 ```text
 Onboarding complete for <candidate> (@<github-handle>)
-Project: <project>   Scenario: <scenario>   Governance: maintainer-roster   Intake: <model>
+Project: <PROJECT>   Scenario: <scenario>   Governance: maintainer-roster   Intake: <model>
 
 Roster updated:
   ✓ <roster-file> PR opened (awaiting merge)

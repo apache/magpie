@@ -14,12 +14,12 @@ when the two differ, the ASF template wins, and this file should be brought back
 
 **To:** `<candidate email>`
 **Bcc:** `private@<podling>.apache.org`
-**Subject:** Welcome to Apache <project> — invitation to become a committer
+**Subject:** Welcome to <PROJECT> — invitation to become a committer
 
 ```text
 Dear <candidate>,
 
-On behalf of the <project> Project Management Committee (PMC)
+On behalf of the <PROJECT> Project Management Committee (PMC)
 [or PPMC, for incubating projects], I am delighted to let you
 know that the project has voted to invite you to become a
 committer.
@@ -42,7 +42,7 @@ Individual Contributor License Agreement (ICLA) from you:
    ASF Secretary as described at:
    https://www.apache.org/licenses/contributor-agreements.html#submitting
 
-3. In the form, name the Apache <project> project and choose a
+3. In the form, name the <PROJECT> project and choose a
    unique Apache ID. Check that your preferred ID is not
    already taken:
    https://people.apache.org/committer-index.html
@@ -69,7 +69,7 @@ it shortly. Once it has been processed and your Apache account
 is created, we will grant you access to the project's
 repositories and mailing lists.
 
-If your ICLA named the Apache <project> project, the Secretary
+If your ICLA named the <PROJECT> project, the Secretary
 will notify the PMC when it has been recorded, and you will
 receive a follow-up message with the next steps.
 ───────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ or decline, and do not share that you were invited before the
 PMC announces it.  Feel free to ask any questions too.
 We're excited to have you on board!
 
-On behalf of the <project> PPMC,  [use PMC for TLPs]
+On behalf of the <PROJECT> PPMC,  [use PMC for TLPs]
 <nominator name> (<nominator apache-id>@apache.org)
 ```
 
@@ -109,7 +109,7 @@ On behalf of the <project> PPMC,  [use PMC for TLPs]
 
 **To:** `root@apache.org`
 **Cc:** `secretary@apache.org`
-**Subject:** [ACCOUNT REQUEST] <project> — <candidate name>
+**Subject:** [ACCOUNT REQUEST] <PROJECT> — <candidate name>
 
 > **Send only after ICLA is confirmed filed and processed.**
 > If unsure, ask the nominator to confirm with secretary@apache.org first.
@@ -118,7 +118,7 @@ On behalf of the <project> PPMC,  [use PMC for TLPs]
 Hi,
 
 Please create an Apache account for a new committer on the
-Apache <project> project [or: Apache <project> podling,
+<PROJECT> project [or: <PROJECT> podling,
 currently in the Apache Incubator].
 
   Legal name:        <candidate legal name as on ICLA>
@@ -127,7 +127,7 @@ currently in the Apache Incubator].
                      (verified available at
                       https://people.apache.org/committer-index.html
                       as of <check-date>)
-  Project:           <project>
+  Project:           <PROJECT>
   Role:              Committer [and PPMC member (podling) / PMC member (TLP), if applicable]
 
 Vote thread:
@@ -141,7 +141,7 @@ Please let me know if you need anything else.
 
 Thanks,
 <nominator name> (<nominator-apache-id>@apache.org)
-<project> PMC chair  [use PPMC for podlings]
+<PROJECT> PMC chair  [use PPMC for podlings]
 ```
 
 ---
@@ -157,7 +157,7 @@ Thanks,
 Hi all,
 
 I am pleased to announce that <candidate name> has accepted
-our invitation to become a committer on Apache <project>.
+our invitation to become a committer on <PROJECT>.
 
 <One or two sentences about what the candidate has contributed,
 taken from the nomination brief.  Keep it factual and warm.>
@@ -165,5 +165,5 @@ taken from the nomination brief.  Keep it factual and warm.>
 Please join me in welcoming <candidate first name> to the team!
 
 <nominator name>
-On behalf of the <project> PMC  [use PPMC for podlings]
+On behalf of the <PROJECT> PMC  [use PPMC for podlings]
 ```

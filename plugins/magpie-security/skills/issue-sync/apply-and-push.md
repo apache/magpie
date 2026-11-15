@@ -237,7 +237,7 @@ If any command fails, stop the apply loop, report the failure, and ask the user 
 
 After the apply loop finishes — **every time**, not as a proposal — regenerate the CVE artifact via the project's declared CVE tool.
 For `cve_tool: vulnogram` (see [`<project-config>/project.md`](../../../../<project-config>/project.md#cve-tooling)) that means running the
-[`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) script with `--attach`
+[`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md) script with `--attach`
 to refresh the CVE JSON attachment on the tracking issue.
 The Vulnogram record mechanics (DRAFT / REVIEW / PUBLIC state machine, `#source` paste flow) are in
 [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md).
@@ -460,7 +460,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    (e.g. the user confirmed only some of the proposed updates); a skipped push makes the next sync surface the rest.
 
 2. **Extract the regenerated JSON.** Re-run the
-   [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)
+   [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md)
    generator with `--stdout` (no `--attach`) into a temporary file,
    or extract it from the body via `awk` between the
    `<!-- generate-cve-json: cve=<CVE> version=v1 -->` / `<!-- generate-cve-json:end ... -->` markers —

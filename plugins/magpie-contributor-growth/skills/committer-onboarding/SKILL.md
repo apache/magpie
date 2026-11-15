@@ -26,18 +26,21 @@ capability:
   - capability:triage
 surface_hash: sha256:fc0108bae9d7b687
 license: Apache-2.0
-measured_tokens: 4953
+measured_tokens: 4994
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention:
-     <project>       → project or podling display name (e.g. "Apache Airflow")
-     <podling>       → podling short name for Whimsy URLs (e.g. "airflow"), or
-                       committee short name for TLPs (e.g. "airflow")
+     <PROJECT>       → project or podling display name (e.g. "Apache Foo")
+     <project>       → project infrastructure slug for hostnames, emails and
+                       URLs (e.g. "foo" in private@foo.apache.org)
+     <podling>       → podling short name for Whimsy URLs (e.g. "foo"), or
+                       committee short name for TLPs (e.g. "foo")
      <upstream>      → GitHub repo in owner/name form
-     <project-config>→ adopter's .apache-magpie/ directory
+     <project-config>→ adopter's config directory, alongside the gitignored
+                       .apache-magpie/ snapshot (not inside it)
      <candidate>     → full name of the nominee
      <apache-id>     → candidate's Apache ID (if they already have one, else "none")
      <nominator>      → Apache ID of the person running this skill
@@ -86,9 +89,9 @@ Never add one.
   or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (first match wins: `.apache-magpie-local/<file>`, the main
-  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `<git-common-dir>/apache-magpie/<file>`
+  or, in a Subversion working copy, `.svn/apache-magpie/<file>`; then a legacy
+  in-tree `.apache-magpie-local/<file>`; then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install

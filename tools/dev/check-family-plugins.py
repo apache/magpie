@@ -33,7 +33,9 @@ Checks that every plugin is properly defined:
   `plugins/magpie-<family>/` plugin whose manifest is well-formed, inherits the
   root manifest's shared metadata (version, author, homepage, repository,
   license), and whose `skills/` directory contains exactly that family's skills
-  as single-hop symlinks into the shared `skills/<skill>` tree;
+  as real directories named by their alias, each mirrored by a single-hop
+  `skills/<skill>` -> `../plugins/magpie-<family>/skills/<alias>` symlink in
+  the flat tree;
 - the skill → family map generated into the pre-flight checker
   (`setup_preflight/families.py`, which decides whether a family's first-run
   welcome guide applies) matches the frontmatter and the `skills/` mirror;

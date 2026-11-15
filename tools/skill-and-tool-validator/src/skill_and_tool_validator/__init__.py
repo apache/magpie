@@ -126,7 +126,7 @@ skills/:
     are advisories — the check warns without failing the run so legacy
     adapters can be brought into compliance deliberately.
 19. SKILL.md line-length limit (SOFT) — ``SKILL.md`` entrypoint files
-    must stay under ``SKILL_LINE_LIMIT`` (500) lines per PRINCIPLE 14.
+    must stay under ``SKILL_LINE_LIMIT`` (500) lines per PRINCIPLES.md §15.
     Reference material beyond that limit should move into sibling
     markdown files linked one level deep, with no unreferenced siblings.
     Advisory only — existing skills that pre-date this check are flagged
@@ -3789,11 +3789,11 @@ def validate_skill_line_limit(path: Path, text: str) -> Iterable[Violation]:
         return
     lines = text.splitlines()
     line_count = len(lines)
-    if line_count > SKILL_LINE_LIMIT:
+    if line_count >= SKILL_LINE_LIMIT:
         yield Violation(
             path,
             SKILL_LINE_LIMIT,
-            f"skill-line-limit: SKILL.md is {line_count} lines, exceeding the "
+            f"skill-line-limit: SKILL.md is {line_count} lines, not under the "
             f"{SKILL_LINE_LIMIT}-line limit (PRINCIPLES.md §15) — move reference "
             f"material into sibling markdown files linked one level deep; "
             f"no unreferenced siblings",

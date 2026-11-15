@@ -83,11 +83,11 @@ The draft email to the reporter is the exception: it carries the bare CVE ID (th
 Concretely:
 
 - Before publication: link to the `<cve-tool>` record, e.g.
-  `[CVE-2026-40690](<cve-tool-url>/cve5/CVE-2026-40690)`.
+  `[<CVE-ID>](<cve-tool-url>/cve5/<CVE-ID>)`.
 - After publication (issue has `vendor-advisory`, advisory has been sent to
   `<users-list>`): additionally link to the public `cve.org`
-  record, e.g. `CVE-2025-50213 ([CVE tool](<cve-tool-url>/cve5/CVE-2025-50213),
-  [cve.org](https://www.cve.org/CVERecord?id=CVE-2025-50213))`.
+  record, e.g. `<CVE-ID> ([CVE tool](<cve-tool-url>/cve5/<CVE-ID>),
+  [cve.org](https://www.cve.org/CVERecord?id=<CVE-ID>))`.
 
 Do not emit bare `CVE-YYYY-NNNNN` text — always link.
 

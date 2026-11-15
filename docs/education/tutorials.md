@@ -107,7 +107,9 @@ A broken local setup is the most common thing that stalls this tutorial.
 
    ```bash
    python3 skills/write-skill/scripts/init_skill.py dependency-licence-check \
-       --path skills/dependency-licence-check
+       --family repo-health
+   ln -s ../plugins/magpie-repo-health/skills/dependency-licence-check \
+       skills/dependency-licence-check
    ```
 
 2. Fill in the frontmatter. A filled-in version looks like this:

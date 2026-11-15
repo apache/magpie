@@ -5265,11 +5265,18 @@ class TestValidateSkillLineLimit:
         violations = list(validate_skill_line_limit(path, text))
         assert violations == []
 
-    def test_at_limit_no_violation(self, tmp_path: Path) -> None:
-        path = self._skill_md(tmp_path, SKILL_LINE_LIMIT)
+    def test_one_under_limit_no_violation(self, tmp_path: Path) -> None:
+        path = self._skill_md(tmp_path, SKILL_LINE_LIMIT - 1)
         text = path.read_text()
         violations = list(validate_skill_line_limit(path, text))
         assert violations == []
+
+    def test_at_limit_fires_violation(self, tmp_path: Path) -> None:
+        """PRINCIPLES.md says *under* 500 lines, so exactly 500 is already over."""
+        path = self._skill_md(tmp_path, SKILL_LINE_LIMIT)
+        text = path.read_text()
+        violations = list(validate_skill_line_limit(path, text))
+        assert len(violations) == 1
 
     def test_one_over_limit_fires_violation(self, tmp_path: Path) -> None:
         path = self._skill_md(tmp_path, SKILL_LINE_LIMIT + 1)

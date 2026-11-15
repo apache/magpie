@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 5795
+measured_tokens: 5809
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -80,9 +80,9 @@ Never add one.
   or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (first match wins: `.apache-magpie-local/<file>`, the main
-  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `<git-common-dir>/apache-magpie/<file>`
+  or, in a Subversion working copy, `.svn/apache-magpie/<file>`; then a legacy
+  in-tree `.apache-magpie-local/<file>`; then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -260,7 +260,7 @@ title normalisation runs later, in `security-cve-allocate`.
 
 Write `basename`, `k`, `n`, `upstream`, `security_list`, `finding` (the parsed record), `body_fields` (`tracker.body_fields` from [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields)), `callout` and any `reporter_credit`
 to `<scratch>/import-md-<basename>-<index>-body.json` and run `<sm> render-body --input <that file>`.
-It maps the sections to the template fields ([the mapping](outcomes/body-fields.md)), each section safe markdown (headings raised to `####`, HTML and images defused, references and mentions as inline code; `description_format: inert` keeps a plain-text fenced block), and appends the *"Recommended fix (per the source markdown)"* `<details>` block.
+It maps the sections to the template fields ([the mapping](outcomes/body-fields.md); the rendered shape is [`tracker-body-template.md`](tracker-body-template.md)), each section safe markdown (headings raised to `####`, HTML and images defused, references and mentions as inline code; `description_format: inert` keeps a plain-text fenced block), and appends the *"Recommended fix (per the source markdown)"* `<details>` block.
 *Reporter credited as* stays `_No response_` unless you pass one: when the finding has a `credited_handle`, apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
 and, when it fires, pass the handle and surface *"credited as tool: `<handle>` (matches bot policy — `<rule>`)"*; `reporter_credit_is_bot` confirms the match.
 Exit `2` (a section whose fences do not pair) stops that finding: show the user. `fields_ok` must be true.
