@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 6860
+measured_tokens: 6635
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -156,11 +156,8 @@ No personal layer (or no checker copy to ask), no `.apache-magpie-overrides/`, n
 It mentions `/magpie-setup:setup adopt` as information only, one line saying adoption commits files for every contributor and is the project's decision; this skill never runs it.
 
 **No isolated setup.**
-When `python3 -P -m setup_preflight.isolated configured` prints `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`:
-inside the sandbox the user-scope settings are read-denied, so `false` there means *not known*, not *absent*.
-Put a `[bypass]` *Check* item in the plan that reads `~/.claude/settings.json` for `sandbox.enabled`, with the harness's own file-read tool (not Bash) or with the system `/usr/bin/jq` in one bypassed call.
-Never run the personal layer's `setup_preflight` outside the sandbox: it is code the sandbox can rewrite.
-Make the offer only once that read confirms no sandbox is enabled.
+When `python3 -P -m setup_preflight.isolated configured` prints `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`, the state is *not known*: inside the sandbox the user-scope settings are read-denied.
+[Plan](#plan) holds the rule: a `[bypass]` *Check* item reads `~/.claude/settings.json` for `sandbox.enabled`, and the offer waits until that read confirms absence.
 The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.
 It proposes [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) after this run, as one question folded into the plan's approval message.
 On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the personal layer's `reconciled.json` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
@@ -186,7 +183,7 @@ An item carries `[bypass]` when its action writes outside the gathered sandbox w
 A write inside the personal layer (including the main checkout's, from a linked worktree) or the worktree needs no bypass when it falls inside the gathered write scope; outside it, it carries `[bypass]`.
 A harness without a bypass (see [Other harnesses](#other-harnesses)) lists every such item under *Run these yourself* instead.
 
-A `[bypass]` item executes only code from locations the sandbox cannot write: `~/.claude/scripts/` (literal `~`), the plugin cache under `~/.claude/plugins/`, and system paths; never the checkout (including `tools/…`), `.apache-magpie/`, the personal layer, `~/.cache/…` or the scratch directory.
+A `[bypass]` item executes only code the sandbox cannot write (see [Golden rules](#golden-rules)).
 A helper call is always `~/.claude/scripts/sandbox-add-project-root.sh`, never `tools/agent-isolation/…`; without that copy, the item goes under *Run these yourself*.
 Content copied out of a sandbox-writable source (a framework script copy, a merged settings file prepared in the scratch directory) has its SHA-256 recorded now and shown in `details <n>`.
 A `[bypass]` target the sandbox cannot read (such as `~/.claude/settings.json`) is compared and written in the item's one bypassed call; `details <n>` also names its post-apply re-check, one bypassed read covered by the same approval.
@@ -220,9 +217,7 @@ In that case say so in one line, run [Re-check and record](#re-check-and-record)
 
 ## Apply
 
-Every bypassed call executes only code from locations the sandbox cannot write: `~/.claude/scripts/` (spelled with the literal `~`), the plugin cache under `~/.claude/plugins/`, or system paths.
-Never the checkout (including `tools/…` in the framework repo), the snapshot `.apache-magpie/`, the personal layer, `~/.cache/…` (including `~/.cache/apache-magpie/framework/current`), or the scratch directory.
-
+Every bypassed call executes only code the sandbox cannot write (see [Golden rules](#golden-rules)).
 Work through the approved items in plan order:
 
 1. **Re-check the gathered state first.**
@@ -241,8 +236,8 @@ Work through the approved items in plan order:
    **Settings writes have exactly two targets**: each worktree's `.claude/settings.local.json` and the user-scope `~/.claude/settings.json`.
    The committed `.claude/settings.json` is never a target (hard line 2); its changes render as a diff under *Run these yourself*.
    Every settings item is marked `[bypass]`, and its `details <n>` view shows the unified diff before approval.
-   It adds only entries copied verbatim from the framework template or reference config, or written by the helper that owns the write, never values taken from gathered text.
-   Prefer that helper (for example `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` for allowlist entries, never `tools/agent-isolation/…`); copying a merged file prepared in the scratch directory, under the checksum rule, is the fallback.
+   Its content follows [Plan](#plan) → *Settings items*.
+   Prefer the helper that owns the write (for example `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` for allowlist entries, never `tools/agent-isolation/…`); copying a merged file prepared in the scratch directory, under the checksum rule, is the fallback.
    Each `[bypass]` item makes exactly one bypassed call here; the post-apply re-check read of an unreadable target runs under [Re-check and record](#re-check-and-record), covered by the same approval.
    This intentionally differs from [`setup update`](../setup/update.md#reconcile-the-local-agent-settings)'s "hand the write to the user", because the user approved the item in the plan; if the harness refuses the write, the item falls back to the copy command under *Run these yourself*.
 5. **One status line per item**, as soon as it finishes: `✓ 4. allowlist added for 3 worktrees`, `✗ 2. <reason>`, or `– 3. skipped: <reason>`.
@@ -291,7 +286,7 @@ It never silences the findings with `acknowledged.skills`; that key keeps `setup
 Short blocks, each line one item:
 
 - **Done**: what was applied and re-checked.
-- **Still open**: items Gather found but did not offer, plus items skipped at apply (dropped, changed, failed, including a failed re-check), each with its reason (and the diff path when one was written); never a hard-line item.
+- **Still open**: as [Plan](#plan) defines it, including a failed re-check, each with its reason (and the diff path when one was written).
 - **Run these yourself**: the exact command or edit for every item a hard line blocks or only the user's terminal can do, each with a one-line reason, as [`hard-lines.md`](hard-lines.md) renders them.
 - **Not offered** (only when one exists): each deny weakening or removed sandbox restriction, with its reason and no command.
 

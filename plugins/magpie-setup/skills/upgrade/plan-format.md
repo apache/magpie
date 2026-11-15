@@ -35,25 +35,15 @@ Apply all? (yes / drop 2,5 / details 1 / no)
   Omit that line when no item carries `[bypass]`.
 - **Groups** and the `[bypass]` rule are defined in [`SKILL.md` → Plan](SKILL.md#plan); each group is omitted when empty.
 - **Items** are one line each: what is wrong, an arrow, what will be done.
-- **What a `[bypass]` item executes** comes only from locations the sandbox cannot write: `~/.claude/scripts/` (literal `~`), the plugin cache under `~/.claude/plugins/`, and system paths.
-  Never the checkout (including `tools/…`), the snapshot `.apache-magpie/`, the personal layer, `~/.cache/…` (including `~/.cache/apache-magpie/framework/current`), or the scratch directory.
-- **Copied content** (a framework script copy, a merged settings file prepared in the scratch directory) shows the SHA-256 recorded at plan time under `details <n>`; the one bypassed call that writes it re-verifies that checksum first, and a mismatch skips the item as `changed`.
-- **Script copies**: only a plain-content copy from [`script-inventory.md`](../isolated-setup-update/script-inventory.md) is an item; every other script entry goes to *Run these yourself* as a re-run of the `setup-isolated-setup-install` step that installs it (Step K, P.3, L, M or the agent-guard wiring; the mapping is in [`SKILL.md` → Plan](SKILL.md#plan)).
-  A copy that cannot be told apart from an older shipped version ends its line with `(replaces N lines only this copy has)`.
-- **A `[bypass]` target the sandbox cannot read** (such as `~/.claude/settings.json`) is compared and written in one bypassed call; `details <n>` names its post-apply re-check, one bypassed read under the same approval.
-  A target Gather could not read starts as a *Check* item, never a *Fix*.
-- **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, and show their unified diff under `details <n>`.
-  They add only entries copied verbatim from `tools/agent-isolation/claude-settings.local.template.json` or the framework `.claude/settings.json`, or written by the helper that owns the write; never a value taken from gathered text.
-  A change to the committed `.claude/settings.json` is never an item; it goes to *Run these yourself* as a diff.
+- **What each item may do** (what a `[bypass]` item executes, copied content, script copies, unreadable targets, settings items) is set in [`SKILL.md` → Plan](SKILL.md#plan); this file only renders it.
+  `details <n>` shows a copied item's SHA-256 recorded at plan time, a settings item's unified diff, and an unreadable target's post-apply re-check.
+  A script copy that cannot be told apart from an older shipped version ends its line with `(replaces N lines only this copy has)`.
 - **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup update`.
 - **Paths** are named as they resolve: in a linked worktree a personal-layer item names the main checkout's `.apache-magpie-local/`, never a new one in the worktree.
   Such a write needs no `[bypass]` when it is inside the gathered write scope (the directories where Gather's sandboxed probe write succeeded).
 - **Run these yourself** previews every hard-line or user-terminal command now, so nothing in the closing summary is a surprise.
   Render each as [`hard-lines.md`](hard-lines.md) describes.
-- **Not offered** (optional): a deny weakening or removed sandbox restriction, with its reason and no command.
-- **Still open** (optional, before the approval line): items Gather found but will not offer, with their reason; after Apply it also holds items skipped there (dropped, changed, failed).
-  A hard-line item is never here.
-  A user-scope script copy with local edits goes here with its diff path, never into *Update*.
+- **Not offered** and **Still open** (each optional, before the approval line) hold what [`SKILL.md` → Plan](SKILL.md#plan) puts there, each line with its reason (and the diff path when one was written).
 
 ## Classification
 
@@ -75,15 +65,13 @@ no                  apply nothing, write no stamps
 ```
 
 `details <n>` shows a long diff truncated, with the path of the full diff in the scratch directory.
-The approval names the bypass explicitly through the header line, so one `yes` satisfies the loud sandbox-bypass rule for the listed `[bypass]` items only.
+The header line names the bypass, so one `yes` covers the loud sandbox-bypass rule as [`SKILL.md` → Plan](SKILL.md#plan) states.
 
 ## Questions in the same message
 
 - **Values that cannot be derived** (a team handle, a URL) are asked as one batched, numbered question below the plan, never guessed.
   An item waiting for a value says `N values to ask` on its line.
-- **The isolated-setup offer**, when it applies, is one more question in the same message: the two or three lines of why, and whether to run `setup-isolated-setup-install` after this run.
-  A decline is recorded as [`SKILL.md` → Gather](SKILL.md#gather) describes.
-  A decline given in the same reply as the approval wins: every *Isolated setup* area item is dropped.
+- **The isolated-setup offer**, when it applies, is one more question in the same message, worded and recorded as [`SKILL.md` → Gather](SKILL.md#gather) describes.
 - **`setup adopt`**, when Magpie is not configured here, appears as one information line only, never as an item.
 
 ## Nothing to do

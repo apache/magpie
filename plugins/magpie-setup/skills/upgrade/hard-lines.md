@@ -65,10 +65,8 @@ Render: the command for the user's own terminal, and what its output should show
 
 ## Bypassed calls run only code the sandbox cannot write
 
-Not a fifth hard line, but held as firmly: an approved `[bypass]` item executes code only from `~/.claude/scripts/` (always the literal `~`), the plugin cache under `~/.claude/plugins/`, or system paths.
-Never the checkout (including `tools/…` in the framework repo), the snapshot `.apache-magpie/`, the personal layer, `~/.cache/…` (including `~/.cache/apache-magpie/framework/current`), or the scratch directory.
-Content copied out of one of those carries a SHA-256 recorded at plan time and re-verified by the same bypassed call that writes it; a mismatch skips the item as `changed`.
-A command that cannot meet this renders here:
+Not a fifth hard line, but held as firmly: see [`SKILL.md` → Golden rules](SKILL.md#golden-rules).
+A command that cannot meet it renders here:
 
 ```text
 • re-run setup-isolated-setup-install Step L   (not a plain-content script copy: the container_gateway package)
