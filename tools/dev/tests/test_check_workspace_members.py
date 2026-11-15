@@ -133,3 +133,34 @@ def test_every_member_is_reported_not_just_the_first(root: Path) -> None:
         _member(root, "three", ini=False, tests=False),
     ]
     assert len(mod.check_tests_run(members)) == 3
+
+
+def test_main_posix_path_matching_across_platforms(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validate that member paths match declared members regardless of OS path separators."""
+    _member(root, "top-pkg", ini=False, tests=False, skip=True)
+    tools = root / "tools"
+    tools.mkdir()
+    _member(tools, "sample-tool", ini=False, tests=False, skip=True)
+
+    declared = {"top-pkg", "tools/sample-tool"}
+    monkeypatch.setattr(mod, "read_workspace_members", lambda: declared)
+
+    assert mod.main() == 0
+
+
+def test_main_reports_missing_and_stale_with_posix_paths(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Validate that missing and stale members are reported in POSIX format."""
+    tools = root / "tools"
+    tools.mkdir()
+    _member(tools, "on-disk-only", ini=False, tests=False, skip=True)
+
+    declared = {"tools/in-toml-only"}
+    monkeypatch.setattr(mod, "read_workspace_members", lambda: declared)
+
+    ret = mod.main()
+    assert ret == 1
+    err = capsys.readouterr().err
+    assert "+ 'tools/on-disk-only'" in err
+    assert "- 'tools/in-toml-only'" in err
