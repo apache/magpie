@@ -213,7 +213,7 @@ def test_the_antigravity_marker_runs_agy_listing_and_skips_unversioned_plugins(
 
 
 def test_an_unversioned_entry_still_breaks_another_harness_listing() -> None:
-    from setup_preflight.cli import _parse_listing
+    from setup_preflight.installed import _parse_listing
 
     assert _parse_listing(json.dumps(AGY_LISTING), "claude") is None
 
