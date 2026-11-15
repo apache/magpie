@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:f8a5db3da24024cb
 license: Apache-2.0
-measured_tokens: 7071
+measured_tokens: 6288
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -35,27 +35,7 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-When the active harness is Codex, first require the static verification in [docs/adapters/harnesses/codex.md](../../../../docs/adapters/harnesses/codex.md#verify), then run the shared live environment probes inside the active Codex sandbox.
-Attribute failures separately to native sandbox/network denial, approval policy, or the POSIX agent-iso layer.
-Do not prescribe a `.claude` settings change for a Codex failure.
-Then stop before the Claude-specific branch below.
-
-When the selected runtime is Antigravity, follow
-[docs/adapters/harnesses/antigravity.md](../../../../docs/adapters/harnesses/antigravity.md#doctor): verify the user-scope profile first, then diagnose the actual tool result in the active Antigravity session.
-Distinguish sandbox limits, permission-rule denials, guard-hook failures, and wrapper or authentication problems.
-Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
-
-When the selected runtime is Goose, follow
-[docs/adapters/harnesses/goose.md](../../../../docs/adapters/harnesses/goose.md#doctor): verify the plugin, its sandbox runtime and the launcher first, then diagnose the actual tool result in the active Goose session.
-Distinguish sandbox limits or a missing sandbox runtime, hook denials (deny rules or the guard), a hook that failed closed, approve-mode declines, and wrapper or provider-key problems.
-Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
-
-When the selected runtime is Pi, follow
-[docs/adapters/harnesses/pi.md](../../../../docs/adapters/harnesses/pi.md#doctor): verify the package install first, then diagnose the actual tool result in the active Pi session.
-Distinguish sandbox limits or a sandbox that could not start, permission-rule denials, guard denials, and wrapper or authentication problems.
-Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
-
-When the selected runtime is Copilot CLI, follow [docs/adapters/harnesses/copilot.md](../../../../docs/adapters/harnesses/copilot.md#doctor): verify the hook first, then diagnose the actual tool result in the live session.
+When it is Codex, Antigravity, Goose, Pi or Copilot CLI, follow that harness's paragraph in [`runtime-routing.md`](runtime-routing.md).
 
 When the harness is Claude Code, continue below.
 If the harness cannot be determined, ask once.
@@ -155,16 +135,6 @@ The remaining checks narrow down which of the three wiring pieces (env var, runn
 ```bash
 bash <skill-dir>/scripts/probe-3-container-gateway.sh
 ```
-
-`status_json` comes from the gateway's own read-only `status` subcommand.
-The doctor may call it from inside the sandbox, since it neither binds a socket nor touches the daemon.
-`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), else the operator install the `SessionStart` hook runs (`~/.claude/scripts/container-gateway/src`), so the same probe runs in an adopted checkout, in this framework's own worktree and on a marketplace install.
-The operator install is readable inside the sandbox only when the project's gateway wiring grants `~/.claude/scripts/container-gateway/` in `sandbox.filesystem.allowRead`; without it the directory is visible but its files are not, so the probe checks a file before calling `status`.
-Only `status` can vouch that the socket is the gateway's — a raw daemon socket answers `<rt> info` just as well — so with no status (no gateway source, or one the `PATH` `python3` cannot import) the probe fails rather than trusting the socket.
-A `status` that exits 2 without a report has refused the run directory.
-The `gw_state` check runs **before** the raw socket-file test.
-A backend that `status` does not list under `serving` never gets a socket file, so testing `-S "$sock"` first would misreport "gateway not running" for the "running, but this backend's machine/daemon is down" case.
-The `-S` test is a defensive fallback for an already-serving backend whose socket vanished mid-probe, not the primary check.
 
 **Interpretation:**
 
