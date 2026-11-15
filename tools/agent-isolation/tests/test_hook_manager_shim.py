@@ -59,17 +59,19 @@ def _setup(tmp_path: Path, name: str = "prek") -> tuple[dict[str, str], Path]:
     return env, argv
 
 
-def _setup_lefthook(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
-    """A fake lefthook that refuses while a global core.hooksPath is visible.
+def _setup_lefthook(
+    tmp_path: Path, name: str = "lefthook"
+) -> tuple[dict[str, str], Path, Path]:
+    """A fake manager that refuses while a global core.hooksPath is visible.
 
     It records the global config it was given, then installs a hook where
-    `git rev-parse --git-path hooks` resolves, as lefthook does.
+    `git rev-parse --git-path hooks` resolves, as lefthook and pre-commit do.
     """
     real = tmp_path / "real"
     real.mkdir()
     record = tmp_path / "record"
     shared = tmp_path / "shared-hooks"
-    (real / "lefthook").write_text(
+    (real / name).write_text(
         "#!/bin/sh\n"
         f'printf "GIT_CONFIG_GLOBAL=%s\\n" "${{GIT_CONFIG_GLOBAL-<unset>}}" > {record}\n'
         f'printf "%s\\n" "$@" >> {record}\n'
@@ -86,10 +88,10 @@ def _setup_lefthook(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         '  mkdir -p "$hooks" && printf "#!/bin/sh\\n" > "$hooks/pre-commit"\n'
         "fi\n"
     )
-    (real / "lefthook").chmod(0o755)
+    (real / name).chmod(0o755)
     shims = tmp_path / "shims"
     shims.mkdir()
-    (shims / "lefthook").symlink_to(SHIM)
+    (shims / name).symlink_to(SHIM)
     home = tmp_path / "home"
     home.mkdir()
     (home / ".gitconfig").write_text(f"[core]\n\thooksPath = {shared}\n")
@@ -365,6 +367,27 @@ def test_lefthook_install_hides_the_global_hooks_path(tmp_path: Path) -> None:
     assert record.read_text().splitlines() == ["GIT_CONFIG_GLOBAL=/dev/null", "install"]
     assert (repo / ".git" / "hooks" / "pre-commit").is_file()
     assert not (shared / "pre-commit").exists()
+
+
+def test_pre_commit_install_hides_the_global_hooks_path(tmp_path: Path) -> None:
+    """pre-commit refuses to install with any global core.hooksPath; the shim hides it."""
+    env, record, shared = _setup_lefthook(tmp_path, name="pre-commit")
+    repo = _repo(tmp_path)
+    assert _run(env, repo, "install", name="pre-commit").returncode == 0
+    assert record.read_text().splitlines() == ["GIT_CONFIG_GLOBAL=/dev/null", "install"]
+    assert (repo / ".git" / "hooks" / "pre-commit").is_file()
+    assert not (shared / "pre-commit").exists()
+
+
+def test_pre_commit_passes_other_invocations_through(tmp_path: Path) -> None:
+    env, record, _shared = _setup_lefthook(tmp_path, name="pre-commit")
+    repo = _repo(tmp_path)
+    assert _run(env, repo, "run", "--all-files", name="pre-commit").returncode == 0
+    assert record.read_text().splitlines() == [
+        "GIT_CONFIG_GLOBAL=<unset>",
+        "run",
+        "--all-files",
+    ]
 
 
 def test_lefthook_install_hides_a_custom_global_hooks_path(tmp_path: Path) -> None:

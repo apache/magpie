@@ -67,29 +67,34 @@
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
     - [Notes](#notes-11)
-  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
+  - [`pre-commit install` refuses with "Cowardly refusing to install hooks with core.hooksPath set"](#pre-commit-install-refuses-with-cowardly-refusing-to-install-hooks-with-corehookspath-set)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
     - [Notes](#notes-12)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
     - [Fix](#fix-13)
     - [Notes](#notes-13)
-  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-14)
     - [Root cause](#root-cause-14)
     - [Fix](#fix-14)
-  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Notes](#notes-14)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
     - [Symptom](#symptom-15)
     - [Root cause](#root-cause-15)
     - [Fix](#fix-15)
-  - [Writes to a `tools/vetted-ops` policy directory fail anywhere on disk](#writes-to-a-toolsvetted-ops-policy-directory-fail-anywhere-on-disk)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
     - [Symptom](#symptom-16)
     - [Root cause](#root-cause-16)
     - [Fix](#fix-16)
-    - [Notes](#notes-14)
+  - [Writes to a `tools/vetted-ops` policy directory fail anywhere on disk](#writes-to-a-toolsvetted-ops-policy-directory-fail-anywhere-on-disk)
+    - [Symptom](#symptom-17)
+    - [Root cause](#root-cause-17)
+    - [Fix](#fix-17)
+    - [Notes](#notes-15)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1315,6 +1320,44 @@ The setup installs the shim only for a repository that uses lefthook: a root `le
 - An npm `postinstall` runs `node_modules/.bin/lefthook`, which the shim does not cover; that install refuses for the same reason, and the repository needs one run through the shim.
 - The shim hides the global config only while it holds a `core.hooksPath`, so on a host without one the install keeps the operator's `credential.helper`, `url.*.insteadOf` and `safe.directory`.
 - Per-project scope has no global `core.hooksPath`, so the refusal does not happen there.
+
+---
+
+## `pre-commit install` refuses with "Cowardly refusing to install hooks with core.hooksPath set"
+
+### Symptom
+
+A repository that uses pre-commit has no working hooks, and `pre-commit install` fails:
+
+```console
+$ pre-commit install
+Cowardly refusing to install hooks with `core.hooksPath` set.
+hint: `git config --unset-all core.hooksPath`
+```
+
+### Root cause
+
+Whole-user scope sets a global `core.hooksPath`, and pre-commit refuses to install while `git config core.hooksPath` returns anything, with no flag to name another target.
+Unsetting it would take the whole-user dispatcher away from every repository on the host.
+
+### Fix
+
+Run the install through the framework shim, which hides the global config from that check and leaves the hook in the repository's own `$(git rev-parse --git-common-dir)/hooks/`:
+
+```bash
+~/.claude/bin/pre-commit install
+```
+
+With `~/.claude/bin` ahead of the real binary on PATH, plain `pre-commit install` does that already.
+The setup installs the shim only for a repository that uses pre-commit: a root `.pre-commit-config.yaml` or `.pre-commit-config.yml`, or an installed hook mentioning `pre-commit`.
+
+### Notes
+
+- Do not use `pre-commit init-templatedir` as a workaround: it forces `overwrite=True`, moves a foreign hook to `.legacy` and then deletes it, which removes the dispatcher.
+- Do not override `core.hooksPath` through `GIT_CONFIG_COUNT`: pre-commit refuses any non-empty value, and git treats an empty one as set — hooks then resolve against the filesystem root.
+- pre-commit keeps `~` literal in `PRE_COMMIT_HOME` (it calls `os.path.realpath`), so a sandboxed run cannot take its environment home from the committed settings.
+  `sandbox-add-project-root.sh` writes the absolute home into the project-local `.claude/settings.local.json` when the repository uses pre-commit, and removes it from a repository that does not.
+- `~/.claude/bin/pre-commit install --force` still gets the override, so `--force` cannot reach the shared directory through the shim either; run the real binary to do that.
 
 ---
 
