@@ -357,12 +357,14 @@ Once every finding has been confirmed, applied, or declined:
   skills go to the committed lock, personal-only skills to the personal
   layer's `reconciled.json` `skills` map. **Update that map in place;
   never rebuild it from this run alone.** Write the personal-only skills
-  stamped this run, and remove an entry only when its skill is no longer
-  in personal-only scope (it moved to committed scope or left scope) or
-  the developer confirmed a collision cleanup. Every other existing
-  entry stays: a both-stores collision the developer chose to keep, and
-  a skill left `unchecked` this run (check 4), whose previous hash is
-  the only baseline its drift warnings have. If the
+  stamped this run, and remove an entry only once nothing is lost: its
+  skill moved to committed scope **and** this run wrote its committed
+  entry, its skill left scope altogether, or the developer confirmed a
+  collision cleanup. Every other existing entry stays — a both-stores
+  collision the developer chose to keep, and any skill left `unchecked`
+  this run (check 4), whatever its scope now, because its previous hash
+  is the only baseline its drift warnings have until a sweep verifies a
+  replacement. If the
   target is the committed lock, stage it (`git add`) and say the change
   lands through the project's normal review like any other committed
   file; do not commit on the operator's behalf.
