@@ -66,9 +66,32 @@ def test_config_folders_can_be_declared_off() -> None:
 
 
 def test_config_plain_port_default_without_tls() -> None:
-    config = ImapConfig.from_env({**BASE_ENV, "IMAP_SOURCE_SSL": "0"})
+    config = ImapConfig.from_env({**BASE_ENV, "IMAP_SOURCE_HOST": "127.0.0.1", "IMAP_SOURCE_SSL": "0"})
     assert config.use_tls is False
     assert config.port == 143
+
+
+@pytest.mark.parametrize("host", ["localhost", "LOCALHOST", "127.0.0.1", "127.1.2.3", "::1"])
+def test_config_allows_plain_imap_only_on_loopback(host: str) -> None:
+    config = ImapConfig.from_env({**BASE_ENV, "IMAP_SOURCE_HOST": host, "IMAP_SOURCE_SSL": "0"})
+    assert config.use_tls is False
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "imap.example.org",
+        "10.0.0.5",
+        "localhost.example.org",  # starts like localhost, but is a remote name
+        "127.0.0.1.example.org",  # starts like a loopback address
+        "0.0.0.0",
+        "[::1]",  # imaplib cannot connect to a bracketed literal; use ::1
+    ],
+)
+@pytest.mark.parametrize("value", ["0", "false", "no"])
+def test_config_refuses_plain_imap_to_a_remote_host(host: str, value: str) -> None:
+    with pytest.raises(ConfigError, match="loopback"):
+        ImapConfig.from_env({**BASE_ENV, "IMAP_SOURCE_HOST": host, "IMAP_SOURCE_SSL": value})
 
 
 def test_thread_url_uses_the_template_when_declared() -> None:

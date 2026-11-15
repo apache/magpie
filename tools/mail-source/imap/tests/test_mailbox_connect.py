@@ -22,8 +22,10 @@ import imaplib
 import ssl
 from unittest import mock
 
+import pytest
+
 from conftest import make_config
-from imap_source.mailbox import Mailbox
+from imap_source.mailbox import ImapOperationError, Mailbox
 
 
 def test_tls_connect_passes_a_verifying_ssl_context() -> None:
@@ -44,6 +46,25 @@ def test_plain_connect_does_not_use_imap4_ssl() -> None:
         mock.patch.object(imaplib, "IMAP4") as imap_plain,
         mock.patch.object(imaplib, "IMAP4_SSL") as imap_ssl,
     ):
-        Mailbox.connect(make_config(use_tls=False, port=143))
+        Mailbox.connect(make_config(host="127.0.0.1", use_tls=False, port=143))
     imap_ssl.assert_not_called()
-    imap_plain.assert_called_once_with("imap.example.org", 143)
+    imap_plain.assert_called_once_with("127.0.0.1", 143)
+
+
+def test_plain_connect_to_localhost_is_pinned_to_127_0_0_1() -> None:
+    """``localhost`` is never handed to the resolver on the plain path."""
+    with mock.patch.object(imaplib, "IMAP4") as imap_plain:
+        Mailbox.connect(make_config(host="localhost", use_tls=False, port=143))
+    imap_plain.assert_called_once_with("127.0.0.1", 143)
+
+
+def test_plain_connect_to_a_remote_host_is_refused_before_connecting() -> None:
+    """A hand-built config cannot skip the loopback rule that from_env enforces."""
+    with (
+        mock.patch.object(imaplib, "IMAP4") as imap_plain,
+        mock.patch.object(imaplib, "IMAP4_SSL") as imap_ssl,
+        pytest.raises(ImapOperationError, match="loopback"),
+    ):
+        Mailbox.connect(make_config(host="imap.example.org", use_tls=False, port=143))
+    imap_plain.assert_not_called()
+    imap_ssl.assert_not_called()

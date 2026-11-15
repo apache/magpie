@@ -53,7 +53,7 @@ The calling skill resolves the `imap_*` variables declared in the adopter's
 |---|---|---|
 | `IMAP_SOURCE_HOST` | yes | IMAP server hostname |
 | `IMAP_SOURCE_PORT` | no | port (default: `993` with TLS, `143` without) |
-| `IMAP_SOURCE_SSL` | no | `1` (default) / `0` — prefer TLS; the non-TLS path exists only for localhost test rigs |
+| `IMAP_SOURCE_SSL` | no | `1` (default) / `0` — TLS; `0` is accepted only when `IMAP_SOURCE_HOST` is `localhost` (connected as `127.0.0.1`) or a loopback address (`127.0.0.0/8`, `::1`), for local test rigs, and is refused for any other host |
 | `IMAP_SOURCE_USER` | yes | the account the agent authenticates as (for a shared role mailbox, prefer an app-password / service account so it rotates without disrupting individual triagers) |
 | `IMAP_SOURCE_PASSWORD` | yes\* | account password or app password |
 | `IMAP_SOURCE_PASSWORD_FILE` | yes\* | alternative to the above: read the secret from this file so it stays out of the process list (preferred) |
