@@ -52,7 +52,8 @@ _HEADERS = ("Subject", "From", "Date", "Message-ID")
 def fetch_raw(access_token: str, message_id: str) -> tuple[bytes, str | None]:
     """Return ``(raw RFC-5322 bytes, threadId)`` for one Gmail message."""
     url = f"{GMAIL_API}/messages/{message_id}?format=raw"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+    req = urllib.request.Request(url)
+    req.add_unredirected_header("Authorization", f"Bearer {access_token}")
     try:
         # A multi-megabyte message takes a while; the draft helpers' 15s is too short.
         with urllib.request.urlopen(req, timeout=120) as r:

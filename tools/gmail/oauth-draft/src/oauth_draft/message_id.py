@@ -64,7 +64,8 @@ def root_message_id(access_token: str, thread_id: str) -> str | None:
     }
     # urlencode with doseq so repeated metadataHeaders survive if extended.
     url = f"{GMAIL_API}/threads/{thread_id}?" + urllib.parse.urlencode(params, doseq=True)
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+    req = urllib.request.Request(url)
+    req.add_unredirected_header("Authorization", f"Bearer {access_token}")
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             data = json.loads(r.read())
