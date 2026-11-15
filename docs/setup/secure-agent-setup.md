@@ -2077,9 +2077,14 @@ The review findings mod introduces the framework's first use of `$.fs.write` in 
 ## Duplicate candidate picker mod (Claude Code plugin / hook)
 
 For Claude Code harnesses using the `magpie-issue` plugin, the duplicate candidate interactive pane mod ([`plugins/magpie-issue/hooks/duplicate-picker.ts`](../../plugins/magpie-issue/hooks/duplicate-picker.ts)) provides an interactive terminal overview of candidate duplicates during issue triage and deduplication.
-The pane has no input until part 2 of #2075 wires the candidates file, and this part's capability surface is session state and UI rendering only.
-Part 2 will add the `$.fs` IPC surface, which this section will then document.
+Communication between the skill and the mod uses two-way filesystem IPC via gitignored session files.
+The capability surface is strictly scoped to reactive session state, UI pane rendering, reading candidate files (`$.fs.read`), and staging curated decision files (`$.fs.write`).
 
+- **Filesystem IPC and permission boundaries**: The mod reads candidate payloads from `.magpie-issue-candidates-<target>.json` and writes staged decisions to `.magpie-issue-decision-<target>.json`.
+  Filesystem access is strictly bounded to these file patterns within the active workspace root.
+  Both file patterns are excluded by `.gitignore` in this framework repository; in an adopting tracker repository without matching ignore entries, session files remain untracked-but-committable working tree files cleaned up at the end of the deduplication workflow (Step 4).
+  To prevent symlink traversal outside the intended directory, writes pre-check the target path via `$.fs.stat` and refuse to follow symbolic links or non-regular files.
+  The decision file embeds `source_candidates_sha256` matching the candidates payload digest; Step 1.4 validates this hash against the active candidates payload before loading and bypasses any stale, mismatched, or invalidated decision file left by prior or interrupted runs.
 - **Threat model and untrusted content boundaries**: Inbound candidate issue titles, excerpts, and author handles are untrusted external data.
   The mod strictly sanitizes text, stripping ANSI escapes, control codes, zero-width characters, and Unicode bidirectional overrides while preserving legitimate syntax like `Map<String, Foo>`.
   It renders inert text components within the UI pane, never evaluates issue content as instructions, and never executes unverified scripts.
@@ -2087,6 +2092,7 @@ Part 2 will add the `$.fs` IPC surface, which this section will then document.
   Adhering to the framework requirement that every agent-authored proposal requires human sign-off, an untouched state remains in `reviewing` status and never drops or closes candidate issues.
   Candidates are only marked for closure upon deliberate maintainer action via interactive buttons ("Keep Target" or "Set as Kept").
   Dismissed candidates provide a `Restore` button to undo accidental dismissals, and pressing a kept selection a second time clears the selection back to unselected.
+  Pane interactions only stage a local decision file; they never trigger autonomous GitHub API calls or issue closures without explicit maintainer sign-off in the skill workflow.
 
 ## Sandbox-error hint hook
 

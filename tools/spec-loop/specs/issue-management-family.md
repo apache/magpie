@@ -188,12 +188,11 @@ unchanged.
   the same bug reported in both a JIRA project and GitHub Issues) are out
   of scope.
 
-- **The duplicate candidate picker pane is additive.** Under Claude Code, a
-  duplicate candidate payload hydrates the mod's interactive pane above the prompt.
-  The mod renders the deduplication target and candidate issues, allowing maintainers
-  to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept)
-  before any mutation is proposed. Part 1 (#2076) provides the core UI and state
-  management; part 2 connects the file hydration and skill workflow.
+- **The duplicate candidate picker pane is additive.** Under Claude Code, the
+  mod draws the deduplication target and candidate issues in a pane; part 2 hydrates
+  it from the duplicate candidate payload. The mod renders the deduplication target
+  and candidate issues, allowing maintainers to curate matches (Keep Target, Set as
+  Kept, Dismiss, Restore, or Toggle Kept) before any mutation is proposed.
 
 ## Out of scope
 

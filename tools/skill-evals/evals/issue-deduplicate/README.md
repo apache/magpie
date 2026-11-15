@@ -5,12 +5,12 @@
 
 Behavioral evals for the `issue-deduplicate` skill.
 
-## Suites (9 cases total)
+## Suites (11 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass (both open), one issue already closed, single argument supplied |
-| step-2-build-proposal | Step 2 (build deduplication proposal) | 3 | standard proposal, prompt-injection in issue body, age-tiebreak kept heuristic |
+| step-2-build-proposal | Step 2 (build deduplication proposal) | 5 | standard proposal, prompt-injection in issue body, age-tiebreak kept heuristic, decision-file pre-fill, stale/mismatched decision bypass |
 | step-3-confirm | Step 3 (confirm and apply) | 3 | confirm all actions, skip cross-ref comment, cancel |
 
 ## Run
