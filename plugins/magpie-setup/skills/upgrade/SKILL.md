@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 7224
+measured_tokens: 7446
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -129,11 +129,17 @@ Read a section, not the whole file: find its heading with `grep -n` and read fro
 |---|---|---|
 | Install health | [`setup verify`](../setup/verify.md), the branch `install` names: [Local self-adoption checks](../setup/verify.md#local-self-adoption-checks) (`local`), [Marketplace-install checks](../setup/verify.md#marketplace-install-checks) with [check 12](../setup/verify.md#12-latest-available-plugin-version) (`marketplace`, `none`), or [The checks](../setup/verify.md#the-checks) (`snapshot`) | always, that branch only; checks 2 and 3 are `project_findings` |
 | Install health | [`setup verify` → Adoption floor](../setup/verify.md#adoption-floor) | `install` is `marketplace`, and `listing_known` is false or `project_findings` has a floor finding (`below-floor`, `untrusted-marketplace`, `version-unparsable`); otherwise the floor is met |
+| Install health | [`setup verify` → Committed default set](../setup/verify.md#committed-default-set) | `install` is `marketplace` |
+| Install health | [`setup verify` check 8i](../setup/verify.md#8i-adversarial-reviewers-if-configured) (adversarial reviewers) | `adversarial-review.md` resolves in the personal layer or `.apache-magpie-overrides/` |
 | Reconciliation | [`setup verify` check 11](../setup/verify.md#11-reconciliation-sweep-read-only) with [`setup reconcile` → The sweep](../setup/reconcile.md#the-sweep) | `configured` is true |
 | Project configuration | [`setup config`](../setup/config.md): [Step 1](../setup/config.md#step-1--work-out-what-is-actually-needed) (`requires_config` per installed skill), [Step 2a](../setup/config.md#step-2a--install-the-pre-flight-checker) (pre-flight checker copy freshness) and [Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) (the reconciliation stamp); `layers` answers Step 0 | `configured` is true |
 | Local changes | [`setup verify` 5d](../setup/verify.md#5d-local-configuration-and-what-it-shadows) (what a shadowing personal file means) | `shadowed` is not empty |
 | Local changes | the local agent settings against the template ([`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)) | always |
 | Isolated setup | [`setup-isolated-setup-verify`](../isolated-setup-verify/SKILL.md) checks with [`conditional-checks.md`](../isolated-setup-verify/conditional-checks.md), and [`setup-isolated-setup-update` → What to check](../isolated-setup-update/SKILL.md#what-to-check) with [`script-inventory.md`](../isolated-setup-update/script-inventory.md) (script-copy drift, settings shape drift, comdev MCP checkouts, the vetted-ops split) | `isolated.attention` is true |
+
+The *Install health* and *Reconciliation* rows, with *Local changes* 5d, are the whole of [`setup verify`](../setup/verify.md) for this install, so a run of this skill is also a verify run.
+It writes `verified_at` for it (see [Re-check and record](#re-check-and-record)), and the pre-flight does not suggest a separate verify right after an upgrade.
+A verify finding becomes a plan item like any other; one with no fix this skill may apply goes under *Still open*.
 
 **The isolated setup** needs attention when `isolated.state` is `in-use` and either the secure-setup fingerprint `changed` since the last recorded `setup-isolated-setup-update` run, or that run is `due` (older than its interval, or never recorded).
 `in-use` with no attention means nothing it checks has moved since that run on `updated_at`: the area gets no item, and the summary says so in one line.
@@ -274,7 +280,7 @@ An item whose re-check still fails is *Still open*, never *Done*.
 
 Then write the stamps the existing skills own, each through its own definition, never by hand (after a `no`, none):
 
-- `verified_at`, as [`setup verify` → Writing `verified_at`](../setup/verify.md#writing-verified_at) defines it.
+- `verified_at`, as [`setup verify` → Writing `verified_at`](../setup/verify.md#writing-verified_at) defines it, because Gather ran every check of `setup verify` for this install.
 - The isolated-setup run record, through `python3 -P -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when this run gathered the *Isolated setup* area and no item of it was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined, or when Gather left the area out because it needed no attention: the last run's record still stands.
 - The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the personal layer's `reconciled.json`.
 
