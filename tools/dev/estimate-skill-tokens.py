@@ -19,14 +19,17 @@
 """Estimate the always-on token cost of each marketplace plugin.
 
 **What "always-on" means.** An installed skill advertises its frontmatter
-``name`` and ``description`` to the model on *every* turn, whether or not the
-skill is invoked. The body of ``SKILL.md`` is read only when the skill runs, so
-it costs nothing until then. The advertised surface is therefore what an
-adopter is really paying for a family they installed and may never use, and it
-is the number the install docs quote.
+``name``, ``description`` and ``when_to_use`` to the model on *every* turn,
+whether or not the skill is invoked. The body of ``SKILL.md`` is read only when
+the skill runs, so it costs nothing until then. The advertised surface is
+therefore what an adopter is really paying for a family they installed and may
+never use, and it is the number the install docs quote. The definition, and
+why it includes ``when_to_use``, is stated once in ``docs/mode-economics.md``
+("Always-on skill tokens"); this script is its implementation.
 
-**Method.** ``len(name) + len(description) + 2`` characters per skill, summed
-per ``family:``, divided by 4 to approximate tokens. The 4-chars-per-token
+**Method.** ``len(name) + len(description) + len(when_to_use)`` characters per
+skill, plus the separators of the listing line, summed per ``family:``, divided
+by 4 to approximate tokens. The 4-chars-per-token
 ratio is the standard rough figure for English prose; this is an estimate for
 choosing between plugins, not an accounting of a specific tokenizer's output.
 It is deliberately not a live tokenizer call: the number must be reproducible
@@ -40,6 +43,7 @@ Run from the repo root:
 
     python3 tools/dev/estimate-skill-tokens.py
     python3 tools/dev/estimate-skill-tokens.py --check
+    python3 tools/dev/estimate-skill-tokens.py --per-skill
 """
 
 from __future__ import annotations
@@ -82,20 +86,40 @@ def _scalar(frontmatter: str, key: str) -> str:
     return "\n".join(body).strip()
 
 
-def measure() -> dict[str, tuple[int, float]]:
-    """Return ``{family: (skill count, estimated always-on tokens)}``."""
-    out: dict[str, tuple[int, float]] = {}
+def always_on_chars(frontmatter: str) -> int:
+    """Characters one skill puts in the session-start skill listing.
+
+    Claude Code lists a skill as ``name: description - when_to_use``: the three
+    fields plus their two separators. A skill with no ``when_to_use`` pays for
+    no second separator.
+    """
+    chars = len(_scalar(frontmatter, "name")) + 2 + len(_scalar(frontmatter, "description"))
+    when_to_use = _scalar(frontmatter, "when_to_use")
+    if when_to_use:
+        chars += 3 + len(when_to_use)
+    return chars
+
+
+def _skills() -> list[tuple[str, str, str]]:
+    """Return ``(skill dir, family, frontmatter)`` for every skill with a family."""
+    out: list[tuple[str, str, str]] = []
     for skill_md in sorted(SKILLS_DIR.glob("*/SKILL.md")):
         m = _FRONTMATTER.match(skill_md.read_text(encoding="utf-8"))
         if not m:
             continue
         fm = m.group(1)
         family = _scalar(fm, "family")
-        if not family:
-            continue
-        chars = len(_scalar(fm, "name")) + len(_scalar(fm, "description")) + 2
+        if family:
+            out.append((skill_md.parent.name, family, fm))
+    return out
+
+
+def measure() -> dict[str, tuple[int, float]]:
+    """Return ``{family: (skill count, estimated always-on tokens)}``."""
+    out: dict[str, tuple[int, float]] = {}
+    for _, family, fm in _skills():
         count, tokens = out.get(family, (0, 0.0))
-        out[family] = (count + 1, tokens + chars / CHARS_PER_TOKEN)
+        out[family] = (count + 1, tokens + always_on_chars(fm) / CHARS_PER_TOKEN)
     return out
 
 
@@ -131,6 +155,11 @@ def main() -> int:
         action="store_true",
         help="compare the published tables against the live frontmatter and fail on drift",
     )
+    ap.add_argument(
+        "--per-skill",
+        action="store_true",
+        help="print each skill's always-on tokens instead of the per-family totals",
+    )
     args = ap.parse_args()
 
     if not SKILLS_DIR.is_dir():
@@ -154,6 +183,15 @@ def main() -> int:
         print("estimate-skill-tokens: OK (published figures match the live frontmatter).")
         return 0
 
+    if args.per_skill:
+        rows = sorted(
+            ((always_on_chars(fm) / CHARS_PER_TOKEN, name) for name, _, fm in _skills()), reverse=True
+        )
+        print(f"{'skill':<40}{'always-on':>10}")
+        for tokens, name in rows:
+            print(f"{name:<40}{round(tokens):>10}")
+        return 0
+
     total_skills = sum(c for c, _ in live.values())
     total_tokens = sum(t for _, t in live.values())
     print(f"{'plugin':<32}{'skills':>7}{'always-on':>12}")
@@ -161,7 +199,7 @@ def main() -> int:
         print(f"{'magpie-' + family:<32}{count:>7}{'~' + str(_round_k(tokens)) + 'k':>12}")
     print(f"{'magpie (all)':<32}{total_skills:>7}{'~' + str(_round_k(total_tokens)) + 'k':>12}")
     print(
-        f"\nname + description only, at {CHARS_PER_TOKEN} chars/token. "
+        f"\nname + description + when_to_use, at {CHARS_PER_TOKEN} chars/token. "
         "The SKILL.md body costs nothing until the skill is invoked."
     )
     return 0

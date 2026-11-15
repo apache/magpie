@@ -8,6 +8,7 @@
 - [Mode economics — what does each mode cost to run?](#mode-economics--what-does-each-mode-cost-to-run)
   - [How to read this page](#how-to-read-this-page)
     - [What "tokens" means here](#what-tokens-means-here)
+    - [Always-on skill tokens](#always-on-skill-tokens)
     - [Measured skill-file tokens](#measured-skill-file-tokens)
     - [Measured runtime replay sample](#measured-runtime-replay-sample)
     - [Model classes](#model-classes)
@@ -66,12 +67,28 @@ thousand tokens and **M** for a million (so `30K` = 30,000 and
 
 Full skill-file sizes are measured separately in the generated table below.
 They describe the file loaded when that skill is invoked, not the full session
-or the always-on plugin description cost. Referenced documents and tool output
+or the [always-on](#always-on-skill-tokens) skill-listing cost. Referenced documents and tool output
 add further context. Other token ranges on this page are planning estimates;
 they are not measured runtime percentiles. The separately labeled replay
 benchmark below provides sample percentiles for its own bounded workloads.
 Different model tokenizers can produce different counts; no universal conversion
 percentage is assumed.
+
+### Always-on skill tokens
+
+This is the one definition of a skill's always-on cost; every other figure and budget in the repository points here.
+
+A skill's **always-on cost** is its frontmatter `name` + `description` + `when_to_use`, at ~4 characters per token.
+That text sits in the model's context in every session, for every installed skill at once, whether or not the skill is ever invoked.
+The `SKILL.md` body is not part of it: it loads only when the skill runs, and is measured in the next section.
+
+`when_to_use` counts because Claude Code builds its session-start skill listing as `name: description - when_to_use`,
+and truncates the combined `description` + `when_to_use` past 1,536 characters (the [validator](../tools/skill-and-tool-validator/README.md) enforces that cap).
+A harness that reads only the Agent Skills fields `name` and `description` pays less, so the figure is an upper bound across the supported harnesses.
+
+[`tools/dev/estimate-skill-tokens.py`](../tools/dev/estimate-skill-tokens.py) implements the definition.
+It prints the per-family totals that [`docs/setup/marketplace.md`](setup/marketplace.md#choosing-a-plugin-which-families) and [`docs/quick-start.md`](quick-start.md) publish (`--check` fails the build when they drift),
+and `--per-skill` prints the per-skill figure that the [`optimize-skill`](../plugins/magpie-utilities/skills/optimize-skill/SKILL.md) and [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) budget is set against.
 
 ### Measured skill-file tokens
 

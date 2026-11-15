@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 3851
+measured_tokens: 3914
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -112,12 +112,15 @@ A skill over either target is an outlier.
 | | target | why |
 |---|---|---|
 | `SKILL.md` body, pre-flight block excluded | **5,000 tokens** | paid on every invocation of that skill |
-| `description` + `when_to_use` | **200 tokens** | paid in *every session*, for every skill at once, invoked or not |
+| always-on: `name` + `description` + `when_to_use` | **200 tokens** | paid in *every session*, for every skill at once, invoked or not |
 
+The always-on figure is defined once, in
+[`docs/mode-economics.md`](../../../../docs/mode-economics.md#always-on-skill-tokens).
 Measure both before Step 1 and again at Step 4:
 
 ```bash
-uv run --project tools/skill-token-count skill-token-count --write
+uv run --project tools/skill-token-count skill-token-count --write   # body
+python3 tools/dev/estimate-skill-tokens.py --per-skill               # always-on
 ```
 
 Prioritize the always-on budget.

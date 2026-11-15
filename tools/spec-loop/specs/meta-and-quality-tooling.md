@@ -236,8 +236,11 @@ trustworthy as it grows.
   points, privacy/adapter notes, and proposed spec changes.
 - **Skill size has measured budgets.** `optimize-skill` targets 5,000
   tokens for a `SKILL.md` body (pre-flight block excluded) and 200 for
-  `description` plus `when_to_use`, both set at the catalogue median and
-  measured with `skill-token-count` before and after every pass; the
+  the always-on `name` plus `description` plus `when_to_use`, both set at
+  the catalogue median and measured before and after every pass (the body
+  with `skill-token-count`, the always-on figure with
+  `estimate-skill-tokens.py --per-skill`, the one definition the published
+  per-family table also uses, stated in `docs/mode-economics.md`); the
   always-on frontmatter budget is spent on first, because it is paid in
   every session for every skill (#1331, #1332).
   It also estimates a run cost per path, because the body understates what
