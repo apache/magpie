@@ -29,9 +29,11 @@ DISPATCHER = Path(__file__).parent.parent / "git-hook-dispatcher.sh"
 
 
 def _repo_with_local_hook(
-    tmp_path: Path, config: str | None = ".pre-commit-config.yaml"
+    tmp_path: Path,
+    config: str | None = ".pre-commit-config.yaml",
+    home_var: str = "PREK_HOME",
 ) -> tuple[Path, Path, Path]:
-    """A repository whose own pre-commit records the PREK_HOME it was given.
+    """A repository whose own pre-commit records the home variable it was given.
 
     `config` is the hook-manager config at its root, or None for a repository
     that has none.
@@ -43,7 +45,7 @@ def _repo_with_local_hook(
     seen = tmp_path / "seen"
     local = repo / ".git" / "hooks" / "pre-commit"
     local.write_text(
-        f'#!/bin/sh\nprintf "%s" "${{PREK_HOME-<unset>}}" > {seen}\n'
+        f'#!/bin/sh\nprintf "%s" "${{{home_var}-<unset>}}" > {seen}\n'
         f'printf "%s" "${{XDG_CACHE_HOME-<unset>}}" > {seen}.xdg\n'
     )
     local.chmod(0o755)
@@ -65,11 +67,11 @@ def _common_dir(repo: Path) -> str:
 
 
 def _run(repo: Path, hook: Path, env_extra: dict[str, str]) -> None:
+    dropped = ("PREK_HOME", "PRE_COMMIT_HOME", "SANDBOX_RUNTIME", "XDG_CACHE_HOME")
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("PREK_HOME", "SANDBOX_RUNTIME", "XDG_CACHE_HOME")
-        and not k.startswith("GIT_CONFIG_")
+        if k not in dropped and not k.startswith("GIT_CONFIG_")
     }
     env.update(env_extra)
     subprocess.run(["bash", str(hook)], cwd=repo, env=env, check=True)
@@ -89,6 +91,24 @@ def test_outside_the_sandbox_prek_gets_the_host_home(
     home = os.environ["HOME"]
     _run(repo, hook, {} if given is None else {"PREK_HOME": given.format(home=home)})
     assert seen.read_text() == HOST_HOME.format(home=home)
+
+
+PRE_COMMIT_HOST_HOME = "{home}/.local/share/pre-commit-host"
+
+
+def test_outside_the_sandbox_pre_commit_gets_the_host_home(tmp_path: Path) -> None:
+    """pre-commit's environments run outside the sandbox from a home nothing sandboxed writes."""
+    repo, hook, seen = _repo_with_local_hook(tmp_path, home_var="PRE_COMMIT_HOME")
+    home = os.environ["HOME"]
+    _run(repo, hook, {})
+    assert seen.read_text() == PRE_COMMIT_HOST_HOME.format(home=home)
+
+
+def test_inside_the_sandbox_pre_commit_keeps_its_absolute_home(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path, home_var="PRE_COMMIT_HOME")
+    sandbox_home = str(tmp_path / "home" / ".cache" / "pre-commit-sandbox")
+    _run(repo, hook, {"SANDBOX_RUNTIME": "1", "PRE_COMMIT_HOME": sandbox_home})
+    assert seen.read_text() == sandbox_home
 
 
 @pytest.mark.parametrize("given", [None, "~/.cache/prek"])
@@ -122,7 +142,7 @@ def test_an_overcommit_hook_preserves_existing_git_config(tmp_path: Path) -> Non
     repo, hook, seen = _repo_with_local_hook(tmp_path, config=".overcommit.yml")
     local = repo / ".git" / "hooks" / "pre-commit"
     local.write_text(
-        '#!/bin/sh\n# overcommit\n'
+        "#!/bin/sh\n# overcommit\n"
         'printf "%s\\n" "${GIT_CONFIG_COUNT-}" "${GIT_CONFIG_KEY_0-}" '
         '"${GIT_CONFIG_VALUE_0-}" "${GIT_CONFIG_KEY_1-}" '
         f'"${{GIT_CONFIG_VALUE_1-}}" > {seen}\n'

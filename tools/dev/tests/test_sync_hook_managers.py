@@ -57,7 +57,14 @@ def registry() -> dict[str, Any]:
 @pytest.fixture
 def tree(tmp_path: Path) -> Path:
     """A copy of every file the script reads or writes."""
-    for rel in (mod.REGISTRY, mod.SHIM, mod.DISPATCHER, mod.SANDBOX_LINT, *mod.SETTINGS):
+    for rel in (
+        mod.REGISTRY,
+        mod.SHIM,
+        mod.DISPATCHER,
+        mod.SANDBOX_LINT,
+        mod.ADD_PROJECT_ROOT,
+        *mod.SETTINGS,
+    ):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(mod.REPO_ROOT / rel, tmp_path / rel)
     (tmp_path / ".pre-commit-config.yaml").write_text("repos: []\n")  # this repository uses prek
@@ -88,7 +95,7 @@ def test_the_committed_registry_follows_the_contract(registry: dict[str, Any]) -
         (("home", "sandbox"), "/tmp/prek", "home.sandbox"),
         (("home", "host"), "~/.cache/prek-host", "home.host"),
         (("home", "host"), "~/.local/share/a/b", "home.host"),
-        (("home", "expands_tilde"), False, "home.expands_tilde"),
+        (("home", "expands_tilde"), "no", "home.expands_tilde"),
         (("home", "env"), "prek_home", "home.env"),
     ],
 )
@@ -180,11 +187,38 @@ def test_aliases_need_a_flag_style_subcommand(registry: dict[str, Any]) -> None:
     )
 
 
+def test_a_home_that_does_not_expand_tilde_reaches_the_helper(tree: Path, registry: dict[str, Any]) -> None:
+    """A tool that keeps `~` literal gets its absolute home from the helper."""
+    mod.main(["--root", str(tree)])
+    helper = (tree / mod.ADD_PROJECT_ROOT).read_text()
+    assert 'absolute_home_adapters="pre-commit"' in helper
+    assert (
+        "pre-commit) printf '%s\\n' 'PRE_COMMIT_HOME .cache/pre-commit-sandbox "
+        ".pre-commit-config.yaml,.pre-commit-config.yml pre-commit.com root' ;;"
+    ) in helper
+    lint = (tree / mod.SANDBOX_LINT).read_text()
+    assert (
+        '"PRE_COMMIT_HOME",\n        "~/.cache/pre-commit",\n        "~/.cache/pre-commit-sandbox",' in lint
+    )
+    assert '        False,\n        "pre-commit.com",\n        False,\n' in lint
+
+
+def test_a_home_that_does_not_expand_tilde_cannot_sit_in_committed_settings(
+    tree: Path, registry: dict[str, Any]
+) -> None:
+    for rel in mod.SETTINGS:
+        settings = json.loads((tree / rel).read_text())
+        settings["env"]["PRE_COMMIT_HOME"] = "~/.cache/pre-commit-sandbox"
+        (tree / rel).write_text(json.dumps(settings), encoding="utf-8")
+    assert mod.main(["--check", "--root", str(tree)]) == 1
+
+
 def test_a_manager_without_a_home_is_allowed(registry: dict[str, Any]) -> None:
     del registry["adapters"]["prek"]["home"]
     assert mod.validate(registry) == []
     assert mod.render(registry)[mod.DISPATCHER] == (
-        'hook_manager_homes=""\nhook_manager_runtime_envs="overcommit:overcommit"\n'
+        'hook_manager_homes="PRE_COMMIT_HOME=pre-commit-host"\n'
+        'hook_manager_runtime_envs="overcommit:overcommit"\n'
     )
 
 
@@ -239,7 +273,10 @@ def test_a_new_adapter_reaches_every_block(tree: Path, registry: dict[str, Any])
     assert mod.main(["--root", str(tree)]) == 1  # rewrote the blocks; the settings lack the demo deny
     assert "    demo) install_subcommand=install;" in (tree / mod.SHIM).read_text()
     dispatcher = (tree / mod.DISPATCHER).read_text()
-    assert 'hook_manager_homes="DEMO_HOME=demo-host PREK_HOME=prek-host"' in dispatcher
+    assert (
+        'hook_manager_homes="DEMO_HOME=demo-host PRE_COMMIT_HOME=pre-commit-host PREK_HOME=prek-host"'
+        in dispatcher
+    )
     assert 'hook_manager_runtime_envs="overcommit:overcommit"' in dispatcher
     lint = (tree / mod.SANDBOX_LINT).read_text()
     assert (
