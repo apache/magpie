@@ -512,18 +512,25 @@ pre-adoption personal layer's `reconciled.json` (see
 [4a](#4a--promote-what-is-already-configured-locally)) exists and carries a `skills`
 map — written by an earlier
 [`config`](config.md#step-3b--record-what-this-run-reconciled) run,
-back when this project was not yet adopted — copy every one of its
-entries (skill name → `surface_hash`, unchanged) into the lock's
-`reconciled.skills` map being written here, then delete the local file's
-`version`, `at`, and `skills` keys, leaving only the three always-local
-keys (`verified_at`, `verify_suggested_at`, `acknowledged`) behind, per
+back when this project was not yet adopted — copy each entry for a
+skill in **committed scope** after this adoption (skill name →
+`surface_hash`, unchanged; scope as
+[`reconcile.md`'s sweep](reconcile.md#the-sweep) step 1 defines it)
+into the lock's `reconciled.skills` map being written here, and remove
+it from the local map. Entries for skills still in **personal-only
+scope** — their configuration stayed in the personal layer, which 4a
+permits — stay in the local `skills` map, where they belong. Then
+delete the local file's `version` and `at` keys, and its `skills` key
+when nothing personal-only is left in it, per
 [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install).
 The local file's old `version`/`at` are **not** carried over — the
 committed block gets this run's own `version`/`at` regardless (below),
 the same as every other entry 4d writes; only the per-skill hashes move.
 `config` cannot do this migration itself — it has no way to know a
 later `adopt` is coming — so `adopt` is the one surface that carries it
-over. Skipping this would leave the same skill named in the committed
+over. Committing a personal-only entry would record, for every
+contributor, a state only this developer has. Skipping this would leave
+the same skill named in the committed
 lock (from 4d's own scope below) **and** the local file at once — the
 both-stores collision
 [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
@@ -536,7 +543,9 @@ configuration now covers, resolved the same way
 [`reconcile.md`'s sweep](reconcile.md#the-sweep) enumerates scope — a
 skill named by a file under `.apache-magpie-overrides/` (a config file
 matching one of that skill's `requires_config:` entries, from 4a/4b, or
-an override file named `<skill>.md`, from 4c). Nothing this run did not
+an override file named `<override-name>.md`, from 4c — the filename
+the skill's own *Adopter overrides* block names, as the sweep defines
+it). Nothing this run did not
 just configure or override enters the stamp this way; the migration above
 is the one exception, since it carries over what `config` already
 recorded regardless of whether 4a/4b/4c touched that skill on this run.
@@ -641,8 +650,12 @@ Tell the user, in this order:
   again. Copy `version`, `at` and `skills` into
   `<git-common-dir>/apache-magpie/reconciled.json` — merging into it,
   never replacing it, and carrying over `verified_at`,
-  `verify_suggested_at` and `acknowledged` from
-  `.apache-magpie-local/reconciled.json` — which is exactly where a
+  `verify_suggested_at`, `acknowledged`, `declined`, and the
+  personal-only entries of its `skills` map from
+  `.apache-magpie-local/reconciled.json` (merged into the copied
+  `skills`; a skill is never in both, per
+  [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install))
+  — which is exactly where a
   configured-but-unadopted project's stamp belongs. Without the lock,
   `.apache-magpie-local/` becomes a legacy in-tree directory: it is
   still read, and the pre-flight proposes moving it into

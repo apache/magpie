@@ -193,8 +193,17 @@ has no committed lock to hold it, so the identical `version`/`at`/
 `skills` shape lives in the personal layer's `reconciled.json`
 (`<git-common-dir>/apache-magpie/reconciled.json`, or a legacy in-tree
 `.apache-magpie-local/reconciled.json`)
-instead, next to the personal configuration it describes. **`skills`
-therefore lives in exactly one place, never both.** **Neither
+instead, next to the personal configuration it describes. **Each
+skill's entry therefore lives in exactly one place, never both.** The
+same rule holds per skill inside an adopted project: a skill that only
+the personal layer configures (a personal override, or a
+`requires_config` file that exists only there — a personal copy
+shadowing a committed file does not count) is stamped in the
+personal layer's `reconciled.json` `skills` map, never in the committed
+lock, so the committed block records only what the committed
+configuration covers. In a linked worktree the pre-flight merges the
+`skills` maps of every personal layer, the worktree's own first, so the
+main checkout's personal-only stamps still count there. **Neither
 configured nor adopted — no `.apache-magpie.lock`, no
 personal layer, no `.apache-magpie-overrides/` — → no block
 anywhere**, because there is no configuration to have gone stale. A
@@ -224,12 +233,16 @@ keep `version`/`at`/`skills`, carries the full shape:
 }
 ```
 
-An **adopted** project's local file carries only the three
-always-local keys below — `version`/`at`/`skills` live in the
-committed lock instead, per the invariant above:
+An **adopted** project's local file carries the three
+always-local keys below, plus a `skills` map holding only its
+personal-only skills — `version`/`at` and every committed-scope skill
+live in the committed lock instead, per the invariant above:
 
 ```json
 {
+  "skills": {
+    "magpie-repo-health-flaky-test-triage": "sha256:eda3c3…"
+  },
   "verified_at": "2026-09-21",
   "verify_suggested_at": "2026-09-07",
   "acknowledged": {
@@ -293,6 +306,14 @@ leaving the committed lock as the single store.
 <!-- END MAGPIE BLOCK: both-stores-collision -->
 
 That is the whole remedy.
+
+`declined.skills` is a list of skill names whose `requires_config`
+gaps the developer declined **permanently** in `reconcile`. Unlike
+`acknowledged.skills` it carries no hash, so it survives every
+`surface_hash` move; `reconcile` skips those gaps without asking. A
+personal override file for the skill cancels the skip. It is always
+local, never committed: one developer's decline does not decide for
+every contributor.
 
 `acknowledged.skills` and `acknowledged.sweep` record when a
 reconciliation proposal was **shown**, not when it was declined — the

@@ -303,6 +303,31 @@ def _read_stamp(root: Path) -> dict[str, object]:
     return loaded if isinstance(loaded, dict) else {}
 
 
+def _merged_personal_map(root: Path, *keys: str) -> dict[str, str]:
+    """One per-skill map (`skills`, `acknowledged.skills`) merged across every
+    personal layer; the first layer naming a skill wins.
+
+    A linked worktree's own `reconciled.json` holding only bookkeeping must
+    not hide what the main checkout's records.  An unreadable or undecodable
+    file in any layer is skipped, never fatal to the verdict.
+    """
+    merged: dict[str, str] = {}
+    for layer in personal_layers(root):
+        path = layer / STAMP_NAME
+        if not path.exists():
+            continue
+        try:
+            node: object = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for key in keys:
+            node = node.get(key) if isinstance(node, dict) else None
+        if isinstance(node, dict):
+            for name, digest in node.items():
+                merged.setdefault(str(name), str(digest))
+    return merged
+
+
 def _resolves(root: Path, name: str) -> bool:
     return resolve(root, name) is not None
 
@@ -359,10 +384,7 @@ def skill_findings(
 
     lock = load(root / LOCK_NAME)
     stamp = _read_stamp(root)
-    raw_local = stamp.get("skills")
-    local_skills: dict[str, str] = (
-        {str(k): str(v) for k, v in raw_local.items()} if isinstance(raw_local, dict) else {}
-    )
+    local_skills = _merged_personal_map(root, "skills")
     lock_skills: dict[str, str] = lock.reconciled.skills if lock and lock.reconciled else {}
 
     # The local store wins where both name this skill: `config` on one
@@ -371,8 +393,7 @@ def skill_findings(
 
     raw_ack = stamp.get("acknowledged")
     acknowledged: dict[str, object] = raw_ack if isinstance(raw_ack, dict) else {}
-    ack_skills = acknowledged.get("skills")
-    ack_for_skill = ack_skills.get(skill) if isinstance(ack_skills, dict) else None
+    ack_for_skill = _merged_personal_map(root, "acknowledged", "skills").get(skill)
 
     if stamped is None:
         has_any_stamp = bool(local_skills or lock_skills or stamp.get("version"))

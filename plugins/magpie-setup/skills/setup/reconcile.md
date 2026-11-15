@@ -58,7 +58,13 @@ do not treat the absence as a finding.
    [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install):
    - `.apache-magpie.lock` exists (adopted, any method) → the stamp's
      `version`/`at`/`skills` block lives **in the committed lock**,
-     beside the floor it already records.
+     beside the floor it already records — for the skills in
+     **committed scope** (sweep step 1). A skill in scope **only through
+     the personal layer** is stamped in the personal layer's
+     `reconciled.json` `skills` map instead, never in the committed
+     lock: the configuration it describes is one developer's, so
+     committing it would record, for every contributor, a state only
+     that developer has.
    - No committed lock, but the personal layer or
      `.apache-magpie-overrides/` exists (configured but not adopted) →
      the identical block lives in the personal layer's `reconciled.json`,
@@ -91,6 +97,9 @@ do not treat the absence as a finding.
 
    That offer is one confirmation like any other finding in Step 2 —
    declining it changes nothing, and the collision stays reported.
+   A personal `skills` entry for a skill in **personal-only scope** is
+   not a collision: that is where its stamp belongs. Offer to drop a
+   personal entry only when the same skill is also in committed scope.
 4. **Main-checkout only when the target is the committed lock.**
    Writing to `.apache-magpie.lock` is a committed-file write, the same
    restriction [`adopt`](adopt.md) carries and for the same reason.
@@ -108,9 +117,19 @@ diff against. That costs the *report* some precision, not the check:
 two questions are answerable from the current tree alone, with no
 baseline required.
 
+**An override file is named by the skill's override name, not its
+`name:`.** `<override-name>` below is the filename the skill's own
+*Adopter overrides* block names (`release-verify-rc` for `verify-rc`,
+`security-issue-triage` for `issue-triage`), the same mapping
+`setup_preflight.delegation.override_name()` applies. Looking for
+`<name>.md` instead misses every prefixed override, so those skills
+drop out of scope and their anchors are never checked. Both layers are
+read: an override in the personal layer counts exactly like a
+committed one.
+
 1. **Enumerate the scope.** A skill is in scope when an **override
-   file names it** (`.apache-magpie-overrides/<skill>.md` or
-   `<skill>.md` in the personal layer), **or** when one of its
+   file names it** (`.apache-magpie-overrides/<override-name>.md` or
+   `<override-name>.md` in the personal layer), **or** when one of its
    `requires_config:` entries **resolves** from the personal layer
    or `.apache-magpie-overrides/`. A project that supplies a skill's
    configuration has configured that skill, whether or not it also
@@ -121,9 +140,39 @@ baseline required.
    single override and most of the catalogue for one that commits a
    widely-read `project.md`.
 
+   Record, per skill, **which layer put it in scope**. **Committed
+   scope**: a committed override file names it, or one of its
+   `requires_config` files **exists** in `.apache-magpie-overrides/` —
+   decided by existence there, not by the lookup chain, so a personal
+   copy that shadows a committed file does not take a shared skill out
+   of committed scope. **Personal-only scope**: nothing in
+   `.apache-magpie-overrides/` puts it in scope; only the personal layer
+   does.
+   Both kinds are checked identically below; the split decides only
+   where the stamp is written (Step 2).
+
+1a. **Skip what the developer declined for good.** The personal layer's
+   `reconciled.json` may carry `declined.skills`, a list of skill names
+   whose `requires_config` gaps the developer declined permanently
+   (Step 2). For a skill on that list, do not propose its
+   `requires_config` gaps: leave it out of every stamp and report it on
+   one *auto-skipped* line. The skip covers those gaps only — anchors
+   of any override for the skill, committed or personal, are still
+   resolved (check 2) and proposed as usual. Refresh
+   `acknowledged.skills["<skill>"]` to its current `surface_hash` only
+   when nothing else about the skill is left to show: none of its
+   anchors moved, and it is not `unchecked` this run (check 4) —
+   otherwise that acknowledgement would silence a pre-flight warning
+   for a change nobody verified. **A personal override file for the
+   skill (`<override-name>.md` in the personal layer) cancels the skip**:
+   a developer who keeps a personal override uses that skill here, so
+   its anchors and gaps are checked and proposed as usual. A skill on
+   the list whose `requires_config` now resolves is not skipped either:
+   it is checked, and stamped clean when it passes.
+
 2. **Anchor resolution.** For every override file
-   (`.apache-magpie-overrides/<skill>.md` or
-   `<skill>.md` in the personal layer), read the target skill's
+   (`.apache-magpie-overrides/<override-name>.md` or
+   `<override-name>.md` in the personal layer), read the target skill's
    `SKILL.md` **and every sibling `*.md` detail file directly inside
    that skill's directory** (a multi-file skill such as `setup` or
    `pr-management-triage` keeps steps and golden rules in those detail
@@ -228,7 +277,7 @@ List every finding from checks 2–3a as a numbered proposal, one item per
 override, `requires_config` gap, or missing import caller grant or required label:
 
 ```text
-1. .apache-magpie-overrides/issue-triage.md anchors to
+1. .apache-magpie-overrides/security-issue-triage.md anchors to
    "Step 3 — Classify the disposition", renamed to
    "Step 3 — Read the report and classify" in magpie-security-issue-triage.
    → re-anchor the override to the new heading.
@@ -286,6 +335,12 @@ suppressed by a write that never happened.
   same finding on this skill's next invocation; the skill's entry is
   **not** added to the stamp's `skills:` map, because it is not
   actually reconciled — only shown and set aside.
+  For a `requires_config` gap, also offer **decline permanently**: on
+  yes, add the skill's name to `declined.skills` in the personal
+  layer's `reconciled.json`, so later sweeps skip it (sweep step 1a)
+  instead of asking again every time its `surface_hash` moves. Never
+  write `declined` to the committed lock: one developer's decline does
+  not decide for every contributor.
 - **A skill named only in `unchecked`** (sandboxed run, check 4) — no
   entry is written either way; it is neither confirmed clean nor
   declined, just unverified this run.
@@ -303,7 +358,19 @@ Once every finding has been confirmed, applied, or declined:
 - Otherwise write `version` (the framework version — or, on a
   marketplace install, the installed plugin version — this run
   actually checked against) and `at` (today) into the target store
-  chosen in Step 0, alongside the `skills:` map built above. If the
+  chosen in Step 0, alongside the `skills:` map built above. On an
+  adopted project the map splits by scope (sweep step 1): committed-scope
+  skills go to the committed lock, personal-only skills to the personal
+  layer's `reconciled.json` `skills` map. **Update that map in place;
+  never rebuild it from this run alone.** Write the personal-only skills
+  stamped this run, and remove an entry only once nothing is lost: its
+  skill moved to committed scope **and** this run wrote its committed
+  entry, its skill left scope altogether, or the developer confirmed a
+  collision cleanup. Every other existing entry stays — a both-stores
+  collision the developer chose to keep, and any skill left `unchecked`
+  this run (check 4), whatever its scope now, because its previous hash
+  is the only baseline its drift warnings have until a sweep verifies a
+  replacement. If the
   target is the committed lock, stage it (`git add`) and say the change
   lands through the project's normal review like any other committed
   file; do not commit on the operator's behalf.
@@ -325,7 +392,7 @@ Once every finding has been confirmed, applied, or declined:
 ```text
 Reconciliation sweep
 
-Scope:      <N> configured skill(s), <M> override file(s)
+Scope:      <N> configured skill(s) (<C> committed, <P> personal-only), <M> override file(s)
 Baseline:   <estimate, or "unknown">    (wording only — not load-bearing)
 
 Anchor resolution:
@@ -336,6 +403,7 @@ Anchor resolution:
 requires_config resolution:
   ✓ <skills whose required files all resolve>
   ⚠ <skill>  needs <file>, not configured  →  /magpie-setup:setup config <skill>
+  – <skill list>  auto-skipped (declined permanently; no personal override)
 
 Both-stores collision:
   ✓ none found   OR
@@ -349,6 +417,8 @@ Unchecked (sandboxed session — plugin cache not readable):
 
 Stamp:
   written to <.apache-magpie.lock | <personal layer>/reconciled.json>
+  (adopted: committed-scope skills in the lock, personal-only skills in
+   <personal layer>/reconciled.json)
   version: <value>   at: <today>
   skills:  <N> entries   (<K> confirmed this run, <D> declined and
                           acknowledged, <U> left unchecked)

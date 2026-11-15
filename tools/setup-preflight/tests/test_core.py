@@ -500,6 +500,17 @@ def test_an_unconfigured_unadopted_project_is_never_cached(project: Path) -> Non
     assert not (project / ".git" / "apache-magpie").exists()
 
 
+def test_an_adopted_project_reads_a_personal_only_skill_from_the_local_stamp(project: Path) -> None:
+    """A skill only the personal layer configures is stamped there, never in
+    the committed lock; the pre-flight compares against that entry."""
+    write_lock(project, stamped("magpie-y", "sha256:abc"))
+    write_stamp(project, {"skills": {"magpie-x": "sha256:OLD"}})
+    assert skill_findings(project, "magpie-x", "sha256:OLD", []) == []
+    found = skill_findings(project, "magpie-x", "sha256:NEW", [])
+    assert codes(found) == ["fingerprint-moved"]
+    assert found[0].facts["in_both_stores"] is False
+
+
 # --- already-shown suppression ------------------------------------------------------
 
 
@@ -560,6 +571,54 @@ def test_the_git_dir_home_is_found_from_a_linked_worktree(tmp_path: Path) -> Non
     (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
     assert configured_at_all(wt)
     assert skill_findings(wt, "magpie-x", None, ["a.md"]) == []
+
+
+def _adopted_worktree_with_stamps(tmp_path: Path, main_stamp: str, wt_stamp: str) -> Path:
+    """An adopted linked worktree whose own and main-checkout personal layers
+    hold the given `reconciled.json` texts; returns the worktree."""
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    write_lock(wt, stamped("magpie-y", "sha256:abc"))
+    for root, text in ((main, main_stamp), (wt, wt_stamp)):
+        (root / ".apache-magpie-local").mkdir()
+        (root / ".apache-magpie-local" / "reconciled.json").write_text(text, encoding="latin-1")
+    return wt
+
+
+def test_a_linked_worktree_sees_the_main_checkouts_personal_only_stamp(tmp_path: Path) -> None:
+    """The worktree's own `reconciled.json` must not hide the main checkout's
+    `skills` map: personal-only stamps live there."""
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        json.dumps({"skills": {"magpie-x": "sha256:OLD"}}),
+        json.dumps({"verified_at": "2026-09-01"}),
+    )
+    assert codes(skill_findings(wt, "magpie-x", "sha256:NEW", [])) == ["fingerprint-moved"]
+
+
+def test_a_linked_worktree_honours_the_main_checkouts_acknowledgement(tmp_path: Path) -> None:
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        json.dumps(
+            {"skills": {"magpie-x": "sha256:OLD"}, "acknowledged": {"skills": {"magpie-x": "sha256:NEW"}}}
+        ),
+        json.dumps({"verified_at": "2026-09-01"}),
+    )
+    assert skill_findings(wt, "magpie-x", "sha256:NEW", []) == []
+
+
+def test_an_undecodable_main_checkout_stamp_does_not_break_a_worktree(tmp_path: Path) -> None:
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        '{"skills": {"magpie-x": "\xff"}}',
+        json.dumps({"skills": {"magpie-x": "sha256:abc"}}),
+    )
+    assert skill_findings(wt, "magpie-x", "sha256:abc", []) == []
 
 
 def test_a_legacy_in_tree_dir_still_works_and_is_reported(project: Path) -> None:
