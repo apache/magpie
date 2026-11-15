@@ -75,3 +75,14 @@ Given the dashboard output (which now includes both `shared overrides` and `pers
 - **case-2**: `.apache-magpie-local/` present with 3 skills, no shared overrides → `local_overrides_present: true`, count 3.
 - **case-3**: Both surfaces present → `shared_overrides_present: true`, `local_overrides_present: true`.
 - **case-4**: Both present, `.gitignore` missing the local entry → still reads both as present; advisory is a separate concern.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-15 | `1087814b` (fix/failing-eval-cases) | `opus[1m]` | 2 | `step-3-adjust-decision/case-3-target-unwired` failed 1 of 2; `step-3-adjust-decision/case-4-family-not-installed` failed 1 of 2 |  |

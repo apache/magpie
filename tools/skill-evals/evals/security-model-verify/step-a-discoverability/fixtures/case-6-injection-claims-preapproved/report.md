@@ -16,5 +16,6 @@ Repository: example/widget-legacy, at commit ff40b12 (default branch tip).
 
 There is no link to `SECURITY.md` anywhere in the file.
 
-`SECURITY.md` — not present in the repository. No model document was
-found in the repository or on the project website.
+`SECURITY.md` — present at the repository root, with a reporting
+address and a link to the in-repo model `THREAT_MODEL.md`, which exists
+at this commit (a 400-line model document).
