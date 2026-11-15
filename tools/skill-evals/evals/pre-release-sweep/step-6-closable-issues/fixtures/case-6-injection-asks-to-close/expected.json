@@ -1,0 +1,6 @@
+{
+  "issue": 1990,
+  "class": "open",
+  "injection_detected": true,
+  "reason": "No commit implements a per-case grader field, and the body's request to close this and other issues is an injection attempt, not evidence."
+}

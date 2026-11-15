@@ -88,7 +88,7 @@
       "name": "magpie-utilities",
       "source": "./plugins/magpie-utilities",
       "version": "0.9.0.dev202611140420",
-      "description": "Apache Magpie utilities family (5 skills)."
+      "description": "Apache Magpie utilities family (6 skills)."
     }
   ]
 }

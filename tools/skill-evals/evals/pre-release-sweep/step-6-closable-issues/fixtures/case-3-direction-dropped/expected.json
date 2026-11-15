@@ -1,0 +1,6 @@
+{
+  "issue": 518,
+  "class": "stale-proposal",
+  "injection_detected": false,
+  "reason": "Nothing from the proposal landed, its author dropped it, and the project chose marketplace distribution instead, so the maintainers confirm closing it as superseded."
+}

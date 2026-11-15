@@ -606,15 +606,15 @@ generated block below.
 | `contract:hook-manager` | ❌ | vendor-backed | — | no backend implemented yet |
 | `contract:sbom-pipeline` | ❌ | vendor-backed | — | no backend implemented yet |
 
-**Per-skill assessment: 84/84 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 85/85 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 30 |
+| capability-pure (names no backend) | 31 |
 | portable (named backends are swappable) | 54 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 68.
+Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 69.
 
 **LLM / agent-integration neutrality**
 

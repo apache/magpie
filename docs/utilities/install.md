@@ -14,7 +14,7 @@
 
 # Install & first runs
 
-Install just this family — one plugin, 5 skills. Discover, author, and maintain skills, and report framework bugs.
+Install just this family — one plugin, 6 skills. Discover, author, and maintain skills, and report framework bugs.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 

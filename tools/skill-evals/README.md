@@ -50,6 +50,7 @@ Suites are currently implemented for:
 - **contributor-sentiment** — 10 cases across 3 steps (step-0-resolve-inputs, step-2-score-signals, step-3-generate-report)
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)
 - **newcomer-issue-explainer** — 11 cases across 2 steps (issue-assessment, explanation-quality)
+- **pre-release-sweep** — 6 cases across 1 suite (step-6-closable-issues)
 - **pre-first-pr-check** — 2 cases across 1 step (step-2-check-categories); the scripted categories and the report are pytest-tested in `tools/pr-management`
 - **pr-stale-sweep** — 7 cases across 2 suites (step-5-confirm, item-failure-budget); plan, classify, render and recap are pytest-tested in `tools/pr-management`
 - **report-framework-issue** — 6 cases across 1 step (step-scrub); redaction-category classifier with a `safe_to_file` gate and injection resistance

@@ -1,0 +1,6 @@
+{
+  "issue": 312,
+  "class": "stale-proposal",
+  "injection_detected": false,
+  "reason": "Nothing landed and the public pagure.io instance it targets is gone, so the maintainers decide whether self-hosted Pagure is still wanted."
+}
