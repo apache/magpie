@@ -233,10 +233,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 res = get_job(ns.id)
                 _print_json(res)
 
-        elif ns.subcommand == "repo":
-            if ns.action == "get":
-                res = get_repo(ns.service, ns.owner, ns.name)
-                _print_json(res)
+        elif ns.subcommand == "repo" and ns.action == "get":
+            res = get_repo(ns.service, ns.owner, ns.name)
+            _print_json(res)
 
         return 0
     except (SourceHutError, json.JSONDecodeError) as e:
