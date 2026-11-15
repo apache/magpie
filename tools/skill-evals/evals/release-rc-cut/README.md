@@ -64,3 +64,14 @@ archive.
 with everything else in order. The source RC rule is the same in every
 `release-*` skill (`rcN` with N ≥ 1), so the tool blocks `rc0` and the
 model must return `blocked` rather than cut a tag no later skill accepts.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-15 | `1087814b` (perf/trim-allocate-and-rc-cut) | `opus[1m]` | 4 | `step-0-preflight/case-5-rc0-blocks` failed 1 of 4 |  |
