@@ -63,7 +63,8 @@ def list_thread_ids(access_token: str, query: str) -> list[str]:
         if page_token:
             params["pageToken"] = page_token
         url = f"{GMAIL_API}/threads?" + urllib.parse.urlencode(params)
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {access_token}"})
+        req = urllib.request.Request(url)
+        req.add_unredirected_header("Authorization", f"Bearer {access_token}")
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.loads(r.read())
@@ -92,12 +93,10 @@ def modify_thread(
     req = urllib.request.Request(
         f"{GMAIL_API}/threads/{thread_id}/modify",
         data=json.dumps(payload).encode(),
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        },
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
+    req.add_unredirected_header("Authorization", f"Bearer {access_token}")
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             r.read()

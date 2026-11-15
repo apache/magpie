@@ -356,7 +356,7 @@ def test_api_get_parses_json_response():
     assert result == {"id": "thread-1"}
     request = mock_open.call_args.args[0]
     assert request.full_url.endswith("/threads/thread-1")
-    assert request.headers["Authorization"] == "Bearer token"
+    assert request.get_header("Authorization") == "Bearer token"
 
 
 def test_api_post_parses_json_response():

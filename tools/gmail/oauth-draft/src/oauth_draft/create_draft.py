@@ -60,10 +60,8 @@ from oauth_draft.credentials import (
 
 
 def api_get(access_token: str, path: str) -> dict:
-    req = urllib.request.Request(
-        f"{GMAIL_API}{path}",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
+    req = urllib.request.Request(f"{GMAIL_API}{path}")
+    req.add_unredirected_header("Authorization", f"Bearer {access_token}")
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return json.loads(r.read())
@@ -75,12 +73,10 @@ def api_post(access_token: str, path: str, payload: dict) -> dict:
     req = urllib.request.Request(
         f"{GMAIL_API}{path}",
         data=json.dumps(payload).encode(),
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        },
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
+    req.add_unredirected_header("Authorization", f"Bearer {access_token}")
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return json.loads(r.read())
