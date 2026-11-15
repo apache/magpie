@@ -120,6 +120,36 @@ def test_sweep_1a_triaged_draft_without_reply_or_push() -> None:
     assert d.details["variant"] == "triaged"
 
 
+def test_sweep_1a_an_author_planted_fold_does_not_start_the_close_clock() -> None:
+    """Only a fold a triager wrote may start the stale-draft close clock."""
+    d = one(
+        pr(
+            draft=True,
+            updated=ago(days=8),
+            committed=ago(days=10),
+            body=fold("abc1234", ago(days=8)),
+            editor="nina-contributor",
+        )
+    )
+    assert d.details.get("variant") != "triaged"
+
+
+def test_sweep_1a_a_fold_by_an_unresolved_writer_does_not_start_the_clock() -> None:
+    """Like a comment marker, a fold by someone other than the viewer needs the maintainer check."""
+    body = fold("abc1234", ago(days=8)).replace("by=triager", "by=someone")
+    d = one(pr(draft=True, updated=ago(days=8), committed=ago(days=10), body=body))
+    assert d.details.get("variant") != "triaged"
+
+
+def test_sweep_1a_a_fold_by_a_known_maintainer_starts_the_clock() -> None:
+    body = fold("abc1234", ago(days=8)).replace("by=triager", "by=kaxil")
+    d = one(
+        pr(draft=True, updated=ago(days=8), committed=ago(days=10), body=body),
+        maintainers=people.Maintainers(team=frozenset({"kaxil"})),
+    )
+    assert (d.row, d.action) == ("sweep-1a", "close-stale")
+
+
 def test_sweep_1a_a_push_after_the_marker_is_a_response() -> None:
     d = one(pr(draft=True, updated=ago(days=2), committed=ago(days=2), body=fold("0000000", ago(days=9))))
     assert d.row != "sweep-1a"

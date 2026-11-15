@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from pathlib import Path
 
@@ -83,12 +84,32 @@ def test_cli_fold(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     blk = tmp_path / "blk.md"
     blk.write_text(BLOCK)
     out = tmp_path / "new.md"
-    assert (
-        cli.main(["triage", "fold", "--current-body", str(cur), "--block", str(blk), "--out", str(out)]) == 0
-    )
+    argv = ["triage", "fold", "--current-body", str(cur), "--block", str(blk), "--out", str(out)]
+    assert cli.main([*argv, "--now", "2026-10-01T12:05:07+02:00"]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert report == {"out": str(out), "replaced": True, "bytes": len(out.read_bytes())}
-    assert out.read_text() == "Body.\n\n" + BLOCK
+    written = BLOCK.replace("triaged=2026-10-01T12:00:00Z", "triaged=2026-10-01T10:05:07Z")
+    assert report == {
+        "out": str(out),
+        "replaced": True,
+        "bytes": len(out.read_bytes()),
+        "block": written.rstrip("\n"),
+    }
+    assert out.read_text() == "Body.\n\n" + written
+
+
+def test_restamp_sets_only_the_opening_marker_time() -> None:
+    body = BLOCK.replace("note", "quoted triaged=2020-01-01T00:00:00Z stays")
+    new = F.restamp(body, dt.datetime(2026, 11, 16, 9, 30, 1, 999, tzinfo=dt.UTC))
+    assert new == body.replace("triaged=2026-10-01T12:00:00Z", "triaged=2026-11-16T09:30:01Z", 1)
+    assert "quoted triaged=2020-01-01T00:00:00Z stays" in new
+
+
+def test_restamp_refuses_a_block_without_a_stamp() -> None:
+    with pytest.raises(ValueError):
+        F.restamp(
+            "<!-- pr-triage-fold: head=abc1234 by=t -->\nnote\n<!-- /pr-triage-fold -->\n",
+            dt.datetime.now(dt.UTC),
+        )
 
 
 @pytest.mark.parametrize("previous", [None, ""])

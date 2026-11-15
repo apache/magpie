@@ -42,6 +42,11 @@ fragment StalePR on PullRequest {
   updatedAt
   isDraft
   body
+  # Who last edited the body: a pr-triage-fold counts only when a
+  # person other than the PR author wrote it, just after the fold's own
+  # time (pr_management.markers.trusted_fold). Bot editors never count.
+  editor { __typename login }
+  lastEditedAt
   mergeable
   baseRefName
   headRefName

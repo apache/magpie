@@ -104,9 +104,18 @@ def last_triage_at(
     """
     stamps: list[dt.datetime] = []
     unresolved: list[str] = []
-    fold = markers.parse_fold(pr.body)
-    if fold is not None and fold.triaged is not None:
-        stamps.append(fold.triaged)
+    fold = markers.trusted_fold(pr)
+    if fold is not None and fold.triaged is not None and fold.by:
+        # The fold's writer passes the same test as a comment marker's author.
+        if fold.by.casefold() == viewer.casefold():
+            stamps.append(fold.triaged)
+        else:
+            known = people.known(fold.by)
+            if known is None:
+                people.unresolved.add(fold.by)
+                unresolved.append(fold.by)
+            elif known:
+                stamps.append(fold.triaged)
     for comment in pr.comments:
         if comment.created is None or cfg.marker not in comment.body or comment.author == pr.author:
             continue

@@ -139,6 +139,14 @@ class PR:
     reviews: tuple[Review, ...]
     comments: tuple[Comment, ...]
     label_events: tuple[LabelEvent, ...]
+    #: Who last edited the description (GraphQL `editor`); None when never
+    #: edited or not fetched. A `pr-triage-fold` is trusted only when this is a
+    #: triager other than the author (see `markers.trusted_fold`).
+    body_editor: str | None = None
+    #: When that last edit was made (GraphQL `lastEditedAt`).
+    body_edited_at: dt.datetime | None = None
+    #: Whether that editor is a bot account (GraphQL `editor.__typename`).
+    body_editor_is_bot: bool = False
     #: Filled in by follow-up reads, when they were needed and supplied.
     rest_failed_checks: list[str] | None = None
     commits_behind: int | None = None
@@ -234,6 +242,9 @@ def from_node(node: dict[str, Any]) -> PR:
         updated=parse_time(node.get("updatedAt")),
         is_draft=bool(node.get("isDraft")),
         body=str(node.get("body") or ""),
+        body_editor=(node.get("editor") or {}).get("login") or None,
+        body_edited_at=parse_time(node.get("lastEditedAt")),
+        body_editor_is_bot=(node.get("editor") or {}).get("__typename") == "Bot",
         mergeable=str(node.get("mergeable") or "UNKNOWN"),
         base=str(node.get("baseRefName") or ""),
         head_ref=str(node.get("headRefName") or ""),

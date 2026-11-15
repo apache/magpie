@@ -23,6 +23,7 @@ named after it, so the scripted rules are held to the same expectations.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Iterable
 from typing import Any
 
@@ -291,9 +292,28 @@ def test_case_5_security_signal() -> None:
     assert d.details["security_matches"][0]["where"] == "title"
 
 
+_SECURITY_FOLD = (
+    "Change.\n<!-- pr-triage-fold: triaged=2026-01-01T00:00:00Z head=0000000 action=comment by=maya-triager -->"
+    "\nCVE-2025-1234 mentioned\n<!-- /pr-triage-fold -->"
+)
+
+
 def test_security_scan_ignores_the_triage_fold() -> None:
-    body = "Change.\n<!-- pr-triage-fold: triaged=2026-01-01T00:00:00Z head=0000000 action=comment -->\nCVE-2025-1234 mentioned\n<!-- /pr-triage-fold -->"
-    assert one(pr(body=body)).row != "7b"
+    assert one(pr(body=_SECURITY_FOLD)).row != "7b"
+
+
+@pytest.mark.parametrize(
+    "by,editor,editor_type",
+    [
+        ("maya-triager", "someone-else", "User"),
+        ("summary-bot", "summary-bot", "Bot"),
+        ("renovate", "renovate", "User"),
+    ],
+)
+def test_security_scan_reads_a_fold_no_triager_wrote(by: str, editor: str, editor_type: str) -> None:
+    """Wording inside a fold-shaped span no triager wrote is scanned like the rest of the body."""
+    body = _SECURITY_FOLD.replace("by=maya-triager", f"by={by}")
+    assert one(pr(body=body, editor=editor, editor_type=editor_type)).row == "7b"
 
 
 def test_security_scan_reads_commit_messages() -> None:
@@ -435,9 +455,128 @@ def test_case_21_non_triager_comment_is_not_a_marker() -> None:
     assert d.row == "9"
 
 
-def test_case_22_fold_by_another_triager_without_by() -> None:
-    d = one(pr(body=_fold("abc1234", ago(days=2), by=None), mergeable="CONFLICTING"))
-    assert d.row == "3" and " by " not in d.reason
+def test_case_22_fold_without_by_is_not_trusted() -> None:
+    """A fold naming no writer cannot be matched to the body's editor, so it does not count."""
+    d = one(pr(body=_fold("abc1234", ago(days=2), by=None), mergeable="CONFLICTING", editor="maya-triager"))
+    assert d.row != "3"
+
+
+def test_a_fold_the_author_wrote_is_not_a_triage_marker() -> None:
+    """The author owns the description: a fold they planted must not skip triage."""
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=2), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="nina-contributor",
+        )
+    )
+    assert d.row != "3"
+
+
+def test_a_fold_in_a_body_never_edited_is_not_a_triage_marker() -> None:
+    """A fold present in the body as first written came from the author."""
+    d = one(pr(body=_fold("abc1234", ago(days=2)), mergeable="CONFLICTING", editor=None))
+    assert d.row != "3"
+
+
+def test_a_fold_naming_someone_other_than_the_editor_is_not_trusted() -> None:
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=2), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="someone-else",
+        )
+    )
+    assert d.row != "3"
+
+
+def test_a_planted_fold_is_not_trusted_after_a_later_unrelated_triager_edit() -> None:
+    """The named triager's later edit (a typo fix) does not vouch for a fold the author planted."""
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=2), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="maya-triager",
+            edited_at=ago(days=1),
+        )
+    )
+    assert d.row != "3"
+
+
+def test_a_confirmation_request_by_another_triager_still_counts() -> None:
+    """A request folded by one maintainer is honoured when another runs the triage."""
+    body = (
+        "Change.\n<!-- pr-triage-fold: triaged="
+        + ago(days=4)
+        + " head=abc1234 action=request-author-confirmation by=maya-triager -->\n"
+        "ready for maintainer review confirmation\n<!-- /pr-triage-fold -->"
+    )
+    d = one(pr(body=body, committed=ago(days=6)), viewer="triager")
+    assert d.row == "14b"
+
+
+def test_the_fold_check_ignores_login_case() -> None:
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=2), by="Maya-Triager"),
+            mergeable="CONFLICTING",
+            editor="maya-triager",
+        )
+    )
+    assert (d.row, d.classification) == ("3", "already_triaged")
+
+
+def test_a_fold_stamped_after_its_edit_is_not_trusted() -> None:
+    """A future `triaged=` cannot wait for someone else's next edit to vouch for it."""
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=1), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="maya-triager",
+            edited_at=ago(days=1, minutes=5),
+        )
+    )
+    assert d.row != "3"
+
+
+def test_a_fold_edited_long_after_its_stamp_is_not_trusted() -> None:
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=1), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="maya-triager",
+            edited_at=ago(days=1, minutes=-6),
+        )
+    )
+    assert d.row != "3"
+
+
+@pytest.mark.parametrize("lag", [{"seconds": -30}, {"minutes": 4}])
+def test_a_fold_saved_shortly_after_its_stamp_counts(lag: dict[str, float]) -> None:
+    """The edit follows the write-time stamp, within the clock-skew and approval allowance."""
+    stamped = NOW - dt.timedelta(days=1)
+    d = one(
+        pr(
+            body=_fold("abc1234", stamped.isoformat().replace("+00:00", "Z"), by="maya-triager"),
+            mergeable="CONFLICTING",
+            editor="maya-triager",
+            edited_at=(stamped + dt.timedelta(**lag)).isoformat().replace("+00:00", "Z"),
+        )
+    )
+    assert (d.row, d.classification) == ("3", "already_triaged")
+
+
+def test_a_fold_a_bot_edited_last_is_not_trusted() -> None:
+    """A bot that edits descriptions on a predictable trigger cannot vouch for a planted fold."""
+    d = one(
+        pr(
+            body=_fold("abc1234", ago(days=1), by="summary-bot"),
+            mergeable="CONFLICTING",
+            editor="summary-bot",
+            editor_type="Bot",
+        )
+    )
+    assert d.row != "3"
 
 
 def test_case_15_stale_draft_deferred_to_sweep() -> None:

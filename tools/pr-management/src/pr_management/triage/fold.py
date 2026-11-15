@@ -24,6 +24,7 @@ the same block twice yields the same body — exactly one block, always current.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import re
 from pathlib import Path
@@ -58,6 +59,24 @@ def strip(body: str) -> tuple[str, bool]:
     out, count = _SPAN.subn("\n\n", body)
     out, unclosed = _UNCLOSED.subn("", out)
     return out.strip("\n"), bool(count or unclosed)
+
+
+#: The `triaged=` field of an opening fold marker.
+_TRIAGED = re.compile(r"(<!--\s*" + re.escape(FOLD_OPEN) + r":[^>]*?\btriaged=)\S+")
+
+
+def restamp(block: str, now: dt.datetime) -> str:
+    """The block with its opening marker's `triaged=` set to `now` (UTC, seconds).
+
+    `render` stamps the note when it is previewed; the stamp that counts is
+    the moment the new body is written, since a fold is trusted only when the
+    description's last edit follows it closely (`markers.trusted_fold`).
+    """
+    stamp = now.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    new, count = _TRIAGED.subn(lambda m: m.group(1) + stamp, block, count=1)
+    if not count:
+        raise ValueError("the block has no pr-triage-fold opening marker with triaged=")
+    return new
 
 
 def splice(body: str, block: str) -> tuple[str, bool]:
