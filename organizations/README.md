@@ -105,7 +105,7 @@ source in by committing its pin to `<project-config>/skill-sources.md`, the
 [install gate](../docs/skill-sources/README.md#the-trust-model--three-layers).
 The full mechanism — descriptor format, pointer files, and the pinned +
 verified fetch — lives in [`docs/skill-sources/`](../docs/skill-sources/README.md)
-([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
+([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies),
 [`RFC-AI-0006`](../docs/rfcs/RFC-AI-0006.md)).
 
 ## Authoring a new organization
@@ -128,7 +128,7 @@ An organization can live in any of three homes (see
   in-tree.
 - **In the organization's own repo** — maintained externally and vendored
   into the adopter's override location; discovery, never auto-fetch
-  ([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)).
+  ([`PRINCIPLES.md` §14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)).
 
 `organization: <org>` resolves in-tree first, then the adopter-local
 copy. See

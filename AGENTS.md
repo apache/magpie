@@ -61,12 +61,15 @@ This repository (the **Apache Magpie** framework) is the
 **generic, project-agnostic framework**.
 It contains skills, tool adapters, generic process documentation,
 and a project-template scaffold — and **no project-specific
-content**. Adopting projects fetch this repository as a gitignored
-**snapshot** at `<adopter-tracker>/.apache-magpie/` (managed by
-the [`setup`](skills/setup/SKILL.md) skill —
-see [`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md))
-and configure their project-specific bits alongside the snapshot
-in their adopter repo. The framework refers to that adopter-side
+content**. Adopting projects install this repository with
+the [`setup`](skills/setup/SKILL.md) skill:
+by default from the agent marketplace
+(see [`docs/setup/marketplace.md`](docs/setup/marketplace.md)),
+or, as the fallback, as a gitignored, pinned **snapshot**
+at `<adopter-tracker>/.apache-magpie/`
+(see [`docs/quick-start/other-install-methods.md`](docs/quick-start/other-install-methods.md)).
+Either way they configure their project-specific bits
+in their adopter repo, in the layers described below. The framework refers to that adopter-side
 configuration as `<project-config>`.
 
 The framework has two layers:
@@ -372,7 +375,7 @@ but an organization Magpie does not ship is resolved from an
 adopter-local copy under `.apache-magpie-overrides/organizations/<org>/`
 — maintained in the adopter's repo or vendored from the organization's
 own repo (discovery, never auto-fetch, per
-[`PRINCIPLES.md` §14](PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)).
+[`PRINCIPLES.md` §14](PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)).
 See [`docs/extending.md`](docs/extending.md) for the full extension model.
 
 A project declares only what differs from its organization; an
@@ -391,7 +394,7 @@ lists the source ids the adopter trusts and commits each pin (method + URL
 `skills/<name>/source.md` redirect (frontmatter `source:` / `organization:`
 / `skill_path:` / `evals_path:`, **not** a `SKILL.md`) names the source;
 `/magpie-setup` fetches it into the gitignored snapshot and wires it in like
-a framework skill. Per [`PRINCIPLES.md` §14](PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
+a framework skill. Per [`PRINCIPLES.md` §14](PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)
 this is the one external home that *installs* rather than being merely
 referenced — pinned, verified, and adopter-vouched. See
 [`docs/skill-sources/`](docs/skill-sources/README.md).

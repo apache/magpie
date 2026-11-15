@@ -103,7 +103,7 @@ link.
 | License headers | <https://www.apache.org/legal/src-headers.html> |
 | Testing | [`AGENTS.md#keeping-evals-and-mode-economics-in-sync`](../../AGENTS.md#keeping-evals-and-mode-economics-in-sync) |
 | API correctness | [`AGENTS.md#reusable-skills`](../../AGENTS.md#reusable-skills) |
-| Generated files | [`PRINCIPLES.md#14`](../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies) |
+| Generated files | [`PRINCIPLES.md#14`](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies) |
 | AI-generated code signals | [`AGENTS.md#commit-and-pr-conventions`](../../AGENTS.md#commit-and-pr-conventions) |
 | Quality signals to check | [`AGENTS.md#writing-and-editing-documentation`](../../AGENTS.md#writing-and-editing-documentation) |
 | Commits and PRs (newsfragments, commit messages, tracking issues) | [`AGENTS.md#commit-and-pr-conventions`](../../AGENTS.md#commit-and-pr-conventions) |
