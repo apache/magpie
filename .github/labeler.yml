@@ -113,7 +113,9 @@ capability:reassess:
 capability:reconciliation:
   - changed-files:
       - any-glob-to-any-file:
+          - 'plugins/magpie-utilities/skills/pre-release-sweep/**'
           - 'plugins/magpie-utilities/skills/skill-reconciler/**'
+          - 'tools/skill-evals/evals/pre-release-sweep/**'
           - 'tools/skill-evals/evals/skill-reconciler/**'
 
 capability:resolve:
@@ -232,6 +234,7 @@ capability:triage:
           - 'plugins/magpie-repo-health/skills/workflow-optimization/**'
           - 'plugins/magpie-repo-health/skills/workflow-security-audit/**'
           - 'plugins/magpie-security/skills/issue-triage/**'
+          - 'plugins/magpie-utilities/skills/pre-release-sweep/**'
           - 'tools/skill-evals/evals/ci-runner-audit/**'
           - 'tools/skill-evals/evals/committer-onboarding/**'
           - 'tools/skill-evals/evals/dependency-license-audit/**'
@@ -244,6 +247,7 @@ capability:triage:
           - 'tools/skill-evals/evals/pr-management-merge-candidates/**'
           - 'tools/skill-evals/evals/pr-management-triage/**'
           - 'tools/skill-evals/evals/pr-stale-sweep/**'
+          - 'tools/skill-evals/evals/pre-release-sweep/**'
           - 'tools/skill-evals/evals/release-archive-sweep/**'
           - 'tools/skill-evals/evals/release-verify-rc/**'
           - 'tools/skill-evals/evals/release-vote-tally/**'
@@ -439,6 +443,7 @@ family:utilities:
           - 'plugins/magpie-utilities/**'
           - 'tools/skill-evals/evals/list-skills/**'
           - 'tools/skill-evals/evals/optimize-skill/**'
+          - 'tools/skill-evals/evals/pre-release-sweep/**'
           - 'tools/skill-evals/evals/report-framework-issue/**'
           - 'tools/skill-evals/evals/skill-reconciler/**'
           - 'tools/skill-evals/evals/write-skill/**'

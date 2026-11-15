@@ -72,7 +72,7 @@ every install; the other eight are opt-in (see
 | Label | Type | Covers |
 |---|---|---|
 | `family:setup` | always-on | `setup` plus the `setup-*` skills — framework adoption / upgrade / verify, isolated-agent sandbox setup, shared-config sync ([`docs/setup/`](setup/README.md)) |
-| `family:utilities` | always-on | Framework meta-skills: `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` ([`docs/utilities/`](utilities/README.md)) |
+| `family:utilities` | always-on | Framework meta-skills: `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills`, `pre-release-sweep` ([`docs/utilities/`](utilities/README.md)) |
 | `family:security` | opt-in | `security-issue-*`, `security-cve-allocate`, `security-model-*`, `security-tracker-stats-dashboard` ([`docs/security/`](security/README.md)) |
 | `family:issue` | opt-in | `issue-*` skills (`issue-triage`, `issue-reproducer`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) ([`docs/issue-management/`](issue-management/README.md)) |
 | `family:pr-management` | opt-in | `pr-management-*` skills plus `pr-stale-sweep`, `pre-first-pr-check`, `reviewer-routing` ([`docs/pr-management/`](pr-management/README.md)) |
@@ -313,6 +313,7 @@ Capabilities for every skill currently in
 | `security-model-prepare` | `capability:authoring` *(produces the project's first security model in draft-first mode and lands it, plus its discoverability chain, as one reviewable PR per repository)* |
 | `write-skill` | `capability:authoring` |
 | `optimize-skill` | `capability:authoring` |
+| `pre-release-sweep` | `capability:reconciliation` + `capability:triage` *(checks specs, docs, principles, tool shipping and evals against the code — reconciliation; finds open issues already resolved on `main` — triage)* |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |
 
 ## Capability to tool map

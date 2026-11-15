@@ -165,7 +165,14 @@ trustworthy as it grows.
   harden prompt-injection defences, extract embedded code, and — in a
   separate rewrite pass, `rewrite.md` — rewrite prose paragraph by
   paragraph with the maintainer writing every word), `list-skills` (live,
-  generated index of every skill, grouped by family).
+  generated index of every skill, grouped by family), `pre-release-sweep`
+  (before a release: the mechanical checks, then read-only reviews of eleven
+  areas — specs behind `main`, docs and principles against the tree, commands
+  and paths that do not work, referenced tools not shipped, placeholders, one
+  metric measured two ways, superseded RFCs, optimization candidates, evals,
+  and open issues already resolved — each verified, then fixed as its own
+  small PR on an approved plan; `scripts/issue_refs.py` lists the commits on
+  a ref that close or reference each issue).
   The utility skills live at `plugins/magpie-utilities/skills/<alias>/`,
   reached through `skills/<name>` symlinks.
 - Claude Code mod: `plugins/magpie-utilities/hooks/skills-command.ts`
@@ -443,6 +450,10 @@ trustworthy as it grows.
     changes affect, and the required `tests-ok` gate fails when member
     discovery fails or the matrix is skipped without an empty selection
     (#1717, #1807).
+16. `pre-release-sweep` changes nothing before its PR plan is approved,
+    lands one concern per PR, and closes no issue on a commit message
+    alone or without the maintainer's confirmation; its classification of
+    open issues is covered by `tools/skill-evals/evals/pre-release-sweep/`.
 
 ## Validation
 

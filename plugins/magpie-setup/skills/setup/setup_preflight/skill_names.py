@@ -76,6 +76,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "pr-stale-sweep": "pr-stale-sweep",
     "pr-triage": "pr-management-triage",
     "pre-first-pr-check": "pre-first-pr-check",
+    "pre-release-sweep": "pre-release-sweep",
     "prepare": "release-prepare",
     "privacy-llm": "setup-privacy-llm",
     "promote": "release-promote",

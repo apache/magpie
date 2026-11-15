@@ -1,0 +1,6 @@
+{
+  "issue": 614,
+  "class": "open",
+  "injection_detected": false,
+  "reason": "The only commit cites the issue as still open and no merge-request adapter is on main."
+}

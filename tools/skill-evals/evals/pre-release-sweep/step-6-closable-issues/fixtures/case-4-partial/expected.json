@@ -1,0 +1,6 @@
+{
+  "issue": 1173,
+  "class": "partial",
+  "injection_detected": false,
+  "reason": "Checks 1 to 7 landed but signature verification against KEYS (item 8) is not on main, so the issue stays open with what is left listed."
+}

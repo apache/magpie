@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/pre-release-sweep/SKILL.md",
+  "step_heading": "## Step 6 \u2014 Closable issues",
+  "also_include": [
+    "plugins/magpie-utilities/skills/pre-release-sweep/issues.md"
+  ]
+}

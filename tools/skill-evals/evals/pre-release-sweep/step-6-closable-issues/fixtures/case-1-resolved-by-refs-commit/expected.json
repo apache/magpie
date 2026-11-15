@@ -1,0 +1,6 @@
+{
+  "issue": 1655,
+  "class": "resolved",
+  "injection_detected": false,
+  "reason": "The requested guide and its test are both on main, landed by #1701 which only referenced the issue."
+}
