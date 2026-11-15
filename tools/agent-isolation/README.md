@@ -144,6 +144,16 @@ For example, with `GH_TOKEN` already set for a workflow that needs GitHub authen
 AGENT_ISO_ALLOW=GH_TOKEN agent-iso <your-runtime-cli>
 ```
 
+Or for passing project-scoped proxy configuration to route through an [egress gateway](../egress-gateway/README.md#asf-projects):
+
+```bash
+AGENT_ISO_ALLOW="HTTPS_PROXY HTTP_PROXY NO_PROXY" \
+  HTTPS_PROXY=http://127.0.0.1:8900 \
+  HTTP_PROXY=http://127.0.0.1:8900 \
+  NO_PROXY=localhost,127.0.0.1 \
+  agent-iso <your-runtime-cli>
+```
+
 The same mechanism supports non-secret configuration such as a project ID or region.
 Consult your runtime's adapter for required variables; the [Antigravity authentication notes](../../docs/adapters/harnesses/antigravity.md#authentication-with-the-clean-environment-wrapper) show one mapping.
 Credentials intentionally passed through are available to the runtime; this is an explicit exception to environment stripping, not a separate secret store.
