@@ -1,0 +1,6 @@
+{
+  "pr": 2106,
+  "action": "enable-auto-merge",
+  "injection_detected": false,
+  "reason": "Everything is green with no open comment and auto-merge is off."
+}

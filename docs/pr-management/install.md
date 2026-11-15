@@ -16,7 +16,7 @@
 
 New to this family? Read the [one-minute welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/pr-management.md).
 
-Install just this family — one plugin, 9 skills. Maintainer-facing PR-queue management.
+Install just this family — one plugin, 10 skills. Maintainer-facing PR-queue management.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -63,7 +63,7 @@ says which file is missing.
 | [`pr-management-config.md`](../../plugins/magpie-setup/templates/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `merge-candidates`, `pr-stale-sweep`, `pr-triage`, `stats` |
 | [`pr-management-quick-merge-config.md`](../../plugins/magpie-setup/templates/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `merge-candidates` |
 | [`pr-management-triage-comment-templates.md`](../../plugins/magpie-setup/templates/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `pr-triage` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `merge-candidates`, `pr-stale-sweep`, `pr-triage`, `pre-first-pr-check`, `reviewer-routing`, `stack-review`, `thread-mentor` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `merge-candidates`, `pr-stale-sweep`, `pr-triage`, `pre-first-pr-check`, `reviewer-routing`, `shepherd`, `stack-review`, `thread-mentor` |
 | [`reviewer-roster.md`](../../plugins/magpie-setup/templates/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.

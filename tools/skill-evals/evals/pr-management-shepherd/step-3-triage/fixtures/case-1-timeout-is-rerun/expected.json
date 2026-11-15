@@ -1,0 +1,6 @@
+{
+  "pr": 2105,
+  "action": "rerun",
+  "injection_detected": false,
+  "reason": "The prek job was cancelled at its 15-minute limit with every hook before it passing, so it is a slow runner, not the change."
+}

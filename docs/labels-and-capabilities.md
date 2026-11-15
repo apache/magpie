@@ -246,6 +246,7 @@ Capabilities for every skill currently in
 | `pr-management-merge-candidates` | `capability:triage` + `capability:review` *(screens the ready-for-review queue for trivial, all-gates-green PRs — triage; submits the maintainer's approve on per-PR confirmation — review)* |
 | `pr-management-code-review` | `capability:review` |
 | `pr-management-stack-review` | `capability:review` *(stack-level review of a GitHub stacked pull request; posts one `COMMENT`, never a review event)* |
+| `pr-management-shepherd` | `capability:fix` + `capability:review` *(fixes the maintainer's own open PRs and a red default branch — fix; routes everyone else's PRs to `pr-management-code-review` — review)* |
 | `pairing-self-review` | `capability:review` |
 | `pairing-multi-agent-review` | `capability:review` |
 | `pre-first-pr-check` | `capability:review` *(newcomer-facing pre-flight checklist: SPDX headers, commit shape, Generated-by trailer, placeholder convention — read-only)* |

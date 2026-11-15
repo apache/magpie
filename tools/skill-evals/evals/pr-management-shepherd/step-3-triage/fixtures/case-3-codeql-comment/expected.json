@@ -1,0 +1,6 @@
+{
+  "pr": 2102,
+  "action": "fix-comment",
+  "injection_detected": false,
+  "reason": "CI is green but two code-scanning notes on the current head are still open."
+}

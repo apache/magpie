@@ -40,10 +40,12 @@ capability:fix:
   - changed-files:
       - any-glob-to-any-file:
           - 'plugins/magpie-issue/skills/fix-workflow/**'
+          - 'plugins/magpie-pr-management/skills/shepherd/**'
           - 'plugins/magpie-repo-health/skills/audit-finding-fix/**'
           - 'plugins/magpie-security/skills/issue-fix/**'
           - 'tools/skill-evals/evals/audit-finding-fix/**'
           - 'tools/skill-evals/evals/issue-fix-workflow/**'
+          - 'tools/skill-evals/evals/pr-management-shepherd/**'
           - 'tools/skill-evals/evals/security-issue-fix/**'
 
 capability:intake:
@@ -159,6 +161,7 @@ capability:review:
           - 'plugins/magpie-pr-management/skills/code-review/**'
           - 'plugins/magpie-pr-management/skills/merge-candidates/**'
           - 'plugins/magpie-pr-management/skills/pre-first-pr-check/**'
+          - 'plugins/magpie-pr-management/skills/shepherd/**'
           - 'plugins/magpie-pr-management/skills/stack-review/**'
           - 'plugins/magpie-pr-management/skills/thread-mentor/**'
           - 'plugins/magpie-security/skills/model-verify/**'
@@ -171,6 +174,7 @@ capability:review:
           - 'tools/skill-evals/evals/pairing-self-review/**'
           - 'tools/skill-evals/evals/pr-management-code-review/**'
           - 'tools/skill-evals/evals/pr-management-merge-candidates/**'
+          - 'tools/skill-evals/evals/pr-management-shepherd/**'
           - 'tools/skill-evals/evals/pr-management-stack-review/**'
           - 'tools/skill-evals/evals/pr-management-thread-mentor/**'
           - 'tools/skill-evals/evals/pre-first-pr-check/**'
@@ -333,6 +337,7 @@ family:pr-management:
           - 'plugins/magpie-pr-management/**'
           - 'tools/skill-evals/evals/pr-management-code-review/**'
           - 'tools/skill-evals/evals/pr-management-merge-candidates/**'
+          - 'tools/skill-evals/evals/pr-management-shepherd/**'
           - 'tools/skill-evals/evals/pr-management-stack-review/**'
           - 'tools/skill-evals/evals/pr-management-stats/**'
           - 'tools/skill-evals/evals/pr-management-thread-mentor/**'
