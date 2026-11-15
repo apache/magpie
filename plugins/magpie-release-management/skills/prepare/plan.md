@@ -45,7 +45,7 @@ Do not proceed to the planning issue draft when `empty_pr_set` is `true`; read [
 Render the title, the body and the `gh issue create` line from the saved list:
 
 ```bash
-prepare plan --prs <scratch>/prs.json --version <version> --product-name "<Product Name>" \
+prepare plan --prs <scratch>/prs.json --version <version> --product-name "<product-name>" \
   --previous-tag <tag> --base <release-branch-base> --upstream <upstream> \
   --train "<train name>" --rm "<release manager>" [--template <project-config>/<release_planning_issue_template>] \
   [--skip-empty-check "<reason>"]
@@ -65,7 +65,7 @@ If the RM confirms, write the approved body to `<scratch>/planning-issue-body-<v
 ```bash
 gh issue create \
   --repo <upstream> \
-  --title "Release <Product Name> <version>" \
+  --title "Release <product-name> <version>" \
   --body-file <scratch>/planning-issue-body-<version>.md \
   --label "release-planning"
 ```

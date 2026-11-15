@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:ecab5c5c3e52d580
 license: Apache-2.0
-measured_tokens: 5407
+measured_tokens: 5417
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -34,7 +34,7 @@ measured_tokens: 5407
      <upstream>              → adopter's public source repo (e.g. apache/airflow)
      <default-branch>        → <project-config>/project.md upstream_default_branch (e.g. main)
      <project>               → project distribution name (e.g. airflow)
-     <product_name>          → human-readable product name (e.g. Apache Airflow)
+     <product-name>          → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <version>               → release version string (e.g. 2.11.0)
      <audit-log-path>        → path under the adopter repo for audit records
      <vote-thread-url>       → archive URL of the [VOTE] mailing-list thread
@@ -254,10 +254,10 @@ Load the configuration and the search plan:
 
 ```bash
 uv run --project <framework>/tools/release-config release-config load --skill audit-report <version> > <scratch>/audit-load.json
-<rm> gather --load <scratch>/audit-load.json --schema <skill-dir>/audit-record-schema.md [--rc <rc_label>]
+<rm> gather --load <scratch>/audit-load.json --schema <skill-dir>/audit-record-schema.md --product-name "<product-name>" [--rc <rc_label>]
 ```
 
-`gather` prints `product_name` (the `product_name` key, else `<project>`), for each lifecycle URL the subject, search query and lists to search,
+`gather` prints `product_name` (the resolved `<product-name>`), for each lifecycle URL the subject, search query and lists to search,
 the permalink shape, the `promote_revision` lookup for the backend, and `required_fields`.
 Read [`gather.md`](gather.md), then read the following from the planning issue body and comments,
 the configured archive backend, and `<project-config>/release-management-config.md`:
@@ -265,7 +265,7 @@ the configured archive backend, and `<project-config>/release-management-config.
 | Field | Source | Fallback |
 |---|---|---|
 | `version` | trigger argument | — |
-| `product_name` | `release-management-config.md` (`product_name` key) | `<project>` |
+| `product_name` | `<product-name>`: `release-management-config.md` → `product_name` | `<PROJECT>` |
 | `planning_issue_url` | detected or supplied | — |
 | `rc_label` | planning issue body (e.g. "rc1") | `MISSING` |
 | `vote_thread_url` | planning issue body (`[VOTE]` archive URL); else resolve from the mail archive | `MISSING` |
@@ -289,7 +289,7 @@ Return ONLY valid JSON with this structure:
 ```json
 {
   "version": "<version>",
-  "product_name": "<product name, defaults to <project>>",
+  "product_name": "<product-name>",
   "planning_issue_url": "<url>",
   "rc_label": "<e.g. rc1 or MISSING>",
   "vote_thread_url": "<url or MISSING>",
@@ -363,7 +363,7 @@ Read [`audit-log-pr.md`](audit-log-pr.md) for this step: the render, the adversa
 
 The AI-driven part ends with a hand-back artefact containing:
 
-- **Release identifier** — `<product_name> <version>`.
+- **Release identifier** — `<product-name> <version>`.
 - **Audit record** — the confirmed markdown, ready to review in the PR.
 - **PR URL** — the audit-log PR if opened, or `"not yet opened"`.
 - **Missing fields** — list of fields that could not be populated, with a note to update the record manually once data is available.

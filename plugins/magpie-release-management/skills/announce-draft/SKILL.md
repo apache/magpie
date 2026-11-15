@@ -18,7 +18,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 5143
+measured_tokens: 5154
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -28,7 +28,7 @@ measured_tokens: 5143
      <project-config>          → adopter's project-config directory path
      <upstream>                → adopter's public source repo (e.g. apache/airflow)
      <version>                 → release version string (e.g. 2.11.0)
-     <product-name>            → project display name (e.g. Apache Airflow)
+     <product-name>            → release name: release-management-config.md product_name, else <PROJECT> (e.g. Apache Airflow)
      <promote-timestamp>       → UTC timestamp of the Step 10 svn promote commit
      <dist-release-url>        → URL to the promoted release directory (dist/release/<project>/<version>/ when release_dist_backend = svnpubsub)
      <download-page-url>       → URL to the project's canonical Download Page
@@ -259,7 +259,7 @@ Read the rest from the planning issue body, Step 0 and the canned responses:
 
 | Metadata field | Source | Key / location |
 |---|---|---|
-| `product_name` | `release-management-config.md` | derived from `project_dist_name` (capitalised display name) |
+| `product_name` | `<product-name>`: `release-management-config.md` → `product_name` | `<PROJECT>` |
 | `dist_release_url` | planning issue body | URL under `dist/release/<project>/<version>/` (for `release_dist_backend = svnpubsub`) |
 | `download_page_url` | Step 0 `values.download_page_url` | canonical Download Page URL (planning issue body, config, or `--download-page`) |
 | `changelog_url` | planning issue body | URL to changelog for this release |
@@ -275,13 +275,13 @@ Render the subject and body with the [`release-management`](../../../../tools/re
 
 ```bash
 uv run --project <framework>/tools/release-management release-management announce-draft render --step 2 \
-  --load <scratch>/announce-load.json --product-name "<product_name>" \
+  --load <scratch>/announce-load.json --product-name "<product-name>" \
   --download-page <download_page_url> --changelog-url <changelog_url> \
   [--description "<one sentence>"] [--dev-list <dev-list>] [--users-list <users-list>] \
   [--convenience <kind>=<location> …] [--canned-body <scratch>/announce-canned.txt] [--skip-promote-wait "<reason>"]
 ```
 
-The subject is `announce_subject_template` (default `[ANNOUNCE] <Product Name> <version> released`) with `<version>` and `<product_name>` substituted.
+The subject is `announce_subject_template` (default `[ANNOUNCE] <product-name> <version> released`) with `<version>` and `<product-name>` substituted.
 The body is the `canned_body` with the metadata placeholders substituted when one exists, else the default for `release_announce_backend`;
 read the file for that backend: [`backends/announce-list.md`](backends/announce-list.md) (ASF),
 or, when `non_asf` is true, [`backends/github-release-notes.md`](backends/github-release-notes.md),
@@ -319,7 +319,7 @@ Read [`site-bump.md`](site-bump.md) for this step: the render, the scope check, 
 
 The AI-driven part ends with a hand-back artefact containing:
 
-- **Release identifier** — `<product_name> <version>`.
+- **Release identifier** — `<product-name> <version>`.
 - **`[ANNOUNCE]` subject and body** (or backend-shaped body) — the confirmed draft, ready to copy into the RM's mail client.
 - **ASF address reminder** — the RM must send from their `@apache.org` address (always present for the `announce-list` backend).
 - **Promote-wait override** — if `--skip-promote-wait` was used, the reason, restated.

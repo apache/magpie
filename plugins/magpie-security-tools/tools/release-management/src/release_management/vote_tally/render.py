@@ -28,9 +28,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from release_management.product import fill_product, has_product
 from release_management.vote_tally.tally import is_weakening
 
-DEFAULT_RESULT_SUBJECT = "[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN"
+DEFAULT_RESULT_SUBJECT = "[RESULT] [VOTE] Release <product-name> <version> from <version>-rcN"
 AMBIGUOUS_NOTE = re.compile(r"\bAMBIGUOUS\b")
 # A bare vote: the value, optionally "(binding)" / "(non-binding)", optional final punctuation.
 CLEAR_VOTE = re.compile(
@@ -109,7 +110,7 @@ def _render(text: str, version: str, rc: str, product_name: str | None = None) -
         .replace("<rcN>", rc)
     )
     if product_name:
-        out = out.replace("<Product Name>", product_name)
+        out = fill_product(out, product_name)
     return out
 
 
@@ -206,8 +207,8 @@ def result_draft(
     subject = _render(
         str(config.get("result_subject_template") or DEFAULT_RESULT_SUBJECT), version, rc, product_name
     )
-    if "<Product Name>" in subject:
-        raise RenderError("result_subject_template uses <Product Name>: pass --product-name (project.md)")
+    if has_product(subject):
+        raise RenderError("result_subject_template uses <product-name>: pass --product-name")
     vote_list = config.get("vote_dev_list") or "<vote-list>"
     rows = [
         f"  {v['from']}  {v['value']}  {'binding' if v.get('binding') else 'non-binding'}"

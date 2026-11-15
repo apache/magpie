@@ -422,6 +422,7 @@ configuration before executing any command:
 | `<issue-tracker>` | URL of the project's general-issue tracker, distinct from the security tracker. | `<project-config>/issue-tracker-config.md` → `url` |
 | `<issue-tracker-project>` | Project key within the issue tracker (JIRA key or `owner/repo`). | `<project-config>/issue-tracker-config.md` → `project_key` |
 | `<runtime>` | Recipe for invoking the project's runtime on a single source file. | `<project-config>/runtime-invocation.md` |
+| `<product-name>` | The human-readable name a release is published under, in mail subjects, titles and announcements (example: `Apache Foo`). Display text, never an artefact name or dist path (those use `project_dist_name`). | `<project-config>/release-management-config.md` → `product_name`, else `<PROJECT>` |
 | `<default-branch>` | The upstream repo's default branch (`master` or `main`). | `<project-config>/project.md` → `upstream_default_branch` |
 | `<governance-body>` | The project's governing body, named in its own terms (example: `PMC`). | `project.md` → organization → `governance_vocabulary.governance_body` |
 | `<project-stage>` | The project's lifecycle stage, if its organization has one (example: `incubating`). | `project.md` → organization → `governance_vocabulary.project_stage_vocab` |

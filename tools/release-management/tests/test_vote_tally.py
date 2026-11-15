@@ -838,6 +838,16 @@ def test_step3_unresolved_product_name_is_refused():
         render.result_draft(load(result_subject_template=None), t, product_name=None)
 
 
+@pytest.mark.parametrize("spelling", ["<product-name>", "<Product Name>", "<product_name>"])
+def test_step3_every_product_spelling_is_rendered_or_refused(spelling):
+    t = tallied(_plain([("alice@apache.org", "+1")]))
+    template = f"[RESULT] [VOTE] Release {spelling} <version> from <version>-rcN"
+    out = render.result_draft(load(result_subject_template=template), t, product_name="Apache Airflow")
+    assert "Release Apache Airflow 2.11.0 from 2.11.0-rc2" in json.dumps(out)
+    with pytest.raises(render.RenderError, match="product-name"):
+        render.result_draft(load(result_subject_template=template), t, product_name=None)
+
+
 def test_pr_approval_rule_uses_min_approvals():
     votes = _plain([("alice@apache.org", "+1"), ("bob.martinez@apache.org", "+1"), ("frank@gmail.com", "+1")])
     roster = tally.parse_roster(AIRFLOW_ROSTER)

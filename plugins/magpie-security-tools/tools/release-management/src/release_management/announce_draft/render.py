@@ -29,10 +29,11 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
+from release_management.product import PRODUCT_NAME, fill_product
 from release_management.shell import dq, w
 
 NOT_PROMOTED = "planning issue does not carry the promoted label: complete Step 10 (release-promote) first"
-DEFAULT_SUBJECT = "[ANNOUNCE] <Product Name> <version> released"
+DEFAULT_SUBJECT = "[ANNOUNCE] <product-name> <version> released"
 SITE_SKIP_REASON = (
     "site_repo is not configured in release-management-config.md; no site-bump PR will be opened."
 )
@@ -98,7 +99,7 @@ class Announce:
 
     version: str
     meta: dict[str, Any]
-    product_name: str = "<Product Name>"
+    product_name: str = PRODUCT_NAME
     project_name: str = "<Project Name>"
     warnings: list[str] = field(default_factory=list)
 
@@ -112,7 +113,7 @@ class Announce:
             raise RenderError(
                 "release-config load output has no version: run it with --skill announce-draft <version>"
             )
-        product = product_name or "<Product Name>"
+        product = product_name or PRODUCT_NAME
         project = project_name or (product.removeprefix("Apache ") if product_name else "<Project Name>")
         return cls(version=str(version), meta=meta, product_name=product, project_name=project)
 
@@ -123,13 +124,10 @@ class Announce:
     def sub(self, text: str, extra: dict[str, str] | None = None) -> str:
         """Substitute every spelling of the release placeholders a template may carry."""
         pairs = {
-            "<Product Name>": self.product_name,
-            "<product_name>": self.product_name,
-            "<product-name>": self.product_name,
             "<Project Name>": self.project_name,
             "<version>": self.version,
         } | (extra or {})
-        out = text
+        out = fill_product(text, self.product_name)
         for key, value in pairs.items():
             out = out.replace(key, value)
         return out
