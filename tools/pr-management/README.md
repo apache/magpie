@@ -210,11 +210,21 @@ It prints `{ready, needs_approval, drops, drop_reasons, needs, prefetch, handoff
 ### `stale-sweep` — pr-stale-sweep
 
 ```bash
-uv run --project <framework>/tools/pr-management pr-management stale-sweep plan <selector...>
-uv run --project <framework>/tools/pr-management pr-management stale-sweep classify --saved-dir <workspace>/saved [--now <iso>] <selector...>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep plan <selector...> [--dry-run]
+uv run --project <framework>/tools/pr-management pr-management stale-sweep classify --saved-dir <workspace>/saved [--now <iso>] <selector...> [--dry-run]
 uv run --project <framework>/tools/pr-management pr-management stale-sweep render --saved-dir <workspace>/saved --pr N --out-dir <dir>
 uv run --project <framework>/tools/pr-management pr-management stale-sweep record --session <file> --pr N --class <class> --outcome posted|closed|skipped|failed [--comment-url <url>]
 uv run --project <framework>/tools/pr-management pr-management stale-sweep recap --session <file> --saved-dir <workspace>/saved
+```
+
+Keep the selector tokens together and in their original order. For a dry run,
+put `--dry-run` after the complete selector as shown below. The flag can also
+go before the selector. Run these examples from the Magpie checkout root.
+The `classify` example reads saved PR data from `./saved`.
+
+```bash
+uv run --project tools/pr-management pr-management stale-sweep plan stale warn:30 --dry-run
+uv run --project tools/pr-management pr-management stale-sweep classify --saved-dir ./saved stale warn:30 --dry-run
 ```
 
 `plan` resolves the selector and thresholds (`pr_warn_days` / `pr_close_days` / `pr_hard_close_days`, default 45 / 90 / 180) and lists the reads to save.
