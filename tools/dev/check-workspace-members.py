@@ -138,7 +138,7 @@ def check_tests_run(member_dirs: list[Path]) -> list[str]:
     """Report members whose tests do not actually execute anywhere."""
     problems: list[str] = []
     for member in member_dirs:
-        rel = member.relative_to(ROOT)
+        rel = member.relative_to(ROOT).as_posix()
         with (member / "pyproject.toml").open("rb") as f:
             tool = tomllib.load(f).get("tool", {})
         if "pytest" in tool.get("magpie", {}).get("checks", {}).get("skip", []):
@@ -167,13 +167,13 @@ def check_tests_run(member_dirs: list[Path]) -> list[str]:
 def main() -> int:
     member_dirs = find_member_dirs()
     declared = read_workspace_members()
-    found_paths = {str(p.relative_to(ROOT)) for p in member_dirs}
+    found_paths = {p.relative_to(ROOT).as_posix() for p in member_dirs}
 
     missing = sorted(found_paths - declared)
     stale = sorted(declared - found_paths)
     # Only meaningful for members that are actually declared; an undeclared
     # one is already reported above and its test wiring is moot until it is.
-    untested = check_tests_run([p for p in member_dirs if str(p.relative_to(ROOT)) in declared])
+    untested = check_tests_run([p for p in member_dirs if p.relative_to(ROOT).as_posix() in declared])
 
     if not missing and not stale and not untested:
         return 0
