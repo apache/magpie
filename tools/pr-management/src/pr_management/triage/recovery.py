@@ -525,9 +525,8 @@ def plan(
             simulated["isDraft"] = effect["before"]
         elif kind == "state":
             simulated["state"] = effect["before"]
-        elif kind == "fold":
-            if "body" in operation:
-                simulated["body"] = operation["body"]
+        elif kind == "fold" and "body" in operation:
+            simulated["body"] = operation["body"]
     result["status"] = "partial" if result["irreversible"] else "ready"
     if not result["operations"]:
         result["status"] = "irreversible" if result["irreversible"] else "nothing-to-undo"
