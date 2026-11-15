@@ -32,11 +32,8 @@ project is fine.
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
 
 from .core import (
@@ -51,9 +48,15 @@ from .core import (
     welcome_findings,
 )
 from .delegation import findings as delegation_findings
-from .installed import HARNESS_LISTINGS, _parse_listing, _running_harness, read_installed
+
+# `HARNESS_LISTINGS` and `_parse_listing` are re-exported for the callers
+# that reach them through `cli` (its tests, `render-preflight-fixtures`).
+from .installed import HARNESS_LISTINGS as HARNESS_LISTINGS
+from .installed import _parse_listing as _parse_listing
+from .installed import _running_harness, read_installed
 from .lockfile import MalformedLock
 from .upgrade import findings as upgrade_findings
+
 
 def _delegation(root: Path, skill: str) -> list[Finding]:
     """Delegation findings, never fatal to the verdict.
