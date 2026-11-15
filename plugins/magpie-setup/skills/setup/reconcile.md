@@ -155,9 +155,15 @@ committed one.
    `reconciled.json` may carry `declined.skills`, a list of skill names
    whose `requires_config` gaps the developer declined permanently
    (Step 2). For a skill on that list, do not propose its
-   `requires_config` gaps: refresh `acknowledged.skills["<skill>"]` to
-   its current `surface_hash`, leave it out of every stamp, and report
-   it on one *auto-skipped* line. **A personal override file for the
+   `requires_config` gaps: leave it out of every stamp and report it on
+   one *auto-skipped* line. The skip covers those gaps only — anchors
+   of any override for the skill, committed or personal, are still
+   resolved (check 2) and proposed as usual. Refresh
+   `acknowledged.skills["<skill>"]` to its current `surface_hash` only
+   when nothing else about the skill is left to show: none of its
+   anchors moved, and it is not `unchecked` this run (check 4) —
+   otherwise that acknowledgement would silence a pre-flight warning
+   for a change nobody verified. **A personal override file for the
    skill (`<override-name>.md` in the personal layer) cancels the skip**:
    a developer who keeps a personal override uses that skill here, so
    its anchors and gaps are checked and proposed as usual. A skill on
