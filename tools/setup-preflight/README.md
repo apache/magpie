@@ -14,6 +14,7 @@
   - [Two rules that are the reason this is code](#two-rules-that-are-the-reason-this-is-code)
   - [Delegation](#delegation)
     - [Discovery](#discovery)
+  - [Isolated-setup verification](#isolated-setup-verification)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -50,6 +51,8 @@ how to word it, and the prohibitions. Those live in each skill's
   (detected from its environment markers, e.g. `claude plugin list
   --json` under Claude Code) is consulted when present; its absence or
   the absence of any harness marker is a supported state, not an error.
+  `isolated_verify` also runs `git`, `claude --version`, and on Linux
+  `bwrap --version` and `socat -V`, each optional.
 - **Credentials / auth** — none.
 - **Network** — none. Every input is a file in the project.
 - **Optional** — `--plugin-list` accepts a listing the caller already
@@ -296,6 +299,28 @@ text is only tokenised and quoted.
 python3 -m setup_preflight.discovery --project-root . --magpie-skills .apache-magpie/skills
 python3 -m setup_preflight.discovery --project-root . --magpie-catalogue <file.json>
 ```
+
+## Isolated-setup verification
+
+`isolated_verify.py` is the mechanical half of
+[`setup-isolated-setup-verify`](../../plugins/magpie-setup/skills/isolated-setup-verify/SKILL.md)
+for Claude Code.
+It decides checks 1 to 6, the static half of 8, and 11 from the merged settings files, the hook scripts, the shell rc files and the version commands,
+and evaluates the conditions that make checks 9, 10, 12, 13, 15, 16, 17 and 19 apply (`n/a` when one does not).
+The live probes (check 7, check 8's read and write) and the checks that need judgement stay with the skill.
+
+```bash
+python3 -P -m setup_preflight.isolated_verify check --project-root . [--framework <magpie-checkout>]
+```
+
+It prints `facts` and one `findings` entry per check, 1 to 19, with a `status`
+(`pass`, `fail`, `warn`, `n/a`, `unchecked`, `unknown` or `manual`) and its `evidence`.
+`unknown` means an input could not be read from where it ran, usually the sandbox's read-deny on the home directory:
+`unreadable` names it, and `see` the section of the skill's
+[`manual-checks.md`](../../plugins/magpie-setup/skills/isolated-setup-verify/manual-checks.md)
+or `conditional-checks.md` the agent finishes it with.
+It writes nothing and reaches no network; besides reading files it runs `git`, `claude --version`, and on Linux `bwrap --version` and `socat -V`,
+and it prints no shell rc line other than the matched `source` and `alias` lines.
 
 ## Tests
 
