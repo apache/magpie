@@ -96,6 +96,26 @@ def test_pruned_directory_ignored(tmp_path: Path) -> None:
     assert symlink_lint.find_cyclic_symlinks(tmp_path) == []
 
 
+def test_nested_worktree_not_linted(tmp_path: Path) -> None:
+    # A linked worktree under .worktrees/ is a checkout of another branch,
+    # marked by its `.git` file; its relays are that branch's business.
+    wt = tmp_path / ".worktrees" / "other"
+    wt.mkdir(parents=True)
+    (wt / ".git").write_text("gitdir: ../../.git/worktrees/other\n")
+    _symlink(wt, ".agents/skills/magpie-x", "../../plugins/old/skills/x")
+    _symlink(wt, "skills/foo/loop", target=".")
+    assert symlink_lint.find_misdirected_relays(tmp_path) == []
+    assert symlink_lint.find_cyclic_symlinks(tmp_path) == []
+
+
+def test_symlink_to_checkout_root_still_flagged_as_cycle(tmp_path: Path) -> None:
+    # The nested-checkout skip must not hide a link back to the repo root,
+    # which carries a `.git` too.
+    (tmp_path / ".git").mkdir()
+    _symlink(tmp_path, "skills/foo/root", target="../..")
+    assert offending_paths(symlink_lint.find_cyclic_symlinks(tmp_path), tmp_path) == {"skills/foo/root"}
+
+
 def test_source_snapshot_dir_pruned(tmp_path: Path) -> None:
     # The gitignored fetch of a trusted external skill source is a build
     # artefact like the framework snapshot — never scanned. A stray link

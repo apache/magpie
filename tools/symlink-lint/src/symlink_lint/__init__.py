@@ -73,10 +73,29 @@ PRUNE_DIR_NAMES = frozenset(
         ".hatch",
         # A git worktree is a checkout of its own — usually of a different
         # commit — and lints itself. Walking into one reports that branch's
-        # links against this branch's expectations.
+        # links against this branch's expectations. `_walk_dirs` also skips
+        # any nested checkout by its `.git`, whatever the directory is called
+        # (`.worktrees/<name>/` is the usual one).
         "worktrees",
     }
 )
+
+
+def _walk_dirs(dirpath: str, dirnames: list[str], prune: frozenset[str]) -> list[str]:
+    """The entries of `dirnames` an `os.walk` keeps: not pruned by name, and
+    not a nested checkout, i.e. a real directory carrying its own `.git` (a
+    file for a linked worktree, a directory for a clone). Symlinks stay, so
+    the caller still checks them: a link back to the repo root has a `.git`
+    too, and is exactly the cycle the lint exists to catch."""
+    kept = []
+    for d in dirnames:
+        path = os.path.join(dirpath, d)
+        if d in prune:
+            continue
+        if not os.path.islink(path) and os.path.lexists(os.path.join(path, ".git")):
+            continue
+        kept.append(d)
+    return kept
 
 
 def repo_root() -> Path:
@@ -101,7 +120,7 @@ def find_cyclic_symlinks(root: Path, prune: frozenset[str] = PRUNE_DIR_NAMES) ->
     links are skipped; directories in `prune` are not descended into."""
     violations: list[tuple[Path, Path]] = []
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-        dirnames[:] = [d for d in dirnames if d not in prune]
+        dirnames[:] = _walk_dirs(dirpath, dirnames, prune)
         # os.walk never follows a symlink (followlinks=False), so a cyclic
         # link cannot trap the walk; symlinks show up in dirnames + filenames.
         for name in (*dirnames, *filenames):
@@ -129,7 +148,7 @@ def find_misdirected_relays(
     `../../.agents/skills/magpie-<skill>`."""
     problems: list[tuple[Path, str, str]] = []
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-        dirnames[:] = [d for d in dirnames if d not in prune]
+        dirnames[:] = _walk_dirs(dirpath, dirnames, prune)
         if os.path.basename(dirpath) != "skills":
             continue
         agent = os.path.basename(os.path.dirname(dirpath))
