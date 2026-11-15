@@ -278,6 +278,9 @@ uv run --project <framework>/tools/release-management release-management verify-
 `commands` holds one resolved [`release-verify`](../../../../tools/release-verify/README.md) command per step (`all` runs Steps 1–3 and 5–8 at once),
 built from `§ Expected artefact list` (`--expect` / `--expect-optional` by its `required` / `optional` marking, in order),
 `§ Digest set`, `§ Binary-exclude list`, `§ Source-tree validators` and `version_manifest_files`.
+For an ASF project whose resolved `<project-stage>` is `incubating`, add `--podling` to the `verify-rc args` invocation above.
+Do not infer the stage from the presence of a disclaimer file: the missing file is what the check must detect.
+For an unset stage, a top-level project or a non-ASF adopter, omit it and retain the existing checks.
 Run them as printed; surface `warnings`.
 
 `<verify-rc>` below is `uv run --project <framework>/tools/release-management release-management verify-rc <command> --load <scratch>/verify-rc-load.json`:
@@ -365,6 +368,9 @@ The tool's `status` is `FAIL` when either file is absent from the root of the cu
 That is a defect of this RC, whatever any previous release contains:
 the diff counts are `null` because there is nothing to diff, not because a previous release is missing.
 It is `PASS` when both are present and there is no previous release or no change.
+With `--podling`, `disclaimer_present` reports whether `DISCLAIMER` or `DISCLAIMER-WIP` is a file at the RC root.
+If neither exists, the tool returns `FAIL`; a file in a previous release does not satisfy this check.
+Presence alone does not validate the disclaimer wording or approve a release.
 `REVIEW` means a diff exists and the call is yours:
 read `notice_diff` / `license_diff`, surface them to the RM, and decide.
 
@@ -375,9 +381,9 @@ read `notice_diff` / `license_diff`, surface them to the RM, and decide.
 
 Return ONLY valid JSON: the tool's `step`, `status` (with `REVIEW` resolved to `PASS` or `WARN`),
 `notice_present`, `license_present`, `notice_diff_lines`, `license_diff_lines`,
-plus `diff_summary` — a one-line description of the changes,
+plus `disclaimer_present` when the tool returned it, and `diff_summary` — a one-line description of the changes,
 or `"no diff — no previous release found"`, or `"no changes"`;
-on `FAIL`, which file the RC artefact lacks and that there is nothing to diff (e.g. `"NOTICE absent from the RC artefact root; nothing to diff"`).
+on `FAIL`, name the missing file; only say there is nothing to diff for a missing `NOTICE` or `LICENSE`, not for a missing disclaimer.
 
 ---
 
