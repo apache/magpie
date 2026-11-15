@@ -9,25 +9,22 @@ requires_config:
   - contributor-nomination-config.md
   - project.md
 description: |
-  Read-only nomination brief for one or more named contributors on <upstream>.
-  Aggregates code-host and tracker activity across contribution tracks, off-forge signal,
-  and vendor-neutrality context, then drafts one [DISCUSS] email for all of them,
-  with a personal note per candidate and the level of detail the nominator picks.
-  Surfaces information only: never rates a contributor or says whether they are ready.
+  Read-only nomination brief for named contributors on <upstream>: code-host
+  and tracker activity across contribution tracks, off-forge signal and
+  vendor-neutrality context, then one [DISCUSS] email with a personal note
+  per candidate. Surfaces information only; never rates a contributor or
+  says whether they are ready.
 when_to_use: |
-  Invoke when a maintainer says "assess <handle> for nomination",
-  "is <handle> ready to be a committer", "build the case for nominating <handle>",
-  "how active has <handle> been", "nominate <a> and <b> for committer, <c> for PMC",
-  or gathering evidence for a committer/PMC discussion.
-  It answers with information, never a verdict.
-  Skip for questions about a specific PR or issue. Skip when no GitHub
-  handle has been provided and the user has not indicated they want to
-  assess a contributor.
+  Invoke on "assess <handle> for nomination", "is <handle> ready to be a
+  committer", "build the case for nominating <handle>", "how active has
+  <handle> been", "nominate <a> and <b> for committer, <c> for PMC", or
+  gathering evidence for a committer/PMC discussion. Skip for a specific PR
+  or issue, or when no contributor handle is given.
 argument-hint: "<github-handle>[:committer|pmc]... [window:Nm] [target:committer|pmc] [details:names|summary|links|full] [discuss:single|per-candidate]"
 capability: capability:stats
 surface_hash: sha256:f216f3944b7d94c2
 license: Apache-2.0
-measured_tokens: 6152
+measured_tokens: 6105
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

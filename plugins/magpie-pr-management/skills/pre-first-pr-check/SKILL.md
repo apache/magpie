@@ -7,24 +7,21 @@ mode: Pairing
 requires_config:
   - project.md
 description: |
-  Run a newcomer-focused pre-flight checklist on a local branch before
-  opening a PR. Checks CONTRIBUTING conventions, SPDX headers on new files,
-  commit-message shape (including the Generated-by: trailer for AI-assisted
-  work), and the placeholder convention — then returns a structured
-  checklist report. Read-only; no state changes, no PR, no external writes.
+  Newcomer pre-flight checklist for a local branch before opening a PR:
+  CONTRIBUTING conventions, SPDX headers on new files, commit-message shape
+  (including the Generated-by: trailer for AI-assisted work), and the
+  placeholder convention. Returns a checklist report; read-only, no PR, no
+  external writes.
 when_to_use: |
-  Invoke on "am I ready to open a PR?", "check my branch before I push",
-  "is my commit message correct?", or "do I need a Generated-by trailer?".
-  Focuses on contribution mechanics — file headers, commit format, and
-  placeholder hygiene, the things first-time contributors most often miss.
-  Skip for deep correctness/security review of the diff — use
-  pairing-self-review. Skip when a PR is already open — use
-  pr-management-code-review.
+  Invoke on "am I ready to open a PR?", "check my branch before I push", "is
+  my commit message correct?", or "do I need a Generated-by trailer?". Skip
+  for deep correctness/security review of the diff (use pairing-self-review)
+  or when a PR is already open (use pr-management-code-review).
 argument-hint: "[base:<ref>] [path:<glob>]"
 capability: capability:review
 surface_hash: sha256:4219bd5fdce4e81d
 license: Apache-2.0
-measured_tokens: 2828
+measured_tokens: 2791
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

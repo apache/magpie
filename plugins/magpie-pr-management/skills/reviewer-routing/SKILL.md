@@ -8,24 +8,21 @@ requires_config:
   - project.md
   - reviewer-roster.md
 description: |
-  Given an open issue or PR, scores the project's configured reviewer roster
-  across three signals — touched-area eligibility, git-history familiarity
-  with the changed paths, and current open-review load — and proposes a
-  primary reviewer (plus an optional backup). Read-only,
-  propose-then-confirm: nothing is assigned, labelled, or requested without
-  confirmation. An unresolved roster yields an explicit NO ELIGIBLE
-  REVIEWER signal, never a fabricated handle.
+  Score the configured reviewer roster for an open issue or PR on area
+  eligibility, git-history familiarity with the changed paths, and
+  open-review load; propose a primary reviewer plus an optional backup.
+  Read-only, propose-then-confirm; an unresolved roster yields NO ELIGIBLE
+  REVIEWER, never a made-up handle.
 when_to_use: |
   Invoke on "who should review this PR?", "route this issue to the right
-  person", "who owns this area?", "suggest a reviewer for PR NNN", "find the best
-  reviewer for this change", or any variation on proposing a first reviewer. Also
-  part of a triage sweep when review-cycle latency is the concern. Skip
-  when a reviewer is already assigned and no second opinion was asked for.
+  person", "who owns this area?", "suggest a reviewer for PR NNN", or in a
+  triage sweep when review latency is the concern. Skip when a reviewer is
+  already assigned and no second opinion was asked for.
 argument-hint: "[pr:<N> | issue:<N>] [--repo owner/name]"
 capability: capability:triage
 surface_hash: sha256:159e840396b7a667
 license: Apache-2.0
-measured_tokens: 3556
+measured_tokens: 3507
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -86,13 +86,13 @@ The confirmation gate (the reply vocabulary and the
 never-assume-confirmation rule) lives in `SKILL.md` Step 5; this file
 covers the posting elaboration.
 
-<!-- BEGIN MAGPIE BLOCK: write-lock — generated from tools/dev/blocks/write-lock.md -->
+<!-- BEGIN MAGPIE BLOCK: write-lock-detail — generated from tools/dev/blocks/write-lock-detail.md -->
 
-**Write lock (one write phase per skill per repository).** The read and
-classify steps above have no side effects and may overlap with any other
+**Write lock (one write phase per skill per repository).** The skill's read
+and classify steps have no side effects and may overlap with any other
 run. Posting does: two overlapping runs of this skill over the same
 repository post the same comment or label twice, which is what makes
-contributors distrust the bot. So before the first write of this step,
+contributors distrust the bot. So before the first write of the write step,
 take the skill's write lock:
 
 ```bash
@@ -128,7 +128,7 @@ serialised; the re-read before each write narrows that window but does
 not close it. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
 
-<!-- END MAGPIE BLOCK: write-lock -->
+<!-- END MAGPIE BLOCK: write-lock-detail -->
 
 For each confirmed proposal, post one comment via the tracker's
 write API:
