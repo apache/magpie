@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-doctor/SKILL.md",
-  "step_heading": "## Runtime routing (run before the Claude-specific probes)"
+  "step_heading": "## Runtime routing (run before the Claude-specific probes)",
+  "also_include": [
+    "skills/setup-isolated-setup-doctor/runtime-routing.md"
+  ]
 }

@@ -131,6 +131,11 @@ for rt in podman docker; do
       echo "PROBE: ${rt}-runtime → ✗ (gateway running without a $rt backend — $hint? start it, then restart the gateway)"
       continue ;;
   esac
+  # gw_state runs before this socket-file test: a backend `status` does not
+  # list under `serving` never gets a socket file, so testing -S first would
+  # misreport "gateway not running" for "running, but this backend's
+  # machine/daemon is down". This is a fallback for a serving backend whose
+  # socket vanished mid-probe.
   if [ ! -S "$sock" ]; then
     echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
     continue
