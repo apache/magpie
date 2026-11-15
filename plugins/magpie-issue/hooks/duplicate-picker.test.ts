@@ -53,10 +53,7 @@ function createMockEngine(overrides: any = {}): any {
   const store = new Map<string, any>();
   const defaultFs = {
     exists: async (p: string) => true,
-    stat: async (p: string) => ({
-      isSymbolicLink: () => false,
-      isFile: () => true,
-    }),
+    stat: async (p: string) => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: false }),
     read: async (p: string) => '',
     write: async (p: string, content: string) => {},
   };
@@ -1538,10 +1535,7 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
     const test$ = createMockEngine({
       fs: {
         exists: async (p: string) => p === '.magpie-issue-candidates-77.json',
-        stat: async () => ({
-          isSymbolicLink: () => false,
-          isFile: () => true,
-        }),
+        stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: false }),
         write: async (p: string, c: string) => {
           writtenFiles[p] = c;
         },
@@ -1570,14 +1564,11 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
     }
   });
 
-  test('safeWriteDecisionFile refuses to write to symbolic links', async () => {
+  test('safeWriteDecisionFile refuses to write through a symbolic link to a regular file', async () => {
     const test$ = createMockEngine({
       fs: {
         exists: async (p: string) => true,
-        stat: async (p: string) => ({
-          isSymbolicLink: () => true,
-          isFile: () => false,
-        }),
+        stat: async (p: string) => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: true }),
       },
     });
 
@@ -1591,10 +1582,7 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
     const test$ = createMockEngine({
       fs: {
         exists: async (p: string) => true,
-        stat: async (p: string) => ({
-          isSymbolicLink: () => false,
-          isFile: () => false,
-        }),
+        stat: async (p: string) => ({ kind: 'dir', size: 0, mtimeMs: 0, isLink: false }),
       },
     });
 
@@ -1609,10 +1597,7 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
     const test$ = createMockEngine({
       fs: {
         exists: async (p: string) => p === '.magpie-issue-decision-77.json',
-        stat: async () => ({
-          isSymbolicLink: () => false,
-          isFile: () => true,
-        }),
+        stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: false }),
         write: async (p: string, c: string) => {
           writtenFiles[p] = c;
         },
@@ -1635,10 +1620,7 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
     const test$ = createMockEngine({
       fs: {
         exists: async () => true,
-        stat: async () => ({
-          isSymbolicLink: () => true,
-          isFile: () => false,
-        }),
+        stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: true }),
         write: async () => {
           writeCalled = true;
         },
@@ -1650,6 +1632,83 @@ describe('safeWriteDecisionFile and invalidateDecisionFile', () => {
       throw new Error('invalidateDecisionFile must not write to symlink');
     }
   });
+  test('safeWriteDecisionFile writes a new file when the decision path is missing', async () => {
+    const writtenFiles: Record<string, string> = {};
+    const test$ = createMockEngine({
+      fs: {
+        exists: async (p: string) => p === '.magpie-issue-candidates-77.json',
+        stat: async () => {
+          throw Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' });
+        },
+        write: async (p: string, c: string) => {
+          writtenFiles[p] = c;
+        },
+      },
+    });
+
+    const res = await safeWriteDecisionFile(test$, 77, '{"status":"curated"}');
+    if (!res.success || writtenFiles['.magpie-issue-decision-77.json'] !== '{"status":"curated"}') {
+      throw new Error(`expected a new decision file, got: ${JSON.stringify(res)}`);
+    }
+  });
+
+  test('safeWriteDecisionFile refuses a dangling symbolic link', async () => {
+    let writeCalled = false;
+    const test$ = createMockEngine({
+      fs: {
+        exists: async (p: string) => p === '.magpie-issue-candidates-77.json',
+        stat: async () => ({ kind: 'other', size: 0, mtimeMs: 0, isLink: true }),
+        write: async () => {
+          writeCalled = true;
+        },
+      },
+    });
+
+    const res = await safeWriteDecisionFile(test$, 77, '{"status":"curated"}');
+    if (res.success || writeCalled) {
+      throw new Error(`expected refusal on a dangling link, got: ${JSON.stringify(res)}`);
+    }
+  });
+
+  test('safeWriteDecisionFile fails closed when stat fails for another reason', async () => {
+    let writeCalled = false;
+    const test$ = createMockEngine({
+      fs: {
+        exists: async () => true,
+        stat: async () => {
+          throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+        },
+        write: async () => {
+          writeCalled = true;
+        },
+      },
+    });
+
+    const res = await safeWriteDecisionFile(test$, 77, '{"status":"curated"}');
+    if (res.success || writeCalled) {
+      throw new Error(`expected refusal when stat fails, got: ${JSON.stringify(res)}`);
+    }
+  });
+
+  test('invalidateDecisionFile leaves a missing decision file alone', async () => {
+    let writeCalled = false;
+    const test$ = createMockEngine({
+      fs: {
+        stat: async () => {
+          throw Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' });
+        },
+        write: async () => {
+          writeCalled = true;
+        },
+      },
+    });
+
+    await invalidateDecisionFile(test$, 77);
+    if (writeCalled) {
+      throw new Error('invalidateDecisionFile must not create a decision file');
+    }
+  });
+
 });
 
 describe('computePayloadHash', () => {

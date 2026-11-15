@@ -152,6 +152,32 @@ export function computePayloadHash(content: string): string {
 }
 
 /**
+ * What stands at a path the pane is about to write, judged on the shape
+ * `$.fs.stat` resolves with in the mod harness: `{ kind, size, mtimeMs, isLink }`.
+ * `isLink` describes the path itself and `kind` what it leads to, so a link to a
+ * regular file and a link that leads nowhere are both `unsafe`. Only a missing
+ * path (`ENOENT`) is `missing`; any other stat failure is `unsafe`, so the write
+ * fails closed. `$.fs.exists` is not consulted: it answers for what the path
+ * leads to, which says nothing about a link that leads nowhere.
+ */
+export type WriteTarget = 'missing' | 'regular' | 'unsafe';
+
+function isNotFound(err: any): boolean {
+  return err?.code === 'ENOENT' || /ENOENT/.test(String(err?.message ?? err));
+}
+
+export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
+  let stat: any;
+  try {
+    stat = await $.fs.stat(path);
+  } catch (err: any) {
+    return isNotFound(err) ? 'missing' : 'unsafe';
+  }
+  if (!stat || stat.isLink !== false || stat.kind !== 'file') return 'unsafe';
+  return 'regular';
+}
+
+/**
  * Safely writes a decision file to disk, refusing to follow symlinks or non-regular files,
  * and ensuring the source candidates file exists.
  */
@@ -177,21 +203,11 @@ export async function safeWriteDecisionFile(
       };
     }
 
-    try {
-      const stat = await $.fs.stat(decisionPath);
-      const isSymlink =
-        stat &&
-        ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
-          stat.isSymbolicLink === true ||
-          (typeof stat.isFile === 'function' && !stat.isFile()));
-      if (isSymlink) {
-        return {
-          success: false,
-          error: `Refusing to write to symlink or non-regular file: ${decisionPath}`,
-        };
-      }
-    } catch {
-      // File does not exist yet or stat threw; safe to write new file
+    if ((await classifyWriteTarget($, decisionPath)) === 'unsafe') {
+      return {
+        success: false,
+        error: `Refusing to write to symlink or non-regular file: ${decisionPath}`,
+      };
     }
 
     await $.fs.write(decisionPath, content);
@@ -213,25 +229,9 @@ export async function invalidateDecisionFile(
 ): Promise<void> {
   const decisionPath = `.magpie-issue-decision-${targetIssue}.json`;
   try {
-    let exists = false;
-    try {
-      exists = await $.fs.exists(decisionPath);
-    } catch {
-      exists = false;
-    }
-    if (!exists) return;
-
-    try {
-      const stat = await $.fs.stat(decisionPath);
-      const isSymlink =
-        stat &&
-        ((typeof stat.isSymbolicLink === 'function' && stat.isSymbolicLink()) ||
-          stat.isSymbolicLink === true ||
-          (typeof stat.isFile === 'function' && !stat.isFile()));
-      if (isSymlink) return;
-    } catch {
-      return;
-    }
+    // Only an existing regular file is overwritten; a missing path needs no
+    // invalidation, and a link or anything else is left alone.
+    if ((await classifyWriteTarget($, decisionPath)) !== 'regular') return;
 
     const invalidEnvelope: DuplicatePickerDecision = {
       schema_version: 1,
