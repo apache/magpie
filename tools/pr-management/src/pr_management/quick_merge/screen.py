@@ -156,7 +156,7 @@ def load(saved: Path, single: int | None = None) -> list[tuple[PR, list[dict[str
 
 
 def injection_hits(pr: PR) -> list[str]:
-    text = f"{pr.title}\n{markers.FOLD_RE.sub('', pr.body)}"
+    text = f"{pr.title}\n{markers.scannable_body(pr)}"
     return sorted({m.group(0) for m in INJECTION.finditer(text)})
 
 

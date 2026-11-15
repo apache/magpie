@@ -238,10 +238,17 @@ def _cap(result: dict[str, Any], limit: int) -> None:
 
 def _triage_fold(args: argparse.Namespace) -> dict[str, Any]:
     body = triage_fold.read_body(args.current_body)
-    block = args.block.read_text(encoding="utf-8")
+    block = triage_fold.restamp(args.block.read_text(encoding="utf-8"), _now(args.now))
     new, replaced = triage_fold.splice(body, block)
     args.out.write_text(new, encoding="utf-8")
-    return {"out": str(args.out), "replaced": replaced, "bytes": len(new.encode("utf-8"))}
+    return {
+        "out": str(args.out),
+        "replaced": replaced,
+        "bytes": len(new.encode("utf-8")),
+        # The block as written, with its write-time stamp: the recovery
+        # journal's `fold` change records this, not the rendered file.
+        "block": triage_fold.block(new),
+    }
 
 
 def _triage_session(args: argparse.Namespace) -> dict[str, Any]:
@@ -441,6 +448,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     fld.add_argument("--block", type=Path, required=True)
     fld.add_argument("--out", type=Path, required=True)
+    fld.add_argument("--now", default=None, help="stamp triaged= with this ISO-8601 time (tests, replays)")
 
     ses = triage_sub.add_parser("session", help="the session cache and the Step 6 summary")
     ses_sub = ses.add_subparsers(dest="session_command", required=True)

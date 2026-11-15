@@ -30,6 +30,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass
 
+from . import people
 from .config import CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN
 from .model import COLLABORATOR_ASSOCIATIONS, PR
 
@@ -114,10 +115,61 @@ def fold_is_current(fold: Fold, pr: PR) -> bool:
     return bool(fold.head) and pr.head_sha.startswith(fold.head or "\0")
 
 
+#: How long after the fold's `triaged=` time the body's last edit may come.
+#: `triage fold` stamps `triaged=` as it writes the new body, and the
+#: maintainer then saves it with one `gh pr edit`, which may wait on an
+#: approval prompt; an author who plants a fold cannot know when a maintainer
+#: will next edit the description by hand.
+FOLD_EDIT_WINDOW = dt.timedelta(minutes=5)
+#: How far the edit may appear to precede `triaged=`: the stamp comes from the
+#: triager's clock, the edit time from GitHub's. A fold stamped any later than
+#: this, in the future of its own edit, is not trusted.
+FOLD_CLOCK_SKEW = dt.timedelta(minutes=1)
+
+
+def trusted_fold(pr: PR) -> Fold | None:
+    """The PR body's fold, only when a triager other than the author wrote it.
+
+    The description belongs to the PR author, who can paste any marker into it.
+    A fold counts only when GitHub reports the body's last edit as made by a
+    person (not a bot) other than the author, that editor is the one the fold
+    names in `by=` (the triage writer always records itself there), and the
+    edit came at most `FOLD_EDIT_WINDOW` after the fold's `triaged=` time
+    (allowing `FOLD_CLOCK_SKEW` before it), so the edit that wrote the fold is
+    the last one. A body the author touched after triage, one never edited,
+    one a bot edited last, or one edited again later yields no trusted fold:
+    the PR is then triaged again, which is the safe side to fail on.
+    """
+    fold = parse_fold(pr.body)
+    if fold is None or fold.triaged is None or pr.body_edited_at is None:
+        return None
+    if pr.body_editor_is_bot or people.is_bot(pr.body_editor or ""):
+        return None
+    editor = (pr.body_editor or "").casefold()
+    if not editor or editor == pr.author.casefold():
+        return None
+    if (fold.by or "").casefold() != editor:
+        return None
+    lag = pr.body_edited_at - fold.triaged
+    if lag < -FOLD_CLOCK_SKEW or lag > FOLD_EDIT_WINDOW:
+        return None
+    return fold
+
+
+def scannable_body(pr: PR) -> str:
+    """The PR body for content scans, without the fold only when a triager wrote it.
+
+    A trusted fold holds the maintainer's own note, whose wording must not
+    trip the scans. Any other fold-shaped span is the author's text and is
+    scanned like the rest of the description.
+    """
+    return FOLD_RE.sub("", pr.body) if trusted_fold(pr) is not None else pr.body
+
+
 def triage_marker(pr: PR, marker_text: str) -> Marker | None:
     """The newest triage marker posted after the head commit, in either channel."""
     found: list[Marker] = []
-    fold = parse_fold(pr.body)
+    fold = trusted_fold(pr)
     # A folded confirmation request belongs to rows 14a/14b: counting it as a
     # triage marker would hold the author's reply behind rows 3-4 for a week.
     if (
@@ -141,7 +193,7 @@ def triage_marker(pr: PR, marker_text: str) -> Marker | None:
 def any_triage_marker(pr: PR, marker_text: str) -> Marker | None:
     """The newest triage marker regardless of the head commit (row 0, the sweeps)."""
     found: list[Marker] = []
-    fold = parse_fold(pr.body)
+    fold = trusted_fold(pr)
     if fold is not None and fold.triaged is not None:
         found.append(Marker("pr-body", fold.triaged, fold.by, fold.action))
     for comment in pr.comments:
@@ -174,7 +226,7 @@ def confirmation_request(pr: PR, viewer: str) -> dt.datetime | None:
     `comment` it is the viewer's comment carrying the marker.
     """
     candidates: list[dt.datetime] = []
-    fold = parse_fold(pr.body)
+    fold = trusted_fold(pr)
     if (
         fold is not None
         and fold.triaged is not None

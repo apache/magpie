@@ -4,6 +4,7 @@
 # `already_triaged` — rows 3 and 4
 
 **Fires when** a triage marker newer than the last commit is under 7 days old: a triager's comment carrying the `Pull Request quality criteria` link text, or the PR body's `pr-triage-fold` block with a matching `head=`.
+The fold counts only when GitHub reports the body's last editor as a person (not a bot) other than the PR author, that editor is the one the fold names in `by=`, and the edit came at most five minutes after the fold's `triaged=` time, which `triage fold` stamps as it writes the body: the author owns the description, so a fold they wrote, or a body edited again after triage, is not a triage marker and the PR is triaged again.
 Row 3 is sub-state `waiting` (no author activity since), row 4 is `responded`.
 [`classify`](../../../../../tools/pr-management/README.md#triage-classify--pr-management-triage-step-2) decided it. The action is `skip`; this file only explains the skip if the maintainer asks.
 

@@ -41,6 +41,8 @@ gh pr edit <N> --repo <upstream> --body-file <scratch>/pr-<N>-newbody.md
 ```
 
 `triage fold` removes any existing `pr-triage-fold` span and appends the new one, so the description always carries exactly one current note.
+It stamps the note's `triaged=` with the time it runs, and the fold only counts as a triage marker when the edit lands within five minutes of that stamp: run it after the preview is approved, immediately before `gh pr edit`.
+The `block` it prints is the exact block written; the recovery journal's `fold` change records that, not the rendered `body_file`.
 
 ## 2b. Channel `comment`
 

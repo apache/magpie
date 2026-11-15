@@ -19,9 +19,31 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from typing import Any
 
 NOW = dt.datetime(2026, 10, 1, 12, 0, tzinfo=dt.UTC)
+
+#: Marks "derive the body editor from the fold", the realistic default: the
+#: triage tool that writes a `pr-triage-fold` is also the body's last editor.
+FOLD_WRITER = object()
+_FOLD_BY = re.compile(r"<!--\s*pr-triage-fold:[^>]*\bby=(\S+)")
+_FOLD_AT = re.compile(r"<!--\s*pr-triage-fold:[^>]*\btriaged=(\S+)")
+
+
+def _editor_for(body: str, editor: object) -> str | None:
+    if editor is not FOLD_WRITER:
+        return editor if isinstance(editor, str) else None
+    found = _FOLD_BY.findall(body)
+    return found[-1] if found else None
+
+
+def _edited_at_for(body: str, edited_at: object) -> str | None:
+    """By default the last edit is the one that wrote the fold, at its `triaged=` time."""
+    if edited_at is not FOLD_WRITER:
+        return edited_at if isinstance(edited_at, str) else None
+    found = _FOLD_AT.findall(body)
+    return found[-1] if found else None
 
 
 def ago(**delta: float) -> str:
@@ -91,8 +113,13 @@ def pr(
     title: str = "Fix a thing",
     head: str = "abc1234def5678",
     commit_messages: list[str] | None = None,
+    editor: object = FOLD_WRITER,
+    edited_at: object = FOLD_WRITER,
+    editor_type: str = "User",
 ) -> dict[str, Any]:
     checks = [check("Tests (unit)")] if checks is None else checks
+    body_editor = _editor_for(body, editor)
+    body_edited_at = _edited_at_for(body, edited_at)
     messages = commit_messages or ["Fix a thing"]
     return {
         "number": number,
@@ -103,6 +130,8 @@ def pr(
         "updatedAt": updated or ago(days=2),
         "isDraft": draft,
         "body": body,
+        "editor": {"__typename": editor_type, "login": body_editor} if body_editor else None,
+        "lastEditedAt": body_edited_at,
         "mergeable": mergeable,
         "baseRefName": "main",
         "headRefName": "fix",

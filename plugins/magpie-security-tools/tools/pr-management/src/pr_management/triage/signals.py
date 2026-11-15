@@ -142,8 +142,8 @@ def compute(pr: PR, cfg: Config, now: dt.datetime) -> Signals:
 
 
 def security_matches(pr: PR) -> list[dict[str, str]]:
-    """Title, body (the triage fold excluded) and commit messages against the security patterns."""
-    body = markers.FOLD_RE.sub("", pr.body)
+    """Title, body (a trusted triage fold excluded) and commit messages against the security patterns."""
+    body = markers.scannable_body(pr)
     places = [("title", pr.title), ("body", body)]
     places += [
         (f"commit {c.oid[:7]}: {c.message.splitlines()[0][:72] if c.message else ''}", c.message)

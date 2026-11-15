@@ -119,8 +119,9 @@ uv run --project <framework>/tools/pr-management pr-management triage fold --cur
 ```
 
 Removes any existing `pr-triage-fold` span and appends the new block, so the description always carries exactly one note.
+It restamps the block's `triaged=` with the current time (`--now` overrides it), since a fold counts only when the description's next edit follows that stamp within five minutes: run it right before the `gh pr edit` that saves the body.
 `--current-body` is raw markdown or the JSON `vetted-op-read --save … pr-view-with-body <N>` wrote.
-Prints `{out, replaced, bytes}`.
+Prints `{out, replaced, bytes, block}`; `block` is the block as written, which the recovery journal's `fold` change records.
 
 ### `triage guard` — the pre-mutation checks
 
@@ -319,7 +320,7 @@ Other skills link here instead of restating them; change a rule in code and here
   A `COLLABORATOR` / `MEMBER` / `OWNER` login in neither the team roster nor a saved permission read is decided as a maintainer (the direction that never talks over one) and listed under `needs` as an `upstream-permission` read.
 - **Bot** — a known bot login or any login ending in `[bot]`. The dashboard also counts Copilot reviewers and deleted (`ghost`) accounts as bots: automation is not engagement.
 - **Collaborator thread** — an unresolved review thread whose first comment is by `OWNER` / `MEMBER` / `COLLABORATOR`. Contributor-opened threads never block, never count as a regression on a ready PR, and never make a merit discussion.
-- **Triage marker** ([`markers.py`](src/pr_management/markers.py)) — a triager's comment (`OWNER` / `MEMBER` / `COLLABORATOR`, not the author) carrying the quality-criteria link text, or the PR body's `pr-triage-fold` block.
+- **Triage marker** ([`markers.py`](src/pr_management/markers.py)) — a triager's comment (`OWNER` / `MEMBER` / `COLLABORATOR`, not the author) carrying the quality-criteria link text, or the PR body's `pr-triage-fold` block when the body's last edit (GraphQL `editor`, `lastEditedAt`) was made by a person (not a bot) other than the PR author, matches the fold's `by=`, and comes at most five minutes after its `triaged=` (one minute before it is allowed for clock skew).
   It is *current* when posted after the head commit (the fold: `head=` matches the head); its time is the comment's `createdAt` or the fold's `triaged=`; its sub-state is `responded` when the author commented or pushed after it, else `waiting`.
   A fold with `action=request-author-confirmation` is a confirmation request, not a triage marker.
   The body is author-controlled: of several opening markers the last whose `triaged=` parses with an explicit zone wins, so a malformed marker cannot hide the real one.
