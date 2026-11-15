@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611140420
-  at:      2026-11-14
+  version: 0.9.0.dev202611151633
+  at:      2026-11-15
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -18,7 +18,7 @@ reconciled:
     calibrate:                  sha256:9c623c35a58589e5
     candidate-screen:           sha256:0d00099fe9910caa
     ci-runner-audit:            sha256:c6da72e64ac4808d
-    code-review:                sha256:871da2459ce53192
+    code-review:                sha256:5540df0191ad8033
     committer-onboarding:       sha256:fc0108bae9d7b687
     contributor-to-committer:   sha256:bdf92c88a304ddea
     deduplicate:                sha256:10a3cb1b8a2892e2
@@ -32,7 +32,7 @@ reconciled:
     isolated-setup-doctor:      sha256:f8a5db3da24024cb
     isolated-setup-install:     sha256:cb0c81b693d9aa76
     isolated-setup-update:      sha256:1f327e069312dad2
-    isolated-setup-verify:      sha256:4866c98daeb1e5c4
+    isolated-setup-verify:      sha256:e4037763f0982666
     issue-fix:                  sha256:550eabe3b9bb3689
     issue-import-from-scan:     sha256:7adfbe73f79606b1
     issue-import-via-forwarder: sha256:43894008501eb56d
@@ -52,6 +52,7 @@ reconciled:
     pr-stale-sweep:             sha256:086e859fb8751476
     pr-triage:                  sha256:a72418ac1e5ebbf9
     pre-first-pr-check:         sha256:4219bd5fdce4e81d
+    pre-release-sweep:          sha256:52048f763e3f5742
     prepare:                    sha256:9380580d6421d8b4
     privacy-llm:                sha256:49a65c36a0dc49ab
     promote:                    sha256:ecfb43e47fa5905e
@@ -65,6 +66,7 @@ reconciled:
     sentiment:                  sha256:c325db1d99634a51
     setup:                      sha256:7915f16976882871
     shared-config-sync:         sha256:bc445ef323563cd8
+    shepherd:                   sha256:cd4c424406623b33
     skill-reconciler:           sha256:964dbda42cb402ce
     stack-review:               sha256:f0872f2cf794b6d2
     stale-sweep:                sha256:65673690910c37f0
