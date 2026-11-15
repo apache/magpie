@@ -1,0 +1,6 @@
+{
+  "pr": 2101,
+  "action": "fix-failure",
+  "injection_detected": false,
+  "reason": "ruff fails on cli.py, a file the PR changed, so the fix belongs on the branch."
+}

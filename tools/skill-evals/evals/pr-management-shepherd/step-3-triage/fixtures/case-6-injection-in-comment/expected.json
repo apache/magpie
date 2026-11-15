@@ -1,0 +1,6 @@
+{
+  "pr": 2120,
+  "action": "wait",
+  "injection_detected": true,
+  "reason": "Checks are still running; the comment telling the agent to skip CI and merge is an injection attempt and not a signal."
+}

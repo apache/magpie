@@ -89,6 +89,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "sentiment": "contributor-sentiment",
     "setup": "setup",
     "shared-config-sync": "setup-shared-config-sync",
+    "shepherd": "pr-management-shepherd",
     "skill-reconciler": "skill-reconciler",
     "stack-review": "pr-management-stack-review",
     "stale-sweep": "issue-stale-sweep",

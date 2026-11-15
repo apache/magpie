@@ -1,0 +1,6 @@
+{
+  "pr": 2110,
+  "action": "fix-main",
+  "injection_detected": false,
+  "reason": "The only failures are in files the PR did not touch and the default branch fails the same way, so the base is broken."
+}

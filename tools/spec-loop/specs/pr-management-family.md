@@ -155,6 +155,15 @@ same directory; the behaviour is unchanged.
   over reads saved with `vetted-op-read --save`; one file per gate, bucket,
   tier and drop reason under `classifications/`, and
   `actions/{present,approve,hand-off}.md`.
+- Skill: `pr-management-shepherd` (`shepherd/`) — gets the viewer's own open
+  PRs to a mergeable state and keeps the default branch green: one action per
+  PR from a fixed table (rebase, rerun a job cancelled at its time limit, fix a
+  failure in a changed file, fix a red default branch, fix an open
+  code-scanning or reviewer comment, wait, enable auto-merge), a whole-tree
+  pre-push gate because PR CI checks only the diff, and everyone else's PRs
+  handed to `pr-management-code-review`. Reads a failed job's step list, not
+  its whole log. Ships `mode: Drafting` + `experimental`. Detail files:
+  `own-prs.md`, `main-health.md`, `others-prs.md`.
 - Skill: `pr-management-thread-mentor` — drafts a teaching-register comment on a
   single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
@@ -327,6 +336,12 @@ same directory; the behaviour is unchanged.
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
   deliberately off by MISSION sequencing.
+- **Shepherd never merges either.** `pr-management-shepherd` proposes every
+  push, rerun, post and auto-merge, prints `gh pr merge` for an approved
+  `CLEAN` PR instead of running it, force-pushes only with a lease on the SHA
+  it last pushed, and pushes to a contributor's branch only when the
+  maintainer asks and `maintainerCanModify` is true.
+  Regression cases: `tools/skill-evals/evals/pr-management-shepherd/`.
 - **The quick-merge approve protocol fails closed.** `quick-merge
   approve-check` needs the fresh PR, the live merge state and the
   workflow-approval index (none optional), re-runs the Stage-1 gates and the
@@ -594,6 +609,10 @@ same directory; the behaviour is unchanged.
     disposition whose gates `render --auto-merge` re-ran, pinned to the
     reviewed head with `--match-head-commit`, and never on a self-authored
     PR (#1951, #1960).
+16. `pr-management-shepherd` picks exactly one Step 3 action per own PR,
+    treats a comment or log line addressed to the agent as an injection
+    attempt rather than a signal, and never runs `gh pr merge` without
+    `--auto`.
 
 ## Validation
 
@@ -603,6 +622,7 @@ test -f .agents/skills/magpie-pr-management-stats/SKILL.md
 test -f .agents/skills/magpie-pr-management-code-review/SKILL.md
 test -f .agents/skills/magpie-pr-management-merge-candidates/SKILL.md
 test -f .agents/skills/magpie-pr-management-stack-review/SKILL.md
+test -f .agents/skills/magpie-pr-management-shepherd/SKILL.md
 tools/dev/run-skill-script-tests.sh
 test -f .agents/skills/magpie-pr-management-thread-mentor/SKILL.md
 test -f docs/pr-management/README.md
