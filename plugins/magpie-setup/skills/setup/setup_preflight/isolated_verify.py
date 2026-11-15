@@ -123,18 +123,6 @@ class Settings:
         return self.state in ("unreadable", "placeholder")
 
 
-@dataclass
-class Context:
-    root: Path
-    home: Path
-    env: Mapping[str, str]
-    system: str
-    framework_arg: Path | None = None
-    managed_dirs: tuple[Path, ...] | None = None
-    run: Callable[[list[str]], str | None] = field(default=lambda argv: _run(argv))
-    which: Callable[[str], str | None] = field(default=shutil.which)
-
-
 def _run(argv: list[str]) -> str | None:
     """The command's combined output, or `None` when it cannot run or fails."""
     try:
@@ -144,6 +132,18 @@ def _run(argv: list[str]) -> str | None:
     if done.returncode != 0:
         return None
     return (done.stdout or "") + (done.stderr or "")
+
+
+@dataclass
+class Context:
+    root: Path
+    home: Path
+    env: Mapping[str, str]
+    system: str
+    framework_arg: Path | None = None
+    managed_dirs: tuple[Path, ...] | None = None
+    run: Callable[[list[str]], str | None] = field(default=_run)
+    which: Callable[[str], str | None] = field(default=shutil.which)
 
 
 def _is_placeholder(path: Path) -> bool:
@@ -295,7 +295,7 @@ class Verifier:
                 if (path / PINNED).is_file():
                     return path, how, rejected
             except OSError:
-                pass
+                pass  # an unreadable directory is not a checkout; try the next candidate
             if how == "argument":
                 rejected.append(f"{path}: no {PINNED}")
         return None, None, rejected
@@ -897,6 +897,7 @@ def main(argv: list[str] | None = None) -> int:
         env=os.environ,
         system=platform.system(),
         framework_arg=args.framework.expanduser().resolve() if args.framework else None,
+        run=_run,
     )
     json.dump(Verifier(ctx).run(), sys.stdout, indent=2, ensure_ascii=False)
     sys.stdout.write("\n")
