@@ -110,7 +110,7 @@ Once the ASF account exists (Whimsy shows the new Apache ID under the project's 
 
 ```text
 Onboarding complete for <candidate> (<apache-id>)
-Project: <project>   Scenario: <scenario>   Governance: asf-pmc   Intake: icla
+Project: <PROJECT>   Scenario: <scenario>   Governance: asf-pmc   Intake: icla
 
 Communications sent:
   ✓ Congratulations email → <candidate email>

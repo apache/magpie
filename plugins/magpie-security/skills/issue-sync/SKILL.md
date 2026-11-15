@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:3ee6236a0b32e928
 license: Apache-2.0
-measured_tokens: 6972
+measured_tokens: 6970
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -78,9 +78,9 @@ Never add one.
   or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (first match wins: `.apache-magpie-local/<file>`, the main
-  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `<git-common-dir>/apache-magpie/<file>`
+  or, in a Subversion working copy, `.svn/apache-magpie/<file>`; then a legacy
+  in-tree `.apache-magpie-local/<file>`; then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -166,16 +166,16 @@ Before running the skill, you need a **selector** that resolves to one
 or more issues:
 
 - **Issue number**: `#185`, `185`, `#212, #214, #218`.
-- **CVE ID**: `CVE-2026-40913` — looked up by matching against each
+- **CVE ID**: `<CVE-ID>` (`CVE-YYYY-NNNNN`) — looked up by matching against each
   open issue's *CVE tool link* body field.
-- **Title substring**: `JWT`, `KubernetesExecutor` — fuzzy title match;
+- **Title substring**: `JWT`, `path traversal` — fuzzy title match;
   always confirm the resolved set with the user before dispatching.
 - **Label**: `announced`, `pr merged`, `cve allocated` —
   all open issues carrying that label.
 - **All open issues**: `sync all` / `sync all open` — the 21-ish-issue
   default for a triage sweep.
 
-Selectors combine (`sync #212, CVE-2026-40690, JWT`), each resolved independently.
+Selectors combine (`sync #212, <CVE-ID>, JWT`), each resolved independently.
 `<sm> selector` turns the selector into its `gh` reads (a malformed `CVE-…` token stops everything, so nothing unvalidated reaches a search) and `<sm> resolve` turns their results into the set to sync;
 the full resolution table and the confirmation prompt are in [`bulk-mode.md`](bulk-mode.md).
 

@@ -239,7 +239,7 @@ for the full detail.
   proposal.
 - [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) — *"allocate a CVE
   for <issue-ref>"*.
-- [`generate-cve-json`](../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) — to
+- [`generate-cve-json`](../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md) — to
   refresh the paste-ready JSON embedded in the issue body on demand.
   (The named example here is the Vulnogram adapter under
   `tools/cve-tool-vulnogram/`; resolved from `cve_authority.tool` in
@@ -476,7 +476,7 @@ relay is the ASF security team.) See
   current record state). Subsequent syncs by the security team drive the
   post-advisory close-out automatically when the archive URL appears on
   `<users-list>`.
-- [`generate-cve-json`](../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) — to
+- [`generate-cve-json`](../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md) — to
   regenerate the attachment on demand when a body field changes after the
   URL has been captured (rarely needed — sync regenerates and re-pushes
   on every relevant body change). The link points at the named ASF

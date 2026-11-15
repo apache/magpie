@@ -257,15 +257,18 @@ Apache-2.0 licensed.
 > ## Step 2 — Create the starter skill file
 >
 > The framework ships a script that creates a starter file for you. Run it from
-> the repository root, passing the skill name and the output directory:
+> the repository root, passing the skill's short name (its alias) and its family:
 >
 > ```bash
-> python3 skills/write-skill/scripts/init_skill.py <name> --path skills/<name>
+> python3 skills/write-skill/scripts/init_skill.py <name> --family <family>
 > ```
 >
-> This creates `skills/<name>/SKILL.md` with the required settings keys,
+> This creates `plugins/magpie-<family>/skills/<name>/SKILL.md` with the required settings keys,
 > the SPDX comment, the placeholder comment, and the adopter-overrides section
 > already in place.
+> Link it into the flat `skills/` tree with a symlink:
+> `ln -s ../plugins/magpie-<family>/skills/<name> skills/<family>-<name>`.
+> The rest of this guide reaches the skill through that link.
 >
 > Fill in the settings (the frontmatter) before you write the body:
 >

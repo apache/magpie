@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:fb90bdc45aec5f8a
 license: Apache-2.0
-measured_tokens: 5318
+measured_tokens: 5247
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -74,9 +74,9 @@ Never add one.
   or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (first match wins: `.apache-magpie-local/<file>`, the main
-  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `<git-common-dir>/apache-magpie/<file>`
+  or, in a Subversion working copy, `.svn/apache-magpie/<file>`; then a legacy
+  in-tree `.apache-magpie-local/<file>`; then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -450,13 +450,8 @@ itself before presenting it.
   fit; surface dissenting classifications in the comment body
   (*"my read is BUG; an argument for FEATURE-REQUEST would be
   that … — happy to discuss"*), not as parallel proposals.
-- **Never auto-escalate from a comment reply to a mutation.** Even
-  a reply like *"approved, close it"* requires the user to invoke
-  the next slash command explicitly.
 - **Never tag more than 3 handles per comment.** Cap at 3, pick
   by component + topic relevance.
-- **Never propose a numeric severity or priority as a decision.**
-  Severity / priority is the team's call during a follow-up flow.
 - **Bulk-mode subagents are read-only.** If a subagent accidentally
   invokes a write tool, surface as a bug and stop.
 

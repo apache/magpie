@@ -12,7 +12,7 @@ Adopters that publish advisories without a separate release-vote step leave the 
 the sync skips this sub-step for them and never proposes the `rc voting` label.
 
 **Why this step exists.** With gating on, the generator's `CNA_private.state` goes `DRAFT` → `REVIEW` once an RC for the carrier release is being voted → `PUBLIC` after the advisory ships
-(state machine in [`tools/cve-tool-vulnogram/generate-cve-json/SKILL.md`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)).
+(state machine in [`tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md`](../../../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md)).
 A tracker label drives it (`[workflow].rc_voting_label`, default `"rc voting"`),
 and this sub-step is the **only place** the sync skill proposes adding or removing that label.
 

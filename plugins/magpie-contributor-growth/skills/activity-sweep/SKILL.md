@@ -20,7 +20,7 @@ argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:a39919af92a37e2d
 license: Apache-2.0
-measured_tokens: 3713
+measured_tokens: 3712
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -72,9 +72,9 @@ Never add one.
   or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (first match wins: `.apache-magpie-local/<file>`, the main
-  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `<git-common-dir>/apache-magpie/<file>`
+  or, in a Subversion working copy, `.svn/apache-magpie/<file>`; then a legacy
+  in-tree `.apache-magpie-local/<file>`; then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install

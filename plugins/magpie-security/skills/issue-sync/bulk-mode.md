@@ -23,15 +23,15 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    | `sync all` | every open issue in `<tracker>` **plus recently-closed trackers still awaiting a post-close cve.org publication check**. Resolve as: `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels` ∪ `gh issue list --repo <tracker> --state closed --label "announced" --limit 50 --json number,title,labels,closedAt --jq '[.[] \| select(.closedAt > (now - 90*86400 \| todate))]'`, then **drop any issue labelled `rejections-ledger`** (see below). The closed bucket is the last 90 days of `announced` trackers — those awaiting cve.org propagation, the final reporter notification and the release manager's security-pages checklist item (see [1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state)); other closed issues are no-ops and excluded. |
    | `sync all open` | explicit open-only variant — `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels`, then **drop any issue labelled `rejections-ledger`**. No closed trackers. |
    | `sync #212`, `sync 212`, `sync #212, #214, #218`, `sync #212-#218` | the issue number(s) verbatim. Works on open and closed trackers (the closed-issue sub-steps run when the tracker is closed with `announced`). |
-   | `sync CVE-2026-40913` or `sync CVE-2026-40913, CVE-2026-40690` | regex-validate each token against `^CVE-\d{4}-\d{4,7}$` first (a non-match is a hard error — *never* interpolate an unvalidated free-form string into the double-quoted search arg, which would expand `$(...)`); then look up each validated CVE ID with `gh search issues "CVE-YYYY-NNNNN" --repo <tracker> --json number,title,body --jq '.[] \| select(.body \| test("### CVE tool link\\s+\\S*CVE-YYYY-NNNNN")) \| .number'` (match only inside the body's *CVE tool link* field; a `CVE-` elsewhere in the body, such as a related or cross-referenced CVE, must not select the issue) and expand. |
-   | `sync <free-text>` (e.g. `sync JWT`, `sync KubernetesExecutor`) | title-substring match — run `gh issue list --repo <tracker> --state open --search "<free-text> in:title" --limit 100 --json number,title` and surface the matches for confirmation (the fuzziest selector — always confirm, never auto-dispatch). |
+   | `sync <CVE-ID>` or `sync <CVE-ID>, <CVE-ID>` | regex-validate each token against `^CVE-\d{4}-\d{4,7}$` first (a non-match is a hard error — *never* interpolate an unvalidated free-form string into the double-quoted search arg, which would expand `$(...)`); then look up each validated CVE ID with `gh search issues "CVE-YYYY-NNNNN" --repo <tracker> --json number,title,body --jq '.[] \| select(.body \| test("### CVE tool link\\s+\\S*CVE-YYYY-NNNNN")) \| .number'` (match only inside the body's *CVE tool link* field; a `CVE-` elsewhere in the body, such as a related or cross-referenced CVE, must not select the issue) and expand. |
+   | `sync <free-text>` (e.g. `sync JWT`, `sync path traversal`) | title-substring match — run `gh issue list --repo <tracker> --state open --search "<free-text> in:title" --limit 100 --json number,title` and surface the matches for confirmation (the fuzziest selector — always confirm, never auto-dispatch). |
    | `sync <label>` (e.g. `sync announced`, `sync pr merged`) | all open issues carrying that label — `gh issue list --repo <tracker> --state open --label "<label>" --limit 100 --json number,title`. |
    | `sync announced` (as a label selector) | as above, open-only. To include the recently-closed `announced` bucket, use `sync all` (default) or `sync closed announced`. |
    | `sync closed announced` | the recently-closed `announced` bucket alone — the cve.org publication-check sweep without open issues (e.g. a post-release cron). |
    | `sync open` | alias for `sync all open`. |
    | `sync closed` | open *and* **all** closed issues (not just recent `announced`). Explicit request only — most sync actions are no-ops on closed issues outside the `announced` bucket. |
 
-   Selectors combine: `sync #212, CVE-2026-40690, JWT` resolves each independently and dispatches the union.
+   Selectors combine: `sync #212, <CVE-ID>, JWT` resolves each independently and dispatches the union.
    `<sm> selector` (`{invocation, tracker, known_labels}`, the project's labels so a label selector is told from a title one) prints the queries with their commands;
    run each and write the results, keyed by query `id`, with the selector output to `<sm> resolve` (`{…, now, results}`), which applies every rule below and prints the `echo`.
    After resolving, **echo the final list back to the user and ask for confirmation** before spawning subagents —
@@ -127,7 +127,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
     - **Never silent; never skips a named tracker.** See [Hard rules for bulk mode](#hard-rules-for-bulk-mode):
       every skip is listed under *"Pre-flight skipped"* and can be `force-sync`ed,
-      and explicit issue numbers (`sync #232, #233`) and CVE IDs (`sync CVE-2026-40913`) are never skipped — pre-flight skips only for set selectors (`sync all`, `sync announced`, label/title).
+      and explicit issue numbers (`sync #232, #233`) and CVE IDs (`sync <CVE-ID>`) are never skipped — pre-flight skips only for set selectors (`sync all`, `sync announced`, label/title).
     - **Opt-out.** `--no-preflight` in the selector (e.g. `sync all --no-preflight`) bypasses the classifier and dispatches every resolved tracker —
       for trust-but-verify sweeps after a rule change.
     - **Dispatch-urgent is just dispatch.** It flags the tracker in the recap as *"recent reporter activity"*;
@@ -277,7 +277,7 @@ bucket it into the Step 14→15 close-out **regardless** of an empty *Public adv
 - **Link-form self-check still applies** to the merged output — every `#NNN` is a clickable link per Golden rule 2.
 - **Pre-flight skips are never silent.** Every Step 1b `skip-noop` appears in the *"Pre-flight skipped"* group with the rule that fired;
   the user can `force-sync <N>` any of them, and `--no-preflight` bypasses Step 1b entirely.
-- **Pre-flight never skips an explicitly-named tracker.** For named numbers (`sync #232, #233`) and the trackers a CVE ID resolves to (`sync CVE-2026-40913`) Step 1b runs the classifier only for context
+- **Pre-flight never skips an explicitly-named tracker.** For named numbers (`sync #232, #233`) and the trackers a CVE ID resolves to (`sync <CVE-ID>`) Step 1b runs the classifier only for context
   (so the recap can say *"#232 looks idle — sync anyway?"*) and never skips.
   Skip-eligible selectors are state/label/title selectors like `sync all` or `sync announced`.
 

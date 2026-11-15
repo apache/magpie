@@ -128,7 +128,7 @@ Releases are reproducible from signed source to the extent the toolchain permits
 
 ## 13. The framework is project-agnostic; concrete names live in adopter config
 
-Skills, tool adapters, and root docs use `<PROJECT>` / `<tracker>` / `<upstream>` / `<security-list>` placeholders and resolve them at runtime from `<project-config>/project.md` and the resolved `user.md`. A concrete name (`apache/airflow`, a real CVE ID, a mailing list address) inside `.claude/skills/` or `tools/` is a refactor bug, not a shortcut. Swapping projects is a config change, never a code change.
+Skills, tool adapters, and root docs use `<PROJECT>` / `<tracker>` / `<upstream>` / `<security-list>` placeholders and resolve them at runtime from `<project-config>/project.md` and the resolved `user.md`. A concrete name (`apache/airflow`, a real CVE ID, a mailing list address) inside a skill (`plugins/magpie-<family>/skills/`) or `tools/` is a refactor bug, not a shortcut. Swapping projects is a config change, never a code change.
 
 ## 14. One easy install that upgrades and reconciles, never vendored copies
 
@@ -144,7 +144,7 @@ The concrete install methods are described in [`docs/quick-start/`](docs/quick-s
 
 ## 15. Skills are the unit of authorship
 
-A skill is always a directory under `.claude/skills/<skill-name>/` with `SKILL.md` as its entrypoint, even when the workflow fits in a single file. `SKILL.md` stays under 500 lines; reference material beyond that moves into sibling markdown linked one level deep, with no unreferenced siblings. Skills are code in every meaningful sense: reviewed in PRs, versioned, signed by the same release process as the rest of the framework. Refactor at the skill boundary, never below it.
+A skill is always a directory with `SKILL.md` as its entrypoint, even when the workflow fits in a single file: in this repository `plugins/magpie-<family>/skills/<alias>/`, which the flat `skills/<skill-name>` tree links to. `SKILL.md` stays under 500 lines; reference material beyond that moves into sibling markdown linked one level deep, with no unreferenced siblings. Skills are code in every meaningful sense: reviewed in PRs, versioned, signed by the same release process as the rest of the framework. Refactor at the skill boundary, never below it.
 
 ## 16. Tracker identifiers are public-safe; tracker contents are not
 

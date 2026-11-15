@@ -121,7 +121,7 @@ same directory; the behaviour is unchanged.
   A finding that has both keeps its explanation and its suggestion, on both
   surfaces (#1987).
   Detail files include
-  `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
+  `prerequisites.md`, `review-flow.md`, `criteria.md`,
   `adversarial.md`, `posting.md`, one file per outcome under
   `classifications/` and per category under `criteria/`.
   `code_review/runs.py` reads the workflow runs held at a PR head and plans

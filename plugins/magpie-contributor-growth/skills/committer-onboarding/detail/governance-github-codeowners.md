@@ -57,7 +57,7 @@ Take the team slug, CODEOWNERS path, and vote channel from `committer_governance
 
 ```text
 Onboarding complete for <candidate> (@<github-handle>)
-Project: <project>   Scenario: <scenario>   Governance: github-codeowners   Intake: <model>
+Project: <PROJECT>   Scenario: <scenario>   Governance: github-codeowners   Intake: <model>
 
 Access granted:
   ✓ GitHub team invite → <org>/<team-slug>
