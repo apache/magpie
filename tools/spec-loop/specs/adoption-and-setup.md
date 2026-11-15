@@ -209,7 +209,8 @@ acceptance:
     lock; on an adopted project it records only the per-machine
     `acknowledged.skills` fact, and only for a skill whose missing
     configuration that run actually wrote. `/magpie-setup:setup adopt` migrates
-    an existing local stamp's `skills` map into the lock, and
+    the committed-scope entries of an existing local stamp's `skills` map
+    into the lock (personal-only entries stay local), and
     `/magpie-setup:setup unadopt` migrates it back before removing the lock.
     `/magpie-setup:setup update` runs the
     `requires_config` check before writing the stamp, so it never stamps a
@@ -703,6 +704,16 @@ committed version with drift detection.
     state — `config` on one machine, `adopt` on another — reported by
     `reconcile`/`verify` with the local entry winning, and offered for
     cleanup by `reconcile`.
+    Inside an adopted project the split is per skill (#2082): a skill only
+    the personal layer configures (a personal override, or a
+    `requires_config` file that exists only there) is stamped in the
+    personal layer's `reconciled.json` `skills` map, never in the
+    committed lock, and that personal entry is not a both-stores
+    collision.
+    The pre-flight (`setup_preflight/core.py` `_merged_personal_map`)
+    merges the `skills` and `acknowledged.skills` maps of every personal
+    layer, a linked worktree's own first, and skips an unreadable or
+    undecodable `reconciled.json` instead of failing the verdict.
 17. A skill whose current hash differs from its stamped entry names
     whether a `requires_config` entry stopped resolving or a structural
     anchor moved, and proposes `/magpie-setup:setup config` or a re-anchor
@@ -737,6 +748,25 @@ committed version with drift detection.
     evidence at all reports nothing to reconcile and stops.
     An import skill is not stamped clean while its vetted-ops caller grants
     or required labels are missing or unverified.
+    It looks an override file up by the skill's override name — the
+    filename its *Adopter overrides* block names, the mapping
+    `setup_preflight.delegation.override_name()` applies
+    (`release-verify-rc.md` for `verify-rc`) — in both layers, never by
+    the frontmatter `name:` (#2081); `adopt` Step 4d scopes the committed
+    stamp the same way.
+    Each in-scope skill is classed as committed scope (a committed
+    override, or a `requires_config` file that exists in
+    `.apache-magpie-overrides/`, so a personal copy shadowing it does not
+    change the class) or personal-only scope; the class decides only
+    where its stamp is written, and the personal `skills` map is updated
+    in place, never rebuilt from one run, so an `unchecked` skill keeps
+    its previous entry.
+    A `requires_config` gap can be declined permanently: the skill goes
+    into the personal layer's `reconciled.json` `declined.skills` list
+    (hash-independent, never committed), and later sweeps auto-skip those
+    gaps on one report line while still resolving the skill's override
+    anchors; a personal override file for the skill cancels the skip
+    (#2082).
 20. `/magpie-setup:setup update` reconciles the overrides its walk covers and
     writes the stamp only for one that passes the target-skill, anchor,
     and `requires_config` checks — an override with an unresolved
@@ -745,10 +775,13 @@ committed version with drift detection.
     committed lock; on an adopted project it writes only
     `acknowledged.skills`, and only for a skill whose missing
     configuration that run actually wrote. `/magpie-setup:setup adopt` migrates
-    an existing local stamp's `skills` map into the lock and leaves only
-    the three always-local keys (`verified_at`, `verify_suggested_at`,
-    `acknowledged`) behind in the local file; `/magpie-setup:setup unadopt`
-    migrates `version`/`at`/`skills` back into the local file before
+    the committed-scope entries of an existing local stamp's `skills` map
+    into the lock and leaves the always-local keys (`verified_at`,
+    `verify_suggested_at`, `acknowledged`, `declined`) and any
+    personal-only `skills` entries behind in the local file;
+    `/magpie-setup:setup unadopt`
+    migrates `version`/`at`/`skills` back into the local file, merged with
+    the personal-only entries and `declined`, before
     removing the lock, so the stamp is not stranded with it.
 22. `/magpie-setup:setup verify` runs the reconciliation sweep read-only and is
     the only surface that compares installed plugin versions against the

@@ -104,6 +104,10 @@ trustworthy as it grows.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
   symlinks: rejects cyclic symlinks, misdirected relays (canonical/
   relay target-correctness), and incomplete self-adoption symlink sets.
+  Its walk skips any nested checkout, a real directory carrying its own
+  `.git` (`.worktrees/<name>/` is the usual one), whatever it is called;
+  symlinks stay in the walk and are still checked, so a link back to the repo
+  root is still caught as a cycle (#2084).
 - `tools/dashboard-generator/` — read-only HTML dashboards over campaign
   artefacts.
 - `tools/probe-templates/` — reusable probes.
