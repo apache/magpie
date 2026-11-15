@@ -112,6 +112,9 @@ source <framework>/tools/agent-isolation/agent-iso.sh
 agent-iso cursor .
 ```
 
+`<framework>` is a directory holding the framework's `tools/agent-isolation/`: a framework checkout or a pinned snapshot.
+The Claude Code and Codex marketplace plugins do not ship it; see [where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper).
+
 The `agent-iso` launcher scrubs undeclared environment variables while preserving local developer toolchains (`git`, `uv`, `gh`).
 
 ## Upgrade Magpie

@@ -79,6 +79,9 @@ source "<framework>/tools/agent-isolation/agent-iso.sh"
 agent-iso pi
 ```
 
+`<framework>` can be Pi's clone of the framework, which holds `tools/agent-isolation/`;
+a framework checkout or pinned snapshot works too ([where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper)).
+
 Pi keeps provider credentials in `~/.pi/agent/auth.json` after `/login`; pass an API-key variable explicitly with `AGENT_ISO_ALLOW=<NAME> agent-iso pi` when you use one instead.
 
 ## Security model

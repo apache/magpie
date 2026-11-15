@@ -341,6 +341,9 @@ SECURITY_TOOLS = {
     "tools/privacy-llm/checker": "checker",
     "tools/asf-security-dash": "magpie_asf_security_dash",
     "tools/gmail/oauth-draft": "oauth_draft",
+    # The Maildir drafting backend the security skills file reporter drafts with
+    # (tools/gmail/draft-backends.md) when `drafting.backend` resolves to `maildir`.
+    "tools/maildir": "maildir_draft",
     # The tracker backends `setup config` and the Subversion fix flow call through
     # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
     "tools/local-tracker": "magpie_local_tracker",
@@ -354,6 +357,8 @@ SECURITY_TOOLS = {
     "tools/release-config": "release_config",
     "tools/release-management": "release_management",
     "tools/release-verify": "release_verify",
+    # verify-rc's JVM paste recipe (release_management/verify_rc/jvm.py MAVEN_VERIFY).
+    "tools/maven-artifact-verify": "maven_artifact_verify",
     # rc-cut looks for it beside the framework root (rc_cut/render.py REPRO_TOOL).
     "tools/reproducible-archive": "reproducible_archive",
     "tools/contributor-metrics": "contributor_metrics",

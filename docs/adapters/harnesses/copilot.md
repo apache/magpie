@@ -85,6 +85,9 @@ source <framework>/tools/agent-isolation/agent-iso.sh
 agent-iso copilot
 ```
 
+`<framework>` is a directory holding the framework's `tools/agent-isolation/`: a framework checkout or a pinned snapshot.
+The Claude Code and Codex marketplace plugins do not ship it; see [where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper).
+
 Inside the interactive session, prompt Copilot to execute a Magpie workflow:
 
 ```text

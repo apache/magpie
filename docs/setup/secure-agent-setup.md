@@ -1620,6 +1620,14 @@ There are two valid ways to make `claude-iso` available on your
 shell. Pick whichever matches how you use Claude Code; the wrapper
 behaviour is identical either way.
 
+Both take the script from a directory that holds the framework's `tools/agent-isolation/`:
+a framework checkout, a pinned snapshot (`<your-tracker>/.apache-magpie/`),
+or a harness plugin that stages the whole repository (Antigravity, Goose, Pi).
+The Claude Code and Codex marketplace plugins do not ship `tools/agent-isolation/`,
+so `~/.cache/apache-magpie/framework/current` has none;
+on such an install, clone the framework once and copy the script with the global install below.
+The [`setup-isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-setup-install/SKILL.md) skill asks for that checkout too.
+
 **Per-repo install** — source the script directly from the
 framework checkout. Simplest, always tracks the wrapper version in
 the repo (so a `git pull` of the framework updates the wrapper),

@@ -129,6 +129,9 @@ source <framework>/tools/agent-isolation/agent-iso.sh
 agent-iso codex
 ~~~
 
+`<framework>` is a directory holding the framework's `tools/agent-isolation/`: a framework checkout or a pinned snapshot.
+The Claude Code and Codex marketplace plugins do not ship it; see [where the wrapper comes from](../../setup/secure-agent-setup.md#the-clean-env-wrapper).
+
 On Windows, run the POSIX isolation layer through WSL when that layer is
 required. Codex's native Windows sandbox and the project policy still apply to
 a native Windows session.

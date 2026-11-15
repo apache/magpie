@@ -888,8 +888,11 @@ When `<repo-root>/.codex/config.toml` exists, validate the committed
 Codex policy with:
 
 ```bash
-uv run --project tools/sandbox-lint sandbox-lint --codex <repo-root>/.codex
+uv run --project <framework>/tools/sandbox-lint sandbox-lint --codex <repo-root>/.codex
 ```
+
+`tools/sandbox-lint` needs a framework checkout or pinned snapshot: no marketplace plugin ships it.
+With neither, report 8g as **unchecked — no framework checkout**, not ✗.
 
 - ✓ on a clean pass.
 - ✗ on any invariant violation (sandbox mode, workspace network
