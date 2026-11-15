@@ -201,7 +201,9 @@ the personal layer configures (a personal override, or a
 shadowing a committed file does not count) is stamped in the
 personal layer's `reconciled.json` `skills` map, never in the committed
 lock, so the committed block records only what the committed
-configuration covers. **Neither
+configuration covers. In a linked worktree the pre-flight merges the
+`skills` maps of every personal layer, the worktree's own first, so the
+main checkout's personal-only stamps still count there. **Neither
 configured nor adopted — no `.apache-magpie.lock`, no
 personal layer, no `.apache-magpie-overrides/` — → no block
 anywhere**, because there is no configuration to have gone stale. A

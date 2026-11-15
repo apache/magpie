@@ -573,6 +573,26 @@ def test_the_git_dir_home_is_found_from_a_linked_worktree(tmp_path: Path) -> Non
     assert skill_findings(wt, "magpie-x", None, ["a.md"]) == []
 
 
+def test_a_linked_worktree_sees_the_main_checkouts_personal_only_stamp(tmp_path: Path) -> None:
+    """The worktree's own `reconciled.json` must not hide the main checkout's
+    `skills` map: personal-only stamps live there."""
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    write_lock(wt, stamped("magpie-y", "sha256:abc"))
+    for root, payload in (
+        (main, {"skills": {"magpie-x": "sha256:OLD"}}),
+        (wt, {"verified_at": "2026-09-01"}),
+    ):
+        (root / ".apache-magpie-local").mkdir()
+        (root / ".apache-magpie-local" / "reconciled.json").write_text(json.dumps(payload))
+    assert codes(skill_findings(wt, "magpie-x", "sha256:NEW", [])) == ["fingerprint-moved"]
+
+
 def test_a_legacy_in_tree_dir_still_works_and_is_reported(project: Path) -> None:
     legacy = project / ".apache-magpie-local"
     legacy.mkdir()

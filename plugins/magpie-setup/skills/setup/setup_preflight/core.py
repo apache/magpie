@@ -303,6 +303,28 @@ def _read_stamp(root: Path) -> dict[str, object]:
     return loaded if isinstance(loaded, dict) else {}
 
 
+def _personal_skills(root: Path) -> dict[str, str]:
+    """Every personal layer's `skills` map, merged; the first layer naming a skill wins.
+
+    A linked worktree's own `reconciled.json` holding only bookkeeping must
+    not hide a personal-only stamp kept in the main checkout's.
+    """
+    merged: dict[str, str] = {}
+    for layer in personal_layers(root):
+        path = layer / STAMP_NAME
+        if not path.exists():
+            continue
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        raw = loaded.get("skills") if isinstance(loaded, dict) else None
+        if isinstance(raw, dict):
+            for name, digest in raw.items():
+                merged.setdefault(str(name), str(digest))
+    return merged
+
+
 def _resolves(root: Path, name: str) -> bool:
     return resolve(root, name) is not None
 
@@ -359,10 +381,7 @@ def skill_findings(
 
     lock = load(root / LOCK_NAME)
     stamp = _read_stamp(root)
-    raw_local = stamp.get("skills")
-    local_skills: dict[str, str] = (
-        {str(k): str(v) for k, v in raw_local.items()} if isinstance(raw_local, dict) else {}
-    )
+    local_skills = _personal_skills(root)
     lock_skills: dict[str, str] = lock.reconciled.skills if lock and lock.reconciled else {}
 
     # The local store wins where both name this skill: `config` on one

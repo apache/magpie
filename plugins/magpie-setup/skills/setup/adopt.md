@@ -650,8 +650,12 @@ Tell the user, in this order:
   again. Copy `version`, `at` and `skills` into
   `<git-common-dir>/apache-magpie/reconciled.json` — merging into it,
   never replacing it, and carrying over `verified_at`,
-  `verify_suggested_at` and `acknowledged` from
-  `.apache-magpie-local/reconciled.json` — which is exactly where a
+  `verify_suggested_at`, `acknowledged`, `declined`, and the
+  personal-only entries of its `skills` map from
+  `.apache-magpie-local/reconciled.json` (merged into the copied
+  `skills`; a skill is never in both, per
+  [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install))
+  — which is exactly where a
   configured-but-unadopted project's stamp belongs. Without the lock,
   `.apache-magpie-local/` becomes a legacy in-tree directory: it is
   still read, and the pre-flight proposes moving it into
