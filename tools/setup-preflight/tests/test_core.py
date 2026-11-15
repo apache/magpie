@@ -573,9 +573,9 @@ def test_the_git_dir_home_is_found_from_a_linked_worktree(tmp_path: Path) -> Non
     assert skill_findings(wt, "magpie-x", None, ["a.md"]) == []
 
 
-def test_a_linked_worktree_sees_the_main_checkouts_personal_only_stamp(tmp_path: Path) -> None:
-    """The worktree's own `reconciled.json` must not hide the main checkout's
-    `skills` map: personal-only stamps live there."""
+def _adopted_worktree_with_stamps(tmp_path: Path, main_stamp: str, wt_stamp: str) -> Path:
+    """An adopted linked worktree whose own and main-checkout personal layers
+    hold the given `reconciled.json` texts; returns the worktree."""
     main = tmp_path / "main"
     wt_gitdir = main / ".git" / "worktrees" / "wt"
     wt_gitdir.mkdir(parents=True)
@@ -584,13 +584,41 @@ def test_a_linked_worktree_sees_the_main_checkouts_personal_only_stamp(tmp_path:
     wt.mkdir()
     (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
     write_lock(wt, stamped("magpie-y", "sha256:abc"))
-    for root, payload in (
-        (main, {"skills": {"magpie-x": "sha256:OLD"}}),
-        (wt, {"verified_at": "2026-09-01"}),
-    ):
+    for root, text in ((main, main_stamp), (wt, wt_stamp)):
         (root / ".apache-magpie-local").mkdir()
-        (root / ".apache-magpie-local" / "reconciled.json").write_text(json.dumps(payload))
+        (root / ".apache-magpie-local" / "reconciled.json").write_text(text, encoding="latin-1")
+    return wt
+
+
+def test_a_linked_worktree_sees_the_main_checkouts_personal_only_stamp(tmp_path: Path) -> None:
+    """The worktree's own `reconciled.json` must not hide the main checkout's
+    `skills` map: personal-only stamps live there."""
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        json.dumps({"skills": {"magpie-x": "sha256:OLD"}}),
+        json.dumps({"verified_at": "2026-09-01"}),
+    )
     assert codes(skill_findings(wt, "magpie-x", "sha256:NEW", [])) == ["fingerprint-moved"]
+
+
+def test_a_linked_worktree_honours_the_main_checkouts_acknowledgement(tmp_path: Path) -> None:
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        json.dumps(
+            {"skills": {"magpie-x": "sha256:OLD"}, "acknowledged": {"skills": {"magpie-x": "sha256:NEW"}}}
+        ),
+        json.dumps({"verified_at": "2026-09-01"}),
+    )
+    assert skill_findings(wt, "magpie-x", "sha256:NEW", []) == []
+
+
+def test_an_undecodable_main_checkout_stamp_does_not_break_a_worktree(tmp_path: Path) -> None:
+    wt = _adopted_worktree_with_stamps(
+        tmp_path,
+        '{"skills": {"magpie-x": "\xff"}}',
+        json.dumps({"skills": {"magpie-x": "sha256:abc"}}),
+    )
+    assert skill_findings(wt, "magpie-x", "sha256:abc", []) == []
 
 
 def test_a_legacy_in_tree_dir_still_works_and_is_reported(project: Path) -> None:
