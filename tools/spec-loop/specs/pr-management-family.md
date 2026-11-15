@@ -438,7 +438,10 @@ same directory; the behaviour is unchanged.
   findings file; the first `disposition` run writes neither, and a write
   failure, empty findings or a PR mismatch writes an invalidation marker
   instead, since the mod API cannot delete files (#2005).
-  It refuses to write through a symlink or a non-regular file.
+  It refuses to write through a symlink (a dangling one included) or a
+  non-regular file, judged on the shape the harness's `$.fs.stat` returns
+  (`isLink`, `kind`), and refuses on any `stat` failure other than a missing
+  file (#2106).
   `render` uses `<file>.curated.json` only when its PR and source hash
   match, else the original findings; a curated envelope passed directly
   must pass every check or the run stops.

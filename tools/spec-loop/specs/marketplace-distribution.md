@@ -204,8 +204,10 @@ adopter-facing page.
   `magpie-security-tools` carries the framework tools every family's
   skills run as `<framework>/tools/<tool>` (security tracker edits and CVE
   JSON, PR and release management, contributor metrics, the privacy gate,
-  setup's permission audit), so a marketplace install needs no framework
-  checkout; the name is historical, and setup's companion rule pairs it
+  setup's permission audit, the Maildir drafting backend and
+  `maven-artifact-verify` (#2099)), so a marketplace install needs no framework
+  checkout; `agent-isolation`, `sandbox-lint` and `skill-and-tool-validator`
+  are not shipped and need a checkout or snapshot (#2099); the name is historical, and setup's companion rule pairs it
   with every family that runs one of these tools.
   Its `SessionStart` hook (`tools/security-management/hooks/link-framework-path.sh`)
   copies the plugin's `tools/` and `plugins/` under `~/.cache/apache-magpie/framework/`

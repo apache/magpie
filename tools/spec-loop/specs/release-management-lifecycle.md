@@ -94,7 +94,8 @@ code lands.
   no-send / no-auto-merge boundaries; `release-verify-rc` (`mode: Triage`)
   runs read-only RC pre-flight (signatures, checksums, RAT headers,
   NOTICE/LICENSE, prohibited binaries, published-JVM-artefact
-  compliance via `tools/maven-artifact-verify` — POM licence set,
+  compliance via `tools/maven-artifact-verify` — POM licence set (a POM
+  carrying a DTD or entity declaration is refused unparsed, #2105),
   podling disclaimer, companion jars, plus informational
   reproducibility / namespace / companion-content observations —
   plus the Nexus staging repository behind them via the read-only
@@ -111,7 +112,8 @@ code lands.
   to the archive, read-only on the dist surface (Step 12); and
   `release-audit-report` (`mode: Triage`) assembles the per-release audit
   record from the planning issue, vote thread, artefact list, and announce
-  archive URL and proposes the audit-log PR, read-only on every release
+  archive URL (titled with the `<product-name>` display name, passed to
+  `audit-report gather --product-name`, #2096) and proposes the audit-log PR, read-only on every release
   surface (Step 13). All ten skills have now shipped.
 - Deterministic helpers, so fixed rules run as code rather than being
   re-derived from prose each run:
