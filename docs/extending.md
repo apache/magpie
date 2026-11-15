@@ -29,7 +29,7 @@ typically owns each kind.
 
 If you only remember one rule: extensions are **discovered and wired in
 deliberately, never auto-installed** — per
-[`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
+[`PRINCIPLES.md` §14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies),
 indexes and catalogs exist for discovery, not installation.
 
 ## What you can extend
@@ -58,7 +58,7 @@ upstream later.
 | **External** (another repo) | a repo you (or a community) maintain, **referenced** from config | nothing automatically — you vendor/clone it in deliberately | the author's | a third party maintains it, or it is shared across your repos but not in Magpie |
 
 The middle home is the framework's **snapshot + override** model
-([§14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)):
+([§14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)):
 the framework is a gitignored snapshot; your additions and tweaks are
 committed agent-readable markdown alongside it. The external home is the
 same act of wiring-in as the middle one — you just keep the source in
@@ -75,7 +75,7 @@ discovery.
   redirect that names a pinned, verified source the adopter has vouched
   for, fetched into the snapshot and wired in like a framework skill. This
   is the one external home that *installs* rather than merely being
-  referenced (see [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies)
+  referenced (see [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)
   and [`docs/skill-sources/`](skill-sources/README.md)).
 - **Tools / adapters** — selected per capability in
   `<project-config>/project.md` *Tools enabled*. The selected adapter may

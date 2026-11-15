@@ -272,7 +272,7 @@ organization profile — you author one, and you have two supported paths:
   organization config at it. The framework curates a
   [discovery index](adapters/registry.md) of in-tree and
   community-maintained adapters — but, per
-  [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
+  [`PRINCIPLES.md` §14](../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies),
   the adapter index is **for discovery, never for installation**: nothing is
   auto-fetched, and you wire an external adapter in deliberately, exactly
   as you would a built-in one. (Trusted external *skill* sources are the

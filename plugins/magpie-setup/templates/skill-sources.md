@@ -15,7 +15,7 @@
 
 **This file is the install gate.** It lists the external
 [skill sources](../../../docs/skill-sources/README.md) this project trusts and
-pins. Per [`PRINCIPLES.md` §14](../../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
+pins. Per [`PRINCIPLES.md` §14](../../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies),
 `/magpie-setup:setup` fetches a source **only if it is listed here** — an
 organization curating a source, or the registry listing one, never triggers
 an install on its own. Committing this file is the adopter's explicit act of

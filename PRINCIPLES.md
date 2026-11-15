@@ -38,7 +38,7 @@
   - [11. No default telemetry](#11-no-default-telemetry)
   - [12. Releases are reproducible from signed source](#12-releases-are-reproducible-from-signed-source)
   - [13. The framework is project-agnostic; concrete names live in adopter config](#13-the-framework-is-project-agnostic-concrete-names-live-in-adopter-config)
-  - [14. Snapshot plus override, never vendored copies](#14-snapshot-plus-override-never-vendored-copies)
+  - [14. One easy install that upgrades and reconciles, never vendored copies](#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies)
   - [15. Skills are the unit of authorship](#15-skills-are-the-unit-of-authorship)
   - [16. Tracker identifiers are public-safe; tracker contents are not](#16-tracker-identifiers-are-public-safe-tracker-contents-are-not)
   - [17. Audit every agent-authored action; reverse it where possible](#17-audit-every-agent-authored-action-reverse-it-where-possible)
@@ -130,9 +130,17 @@ Releases are reproducible from signed source to the extent the toolchain permits
 
 Skills, tool adapters, and root docs use `<PROJECT>` / `<tracker>` / `<upstream>` / `<security-list>` placeholders and resolve them at runtime from `<project-config>/project.md` and the resolved `user.md`. A concrete name (`apache/airflow`, a real CVE ID, a mailing list address) inside `.claude/skills/` or `tools/` is a refactor bug, not a shortcut. Swapping projects is a config change, never a code change.
 
-## 14. Snapshot plus override, never vendored copies
+## 14. One easy install that upgrades and reconciles, never vendored copies
 
-Adopters consume the framework as a gitignored snapshot at `.apache-magpie/`, pinned via a committed lock file, refreshed by one skill (`setup`). Project-specific modifications live as agent-readable markdown under `<project-config>/.apache-magpie-overrides/`, committed. No git submodules. No vendored copies of framework skills inside adopter repos. Marketplaces, indexes, and catalogs exist for discovery. Installation is permitted only from a **trusted source** — an external organization or repository the adopter has explicitly vouched for by committing its pin (method + URL + ref + verification anchor) to the repo. Everything else stays discovery-only. A trusted install obeys the same snapshot-plus-pin discipline as the framework itself: a gitignored snapshot, a committed lock, a verified and deliberate fetch by the one `setup` skill — never a git submodule, and never an unpinned or unverified auto-fetch. See [`docs/skill-sources/`](docs/skill-sources/README.md) for the trusted-skill-source mechanism.
+Adopters get the framework through one installation mechanism that is easy to use, and the same mechanism upgrades it and reconciles the adopter's changes with each new version.
+The framework stays an external dependency, never code copied into the adopter's repo, at a version the adopter can name and verify against the framework repository or its signed release.
+Installing, upgrading and reconciling are each a deliberate step the adopter confirms — never an unpinned or unverified auto-fetch.
+An upgrade shows what changed and reconciles it with the adopter's configuration and overrides, so a new framework version never silently discards a local decision and a local decision never silently masks a framework change.
+Project-specific modifications live as agent-readable overrides that the framework reads before its own defaults.
+Overrides are additive only: they tailor paths, wording, and steps, and never weaken the framework's safety, confidentiality, privacy, or external-content-as-data baseline.
+No git submodules. No vendored copies of framework skills inside adopter repos.
+Skills from outside the framework install only from a **trusted source** the adopter has vouched for by committing its pin, through the same mechanism and under the same rules; everything else stays discovery-only.
+The concrete install methods are described in [`docs/quick-start/`](docs/quick-start/), the override layers in [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md), and the trusted-source mechanism in [`docs/skill-sources/`](docs/skill-sources/README.md).
 
 ## 15. Skills are the unit of authorship
 
