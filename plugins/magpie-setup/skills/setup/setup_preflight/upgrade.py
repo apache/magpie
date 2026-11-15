@@ -53,6 +53,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .core import LOCAL_METHOD, SNAPSHOT_METHODS, STAMP_NAME, Finding, configured_at_all, project_findings
+from .installed import read_installed
 from .layers import LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
 from .lockfile import MalformedLock, load
 from .version import InvalidVersion, compare
@@ -336,9 +337,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root: Path = args.project_root
     if args.action == "gather":
-        # Imported here: `cli` imports this module for the pre-flight finding.
-        from .cli import read_installed
-
         harness, installed = read_installed(args.plugin_list)
         print(json.dumps(gather(root, installed, harness), indent=2, sort_keys=True))
         return 0
