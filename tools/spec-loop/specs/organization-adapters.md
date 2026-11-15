@@ -88,7 +88,7 @@ identical "ASF default" values in its own `project.md`.
   `magpie-asf-security-dash` CLI (exit `3` otherwise, before the cookie or
   network is touched; HTML comments and fenced examples are ignored when
   reading the key), `permission-audit --organization` (PonyMail
-  and Vulnogram recommendations only for `ASF`, as passed
+  read-tool recommendations only for `ASF`, none for the Vulnogram fetch since #2079, as passed
   by setup verify), `dependency-license-audit`'s `asf` default policy
   (`allowlist` for every other project), `workflow-optimization`'s
   GitHub Actions Policy / `.asf.yaml` / `creation_cap` checks (or, with no

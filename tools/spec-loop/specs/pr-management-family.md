@@ -319,6 +319,9 @@ same directory; the behaviour is unchanged.
   comments), nudges before it closes (hard close excepted, with at least a
   7-day notice), and reuses triage's maintainer-court, ready-label, security
   and bot rules; the close notice carries `<!-- pr-stale-sweep-close -->`.
+  `stale-sweep plan` and `classify` accept `--dry-run` before or after the
+  selector and pass it on to the selector builder, which marks the sweep a dry
+  run (#2085).
   Regression cases: `tools/pr-management/tests/stale_sweep/`.
 - **Merge-candidates never merges.** `pr-management-merge-candidates` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
