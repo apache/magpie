@@ -293,6 +293,11 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    `security-issue-sync` reads a GitHub Security Advisory's comments with
    `advisory-comments` and posts a reply the reporter sees with
    `advisory-comment` (#1964).
+   Read-only gatherers for `security-issue-sync` and `security-issue-triage`
+   search the upstream repository with `repo-pr-search` and `repo-code-search`,
+   so "was this already fixed upstream?" needs no raw `gh search` outside the
+   dispatcher. Like `issue-search`, each pins the repository from policy and
+   takes one plain-word `query` (no `:`, one line, no leading `-`, after `--`).
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They

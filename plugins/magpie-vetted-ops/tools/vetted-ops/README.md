@@ -13,6 +13,7 @@
   - [Configuration](#configuration)
   - [CLI](#cli)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
+    - [Searching the upstream repository](#searching-the-upstream-repository)
     - [The pr-management-triage reads](#the-pr-management-triage-reads)
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
@@ -440,6 +441,26 @@ kilobytes — which a deterministic tool then reads from the file.
   through. Every path is opened with `O_NOFOLLOW` relative to the checked
   workspace.
 - An HTTP read saved this way still never touches any other path.
+
+### Searching the upstream repository
+
+```bash
+vetted-op-read --caller security-issue-triage repo-pr-search "credentials redirect"
+vetted-op-read --caller security-issue-triage repo-code-search "IMAP_SOURCE_SSL"
+```
+
+| Operation | Kind | Parameters | Notes |
+|---|---|---|---|
+| `repo-pr-search` | read | `query` | `gh search prs` on the policy-pinned upstream, open and closed, up to 100 results. |
+| `repo-code-search` | read | `query` | `gh search code` on the upstream default branch; returns paths and URLs only. |
+
+Free-text search is otherwise kept out of the catalogue. These two, like the
+tracker's `issue-search`, are bounded: the repository comes from policy, and the
+`query` is plain words — one line, at most 200 characters, no `:` (so no
+`repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no leading `-`, and
+passed after `--`. They let a read-only gatherer check whether something was
+already fixed upstream without a raw `gh search` outside the dispatcher.
+Grant them per caller like any other operation.
 
 ### The pr-management-triage reads
 
