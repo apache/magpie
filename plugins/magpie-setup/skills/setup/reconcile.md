@@ -141,9 +141,13 @@ committed one.
    widely-read `project.md`.
 
    Record, per skill, **which layer put it in scope**. **Committed
-   scope**: a committed override file names it, or a `requires_config`
-   entry resolves from `.apache-magpie-overrides/`. **Personal-only
-   scope**: everything that put it in scope is in the personal layer.
+   scope**: a committed override file names it, or one of its
+   `requires_config` files **exists** in `.apache-magpie-overrides/` —
+   decided by existence there, not by the lookup chain, so a personal
+   copy that shadows a committed file does not take a shared skill out
+   of committed scope. **Personal-only scope**: nothing in
+   `.apache-magpie-overrides/` puts it in scope; only the personal layer
+   does.
    Both kinds are checked identically below; the split decides only
    where the stamp is written (Step 2).
 
@@ -351,8 +355,10 @@ Once every finding has been confirmed, applied, or declined:
   chosen in Step 0, alongside the `skills:` map built above. On an
   adopted project the map splits by scope (sweep step 1): committed-scope
   skills go to the committed lock, personal-only skills to the personal
-  layer's `reconciled.json` `skills` map, which this run rewrites to
-  hold exactly the personal-only skills it stamped. If the
+  layer's `reconciled.json` `skills` map. This run rewrites that map to
+  hold the personal-only skills it stamped **plus every both-stores
+  collision entry the developer chose to keep** (Step 2), so declining a
+  collision cleanup never loses the entry. If the
   target is the committed lock, stage it (`git add`) and say the change
   lands through the project's normal review like any other committed
   file; do not commit on the operator's behalf.

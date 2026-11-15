@@ -197,7 +197,8 @@ instead, next to the personal configuration it describes. **Each
 skill's entry therefore lives in exactly one place, never both.** The
 same rule holds per skill inside an adopted project: a skill that only
 the personal layer configures (a personal override, or a
-`requires_config` entry that resolves only there) is stamped in the
+`requires_config` file that exists only there — a personal copy
+shadowing a committed file does not count) is stamped in the
 personal layer's `reconciled.json` `skills` map, never in the committed
 lock, so the committed block records only what the committed
 configuration covers. **Neither

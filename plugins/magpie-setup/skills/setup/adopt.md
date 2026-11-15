@@ -512,18 +512,25 @@ pre-adoption personal layer's `reconciled.json` (see
 [4a](#4a--promote-what-is-already-configured-locally)) exists and carries a `skills`
 map — written by an earlier
 [`config`](config.md#step-3b--record-what-this-run-reconciled) run,
-back when this project was not yet adopted — copy every one of its
-entries (skill name → `surface_hash`, unchanged) into the lock's
-`reconciled.skills` map being written here, then delete the local file's
-`version`, `at`, and `skills` keys, leaving only the three always-local
-keys (`verified_at`, `verify_suggested_at`, `acknowledged`) behind, per
+back when this project was not yet adopted — copy each entry for a
+skill in **committed scope** after this adoption (skill name →
+`surface_hash`, unchanged; scope as
+[`reconcile.md`'s sweep](reconcile.md#the-sweep) step 1 defines it)
+into the lock's `reconciled.skills` map being written here, and remove
+it from the local map. Entries for skills still in **personal-only
+scope** — their configuration stayed in the personal layer, which 4a
+permits — stay in the local `skills` map, where they belong. Then
+delete the local file's `version` and `at` keys, and its `skills` key
+when nothing personal-only is left in it, per
 [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install).
 The local file's old `version`/`at` are **not** carried over — the
 committed block gets this run's own `version`/`at` regardless (below),
 the same as every other entry 4d writes; only the per-skill hashes move.
 `config` cannot do this migration itself — it has no way to know a
 later `adopt` is coming — so `adopt` is the one surface that carries it
-over. Skipping this would leave the same skill named in the committed
+over. Committing a personal-only entry would record, for every
+contributor, a state only this developer has. Skipping this would leave
+the same skill named in the committed
 lock (from 4d's own scope below) **and** the local file at once — the
 both-stores collision
 [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
