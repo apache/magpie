@@ -79,7 +79,10 @@ def _add_run_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     run.add_argument("--repo-dir", default=".", help="the git checkout that holds the change")
     run.add_argument("--target", default="branch", help="branch | pr:<N> | diff:<path>")
     run.add_argument("--base", default="origin/main", help="base ref for --target branch")
-    run.add_argument("--repo", help="OWNER/NAME for --target pr:<N>")
+    run.add_argument(
+        "--repo",
+        help="OWNER/NAME for --target pr:<N>; required when --repo-dir is not a checkout of that repo",
+    )
     run.add_argument("--title", default="", help="the PR title exactly as it will be posted")
     run.add_argument("--body-file", help="a file holding the PR body exactly as it will be posted")
     run.add_argument("--timeout-minutes", type=float, help="per-reviewer timeout; default from config")

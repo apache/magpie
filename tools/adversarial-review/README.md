@@ -53,6 +53,8 @@ Spell the path exactly so, with the literal `~`: the agent-guard [`vetted-ops-sp
 A `*` there would also match spaces, letting a command with extra `uv` options spliced in at that position (`--with <any package>`, a second `--from`) run outside the sandbox.
 Other harnesses use the installed plugin directory, for example `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review`.
 
+With `--target pr:<N>`, pass `--repo` whenever `--repo-dir` is not a checkout of the PR's repository, such as an exported PR head: without it, `gh` infers the repository from the git remotes of `--repo-dir`, and an export has none.
+
 `run` reads the reviewer list from `adversarial-review.md` (`.apache-magpie-local/` first, then `.apache-magpie-overrides/`, under `--project-root`), or from `--reviewers codex,copilot`.
 The model running the harness is skipped; `--self none` turns that off.
 

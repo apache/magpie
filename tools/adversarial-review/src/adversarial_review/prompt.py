@@ -129,7 +129,18 @@ def pr_input(
     repo_dir: Path, number: int, repo: str | None, env: Mapping[str, str] | None = None
 ) -> tuple[str, str, str]:
     select = ["--repo", repo] if repo else []
-    diff = _run("gh", repo_dir, ["pr", "diff", str(number), *select, "--color", "never"], env)
+    try:
+        diff = _run("gh", repo_dir, ["pr", "diff", str(number), *select, "--color", "never"], env)
+    except InputError as exc:
+        # Without --repo, gh infers the repository from the git remotes of
+        # --repo-dir, which an exported PR head does not have. gh and git word
+        # that failure in several ways (and localize it), so hint on any error.
+        if repo:
+            raise
+        raise InputError(
+            f"{exc} (without --repo, gh infers the repository from the git remotes of --repo-dir; "
+            "if that is not a checkout of the PR's repository, pass --repo OWNER/NAME)"
+        ) from None
     raw = _run("gh", repo_dir, ["pr", "view", str(number), *select, "--json", "title,body"], env)
     try:
         meta = json.loads(raw)
