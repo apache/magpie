@@ -44,7 +44,7 @@ It must run **outside** the sandbox.
 It connects to the real daemon socket, which the sandbox denies by design.
 
 ```bash
-uv run --project tools/container-gateway container-gateway --project .
+uv run --project tools/container-gateway container-gateway serve --project .
 ```
 
 It listens on two unix sockets in its run directory: `podman.sock` (libpod + compat API, for the podman CLI) and `docker.sock` (compat API, for the docker CLI).

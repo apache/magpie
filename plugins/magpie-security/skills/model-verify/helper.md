@@ -14,7 +14,7 @@ function rather than something re-derived per repository.
 
 ```bash
 # In-repo model: lands the model file and wires AGENTS.md -> SECURITY.md -> it.
-python3 <framework>/skills/security-model-verify/scripts/model_pr.py open \
+python3 <skill-dir>/scripts/model_pr.py open \
   --repo <owner>/<name> \
   --model /path/to/THREAT_MODEL.md \
   --date <YYYY-MM-DD> \
@@ -23,13 +23,15 @@ python3 <framework>/skills/security-model-verify/scripts/model_pr.py open \
   --dry-run
 
 # Pointer: a satellite repository deferring to an umbrella model elsewhere.
-python3 <framework>/skills/security-model-verify/scripts/model_pr.py open \
+python3 <skill-dir>/scripts/model_pr.py open \
   --repo <owner>/<name> \
   --pointer https://github.com/<owner>/<umbrella>/blob/main/THREAT_MODEL.md \
   --date <YYYY-MM-DD> \
   --agents-note "This repository is build-time tooling for <PROJECT>." \
   --dry-run
 ```
+
+`<skill-dir>` is the directory holding this skill's `SKILL.md`; `<framework>/skills/` does not exist on a marketplace install.
 
 Always run `--dry-run` first and show the diff. Without `--submit` the final step
 is `gh pr create --web`, so the human still submits from the browser.

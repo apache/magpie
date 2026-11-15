@@ -264,7 +264,7 @@ placeholder — see
 
 ## Determinism, idempotency, collisions
 
-- **Deterministic** — `pii-redact name:"Jane Smith"` produces
+- **Deterministic** — `pii-redact --field name:"Jane Smith"` produces
   the same `N-a3f9d2` on every machine, every run, because the
   identifier is `N-` + first-24-bits of `sha256("jane smith")`.
   The mapping file is convenience storage for `pii-reveal`; the

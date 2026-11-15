@@ -52,6 +52,10 @@ prepare signing-render --load <scratch>/signing-load.json --project <project> \
   --template <framework>/plugins/magpie-setup/templates/workflows/release-candidate.yml [--infra-ticket <INFRA-NNNN>]
 ```
 
+That `--template` path exists in a framework checkout or a pinned snapshot only.
+On a marketplace install the session hook does not copy it under `<framework>`;
+pass `templates/workflows/release-candidate.yml` from the installed `magpie-setup` plugin's directory instead.
+
 The template builds the source archive with the embedded `repro-archive` script
 (copy `tools/reproducible-archive/src/reproducible_archive/__init__.py` to `release/reproducible_archive.py` in the upstream repo),
 builds binaries under `SOURCE_DATE_EPOCH`, builds twice and compares, checksums with sha512 only, and uploads to ATR with OIDC.

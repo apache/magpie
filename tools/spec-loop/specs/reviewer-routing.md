@@ -179,11 +179,11 @@ uv run --all-packages --group dev pytest tools/pr-management/tests/reviewer_rout
   `review-requested:@<handle>` query in #1583) against a per-reviewer
   `max_reviews` (default 5); assigned-but-unrequested PRs and recency decay
   are not counted. Gap cleared; a richer load model would be a future change.
-- **The skill names a checker flag that does not exist.**
-  `classifications/preflight-blocked.md` tells the maintainer to "run
-  `privacy-llm-check --list`" after a gate failure, but `tools/privacy-llm/checker` accepts only
-  `--config`, `--reads-private-list` and `--quiet`, so that command
-  fails with an argument error. The skill text needs correcting.
+- **The checker flag the skill named is now corrected.**
+  `classifications/preflight-blocked.md` used to tell the maintainer to run
+  `privacy-llm-check --list`, a flag `tools/privacy-llm/checker` does not accept.
+  It now tells them to fix `<project-config>/privacy-llm.md` and re-run
+  `privacy-llm-check`. Gap cleared.
 - **Non-ASF roster shape is now exercised.** `projects/non-asf-example/reviewer-roster.md`
   provides a Velox Stream roster with no ASF-specific fields; the
   `non-asf-profile-smoke/step-reviewer-routing/` eval suite asserts that

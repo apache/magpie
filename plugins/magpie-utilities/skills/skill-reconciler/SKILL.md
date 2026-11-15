@@ -21,7 +21,7 @@ when_to_use: |
 capability: capability:reconciliation
 surface_hash: sha256:964dbda42cb402ce
 license: Apache-2.0
-measured_tokens: 4833
+measured_tokens: 4877
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -401,6 +401,10 @@ reconciler might have obscured:
 uv run --project <framework>/tools/skill-and-tool-validator --group dev \
   skill-and-tool-validate
 ```
+
+The validator needs a framework checkout: no Magpie plugin ships
+`tools/skill-and-tool-validator`, so on a marketplace install point
+`<framework>` at a checkout of the framework, or skip this step.
 
 This step is read-only and non-blocking. If the validator flags errors in
 either copy, surface them as a separate note after the reconciliation

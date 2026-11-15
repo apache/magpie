@@ -144,7 +144,7 @@ The identifier format is `<TYPE>-<6-char-lowercase-hex>` where the hex is `sh
 
 #### Determinism and idempotency
 
-- **Deterministic.** `pii-redact name:"Jane Smith"` produces the same `N-…` on every machine and every run, because the identifier is derived from a normalised hash of the value. The mapping file is convenience storage for `pii-reveal`; the identifier itself is reproducible without it.
+- **Deterministic.** `pii-redact --field name:"Jane Smith"` produces the same `N-…` on every machine and every run, because the identifier is derived from a normalised hash of the value. The mapping file is convenience storage for `pii-reveal`; the identifier itself is reproducible without it.
 - **Idempotent.** Running `pii-redact` twice on the same input with the same `--field` values writes the mapping file once and produces identical output the second time.
 - **Cross-machine compatible.** Two contributors redacting the same body produce the same identifier text without sharing the mapping file. Reveal is per-machine: a contributor can only reveal identifiers in their own local map; identifiers others created pass through unchanged (no risk of collision-corruption).
 

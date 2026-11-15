@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 5450
+measured_tokens: 5473
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -27,9 +27,9 @@ measured_tokens: 5450
      <tracker>        → `tracker_repo:` in <project-config>/project.md
      <upstream>       → `upstream_repo:` in <project-config>/project.md
      <scan-repo>      → the public repository the scan reports live in
-                        (declared in <project-config>/project.md → scan sources)
-     <scan-format>    → adapter under `tools/scan-format/` named by the
-                        project's enabled scan formats (reference: `asvs`) -->
+                        (the repository of the issue or tree URL the operator names)
+     <scan-format>    → the adapter under `tools/scan-format/` whose folder
+                        shape the scan matches (reference: `asvs`) -->
 
 # security-issue-import-from-scan
 
@@ -101,7 +101,8 @@ It composes with [`security-issue-import`](../issue-import/SKILL.md), [`security
 
 Parsing a given scanner's index and evidence, and the finding schema, live behind a **pluggable adapter** at
 [`tools/scan-format/`](../../../../tools/scan-format/README.md) (ASVS is the reference adapter).
-The project declares its scan sources and enabled formats in [`<project-config>/project.md`](../../../magpie-setup/templates/project.md).
+The operator names the scan sources on each run ([Inputs — sources](#inputs--sources)); no project configuration lists them.
+The adapter is the one whose folder shape the scan matches ([today's adapters](../../../../tools/scan-format/README.md#todays-adapters)).
 
 ## Golden rules
 
@@ -180,8 +181,8 @@ in addition to the gist and the optional report-back PR (Step F); [the per-sourc
 
 `gh` authenticated with access to `<tracker>` and `<scan-repo>`; the
 privacy-LLM gate-check passes (the scan + tracker reads may include
-third-party PII); at least one enabled `tools/scan-format/` adapter in
-`<project-config>/project.md`; and the [`security-management`](../../../../tools/security-management/README.md) tool —
+third-party PII); a `tools/scan-format/` adapter that recognises each
+scan folder; and the [`security-management`](../../../../tools/security-management/README.md) tool —
 `<sm> X` stands for `uv run --project <framework>/tools/security-management security-management issue-import-from-scan X`. It prints JSON and runs nothing; scan text reaches it only in files written with the Write tool, under `<scratch>` (the session scratch directory, absolute).
 
 ## Step A — Read BOTH the finding index and the per-finding evidence

@@ -280,7 +280,7 @@ uv run --project <framework>/tools/pr-management pr-management mentor config
 uv run --project <framework>/tools/pr-management pr-management mentor assess --saved-dir <workspace>/saved --kind pr|issue --number N --viewer <login>
 uv run --project <framework>/tools/pr-management pr-management mentor render --kind missing-repro|missing-version|convention-pointer|why-question|hand-off [--author <login>] [--pointer <url>] [--open-question-file <file>] --out <file>
 uv run --project <framework>/tools/pr-management pr-management mentor tone-check --draft <file> --author <login>
-uv run --project <framework>/tools/pr-management pr-management mentor log --kind pr|issue --number N --outcome posted|discarded|declined --trigger <t>
+uv run --project <framework>/tools/pr-management pr-management mentor log --kind pr|issue --number N --outcome drafted-and-posted|drafted-and-discarded|declined-pre-draft|handed-off [--trigger 1|2|3|4]
 ```
 
 `assess` checks the hand-off triggers in the order 4 → 3 → 1 → 2, then whether a maintainer is engaged, and returns `config_error`, `handoff`, `maintainer_engaged` or `draft` with the pointers and the documents to read.
@@ -290,7 +290,7 @@ uv run --project <framework>/tools/pr-management pr-management mentor log --kind
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management reviewer-routing preflight --target <ref> --privacy-exit <code> [--privacy-message <text>]
-uv run --project <framework>/tools/pr-management pr-management reviewer-routing propose --target <ref> --saved-dir <workspace>/saved [--area <a>...] [--no-codeowners] [--injection]
+uv run --project <framework>/tools/pr-management pr-management reviewer-routing propose --target <ref> --saved-dir <workspace>/saved [--area <a>...] [--no-codeowners] [--injection <summary>]
 ```
 
 `propose` returns `needs` until every read is saved, then the primary, the backup, every candidate's score and the proposal text.
