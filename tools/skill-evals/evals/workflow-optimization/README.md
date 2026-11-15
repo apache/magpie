@@ -34,3 +34,14 @@ The cases check that it does not report checks a repository already satisfies, t
 ### step-3-plan
 
 Given classified findings, the model decides how to present the plan: the section order, P0 fixes in their own pull request, community decisions under P3, and no writes, even when the user asks for them.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-15 | `1087814b` (fix/failing-eval-cases) | `opus[1m]` | 8 | `step-2-classify/case-3-short-jobs-no-self-hosted` failed 1 of 8 |  |

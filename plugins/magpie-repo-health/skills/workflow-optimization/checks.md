@@ -24,7 +24,7 @@ The anchors point to sections of
 
 | ID | Look for | Remedy |
 | --- | --- | --- |
-| `P1-push-main` | `push` on the default branch for a full CI workflow. A duplicate when a merge queue already tested the tree; otherwise one full run per merged pull request. | Drop it, or replace it with a scheduled canary (`#canary`): `schedule` at odd minutes plus `workflow_dispatch`, failures reported somewhere people read. |
+| `P1-push-main` | `push` on the default branch for a full CI workflow. A duplicate when a merge queue already tested the tree; otherwise one full run per merged pull request. Report it with or without a merge queue, however short the job: the run count, not the job length, is the cost. | Drop it, or replace it with a scheduled canary (`#canary`): `schedule` at odd minutes plus `workflow_dispatch`, failures reported somewhere people read. |
 | `P1-merge-group` | `merge_group` on a workflow that is not a required check. `paths` filters do not apply to `merge_group`, so it runs on every queue entry. | Drop `merge_group` from it. |
 | `P1-tiny-jobs` | Several jobs in one workflow that each run under about two minutes (from `jobs.tsv`), each with its own checkout and toolchain setup. | Merge them into one job as steps, with caching. Mind required checks. |
 | `P1-matrix-on-pr` | A version or toolchain matrix (beta/nightly toolchains, old language versions, extra platforms) run on every pull request, where failures come from the toolchain rather than the change. | Run the default entry on pull requests and the full matrix in the canary. |
