@@ -2256,6 +2256,54 @@ def guard_excluded_script_spelling(seg: Segment) -> str | None:
     )
 
 
+def _excluded_launch(seg: Segment) -> str | None:
+    """The sandbox-excluded command ``seg`` launches, as written, or None.
+
+    That is a user-scope script the exclusion names, or a ``uv run --project`` /
+    ``uvx --from`` launch from a stable ``~/.claude/magpie/…`` link (vetted-ops,
+    adversarial-review and any later tool installed the same way).
+    """
+    if not seg.argv:
+        return None
+    if seg.argv[0] in EXCLUDED_SCRIPTS:
+        return seg.head
+    if seg.argv[0] not in ("uv", "uvx"):
+        return None
+    for i, tok in enumerate(seg.argv[1:-1], start=1):
+        if tok in ("--from", "--project") and seg.argv[i + 1].startswith(VETTED_STABLE_BASE):
+            return " ".join(seg.argv[: i + 2])
+    return None
+
+
+def guard_chained_exclusion(segments: list[Segment]) -> str | None:
+    """Refuse a sandbox-excluded command that is not the whole command line.
+
+    Claude Code runs an excluded command outside the sandbox only when the line
+    is that command alone: chained with ``&&`` / ``;`` / a pipe, inside
+    ``$(…)``, or with a redirection, it runs inside the sandbox, where it fails
+    on something unrelated to the cause (uv cannot create its tool
+    environment, ``gh`` cannot verify TLS, a credential file is unreadable).
+    """
+    for seg in segments:
+        launch = _excluded_launch(seg)
+        if launch is None:
+            continue
+        redirected = any(_REDIRECTION_RE.fullmatch(tok) for tok in seg.argv[1:])
+        if len(segments) == 1 and not redirected:
+            return None
+        if any(s.override("MAGPIE_ALLOW_CHAINED_EXCLUSION") for s in segments):
+            return None
+        how = "with a redirection" if len(segments) == 1 else "chained with other commands"
+        return (
+            f"agent-guard[excluded-chain]: `{launch} …` runs outside the sandbox only as the whole "
+            f"command line; {how} it runs inside the sandbox and fails there. Run it as a "
+            "command of its own: change directory in a separate call, and pass output files "
+            "through the command's own options (such as `--save`) instead of `>` or a pipe. "
+            "Override: MAGPIE_ALLOW_CHAINED_EXCLUSION=1."
+        )
+    return None
+
+
 def _bare_base(command: str, option: str, base: str) -> bool:
     """True when ``command`` carries ``<option> <base>`` exactly as written, unquoted.
 
@@ -2839,7 +2887,8 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
     if not command:
         return None
     contributed: list[tuple[Callable[[GuardContext], str | None], set[str] | None]] | None = None
-    for seg in split_segments(command):
+    segments = split_segments(command)
+    for seg in segments:
         if seg.untokenised and not seg.override():
             return (
                 "agent-guard[parse]: this command names `git` / `gh`, or holds an expansion that "
@@ -2906,7 +2955,7 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
                 continue
             if reason:
                 return reason
-    return None
+    return guard_chained_exclusion(segments)
 
 
 def _emit_deny(reason: str) -> None:
