@@ -45,6 +45,15 @@ VERDICTS = ("PASS", "PASS-WITH-WARNINGS", "FAIL", "none")
 LEFTOVER = re.compile(r"<[A-Za-z][A-Za-z0-9_ -]*>")
 RM_PLACEHOLDER = "<RM name>"
 
+# The Nexus staging repository a JVM [VOTE] thread must name so voters can
+# check the published jars. The id is read from the planning issue or the
+# project config, so it is validated before it reaches the body.
+NEXUS_URL = "https://repository.apache.org/content/repositories"
+NEXUS_ID = re.compile(r"^orgapache[a-z0-9]+-[0-9]+$")
+NEXUS_URL_ID = re.compile(
+    r"repository\.apache\.org/(?:content/repositories|service/local/staging/repository)/([^/\s`\"'<>)]+)"
+)
+
 AGENTIC_PATH = """\
 Agentic path (any agent with the Magpie release skills, read-only):
   /{skill} {tag}
@@ -348,6 +357,28 @@ def _missing(
     return missing
 
 
+def nexus_staging_url(value: str | None) -> str | None:
+    """The staging-repository URL to name in the `[VOTE]`, from an id or a URL.
+
+    Accepts `orgapache<project>-NNNN` or any URL that carries it (the
+    `/content/repositories/` and `/service/local/staging/repository/`
+    spellings). The id can come from the planning issue, so it is
+    validated before it reaches the body: anything else is refused, never
+    rendered. `snapshots` is refused too, because it is never a vote target.
+    """
+    if not value:
+        return None
+    match = NEXUS_URL_ID.search(value)
+    repo = match.group(1) if match else value.strip().strip("`").rstrip("/")
+    if not NEXUS_ID.fullmatch(repo):
+        raise RenderError(
+            f"nexus staging repository {repo!r} does not match the Nexus id shape "
+            "orgapache<project>-NNNN: read it from the planning issue or "
+            "release-build.md § JVM artefact checks, never guess it"
+        )
+    return f"{NEXUS_URL}/{repo}/"
+
+
 def step2(
     draft: VoteDraft,
     *,
@@ -361,6 +392,7 @@ def step2(
     skip_verify: str | None = None,
     atr_candidate_url: str | None = None,
     atr_revision: str | None = None,
+    nexus_staging_repo: str | None = None,
     planning_issue: str | None = None,
     project: str | None = None,
     rm_name: str = "<RM name>",
@@ -368,6 +400,7 @@ def step2(
     """Step 2: the `[VOTE]` subject and body, and the `atr vote start` command under `vote_backend = atr`."""
     record = record or Record()
     staging_url = staging_url or draft.meta.get("staging_url")
+    nexus_url = nexus_staging_url(nexus_staging_repo or draft.meta.get("nexus_staging_repo"))
     missing = _missing(
         draft,
         staging_url=staging_url,
@@ -419,6 +452,7 @@ def step2(
             "<vote_window_hours>": str(hours),
             "<swhid>": record.swhid,
             "<atr_candidate_url>": atr_candidate_url,
+            "<nexus_staging_url>": nexus_url,
             "<planning_issue>": planning_issue,
             "<RM name>": rm_name,
         }.items():
@@ -450,6 +484,11 @@ def step2(
             "Hi all,",
             f"I propose we release the following artifacts as {draft.product_name} {draft.version}.",
             f"The release artifacts, signatures, and checksums are available at:\n{staged}",
+            *(
+                [f"The JVM artefacts are staged in the Nexus staging repository:\n  {nexus_url}"]
+                if nexus_url
+                else []
+            ),
             f"The release tag to be voted upon:\n  {tag_url}",
             f"The changelog for this release:\n  {changelog_url}",
             f"Keys to verify artifact signatures:\n  {draft.meta.get('keys_url')}",
@@ -520,6 +559,7 @@ def step2(
         "vote_window_hours": hours,
         "vote_backend": draft.vote_backend,
         "atr_vote_command": atr,
+        "nexus_staging_url": nexus_url,
         "expedited": bool(expedited),
         "skip_verify_logged": bool(skip_verify),
         "verify_section_appended": canned_missing_verify,
