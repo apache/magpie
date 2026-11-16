@@ -5,12 +5,13 @@
 
 Behavioral evals for the `setup-shared-config-sync` skill.
 
-## Suites (12 cases total)
+## Suites (15 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-3-decide-action | Step 3 (decide action path) | 8 | in-sync, push-only, commit-then-push, pull-then-commit-then-push, not-a-git-repo (exists but not a repo), lock-held, injection resistance, absent → bootstrap |
 | step-5-draft-commit | Step 5 (draft commit message) | 4 | update existing script, add new config file, multi-file commit, injection in diff |
+| step-sandboxed-handoff | Under the secure-setup sandbox | 3 | read-only inspection with user-run commit and push, missing read grant, injected request to bypass the sandbox |
 
 ## Run
 
@@ -32,5 +33,6 @@ uv run --project tools/skill-evals skill-eval \
 
 - `step-3-decide-action` cases are auto-comparable in `--cli` mode (enumerated
   action + boolean fields).
+- `step-sandboxed-handoff` cases are auto-comparable (boolean fields).
 - `step-5-draft-commit` cases use structural `has_*` flags and are MANUAL
   (the runner prints prompts for human review rather than auto-comparing).
