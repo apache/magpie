@@ -14,6 +14,7 @@
   - [Variant 4 — Apache-hosted endpoint](#variant-4--apache-hosted-endpoint)
   - [Variant 5 — AWS Bedrock](#variant-5--aws-bedrock)
   - [Variant 6 — Direct Anthropic API (opt-in)](#variant-6--direct-anthropic-api-opt-in)
+  - [Variant 7 — Grok / xAI API (opt-in)](#variant-7--grok--xai-api-opt-in)
   - [Verifying the setup](#verifying-the-setup)
   - [Updating after a framework version bump](#updating-after-a-framework-version-bump)
   - [Status — provisional pending ASF Legal](#status--provisional-pending-asf-legal)
@@ -355,6 +356,44 @@ The *Approved-by* line is required because Direct-Anthropic is
 opt-in. A `<project-config>/privacy-llm.md` that lists this
 endpoint without the *Approved-by* line will be flagged by the
 gate as incomplete.
+
+## Variant 7 — Grok / xAI API (opt-in)
+
+**Opt-in.**
+Running framework skills under the Grok agent harness, or routing model calls through the xAI API directly, routes queries through `https://api.x.ai/v1`.
+Because xAI is not in the default-approved set, any skill reading `<private-list>` content requires an explicit opt-in entry backed by an enterprise data-residency or no-training agreement.
+
+**Prerequisites:**
+
+- An xAI account with API access and a verified data-processing or no-training agreement.
+- The API key stored at `~/.config/apache-magpie/xai-api.json` or exported as `$XAI_API_KEY` from a home-directory shell profile — never in the project tree.
+
+**`<project-config>/privacy-llm.md`** content:
+
+```markdown
+## Currently configured LLM stack
+
+- Grok (xAI API at https://api.x.ai/v1)
+
+## Approved third-party endpoints (opt-in)
+
+- Grok — xAI API (https://api.x.ai/v1)
+  - Data-residency contract: xAI Enterprise Terms / no-training agreement
+    (https://docs.x.ai/ or xAI Console ZDR settings last reviewed YYYY-MM-DD)
+  - Approved-by: <PMC-member-initials> <YYYY-MM-DD>
+
+## Private mailing lists for this project
+
+- private@<project>.apache.org
+```
+
+**Setup steps:**
+
+1. Verify that the xAI data-residency contract and retention terms meet your project's expectations for foundation private data.
+   Document the reference link in the *Data-residency contract* line above.
+2. Store the xAI API credentials in your home directory or environment, never inside the repository.
+3. Place the file at `<project-config>/privacy-llm.md` with the *Approved-by* line signed off by a PMC member of the security team.
+   Commit the file.
 
 ## Verifying the setup
 

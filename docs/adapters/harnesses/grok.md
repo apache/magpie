@@ -112,6 +112,9 @@ The action guard is separate from Grok permissions and from the operating-system
 It inspects shell commands before execution and rejects commands that violate a
 hard Magpie framework rule.
 It does not turn native file tools, MCP tools, or the rest of the process into a sandbox.
+Running under Grok also subjects skills that touch private data to the privacy-LLM gate:
+because xAI is not in the default-approved set, skills that read `<private-list>` require an explicit opt-in entry in `<project-config>/privacy-llm.md`
+([recipe](../../setup/privacy-llm.md#variant-7--grok--xai-api-opt-in)).
 
 ## Guard behavior
 

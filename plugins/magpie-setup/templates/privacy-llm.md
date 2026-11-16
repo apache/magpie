@@ -27,7 +27,7 @@
      The default below (Variant 1 — Claude Code only) is the
      starting state for a fresh adoption. Adopting projects that
      wire in additional LLMs (Ollama, Bedrock, Anthropic direct,
-     etc.) replace the *Currently configured LLM stack* section
+     Grok / xAI, etc.) replace the *Currently configured LLM stack* section
      and populate *Approved third-party endpoints* per the recipe
      for that variant. -->
 
