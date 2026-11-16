@@ -490,14 +490,34 @@ def read_body(value: str, *, workspace: Path) -> bytes:
     return data
 
 
-def enum(allowed: Sequence[str]) -> Callable[[str], str]:
-    """Build a validator accepting only one of ``allowed``."""
+#: What a pattern-matched enum value may contain: one line of printable text,
+#: no leading or trailing space, bounded. A listed value is trusted as written;
+#: a pattern-matched one came from the caller, so it also has to look like a
+#: name before the pattern is even consulted.
+_PATTERN_VALUE = re.compile(r"^[^\s\x00-\x1f\x7f](?:[^\x00-\x1f\x7f]{0,98}[^\s\x00-\x1f\x7f])?$")
+
+
+def enum(allowed: Sequence[str], patterns: Sequence[re.Pattern[str]] = ()) -> Callable[[str], str]:
+    """
+    Build a validator accepting one of ``allowed``, or a value matching a pattern.
+
+    ``patterns`` come from ``values.<key>_patterns`` and must match the whole
+    value (``fullmatch``); a partial match never widens the gate.
+    """
     permitted = tuple(allowed)
+    shapes = tuple(patterns)
 
     def _validate(value: str) -> str:
-        if value not in permitted:
-            raise ParamError(f"value {value!r} is not one of the configured values: {list(permitted)}")
-        return value
+        if value in permitted:
+            return value
+        if shapes and _PATTERN_VALUE.match(value) and any(p.fullmatch(value) for p in shapes):
+            return value
+        if shapes:
+            raise ParamError(
+                f"value {value!r} is not one of the configured values {list(permitted)} "
+                f"and matches none of the configured patterns {[p.pattern for p in shapes]}"
+            )
+        raise ParamError(f"value {value!r} is not one of the configured values: {list(permitted)}")
 
     return _validate
 

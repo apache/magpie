@@ -601,6 +601,97 @@ def test_milestone_create_is_gated_on_the_configured_milestones(policy: config.C
     assert argv == ["gh", "api", "repos/acme/tracker/milestones", "-f", "title=1.2.3"]
 
 
+def _patterned_policy(tmp_path: Path, patterns: str, milestones: str = '["1.2.3"]') -> config.Config:
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(exist_ok=True)
+    workspace.chmod(0o700)
+    text = CONFIG_TOML.format(workspace=workspace).replace(
+        'milestones = ["1.2.3"]', f"milestones = {milestones}\nmilestones_patterns = {patterns}"
+    )
+    cfg_path = tmp_path / "patterned.toml"
+    cfg_path.write_text(text)
+    return config.load(cfg_path)
+
+
+def test_milestone_patterns_admit_a_dated_wave_without_a_policy_edit(tmp_path: Path) -> None:
+    """
+    A release train that cuts a dated milestone every wave declares the shape
+    once. A name matching it is accepted by both the create and the assign
+    operations; the listed names keep working.
+    """
+    policy = _patterned_policy(tmp_path, r"['Providers \d{4}-\d{2}-\d{2}']")
+    create = ops.resolve("milestone-create")
+    params, _ = cli._validate_params(create, ["Providers 2026-11-17"], policy)
+    assert cli.build_argv(create, params, policy) == [
+        "gh",
+        "api",
+        "repos/acme/tracker/milestones",
+        "-f",
+        "title=Providers 2026-11-17",
+    ]
+    assign = ops.resolve("issue-set-milestone")
+    params, _ = cli._validate_params(assign, ["12", "Providers 2026-11-17"], policy)
+    assert params["milestone"] == "Providers 2026-11-17"
+    params, _ = cli._validate_params(create, ["1.2.3"], policy)
+    assert params["milestone"] == "1.2.3"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Providers 2026-11-17 extra",  # a partial match never widens the gate
+        "xProviders 2026-11-17",
+        "Providers 2026-11-17\n",  # a trailing newline must not slip past `$`
+        "Providers 2026-11-1",
+        "3.4.1",
+    ],
+)
+def test_milestone_patterns_must_match_the_whole_value(tmp_path: Path, value: str) -> None:
+    policy = _patterned_policy(tmp_path, r"['Providers \d{4}-\d{2}-\d{2}']")
+    with pytest.raises(ops.ParamError, match="matches none of the configured patterns"):
+        cli._validate_params(ops.resolve("milestone-create"), [value], policy)
+
+
+def test_a_pattern_matched_value_must_still_be_one_safe_line(tmp_path: Path) -> None:
+    """A loose pattern cannot admit control characters or a padded value."""
+    policy = _patterned_policy(tmp_path, r"['Wave .+']")
+    for bad in ["Wave \x1b[2J", "Wave x\tz", "Wave x ", "Wave " + "x" * 200]:
+        with pytest.raises(ops.ParamError):
+            cli._validate_params(ops.resolve("milestone-create"), [bad], policy)
+    params, _ = cli._validate_params(ops.resolve("milestone-create"), ["Wave 7"], policy)
+    assert params["milestone"] == "Wave 7"
+
+
+def test_patterns_alone_declare_the_enum(tmp_path: Path) -> None:
+    """A policy may list no milestone by name and gate on the pattern only."""
+    workspace = tmp_path / "scratch"
+    workspace.mkdir()
+    workspace.chmod(0o700)
+    text = CONFIG_TOML.format(workspace=workspace).replace(
+        'milestones = ["1.2.3"]', r"milestones_patterns = ['\d+\.\d+\.\d+']"
+    )
+    cfg_path = tmp_path / "only-patterns.toml"
+    cfg_path.write_text(text)
+    policy = config.load(cfg_path)
+    params, _ = cli._validate_params(ops.resolve("milestone-create"), ["3.4.1"], policy)
+    assert params["milestone"] == "3.4.1"
+
+
+@pytest.mark.parametrize(
+    ("patterns", "message"),
+    [
+        ("'Providers'", "must be a list"),
+        ("[1]", "must be a list"),
+        ("['(unclosed']", "not a valid regular expression"),
+        ("['.*']", "matches the empty string"),
+        ("['']", "matches the empty string"),
+    ],
+)
+def test_bad_patterns_fail_at_load(tmp_path: Path, patterns: str, message: str) -> None:
+    with pytest.raises(config.ConfigError, match=message):
+        _patterned_policy(tmp_path, patterns)
+
+
 def test_issue_remove_assignee_is_gated_on_the_roster(policy: config.Config) -> None:
     """
     Unassigning is how the release-manager hand-off retires the remediation
