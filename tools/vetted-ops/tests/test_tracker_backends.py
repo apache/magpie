@@ -490,6 +490,34 @@ def test_save_works_for_translated_reads(
     assert json.loads(saved.read_text()) == {"id": "SEC-0001"}
 
 
+def test_jira_rollup_authors_come_from_the_policy(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = _write_policy(tmp_path, JIRA + 'jira_rollup_authors = ["alice", "5b10:ac8d"]\n')
+    code = cli.main(
+        ["--config", str(path), "--caller", "security-issue-sync", "--dry-run", "issue-view", "1"]
+    )
+    assert code == cli.EXIT_OK
+    assert "--rollup-author=alice --rollup-author=5b10:ac8d" in capsys.readouterr().out
+
+
+def test_jira_rollup_authors_are_always_explicit(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # An empty list still pins the bridge, so an inherited environment cannot add authors.
+    path = _write_policy(tmp_path, JIRA)
+    code = cli.main(
+        ["--config", str(path), "--caller", "security-issue-sync", "--dry-run", "issue-view", "1"]
+    )
+    assert code == cli.EXIT_OK
+    assert "--rollup-author=" in capsys.readouterr().out.split()
+
+
+@pytest.mark.parametrize("value", ['"alice"', '["--url=x"]', '["a b"]', "[1]"])
+def test_jira_rollup_authors_are_validated(tmp_path: Path, value: str) -> None:
+    path = _write_policy(tmp_path, JIRA + f"jira_rollup_authors = {value}\n")
+    code = cli.main(
+        ["--config", str(path), "--caller", "security-issue-sync", "--dry-run", "issue-view", "1"]
+    )
+    assert code != cli.EXIT_OK
+
+
 def test_jira_issue_type_comes_from_the_policy(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     path = _write_policy(tmp_path, JIRA + 'jira_issue_type = "Task"\n')
     code = cli.main(
