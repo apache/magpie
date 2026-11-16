@@ -310,7 +310,7 @@ it refuses while a blocker is open. Run its `steps` in order, writing each `writ
 3. the same on the dropped tracker with the `Merge (dropped)` entry;
 4. the `duplicate` label on the dropped tracker;
 5. the close of the dropped tracker as `not planned` (GitHub's `duplicate` reason is not exposed by `gh` on all versions; with the label it carries the same signal) — re-check that it is the dropped side;
-6. the kept tracker's CVE JSON — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md) — and, when it has a CVE, `uv run --project <framework>/tools/cve-tool cve-tool push --cve-id <CVE-ID> --json-file <path>` (the contract's `push_update(cve_id, fields)`) per
+6. the kept tracker's CVE JSON — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md) — and, when it has a CVE, `uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push --cve-id <CVE-ID> --json-file <path>` (the contract's `push_update(cve_id, fields)`) per
    [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#push_updatecve_id-fields-state_transitionnone-to-diff) with no state transition, so the merged credits and references land on the record;
 7. only when both trackers carried a CVE, `cve-tool retract --cve-id <CVE-ID>` (the contract's `retract(cve_id, reason)`) per
    [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#retractcve_id-reason-to-ok) for the dropped side's —

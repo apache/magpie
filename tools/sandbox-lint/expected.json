@@ -14,6 +14,7 @@
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+      "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *",
       "~/.claude/scripts/magpie-run-evals.sh *"
     ],
     "filesystem": {
@@ -154,6 +155,7 @@
       "Edit(~/.cache/prek/**)",
       "Edit(~/.cache/ponymail-attachments/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
+      "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)",
       "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",
       "Bash(wget *)",
@@ -176,6 +178,7 @@
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
+      "Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)",
       "Bash(gh api -X*)",
       "Bash(gh api * -X*)",
       "Bash(gh api --method*)",

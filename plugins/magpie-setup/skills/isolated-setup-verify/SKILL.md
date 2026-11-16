@@ -16,7 +16,7 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:e4037763f0982666
+surface_hash: sha256:7e0d11345084066f
 license: Apache-2.0
 measured_tokens: 5548
 ---
@@ -245,6 +245,11 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
       `core.hooksPath` skips the dispatcher (check 8), is ⚠ for that same case.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
+
+20. **cve-tool exclusion, if installed.** Optional (step C of `setup-isolated-setup-install`).
+    **n/a** when the `magpie-security-tools` plugin is not installed.
+    Otherwise:
+    [`conditional-checks.md`](conditional-checks.md#check-20--cve-tool-exclusion-if-installed).
 
 ## After the report
 

@@ -395,12 +395,12 @@ def test_case_4_private_scanner_credit(capsys, tmp_path):
 def test_case_5_clean_push_fix_released(capsys, tmp_path):
     base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True}
     assert decide(capsys, tmp_path, **base)["next"] == (
-        "uv run --project '<framework>/tools/cve-tool' cve-tool push"
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push"
         " --cve-id CVE-2026-41107 --json-file '<scratch>/cve-CVE-2026-41107.json'"
     )
     pending = decide(capsys, tmp_path, **base, push_exit=0)
     assert pending["next"] == (
-        "uv run --project '<framework>/tools/cve-tool' cve-tool fetch --cve-id CVE-2026-41107 --state-only"
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id CVE-2026-41107 --state-only"
     )
     out = decide(capsys, tmp_path, **base, push_exit=0, fetched_state="REVIEW")
     assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
