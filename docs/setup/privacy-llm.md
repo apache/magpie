@@ -375,7 +375,7 @@ Grok CLI (`grok build`) supports two distinct authentication paths:
 > Grok CLI credential resolution prioritizes an active login session over the `$XAI_API_KEY` environment variable.
 > Personal `grok login` sessions must **never** be approved or used for `<private-list>` skills.
 > To ensure traffic uses the enterprise API key, run `grok logout` before executing skills on private data.
-> Conversely, if the project has approved an enterprise team SSO account, verify that the active session belongs to the approved organization (e.g. pinned via `force_login_team_uuid` in Grok's login policy inspected with `grok inspect`).
+> Conversely, if the project has approved an enterprise team SSO account, verify that the active session belongs to the approved organization (sessions may be pinned via `force_login_team_uuid` in Grok's login policy inspected with `grok inspect`; check xAI's documentation for your deployment's policy settings).
 
 **Prerequisites:**
 
@@ -405,8 +405,8 @@ Grok CLI (`grok build`) supports two distinct authentication paths:
 *(For teams operating via enterprise SSO sessions rather than direct API keys, replace the endpoint with `https://cli-chat-proxy.grok.com` and cite the team organization agreement).*
 
 > [!NOTE]
-> The privacy-LLM checker matches opt-in entries by provider shortname (`grok`).
-> Because an approval for the direct API path matches a session proxy stack entry at the checker level, the PMC's *Approved-by* and *Data-residency contract* notes must explicitly state the exact endpoint and authentication path approved for the project.
+> The declared-stack check matches opt-in entries by provider shortname (`grok`).
+> Because an approval for the direct API path matches a session proxy stack entry at the declared-stack check level, the PMC's *Approved-by* and *Data-residency contract* notes must explicitly state the exact endpoint and authentication path approved for the project.
 
 **Setup steps:**
 
