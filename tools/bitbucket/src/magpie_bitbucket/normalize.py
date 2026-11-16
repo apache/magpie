@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 READ_ONLY_LABELS = ["bitbucket", "read-only", "partial-change-request"]
+WRITE_LABELS = ["bitbucket", "partial-change-request"]
 
 
 def repository(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
@@ -243,6 +244,26 @@ def pull_request(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     summary["commits"] = None
     summary["raw"] = raw
     return summary
+
+
+def created_pull_request(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize the result of creating one pull request."""
+    normalized = pull_request(kind, raw)
+    normalized["labels"] = WRITE_LABELS
+
+    pull_request_id = normalized.get("id")
+
+    return {
+        "ok": bool(pull_request_id),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-create",
+        "pull_request_id": pull_request_id,
+        "pull_request": normalized,
+        "raw": raw,
+    }
 
 
 def pull_request_jira_issues(

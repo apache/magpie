@@ -42,6 +42,7 @@ from magpie_bitbucket.client import (
 )
 from magpie_bitbucket.normalize import (
     created_issue_comment,
+    created_pull_request,
     created_pull_request_comment,
     declined_pull_request,
     issue,
@@ -2752,6 +2753,353 @@ def test_normalize_created_cloud_issue_comment() -> None:
     assert normalized["comment"]["id"] == "501"
     assert normalized["comment"]["author"] == "Alice"
     assert normalized["comment"]["body"] == "Confirmed comment."
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_create_pull_request_posts_json(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 42,
+            "title": "Add feature",
+            "description": "Reviewed body",
+            "state": "OPEN",
+            "source": {"branch": {"name": "feature/example"}},
+            "destination": {"branch": {"name": "main"}},
+            "author": {"display_name": "Alice"},
+            "links": {"html": {"href": "https://bitbucket.org/apache/magpie/pull-requests/42"}},
+        },
+    )
+
+    result = cloud.create_pull_request(
+        load_config(),
+        "feature/example",
+        "main",
+        "Add feature",
+        "Reviewed body",
+    )
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == ("https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests")
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data.decode("utf-8")) == {
+        "title": "Add feature",
+        "source": {"branch": {"name": "feature/example"}},
+        "destination": {"branch": {"name": "main"}},
+        "description": "Reviewed body",
+    }
+    assert result["id"] == 42
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_create_pull_request_posts_json(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 43,
+            "title": "Add feature",
+            "description": "Reviewed body",
+            "state": "OPEN",
+            "fromRef": {"id": "refs/heads/feature/example"},
+            "toRef": {"id": "refs/heads/main"},
+            "author": {"displayName": "Alice"},
+        },
+    )
+
+    result = datacenter.create_pull_request(
+        load_config(),
+        "feature/example",
+        "main",
+        "Add feature",
+        "Reviewed body",
+    )
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests"
+    )
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+
+    payload = json.loads(request.data.decode("utf-8"))
+
+    assert payload == {
+        "title": "Add feature",
+        "description": "Reviewed body",
+        "fromRef": {
+            "id": "refs/heads/feature/example",
+            "repository": {
+                "slug": "magpie",
+                "project": {"key": "MAGPIE"},
+            },
+        },
+        "toRef": {
+            "id": "refs/heads/main",
+            "repository": {
+                "slug": "magpie",
+                "project": {"key": "MAGPIE"},
+            },
+        },
+    }
+    assert result["id"] == 43
+
+
+@pytest.mark.parametrize(
+    ("kind", "raw", "expected_id"),
+    [
+        (
+            "cloud",
+            {
+                "id": 42,
+                "title": "Add feature",
+                "description": "Reviewed body",
+                "state": "OPEN",
+                "source": {"branch": {"name": "feature/example"}},
+                "destination": {"branch": {"name": "main"}},
+                "author": {"display_name": "Alice"},
+            },
+            "42",
+        ),
+        (
+            "datacenter",
+            {
+                "id": 43,
+                "title": "Add feature",
+                "description": "Reviewed body",
+                "state": "OPEN",
+                "fromRef": {"id": "refs/heads/feature/example"},
+                "toRef": {"id": "refs/heads/main"},
+                "author": {"displayName": "Alice"},
+            },
+            "43",
+        ),
+    ],
+)
+def test_normalize_created_pull_request(
+    kind: str,
+    raw: dict[str, Any],
+    expected_id: str,
+) -> None:
+    normalized = created_pull_request(kind, raw)
+
+    assert normalized["ok"] is True
+    assert normalized["operation"] == "pull-request-create"
+    assert normalized["pull_request_id"] == expected_id
+    assert "read-only" not in normalized["pull_request"]["labels"]
+
+    if kind == "cloud":
+        assert normalized["pull_request"]["source"] == "feature/example"
+        assert normalized["pull_request"]["target"] == "main"
+    else:
+        assert normalized["pull_request"]["source"] == "refs/heads/feature/example"
+        assert normalized["pull_request"]["target"] == "refs/heads/main"
+
+
+def test_normalize_created_pull_request_missing_id_is_not_success() -> None:
+    normalized = created_pull_request(
+        "cloud",
+        {
+            "title": "Add feature",
+            "state": "OPEN",
+            "source": {"branch": {"name": "feature/example"}},
+            "destination": {"branch": {"name": "main"}},
+        },
+    )
+
+    assert normalized["ok"] is False
+    assert normalized["pull_request_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "backend_path", "expected_id"),
+    [
+        ("cloud", "magpie_bitbucket.cloud.create_pull_request", 42),
+        ("datacenter", "magpie_bitbucket.datacenter.create_pull_request", 43),
+    ],
+)
+def test_cli_pr_create(
+    kind: str,
+    backend_path: str,
+    expected_id: int,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    if kind == "cloud":
+        monkeypatch.setenv("BITBUCKET_KIND", "cloud")
+        monkeypatch.setenv("BITBUCKET_CLOUD_USER", "alice@example.test")
+        monkeypatch.setenv("BITBUCKET_TOKEN", "token-123")
+        monkeypatch.setenv("BITBUCKET_WORKSPACE", "apache")
+        monkeypatch.setenv("BITBUCKET_REPO_SLUG", "magpie")
+        raw = {
+            "id": expected_id,
+            "title": "Add feature",
+            "state": "OPEN",
+            "source": {"branch": {"name": "feature/example"}},
+            "destination": {"branch": {"name": "main"}},
+        }
+    else:
+        monkeypatch.setenv("BITBUCKET_KIND", "datacenter")
+        monkeypatch.setenv("BITBUCKET_TOKEN", "token-123")
+        monkeypatch.setenv("BITBUCKET_BASE_URL", "https://bitbucket.example.test/")
+        monkeypatch.setenv("BITBUCKET_PROJECT_KEY", "MAGPIE")
+        monkeypatch.setenv("BITBUCKET_REPO_SLUG", "magpie")
+        raw = {
+            "id": expected_id,
+            "title": "Add feature",
+            "state": "OPEN",
+            "fromRef": {"id": "refs/heads/feature/example"},
+            "toRef": {"id": "refs/heads/main"},
+        }
+
+    body_file = tmp_path / "pr.md"
+    body_file.write_text("Reviewed body", encoding="utf-8")
+
+    with patch(backend_path, return_value=raw) as mock_create:
+        exit_code = main(
+            [
+                "pr",
+                "create",
+                "--source",
+                "feature/example",
+                "--target",
+                "main",
+                "--title",
+                "Add feature",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    assert exit_code == 0
+    mock_create.assert_called_once()
+    args = mock_create.call_args.args
+    assert args[1:] == (
+        "feature/example",
+        "main",
+        "Add feature",
+        "Reviewed body",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["ok"] is True
+    assert output["operation"] == "pull-request-create"
+    assert output["pull_request_id"] == str(expected_id)
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_without_body_file(
+    mock_create: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_create.return_value = {
+        "id": 42,
+        "title": "Add feature",
+        "state": "OPEN",
+        "source": {"branch": {"name": "feature/example"}},
+        "destination": {"branch": {"name": "main"}},
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "create",
+            "--source",
+            "feature/example",
+            "--target",
+            "main",
+            "--title",
+            "Add feature",
+        ]
+    )
+
+    assert exit_code == 0
+    mock_create.assert_called_once()
+    assert mock_create.call_args.args[1:] == (
+        "feature/example",
+        "main",
+        "Add feature",
+        None,
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["ok"] is True
+
+
+@pytest.mark.parametrize(
+    ("flag", "value", "match"),
+    [
+        ("--source", "   ", "source branch must not be empty"),
+        ("--target", "   ", "target branch must not be empty"),
+        ("--title", "   ", "title must not be empty"),
+        ("--source", "refs/heads/feature/example", "short branch name"),
+        ("--target", "refs/heads/main", "short branch name"),
+    ],
+)
+@patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_rejects_invalid_fields_before_write(
+    mock_create: MagicMock,
+    cloud_env: None,
+    flag: str,
+    value: str,
+    match: str,
+) -> None:
+    argv = [
+        "pr",
+        "create",
+        "--source",
+        "feature/example",
+        "--target",
+        "main",
+        "--title",
+        "Add feature",
+    ]
+
+    index = argv.index(flag)
+    argv[index + 1] = value
+
+    with pytest.raises(BitbucketError, match=match):
+        main(argv)
+
+    mock_create.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_rejects_empty_body_before_write(
+    mock_create: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "empty.md"
+    body_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(BitbucketError, match="Pull request body file must not be empty"):
+        main(
+            [
+                "pr",
+                "create",
+                "--source",
+                "feature/example",
+                "--target",
+                "main",
+                "--title",
+                "Add feature",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_create.assert_not_called()
 
 
 @patch("magpie_bitbucket.client.urllib.request.build_opener")
