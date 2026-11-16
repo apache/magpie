@@ -152,11 +152,11 @@ describe('parseCandidatePayload', () => {
     if (parsed.target_issue !== 100 || parsed.candidates.length !== 1) {
       throw new Error(`unexpected parsed payload: ${JSON.stringify(parsed)}`);
     }
-    if (parsed.candidates[0].similarity_score !== 0.92) {
-      throw new Error(`similarity score mismatch: ${parsed.candidates[0].similarity_score}`);
+    if (must(parsed.candidates[0]).similarity_score !== 0.92) {
+      throw new Error(`similarity score mismatch: ${must(parsed.candidates[0]).similarity_score}`);
     }
-    if (parsed.candidates[0].title !== 'Duplicate Bug in Map<String, Object>') {
-      throw new Error(`title brackets altered: ${parsed.candidates[0].title}`);
+    if (must(parsed.candidates[0]).title !== 'Duplicate Bug in Map<String, Object>') {
+      throw new Error(`title brackets altered: ${must(parsed.candidates[0]).title}`);
     }
   });
 
@@ -189,7 +189,7 @@ describe('parseCandidatePayload', () => {
       ],
     };
     const parsed = must(parseCandidatePayload(raw));
-    if (parsed.candidates.length !== 1 || parsed.candidates[0].issue_number !== 95) {
+    if (parsed.candidates.length !== 1 || must(parsed.candidates[0]).issue_number !== 95) {
       throw new Error(`failed to filter out self-duplicate candidate: ${JSON.stringify(parsed.candidates)}`);
     }
   });
@@ -205,7 +205,7 @@ describe('parseCandidatePayload', () => {
       ],
     };
     const parsed = must(parseCandidatePayload(raw));
-    if (parsed.candidates.length !== 1 || parsed.candidates[0].title !== 'Duplicate Candidate First') {
+    if (parsed.candidates.length !== 1 || must(parsed.candidates[0]).title !== 'Duplicate Candidate First') {
       throw new Error(`failed to deduplicate candidate issue numbers: ${JSON.stringify(parsed.candidates)}`);
     }
   });
@@ -223,17 +223,17 @@ describe('parseCandidatePayload', () => {
       ],
     };
     const parsed = must(parseCandidatePayload(raw));
-    if (parsed.candidates[0].similarity_score !== undefined) {
+    if (must(parsed.candidates[0]).similarity_score !== undefined) {
       throw new Error('NaN similarity_score should be dropped');
     }
-    if (parsed.candidates[1].similarity_score !== undefined) {
+    if (must(parsed.candidates[1]).similarity_score !== undefined) {
       throw new Error('>1 similarity_score should be dropped');
     }
-    if (parsed.candidates[2].similarity_score !== undefined) {
+    if (must(parsed.candidates[2]).similarity_score !== undefined) {
       throw new Error('<0 similarity_score should be dropped');
     }
-    if (parsed.candidates[3].similarity_score !== 0.85) {
-      throw new Error(`valid score 0.85 should be retained, got ${parsed.candidates[3].similarity_score}`);
+    if (must(parsed.candidates[3]).similarity_score !== 0.85) {
+      throw new Error(`valid score 0.85 should be retained, got ${must(parsed.candidates[3]).similarity_score}`);
     }
   });
 
@@ -248,7 +248,7 @@ describe('parseCandidatePayload', () => {
       ],
     };
     const parsed = must(parseCandidatePayload(raw));
-    if (parsed.candidates[0].author !== 'unknown' || parsed.candidates[1].author !== 'unknown') {
+    if (must(parsed.candidates[0]).author !== 'unknown' || must(parsed.candidates[1]).author !== 'unknown') {
       throw new Error(`failed safe author fallback: ${JSON.stringify(parsed.candidates)}`);
     }
   });
@@ -274,15 +274,15 @@ describe('parseCandidatePayload', () => {
       ],
     };
     const parsed = must(parseCandidatePayload(raw));
-    const c = parsed.candidates[0];
+    const c = must(parsed.candidates[0]);
     if (!c.created_at || c.created_at.length > 25) {
       throw new Error(`created_at should be <= 25 chars, got length ${c.created_at?.length}: ${c.created_at}`);
     }
     if (!c.labels || c.labels.length > 4) {
       throw new Error(`labels should be at most 4 items, got ${c.labels?.length}`);
     }
-    if (c.labels[0].length > 20) {
-      throw new Error(`label should be <= 20 chars, got length ${c.labels[0].length}: ${c.labels[0]}`);
+    if (must(c.labels[0]).length > 20) {
+      throw new Error(`label should be <= 20 chars, got length ${must(c.labels[0]).length}: ${must(c.labels[0])}`);
     }
     if (c.labels.includes('label-five-should-be-dropped')) {
       throw new Error('5th label should have been dropped');
