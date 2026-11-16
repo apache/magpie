@@ -828,7 +828,10 @@ What makes running git unsandboxed acceptable here:
   refuses to run while the local or worktree config holds any key outside a
   short list of inert ones (remotes, branch tracking, `user.name`, …). Global
   and system configuration are the user's own and stay in effect, so an SSH
-  wrapper or touch overlay configured there keeps working.
+  wrapper or touch overlay configured there keeps working. The check covers
+  every working tree the operation runs git in, and runs again right before
+  the command that acts; `core.fsmonitor=false` and `protocol.ext.allow=never`
+  are pinned on every call so they cannot appear in between.
 - **No environment steers git.** Every `GIT_*` variable is dropped.
 - **Hooks.** The worktree operations never run hooks. A push runs the
   `pre-push` hook from `.git/hooks` or the user's global `core.hooksPath`,

@@ -204,6 +204,49 @@ def test_repository_config_that_steers_git_is_refused(
         _push(git, policy, repo, "topic", "fork", "topic", "new")
 
 
+def test_the_main_checkouts_worktree_config_is_checked_for_a_linked_worktree(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    start = _git(repo, "rev-parse", "HEAD")
+    path = policy.worktree_roots[0] / "wt"
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": "t", "start": start}, False
+    )
+    _git(repo, "config", "extensions.worktreeConfig", "true")
+    _git(repo, "config", "--worktree", "core.sshCommand", "touch /tmp/pwned")
+    with pytest.raises(GitRefused, match=r"core\.sshcommand"):
+        git_ops.worktree_remove(git, policy, {"worktree": str(path)}, False)
+    assert path.exists()
+
+
+def test_config_added_after_the_first_check_is_caught_before_the_command(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _git(repo, "branch", "topic")
+    checks = 0
+    real_runner = git.runner
+
+    def runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        nonlocal checks
+        if "--show-scope" in argv:
+            checks += 1
+            if checks == 2:
+                _git(repo, "config", "core.sshCommand", "touch /tmp/pwned")
+        return real_runner(argv)
+
+    with pytest.raises(GitRefused, match=r"core\.sshcommand"):
+        _push(Git(runner=runner), policy, repo, "topic", "fork", "topic", "new")
+    with pytest.raises(subprocess.CalledProcessError):
+        _remote_head(policy, "me/project", "topic")
+
+
+def test_every_git_call_pins_fsmonitor_and_ext_transport(repo: Path) -> None:
+    argv = git_ops.git_argv(repo, "status", hooks=True)
+    assert argv[:5] == ["git", "-c", "core.fsmonitor=false", "-c", "protocol.ext.allow=never"]
+    assert "core.hooksPath=/dev/null" not in argv
+    assert "core.hooksPath=/dev/null" in git_ops.git_argv(repo, "status")
+
+
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
     _git(repo, "branch", "topic")
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")

@@ -263,11 +263,18 @@ def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, check=False, capture_output=True, text=True, env=clean_env())
 
 
+#: Pinned on every call, so these cannot take effect even if the repository's
+#: configuration gains them between `check_repository_config` and the command:
+#: no file-system monitor program, and no transport that runs a command.
+PINNED_CONFIG = ("core.fsmonitor=false", "protocol.ext.allow=never")
+
+
 def git_argv(directory: Path, *args: str, hooks: bool = False) -> list[str]:
     """A git command in ``directory``, with hooks switched off unless ``hooks``."""
-    if hooks:
-        return ["git", "-C", str(directory), *args]
-    return ["git", "-c", "core.hooksPath=/dev/null", "-C", str(directory), *args]
+    pinned = [arg for value in PINNED_CONFIG for arg in ("-c", value)]
+    if not hooks:
+        pinned += ["-c", "core.hooksPath=/dev/null"]
+    return ["git", *pinned, "-C", str(directory), *args]
 
 
 @dataclass
@@ -375,19 +382,30 @@ def parse_config_scopes(output: str) -> list[tuple[str, str]]:
 
 
 def check_repository_config(git: Git, worktree: Worktree) -> None:
-    """Refuse a repository whose own configuration holds a key outside `SAFE_LOCAL_KEY`."""
-    output = git.run(worktree.path, "config", "--list", "--show-scope", "--name-only", "--includes", "-z")
+    """Refuse a repository whose own configuration holds a key outside `SAFE_LOCAL_KEY`.
+
+    Checked in every working tree an operation runs git in (a linked worktree
+    has its own ``config.worktree``), and again right before the command that
+    acts, so a key added after the first check is still caught; what cannot
+    be re-checked in between is pinned by `PINNED_CONFIG`.
+    """
+    for directory in dict.fromkeys((worktree.path, worktree.checkout)):
+        _check_config_in(git, directory)
+
+
+def _check_config_in(git: Git, directory: Path) -> None:
+    output = git.run(directory, "config", "--list", "--show-scope", "--name-only", "--includes", "-z")
     unsafe = sorted(
         {
             key
             for scope, key in parse_config_scopes(output)
-            # `command` scope is this module's own `-c core.hooksPath`; `GIT_CONFIG_*` is dropped.
+            # `command` scope is this module's own `-c` pins; `GIT_CONFIG_*` is dropped.
             if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.match(key.lower())
         }
     )
     if unsafe:
         raise GitRefused(
-            f"the repository configuration of {str(worktree.path)!r} sets {', '.join(unsafe)}; "
+            f"the repository configuration of {str(directory)!r} sets {', '.join(unsafe)}; "
             "git runs outside the sandbox here, so only inert repository settings are accepted. "
             "Move those settings to your global git configuration, or remove them, and retry"
         )
@@ -451,6 +469,7 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     ]
     if dry_run:
         return " ".join(git_argv(worktree.path, *args, hooks=run_hooks))
+    check_repository_config(git, worktree)
     git.run(worktree.path, *args, hooks=run_hooks)
     was = "created" if not lease else f"was {lease}"
     skipped = "" if run_hooks else "; pre-push hook skipped"
@@ -473,6 +492,7 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     args = ["reset", "--keep", commit]
     if dry_run:
         return " ".join(git_argv(worktree.path, *args))
+    check_repository_config(git, worktree)
     git.run(worktree.path, *args)
     return f"moved {branch} in {worktree.path} from {previous} to {commit}"
 
@@ -500,6 +520,7 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     args = ["worktree", "add", "-b", branch, str(path), start]
     if dry_run:
         return " ".join(git_argv(checkout.path, *args))
+    check_repository_config(git, checkout)
     git.run(checkout.path, *args)
     return f"created {path} on new branch {branch} at {start}"
 
@@ -514,6 +535,7 @@ def worktree_remove(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: boo
     if dry_run:
         return " ".join(git_argv(worktree.checkout, *args))
     # Without --force git itself refuses a worktree with modified or untracked files.
+    check_repository_config(git, worktree)
     git.run(worktree.checkout, *args)
     return f"removed {worktree.path}"
 
