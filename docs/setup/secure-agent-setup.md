@@ -3420,12 +3420,16 @@ the agent's own rules:
 "permissions": {
   "deny": [
     "Edit(~/.claude/CLAUDE.md)", "Edit(~/.claude-config/CLAUDE.md)",
-    "Edit(~/.claude/settings.json)", "Edit(~/.claude-config/settings.json)"
+    "Edit(~/.claude/settings.json)", "Edit(~/.claude-config/settings.json)",
+    "Edit(~/.claude/scripts/**)", "Edit(~/.claude-config/scripts/**)",
+    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)"
   ]
 }
 ```
 
 Name both the `~/.claude/` path and the sync-repo path it links to.
+Hook scripts and git hooks run outside the sandbox, so an edit to them
+runs with your full permissions.
 Denying `settings.json` too keeps an edit from deleting the other rules.
 Afterwards you change these files by hand.
 
