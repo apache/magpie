@@ -40,7 +40,7 @@ def _read_body_file(
         body = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise BitbucketError(f"Body file not found: {path}") from exc
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise BitbucketError(f"Failed to read body file {path}: {exc}") from exc
 
     if not body.strip():
@@ -65,6 +65,8 @@ def _validate_pull_request_create(
         raise BitbucketError("Pull request target branch must not be empty")
     if not title:
         raise BitbucketError("Pull request title must not be empty")
+    if source == target:
+        raise BitbucketError("Pull request source and target branches must be different")
 
     for label, branch in (("source", source), ("target", target)):
         if branch.startswith("refs/"):
@@ -395,7 +397,7 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
                 args.body_file,
                 empty_message="Pull request body file must not be empty",
             )
-            if args.body_file
+            if args.body_file is not None
             else None
         )
         raw = backend.create_pull_request(

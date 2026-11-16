@@ -135,16 +135,16 @@ This implementation primarily covers read-only operations, plus narrowly scoped 
 5. **Pull-request listing:** list open pull requests as `contract:change-request` proposal summaries.
 6. **Pull-request creation:** create a same-repository pull request on Bitbucket Cloud or Data Center from explicit source and target branches after caller-side confirmation.
 7. **Pull-request fetch:** fetch one pull request as a normalized proposal object.
-7. **Pull-request commits fetch:** fetch commits associated with a pull request as normalized read-only output.
-8. **Data Center Jira handoff discovery:** fetch Jira issue keys associated with commits in a Bitbucket Data Center pull request and identify `tools/jira` as the tracker handoff. Bitbucket does not proxy Jira reads or writes.
-9. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
-10. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
-11. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
-12. **Pull-request approve:** approve one Cloud or Data Center pull request as the authenticated user after explicit caller-side confirmation.
-13. **Pull-request unapprove:** withdraw the authenticated user's Cloud or Data Center pull-request approval after explicit caller-side confirmation.
-14. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
-15. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
-16. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
+8. **Pull-request commits fetch:** fetch commits associated with a pull request as normalized read-only output.
+9. **Data Center Jira handoff discovery:** fetch Jira issue keys associated with commits in a Bitbucket Data Center pull request and identify `tools/jira` as the tracker handoff. Bitbucket does not proxy Jira reads or writes.
+10. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
+11. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
+12. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
+13. **Pull-request approve:** approve one Cloud or Data Center pull request as the authenticated user after explicit caller-side confirmation.
+14. **Pull-request unapprove:** withdraw the authenticated user's Cloud or Data Center pull-request approval after explicit caller-side confirmation.
+15. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
+16. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
+17. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
 
 The bridge supports two Bitbucket API flavours behind one command
 surface:

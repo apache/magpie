@@ -252,7 +252,7 @@ def created_pull_request(
 ) -> dict[str, Any]:
     """Normalize the result of creating one pull request."""
     normalized = pull_request(kind, raw)
-    normalized["labels"] = WRITE_LABELS
+    normalized["labels"] = list(WRITE_LABELS)
 
     pull_request_id = normalized.get("id")
 

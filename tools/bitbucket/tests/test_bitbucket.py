@@ -3075,6 +3075,89 @@ def test_cli_pr_create_rejects_invalid_fields_before_write(
 
 
 @patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_rejects_same_source_and_target_before_write(
+    mock_create: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="source and target branches must be different",
+    ):
+        main(
+            [
+                "pr",
+                "create",
+                "--source",
+                "main",
+                "--target",
+                "main",
+                "--title",
+                "Add feature",
+            ]
+        )
+
+    mock_create.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_empty_body_file_argument_fails_before_write(
+    mock_create: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Failed to read body file",
+    ):
+        main(
+            [
+                "pr",
+                "create",
+                "--source",
+                "feature/example",
+                "--target",
+                "main",
+                "--title",
+                "Add feature",
+                "--body-file",
+                "",
+            ]
+        )
+
+    mock_create.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request")
+def test_cli_pr_create_invalid_utf8_body_fails_before_write(
+    mock_create: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "invalid.md"
+    body_file.write_bytes(b"\xff\xfe")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Failed to read body file",
+    ):
+        main(
+            [
+                "pr",
+                "create",
+                "--source",
+                "feature/example",
+                "--target",
+                "main",
+                "--title",
+                "Add feature",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_create.assert_not_called()
+
+
+@patch("magpie_bitbucket.cloud.create_pull_request")
 def test_cli_pr_create_rejects_empty_body_before_write(
     mock_create: MagicMock,
     cloud_env: None,
