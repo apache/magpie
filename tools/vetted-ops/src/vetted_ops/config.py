@@ -57,6 +57,11 @@ APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
 
 #: `values.<key>_patterns` adds full-match patterns to the enum list `<key>`.
 PATTERNS_SUFFIX = "_patterns"
+#: The enum keys a pattern may widen. Milestones are minted on a schedule and
+#: have no syntax of their own to check. Labels and assignees are not here: a
+#: label reaches `gh` list flags and search qualifiers, and a login has its own
+#: format check, so both stay listed by name.
+PATTERN_KEYS = frozenset({"milestones"})
 
 
 def cast_patterns(raw: object, key: str) -> list[str]:
@@ -68,6 +73,8 @@ def cast_patterns(raw: object, key: str) -> list[str]:
     always a real constraint the policy's author wrote on purpose.
     """
     name = f"values.{key}{PATTERNS_SUFFIX}"
+    if key not in PATTERN_KEYS:
+        raise ConfigError(f"{name}: only {sorted(PATTERN_KEYS)} may be widened by patterns")
     if not isinstance(raw, list) or not all(isinstance(p, str) for p in raw):
         raise ConfigError(f"{name} must be a list of regular-expression strings")
     for pattern in raw:

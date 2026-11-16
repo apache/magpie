@@ -328,18 +328,21 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 and PRs, which the issue and PR families already cover. A family earns new
 operations only when it has a shape the catalogue lacks.
 
-**Patterns for values a project mints on a schedule.** Any `[values]` list can
-gain a sibling `<key>_patterns` list of regular expressions, such as
-`milestones_patterns` above. A parameter gated on `<key>` then accepts a listed
-value or one that a pattern matches *in full* (`fullmatch`, so
-`Providers 2026-11-17 extra` does not pass). A project that cuts a dated
-milestone every release wave declares its shape once instead of editing and
-re-approving the policy for each wave. A pattern-matched value must also be one
-line of printable text of at most 100 characters, with no leading or trailing
-space. The patterns are checked when the policy loads: one that does not
-compile, or that matches the empty string (`.*`, `''`), is refused, so a
-pattern is always a real constraint. A list may be replaced entirely by its
-patterns. Board columns map names to option IDs, so a pattern cannot widen them.
+**Patterns for milestones a project mints on a schedule.** `milestones` can
+gain a sibling `milestones_patterns` list of regular expressions. A milestone
+parameter then accepts a listed value or one that a pattern matches *in full*
+(`fullmatch`, so `Providers 2026-11-17 extra` does not pass). A project that
+cuts a dated milestone every release wave declares its shape once instead of
+editing and re-approving the policy for each wave. A pattern-matched value must
+also be a plain name: 1 to 100 characters, no leading or trailing space, the
+plain space as its only whitespace, no `,` `"` or `\`, and no Unicode control,
+format or line-separator character, whatever the pattern allows. The patterns
+are checked when the policy loads: one that does not compile, or that matches
+the empty string (`.*`, `''`), is refused, so a pattern is always a real
+constraint. The milestone list may be replaced entirely by its patterns. No
+other list takes patterns, and the policy refuses one that tries: labels reach
+`gh` list flags and search qualifiers, and logins have their own format check,
+so both stay listed by name.
 
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a
