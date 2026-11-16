@@ -299,6 +299,7 @@ When the token is withheld — no confirmed host, or a different one — every w
 | `--issue-type` | `SECURITY_TRACKER_ISSUE_TYPE` | `tracker.jira.issue_type` | Default `Bug`. |
 | `--deployment {server,cloud}` | `JIRA_DEPLOYMENT` | `tracker.jira.deployment` | Cloud uses the search endpoint `/search/jql` and account-ID assignees. When given, it wins over `JIRA_DEPLOYMENT` and `--jira-cloud`; vetted-ops always passes it. |
 | `--jira-cloud` | `JIRA_DEPLOYMENT=cloud` | — | Compatibility alias for `--deployment cloud`. |
+| `--rollup-author` (repeatable) | `SECURITY_TRACKER_ROLLUP_AUTHORS` (comma-separated) | — | Users whose status-rollup comment counts, beside the authenticated user. Any flag, even an empty `--rollup-author=`, replaces the environment variable. vetted-ops always passes the policy's `jira_rollup_authors` this way. |
 
 Under vetted-ops the URL, project and level are pinned by the policy's `[tracker]` table, not by the caller.
 
@@ -322,6 +323,8 @@ A wiki heading of level 1 to 3 outside closed blocks reads as `### <Heading>`; c
 `create` and `edit` escape every `###` line inside a closed block with a leading `\`, so quoted text never becomes a field copy. Names match with case and inner whitespace ignored; `field-get` and `field-set` exit `4` on a duplicate or disputed field, and `field-set` on a value that would add, hide or move a field heading.
 The status rollup is one comment opening with the invisible anchor `{anchor:magpie-status-rollup-v1}`, entries `*YYYY-MM-DD · @user · Action*` separated by `----`, oldest first;
 `rollup-amend-latest` exits `4` when the latest action differs. Neither rollup command prints the rollup text.
+A comment carrying the anchor counts as the rollup only when its author is the authenticated user or one of the `--rollup-author` users (`SECURITY_TRACKER_ROLLUP_AUTHORS`, comma-separated; the vetted-ops policy's `jira_rollup_authors`), matched on the server `name` / `key` or the cloud `accountId`.
+Any other anchored comment is left alone: `rollup-append` starts a rollup of its own and lists those authors in `ignored_rollup_authors`, and `rollup-amend-latest` exits `3` naming them.
 
 ## Configuration
 

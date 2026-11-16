@@ -43,6 +43,8 @@ from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
 #: A Jira project key.
 _JIRA_KEY = re.compile(r"^[A-Z][A-Z0-9_]{0,30}$")
+#: A Jira user name (server) or account ID (cloud): one token, never an option.
+_JIRA_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@:+-]{0,127}$")
 
 DEFAULT_RELATIVE_PATH = Path(".apache-magpie-overrides/tools/vetted-ops/config.toml")
 #: The same policy in a personal layer, for a maintainer whose project has not
@@ -242,6 +244,11 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     key = _one_line(raw, "jira_project")
     if not _JIRA_KEY.match(key):
         raise ConfigError(f"[tracker] jira_project must be a Jira project key, got {key!r}")
+    authors = raw.get("jira_rollup_authors", [])
+    if not isinstance(authors, list) or not all(isinstance(a, str) and _JIRA_USER.match(a) for a in authors):
+        raise ConfigError(
+            f"[tracker] jira_rollup_authors must be a list of Jira user names or account IDs, got {authors!r}"
+        )
     deployment = raw.get("jira_deployment", "server")
     if deployment not in ("server", "cloud"):
         raise ConfigError(f"[tracker] jira_deployment must be server or cloud, got {deployment!r}")
@@ -253,6 +260,7 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
         jira_security_level=_one_line(raw, "jira_security_level"),
         jira_issue_type=_one_line(raw, "jira_issue_type") if "jira_issue_type" in raw else "Bug",
         jira_cloud=deployment == "cloud",
+        jira_rollup_authors=tuple(authors),
     )
 
 

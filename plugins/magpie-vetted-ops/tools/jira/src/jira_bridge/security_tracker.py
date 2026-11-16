@@ -52,6 +52,9 @@ class Config:
     security_level: str
     issue_type: str
     cloud: bool
+    #: Jira users whose status-rollup comment counts, beside the authenticated
+    #: user (`--rollup-author` / SECURITY_TRACKER_ROLLUP_AUTHORS).
+    rollup_authors: tuple[str, ...] = ()
 
 
 # -- helpers -----------------------------------------------------------------
@@ -455,11 +458,60 @@ def op_reopen(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     return {"id": key, "state": "open"}
 
 
-def _find_rollup(client: JiraClient, key: str) -> dict[str, Any] | None:
+#: The fields that name a Jira user: server `name` / `key`, cloud `accountId`.
+_USER_FIELDS = ("name", "key", "accountId")
+
+
+def _identities(user: Any) -> set[tuple[str, str]]:
+    """A Jira user's identifiers, each tagged with its field so fields never cross-match."""
+    if not isinstance(user, dict):
+        return set()
+    return {(k, str(user[k]).casefold()) for k in _USER_FIELDS if user.get(k)}
+
+
+def _named_by(ids: set[tuple[str, str]], names: set[str]) -> bool:
+    """Whether a configured author (a user name or a cloud account ID) names this user."""
+    return any(field in ("name", "accountId") and value in names for field, value in ids)
+
+
+def _display(user: Any) -> str:
+    if not isinstance(user, dict):
+        return "unknown"
+    return str(
+        user.get("name")
+        or user.get("accountId")
+        or user.get("displayName")
+        or "unknown"
+    )
+
+
+def _find_rollup(
+    client: JiraClient, key: str, cfg: Config
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """The first rollup comment by an accepted author, and the authors of any others.
+
+    Accepted authors are the authenticated user and `cfg.rollup_authors`. A
+    comment carrying the rollup anchor by anyone else is not the rollup: it
+    is neither extended nor amended, and its author is reported.
+    """
+    accepted = {a.casefold() for a in cfg.rollup_authors}
+    me: set[tuple[str, str]] | None = None
+    found: dict[str, Any] | None = None
+    ignored: list[str] = []
     for comment in client.comments(key):
-        if markup.is_rollup(str(comment.get("body") or "")):
-            return comment
-    return None
+        if not markup.is_rollup(str(comment.get("body") or "")):
+            continue
+        author = comment.get("author")
+        ids = _identities(author)
+        if not _named_by(ids, accepted):
+            if me is None:
+                me = _identities(client.myself())
+            if not ids & me:
+                ignored.append(_display(author))
+                continue
+        if found is None:
+            found = comment
+    return found, ignored
 
 
 def _rollup_user(client: JiraClient, user: str | None) -> str:
@@ -479,7 +531,7 @@ def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) 
     date = _date(args.now)
     guarded_issue(client, key, level=cfg.security_level)
     user = _rollup_user(client, args.user)
-    existing = _find_rollup(client, key)
+    existing, ignored = _find_rollup(client, key, cfg)
     entry = markup.RollupEntry(date, user, action, entry_body)
     if existing is None:
         data = client.call(
@@ -496,7 +548,10 @@ def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) 
             f"/rest/api/2/issue/{key}/comment/{comment_id}",
             payload={"body": markup.render_rollup(entries)},
         )
-    return {"id": key, "url": client.comment_url(key, comment_id)}
+    result: dict[str, Any] = {"id": key, "url": client.comment_url(key, comment_id)}
+    if ignored:
+        result["ignored_rollup_authors"] = ignored
+    return result
 
 
 def op_rollup_amend_latest(
@@ -506,10 +561,11 @@ def op_rollup_amend_latest(
     action = _single_line(args.action, "--action")
     entry_body = markup.neutralize(_read_text(args.entry_body_file, "entry body"))
     guarded_issue(client, key, level=cfg.security_level)
-    existing = _find_rollup(client, key)
+    existing, ignored = _find_rollup(client, key, cfg)
     entries = markup.parse_rollup(str(existing.get("body") or "")) if existing else []
     if existing is None or not entries:
-        raise NotFoundError(f"{key} has no status rollup to amend")
+        extra = f" (ignored a rollup by {', '.join(ignored)})" if ignored else ""
+        raise NotFoundError(f"{key} has no status rollup to amend{extra}")
     latest = entries[-1]
     if latest.action.strip() != action:
         raise RefusedError(
@@ -687,6 +743,18 @@ def _common(parser: argparse.ArgumentParser, default: Any) -> None:
         default=default,
         help="Jira deployment; when given, wins over JIRA_DEPLOYMENT and --jira-cloud.",
     )
+    parser.add_argument(
+        "--rollup-author",
+        action="append",
+        # The root parser and the subcommand keep separate lists, so a flag
+        # given after the subcommand does not replace one given before it.
+        dest="rollup_author" if default is None else "rollup_author_sub",
+        default=default,
+        help=(
+            "A Jira user whose status-rollup comment counts, beside the authenticated user; "
+            "repeatable (SECURITY_TRACKER_ROLLUP_AUTHORS, comma-separated)."
+        ),
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -820,7 +888,19 @@ def resolve_config(args: argparse.Namespace, env: Mapping[str, str]) -> Config:
         ).strip()
         or "Bug",
         cloud=cloud,
+        rollup_authors=_rollup_authors(args, env),
     )
+
+
+def _rollup_authors(
+    args: argparse.Namespace, env: Mapping[str, str]
+) -> tuple[str, ...]:
+    given = [
+        *(getattr(args, "rollup_author", None) or []),
+        *(getattr(args, "rollup_author_sub", None) or []),
+    ]
+    raw = given if given else env.get("SECURITY_TRACKER_ROLLUP_AUTHORS", "").split(",")
+    return tuple(a.strip().lstrip("@") for a in raw if a and a.strip())
 
 
 def main(

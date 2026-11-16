@@ -99,6 +99,8 @@ class TrackerBackend:
     jira_security_level: str = ""
     jira_issue_type: str = "Bug"
     jira_cloud: bool = False
+    #: Jira users whose status-rollup comment counts, beside the authenticated user.
+    jira_rollup_authors: tuple[str, ...] = ()
 
     def prefix(self) -> list[str]:
         _, script = BACKEND_SCRIPTS[self.platform]
@@ -115,6 +117,11 @@ class TrackerBackend:
             "--issue-type",
             self.jira_issue_type,
         ]
+        # Always explicit, so an inherited SECURITY_TRACKER_ROLLUP_AUTHORS
+        # cannot add authors the policy does not name; an empty value means
+        # "no one beside the authenticated user".
+        for author in self.jira_rollup_authors or ("",):
+            argv.append(f"--rollup-author={author}")
         # Always explicit, so an inherited JIRA_DEPLOYMENT cannot override
         # the policy's deployment.
         return [*argv, "--deployment", "cloud" if self.jira_cloud else "server"]

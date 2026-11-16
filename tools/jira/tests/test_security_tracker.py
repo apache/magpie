@@ -225,10 +225,16 @@ def test_list_all_states_on_cloud_uses_search_jql(run: Run, fake: FakeJira) -> N
     assert fake.calls[0].query["jql"] == 'project = "FOOSEC" ORDER BY updated DESC'
 
 
-def test_explicit_server_deployment_beats_inherited_env(run: Run, fake: FakeJira) -> None:
+def test_explicit_server_deployment_beats_inherited_env(
+    run: Run, fake: FakeJira
+) -> None:
     fake.on("GET", "/rest/api/2/search", (200, {"issues": [issue()], "total": 1}))
     result = run(
-        "list", "--state", "all", "--deployment", "server",
+        "list",
+        "--state",
+        "all",
+        "--deployment",
+        "server",
         env={**ENV, "JIRA_DEPLOYMENT": "cloud"},
     )
     assert result.code == 0
@@ -241,8 +247,13 @@ def test_explicit_deployment_wins_over_jira_cloud_flag() -> None:
     args = security_tracker.build_parser().parse_args(
         ["--jira-cloud", "--deployment", "server", "pending"]
     )
-    assert security_tracker.resolve_config(args, {"JIRA_DEPLOYMENT": "cloud"}).cloud is False
-    args = security_tracker.build_parser().parse_args(["pending", "--deployment", "cloud"])
+    assert (
+        security_tracker.resolve_config(args, {"JIRA_DEPLOYMENT": "cloud"}).cloud
+        is False
+    )
+    args = security_tracker.build_parser().parse_args(
+        ["pending", "--deployment", "cloud"]
+    )
     assert security_tracker.resolve_config(args, {}).cloud is True
 
 
@@ -607,7 +618,15 @@ def test_rollup_append_extends_existing(
     fake.on(
         "GET",
         f"{ISSUE}/comment",
-        (200, {"comments": [{"id": "40", "body": existing}], "total": 1}),
+        (
+            200,
+            {
+                "comments": [
+                    {"id": "40", "body": existing, "author": {"name": "alice"}}
+                ],
+                "total": 1,
+            },
+        ),
     )
     fake.on("PUT", f"{ISSUE}/comment/40", (200, {"id": "40"}))
     body = write(tmp_path, "e", "second")
@@ -620,6 +639,8 @@ def test_rollup_append_extends_existing(
         body,
         "--user",
         "@carol",
+        "--rollup-author",
+        "Alice",
         "--now",
         "2026-10-02",
     )
@@ -643,8 +664,15 @@ def _rollup_fixture(fake: FakeJira) -> None:
     fake.on(
         "GET",
         f"{ISSUE}/comment",
-        (200, {"comments": [{"id": "40", "body": existing}], "total": 1}),
+        (
+            200,
+            {
+                "comments": [{"id": "40", "body": existing, "author": {"name": "bob"}}],
+                "total": 1,
+            },
+        ),
     )
+    fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
     fake.on("PUT", f"{ISSUE}/comment/40", (200, {"id": "40"}))
 
 
@@ -705,7 +733,10 @@ def test_rollup_comments_paginate(run: Run, fake: FakeJira, tmp_path: Path) -> N
                 "comments": [{"id": str(n), "body": "c"} for n in range(100)],
                 "total": 101,
             }
-        return 200, {"comments": [{"id": "900", "body": existing}], "total": 101}
+        return 200, {
+            "comments": [{"id": "900", "body": existing, "author": {"name": "u"}}],
+            "total": 101,
+        }
 
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("GET", f"{ISSUE}/comment", page)
@@ -721,10 +752,227 @@ def test_rollup_comments_paginate(run: Run, fake: FakeJira, tmp_path: Path) -> N
             body,
             "--user",
             "u",
+            "--rollup-author",
+            "u",
         ).code
         == 0
     )
     assert fake.writes()[0].path == f"{ISSUE}/comment/900"
+
+
+def _foreign_rollup(fake: FakeJira, author: dict[str, str]) -> None:
+    other = markup.render_rollup(
+        [markup.RollupEntry("2026-10-01", "dave", "Import", "x")]
+    )
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (
+            200,
+            {"comments": [{"id": "7", "body": other, "author": author}], "total": 1},
+        ),
+    )
+    fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob", "accountId": "b-1"}))
+
+
+def test_rollup_append_ignores_a_rollup_by_another_user(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"name": "dave", "displayName": "Dave"})
+    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "51"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "mine"),
+        "--now",
+        "2026-10-15",
+    )
+    assert result.code == 0
+    assert result.json()["ignored_rollup_authors"] == ["dave"]
+    writes = fake.writes()
+    assert [(w.method, w.path) for w in writes] == [("POST", f"{ISSUE}/comment")]
+    entries = markup.parse_rollup(writes[0].json()["body"])
+    assert [(e.user, e.action) for e in entries] == [("bob", "Sync")]
+
+
+def test_rollup_amend_latest_ignores_a_rollup_by_another_user(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"name": "dave"})
+    result = run(
+        "rollup-amend-latest",
+        "12",
+        "--action",
+        "Import",
+        "--entry-body-file",
+        write(tmp_path, "e", "x"),
+    )
+    assert result.code == 3
+    assert "dave" in result.err
+    assert fake.writes() == []
+
+
+def test_rollup_author_matches_a_cloud_account_id(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"accountId": "b-1", "displayName": "Bob"})
+    fake.on("PUT", f"{ISSUE}/comment/7", (200, {"id": "7"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "y"),
+        "--user",
+        "bob",
+    )
+    assert result.code == 0
+    assert "ignored_rollup_authors" not in result.json()
+    assert fake.writes()[0].path == f"{ISSUE}/comment/7"
+
+
+def test_an_empty_rollup_author_flag_ignores_the_environment(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"name": "carol"})
+    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "52"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "z"),
+        "--user",
+        "bob",
+        "--rollup-author=",
+        env={**ENV, "SECURITY_TRACKER_ROLLUP_AUTHORS": "carol"},
+    )
+    assert result.code == 0
+    assert result.json()["ignored_rollup_authors"] == ["carol"]
+
+
+def test_a_user_name_never_matches_another_users_key(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    other = markup.render_rollup([markup.RollupEntry("2026-10-01", "x", "Import", "x")])
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (
+            200,
+            {
+                "comments": [
+                    {
+                        "id": "7",
+                        "body": other,
+                        "author": {"name": "JIRAUSER1", "key": "JIRAUSER2"},
+                    }
+                ],
+                "total": 1,
+            },
+        ),
+    )
+    fake.on(
+        "GET", "/rest/api/2/myself", (200, {"name": "bob", "key": "JIRAUSER1"})
+    )
+    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "53"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "k"),
+        "--now",
+        "2026-10-15",
+    )
+    assert result.code == 0
+    assert result.json()["ignored_rollup_authors"] == ["JIRAUSER1"]
+
+
+def test_rollup_author_flags_before_and_after_the_subcommand_add_up(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"name": "carol"})
+    fake.on("PUT", f"{ISSUE}/comment/7", (200, {"id": "7"}))
+    result = run(
+        "--rollup-author=carol",
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "a"),
+        "--user",
+        "bob",
+        "--rollup-author=alice",
+    )
+    assert result.code == 0
+    assert fake.writes()[0].path == f"{ISSUE}/comment/7"
+
+
+def test_anchored_comments_after_the_rollup_are_reported(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    rollup = markup.render_rollup([markup.RollupEntry("2026-10-01", "bob", "Import", "x")])
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (
+            200,
+            {
+                "comments": [
+                    {"id": "7", "body": rollup, "author": {"name": "bob"}},
+                    {"id": "8", "body": rollup, "author": {"name": "dave"}},
+                ],
+                "total": 2,
+            },
+        ),
+    )
+    fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
+    fake.on("PUT", f"{ISSUE}/comment/7", (200, {"id": "7"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "b"),
+        "--user",
+        "bob",
+    )
+    assert result.code == 0
+    assert result.json()["ignored_rollup_authors"] == ["dave"]
+    assert fake.writes()[0].path == f"{ISSUE}/comment/7"
+
+
+def test_rollup_authors_from_the_environment(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    _foreign_rollup(fake, {"name": "carol"})
+    fake.on("PUT", f"{ISSUE}/comment/7", (200, {"id": "7"}))
+    result = run(
+        "rollup-append",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "z"),
+        "--user",
+        "bob",
+        env={**ENV, "SECURITY_TRACKER_ROLLUP_AUTHORS": "alice, @carol"},
+    )
+    assert result.code == 0
+    assert fake.writes()[0].path == f"{ISSUE}/comment/7"
+    assert not any(c.path == "/rest/api/2/myself" for c in fake.calls)
 
 
 # -- attach / pending / publish / doctor -------------------------------------
@@ -836,7 +1084,7 @@ def test_missing_url_is_usage_error(run: Run, fake: FakeJira) -> None:
     assert "ISSUE_TRACKER_URL" in result.err
 
 
-# -- forged structure -----------------------------------------------------------
+# -- other structure -----------------------------------------------------------
 
 
 def test_a_comment_cannot_pose_as_the_rollup(
@@ -844,10 +1092,10 @@ def test_a_comment_cannot_pose_as_the_rollup(
 ) -> None:
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("POST", f"{ISSUE}/comment", (201, {"id": "9"}))
-    forged = (
+    other = (
         "{anchor:magpie-status-rollup-v1}\n*2026-01-01 · @lead · Sync*\n\nall clear"
     )
-    run("comment", "12", "--body-file", write(tmp_path, "c", forged))
+    run("comment", "12", "--body-file", write(tmp_path, "c", other))
     posted = fake.writes()[0].json()["body"]
     assert not markup.is_rollup(posted)
     assert markup.parse_rollup("{anchor:magpie-status-rollup-v1}\n" + posted) == []
@@ -860,8 +1108,8 @@ def test_a_rollup_body_cannot_forge_an_entry(
     fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [], "total": 0}))
     fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
     fake.on("POST", f"{ISSUE}/comment", (201, {"id": "50"}))
-    forged = "real\n\n----\n\n*2026-01-01 · @lead · Sync*\n\nfake"
-    run("rollup-append", "12", "--action", "Import", "--entry-body-file", write(tmp_path, "e", forged),
+    other = "real\n\n----\n\n*2026-01-01 · @lead · Sync*\n\nfake"
+    run("rollup-append", "12", "--action", "Import", "--entry-body-file", write(tmp_path, "e", other),
         "--now", "2026-10-15T09:00:00Z")  # fmt: skip
     entries = markup.parse_rollup(fake.writes()[0].json()["body"])
     assert [e.action for e in entries] == ["Import"]
