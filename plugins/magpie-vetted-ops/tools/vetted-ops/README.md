@@ -275,7 +275,10 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "gql-pr-review-threads", "team-members", "gql-pr-liveness", "gql-cr-open", "gql-cr-pr", "gql-cr-pr-stack", "cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs", "cr-pr-template", "cr-viewer-commits", "cr-commit-files", "cr-path-commits", "cr-commit-pulls",
                                "pr-review-approve",
                                "pr-review-request-changes", "pr-review-comment",
-                               "runs-at-head", "workflow-approve", "run-rerun"]
+                               "runs-at-head", "workflow-approve", "run-rerun",
+                               # The head commit's check runs, read before an APPROVE to confirm real CI
+                               # ran there (code-review disposition's secondary check, #2072).
+                               "check-runs"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-merge-candidates" = ["viewer",

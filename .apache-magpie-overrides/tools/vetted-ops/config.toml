@@ -83,6 +83,9 @@ close_reasons = ["completed", "not planned"]
     # The head commit's check runs, read before an APPROVE to confirm real CI
     # ran there (code-review disposition's secondary check, #2072).
     "check-runs",
+    # The workflow runs held at the head commit, which `code-review runs` reads
+    # before it proposes releasing them.
+    "runs-at-head",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,
