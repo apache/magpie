@@ -58,7 +58,18 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
   outside a short list of inert ones (`SAFE_LOCAL_KEY`). Global and system
   configuration are the user's own and stay in effect, so an SSH wrapper or a
   signing setup there keeps working.
-* **No environment steers git.** Every ``GIT_*`` variable is dropped.
+* **No environment steers git.** Every ``GIT_*`` variable is dropped, and
+  ``HOME`` comes from the password database, so the global configuration read
+  is the account's own.
+* **What is re-checked cannot change in between.** The configuration check
+  runs again right before the command that acts, and the keys that could start
+  a program in that window are pinned on the command line (`PINNED_CONFIG`,
+  ``core.sshCommand`` set to the user's global value, hooks off where they are
+  not wanted). Attributes come from the empty tree, so no ``.gitattributes``
+  can switch on a filter. A rewrite such as ``url.*.insteadOf`` cannot be
+  pinned away; that it cannot appear while the confirmed command runs rests on
+  the harness keeping ``.git/config`` write-protected, as Claude Code's sandbox
+  does.
 * **The destination is not addressable.** A push goes to a URL built from the
   policy's repository names, never to a remote the repository configures.
   Protected branches are refused whatever the policy says, and the upstream
@@ -81,7 +92,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .config import Config, ConfigError, _expand_home, describe, load
+from .config import Config, ConfigError, _expand_home, account_home, describe, load
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -243,55 +254,89 @@ def git_policy(config: Config) -> GitPolicy:
 
 
 def clean_env(environ: dict[str, str] | None = None) -> dict[str, str]:
-    """The caller's environment without any ``GIT_*`` variable.
+    """The caller's environment, minus everything that would let it reconfigure git.
 
-    ``GIT_DIR``, ``GIT_SSH_COMMAND``, ``GIT_CONFIG_PARAMETERS`` and the like
-    would let whoever launches the command redirect or reconfigure git. What
-    remains (``PATH``, ``HOME``, ``SSH_AUTH_SOCK``, …) is what the user's own
-    git and ssh setup needs.
+    Every ``GIT_*`` variable is dropped (``GIT_DIR``, ``GIT_SSH_COMMAND``,
+    ``GIT_CONFIG_GLOBAL``, ``GIT_CONFIG_PARAMETERS``, …), and the global
+    configuration is pinned to the account's own: ``HOME`` comes from the
+    password database, never from the caller, and ``XDG_CONFIG_HOME`` is
+    dropped, so a configuration written somewhere the agent can write is never
+    read as the user's global one. What remains (``PATH``, ``SSH_AUTH_SOCK``,
+    ``GNUPGHOME``, …) is what the user's own git and ssh setup needs.
     """
     source = os.environ if environ is None else environ
-    env = {k: v for k, v in source.items() if not k.startswith("GIT_")}
+    env = {k: v for k, v in source.items() if not k.startswith("GIT_") and k != "XDG_CONFIG_HOME"}
+    env["HOME"] = str(account_home())
     env["GIT_TERMINAL_PROMPT"] = "0"
     return env
 
 
-Runner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+Runner = Callable[[list[str], dict[str, str]], "subprocess.CompletedProcess[str]"]
 
 
-def _default_runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, check=False, capture_output=True, text=True, env=clean_env())
+def _default_runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, check=False, capture_output=True, text=True, env=env)
 
 
-#: Pinned on every call, so these cannot take effect even if the repository's
-#: configuration gains them between `check_repository_config` and the command:
-#: no file-system monitor program, and no transport that runs a command.
-PINNED_CONFIG = ("core.fsmonitor=false", "protocol.ext.allow=never")
+#: Pinned on every call, so a key the repository's configuration gains between
+#: `check_repository_config` and the command cannot take effect: no file-system
+#: monitor program, no automatic gc or maintenance (their hooks are commands),
+#: and only network transports (a local path would run that repository's
+#: receive-pack and hooks here). The same pins as the local tracker's git.
+PINNED_CONFIG = ("core.fsmonitor=false", "gc.auto=0", "maintenance.auto=false", "protocol.allow=never")
 
-
-def git_argv(directory: Path, *args: str, hooks: bool = False) -> list[str]:
-    """A git command in ``directory``, with hooks switched off unless ``hooks``."""
-    pinned = [arg for value in PINNED_CONFIG for arg in ("-c", value)]
-    if not hooks:
-        pinned += ["-c", "core.hooksPath=/dev/null"]
-    return ["git", *pinned, "-C", str(directory), *args]
+#: The empty tree, per object format: attributes are read from it, so no
+#: `.gitattributes` in the working tree can switch on a filter or driver.
+EMPTY_TREE = {
+    "sha1": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+    "sha256": "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321",
+}
 
 
 @dataclass
 class Git:
-    """Runs git through `git_argv`; injectable for tests."""
+    """Runs git with the pins above; injectable for tests."""
 
     runner: Runner = field(default=_default_runner)
+    #: Transports a push may use. Tests add ``file``; production cannot.
+    protocols: tuple[str, ...] = ("https", "ssh")
+    #: The user's global ``core.sshCommand`` (or plain ``ssh``), pinned on every
+    #: call so the repository's configuration cannot replace it.
+    _ssh_command: str | None = field(default=None, repr=False)
+    #: Set once the object format is known (see `check_repository_config`).
+    attr_source: str | None = None
+
+    def ssh_command(self) -> str:
+        if self._ssh_command is None:
+            argv = ["git", "config", "--global", "--get", "core.sshCommand"]
+            found = self.runner(argv, clean_env())
+            value = found.stdout.strip() if found.returncode == 0 else ""
+            self._ssh_command = value if value and "\n" not in value else "ssh"
+        return self._ssh_command
+
+    def argv(self, directory: Path, *args: str, hooks: bool = False) -> list[str]:
+        """A git command in ``directory``, with hooks switched off unless ``hooks``."""
+        pins = [*PINNED_CONFIG, *(f"protocol.{p}.allow=always" for p in self.protocols)]
+        pins.append(f"core.sshCommand={self.ssh_command()}")
+        if not hooks:
+            pins.append("core.hooksPath=/dev/null")
+        return ["git", *(arg for pin in pins for arg in ("-c", pin)), "-C", str(directory), *args]
+
+    def _env(self) -> dict[str, str]:
+        env = clean_env()
+        if self.attr_source is not None:
+            env["GIT_ATTR_SOURCE"] = self.attr_source
+        return env
 
     def run(self, directory: Path, *args: str, hooks: bool = False) -> str:
-        argv = git_argv(directory, *args, hooks=hooks)
-        completed = self.runner(argv)
+        argv = self.argv(directory, *args, hooks=hooks)
+        completed = self.runner(argv, self._env())
         if completed.returncode != 0:
             raise GitFailed(argv, completed.returncode, completed.stderr or "")
         return completed.stdout
 
     def ok(self, directory: Path, *args: str) -> bool:
-        return self.runner(git_argv(directory, *args)).returncode == 0
+        return self.runner(self.argv(directory, *args), self._env()).returncode == 0
 
 
 # --- validation ------------------------------------------------------------
@@ -391,6 +436,10 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
     """
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)
+    object_format = git.run(worktree.path, "rev-parse", "--show-object-format").strip()
+    if object_format not in EMPTY_TREE:
+        raise GitRefused(f"unsupported object format {object_format!r}")
+    git.attr_source = EMPTY_TREE[object_format]
 
 
 def _check_config_in(git: Git, directory: Path) -> None:
@@ -462,13 +511,15 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     args = [
         "push",
         *(() if run_hooks else ("--no-verify",)),
+        # Only the one ref: `push.followTags` would also publish reachable tags.
+        "--no-follow-tags",
         "--porcelain",
         f"--force-with-lease=refs/heads/{remote_branch}:{lease}",
         policy.push_url(repo),
         f"{commit}:refs/heads/{remote_branch}",
     ]
     if dry_run:
-        return " ".join(git_argv(worktree.path, *args, hooks=run_hooks))
+        return " ".join(git.argv(worktree.path, *args, hooks=run_hooks))
     check_repository_config(git, worktree)
     git.run(worktree.path, *args, hooks=run_hooks)
     was = "created" if not lease else f"was {lease}"
@@ -491,7 +542,7 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
     args = ["reset", "--keep", commit]
     if dry_run:
-        return " ".join(git_argv(worktree.path, *args))
+        return " ".join(git.argv(worktree.path, *args))
     check_repository_config(git, worktree)
     git.run(worktree.path, *args)
     return f"moved {branch} in {worktree.path} from {previous} to {commit}"
@@ -519,7 +570,7 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     start = resolve_commit(git, checkout.path, sha(p["start"], "start"), "start")
     args = ["worktree", "add", "-b", branch, str(path), start]
     if dry_run:
-        return " ".join(git_argv(checkout.path, *args))
+        return " ".join(git.argv(checkout.path, *args))
     check_repository_config(git, checkout)
     git.run(checkout.path, *args)
     return f"created {path} on new branch {branch} at {start}"
@@ -533,7 +584,7 @@ def worktree_remove(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: boo
     check_repository_config(git, worktree)
     args = ["worktree", "remove", str(worktree.path)]
     if dry_run:
-        return " ".join(git_argv(worktree.checkout, *args))
+        return " ".join(git.argv(worktree.checkout, *args))
     # Without --force git itself refuses a worktree with modified or untracked files.
     check_repository_config(git, worktree)
     git.run(worktree.checkout, *args)

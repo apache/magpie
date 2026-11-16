@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 from vetted_ops import git_ops
-from vetted_ops.config import Config, ConfigError
+from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
 
 
@@ -69,12 +69,16 @@ class LocalPolicy(GitPolicy):
 
 @pytest.fixture
 def git() -> Git:
-    def runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
-        env = git_ops.clean_env()
-        env["GIT_CONFIG_GLOBAL"] = os.devnull
-        return subprocess.run(argv, check=False, capture_output=True, text=True, env=env)
+    return Git(runner=_runner(os.devnull), protocols=("https", "ssh", "file"))
 
-    return Git(runner=runner)
+
+def _runner(global_config: str) -> git_ops.Runner:
+    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            argv, check=False, capture_output=True, text=True, env={**env, "GIT_CONFIG_GLOBAL": global_config}
+        )
+
+    return runner
 
 
 @pytest.fixture
@@ -226,25 +230,71 @@ def test_config_added_after_the_first_check_is_caught_before_the_command(
     checks = 0
     real_runner = git.runner
 
-    def runner(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
         nonlocal checks
         if "--show-scope" in argv:
             checks += 1
             if checks == 2:
                 _git(repo, "config", "core.sshCommand", "touch /tmp/pwned")
-        return real_runner(argv)
+        return real_runner(argv, env)
 
     with pytest.raises(GitRefused, match=r"core\.sshcommand"):
-        _push(Git(runner=runner), policy, repo, "topic", "fork", "topic", "new")
+        _push(Git(runner=runner, protocols=git.protocols), policy, repo, "topic", "fork", "topic", "new")
     with pytest.raises(subprocess.CalledProcessError):
         _remote_head(policy, "me/project", "topic")
 
 
-def test_every_git_call_pins_fsmonitor_and_ext_transport(repo: Path) -> None:
-    argv = git_ops.git_argv(repo, "status", hooks=True)
-    assert argv[:5] == ["git", "-c", "core.fsmonitor=false", "-c", "protocol.ext.allow=never"]
+def test_every_git_call_carries_the_pins(git: Git, repo: Path) -> None:
+    argv = git.argv(repo, "status", hooks=True)
+    for pin in (*git_ops.PINNED_CONFIG, "core.sshCommand=ssh", "protocol.ssh.allow=always"):
+        assert pin in argv
     assert "core.hooksPath=/dev/null" not in argv
-    assert "core.hooksPath=/dev/null" in git_ops.git_argv(repo, "status")
+    assert "core.hooksPath=/dev/null" in git.argv(repo, "status")
+
+
+def test_ssh_command_is_pinned_to_the_users_global_one(repo: Path, tmp_path: Path) -> None:
+    global_config = tmp_path / "gitconfig"
+    global_config.write_text("[core]\n\tsshCommand = my-ssh-wrapper\n")
+    git = Git(runner=_runner(str(global_config)))
+    assert "core.sshCommand=my-ssh-wrapper" in git.argv(repo, "status")
+
+
+def test_a_local_transport_is_refused_in_production(policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "branch", "topic")
+    with pytest.raises(git_ops.GitFailed):
+        _push(Git(runner=_runner(os.devnull)), policy, repo, "topic", "fork", "topic", "new")
+
+
+def test_reachable_tags_are_not_pushed(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "config", "push.followTags", "true")
+    _git(repo, "tag", "-a", "v1", "-m", "v1")
+    _git(repo, "branch", "topic")
+    _push(git, policy, repo, "topic", "fork", "topic", "new")
+    with pytest.raises(subprocess.CalledProcessError):
+        _git(Path(policy.push_url("me/project")), "rev-parse", "refs/tags/v1")
+
+
+def test_attributes_cannot_switch_on_a_filter(policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "filter-ran"
+    global_config = tmp_path / "gitconfig"
+    global_config.write_text(f'[filter "x"]\n\tsmudge = touch {marker}; cat\n')
+    (repo / ".gitattributes").write_text("* filter=x\n")
+    _git(repo, "add", ".gitattributes")
+    _git(repo, "commit", "-q", "-m", "attributes")
+    start = _git(repo, "rev-parse", "HEAD")
+    git = Git(runner=_runner(str(global_config)), protocols=("https", "ssh", "file"))
+    path = policy.worktree_roots[0] / "wt"
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": "t", "start": start}, False
+    )
+    assert path.exists()
+    assert not marker.exists()
+
+
+def test_clean_env_takes_home_from_the_account_and_drops_xdg() -> None:
+    env = git_ops.clean_env({"HOME": "/tmp/fake", "XDG_CONFIG_HOME": "/tmp/fake", "PATH": "/bin"})
+    assert env["HOME"] == str(account_home())
+    assert "XDG_CONFIG_HOME" not in env
 
 
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
@@ -426,6 +476,7 @@ def test_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> N
     assert "--force-with-lease=refs/heads/topic:" in printed
     assert "core.hooksPath" not in printed
     assert "--no-verify" not in printed
+    assert "--no-follow-tags" in printed
     with pytest.raises(subprocess.CalledProcessError):
         _remote_head(policy, "me/project", "topic")
 
@@ -468,7 +519,7 @@ def test_git_policy_refuses_malformed_tables(table: object) -> None:
 
 def test_clean_env_drops_git_variables() -> None:
     env = git_ops.clean_env({"PATH": "/bin", "GIT_SSH_COMMAND": "evil", "GIT_DIR": "/x"})
-    assert env == {"PATH": "/bin", "GIT_TERMINAL_PROMPT": "0"}
+    assert env == {"PATH": "/bin", "HOME": str(account_home()), "GIT_TERMINAL_PROMPT": "0"}
 
 
 def test_parse_config_scopes_handles_both_separators() -> None:

@@ -830,9 +830,20 @@ What makes running git unsandboxed acceptable here:
   and system configuration are the user's own and stay in effect, so an SSH
   wrapper or touch overlay configured there keeps working. The check covers
   every working tree the operation runs git in, and runs again right before
-  the command that acts; `core.fsmonitor=false` and `protocol.ext.allow=never`
-  are pinned on every call so they cannot appear in between.
-- **No environment steers git.** Every `GIT_*` variable is dropped.
+  the command that acts.
+- **Pinned on every call**, so a key added between that check and the command
+  cannot take effect: no file-system monitor, no automatic gc or maintenance,
+  only `https` and `ssh` transports, `core.sshCommand` set to the user's global
+  value (or `ssh`), and hooks off wherever they are not wanted. Attributes are
+  read from the empty tree, so no `.gitattributes` can switch on a filter
+  (the cost: a worktree is checked out without LFS smudging or line-ending
+  conversion). A push sends the one ref, never tags (`--no-follow-tags`).
+  A URL rewrite (`url.*.insteadOf`) cannot be pinned away: that it cannot
+  appear while the confirmed command runs rests on the harness keeping
+  `.git/config` write-protected, as Claude Code's sandbox does.
+- **No environment steers git.** Every `GIT_*` variable is dropped, `HOME`
+  comes from the password database and `XDG_CONFIG_HOME` is dropped, so the
+  global configuration git reads is the account's own.
 - **Hooks.** The worktree operations never run hooks. A push runs the
   `pre-push` hook from `.git/hooks` or the user's global `core.hooksPath`,
   exactly as the user's own `git push` would, so push-time checks are not
