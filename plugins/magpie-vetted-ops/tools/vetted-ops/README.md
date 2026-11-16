@@ -837,7 +837,13 @@ What makes running git unsandboxed acceptable here:
   value (or `ssh`), and hooks off wherever they are not wanted. Attributes are
   read from the empty tree, so no `.gitattributes` can switch on a filter
   (the cost: a worktree is checked out without LFS smudging or line-ending
-  conversion). A push sends the one ref, never tags (`--no-follow-tags`).
+  conversion). A push sends the one ref, never tags (`--no-follow-tags`), and
+  `GIT_ALLOW_PROTOCOL` limits transports whatever the configuration says.
+- **Directories are held, not named.** Each validated directory is opened
+  without following a symlink at any component, and git runs inside it by
+  descriptor, so a directory swapped for a symlink after the checks cannot
+  send git elsewhere. A new worktree is created through its root's descriptor
+  and added as `.`, so git names its administrative directory `-` (`-1`, …).
   A URL rewrite (`url.*.insteadOf`) cannot be pinned away: that it cannot
   appear while the confirmed command runs rests on the harness keeping
   `.git/config` write-protected, as Claude Code's sandbox does.

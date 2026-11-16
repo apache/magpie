@@ -73,10 +73,8 @@ def git() -> Git:
 
 
 def _runner(global_config: str) -> git_ops.Runner:
-    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            argv, check=False, capture_output=True, text=True, env={**env, "GIT_CONFIG_GLOBAL": global_config}
-        )
+    def runner(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        return git_ops._default_runner(argv, {**env, "GIT_CONFIG_GLOBAL": global_config}, cwd_fd)
 
     return runner
 
@@ -230,13 +228,13 @@ def test_config_added_after_the_first_check_is_caught_before_the_command(
     checks = 0
     real_runner = git.runner
 
-    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    def runner(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
         nonlocal checks
         if "--show-scope" in argv:
             checks += 1
             if checks == 2:
                 _git(repo, "config", "core.sshCommand", "touch /tmp/pwned")
-        return real_runner(argv, env)
+        return real_runner(argv, env, cwd_fd)
 
     with pytest.raises(GitRefused, match=r"core\.sshcommand"):
         _push(Git(runner=runner, protocols=git.protocols), policy, repo, "topic", "fork", "topic", "new")
@@ -309,7 +307,7 @@ def test_a_remote_named_like_the_destination_cannot_redirect_the_push(
 
 @pytest.mark.parametrize(("output", "refused"), [("git version 2.41.0", True), ("git version 2.42.0", False)])
 def test_git_older_than_2_42_is_refused(repo: Path, output: str, refused: bool) -> None:
-    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    def runner(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 0, stdout=output, stderr="")
 
     git = Git(runner=runner)
@@ -328,6 +326,54 @@ def test_a_failing_hooks_stdout_is_kept(git: Git, policy: LocalPolicy, repo: Pat
     with pytest.raises(git_ops.GitFailed) as failed:
         _push(git, policy, repo, "topic", "fork", "topic", "new")
     assert "static checks failed" in failed.value.stdout + failed.value.stderr
+
+
+def test_a_root_swapped_for_a_symlink_after_the_checks_cannot_redirect_the_worktree(
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    start = _git(repo, "rev-parse", "HEAD")
+    root = policy.worktree_roots[0]
+    elsewhere = Path(os.path.realpath(tmp_path)) / "elsewhere"
+    elsewhere.mkdir()
+    real_open_dir = git_ops.open_dir
+
+    def swapping_open_dir(path: Path) -> int:
+        fd = real_open_dir(path)
+        if path == root:
+            # The swap lands after the root was opened, i.e. after every check.
+            root.rename(root.with_name("moved-root"))
+            root.symlink_to(elsewhere, target_is_directory=True)
+        return fd
+
+    git_ops.open_dir = swapping_open_dir
+    try:
+        git_ops.worktree_add(
+            git,
+            policy,
+            {"checkout": str(repo), "path": str(root / "wt"), "branch": "t", "start": start},
+            False,
+        )
+    finally:
+        git_ops.open_dir = real_open_dir
+    assert list(elsewhere.iterdir()) == []
+    assert (root.with_name("moved-root") / "wt" / "one").exists()
+
+
+def test_a_symlinked_worktree_path_is_refused(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    start = _git(repo, "rev-parse", "HEAD")
+    path = policy.worktree_roots[0] / "wt"
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": "t", "start": start}, False
+    )
+    link = policy.worktree_roots[0] / "link"
+    link.symlink_to(path, target_is_directory=True)
+    with pytest.raises(GitRefused, match="symlink"):
+        git_ops.worktree_sync(git, policy, {"worktree": str(link), "commit": start}, False)
+
+
+def test_protocols_are_limited_through_the_environment(git: Git) -> None:
+    assert git._env()["GIT_ALLOW_PROTOCOL"] == "https:ssh:file"
+    assert Git()._env()["GIT_ALLOW_PROTOCOL"] == "https:ssh"
 
 
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:

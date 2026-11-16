@@ -66,7 +66,10 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
   a program in that window are pinned on the command line (`PINNED_CONFIG`,
   ``core.sshCommand`` set to the user's global value, hooks off where they are
   not wanted). Attributes come from the empty tree, so no ``.gitattributes``
-  can switch on a filter. A rewrite such as ``url.*.insteadOf`` cannot be
+  can switch on a filter. ``GIT_ALLOW_PROTOCOL`` limits transports whatever
+  the configuration says. Validated directories are opened without following
+  a symlink and git runs inside them by descriptor, so a directory swapped for
+  a symlink after the checks cannot redirect it. A rewrite such as ``url.*.insteadOf`` cannot be
   pinned away; that it cannot appear while the confirmed command runs rests on
   the harness keeping ``.git/config`` write-protected, as Claude Code's sandbox
   does.
@@ -276,11 +279,48 @@ def clean_env(environ: dict[str, str] | None = None) -> dict[str, str]:
     return env
 
 
-Runner = Callable[[list[str], dict[str, str]], "subprocess.CompletedProcess[str]"]
+#: Runs ``argv`` with ``env``, in the directory open as ``cwd_fd`` when one is given.
+Runner = Callable[[list[str], dict[str, str], "int | None"], "subprocess.CompletedProcess[str]"]
 
 
-def _default_runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, check=False, capture_output=True, text=True, env=env)
+def _default_runner(
+    argv: list[str], env: dict[str, str], cwd_fd: int | None
+) -> subprocess.CompletedProcess[str]:
+    if cwd_fd is None:
+        return subprocess.run(argv, check=False, capture_output=True, text=True, env=env)
+    return subprocess.run(
+        argv,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        pass_fds=(cwd_fd,),
+        preexec_fn=lambda: os.fchdir(cwd_fd),
+    )
+
+
+def open_dir(path: Path) -> int:
+    """Open ``path`` as a directory, refusing a symlink at any component.
+
+    Walked one component at a time from ``/`` with ``O_NOFOLLOW``, so the
+    descriptor is the directory the name led to when it was checked. Git then
+    runs *in* that descriptor rather than at the name, and swapping a directory
+    on the path for a symlink afterwards (the agent can write inside a
+    checkout) cannot send git somewhere else.
+    """
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for part in path.parts[1:]:
+            child = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = child
+    except OSError as exc:
+        os.close(fd)
+        raise GitRefused(
+            f"{str(path)!r} is not a directory reachable without a symlink: {exc.strerror}"
+        ) from None
+    return fd
 
 
 #: Pinned on every call, so a key the repository's configuration gains between
@@ -313,10 +353,22 @@ class Git:
     _ssh_command: str | None = field(default=None, repr=False)
     #: Set once the object format is known (see `check_repository_config`).
     attr_source: str | None = None
+    #: Validated directories, open (see `open_dir`); git runs in these, never at the name.
+    anchors: dict[Path, int] = field(default_factory=dict)
+
+    def anchor(self, path: Path, fd: int | None = None) -> int:
+        if path not in self.anchors:
+            self.anchors[path] = open_dir(path) if fd is None else fd
+        return self.anchors[path]
+
+    def close(self) -> None:
+        for fd in self.anchors.values():
+            os.close(fd)
+        self.anchors.clear()
 
     def check_version(self) -> None:
         """Refuse a git older than `MIN_GIT_VERSION`, which ignores ``GIT_ATTR_SOURCE``."""
-        found = self.runner(["git", "version"], clean_env())
+        found = self.runner(["git", "version"], clean_env(), None)
         match = re.search(r"(\d+)\.(\d+)", found.stdout or "")
         version = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
         if found.returncode != 0 or version < MIN_GIT_VERSION:
@@ -329,34 +381,46 @@ class Git:
     def ssh_command(self) -> str:
         if self._ssh_command is None:
             argv = ["git", "config", "--global", "--get", "core.sshCommand"]
-            found = self.runner(argv, clean_env())
+            found = self.runner(argv, clean_env(), None)
             value = found.stdout.strip() if found.returncode == 0 else ""
             self._ssh_command = value if value and "\n" not in value else "ssh"
         return self._ssh_command
 
     def argv(self, directory: Path, *args: str, hooks: bool = False) -> list[str]:
-        """A git command in ``directory``, with hooks switched off unless ``hooks``."""
+        """A git command in ``directory``, with hooks switched off unless ``hooks``.
+
+        An anchored directory is entered by descriptor (see `open_dir`), so the
+        argv names it only when it is not anchored (dry runs print the name).
+        """
         pins = [*PINNED_CONFIG, *(f"protocol.{p}.allow=always" for p in self.protocols)]
         pins.append(f"core.sshCommand={self.ssh_command()}")
         if not hooks:
             pins.append("core.hooksPath=/dev/null")
-        return ["git", *(arg for pin in pins for arg in ("-c", pin)), "-C", str(directory), *args]
+        where = [] if directory in self.anchors else ["-C", str(directory)]
+        return ["git", *(arg for pin in pins for arg in ("-c", pin)), *where, *args]
 
     def _env(self) -> dict[str, str]:
         env = clean_env()
+        # Overrides every protocol.* setting, the repository's included.
+        env["GIT_ALLOW_PROTOCOL"] = ":".join(self.protocols)
         if self.attr_source is not None:
             env["GIT_ATTR_SOURCE"] = self.attr_source
         return env
 
-    def run(self, directory: Path, *args: str, hooks: bool = False) -> str:
+    def _call(
+        self, directory: Path, *args: str, hooks: bool = False
+    ) -> tuple[list[str], subprocess.CompletedProcess[str]]:
         argv = self.argv(directory, *args, hooks=hooks)
-        completed = self.runner(argv, self._env())
+        return argv, self.runner(argv, self._env(), self.anchors.get(directory))
+
+    def run(self, directory: Path, *args: str, hooks: bool = False) -> str:
+        argv, completed = self._call(directory, *args, hooks=hooks)
         if completed.returncode != 0:
             raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
         return completed.stdout
 
     def ok(self, directory: Path, *args: str) -> bool:
-        return self.runner(self.argv(directory, *args), self._env()).returncode == 0
+        return self._call(directory, *args)[1].returncode == 0
 
 
 # --- validation ------------------------------------------------------------
@@ -418,12 +482,14 @@ def resolve_worktree(git: Git, raw: str, policy: GitPolicy, name: str = "worktre
     path = _real_dir(raw, name)
     if not path.is_dir():
         raise GitRefused(f"{name} {str(path)!r} is not a directory")
+    git.anchor(path)
     lines = git.run(path, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir")
     top, common = (Path(os.path.realpath(line)) for line in lines.splitlines()[:2])
     if top != path:
         raise GitRefused(f"{name} {str(path)!r} is not the top of a working tree (that is {str(top)!r})")
     for checkout in policy.checkouts:
         if common == checkout / ".git" and (checkout / ".git").is_dir():
+            git.anchor(checkout)
             return Worktree(path=path, checkout=checkout)
     allowed = ", ".join(str(c) for c in policy.checkouts)
     raise GitRefused(f"{name} {str(path)!r} does not belong to a checkout the policy names ({allowed})")
@@ -589,11 +655,27 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     if git.ok(checkout.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
         raise GitRefused(f"branch {branch!r} already exists; worktree-add creates a new one")
     start = resolve_commit(git, checkout.path, sha(p["start"], "start"), "start")
-    args = ["worktree", "add", "-b", branch, str(path), start]
     if dry_run:
-        return " ".join(git.argv(checkout.path, *args))
+        return " ".join(git.argv(checkout.path, "worktree", "add", "-b", branch, str(path), start))
     check_repository_config(git, checkout)
-    git.run(checkout.path, *args)
+    # Created through the root's descriptor and entered by descriptor, then
+    # added as `.`: a root swapped for a symlink after the checks above still
+    # cannot make git write anywhere but this new, empty directory. (Git names
+    # its administrative directory after the path given, so it is `-` here.)
+    root_fd = open_dir(path.parent)
+    try:
+        os.mkdir(path.name, 0o777, dir_fd=root_fd)
+        new_fd = os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root_fd)
+        git.anchor(path, new_fd)
+        try:
+            git.run(
+                path, f"--git-dir={checkout.checkout / '.git'}", "worktree", "add", "-b", branch, ".", start
+            )
+        except GitFailed:
+            os.rmdir(path.name, dir_fd=root_fd)
+            raise
+    finally:
+        os.close(root_fd)
     return f"created {path} on new branch {branch} at {start}"
 
 
@@ -702,7 +784,11 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
         params = dict(zip(op.params, args.params, strict=True))
         for name, value in params.items():
             _param(value, name)
-        print(op.run(git or Git(), policy, params, args.dry_run))
+        runner = git or Git()
+        try:
+            print(op.run(runner, policy, params, args.dry_run))
+        finally:
+            runner.close()
     except (GitRefused, ConfigError) as exc:
         print(f"{PROG}: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
