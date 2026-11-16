@@ -275,7 +275,7 @@ def isolated_summary(root: Path, today: date | None = None, home: Path | None = 
     block: dict[str, object] = raw if isinstance(raw, dict) else {}
     if block.get("enabled") is False:
         state = "opted-out"
-    elif isolated.configured(root, home):
+    elif isolated.installed(root, home):
         state = "in-use"
     else:
         state = "unknown"
