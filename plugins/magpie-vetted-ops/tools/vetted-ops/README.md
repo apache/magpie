@@ -604,6 +604,7 @@ root     = "/abs/path/to/the/repo/security/reports"       # the tracker folder
 # jira_security_level = "Security Team"
 # jira_issue_type     = "Bug"                             # default Bug
 # jira_deployment     = "server"                          # server | cloud
+# jira_rollup_authors = ["alice", "bob"]                  # whose rollup comment counts, beside the token's user
 ```
 
 The guarantees above carry over, because the translation lives in reviewed code
