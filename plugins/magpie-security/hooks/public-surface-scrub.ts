@@ -29,6 +29,26 @@ export const FORBIDDEN_TERM_RULES: ReadonlyArray<{ name: string; pattern: RegExp
     pattern: new RegExp(term.pattern, term.flags),
   }));
 
+/**
+ * Whether a parsed command's repository is redirected away from the directory it
+ * runs in (`--git-dir` / `--work-tree`, `GIT_DIR`, a wrapper, `bash -c` / `eval`, or
+ * an earlier `cd` on the same line), so the directory's remote cannot identify it.
+ */
+export function isRepoContextRedirected(
+  parsed: { commandType: string },
+  isRedirectedByPriorCommand: boolean
+): boolean {
+  return (
+    parsed.commandType.includes('git-dir') ||
+    parsed.commandType.includes('work-tree') ||
+    parsed.commandType.includes('GIT_DIR') ||
+    parsed.commandType.includes('wrapped') ||
+    // `bash -c '...'` and `eval '...'` can cd or set GIT_DIR inside the string before git / gh runs
+    parsed.commandType.includes('invoking git/gh') ||
+    isRedirectedByPriorCommand
+  );
+}
+
 /** The framework's own repository: the only target where framework identifiers are ignored. */
 export const FRAMEWORK_REPO = 'apache/magpie';
 
@@ -2586,21 +2606,18 @@ export async function evaluatePublicSurfaceCommand(
       }
     }
 
+    // Whether the command's repository context is redirected away from the directory it
+    // runs in, so the directory's remote says nothing about where it lands. Shared by the
+    // tracker exemption (step 5) and the framework-identifier check below.
+    const repoContextRedirected = isRepoContextRedirected(parsed, isRedirectedByPriorCommand);
+
     // 5. For commands without explicit repo flag, determine repository from git context
     if (!parsed.targetRepo) {
       // GraphQL mutations address resources by global Node IDs, which the hook cannot resolve.
       // Therefore, a GraphQL mutation is NEVER exempt, regardless of whether cwd is the tracker.
       if (parsed.isGraphqlMutation) {
         // Proceed directly to inspection
-      } else if (
-        parsed.commandType.includes('git-dir') ||
-        parsed.commandType.includes('work-tree') ||
-        parsed.commandType.includes('GIT_DIR') ||
-        parsed.commandType.includes('wrapped') ||
-        // `bash -c '...'` and `eval '...'` can cd or set GIT_DIR inside the string before git / gh runs
-        parsed.commandType.includes('invoking git/gh') ||
-        isRedirectedByPriorCommand
-      ) {
+      } else if (repoContextRedirected) {
         // Repository context is redirected or indeterminate — cwd remoteInfo cannot exempt it
         // Proceed directly to inspection and dynamic-input fail-closed check
       } else if (remoteInfo.determined) {
@@ -2685,10 +2702,14 @@ export async function evaluatePublicSurfaceCommand(
     // Check for forbidden terms. The framework's own identifiers are ignored only
     // when the command provably targets the framework repository: an explicit
     // `--repo apache/magpie`, or no repository flag in a checkout whose detected
-    // upstream is the framework.
-    const effectiveTarget =
-      parsed.targetRepo ?? (remoteInfo.determined && remoteInfo.isUpstream ? upstreamRepo : undefined);
-    const frameworkTarget = !parsed.hasDynamicInput && effectiveTarget === FRAMEWORK_REPO;
+    // upstream is the framework — and then only when the directory can be trusted
+    // to name the repository (not redirected, not a session-root fallback). A
+    // GraphQL mutation addresses node ids, so no repository can be proved for it.
+    const cwdNamesRepo =
+      !repoContextRedirected && !options?.isSessionRootFallback && remoteInfo.determined && remoteInfo.isUpstream;
+    const effectiveTarget = parsed.targetRepo ?? (cwdNamesRepo ? upstreamRepo : undefined);
+    const frameworkTarget =
+      !parsed.hasDynamicInput && !parsed.isGraphqlMutation && effectiveTarget === FRAMEWORK_REPO;
     const combinedText = candidateTexts.join('\n');
     const matched = findForbiddenTerms(combinedText, { frameworkTarget });
 

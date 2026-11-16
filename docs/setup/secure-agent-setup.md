@@ -71,6 +71,7 @@
     - [What to track, what not to track](#what-to-track-what-not-to-track)
     - [Layout](#layout)
     - [Setting up a fresh host](#setting-up-a-fresh-host)
+    - [Letting a sandboxed agent help with the sync](#letting-a-sandboxed-agent-help-with-the-sync)
     - [A minimal `sync.sh`](#a-minimal-syncsh)
     - [Extending `sync.sh`: share project memory across machines](#extending-syncsh-share-project-memory-across-machines)
     - [Extending `sync.sh`: expose tracked scripts on `$PATH`](#extending-syncsh-expose-tracked-scripts-on-path)
@@ -3379,6 +3380,58 @@ Then wire the per-machine bits one time, per the install snippets
 in the relevant sections (the hook entry in
 `~/.claude/settings.json`, the `source …/agent-iso.sh` line in
 `~/.bashrc` / `~/.zshrc`, etc.).
+
+### Letting a sandboxed agent help with the sync
+
+The sandbox read-denies `~/`, so an agent cannot even run `git status`
+in `~/.claude-config` until you grant it read access in user scope:
+
+```jsonc
+// ~/.claude/settings.json
+"sandbox": {
+  "filesystem": {
+    "allowRead": ["~/.claude-config/"]
+  }
+}
+```
+
+Grant **read only, never write**. The repo carries `CLAUDE.md`, hook
+scripts and memory to every host, and each host's `sync.sh` applies
+what it pulls. An agent that can write `.git/` and push can build a
+commit with git plumbing that edits any of those files, including ones
+it cannot write directly, and every host installs it on its next pull.
+With read access the agent inspects the repo and drafts the commit,
+and the [`setup-shared-config-sync`](../../plugins/magpie-setup/skills/shared-config-sync/SKILL.md)
+skill hands you the commit command, checks the commit read-only
+against what you approved, then hands you the pull and push command.
+Do not bypass the sandbox for it.
+
+The grant exposes everything in the repo to the agent, including
+synced memory, hook scripts and `.git/config`. Keep credentials out of
+the repo (no tokens in the remote URL, secrets ignored by
+`.gitignore` and stored elsewhere) before granting it.
+
+The sandbox confines shell commands only. The agent's file-edit tools
+are governed by permission rules, so also deny them the files that set
+the agent's own rules:
+
+```jsonc
+// ~/.claude/settings.json
+"permissions": {
+  "deny": [
+    "Edit(~/.claude/CLAUDE.md)", "Edit(~/.claude-config/CLAUDE.md)",
+    "Edit(~/.claude/settings.json)", "Edit(~/.claude-config/settings.json)",
+    "Edit(~/.claude/scripts/**)", "Edit(~/.claude-config/scripts/**)",
+    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)"
+  ]
+}
+```
+
+Name both the `~/.claude/` path and the sync-repo path it links to.
+Hook scripts and git hooks run outside the sandbox, so an edit to them
+runs with your full permissions.
+Denying `settings.json` too keeps an edit from deleting the other rules.
+Afterwards you change these files by hand.
 
 ### A minimal `sync.sh`
 

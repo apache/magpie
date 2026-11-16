@@ -6,7 +6,7 @@
 The Step 7a body file, written per PR with every `<…>` placeholder filled.
 
 ```bash
-cat > <scratch>/import-pr-<N>-body.md <<'EOF'
+cat > <workspace>/import-pr-<N>-body.md <<'EOF'
 ### The issue description
 
 > **Imported from public PR <upstream>#<N>** — there is no inbound `security@` report; the PR description below is the public statement of the vulnerability.

@@ -1777,3 +1777,54 @@ def test_git_run_in_the_opened_tree_ignores_its_fsmonitor_and_hooks(tmp_path):
     subprocess.run(["git", "-C", str(repo), "config", "core.fsmonitor", str(hook)], check=True)
     assert agent_guard._run(["git", "status", "--porcelain"], cwd=str(repo)) is not None
     assert not marker.exists()
+
+
+# --------------------------------------------------------------------------- #
+# excluded-chain — a sandbox-excluded command must be the whole command line
+# --------------------------------------------------------------------------- #
+
+READ = "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller x issue-view 1"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"cd /repo && {READ}",
+        f"{READ} | jq .number",
+        f"{READ} > view.json",
+        f"{READ}; echo done",
+        f"echo $({READ})",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller x rollup-append 1 A f.md && echo ok",
+        "uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --target branch 2>&1 | tail -5",
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id X --state-only | cat",
+        "~/.claude/scripts/magpie-run-evals.sh suite && echo ok",
+    ],
+)
+def test_chained_exclusion_denies(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[excluded-chain]" in reason
+    assert "command of its own" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        READ,
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id X --state-only",
+        "~/.claude/scripts/magpie-run-evals.sh suite",
+        # Not excluded launches: chaining them is fine.
+        "cd tools/vetted-ops && uv run pytest -q | tail -3",
+        "uv sync && uv run pytest",
+    ],
+)
+def test_chained_exclusion_allows(command):
+    assert agent_guard.dispatch(command) is None
+
+
+def test_chained_exclusion_names_the_redirection():
+    reason = agent_guard.dispatch(f"{READ} > view.json")
+    assert "with a redirection" in reason
+
+
+def test_chained_exclusion_override():
+    assert agent_guard.dispatch(f"MAGPIE_ALLOW_CHAINED_EXCLUSION=1 cd /repo && {READ}") is None

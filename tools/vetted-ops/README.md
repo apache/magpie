@@ -602,10 +602,10 @@ These operations are the same procedures as reviewed catalogue entries:
 | `body-field-get` | read | `number field` | `github-body-field get` |
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append 212 "Sync" <scratch>/entry.md
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-amend-latest 212 "Sync" <scratch>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append 212 "Sync" <workspace>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-amend-latest 212 "Sync" <workspace>/entry.md
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold 212 2890012345 "Legacy status"
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-cve-allocate body-field-set 212 "CVE tool link" <scratch>/value.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-cve-allocate body-field-set 212 "CVE tool link" <workspace>/value.md
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync body-field-get 212 "Severity"
 ```
 

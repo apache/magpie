@@ -329,14 +329,14 @@ For each confirmed finding, use `issue-create-labeled`
 instead of raw `gh api` or `gh issue create`.
 
 Write the confirmed title, with the Write tool, to
-`<scratch>/import-md-<basename>-<index>-title.txt`
+`<workspace>/import-md-<basename>-<index>-title.txt`
 and confirmed rendered body to
-`<scratch>/import-md-<basename>-<index>-body.md`.
+`<workspace>/import-md-<basename>-<index>-body.md`.
 
 For a GitHub tracker:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-md issue-create-labeled <scratch>/import-md-<basename>-<index>-title.txt <scratch>/import-md-<basename>-<index>-body.md '["needs triage","security issue"]'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-md issue-create-labeled <workspace>/import-md-<basename>-<index>-title.txt <workspace>/import-md-<basename>-<index>-body.md '["needs triage","security issue"]'
 ```
 
 The finding title is attacker-controlled, so it travels as a file: the dispatcher reads and validates it, and the shell never sees it.
@@ -363,19 +363,19 @@ Run the orphan-issue path with the new issue's `node_id`, then set `Status` to `
 
 ### 5d — Post the status-rollup comment
 
-Write the Step 3e `text` to `<scratch>/import-md-<basename>-<index>-rollup.md` with the Write tool, then:
+Write the Step 3e `text` to `<workspace>/import-md-<basename>-<index>-rollup.md` with the Write tool, then:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-md rollup-append <new-issue-number> "Import from markdown (<basename>, finding <K>/<N>)" <scratch>/import-md-<basename>-<index>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-md rollup-append <new-issue-number> "Import from markdown (<basename>, finding <K>/<N>)" <workspace>/import-md-<basename>-<index>-rollup.md
 ```
 
 Without the secure setup, see [`backends/vetted-ops.md`](backends/vetted-ops.md).
 
 ### 5e — Cleanup (per finding)
 
-Delete `<scratch>/import-md-<basename>-<index>-title.txt`,
-`<scratch>/import-md-<basename>-<index>-body.md`, and
-`<scratch>/import-md-<basename>-<index>-rollup.md` so they do not accumulate.
+Delete `<workspace>/import-md-<basename>-<index>-title.txt`,
+`<workspace>/import-md-<basename>-<index>-body.md`, and
+`<workspace>/import-md-<basename>-<index>-rollup.md` so they do not accumulate.
 
 ### 5f — Loop progress
 

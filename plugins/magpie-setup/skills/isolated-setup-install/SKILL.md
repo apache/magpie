@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 5390
+measured_tokens: 5510
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -421,6 +421,12 @@ Regardless of whether the operator already maintains the
   operator knows the follow-up will set sync up from scratch — the
   point of proposing it is precisely so the just-installed config
   does not stay machine-local.
+- Either way, propose the user-scope `allowRead` grant for
+  `~/.claude-config/` (merge diff and ask, as for the other
+  user-scope grants), **read-only, never write**: without it the
+  sandboxed agent cannot inspect the repo at all. The commit and
+  push stay with the operator; see
+  [`docs/setup/secure-agent-setup.md` → Letting a sandboxed agent help with the sync](../../../../docs/setup/secure-agent-setup.md#letting-a-sandboxed-agent-help-with-the-sync).
 
 Surface it as an offer for the operator to accept, not an
 auto-run — the sync skill has its own confirmation gates before it

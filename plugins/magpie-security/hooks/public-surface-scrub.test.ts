@@ -385,6 +385,40 @@ upstream_repo: apache/kafka
       assertStrictEqual(res.blocked, true);
     });
 
+    describe('framework identifiers rely only on a trustworthy repository context', () => {
+      const magpieProject = { upstreamRepo: 'apache/magpie' };
+      const configs: Record<string, string> = {
+        '/home/user/magpie/.git/config': '[remote "origin"]\nurl = https://github.com/apache/magpie.git\n',
+      };
+      const inMagpie = { projectConfig: magpieProject, cwd: '/home/user/magpie', readFile: async (p: string) => configs[p] };
+
+      test('a plain commit in a framework checkout may name the identifiers', async () => {
+        const res = await evaluatePublicSurfaceCommand('git commit -m "fix(cve-allocate): grant amend"', inMagpie);
+        assertStrictEqual(res.blocked, false);
+      });
+
+      for (const command of [
+        'GIT_DIR=/elsewhere/.git git commit -m "fix(cve-allocate): grant amend"',
+        'git --git-dir=/elsewhere/.git commit -m "fix(cve-allocate): grant amend"',
+        'git --work-tree=/elsewhere commit -m "fix(cve-allocate): grant amend"',
+        'cd /elsewhere && git commit -m "fix(cve-allocate): grant amend"',
+        'bash -c \'git commit -m "fix(cve-allocate): grant amend"\'',
+      ]) {
+        test(`a redirected command does not count as the framework: ${command}`, async () => {
+          const res = await evaluatePublicSurfaceCommand(command, inMagpie);
+          assertStrictEqual(res.blocked, true);
+        });
+      }
+
+      test('a session-root fallback does not count as the framework', async () => {
+        const res = await evaluatePublicSurfaceCommand('git commit -m "fix(cve-allocate): grant amend"', {
+          ...inMagpie,
+          isSessionRootFallback: true,
+        });
+        assertStrictEqual(res.blocked, true);
+      });
+    });
+
     test('allows clean neutral commit', async () => {
       const res = await evaluatePublicSurfaceCommand('git commit -m "Fix asset graph view"', {
         projectConfig: defaultProject,
