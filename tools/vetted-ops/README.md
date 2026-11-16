@@ -222,7 +222,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
-"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
+                           "issue-comment"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
