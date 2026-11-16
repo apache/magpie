@@ -25,6 +25,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+
 from setup_preflight import isolated
 from setup_preflight.core import isolated_setup_findings
 

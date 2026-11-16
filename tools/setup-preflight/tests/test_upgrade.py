@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
 from setup_preflight import isolated, sections, upgrade
 from setup_preflight.cli import main
 
