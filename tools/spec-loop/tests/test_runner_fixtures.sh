@@ -304,11 +304,11 @@ test_update_pathspec_sees_skill_and_doc_edits() {
     ln -s ../plugins/magpie-issue/skills/triage "$repo/skills/issue-triage"
     git -C "$repo" init -q -b main
     git -C "$repo" -c user.name=t -c user.email=t@example.invalid add -A
-    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -q -m one
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q -m one
     local prev; prev="$(git -C "$repo" rev-parse HEAD)"
     printf 'v2\n' > "$repo/plugins/magpie-issue/skills/triage/SKILL.md"
     printf 'v2\n' > "$repo/docs/setup/guide.md"
-    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -qam two
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -qam two
 
     local pathspec=()
     while IFS= read -r p; do pathspec+=("$p"); done < <(spec_loop_update_pathspec)
@@ -503,7 +503,7 @@ test_loop_single_flight_end_to_end() {
     : > "$repo/tools/spec-loop/IMPLEMENTATION_PLAN.md"
     git -C "$repo" init -q -b main
     git -C "$repo" -c user.name=t -c user.email=t@example.invalid add -A
-    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -q -m init
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q -m init
 
     # A fake agent that records whether it was ever launched.
     local agent_log="$TMPDIR_TEST/agent-launched"
