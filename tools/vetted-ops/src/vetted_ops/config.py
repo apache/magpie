@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import json
 import os
-import pwd
 import re
 import shlex
 import tomllib
@@ -36,6 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import layers
+from .home import account_home
 from .safe_read import TamperedPath, read_regular_file, symlink_free
 from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 
@@ -54,12 +54,6 @@ PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
 #: `Edit`-denied, so neither a sandboxed command nor the agent's file tools can
 #: put a policy there; a renamed directory or a symlink elsewhere cannot either.
 APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
-
-
-def account_home() -> Path:
-    """The account's home directory from the password database, never `$HOME`,
-    which whoever runs the command can set."""
-    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def approved_dir() -> Path:

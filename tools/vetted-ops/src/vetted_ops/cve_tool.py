@@ -45,7 +45,7 @@ import os
 import shutil
 from pathlib import Path
 
-from .config import account_home
+from .home import account_home
 
 #: The client's directory, relative to the ``tools/`` tree vetted-ops ships in.
 TOOL_SUBDIR = Path("cve-tool-vulnogram") / "oauth-api"
