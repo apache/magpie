@@ -15,7 +15,7 @@ contributors distrust the bot. So before the first write of the write step,
 take the skill's write lock:
 
 ```bash
-uvx --from ~/.claude/magpie/skill-lock skill-lock acquire pr-stale-sweep --repo <upstream> --note "<selector or pool summary>"
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock acquire pr-stale-sweep --repo <upstream> --note "<selector or pool summary>"
 ```
 
 - Exit `0` (`status: acquired`): proceed. Keep the `token` from the JSON
@@ -36,7 +36,7 @@ Release it after the recap, and **also on the stop-and-surface path** when
 a post fails, so a failed run never leaves the lock held for its lease:
 
 ```bash
-uvx --from ~/.claude/magpie/skill-lock skill-lock release pr-stale-sweep --repo <upstream> --token <token>
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock release pr-stale-sweep --repo <upstream> --token <token>
 ```
 
 The lock is scoped to this skill and `<upstream>` only; other skills and
