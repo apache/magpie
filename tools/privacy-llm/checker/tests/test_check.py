@@ -207,18 +207,14 @@ def test_no_default_approval_no_opt_in_rejects():
 
 
 def test_grok_harness_unapproved_by_default():
-    stack = [
-        LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")
-    ]
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
     [v] = check.check_stack(_cfg(stack))
     assert v.approved is False
     assert "no default-approval rule matches" in v.reason
 
 
 def test_grok_harness_approved_with_valid_opt_in():
-    stack = [
-        LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")
-    ]
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
     opt_in = [
         OptInEntry(
             name="Grok — xAI API (https://api.x.ai/v1)",
@@ -233,9 +229,7 @@ def test_grok_harness_approved_with_valid_opt_in():
 
 
 def test_grok_harness_rejected_with_placeholder_approved_by():
-    stack = [
-        LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")
-    ]
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
     opt_in = [
         OptInEntry(
             name="Grok — xAI API (https://api.x.ai/v1)",
