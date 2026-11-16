@@ -29,17 +29,68 @@ export const FORBIDDEN_TERM_RULES: ReadonlyArray<{ name: string; pattern: RegExp
     pattern: new RegExp(term.pattern, term.flags),
   }));
 
+/** The framework's own repository: the only target where framework identifiers are ignored. */
+export const FRAMEWORK_REPO = 'apache/magpie';
+
+/**
+ * Exact framework identifiers whose name happens to contain a forbidden term
+ * (`\bCVEs?\b` matches inside `cve-allocate`, since `-` is a word boundary).
+ *
+ * They are ignored only on a command that targets {@link FRAMEWORK_REPO}: a
+ * framework PR, issue or commit has to name its own skills and tools. On any
+ * other repository they still block — in an adopter's public PR, a skill name
+ * such as `security-cve-allocate` would itself reveal the security context.
+ * The list is exact names, never a pattern, and matching is case-sensitive:
+ * the bare word `CVE`, a CVE id and every other term are unaffected.
+ */
+export const FRAMEWORK_IDENTIFIERS: ReadonlyArray<string> = [
+  'magpie-security:cve-allocate',
+  'security-cve-allocate',
+  'cve-allocate',
+  'cve_allocate',
+  'generate-cve-json',
+  'generate_cve_json',
+  'cve-tool-vulnogram',
+  'cve-tool',
+  'cve_tool',
+  'cve-check-published',
+  'cve-record-fetch',
+  'cve-record-update',
+];
+
+const FRAMEWORK_IDENTIFIER_RULES: ReadonlyArray<RegExp> = [...FRAMEWORK_IDENTIFIERS]
+  .sort((a, b) => b.length - a.length)
+  .map((id) => {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // A whole identifier only: not preceded or followed by another name character,
+    // so `cve-tool` is not cut out of `cve-tool-x` and `xcve-allocate` stays intact.
+    return new RegExp(`(?<![A-Za-z0-9_:-])${escaped}(?![A-Za-z0-9_-])`, 'g');
+  });
+
+/** Replaces each exact framework identifier with a space; everything else is left as is. */
+export function stripFrameworkIdentifiers(text: string): string {
+  let out = text;
+  for (const rule of FRAMEWORK_IDENTIFIER_RULES) {
+    out = out.replace(rule, ' ');
+  }
+  return out;
+}
+
 /**
  * Finds all unique forbidden embargo terms that appear in the candidate text.
+ *
+ * With `frameworkTarget`, exact framework identifiers ({@link FRAMEWORK_IDENTIFIERS})
+ * are removed first; callers set it only for a command aimed at {@link FRAMEWORK_REPO}.
  */
-export function findForbiddenTerms(text: string): string[] {
+export function findForbiddenTerms(text: string, options?: { frameworkTarget?: boolean }): string[] {
   if (!text || typeof text !== 'string') {
     return [];
   }
 
+  const scanned = options?.frameworkTarget ? stripFrameworkIdentifiers(text) : text;
   const matched: string[] = [];
   for (const rule of FORBIDDEN_TERM_RULES) {
-    if (rule.pattern.test(text)) {
+    if (rule.pattern.test(scanned)) {
       matched.push(rule.name);
     }
   }
@@ -2631,9 +2682,15 @@ export async function evaluatePublicSurfaceCommand(
       }
     }
 
-    // Check for forbidden terms
+    // Check for forbidden terms. The framework's own identifiers are ignored only
+    // when the command provably targets the framework repository: an explicit
+    // `--repo apache/magpie`, or no repository flag in a checkout whose detected
+    // upstream is the framework.
+    const effectiveTarget =
+      parsed.targetRepo ?? (remoteInfo.determined && remoteInfo.isUpstream ? upstreamRepo : undefined);
+    const frameworkTarget = !parsed.hasDynamicInput && effectiveTarget === FRAMEWORK_REPO;
     const combinedText = candidateTexts.join('\n');
-    const matched = findForbiddenTerms(combinedText);
+    const matched = findForbiddenTerms(combinedText, { frameworkTarget });
 
     if (matched.length > 0) {
       const uniqueTerms = Array.from(new Set(matched));
