@@ -85,6 +85,11 @@
     - [Symptom](#symptom-15)
     - [Root cause](#root-cause-15)
     - [Fix](#fix-15)
+  - [Writes to a `tools/vetted-ops` policy directory fail anywhere on disk](#writes-to-a-toolsvetted-ops-policy-directory-fail-anywhere-on-disk)
+    - [Symptom](#symptom-16)
+    - [Root cause](#root-cause-16)
+    - [Fix](#fix-16)
+    - [Notes](#notes-14)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1528,6 +1533,58 @@ is mounted.
 None needed: it is not a real file on the host. Do not commit it and do not
 delete it. Check from outside the sandbox (your own terminal) whether a real
 file is there before acting on it.
+
+## Writes to a `tools/vetted-ops` policy directory fail anywhere on disk
+
+### Symptom
+
+Creating any file under a directory named `.apache-magpie-overrides/tools/vetted-ops/`
+(or the personal-layer equivalents under `.git/…/apache-magpie/`, `.svn/apache-magpie/`
+or `.apache-magpie-local/`) fails from inside the sandbox, even in a scratch directory:
+
+```text
+PermissionError: [Errno 1] Operation not permitted: '/tmp/…/.apache-magpie-overrides/tools/vetted-ops'
+error: unable to create file .apache-magpie-overrides/tools/vetted-ops/config.toml: Operation not permitted
+```
+
+The second line is a `git checkout` or `git clone` of a repository that commits its own
+policy there, such as `apache/magpie` itself.
+
+### Root cause
+
+`permissions.deny` carries `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` and the
+personal-layer forms beside it, which Claude Code merges into the sandbox's write deny.
+They match in **every** directory on purpose: `vetted-op-read` runs outside the sandbox
+without a prompt, and it uses the policy it discovers from the working directory without
+the approval the write dispatchers require. A policy the agent could plant under any
+directory would steer those unprompted reads at any repository the operator's `gh` can see.
+
+### Fix
+
+Leave the deny as it is. Work around the path instead:
+
+- **A checkout of a repository that commits a policy:** check it out from a terminal, or
+  use a sparse checkout that leaves the policy directory out:
+
+  ```bash
+  git clone --no-checkout <url> <dir> && cd <dir>
+  git sparse-checkout set --no-cone '/*' '!/.apache-magpie-overrides/tools/vetted-ops/'
+  git checkout main
+  ```
+
+- **vetted-ops' own tests:** the tests that build a policy at one of these paths skip
+  inside the sandbox, naming the path, and run in CI. Run the full suite from a terminal
+  when you change discovery or approval.
+
+- **Your project's policy:** edit and approve it from a terminal, as
+  [the vetted-ops README](../../tools/vetted-ops/README.md) describes; the agent never writes it.
+
+### Notes
+
+The deny is also why `setup update` and `git pull` in an adopter checkout can fail on a
+changed `config.toml`: pull from a terminal when the policy changes upstream.
+
+---
 
 ## Adding a new entry
 

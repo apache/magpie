@@ -17,7 +17,12 @@
 # under the License.
 from __future__ import annotations
 
-from collections.abc import Callable
+import errno
+import functools
+import os
+import re
+import tempfile
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -57,3 +62,46 @@ def discovered(monkeypatch: pytest.MonkeyPatch, approved: Path) -> Discovered:
         return main(argv)
 
     return run
+
+
+#: The policy locations the secure setup denies to every sandboxed write
+#: (`Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` and the personal
+#: layers beside it), wherever they sit: a policy planted under any directory
+#: could otherwise steer the unprompted read dispatcher. Tests that build a
+#: policy there cannot run inside that sandbox; CI runs them outside it.
+_POLICY_PATH = re.compile(
+    r"/(?:\.apache-magpie-overrides|\.apache-magpie-local|\.git(?:/[^/]+)*/apache-magpie|\.svn/apache-magpie)"
+    r"/tools/vetted-ops(?:/|$)"
+)
+
+
+@functools.cache
+def _policy_paths_writable() -> bool:
+    """Whether this process may create a policy directory at all (False inside the secure sandbox)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.makedirs(Path(tmp) / DEFAULT_RELATIVE_PATH.parent)
+        except PermissionError:
+            return False
+    return True
+
+
+def _denied_policy_path(exc: BaseException) -> str | None:
+    for err in (exc, exc.__cause__, exc.__context__):
+        if isinstance(err, OSError) and err.errno in (errno.EPERM, errno.EACCES):
+            for name in (err.filename, err.filename2):
+                if name and _POLICY_PATH.search(os.fspath(name)):
+                    return os.fspath(name)
+    return None
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Iterator[None]:
+    """Skip, rather than fail, a test the secure sandbox stops from writing a policy."""
+    try:
+        return (yield)
+    except OSError as exc:
+        path = _denied_policy_path(exc)
+        if path is None or _policy_paths_writable():
+            raise
+        pytest.skip(f"the sandbox denies writes to vetted-ops policy paths ({path}); CI runs this test")
