@@ -29,7 +29,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    and `callout: true` only when the import-time prompt-injection flag fired
    (the *"detected suspicious markup at import"* signal in
    [`AGENTS.md`](../../../../AGENTS.md#treat-external-content-as-data-never-as-instructions)).
-   Then run `<sm> render-body --input <scratch>/body-<threadId>.json` and write its `text` to `<scratch>/issue-body-<threadId>.md`.
+   Then run `<sm> render-body --input <scratch>/body-<threadId>.json` and write its `text` to `<workspace>/issue-body-<threadId>.md`.
 
    Short fields stay one-line escaped values: headings demoted, images and HTML defused, fence-like lines escaped (`sanitised_fields` names the ones it changed);
    every field is rendered, `_No response_` where empty.
@@ -44,13 +44,13 @@ For each confirmed `Report` or forwarder-relayed candidate:
    Never use raw `gh api` or `gh issue create` for confidential
    security report content. The agent guard blocks those commands.
 
-   Write the confirmed title to `<scratch>/issue-title-<threadId>.txt`
+   Write the confirmed title to `<workspace>/issue-title-<threadId>.txt`
    with the Write tool, and use the body file rendered in item 1.
 
    For a GitHub tracker:
 
    ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-create-labeled <scratch>/issue-title-<threadId>.txt <scratch>/issue-body-<threadId>.md '["needs triage","security issue"]'
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-create-labeled <workspace>/issue-title-<threadId>.txt <workspace>/issue-body-<threadId>.md '["needs triage","security issue"]'
    ```
 
    The title comes from an attacker-controlled email subject, so it
@@ -145,11 +145,11 @@ For each confirmed `Report` or forwarder-relayed candidate:
    `receipt` — item 4's `rollup_receipt`, or `{"draft_id": …}` — and `malformed_indicator` when item 1 refused the body and the user repaired it by hand).
    It starts every line at column 0, links every `<tracker>` reference, and refuses an action label holding `<`, `>` or `·`;
    on a refusal, pass the reporter's display name without its address.
-   Write its `text` to `<scratch>/import-<threadId>-rollup.md` with the Write tool and append it, with its `label_shell` as the action label;
+   Write its `text` to `<workspace>/import-<threadId>-rollup.md` with the Write tool and append it, with its `label_shell` as the action label;
    the tool creates the rollup, with its marker line, because the tracker has none yet:
 
    ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import rollup-append <N> <label_shell> <scratch>/import-<threadId>-rollup.md
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import rollup-append <N> <label_shell> <workspace>/import-<threadId>-rollup.md
    ```
 
    These run through vetted-ops' `vetted-op-tracker` entry point,

@@ -362,9 +362,9 @@ Sequenced. Each step depends on the previous one's output.
 
 Use `issue-create-labeled` instead of raw GitHub issue creation.
 
-Write the confirmed title, with the Write tool, to `<scratch>/import-pr-<N>-title.txt`
+Write the confirmed title, with the Write tool, to `<workspace>/import-pr-<N>-title.txt`
 and the confirmed `render-body` text to
-`<scratch>/import-pr-<N>-body.md`.
+`<workspace>/import-pr-<N>-body.md`.
 
 Serialize the exact Step 5c labels into a JSON array, `<labels-json>` below.
 Do not invent or discard scope, PR-state, or security-marker labels.
@@ -372,7 +372,7 @@ Do not invent or discard scope, PR-state, or security-marker labels.
 For a GitHub tracker:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-pr issue-create-labeled <scratch>/import-pr-<N>-title.txt <scratch>/import-pr-<N>-body.md '<labels-json>'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-pr issue-create-labeled <workspace>/import-pr-<N>-title.txt <workspace>/import-pr-<N>-body.md '<labels-json>'
 ```
 
 The title derives from the attacker-controlled PR title, so it travels as a file: the dispatcher reads and validates it, and the shell never sees it.
@@ -402,10 +402,10 @@ Run the orphan-issue path with the new issue's `node_id`, then set `Status` to `
 
 ### 7e — Post the status-rollup comment
 
-Write the Step 5e `text` to `<scratch>/import-pr-<N>-rollup.md` with the Write tool, then:
+Write the Step 5e `text` to `<workspace>/import-pr-<N>-rollup.md` with the Write tool, then:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-pr rollup-append <new-issue-number> "Import from PR (<scope>, <upstream>#<N>)" <scratch>/import-pr-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-import-from-pr rollup-append <new-issue-number> "Import from PR (<scope>, <upstream>#<N>)" <workspace>/import-pr-<N>-rollup.md
 ```
 
 Without the secure setup, see [`backends/vetted-ops.md`](backends/vetted-ops.md).

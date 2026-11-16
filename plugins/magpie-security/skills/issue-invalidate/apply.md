@@ -10,11 +10,11 @@
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 Post the rollup first, so the closing comment can link to its permalink.
-Write the Step 5e entry body to `<scratch>/invalidate-<N>-rollup.md` with the Write tool and append it per the upsert recipe in
+Write the Step 5e entry body to `<workspace>/invalidate-<N>-rollup.md` with the Write tool and append it per the upsert recipe in
 [`status-rollup.md`](../../../../tools/github/status-rollup.md):
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
 ```
 
 This runs through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
@@ -90,10 +90,10 @@ Use the backend chosen in Step 5d:
 
 Capture the returned `draftId`.
 If 6a ran with a placeholder draft ID in the *Reporter notification* line,
-rewrite `<scratch>/invalidate-<N>-rollup.md` with the real ID and run
+rewrite `<workspace>/invalidate-<N>-rollup.md` with the real ID and run
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <scratch>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
 ```
 
 It keeps the entry's date and author, and refuses if someone else's entry has landed after it.

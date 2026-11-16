@@ -6,7 +6,7 @@
 The Step 5a body file, written per finding with every `<…>` placeholder filled.
 
 ```bash
-cat > <scratch>/import-md-<basename>-<index>-body.md <<'EOF'
+cat > <workspace>/import-md-<basename>-<index>-body.md <<'EOF'
 ### The issue description
 
 > **Imported from markdown file `<basename>` (finding <K>/<N>)** — there is no inbound `<security-list>` report; the markdown sections below are the verbatim source.

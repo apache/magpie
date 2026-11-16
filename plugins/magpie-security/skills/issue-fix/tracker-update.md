@@ -9,10 +9,10 @@ Now that a public PR exists, update the private tracking issue:
 
 1. **Append a `Fix PR` entry to the tracker's status-rollup comment** — not a new top-level comment.
    The rollup recipe (detection, append, zero-whitespace rules) lives in [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
-   Write the entry body to `<scratch>/rollup-entry-<N>.md` with the Write tool and append it:
+   Write the entry body to `<workspace>/rollup-entry-<N>.md` with the Write tool and append it:
 
    ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix rollup-append <N> "Fix PR (<upstream>#<PR>)" <scratch>/rollup-entry-<N>.md
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix rollup-append <N> "Fix PR (<upstream>#<PR>)" <workspace>/rollup-entry-<N>.md
    ```
 
    The tool adds the `<YYYY-MM-DD> · @<author-handle> · Fix PR (<upstream>#<PR>)` `<details>` envelope, so the file holds the body only.
@@ -26,10 +26,10 @@ Now that a public PR exists, update the private tracking issue:
    The public `<upstream>` PR description and follow-up public comments obey the same rule, with none of the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title) alongside the mention.
 
 2. **Update the issue body "PR with the fix" field** if it is empty or points to a stale PR (the Step 2a value tells you which).
-   Write the PR URL to `<scratch>/pr-with-fix-<N>.md` with the Write tool, then patch only that field:
+   Write the PR URL to `<workspace>/pr-with-fix-<N>.md` with the Write tool, then patch only that field:
 
    ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix body-field-set <N> "PR with the fix" <scratch>/pr-with-fix-<N>.md
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-fix body-field-set <N> "PR with the fix" <workspace>/pr-with-fix-<N>.md
    ```
 
    Exit `3` means the heading is absent or duplicated — surface it and fall back to a manual edit.

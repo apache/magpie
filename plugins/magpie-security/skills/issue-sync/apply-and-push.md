@@ -22,10 +22,10 @@ Use:
 - **Milestone (close):** `gh api -X PATCH repos/<tracker>/milestones/<N> -f state=closed`. Only when the last open tracker on that milestone just closed via Step 15 (cve.org PUBLISHED). See the condition set in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
 - **Assignees:** `gh issue edit <N> --repo <tracker> --add-assignee @me` (or a named user).
 - **Body fields (one or a few changed fields):** one call per confirmed field.
-  Write the new value to `<scratch>/field-<N>-<slug>.md` with the Write tool, then:
+  Write the new value to `<workspace>/field-<N>-<slug>.md` with the Write tool, then:
 
   ```bash
-  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync body-field-set <N> "<Field>" <scratch>/field-<N>-<slug>.md
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync body-field-set <N> "<Field>" <workspace>/field-<N>-<slug>.md
   ```
 
   This covers every Step 2b body-field item — CWE, Severity, Affected versions,
@@ -42,10 +42,10 @@ Use:
   adding the `### Related references` audit section from the title cleanup,
   or a field `body-field-set` refused with exit `3`.
 - **Status-rollup comment:** write the entry body (no `<details>` envelope, no marker, no ruler)
-  to `<scratch>/rollup-entry-<N>.md` with the Write tool, then:
+  to `<workspace>/rollup-entry-<N>.md` with the Write tool, then:
 
   ```bash
-  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append <N> "Sync (<short headline>)" <scratch>/rollup-entry-<N>.md
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append <N> "Sync (<short headline>)" <workspace>/rollup-entry-<N>.md
   ```
 
   The tool adds the envelope and ruler, and creates the rollup with its marker on a legacy tracker that has none yet; the rollup body never enters context.

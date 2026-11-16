@@ -478,7 +478,11 @@ def read_body(value: str, *, workspace: Path) -> bytes:
     # a link after the check is refused, not followed.
     candidate = Path(os.path.abspath(Path(value).expanduser()))
     if root not in candidate.parents:
-        raise ParamError(f"body file must live under the workspace {str(root)!r}: {value!r}")
+        raise ParamError(
+            f"body file must live under the workspace {str(root)!r}: {value!r}; "
+            f"write it there with the file-writing tool (for example {str(root / Path(value).name)!r}) "
+            "and pass that path"
+        )
     try:
         data = read_regular_file(candidate)
     except TamperedPath as exc:
