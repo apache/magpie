@@ -483,6 +483,17 @@ def test_body_file_outside_the_workspace_is_refused(policy: config.Config, tmp_p
         cli._validate_params(op, ["7", str(secret)], policy)
 
 
+def test_the_workspace_refusal_names_where_to_write_the_file(policy: config.Config, tmp_path: Path) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    body = elsewhere / "entry.md"
+    body.write_text("note")
+    op = ops.resolve("issue-comment")
+    with pytest.raises(ops.ParamError) as refused:
+        cli._validate_params(op, ["7", str(body)], policy)
+    assert str(policy.workspace / "entry.md") in str(refused.value)
+
+
 def test_body_file_content_may_contain_anything(policy: config.Config) -> None:
     """The body is passed by reference, so shell metacharacters are just text."""
     body = policy.workspace / "note.md"
