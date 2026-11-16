@@ -316,13 +316,17 @@ def closed(**data):
     return {"cve_id": "CVE-2026-1", "cve_org_state": "PUBLISHED", "body": "", "comments": [], **data}
 
 
+def team(body, association="COLLABORATOR", login="maya"):
+    return {"body": body, "authorAssociation": association, "author": {"login": login}}
+
+
 @pytest.mark.parametrize(
     ("data", "move"),
     [
         (closed(), "notify"),
         (
             closed(
-                comments=[{"body": "Sync 2026-10-01 — CVE-published reporter notification drafted"}],
+                comments=[team("Sync 2026-10-01 — CVE-published reporter notification drafted")],
                 notification_sent_on_thread=True,
             ),
             "already_notified",
@@ -347,21 +351,21 @@ def test_cve_org_state(capsys, tmp_path, data, move):
         (
             closed(
                 public_advisory_url="u",
-                comments=[{"body": "- [x] <!-- apache-magpie: security-pages-checklist v1 --> pages"}],
+                comments=[team("- [x] <!-- apache-magpie: security-pages-checklist v1 --> pages")],
             ),
             False,
         ),
         (
             closed(
                 public_advisory_url="u",
-                comments=[{"body": "- [ ] <!-- apache-magpie: security-pages-checklist v1 --> pages"}],
+                comments=[team("- [ ] <!-- apache-magpie: security-pages-checklist v1 --> pages")],
             ),
             True,
         ),
         (
             closed(
                 public_advisory_url="u",
-                comments=[{"body": "<!-- apache-magpie: security-pages-reminder v1 -->\nplease"}],
+                comments=[team("<!-- apache-magpie: security-pages-reminder v1 -->\nplease")],
             ),
             False,
         ),
@@ -381,7 +385,7 @@ def test_security_pages_reminder(capsys, tmp_path, data, pending):
         (
             closed(
                 advisory_records_configured=True,
-                comments=[{"body": "<!-- apache-magpie: advisory-records v1 -->"}],
+                comments=[team("<!-- apache-magpie: advisory-records v1 -->")],
             ),
             "done",
         ),
@@ -430,9 +434,81 @@ def test_markers_in_the_body_never_count(capsys, tmp_path):
 def test_the_records_marker_counts_only_as_a_comment_s_first_line(capsys, tmp_path):
     later = closed(
         advisory_records_configured=True,
-        comments=[{"body": "quoting: <!-- apache-magpie: advisory-records v1 -->"}],
+        comments=[team("quoting: <!-- apache-magpie: advisory-records v1 -->")],
     )
     assert ok(capsys, tmp_path, "closed-announced", later)["advisory_records"] == "run_planner"
+
+
+_NOTIFIED = "Sync 2026-10-01 — CVE-published reporter notification drafted"
+
+
+@pytest.mark.parametrize(
+    "comment",
+    [
+        team(_NOTIFIED, association="NONE", login="reporter"),
+        team(_NOTIFIED, association="CONTRIBUTOR", login="reporter"),
+        team(_NOTIFIED, association="MEMBER", login="org-member"),
+        {"body": _NOTIFIED},
+        _NOTIFIED,
+    ],
+)
+def test_markers_from_outside_the_team_never_count(capsys, tmp_path, comment):
+    data = closed(comments=[comment], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "notify"
+    records = closed(
+        advisory_records_configured=True,
+        comments=[{**comment, "body": "<!-- apache-magpie: advisory-records v1 -->"}]
+        if isinstance(comment, dict)
+        else ["<!-- apache-magpie: advisory-records v1 -->"],
+    )
+    assert ok(capsys, tmp_path, "closed-announced", records)["advisory_records"] == "run_planner"
+
+
+@pytest.mark.parametrize("association", ["OWNER", "COLLABORATOR"])
+def test_a_team_association_counts(capsys, tmp_path, association):
+    data = closed(comments=[team(_NOTIFIED, association=association)], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "already_notified"
+
+
+@pytest.mark.parametrize(
+    ("comment", "collaborators"),
+    [
+        ({"body": _NOTIFIED, "author_association": "COLLABORATOR", "user": {"login": "x"}}, []),
+        ({"body": _NOTIFIED, "author_association": "MEMBER", "user": {"login": "maya"}}, ["maya"]),
+        ({"id": 0, "author": "", "body": _NOTIFIED, "kind": "rollup"}, []),
+    ],
+)
+def test_rest_comments_and_the_local_rollup_count(capsys, tmp_path, comment, collaborators):
+    data = closed(comments=[comment], collaborators=collaborators, notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "already_notified"
+
+
+def test_a_rest_comment_from_outside_the_team_does_not_count(capsys, tmp_path):
+    comment = {"body": _NOTIFIED, "author_association": "NONE", "user": {"login": "reporter"}}
+    data = closed(comments=[comment], collaborators=["maya"], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "notify"
+
+
+def test_a_member_counts_when_listed_as_a_collaborator(capsys, tmp_path):
+    comment = team(_NOTIFIED, association="MEMBER", login="maya")
+    data = closed(comments=[comment], collaborators=["maya"], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "already_notified"
+
+
+@pytest.mark.parametrize("author", ["maya", "@Maya"])
+def test_a_plain_author_name_counts_when_listed(capsys, tmp_path, author):
+    """Jira and local-files trackers give the author as a plain name."""
+    comment = {"body": _NOTIFIED, "author": author}
+    data = closed(comments=[comment], collaborators=["maya"], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "already_notified"
+
+
+def test_a_listed_collaborator_counts_without_an_association(capsys, tmp_path):
+    comment = {"body": _NOTIFIED, "author": {"login": "Maya"}}
+    data = closed(comments=[comment], collaborators=["maya"], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", data)["cve_org"] == "already_notified"
+    other = closed(comments=[comment], collaborators=["someone"], notification_sent_on_thread=True)
+    assert ok(capsys, tmp_path, "closed-announced", other)["cve_org"] == "notify"
 
 
 # --- 1h: release votes -------------------------------------------------------
