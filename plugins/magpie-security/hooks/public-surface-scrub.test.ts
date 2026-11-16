@@ -30,6 +30,7 @@ import {
   resolvePath,
   resolveProjectConfig,
   splitShellCommands,
+  stripFrameworkIdentifiers,
 } from './public-surface-scrub.js';
 
 function assert(condition: any, message?: string): void {
@@ -58,6 +59,39 @@ describe('Deterministic Public-Surface Scrub mod (family:security)', () => {
       assertDeepStrictEqual(findForbiddenTerms('Improve xcom value handling in extra links API'), []);
       assertDeepStrictEqual(findForbiddenTerms(''), []);
       assertDeepStrictEqual(findForbiddenTerms(null as any), []);
+    });
+
+    test('framework identifiers are ignored only when the caller says the target is the framework', () => {
+      const text = 'Run security-cve-allocate, then generate-cve-json and cve-tool-vulnogram/oauth-api';
+      assert(findForbiddenTerms(text).includes('CVE'));
+      assertDeepStrictEqual(findForbiddenTerms(text, { frameworkTarget: true }), []);
+    });
+
+    test('identifier stripping is exact: the bare word, ids, case variants and longer names still match', () => {
+      for (const text of [
+        'Fix the CVE in cve-allocate',
+        'cve-allocate for CVE-2026-12345',
+        'CVE-allocate',
+        'cve-allocate-extra',
+        'cve-tool-x',
+        'cves',
+      ]) {
+        assert(
+          findForbiddenTerms(text, { frameworkTarget: true }).length > 0,
+          `expected a hit in ${JSON.stringify(text)}`
+        );
+      }
+      assert(findForbiddenTerms('cve-allocate: fix the vulnerability', { frameworkTarget: true }).includes('vulnerability'));
+    });
+
+    test('stripFrameworkIdentifiers removes whole identifiers in paths and prose', () => {
+      assertStrictEqual(
+        stripFrameworkIdentifiers('plugins/magpie-security/skills/cve-allocate/SKILL.md').includes('cve'),
+        false
+      );
+      assertStrictEqual(stripFrameworkIdentifiers('`magpie-security:cve-allocate`.').includes('cve'), false);
+      assertStrictEqual(stripFrameworkIdentifiers('cve_tool.py').includes('cve'), false);
+      assertStrictEqual(stripFrameworkIdentifiers('cve-allocate-extra'), 'cve-allocate-extra');
     });
 
     test('detects CVE references', () => {
@@ -315,6 +349,41 @@ upstream_repo: apache/kafka
       trackerRepo: 'airflow-s/airflow-s',
       upstreamRepo: 'apache/airflow',
     };
+
+    test('a framework PR may name the framework identifiers', async () => {
+      const res = await evaluatePublicSurfaceCommand(
+        'gh pr create --repo apache/magpie --title "fix(security-cve-allocate): grant rollup-amend-latest" --body "Touches generate-cve-json"',
+        { projectConfig: { upstreamRepo: 'apache/magpie' } }
+      );
+      assertStrictEqual(res.blocked, false);
+    });
+
+    test('a framework PR still blocks the bare word and ids', async () => {
+      const res = await evaluatePublicSurfaceCommand(
+        'gh pr create --repo apache/magpie --title "cve-allocate: handle CVE-2026-12345"',
+        { projectConfig: { upstreamRepo: 'apache/magpie' } }
+      );
+      assertStrictEqual(res.blocked, true);
+      assert(res.matchedTerms.includes('CVE id'));
+    });
+
+    test('an adopter PR naming a framework skill still blocks', async () => {
+      // In an adopter's public PR the skill name itself reveals the security context.
+      const res = await evaluatePublicSurfaceCommand(
+        'gh pr create -R apache/airflow --title "Follow-up from security-cve-allocate run"',
+        { projectConfig: defaultProject }
+      );
+      assertStrictEqual(res.blocked, true);
+      assert(res.matchedTerms.includes('CVE'));
+    });
+
+    test('a magpie-like repo name does not count as the framework', async () => {
+      const res = await evaluatePublicSurfaceCommand(
+        'gh issue create --repo someone/magpie --title "cve-allocate is slow"',
+        { projectConfig: { upstreamRepo: 'apache/magpie' } }
+      );
+      assertStrictEqual(res.blocked, true);
+    });
 
     test('allows clean neutral commit', async () => {
       const res = await evaluatePublicSurfaceCommand('git commit -m "Fix asset graph view"', {
