@@ -193,6 +193,8 @@ upstream = "acme/product"
 labels        = ["needs triage", "security issue", "cve allocated", "pr merged"]
 upstream_labels = ["ready for maintainer review", "area:scheduler"]  # issues *and* PRs
 milestones    = ["1.2.3", "1.3.0"]
+# Optional: full-match patterns that widen the list above (see below).
+milestones_patterns = ['Providers \d{4}-\d{2}-\d{2}']
 assignees     = ["alice", "bob"]
 issue_states  = ["open", "closed", "all"]
 pr_states     = ["open", "closed", "merged", "all"]
@@ -329,6 +331,22 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 `mentoring-welcome` needs no operation of its own: it works on upstream issues
 and PRs, which the issue and PR families already cover. A family earns new
 operations only when it has a shape the catalogue lacks.
+
+**Patterns for milestones a project mints on a schedule.** `milestones` can
+gain a sibling `milestones_patterns` list of regular expressions. A milestone
+parameter then accepts a listed value or one that a pattern matches *in full*
+(`fullmatch`, so `Providers 2026-11-17 extra` does not pass). A project that
+cuts a dated milestone every release wave declares its shape once instead of
+editing and re-approving the policy for each wave. A pattern-matched value must
+also be a plain name: 1 to 100 characters, no leading or trailing space, the
+plain space as its only whitespace, no `,` `"` or `\`, and no Unicode control,
+format or line-separator character, whatever the pattern allows. The patterns
+are checked when the policy loads: one that does not compile, or that matches
+the empty string (`.*`, `''`), is refused, so a pattern is always a real
+constraint. The milestone list may be replaced entirely by its patterns. No
+other list takes patterns, and the policy refuses one that tries: labels reach
+`gh` list flags and search qualifiers, and logins have their own format check,
+so both stay listed by name.
 
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a

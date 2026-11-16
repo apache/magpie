@@ -57,6 +57,37 @@ PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
 #: put a policy there; a renamed directory or a symlink elsewhere cannot either.
 APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
 
+#: `values.<key>_patterns` adds full-match patterns to the enum list `<key>`.
+PATTERNS_SUFFIX = "_patterns"
+#: The enum keys a pattern may widen. Milestones are minted on a schedule and
+#: have no syntax of their own to check. Labels and assignees are not here: a
+#: label reaches `gh` list flags and search qualifiers, and a login has its own
+#: format check, so both stay listed by name.
+PATTERN_KEYS = frozenset({"milestones"})
+
+
+def cast_patterns(raw: object, key: str) -> list[str]:
+    """
+    Check one ``values.<key>_patterns`` entry: a list of compilable patterns.
+
+    An empty pattern, or one that matches the empty string, would accept any
+    value (``.*``) or none worth having; both are refused, so a pattern is
+    always a real constraint the policy's author wrote on purpose.
+    """
+    name = f"values.{key}{PATTERNS_SUFFIX}"
+    if key not in PATTERN_KEYS:
+        raise ConfigError(f"{name}: only {sorted(PATTERN_KEYS)} may be widened by patterns")
+    if not isinstance(raw, list) or not all(isinstance(p, str) for p in raw):
+        raise ConfigError(f"{name} must be a list of regular-expression strings")
+    for pattern in raw:
+        try:
+            compiled = re.compile(pattern)
+        except re.error as exc:
+            raise ConfigError(f"{name}: {pattern!r} is not a valid regular expression ({exc})") from None
+        if compiled.fullmatch(""):
+            raise ConfigError(f"{name}: {pattern!r} matches the empty string, so it constrains nothing")
+    return list(raw)
+
 
 def account_home() -> Path:
     """The account's home directory from the password database, never `$HOME`,
@@ -150,8 +181,26 @@ class Config:
         merged["upstream_repo"] = self.upstream_repo
         return merged
 
+    def enum_patterns(self, key: str) -> list[re.Pattern[str]]:
+        """
+        The full-match patterns ``values.<key>_patterns`` adds to ``key``'s list.
+
+        A pattern widens what an enum-gated parameter accepts without a policy
+        edit per value: a release train that cuts a dated milestone every two
+        weeks declares ``milestones_patterns = ['Providers \\d{4}-\\d{2}-\\d{2}']``
+        once instead of re-approving the policy for each wave. The patterns are
+        compiled and checked when the policy loads, so here they are known good.
+        """
+        raw = self.values.get(f"{key}{PATTERNS_SUFFIX}")
+        if raw is None:
+            return []
+        return [re.compile(p) for p in cast_patterns(raw, key)]
+
     def enum_values(self, key: str) -> list[str]:
         raw = self.values.get(key)
+        if raw is None and f"{key}{PATTERNS_SUFFIX}" in self.values:
+            # Patterns alone are a complete declaration: nothing is listed by name.
+            return []
         if raw is None:
             raise ConfigError(f"config declares no {key!r} list, so no operation may use it")
         if isinstance(raw, dict):
@@ -341,6 +390,9 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
     values_raw = raw.get("values", {})
     if not isinstance(values_raw, dict):
         raise ConfigError("[values] must be a table")
+    for key, value in values_raw.items():
+        if key.endswith(PATTERNS_SUFFIX):
+            cast_patterns(value, key.removesuffix(PATTERNS_SUFFIX))
 
     callers_raw = raw.get("callers", {})
     if not isinstance(callers_raw, dict):

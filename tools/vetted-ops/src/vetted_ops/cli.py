@@ -89,7 +89,8 @@ def _validate_params(
             raise ops_mod.ParamError(f"parameter {name!r} may not start with '-': {raw!r}")
 
         if name in op.enums:
-            resolved[name] = ops_mod.enum(config.enum_values(op.enums[name]))(raw)
+            key = op.enums[name]
+            resolved[name] = ops_mod.enum(config.enum_values(key), config.enum_patterns(key))(raw)
         elif name in op.body_files:
             # Read the content here and hand `gh` a "-" so it takes the body on
             # stdin. The bytes that were validated are then, necessarily, the

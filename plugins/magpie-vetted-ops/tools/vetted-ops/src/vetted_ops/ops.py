@@ -35,6 +35,7 @@ import json
 import os
 import re
 import stat as stat_mod
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -490,14 +491,57 @@ def read_body(value: str, *, workspace: Path) -> bytes:
     return data
 
 
-def enum(allowed: Sequence[str]) -> Callable[[str], str]:
-    """Build a validator accepting only one of ``allowed``."""
+#: Characters a pattern-matched value may never hold, whatever the pattern
+#: says: `,` splits `gh`'s list flags, `"` and `\` break out of a quoted search
+#: qualifier.
+_PATTERN_VALUE_FORBIDDEN = frozenset(',"\\')
+
+
+def _pattern_value_ok(value: str) -> bool:
+    """
+    True when a caller-supplied value is safe to admit through a pattern.
+
+    A listed value is trusted as the policy author wrote it; a pattern-matched
+    one came from the caller, so it must also be a plain name: 1 to 100
+    characters, no leading or trailing space, the plain space as the only
+    whitespace, no separator or quote character, and no Unicode control,
+    format, surrogate or private-use character (category ``C*``) — which also
+    rules out line and paragraph separators and zero-width characters.
+    """
+    if not 1 <= len(value) <= 100 or value != value.strip(" "):
+        return False
+    for ch in value:
+        if ch in _PATTERN_VALUE_FORBIDDEN:
+            return False
+        category = unicodedata.category(ch)
+        if category.startswith("C") or category in {"Zl", "Zp"}:
+            return False
+        if category == "Zs" and ch != " ":
+            return False
+    return True
+
+
+def enum(allowed: Sequence[str], patterns: Sequence[re.Pattern[str]] = ()) -> Callable[[str], str]:
+    """
+    Build a validator accepting one of ``allowed``, or a value matching a pattern.
+
+    ``patterns`` come from ``values.<key>_patterns`` and must match the whole
+    value (``fullmatch``); a partial match never widens the gate.
+    """
     permitted = tuple(allowed)
+    shapes = tuple(patterns)
 
     def _validate(value: str) -> str:
-        if value not in permitted:
-            raise ParamError(f"value {value!r} is not one of the configured values: {list(permitted)}")
-        return value
+        if value in permitted:
+            return value
+        if shapes and _pattern_value_ok(value) and any(p.fullmatch(value) for p in shapes):
+            return value
+        if shapes:
+            raise ParamError(
+                f"value {value!r} is not one of the configured values {list(permitted)} "
+                f"and matches none of the configured patterns {[p.pattern for p in shapes]}"
+            )
+        raise ParamError(f"value {value!r} is not one of the configured values: {list(permitted)}")
 
     return _validate
 
