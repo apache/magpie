@@ -901,7 +901,7 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
  * Validates that a candidate file path is strictly within the workspace directory
  * and does not attempt directory traversal or target external paths.
  */
-export function isWorkspaceCandidatePath($: any, filePath: string, targetIssue: number): boolean {
+export function isWorkspaceCandidatePath(filePath: string, targetIssue: number, wsRoot?: string): boolean {
   if (!filePath || typeof filePath !== 'string') return false;
   const expected = `.magpie-issue-candidates-${targetIssue}.json`;
   const normalized = filePath.replace(/\\/g, '/');
@@ -919,12 +919,11 @@ export function isWorkspaceCandidatePath($: any, filePath: string, targetIssue: 
     return true;
   }
 
-  const wsRoot = ($?.workspace?.path || $?.workspace?.root || $?.cwd || '')
-    .toString()
-    .replace(/\\/g, '/')
-    .replace(/\/+$/, '');
-  if (wsRoot && normalized === `${wsRoot}/${expected}`) {
-    return true;
+  if (wsRoot && typeof wsRoot === 'string') {
+    const cleanWs = wsRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (cleanWs && normalized === `${cleanWs}/${expected}`) {
+      return true;
+    }
   }
 
   return false;
@@ -990,7 +989,7 @@ export async function handleWriteToolCall($: any, e: any, next: any): Promise<an
         const match = /\.magpie-issue-candidates-(\d+)\.json$/.exec(filePath);
         if (match) {
           const targetIssue = parseInt(match[1], 10);
-          if (isWorkspaceCandidatePath($, filePath, targetIssue)) {
+          if (isWorkspaceCandidatePath(filePath, targetIssue)) {
             const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
             let exists = false;
             try {
