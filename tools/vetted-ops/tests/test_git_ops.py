@@ -297,6 +297,39 @@ def test_clean_env_takes_home_from_the_account_and_drops_xdg() -> None:
     assert "XDG_CONFIG_HOME" not in env
 
 
+def test_a_remote_named_like_the_destination_cannot_redirect_the_push(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _git(repo, "branch", "topic")
+    destination = policy.push_url("me/project")
+    _git(repo, "config", f"remote.{destination}.pushurl", policy.push_url("acme/project"))
+    with pytest.raises(GitRefused, match="repository configuration"):
+        _push(git, policy, repo, "topic", "fork", "topic", "new")
+
+
+@pytest.mark.parametrize(("output", "refused"), [("git version 2.41.0", True), ("git version 2.42.0", False)])
+def test_git_older_than_2_42_is_refused(repo: Path, output: str, refused: bool) -> None:
+    def runner(argv: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 0, stdout=output, stderr="")
+
+    git = Git(runner=runner)
+    if refused:
+        with pytest.raises(GitRefused, match=r"2\.42 or later"):
+            git.check_version()
+    else:
+        git.check_version()
+
+
+def test_a_failing_hooks_stdout_is_kept(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    hook = repo / ".git" / "hooks" / "pre-push"
+    hook.write_text("#!/bin/sh\necho 'static checks failed: run prek'\nexit 1\n")
+    hook.chmod(0o755)
+    _git(repo, "branch", "topic")
+    with pytest.raises(git_ops.GitFailed) as failed:
+        _push(git, policy, repo, "topic", "fork", "topic", "new")
+    assert "static checks failed" in failed.value.stdout + failed.value.stderr
+
+
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
     _git(repo, "branch", "topic")
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")

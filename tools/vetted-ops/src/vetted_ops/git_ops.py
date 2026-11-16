@@ -137,7 +137,9 @@ SAFE_LOCAL_KEY = re.compile(
               |symlinks|autocrlf|eol|safecrlf|quotepath|abbrev|commitgraph|untrackedcache
               |splitindex|multipackindex|sparsecheckout|sparsecheckoutcone|checkstat|trustctime)
     | extensions\.(?:worktreeconfig|objectformat|refstorage|preciousobjects|partialclone|noop)
-    | remote\.[^\x00]+\.(?:url|pushurl|fetch|tagopt|prune|prunetags|promisor|partialclonefilter
+    # A remote name without `:` or `/`: git applies the settings of a remote named exactly
+    # like the URL a push goes to, so a URL-shaped name could redirect it.
+    | remote\.[A-Za-z0-9._-]+\.(?:url|pushurl|fetch|tagopt|prune|prunetags|promisor|partialclonefilter
                          |mirror|skipdefaultupdate|skipfetchall|gh-resolved)
     | branch\.[^\x00]+\.(?:remote|pushremote|merge|rebase|description|vscode-merge-base)
     | user\.(?:name|email)
@@ -168,10 +170,13 @@ class GitRefused(ValueError):
 class GitFailed(RuntimeError):
     """A git command that ran and failed."""
 
-    def __init__(self, argv: Sequence[str], returncode: int, stderr: str) -> None:
-        super().__init__(f"{' '.join(a for a in argv[1:6] if not a.startswith('core.'))} exited {returncode}")
+    def __init__(self, argv: Sequence[str], returncode: int, stderr: str, stdout: str = "") -> None:
+        command = " ".join(a for a in argv if a != "-c" and "=" not in a)
+        super().__init__(f"{command} exited {returncode}")
         self.returncode = returncode
         self.stderr = stderr
+        #: A hook may explain its failure on stdout; it is shown with stderr.
+        self.stdout = stdout
 
 
 @dataclass(frozen=True)
@@ -285,6 +290,9 @@ def _default_runner(argv: list[str], env: dict[str, str]) -> subprocess.Complete
 #: receive-pack and hooks here). The same pins as the local tracker's git.
 PINNED_CONFIG = ("core.fsmonitor=false", "gc.auto=0", "maintenance.auto=false", "protocol.allow=never")
 
+#: The first git that honours ``GIT_ATTR_SOURCE``.
+MIN_GIT_VERSION = (2, 42)
+
 #: The empty tree, per object format: attributes are read from it, so no
 #: `.gitattributes` in the working tree can switch on a filter or driver.
 EMPTY_TREE = {
@@ -305,6 +313,18 @@ class Git:
     _ssh_command: str | None = field(default=None, repr=False)
     #: Set once the object format is known (see `check_repository_config`).
     attr_source: str | None = None
+
+    def check_version(self) -> None:
+        """Refuse a git older than `MIN_GIT_VERSION`, which ignores ``GIT_ATTR_SOURCE``."""
+        found = self.runner(["git", "version"], clean_env())
+        match = re.search(r"(\d+)\.(\d+)", found.stdout or "")
+        version = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+        if found.returncode != 0 or version < MIN_GIT_VERSION:
+            raise GitRefused(
+                f"git {'.'.join(map(str, MIN_GIT_VERSION))} or later is required (found "
+                f"{(found.stdout or '').strip() or 'none'}): an older git ignores GIT_ATTR_SOURCE, so a "
+                ".gitattributes could switch on a filter outside the sandbox"
+            )
 
     def ssh_command(self) -> str:
         if self._ssh_command is None:
@@ -332,7 +352,7 @@ class Git:
         argv = self.argv(directory, *args, hooks=hooks)
         completed = self.runner(argv, self._env())
         if completed.returncode != 0:
-            raise GitFailed(argv, completed.returncode, completed.stderr or "")
+            raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
         return completed.stdout
 
     def ok(self, directory: Path, *args: str) -> bool:
@@ -434,6 +454,7 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
     acts, so a key added after the first check is still caught; what cannot
     be re-checked in between is pinned by `PINNED_CONFIG`.
     """
+    git.check_version()
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)
     object_format = git.run(worktree.path, "rev-parse", "--show-object-format").strip()
@@ -686,6 +707,7 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
         print(f"{PROG}: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
     except GitFailed as exc:
+        sys.stderr.write(exc.stdout)
         sys.stderr.write(exc.stderr)
         print(f"{PROG}: {op.name if op else args.operation} failed: {exc}", file=sys.stderr)
         return EXIT_COMMAND
