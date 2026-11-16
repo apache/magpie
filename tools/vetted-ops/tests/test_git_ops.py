@@ -376,6 +376,29 @@ def test_protocols_are_limited_through_the_environment(git: Git) -> None:
     assert Git()._env()["GIT_ALLOW_PROTOCOL"] == "https:ssh"
 
 
+def test_a_copy_of_the_main_checkout_is_not_a_linked_worktree(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    start = _git(repo, "rev-parse", "HEAD")
+    copy = policy.worktree_roots[0] / "copy"
+    copy.mkdir()
+    (copy / "one").write_text("one")
+    (copy / ".git").write_text(f"gitdir: {repo / '.git'}\n")
+    with pytest.raises(GitRefused, match="registered"):
+        git_ops.worktree_sync(git, policy, {"worktree": str(copy), "commit": start}, False)
+
+
+def test_a_git_directory_swapped_after_validation_is_refused(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _git(repo, "branch", "topic")
+    worktree = git_ops.resolve_worktree(git, str(repo), policy, "checkout")
+    (repo / ".git").rename(repo / "real-git")
+    (repo / ".git").mkdir()
+    with pytest.raises(GitRefused, match="changed since it was validated"):
+        git_ops.check_repository_config(git, worktree)
+
+
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
     _git(repo, "branch", "topic")
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")
