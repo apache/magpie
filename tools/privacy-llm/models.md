@@ -120,9 +120,11 @@ the PR text as it will be posted
 ([design](../../docs/designs/2026-09-23-adversarial-review.md)).
 
 Grok as the agent harness running framework skills is fundamentally different.
-Any skill that reads `<private-list>` content sends private data through the xAI API (`https://api.x.ai/v1`), which is not in the default-approved set.
-Adopters running under the Grok harness must declare it under `Approved third-party endpoints (opt-in)` in `<project-config>/privacy-llm.md` with a verified data-residency link and PMC sign-off.
-Until declared, the Step 0 gate stops skills that read private lists.
+Any skill that reads `<private-list>` content sends private data to an xAI endpoint — either the direct inference API (`https://api.x.ai/v1`, or `https://us.api.x.ai/v1` for US data residency) or an authenticated session proxy (`https://cli-chat-proxy.grok.com`).
+Neither is in the default-approved set.
+
+Because the privacy-LLM gate inspects the project's declared configuration rather than detecting the running harness process at runtime, adopters running under Grok must declare it in both the `Currently configured LLM stack` and `Approved third-party endpoints (opt-in)` sections of `<project-config>/privacy-llm.md` with a verified data-residency link and PMC sign-off.
+Once Grok is declared in the configured LLM stack, the Step 0 gate stops skills that read private lists until a matching opt-in approval is present.
 
 ## The pre-flight check
 

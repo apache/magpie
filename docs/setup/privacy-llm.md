@@ -360,13 +360,28 @@ gate as incomplete.
 ## Variant 7 — Grok / xAI API (opt-in)
 
 **Opt-in.**
-Running framework skills under the Grok agent harness, or routing model calls through the xAI API directly, routes queries through `https://api.x.ai/v1`.
+Running framework skills under the Grok agent harness routes model queries to an xAI endpoint.
 Because xAI is not in the default-approved set, any skill reading `<private-list>` content requires an explicit opt-in entry backed by an enterprise data-residency or no-training agreement.
+
+**Authentication duality and session precedence:**
+Grok CLI (`grok build`) supports two distinct authentication paths:
+
+1. *Direct API authentication (`$XAI_API_KEY`):*
+   Routes queries directly to `https://api.x.ai/v1` (or `https://us.api.x.ai/v1` for US data residency) under explicit enterprise terms with Zero Data Retention (ZDR).
+2. *Interactive browser/SSO sessions (`grok login`):*
+   Routes queries through an inference proxy (`https://cli-chat-proxy.grok.com`) using session tokens stored in `~/.grok/`.
+
+> [!WARNING]
+> Grok CLI credential resolution prioritizes an active login session over the `$XAI_API_KEY` environment variable.
+> If a contributor has logged in interactively (`grok login`), requests route to `cli-chat-proxy.grok.com` under that personal or organizational account regardless of `$XAI_API_KEY`.
+> To ensure traffic uses the enterprise API key, verify `grok status` or run `grok logout` before executing skills on private data.
+> Conversely, if the project has approved an enterprise team SSO account, verify that the active session belongs to the approved organization.
 
 **Prerequisites:**
 
-- An xAI account with API access and a verified data-processing or no-training agreement.
-- The API key stored at `~/.config/apache-magpie/xai-api.json` or exported as `$XAI_API_KEY` from a home-directory shell profile — never in the project tree.
+- An xAI account with API access and a verified data-processing or no-training agreement (e.g. xAI Console ZDR or Enterprise Agreement).
+- For direct API key usage: the key stored at `~/.config/apache-magpie/xai-api.json` or exported as `$XAI_API_KEY` from a home-directory shell profile — never in the project tree — with no conflicting personal login session (`grok logout`).
+- For enterprise team sessions: active login verified under the approved organization.
 
 **`<project-config>/privacy-llm.md`** content:
 
@@ -387,11 +402,15 @@ Because xAI is not in the default-approved set, any skill reading `<private-list
 - private@<project>.apache.org
 ```
 
+*(For teams operating via enterprise SSO sessions rather than direct API keys, replace the endpoint with `https://cli-chat-proxy.grok.com` and cite the team organization agreement).*
+
 **Setup steps:**
 
 1. Verify that the xAI data-residency contract and retention terms meet your project's expectations for foundation private data.
    Document the reference link in the *Data-residency contract* line above.
-2. Store the xAI API credentials in your home directory or environment, never inside the repository.
+2. Determine the authentication method (direct API key or enterprise SSO session) and ensure the environment matches:
+   if using direct API, confirm no lingering personal browser session exists (`grok logout`);
+   if using team SSO, confirm the active session belongs to the approved organization.
 3. Place the file at `<project-config>/privacy-llm.md` with the *Approved-by* line signed off by a PMC member of the security team.
    Commit the file.
 
