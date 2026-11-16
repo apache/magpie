@@ -13,11 +13,15 @@ Relative links are rooted one level deeper than in `SKILL.md`.
 
   1. Keep the original issue on the scope whose milestone family ships *first*
      (usually core, whose patch releases cut faster), and drop the extra scope label from it.
-  2. Create one new issue per remaining scope via `gh issue create
-     --repo <tracker>`, copying the report body
+  2. Create one new issue per remaining scope, copying the report body
      verbatim but with a one-line preamble that says *"Split from
      [#NNN](https://github.com/<tracker>/issues/<N>) for the `<scope>` scope — see that issue for the
      full discussion history."*
+     Create it through vetted-ops, never a raw `gh issue create` (the agent-guard blocks a raw create whose body carries report text):
+     write the title and the body to files in the vetted-ops workspace, then run
+     `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync issue-create-labeled <title-file> <body-file> '["<scope>", "security issue"]'`
+     (the label array is JSON; add `cve allocated` when the CVE is shared, per item 3).
+     The caller needs `issue-create-labeled` in the adopter's vetted-ops policy ([canonical grants](../../../../../tools/vetted-ops/README.md#configuration)).
   3. Apply to each split issue:
      - exactly one scope label (see
        [`<project-config>/scope-labels.md`](../../../../../<project-config>/scope-labels.md));
