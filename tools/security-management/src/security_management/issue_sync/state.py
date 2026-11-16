@@ -29,8 +29,9 @@
 - `closed_announced` (1g): the cve.org state as the next move (`PUBLISHED`
   → the CVE-published email unless a prior notification is recorded,
   `RESERVED` → wait, `REJECTED` → blocker, lookup error → retry), the
-  security-pages checklist and reminder markers in the body and comments,
-  and the advisory-records step, including the planner's exit code.
+  security-pages checklist and reminder markers in team comments (author
+  association `OWNER` / `COLLABORATOR`, or a login in `collaborators`), and
+  the advisory-records step, including the planner's exit code.
 - `release_vote` (1h): an open `[VOTE]` thread on the dev list whose first
   version matches the fix-PR milestone, for a tracker in the `pr merged`
   window; a `[RESULT]` message closes a vote.
@@ -122,13 +123,43 @@ def staleness(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _texts(data: Mapping[str, Any]) -> list[str]:
+#: GitHub author associations that mean access to the tracker repository
+#: itself. `MEMBER` is left out: it means membership of the organization,
+#: not of the tracker's team; such a member counts through `collaborators`.
+TEAM_ASSOCIATIONS = frozenset({"OWNER", "COLLABORATOR"})
+
+
+def _login(author: Any) -> str:
+    """A comment author's login: GitHub's `{login}` object, or the plain name other backends give."""
+    if isinstance(author, Mapping):
+        author = author.get("login")
+    return str(author or "").strip().lstrip("@").casefold()
+
+
+def _team_comments(data: Mapping[str, Any]) -> list[str]:
+    """Bodies of the comments the tracker's team wrote.
+
+    A comment counts when its author association (GraphQL
+    `authorAssociation`, REST `author_association`) is `OWNER` or
+    `COLLABORATOR`, or its author (`author`, REST `user`) is in
+    `collaborators` (the tracker's collaborator list, which also covers
+    access through a team and backends without associations). The
+    local-files tracker's status rollup (`kind: rollup`), which only the
+    tracker tool writes, counts too. Anything else does not.
+    """
     comments = data.get("comments") or []
     if isinstance(comments, Mapping):
         comments = comments.get("nodes") or []
-    return [str(data.get("body") or "")] + [
-        str(c.get("body") if isinstance(c, Mapping) else c) for c in comments
-    ]
+    team = {_login(login) for login in data.get("collaborators") or []} - {""}
+    out: list[str] = []
+    for c in comments:
+        if not isinstance(c, Mapping):
+            continue
+        association = str(c.get("authorAssociation") or c.get("author_association") or "").upper()
+        author = _login(c.get("author") or c.get("user"))
+        if association in TEAM_ASSOCIATIONS or author in team or c.get("kind") == "rollup":
+            out.append(str(c.get("body") or ""))
+    return out
 
 
 RECORD_EXITS = {
@@ -140,10 +171,10 @@ RECORD_EXITS = {
 
 
 def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
-    texts = _texts(data)
-    # The state markers below are written in comments, never in the body:
-    # the body carries report text, which must not be able to satisfy them.
-    comments = texts[1:]
+    # The state markers below are written in the team's comments, never in
+    # the body or anyone else's comment: those carry report text, which must
+    # not be able to satisfy them.
+    comments = _team_comments(data)
     out: dict[str, Any] = {"ok": True, "blockers": []}
     if not one_line(data.get("cve_id")):
         out["cve_org"] = "skip"

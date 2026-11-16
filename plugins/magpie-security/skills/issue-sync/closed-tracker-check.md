@@ -19,8 +19,11 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
-   and run `<sm> closed-announced`. Its `cve_org` is the move:
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
+   and run `<sm> closed-announced`. `comments` are the 1a comments with their `author` and `authorAssociation`;
+   `collaborators` is the tracker's collaborator list, for a backend whose comments carry no association.
+   Only a comment by the team (`OWNER` / `COLLABORATOR`, or a login in `collaborators`) can carry the state markers below; pass the full collaborator list, since team members with access through a GitHub team show as `MEMBER`.
+   Its `cve_org` is the move:
    `notify` (propose the *CVE-published* reporter email in Step 2b), `already_notified` (a prior *"CVE-published reporter notification drafted"* comment and a sent message on the thread — record it),
    `wait` (*"cve.org shows RESERVED; propagation not complete yet"*), `blocker` (the record was rejected after publication: no email, flag it to the security team),
    `retry` (*"cve.org lookup failed — try again next sync"*; never propose a notification on an absent response) or `skip` (no CVE ID: a closing disposition, dropped from the sweep).
@@ -31,7 +34,7 @@ with several closed trackers in scope, run the checks in parallel via the subage
 
 **Security-pages checklist.** The same closed-`announced` bucket is the only place the post-announcement security-pages step can be observed:
 the Step 14 close-out adds `announced` and closes the tracker in one apply, so an open tracker never carries the trigger state.
-The same command scans the body and every comment the 1a fetch returned — no extra API call — for the ticked checklist item
+The same command scans the team's comments from the 1a fetch — no extra API call — for the ticked checklist item
 `- [x] <!-- apache-magpie: security-pages-checklist v1 -->` and for a comment opening with `<!-- apache-magpie: security-pages-reminder v1 -->`,
 and sets `security_pages_reminder_pending` only when the *Public advisory URL* is populated and neither exists
 (an unticked box in the hand-off comment is the pending state, not the satisfied one).
