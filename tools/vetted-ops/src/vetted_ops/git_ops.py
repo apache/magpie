@@ -70,9 +70,12 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
   the configuration says. Validated directories are opened without following
   a symlink and git runs inside them by descriptor, so a directory swapped for
   a symlink after the checks cannot redirect it. Git itself still finds a
-  repository's ``.git`` by name; its identity is re-checked right before the
-  acting command, and that it cannot be swapped in the moment between rests,
-  like the next point, on the harness protecting the git directory. A rewrite
+  repository's ``.git`` by name; its identity is re-checked, by name, right
+  before the acting command, and a linked worktree's validated git directory
+  is passed explicitly (``--git-dir``, ``--work-tree=.``) so its agent-writable
+  ``.git`` file is never read again. That the git directory cannot be swapped
+  in the moment between rests, like the next point, on the harness protecting
+  it. A rewrite
   such as ``url.*.insteadOf`` cannot be
   pinned away; that it cannot appear while the confirmed command runs rests on
   the harness keeping ``.git/config`` write-protected, as Claude Code's sandbox
@@ -90,6 +93,7 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import fnmatch
 import os
 import re
@@ -360,6 +364,10 @@ class Git:
     attr_source: str | None = None
     #: Validated directories, open (see `open_dir`); git runs in these, never at the name.
     anchors: dict[Path, int] = field(default_factory=dict)
+    #: Validated working tree -> its git directory. Git gets these explicitly
+    #: (``--git-dir``, ``--work-tree=.``) and never reads the ``.git`` file of a
+    #: linked worktree again: that file is in the tree the agent can write.
+    git_dirs: dict[Path, Path] = field(default_factory=dict)
 
     def anchor(self, path: Path, fd: int | None = None) -> int:
         if path not in self.anchors:
@@ -402,6 +410,8 @@ class Git:
         if not hooks:
             pins.append("core.hooksPath=/dev/null")
         where = [] if directory in self.anchors else ["-C", str(directory)]
+        if directory in self.git_dirs:
+            where += [f"--git-dir={self.git_dirs[directory]}", "--work-tree=."]
         return ["git", *(arg for pin in pins for arg in ("-c", pin)), *where, *args]
 
     def _env(self) -> dict[str, str]:
@@ -478,6 +488,9 @@ class Worktree:
     checkout: Path
     #: (device, inode) of the checkout's `.git` directory when it was validated.
     git_dir_id: tuple[int, int] = (0, 0)
+    #: The worktree's own git directory: `.git` for the main checkout, the
+    #: registered `.git/worktrees/<name>` for a linked one.
+    git_dir: Path = Path("/nonexistent")
 
     @property
     def linked(self) -> bool:
@@ -496,32 +509,42 @@ def resolve_worktree(git: Git, raw: str, policy: GitPolicy, name: str = "worktre
         raise GitRefused(f"{name} {str(path)!r} is not the top of a working tree (that is {str(top)!r})")
     for checkout in policy.checkouts:
         if common == checkout / ".git" and (checkout / ".git").is_dir():
-            worktree = Worktree(path=path, checkout=checkout, git_dir_id=git_dir_identity(git, checkout))
-            _check_registered(git, worktree, name)
+            git.anchor(checkout)
+            worktree = Worktree(path=path, checkout=checkout, git_dir_id=git_dir_identity(checkout))
+            worktree = _check_registered(git, worktree, name)
+            git.git_dirs[path] = worktree.git_dir
+            git.git_dirs.setdefault(checkout, checkout / ".git")
             return worktree
     allowed = ", ".join(str(c) for c in policy.checkouts)
     raise GitRefused(f"{name} {str(path)!r} does not belong to a checkout the policy names ({allowed})")
 
 
-def git_dir_identity(git: Git, checkout: Path) -> tuple[int, int]:
-    """The checkout's `.git`, looked up in its anchored directory without following a symlink."""
+def git_dir_identity(checkout: Path) -> tuple[int, int]:
+    """The checkout's `.git`, looked up by name now, with no symlink anywhere on the way.
+
+    Looked up afresh each time rather than through an anchor, so a directory
+    swapped anywhere on the path since the last look shows as a different one.
+    """
+    fd = open_dir(checkout)
     try:
-        found = os.stat(".git", dir_fd=git.anchor(checkout), follow_symlinks=False)
+        found = os.stat(".git", dir_fd=fd, follow_symlinks=False)
     except OSError as exc:
         raise GitRefused(f"cannot read {str(checkout / '.git')!r}: {exc.strerror}") from None
+    finally:
+        os.close(fd)
     if not stat.S_ISDIR(found.st_mode):
         raise GitRefused(f"{str(checkout / '.git')!r} is not a directory")
     return (found.st_dev, found.st_ino)
 
 
-def _check_registered(git: Git, worktree: Worktree, name: str) -> None:
+def _check_registered(git: Git, worktree: Worktree, name: str) -> Worktree:
     """A linked worktree must be one git registered for this path, not a copy pointing at `.git`."""
     git_dir = Path(os.path.realpath(git.run(worktree.path, "rev-parse", "--absolute-git-dir").strip()))
     main = worktree.checkout / ".git"
     if not worktree.linked:
         if git_dir != main:
             raise GitRefused(f"{name} {str(worktree.path)!r} does not use {str(main)!r} as its git directory")
-        return
+        return dataclasses.replace(worktree, git_dir=main)
     if git_dir.parent != main / "worktrees":
         raise GitRefused(
             f"{name} {str(worktree.path)!r} is not a linked worktree registered with {str(main)!r}"
@@ -532,6 +555,7 @@ def _check_registered(git: Git, worktree: Worktree, name: str) -> None:
         registered = ""
     if Path(os.path.realpath(registered)) != worktree.path / ".git":
         raise GitRefused(f"{name} {str(worktree.path)!r} is not where git registered {git_dir.name!r}")
+    return dataclasses.replace(worktree, git_dir=git_dir)
 
 
 def parse_config_scopes(output: str) -> list[tuple[str, str]]:
@@ -560,7 +584,7 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
     be re-checked in between is pinned by `PINNED_CONFIG`.
     """
     git.check_version()
-    if git_dir_identity(git, worktree.checkout) != worktree.git_dir_id:
+    if git_dir_identity(worktree.checkout) != worktree.git_dir_id:
         raise GitRefused(f"{str(worktree.checkout / '.git')!r} changed since it was validated")
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)

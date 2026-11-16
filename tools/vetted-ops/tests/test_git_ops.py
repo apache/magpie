@@ -399,6 +399,33 @@ def test_a_git_directory_swapped_after_validation_is_refused(
         git_ops.check_repository_config(git, worktree)
 
 
+def test_a_linked_worktrees_git_file_is_not_read_after_validation(
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    start = _git(repo, "rev-parse", "HEAD")
+    path = policy.worktree_roots[0] / "wt"
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": "t", "start": start}, False
+    )
+    other = Path(os.path.realpath(tmp_path)) / "other"
+    other.mkdir()
+    _git(other, "init", "-q", "-b", "main")
+    worktree = git_ops.resolve_worktree(git, str(path), policy)
+    (path / ".git").write_text(f"gitdir: {other / '.git'}\n")
+    assert git.run(path, "rev-parse", "--absolute-git-dir").strip() == str(worktree.git_dir)
+
+
+def test_a_checkout_ancestor_swapped_after_validation_is_refused(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    worktree = git_ops.resolve_worktree(git, str(repo), policy, "checkout")
+    moved = repo.with_name("moved")
+    repo.rename(moved)
+    repo.symlink_to(moved, target_is_directory=True)
+    with pytest.raises(GitRefused, match="symlink"):
+        git_ops.check_repository_config(git, worktree)
+
+
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
     _git(repo, "branch", "topic")
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")
