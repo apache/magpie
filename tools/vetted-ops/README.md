@@ -493,7 +493,11 @@ overrides. Three operations run it instead, outside the sandbox through
   the session is always the user's own default file and nothing the caller
   exports changes what Python or uv load.
 - Publishing (`vulnogram-api-record-publish`) has no operation. It is the
-  release manager's terminal step and stays a hand-run command.
+  release manager's terminal step and stays a hand-run command. For the same
+  reason `cve-record-update` always passes `--no-promote-to-public`: a push
+  that would move `CNA_private.state` to `PUBLIC` from any other state
+  (including a first push) is refused, while re-pushing a record that is
+  already `PUBLIC` is unaffected.
 
 Grant them to the callers that push records or allocate:
 `cve-record-fetch` and `cve-record-update` to `security-issue-sync` and

@@ -95,6 +95,7 @@ def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, works
         CVE,
         "--json-file",
         "-",
+        "--no-promote-to-public",
     ]
 
 

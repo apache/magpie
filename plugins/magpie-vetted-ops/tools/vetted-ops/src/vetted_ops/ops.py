@@ -2792,7 +2792,7 @@ _register(
         summary="Push a CVE JSON record to the Vulnogram CVE tool (merge-mode guards on).",
         body_files=("body",),
         build=lambda cfg, cve_id, body: cve_tool.argv(
-            "vulnogram-api-record-update", "--cve-id", cve_id, "--json-file", body
+            "vulnogram-api-record-update", "--cve-id", cve_id, "--json-file", body, "--no-promote-to-public"
         ),
     )
 )
