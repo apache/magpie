@@ -40,6 +40,11 @@ recipes), and [`staging-verification.md`](staging-verification.md) for
 the classification rules the calling skill applies to the probe
 output.
 
+Closing, dropping and promoting the repository are the release
+manager's own actions, not this adapter's; the release-promote skill
+describes when each applies
+([`nexus-staging.md`](../../plugins/magpie-release-management/skills/promote/nexus-staging.md)).
+
 ## Prerequisites
 
 - **Runtime:** Bash / coreutils — this is a doc-only adapter; skills

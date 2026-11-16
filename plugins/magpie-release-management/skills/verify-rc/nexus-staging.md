@@ -25,6 +25,8 @@ promotes a staging repository — a promotion is irreversible (promoted
 artefacts sync to Maven Central, where they are immutable), and any
 voter, including one with no karma on the target repository, must be
 able to run this step.
+The transitions themselves belong to the release manager at promotion time;
+`release-promote` describes when each one applies ([`nexus-staging.md`](../promote/nexus-staging.md)).
 
 **Credentials and the sandbox.** The authenticated staging-API reads
 need ASF Nexus credentials stored as a netrc-format file at

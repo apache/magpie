@@ -16,6 +16,8 @@
 - [ASF release policy](https://www.apache.org/legal/release-policy.html) —
   `dist/release/` PMC-write-only rule (for `release_dist_backend = svnpubsub`); one-hour promote-to-announce wait.
 - [ASF release distribution](https://infra.apache.org/release-distribution.html) — mirror propagation timing (~24 h); archive move rules.
+- [ASF Infra: publishing Maven artefacts](https://infra.apache.org/publishing-maven-artifacts.html) —
+  deploy, close, vote, promote to Central; the lifecycle [`nexus-staging.md`](nexus-staging.md) summarises.
 - [`tools/release-management`](../../../../tools/release-management/README.md) —
   `release-management promote verdict` / `render`, the Step 0 verdict and the Step 2 command set.
 - [`tools/release-config`](../../../../tools/release-config/README.md) —
