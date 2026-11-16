@@ -473,6 +473,14 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/local-tracker/src/magpie_local_tracker": "tools/local-tracker/src/magpie_local_tracker",
             "tools/local-tracker/pyproject.toml": "tools/local-tracker/pyproject.toml",
             "tools/local-tracker/README.md": "tools/local-tracker/README.md",
+            # The Vulnogram CVE-tool client the cve-* operations run beside
+            # vetted-ops (cve_tool.tool_dir), for the same reason: a copy the
+            # agent cannot write, so the out-of-sandbox command is the shipped one.
+            "tools/cve-tool-vulnogram/oauth-api/src/vulnogram_api": (
+                "tools/cve-tool-vulnogram/oauth-api/src/vulnogram_api"
+            ),
+            "tools/cve-tool-vulnogram/oauth-api/pyproject.toml": "tools/cve-tool-vulnogram/oauth-api/pyproject.toml",
+            "tools/cve-tool-vulnogram/oauth-api/README.md": "tools/cve-tool-vulnogram/oauth-api/README.md",
             # The write lock every posting batch skill takes. It ships here, not
             # in magpie-security-tools, because this plugin is on every install;
             # the hook links ~/.claude/magpie/skill-lock and skills run it with

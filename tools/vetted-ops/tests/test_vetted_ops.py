@@ -28,7 +28,7 @@ from typing import Any, NoReturn
 
 import pytest
 
-from vetted_ops import cli, config, ops, procedures
+from vetted_ops import cli, config, cve_tool, ops, procedures
 
 CONFIG_TOML = """
 workspace = '{workspace}'
@@ -182,6 +182,10 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         elif op.backend == "procedure":
             assert isinstance(result, procedures.Plan), op.name
             assert result.tracker == "acme/tracker", op.name
+        elif op.backend == "cve-tool":
+            # The shipped Vulnogram client, run with a fixed argv (cve_tool.py).
+            assert isinstance(result, list), op.name
+            assert cve_tool.is_cve_tool_argv(result), op.name
         else:
             raise AssertionError(f"{op.name}: unknown backend {op.backend!r}")
 
