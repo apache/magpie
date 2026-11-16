@@ -119,10 +119,13 @@ def write_pom(directory: Path, name: str, xml: str) -> Path:
     return path
 
 
-def write_jar(directory: Path, name: str, entry: str = "org/apache/foo/Main.class") -> Path:
+def write_jar(directory: Path, name: str, entry: str = "org/apache/foo/Main.class", legal: bool = True) -> Path:
     path = directory / name
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr(entry, b"class-bytes-here")
+        if legal:
+            zf.writestr("META-INF/LICENSE", b"Apache License 2.0")
+            zf.writestr("META-INF/NOTICE", b"Apache Foo")
     return path
 
 
@@ -721,6 +724,57 @@ def test_jars_without_poms_warn(tmp_path: Path) -> None:
     assert any("no .pom" in f for f in report["findings"])
 
 
+# --- check 8: META-INF/LICENSE and META-INF/NOTICE ------------------------
+
+
+def test_main_jar_without_licence_or_notice_warns(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    write_jar(tmp_path, "foo-core-1.0.0.jar", legal=False)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "WARN"
+    check = report["jars"][0]["licence_notice"]
+    assert check["status"] == "WARN"
+    assert "META-INF/LICENSE" in check["detail"] and "META-INF/NOTICE" in check["detail"]
+
+
+def test_main_jar_with_only_notice_warns_about_the_licence(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    jar = write_jar(tmp_path, "foo-core-1.0.0.jar", legal=False)
+    with zipfile.ZipFile(jar, "w") as zf:
+        zf.writestr("org/apache/foo/Main.class", b"class-bytes-here")
+        zf.writestr("META-INF/NOTICE", b"Apache Foo")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "WARN"
+    detail = report["jars"][0]["licence_notice"]["detail"]
+    assert "META-INF/LICENSE" in detail and "META-INF/NOTICE is" not in detail
+
+
+def test_licence_and_notice_txt_spellings_pass(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    jar = tmp_path / "foo-core-1.0.0.jar"
+    with zipfile.ZipFile(jar, "w") as zf:
+        zf.writestr("org/apache/foo/Main.class", b"class-bytes-here")
+        zf.writestr("META-INF/LICENSE.txt", b"Apache License 2.0")
+        zf.writestr("META-INF/NOTICE.txt", b"Apache Foo")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    check = report["jars"][0]["licence_notice"]
+    assert check["status"] == "PASS"
+    assert "META-INF/LICENSE and META-INF/NOTICE present" in check["detail"]
+
+
+def test_licence_check_never_fails_the_rc(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    write_jar(tmp_path, "foo-core-1.0.0.jar", legal=False)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] != "FAIL"
+    assert "FAIL" not in {report["jars"][0]["licence_notice"]["status"]}
+
+
 # --- aggregation -----------------------------------------------------------
 
 
@@ -745,14 +799,25 @@ def test_missing_directory_fails(tmp_path: Path) -> None:
 # --- informational observations: checks 5-7 (never affect status) --------
 
 
-def write_timed_jar(directory: Path, name: str, entries: dict[str, tuple[int, int, int, int, int, int]]) -> Path:
+def write_timed_jar(
+    directory: Path,
+    name: str,
+    entries: dict[str, tuple[int, int, int, int, int, int]],
+    legal: bool = True,
+) -> Path:
     """Write a jar whose entries carry explicit MS-DOS date_time stamps."""
     path = directory / name
+    stamps = list(entries.values()) or [(2026, 1, 1, 0, 0, 0)]
     with zipfile.ZipFile(path, "w") as zf:
         for entry, stamp in entries.items():
             info = zipfile.ZipInfo(entry, date_time=stamp)
             info.external_attr = 0o644 << 16
             zf.writestr(info, b"content")
+        if legal:
+            for entry in ("META-INF/LICENSE", "META-INF/NOTICE"):
+                info = zipfile.ZipInfo(entry, date_time=stamps[0])
+                info.external_attr = 0o644 << 16
+                zf.writestr(info, b"content")
     return path
 
 
@@ -774,7 +839,7 @@ def test_timestamp_consistent_signal(tmp_path: Path) -> None:
     assert report["status"] == "PASS"
     signal = observations(report)["timestamp_signal"][0]
     assert signal["signal"] == "consistent"
-    assert signal["entries"] == 3 and signal["distinct_timestamps"] == 1
+    assert signal["entries"] == 5 and signal["distinct_timestamps"] == 1
     assert "does not claim the jar is reproducible" in signal["detail"]
 
 
@@ -799,9 +864,12 @@ def test_timestamp_inconsistent_signal_never_fails(tmp_path: Path) -> None:
 def test_timestamp_insufficient_data_for_single_entry_jar(tmp_path: Path) -> None:
     write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
     write_staged(tmp_path)
-    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 12, 0, 0)})
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 12, 0, 0)}, legal=False)
     report = json.loads(mav_json(tmp_path, ()))
-    assert report["status"] == "PASS"
+    # The single-entry jar cannot say anything about timestamps; the
+    # WARN comes from the separate legal-file check, not from the
+    # observation.
+    assert report["status"] == "WARN"
     signal = observations(report)["timestamp_signal"][0]
     assert signal["signal"] == "insufficient-data"
     assert signal["entries"] == 1

@@ -30,7 +30,9 @@ artefact today. Implements the blocking checks 1–3 proposed in
 and reports the issue's informational checks (5–7) as `observations`
 in the same JSON report; the Nexus staging-repository check (check 4)
 is implemented by the read-only [`tools/asf-nexus`](https://github.com/apache/magpie/blob/main/tools/asf-nexus/README.md)
-adapter and `release-verify-rc` Step 6c.
+adapter and `release-verify-rc` Step 6c. A main jar missing
+`META-INF/LICENSE` or `META-INF/NOTICE` is a `WARN`, never a failure
+(issue #2112).
 
 Until this tool exists, `release-verify-rc` handles a jar in exactly
 one direction: as *contraband inside the source tree* (Step 6's
@@ -110,11 +112,19 @@ the `status`:
    projects publish dokka/scaladoc output under the `-javadoc`
    classifier).
 
+The same run warns, without ever failing, when a POM-declared main
+jar carries no `META-INF/LICENSE` and no `META-INF/NOTICE` (or only
+one of the two) — both are under `jars[].licence_notice`. The ASF
+parent POM adds them through `remote-resources`, so a jar missing one
+is worth a reviewer's look before the vote opens; `META-INF/LICENSE.txt`
+and `META-INF/NOTICE.txt` count, and a jar that cannot be opened is
+`SKIP` there (the unreadable-jar observation already reports it).
+
 The overall `status` is `FAIL` when any check fails, `WARN` when only
-`INHERITED-UNVERIFIED` results remain, `PASS` otherwise, and `SKIP`
-when the staged set contains no `.pom` and no `.jar` at all — a
-non-JVM project's RC runs the tool and skips cleanly. The
-informational observations never change it.
+`INHERITED-UNVERIFIED` or licence/notice results remain, `PASS`
+otherwise, and `SKIP` when the staged set contains no `.pom` and no
+`.jar` at all — a non-JVM project's RC runs the tool and skips
+cleanly. The informational observations never change it.
 
 ## Prerequisites
 
