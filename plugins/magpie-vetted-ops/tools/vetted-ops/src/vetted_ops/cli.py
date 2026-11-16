@@ -60,8 +60,8 @@ import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
-from . import procedures, tracker_backends
 from .config import Config, ConfigError, describe, load
 
 EXIT_OK = 0
@@ -191,6 +191,13 @@ def build_argv(
             raise ops_mod.ParamError(f"operation {op.name!r} planned against a repo other than the tracker")
     elif op.backend == "tracker-cli":  # pragma: no cover - its builder always refuses on GitHub
         raise ops_mod.ParamError(f"operation {op.name!r} needs a non-GitHub security tracker")
+    elif op.backend == "cve-tool":
+        if (
+            not isinstance(result, list)
+            or not all(isinstance(a, str) for a in result)
+            or not cve_tool.is_cve_tool_argv(result)
+        ):
+            raise ops_mod.ParamError(f"operation {op.name!r} produced a malformed CVE-tool argv")
     else:
         raise ops_mod.ParamError(f"operation {op.name!r} has unknown backend {op.backend!r}")
     return result
@@ -344,6 +351,17 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             if not isinstance(command, list):
                 raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
             print(" ".join(_without_file_titles(op, params, command)))
+        elif op.backend == "cve-tool":
+            if not isinstance(command, list):
+                raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
+            # Like a gh title, a file-read title shows only as its size.
+            shown = [
+                f"<from file, {len(arg)} chars>" if i and command[i - 1] == "--title" else arg
+                for i, arg in enumerate(command)
+            ]
+            print(" ".join(shown))
+            if body is not None:
+                print(f"(stdin: {len(body)} bytes)")
         else:
             if not isinstance(command, dict):
                 raise ops_mod.ParamError(f"operation {op.name!r} produced invalid request descriptor")
@@ -376,6 +394,25 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             code = _run_http(command, body=body, sink=sink)
             return code if code != EXIT_OK else _save(args.save, bytes(sink), config)
         return _run_http(command, body=body)
+    elif op.backend == "cve-tool":
+        if not isinstance(command, list):
+            raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
+        # No shell; the record travels on stdin as the bytes validated above, and
+        # the child cannot be pointed at another session file (cve_tool.child_env).
+        stdin = body if body is not None else b""
+        if args.save is not None:
+            captured = subprocess.run(
+                command, check=False, input=stdin, stdout=subprocess.PIPE, env=cve_tool.child_env()
+            )
+            if captured.returncode != EXIT_OK:
+                print(f"vetted-op: {op.name} failed (CVE tool exit {captured.returncode})", file=sys.stderr)
+                return EXIT_COMMAND
+            return _save(args.save, captured.stdout, config)
+        completed = subprocess.run(command, check=False, input=stdin, env=cve_tool.child_env())
+        if completed.returncode != EXIT_OK:
+            print(f"vetted-op: {op.name} failed (CVE tool exit {completed.returncode})", file=sys.stderr)
+            return EXIT_COMMAND
+        return EXIT_OK
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
 

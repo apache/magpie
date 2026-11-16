@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
-from . import procedures
+from . import cve_tool, procedures
 from .procedures import Plan
 from .safe_read import TamperedPath, read_regular_file, symlink_free
 
@@ -2764,6 +2764,48 @@ _register(
             "url": f"{cfg['cve_services_api']}/cve/{cve_id}",
             "method": "GET",
         },
+    )
+)
+
+# ---- the Vulnogram CVE tool -------------------------------------------------
+#
+# The `vulnogram-api-*` client reads an OAuth session the sandbox denies, so
+# these run it outside, with a fixed argv: the shipped client, the caller's CVE
+# id / record / title, and no override flag. See cve_tool.py.
+
+_register(
+    Op(
+        name="cve-record-fetch",
+        params=("cve_id",),
+        backend="cve-tool",
+        summary="Read one record from the Vulnogram CVE tool.",
+        build=lambda cfg, cve_id: cve_tool.argv("vulnogram-api-record-fetch", "--cve-id", cve_id),
+    )
+)
+
+_register(
+    Op(
+        name="cve-record-update",
+        params=("cve_id", "body"),
+        backend="cve-tool",
+        writes=True,
+        summary="Push a CVE JSON record to the Vulnogram CVE tool (merge-mode guards on).",
+        body_files=("body",),
+        build=lambda cfg, cve_id, body: cve_tool.argv(
+            "vulnogram-api-record-update", "--cve-id", cve_id, "--json-file", body
+        ),
+    )
+)
+
+_register(
+    Op(
+        name="cve-allocate",
+        params=("title",),
+        backend="cve-tool",
+        writes=True,
+        summary="Allocate a CVE id for a title through the Vulnogram CVE tool.",
+        title_files=("title",),
+        build=lambda cfg, title: cve_tool.argv("vulnogram-api-allocate", "--title", title),
     )
 )
 

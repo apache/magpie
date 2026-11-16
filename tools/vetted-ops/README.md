@@ -14,6 +14,7 @@
   - [CLI](#cli)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
+    - [The Vulnogram CVE-tool operations](#the-vulnogram-cve-tool-operations)
     - [The pr-management-triage reads](#the-pr-management-triage-reads)
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
@@ -461,6 +462,44 @@ tracker's `issue-search`, are bounded: the repository comes from policy, and the
 passed after `--`. They let a read-only gatherer check whether something was
 already fixed upstream without a raw `gh search` outside the dispatcher.
 Grant them per caller like any other operation.
+
+### The Vulnogram CVE-tool operations
+
+The ASF CVE tool's client, `vulnogram-api-*`, reads an OAuth session from
+`~/.config/apache-magpie/`, which the sandbox denies, so a sandboxed agent could
+only hand each push or allocation to the user. Excluding the client from the
+sandbox as it is would also hand over its flags: `--credentials` (a session
+file the agent wrote, naming a host of its choosing) and the
+`--allow-state-downgrade` / `--allow-product-change` / `--replace-references`
+overrides. Three operations run it instead, outside the sandbox through
+`vetted-op`, with a fixed argv:
+
+| Operation | Parameters | Runs |
+|---|---|---|
+| `cve-record-fetch` (read) | `cve_id` | `vulnogram-api-record-fetch --cve-id <id>` |
+| `cve-record-update` (write) | `cve_id body` | `vulnogram-api-record-update --cve-id <id> --json-file -`, the record on stdin |
+| `cve-allocate` (write) | `title` (a workspace file) | `vulnogram-api-allocate --title <title>` |
+
+- The client is the copy shipped in this plugin beside vetted-ops
+  (`tools/cve-tool-vulnogram/oauth-api`, resolved like the tracker backends),
+  never a path the agent can write.
+- The record travels on stdin as the bytes vetted-ops read from the workspace,
+  so no second open can swap them. None of the override flags is reachable, so
+  the record commands' merge-mode guards always apply.
+- The child gets an allowlisted environment: `HOME` from the password
+  database, `PATH` set to the directory of the absolute `uv` binary followed by
+  the system directories, plus locale and `TMPDIR`. No `VULNOGRAM_*` session
+  override and no `PYTHON*`, `UV_*`, `DYLD_*` or `LD_*` variable reaches it, so
+  the session is always the user's own default file and nothing the caller
+  exports changes what Python or uv load.
+- Publishing (`vulnogram-api-record-publish`) has no operation. It is the
+  release manager's terminal step and stays a hand-run command.
+
+Grant them to the callers that push records or allocate:
+`cve-record-fetch` and `cve-record-update` to `security-issue-sync` and
+`security-cve-allocate`, and `cve-allocate` to `security-cve-allocate`. The
+user still runs `vulnogram-api-setup` once per login session to approve the
+tokens; nothing here can mint one.
 
 ### The pr-management-triage reads
 
