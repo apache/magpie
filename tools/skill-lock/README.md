@@ -73,11 +73,11 @@ as stale.
 Every command prints one JSON object.
 
 ```bash
-uvx --from ~/.claude/magpie/skill-lock skill-lock acquire <skill> --repo <owner/repo> [--ttl 7200] [--note "..."]
-uvx --from ~/.claude/magpie/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200] [--token <t>]
-uvx --from ~/.claude/magpie/skill-lock skill-lock release <skill> --repo <owner/repo> [--token <t>] [--force]
-uvx --from ~/.claude/magpie/skill-lock skill-lock status  <skill> --repo <owner/repo>
-uvx --from ~/.claude/magpie/skill-lock skill-lock list
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock acquire <skill> --repo <owner/repo> [--ttl 7200] [--note "..."]
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200] [--token <t>]
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock release <skill> --repo <owner/repo> [--token <t>] [--force]
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock status  <skill> --repo <owner/repo>
+uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock list
 ```
 
 Exit codes for `acquire`:
@@ -100,13 +100,18 @@ the current directory (the nearest ancestor holding `.git`, `.svn` or
 
 ## Where it is installed
 
-Skills run it as `uvx --from ~/.claude/magpie/skill-lock skill-lock …` on every
+Skills run it as `uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock …` on every
 install. It ships inside the always-installed `magpie-vetted-ops` plugin, whose
 session hook points `~/.claude/magpie/skill-lock` at the installed version, the
 same way it links `~/.claude/magpie/vetted-ops`. The plugin cache is read-only,
 which is why the launcher is `uvx --from` (it builds into uv's cache) rather than
-`uv run --project` (which would need to write a venv into the plugin). It runs
-inside the sandbox and needs no exclusion: it touches only the lock directory.
+`uv run --project` (which would need to write a venv into the plugin).
+`--isolated` keeps uv out of its tool directory (`~/.local/share/uv/tools`),
+which the sandbox may read but not write
+([Host-only uv state](../../docs/setup/secure-agent-setup.md#host-only-uv-state));
+without it a sandboxed call fails creating a temporary file there.
+With it, the tool runs inside the sandbox and needs no exclusion: it touches only
+uv's cache and the lock directory.
 
 ## How skills use it
 

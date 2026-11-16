@@ -54,7 +54,7 @@ not prevented, by the re-read of each item just before its write.
 - `plugins/magpie-vetted-ops/`: ships the tool on every install; its
   session hook (`tools/vetted-ops/hooks/link-stable-path.sh`) links
   `~/.claude/magpie/skill-lock`, and skills run it with
-  `uvx --from ~/.claude/magpie/skill-lock skill-lock …` because the plugin
+  `uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock …` because the plugin
   cache is read-only.
 - `tools/dev/blocks/write-lock-detail.md` and `write-lock.md`: the shared
   prose blocks, propagated by `tools/dev/check-shared-blocks.py --fix`, with
