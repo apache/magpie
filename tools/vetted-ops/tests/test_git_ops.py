@@ -426,6 +426,35 @@ def test_a_checkout_ancestor_swapped_after_validation_is_refused(
         git_ops.check_repository_config(git, worktree)
 
 
+def _track_default_branch(repo: Path, commit: str) -> None:
+    _git(repo, "update-ref", "refs/remotes/upstream/main", commit)
+    _git(repo, "symbolic-ref", "refs/remotes/upstream/HEAD", "refs/remotes/upstream/main")
+
+
+def test_moving_a_branch_to_an_empty_rebase_is_refused(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    base = _git(repo, "rev-parse", "HEAD")
+    _track_default_branch(repo, base)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    first = _commit(repo, "two")
+    _push(git, policy, repo, "topic", "fork", "topic", "new")
+    _git(repo, "reset", "-q", "--hard", base)
+    with pytest.raises(GitRefused, match="no commits over upstream/main"):
+        _push(git, policy, repo, "topic", "fork", "topic", first)
+    assert _remote_head(policy, "me/project", "topic") == first
+
+
+def test_a_branch_with_commits_over_the_default_branch_is_pushed(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _track_default_branch(repo, _git(repo, "rev-parse", "HEAD"))
+    _git(repo, "checkout", "-q", "-b", "topic")
+    first = _commit(repo, "two")
+    _push(git, policy, repo, "topic", "fork", "topic", "new")
+    second = _commit(repo, "three")
+    _push(git, policy, repo, "topic", "fork", "topic", first)
+    assert _remote_head(policy, "me/project", "topic") == second
+
+
 def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo: Path) -> None:
     _git(repo, "branch", "topic")
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")

@@ -629,6 +629,24 @@ class GitOp:
     run: Callable[[Git, GitPolicy, dict[str, str], bool], str]
 
 
+def _refuse_empty_branch(git: Git, worktree: Worktree, commit: str, local: str) -> None:
+    """The agent-guard `empty-rebase` rule, for the push this dispatcher runs.
+
+    Moving an existing branch to a commit with nothing over a default branch
+    (a rebase that dropped every commit) closes the pull request it heads and
+    revokes maintainers' push access to it. The bases are the remotes' default
+    branches (`refs/remotes/*/HEAD`); with none known, nothing is refused, as
+    in the guard. There is no override: closing a pull request is not a push.
+    """
+    heads = git.run(worktree.path, "for-each-ref", "--format=%(symref)", "refs/remotes/*/HEAD")
+    for base in sorted({line for line in heads.splitlines() if line}):
+        if git.run(worktree.path, "rev-list", "--count", f"{base}..{commit}").strip() == "0":
+            raise GitRefused(
+                f"{local!r} has no commits over {base.removeprefix('refs/remotes/')}; force-pushing it "
+                "would empty the branch, which closes a pull request it heads. Check the rebase result"
+            )
+
+
 def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Push a local branch's commit to the fork or upstream, with a lease on the expected SHA."""
     worktree = resolve_worktree(git, p["checkout"], policy, "checkout")
@@ -660,6 +678,8 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
         raise GitRefused(f"hooks must be 'verify' or 'no-verify', got {verify!r}")
     run_hooks = verify == "verify"
     commit = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{local}^{{commit}}").strip()
+    if lease:
+        _refuse_empty_branch(git, worktree, commit, local)
     args = [
         "push",
         *(() if run_hooks else ("--no-verify",)),

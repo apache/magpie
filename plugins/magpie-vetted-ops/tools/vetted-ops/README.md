@@ -820,7 +820,10 @@ What makes running git unsandboxed acceptable here:
   branches matching `upstream_push`.
 - **Nothing lost silently.** Every push carries a lease on the full SHA the
   caller expects (`new` for a branch that must not exist yet), so a branch
-  someone else moved is never overwritten. A worktree moves only when it has
+  someone else moved is never overwritten, and moving a branch to a commit with
+  nothing over a remote's default branch (an emptied rebase, which would close
+  the pull request it heads) is refused, as agent-guard's `empty-rebase` guard
+  refuses the plain `git push`. A worktree moves only when it has
   no local changes, and the previous commit is printed and stays in the reflog.
 - **No repository configuration steers git.** Keys such as `core.sshCommand`,
   `url.*.insteadOf`, `filter.*`, `core.fsmonitor`, `core.hooksPath` or
