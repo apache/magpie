@@ -242,6 +242,29 @@ def test_grok_harness_rejected_with_placeholder_approved_by():
     assert "placeholder" in v.reason.lower()
 
 
+def test_grok_proxy_stack_matches_api_opt_in_by_provider_name():
+    """Pin existing matching granularity: _shortname() matches 'grok', so the
+    PMC's approval note is the authority defining which endpoint/auth path is covered.
+    """
+    stack = [
+        LLMEntry(
+            raw="Grok (session proxy at https://cli-chat-proxy.grok.com)",
+            url="https://cli-chat-proxy.grok.com",
+        )
+    ]
+    opt_in = [
+        OptInEntry(
+            name="Grok — xAI API (https://api.x.ai/v1)",
+            data_residency="https://docs.x.ai/ (ZDR confirmed in xAI console)",
+            approved_by="JP 2026-11-16",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack, opt_in))
+    assert v.approved is True
+    assert "opt-in entry" in v.reason
+    assert "Grok" in v.reason
+
+
 # -- CLI exit codes ---------------------------------------------------
 
 
