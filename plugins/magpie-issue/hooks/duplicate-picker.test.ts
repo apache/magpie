@@ -416,6 +416,26 @@ describe('deriveStatus', () => {
       throw new Error(`expected dismissed when all candidates dismissed, got ${deriveStatus(state)}`);
     }
   });
+
+  test('returns dismissed when all visible candidates (up to MAX_VISIBLE_CANDIDATES) are dismissed, even if more than 10 candidates exist', () => {
+    const candidates = Array.from({ length: 15 }, (_, i) => ({
+      issue_number: 101 + i,
+      title: `Candidate ${i + 1}`,
+      author: `user${i}`,
+    }));
+    // Dismiss only the 10 rendered/visible candidates (101 through 110)
+    const visibleDismissed = candidates.slice(0, 10).map((c) => c.issue_number);
+    const state: DuplicatePickerState = {
+      targetIssue: 100,
+      targetTitle: 'Target',
+      candidates,
+      selectedKeptIssue: null,
+      dismissedIssues: visibleDismissed,
+    };
+    if (deriveStatus(state) !== 'dismissed') {
+      throw new Error(`expected dismissed when visible candidates are dismissed, got ${deriveStatus(state)}`);
+    }
+  });
 });
 
 describe('serializeDecision', () => {
@@ -1413,7 +1433,7 @@ describe('handleBashToolCall', () => {
     }
   });
 
-  test('skips re-hydration if atom already holds target issue with loaded candidates', async () => {
+  test('skips re-hydration if atom already holds target issue with loaded candidates and identical hash', async () => {
     let readCount = 0;
     const payload = {
       schema_version: 1,
@@ -1437,11 +1457,12 @@ describe('handleBashToolCall', () => {
       },
     });
 
-    // Populate initial state with selections
+    // Populate initial state with selections and matching hash
     await setDuplicatePickerState(test$, {
       targetIssue: 60,
       targetTitle: 'Existing Target',
       candidates: [{ issue_number: 59, title: 'Existing C', author: 'tester' }],
+      candidatesSha256: computePayloadHash(JSON.stringify(payload)),
       selectedKeptIssue: 59,
       dismissedIssues: [],
     });
@@ -1449,12 +1470,66 @@ describe('handleBashToolCall', () => {
     const nextSpy = () => ({ checked: true });
     await handleBashToolCall(test$, { command: 'cat .magpie-issue-candidates-60.json' }, nextSpy);
 
-    if (readCount !== 0) {
-      throw new Error(`expected no file read when atom already holds target issue, got readCount ${readCount}`);
-    }
     const state = await getDuplicatePickerState(test$);
     if (!state || state.selectedKeptIssue !== 59) {
       throw new Error(`selection was wiped: ${JSON.stringify(state)}`);
+    }
+  });
+
+  test('re-hydrates and resets stale state when candidate file is rewritten with different content for same target', async () => {
+    const payload1 = {
+      schema_version: 1,
+      target_issue: 60,
+      target_title: 'Target 60',
+      candidates: [{ issue_number: 59, title: 'Old Candidate', author: 'tester' }],
+    };
+    const payload2 = {
+      schema_version: 1,
+      target_issue: 60,
+      target_title: 'Target 60',
+      candidates: [{ issue_number: 58, title: 'New Candidate', author: 'tester2' }],
+    };
+
+    const opened: any[] = [];
+    const test$ = createMockEngine({
+      fs: {
+        exists: async () => true,
+        read: async () => JSON.stringify(payload2),
+      },
+      ui: {
+        invalidate: () => {},
+        resolve: () => ({}),
+        open: async (opts: any) => {
+          opened.push(opts);
+        },
+      },
+    });
+
+    // Populate initial state with payload1 and selection
+    await setDuplicatePickerState(test$, {
+      targetIssue: 60,
+      targetTitle: 'Target 60',
+      candidates: [{ issue_number: 59, title: 'Old Candidate', author: 'tester' }],
+      candidatesSha256: computePayloadHash(JSON.stringify(payload1)),
+      selectedKeptIssue: 59,
+      dismissedIssues: [],
+    });
+
+    const nextSpy = () => ({ checked: true });
+    await handleBashToolCall(test$, { command: 'cat .magpie-issue-candidates-60.json' }, nextSpy);
+
+    const state = await getDuplicatePickerState(test$);
+    if (!state || state.candidates[0].issue_number !== 58) {
+      throw new Error(`expected re-hydrated candidates with issue 58, got: ${JSON.stringify(state?.candidates)}`);
+    }
+    if (state.selectedKeptIssue !== null) {
+      throw new Error(`expected selection to be reset on candidate rewrite, got: ${state.selectedKeptIssue}`);
+    }
+    if (state.candidatesSha256 !== computePayloadHash(JSON.stringify(payload2))) {
+      throw new Error(`expected updated candidatesSha256, got: ${state.candidatesSha256}`);
+    }
+    if (opened.length !== 1) {
+      throw new Error(`expected $.ui.open to be called on re-hydration, got ${opened.length}`);
     }
   });
 });
@@ -1525,6 +1600,60 @@ describe('handleWriteToolCall', () => {
     const state = await getDuplicatePickerState(test$);
     if (state !== null) {
       throw new Error('state was unexpectedly populated');
+    }
+  });
+
+  test('ignores Write tool call when candidate file is outside workspace root', async () => {
+    const payload = {
+      schema_version: 1,
+      target_issue: 42,
+      target_title: 'Write Target',
+      candidates: [{ issue_number: 41, title: 'Write C', author: 'tester' }],
+    };
+
+    const opened: any[] = [];
+    const test$ = createMockEngine({
+      fs: {
+        exists: async () => true,
+        read: async () => JSON.stringify(payload),
+      },
+      ui: {
+        invalidate: () => {},
+        resolve: () => ({}),
+        open: async (opts: any) => {
+          opened.push(opts);
+        },
+      },
+    });
+
+    let nextCalled = false;
+    const nextSpy = (e: any) => {
+      nextCalled = true;
+      return { toolResult: 'written', e };
+    };
+
+    // Test with path traversal outside workspace
+    await handleWriteToolCall(
+      test$,
+      { file_path: '../../.magpie-issue-candidates-42.json', content: JSON.stringify(payload) },
+      nextSpy
+    );
+
+    let state = await getDuplicatePickerState(test$);
+    if (state !== null || opened.length !== 0) {
+      throw new Error(`expected write outside workspace to be ignored, got state: ${JSON.stringify(state)}`);
+    }
+
+    // Test with absolute path outside workspace
+    await handleWriteToolCall(
+      test$,
+      { file_path: '/tmp/.magpie-issue-candidates-42.json', content: JSON.stringify(payload) },
+      nextSpy
+    );
+
+    state = await getDuplicatePickerState(test$);
+    if (state !== null || opened.length !== 0) {
+      throw new Error(`expected write to /tmp to be ignored, got state: ${JSON.stringify(state)}`);
     }
   });
 });

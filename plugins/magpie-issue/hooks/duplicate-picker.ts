@@ -441,9 +441,12 @@ export function createStateFromPayload(payload: DuplicateCandidatePayload): Dupl
   };
 }
 
+export const MAX_VISIBLE_CANDIDATES = 10;
+
 /**
  * Derives the decision status dynamically from the current maintainer selection.
  * Single source of truth shared by the serializer, footer, and tests.
+ * Restricts the dismissed check strictly to visible rendered candidates.
  */
 export function deriveStatus(
   state: DuplicatePickerState
@@ -452,9 +455,10 @@ export function deriveStatus(
     return 'reviewing';
   }
 
-  const allDismissed = state.candidates.every((c) =>
-    state.dismissedIssues.includes(c.issue_number)
-  );
+  const visible = state.candidates.slice(0, MAX_VISIBLE_CANDIDATES);
+  const allDismissed =
+    visible.length > 0 &&
+    visible.every((c) => state.dismissedIssues.includes(c.issue_number));
   if (allDismissed) {
     return 'dismissed';
   }
@@ -465,8 +469,6 @@ export function deriveStatus(
 
   return 'reviewing';
 }
-
-export const MAX_VISIBLE_CANDIDATES = 10;
 
 /**
  * Serializes the current maintainer selection into a standard DuplicatePickerDecision.
@@ -830,6 +832,8 @@ export function renderDuplicatePickerPane(
 
 /**
  * Hydrates candidate state from disk and opens the interactive duplicate-picker pane.
+ * If candidate content hash and target issue match active state, skips re-hydration
+ * to preserve in-flight maintainer selections. Re-hydrates whenever the hash changes.
  */
 export async function hydrateCandidatesFromFile($: any, filePath: string): Promise<boolean> {
   if (!filePath) {
@@ -860,6 +864,18 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
     }
 
     const candidatesSha256 = computePayloadHash(content);
+    const currentState = await getDuplicatePickerState($);
+    if (
+      currentState &&
+      currentState.targetIssue === payload.target_issue &&
+      currentState.candidatesSha256 === candidatesSha256 &&
+      currentState.candidates &&
+      currentState.candidates.length > 0
+    ) {
+      // Content hash and target are identical; skip re-hydration to preserve in-flight curation
+      return true;
+    }
+
     const state: DuplicatePickerState = {
       ...createStateFromPayload(payload),
       candidatesSha256,
@@ -882,9 +898,41 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
 }
 
 /**
+ * Validates that a candidate file path is strictly within the workspace directory
+ * and does not attempt directory traversal or target external paths.
+ */
+export function isWorkspaceCandidatePath($: any, filePath: string, targetIssue: number): boolean {
+  if (!filePath || typeof filePath !== 'string') return false;
+  const expected = `.magpie-issue-candidates-${targetIssue}.json`;
+  const normalized = filePath.replace(/\\/g, '/');
+
+  const segments = normalized.split('/');
+  if (segments.includes('..')) {
+    return false;
+  }
+
+  if (
+    normalized === expected ||
+    normalized === `./${expected}` ||
+    (!normalized.includes('/') && normalized === expected)
+  ) {
+    return true;
+  }
+
+  const wsRoot = ($?.workspace?.path || $?.workspace?.root || $?.cwd || '')
+    .toString()
+    .replace(/\\/g, '/')
+    .replace(/\/+$/, '');
+  if (wsRoot && normalized === `${wsRoot}/${expected}`) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Intercepts Bash tool calls that produce duplicate candidate session files.
- * Re-hydrates only from candidates files (never decision files) and skips
- * when the atom already holds that target issue with active candidates.
+ * Re-hydrates candidate state, letting hydrateCandidatesFromFile check content hashes.
  */
 export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
   let result: any;
@@ -899,22 +947,14 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
       if (match) {
         const targetIssue = parseInt(match[1], 10);
         const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
-        const currentState = await getDuplicatePickerState($);
-        if (
-          !currentState ||
-          currentState.targetIssue !== targetIssue ||
-          !currentState.candidates ||
-          currentState.candidates.length === 0
-        ) {
-          let exists = false;
-          try {
-            exists = await $.fs.exists(fileName);
-          } catch {
-            exists = false;
-          }
-          if (exists) {
-            await hydrateCandidatesFromFile($, fileName);
-          }
+        let exists = false;
+        try {
+          exists = await $.fs.exists(fileName);
+        } catch {
+          exists = false;
+        }
+        if (exists) {
+          await hydrateCandidatesFromFile($, fileName);
         }
       }
     } catch {
@@ -927,6 +967,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
 
 /**
  * Intercepts Write tool calls that write duplicate candidate session files.
+ * Rejects writes outside the workspace root and re-hydrates candidate state.
  */
 export async function handleWriteToolCall($: any, e: any, next: any): Promise<any> {
   let result: any;
@@ -949,21 +990,16 @@ export async function handleWriteToolCall($: any, e: any, next: any): Promise<an
         const match = /\.magpie-issue-candidates-(\d+)\.json$/.exec(filePath);
         if (match) {
           const targetIssue = parseInt(match[1], 10);
-          const currentState = await getDuplicatePickerState($);
-          if (
-            !currentState ||
-            currentState.targetIssue !== targetIssue ||
-            !currentState.candidates ||
-            currentState.candidates.length === 0
-          ) {
+          if (isWorkspaceCandidatePath($, filePath, targetIssue)) {
+            const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
             let exists = false;
             try {
-              exists = await $.fs.exists(filePath);
+              exists = await $.fs.exists(fileName);
             } catch {
               exists = false;
             }
             if (exists) {
-              await hydrateCandidatesFromFile($, filePath);
+              await hydrateCandidatesFromFile($, fileName);
             }
           }
         }

@@ -2081,10 +2081,10 @@ Communication between the skill and the mod uses two-way filesystem IPC via giti
 The capability surface is strictly scoped to reactive session state, UI pane rendering, reading candidate files (`$.fs.read`), and staging curated decision files (`$.fs.write`).
 
 - **Filesystem IPC and permission boundaries**: The mod reads candidate payloads from `.magpie-issue-candidates-<target>.json` and writes staged decisions to `.magpie-issue-decision-<target>.json`.
-  Filesystem access is strictly bounded to these file patterns within the active workspace root.
+  Filesystem access is strictly bounded to these file patterns within the active workspace root; tool calls targeting candidate files outside the active workspace directory or attempting directory traversal are rejected by the hook.
   Both file patterns are excluded by `.gitignore` in this framework repository; in an adopting tracker repository without matching ignore entries, session files remain untracked-but-committable working tree files cleaned up at the end of the deduplication workflow (Step 4).
   To prevent symlink traversal outside the intended directory, writes pre-check the target path via `$.fs.stat` and refuse to follow symbolic links or non-regular files.
-  The decision file embeds `source_candidates_sha256` matching the candidates payload digest; Step 1.4 validates this hash against the active candidates payload before loading and bypasses any stale, mismatched, or invalidated decision file left by prior or interrupted runs.
+  The decision file embeds `source_candidates_sha256` matching the candidates payload digest; Step 2 (Decision file resolution) validates this hash against the active candidates payload before loading and bypasses any stale, mismatched, or invalidated decision file left by prior or interrupted runs.
 - **Threat model and untrusted content boundaries**: Inbound candidate issue titles, excerpts, and author handles are untrusted external data.
   The mod strictly sanitizes text, stripping ANSI escapes, control codes, zero-width characters, and Unicode bidirectional overrides while preserving legitimate syntax like `Map<String, Foo>`.
   It renders inert text components within the UI pane, never evaluates issue content as instructions, and never executes unverified scripts.

@@ -49,4 +49,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-16 | `f135cfb8` (feat/issue-duplicate-picker-pane-pr2) | `opus[1m]` | 1 | pass | wire duplicate-picker decision prefill and stale bypass fixtures |
 | 2026-10-16 | `399ab1bc` | `claude-opus-5-5` | 10 | pass |  |

@@ -188,11 +188,9 @@ unchanged.
   the same bug reported in both a JIRA project and GitHub Issues) are out
   of scope.
 
-- **The duplicate candidate picker pane is additive.** Under Claude Code, the
-  mod draws the deduplication target and candidate issues in a pane; part 2 hydrates
-  it from the duplicate candidate payload. The mod renders the deduplication target
-  and candidate issues, allowing maintainers to curate matches (Keep Target, Set as
-  Kept, Dismiss, Restore, or Toggle Kept) before any mutation is proposed.
+- **The duplicate candidate picker pane is additive.**
+  Under Claude Code, the mod hydrates candidate duplicates from `.magpie-issue-candidates-<target>.json` into an interactive UI pane, allowing maintainers to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept).
+  Staged curation choices are written to `.magpie-issue-decision-<target>.json` with a SHA-256 payload digest before any mutation is proposed.
 
 ## Out of scope
 

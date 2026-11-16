@@ -6,16 +6,14 @@ Candidate issue: #4389
 issue-tracker project: apache/myproject
 issue-tracker URL: https://github.com/apache/myproject/issues
 
-Staged decision from duplicate-picker pane:
-  file: .magpie-issue-decision-4201.json
+Staged decision from duplicate-picker pane (.magpie-issue-decision-4201.json):
   status: curated
   kept_issue: 4389
   dropped_issues: [4201]
   source_candidates_sha256: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-  candidates_payload_sha256: 4f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a
-  note: source hash mismatch! The candidate set has changed since the decision was staged. Stale decision bypassed.
 
-The skill falls back to the age heuristic: keep older #4201, close newer #4389.
+Active candidate payload digest (.magpie-issue-candidates-4201.json):
+  sha256: 4f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a
 
 Issue #4201 (older):
   title: "Scheduler crashes when DAG has zero tasks"
