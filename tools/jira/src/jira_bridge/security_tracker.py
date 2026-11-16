@@ -514,6 +514,15 @@ def _find_rollup(
     return found, ignored
 
 
+def _refuse_split_rollup(key: str, ignored: list[str]) -> None:
+    """Refuse to start a second rollup beside one an unlisted author keeps."""
+    raise RefusedError(
+        f"{key} has a status rollup by {', '.join(ignored)}, who is neither the authenticated user "
+        "nor a configured rollup author: add them with --rollup-author (jira_rollup_authors under "
+        "vetted-ops) or remove that comment; not starting a second rollup"
+    )
+
+
 def _rollup_user(client: JiraClient, user: str | None) -> str:
     if user:
         return _single_line(user, "--user").lstrip("@")
@@ -532,6 +541,8 @@ def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) 
     guarded_issue(client, key, level=cfg.security_level)
     user = _rollup_user(client, args.user)
     existing, ignored = _find_rollup(client, key, cfg)
+    if existing is None and ignored:
+        _refuse_split_rollup(key, ignored)
     entry = markup.RollupEntry(date, user, action, entry_body)
     if existing is None:
         data = client.call(
@@ -563,9 +574,10 @@ def op_rollup_amend_latest(
     guarded_issue(client, key, level=cfg.security_level)
     existing, ignored = _find_rollup(client, key, cfg)
     entries = markup.parse_rollup(str(existing.get("body") or "")) if existing else []
+    if existing is None and ignored:
+        _refuse_split_rollup(key, ignored)
     if existing is None or not entries:
-        extra = f" (ignored a rollup by {', '.join(ignored)})" if ignored else ""
-        raise NotFoundError(f"{key} has no status rollup to amend{extra}")
+        raise NotFoundError(f"{key} has no status rollup to amend")
     latest = entries[-1]
     if latest.action.strip() != action:
         raise RefusedError(

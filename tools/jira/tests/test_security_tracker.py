@@ -776,11 +776,11 @@ def _foreign_rollup(fake: FakeJira, author: dict[str, str]) -> None:
     fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob", "accountId": "b-1"}))
 
 
-def test_rollup_append_ignores_a_rollup_by_another_user(
+def test_rollup_append_refuses_beside_a_rollup_by_another_user(
     run: Run, fake: FakeJira, tmp_path: Path
 ) -> None:
+    """A second rollup would split the history; the unlisted author is named instead."""
     _foreign_rollup(fake, {"name": "dave", "displayName": "Dave"})
-    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "51"}))
     result = run(
         "rollup-append",
         "12",
@@ -791,12 +791,9 @@ def test_rollup_append_ignores_a_rollup_by_another_user(
         "--now",
         "2026-10-15",
     )
-    assert result.code == 0
-    assert result.json()["ignored_rollup_authors"] == ["dave"]
-    writes = fake.writes()
-    assert [(w.method, w.path) for w in writes] == [("POST", f"{ISSUE}/comment")]
-    entries = markup.parse_rollup(writes[0].json()["body"])
-    assert [(e.user, e.action) for e in entries] == [("bob", "Sync")]
+    assert result.code == 4
+    assert "dave" in result.err
+    assert fake.writes() == []
 
 
 def test_rollup_amend_latest_ignores_a_rollup_by_another_user(
@@ -811,7 +808,7 @@ def test_rollup_amend_latest_ignores_a_rollup_by_another_user(
         "--entry-body-file",
         write(tmp_path, "e", "x"),
     )
-    assert result.code == 3
+    assert result.code == 4
     assert "dave" in result.err
     assert fake.writes() == []
 
@@ -840,7 +837,6 @@ def test_an_empty_rollup_author_flag_ignores_the_environment(
     run: Run, fake: FakeJira, tmp_path: Path
 ) -> None:
     _foreign_rollup(fake, {"name": "carol"})
-    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "52"}))
     result = run(
         "rollup-append",
         "12",
@@ -853,8 +849,8 @@ def test_an_empty_rollup_author_flag_ignores_the_environment(
         "--rollup-author=",
         env={**ENV, "SECURITY_TRACKER_ROLLUP_AUTHORS": "carol"},
     )
-    assert result.code == 0
-    assert result.json()["ignored_rollup_authors"] == ["carol"]
+    assert result.code == 4
+    assert fake.writes() == []
 
 
 def test_a_user_name_never_matches_another_users_key(
@@ -882,7 +878,6 @@ def test_a_user_name_never_matches_another_users_key(
     fake.on(
         "GET", "/rest/api/2/myself", (200, {"name": "bob", "key": "JIRAUSER1"})
     )
-    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "53"}))
     result = run(
         "rollup-append",
         "12",
@@ -893,8 +888,9 @@ def test_a_user_name_never_matches_another_users_key(
         "--now",
         "2026-10-15",
     )
-    assert result.code == 0
-    assert result.json()["ignored_rollup_authors"] == ["JIRAUSER1"]
+    assert result.code == 4
+    assert "JIRAUSER1" in result.err
+    assert fake.writes() == []
 
 
 def test_rollup_author_flags_before_and_after_the_subcommand_add_up(

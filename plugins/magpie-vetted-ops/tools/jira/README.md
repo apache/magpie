@@ -324,7 +324,7 @@ A wiki heading of level 1 to 3 outside closed blocks reads as `### <Heading>`; c
 The status rollup is one comment opening with the invisible anchor `{anchor:magpie-status-rollup-v1}`, entries `*YYYY-MM-DD · @user · Action*` separated by `----`, oldest first;
 `rollup-amend-latest` exits `4` when the latest action differs. Neither rollup command prints the rollup text.
 A comment carrying the anchor counts as the rollup only when its author is the authenticated user or one of the `--rollup-author` users (`SECURITY_TRACKER_ROLLUP_AUTHORS`, comma-separated; the vetted-ops policy's `jira_rollup_authors`), matched on the server `name` / `key` or the cloud `accountId`.
-Any other anchored comment is left alone: `rollup-append` starts a rollup of its own and lists those authors in `ignored_rollup_authors`, and `rollup-amend-latest` exits `3` naming them.
+Any other anchored comment is left alone. When it is the only one, both commands exit `4` naming its author rather than start a second rollup beside it; add the author with `--rollup-author` or remove the comment. When an accepted rollup exists too, `rollup-append` extends that one and lists the other authors in `ignored_rollup_authors`.
 
 ## Configuration
 
