@@ -22,7 +22,10 @@ someone else's repository, so it is the part held to a test. The git and PR
 side effects are exercised by ``--dry-run``.
 """
 
+import os
+import stat
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -200,6 +203,342 @@ class ParserTest(unittest.TestCase):
         self.assertIs(model_pr.DISPATCH[args.cmd], model_pr.cmd_open)
         self.assertEqual(args.license_header, "spdx")
         self.assertEqual(args.model_name, "THREAT_MODEL.md")
+        self.assertFalse(args.overwrite)
+
+
+class CmdOpenSafetyTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.orig_run = model_pr._run
+        self.commands: list[list[str]] = []
+
+        def mock_run(cmd: list[str], cwd: str | None = None, capture: bool = False) -> str:
+            self.commands.append(cmd)
+            if len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "clone":
+                Path(cmd[-1]).mkdir(parents=True, exist_ok=True)
+            if "api" in cmd and "user" in cmd:
+                return "authenticated-user"
+            if "rev-parse" in cmd:
+                return "main"
+            return ""
+
+        model_pr._run = mock_run
+
+    def tearDown(self) -> None:
+        model_pr._run = self.orig_run
+
+    def test_dry_run_skips_gh_repo_fork(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Threat Model\n", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            workdir.mkdir()
+
+            parser = model_pr.build_parser()
+            args = parser.parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--workdir",
+                    str(workdir),
+                    "--dry-run",
+                ]
+            )
+
+            # The mock clone creates the destination directory
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+
+            # Assert gh repo fork was NEVER invoked
+            fork_calls = [
+                cmd for cmd in self.commands if len(cmd) >= 3 and cmd[0:3] == ["gh", "repo", "fork"]
+            ]
+            self.assertEqual(fork_calls, [])
+
+            # Assert git diff used --no-pager
+            diff_calls = [cmd for cmd in self.commands if "diff" in cmd]
+            self.assertTrue(any("--no-pager" in cmd for cmd in diff_calls))
+
+    def test_dry_run_offline_gh_api_user_fallback(self) -> None:
+        def failing_run(cmd: list[str], cwd: str | None = None, capture: bool = False) -> str:
+            if len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "clone":
+                Path(cmd[-1]).mkdir(parents=True, exist_ok=True)
+            if "api" in cmd and "user" in cmd:
+                raise SystemExit("command failed (1): gh api user --jq .login")
+            if "rev-parse" in cmd:
+                return "main"
+            return ""
+
+        model_pr._run = failing_run
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Threat Model\n", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            workdir.mkdir()
+
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--workdir",
+                    str(workdir),
+                    "--dry-run",
+                ]
+            )
+            # Should not raise SystemExit from gh api user
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+
+    def test_missing_model_file_fails_preflight(self) -> None:
+        args = model_pr.build_parser().parse_args(
+            [
+                "open",
+                "--repo",
+                "example/widget",
+                "--model",
+                "non_existent_file_xyz.md",
+                "--date",
+                "2026-11-17",
+            ]
+        )
+        with self.assertRaises(SystemExit) as ctx:
+            model_pr.cmd_open(args)
+        self.assertIn("--model file not found", str(ctx.exception))
+
+    def test_missing_body_file_fails_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--body-file",
+                    "missing_body_xyz.md",
+                ]
+            )
+            with self.assertRaises(SystemExit) as ctx:
+                model_pr.cmd_open(args)
+            self.assertIn("--body-file not found", str(ctx.exception))
+
+    def test_workdir_existing_clone_fails_without_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            clone = workdir / "widget"
+            clone.mkdir(parents=True)
+            sentinel = clone / "precious.txt"
+            sentinel.write_text("do not delete", encoding="utf-8")
+
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--workdir",
+                    str(workdir),
+                ]
+            )
+            with self.assertRaises(SystemExit) as ctx:
+                model_pr.cmd_open(args)
+            self.assertIn("Destination directory already exists in --workdir", str(ctx.exception))
+            # Verify file was NOT deleted
+            self.assertTrue(sentinel.exists())
+
+    def test_workdir_existing_clone_succeeds_with_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            clone = workdir / "widget"
+            clone.mkdir(parents=True)
+            sentinel = clone / "precious.txt"
+            sentinel.write_text("will be overwritten", encoding="utf-8")
+
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--workdir",
+                    str(workdir),
+                    "--overwrite",
+                    "--dry-run",
+                ]
+            )
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+            # The sentinel was wiped and replaced by the new clone
+            self.assertFalse(sentinel.exists())
+
+    def test_model_name_path_traversal_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Path(tmp) / "clone"
+            clone.mkdir()
+            bad_names = (
+                "../../outside.md",
+                "../escape.md",
+                "/etc/passwd",
+                "C:\\escaped.md",
+                "D:drive_rel.md",
+                "\\Users\\test.md",
+                "/Users/test.md",
+                "",
+                "   ",
+                ".",
+                "..",
+                "model.md:stream",
+            )
+            for bad_name in bad_names:
+                with self.assertRaises(SystemExit, msg=f"Should reject: {bad_name!r}"):
+                    model_pr._validate_model_name(clone, bad_name)
+
+    def test_model_name_valid_relative_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Path(tmp) / "clone"
+            clone.mkdir()
+            valid = model_pr._validate_model_name(clone, "docs/THREAT_MODEL.md")
+            self.assertEqual(valid, Path("docs/THREAT_MODEL.md"))
+
+    def test_cmd_open_with_pointer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp) / "work"
+            workdir.mkdir()
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--pointer",
+                    "https://example.invalid/THREAT_MODEL.md",
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--workdir",
+                    str(workdir),
+                    "--dry-run",
+                ]
+            )
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+            add_calls = [cmd for cmd in self.commands if "add" in cmd]
+            self.assertTrue(any("SECURITY.md" in cmd and "AGENTS.md" in cmd for cmd in add_calls))
+
+    def test_cmd_open_full_execution_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            workdir.mkdir()
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--workdir",
+                    str(workdir),
+                    "--submit",
+                ]
+            )
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+            # Assert all lifecycle mutation commands were executed in sequence
+            cmd_heads = [cmd[0:3] if len(cmd) >= 3 else cmd for cmd in self.commands]
+            self.assertIn(["gh", "repo", "fork"], cmd_heads)
+            self.assertIn(["git", "commit", "-q"], cmd_heads)
+            self.assertIn(["git", "push", "-q"], cmd_heads)
+            self.assertIn(["gh", "pr", "create"], cmd_heads)
+
+    def test_remove_tree_handles_regular_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            regular_file = Path(tmp) / "file.txt"
+            regular_file.write_text("plain file", encoding="utf-8")
+            model_pr._remove_tree(regular_file)
+            self.assertFalse(regular_file.exists())
+
+    def test_remove_tree_handles_readonly_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp) / "to_delete"
+            target_dir.mkdir()
+            readonly_file = target_dir / "readonly.txt"
+            readonly_file.write_text("cannot touch", encoding="utf-8")
+            os.chmod(readonly_file, stat.S_IREAD)
+
+            model_pr._remove_tree(target_dir)
+            self.assertFalse(target_dir.exists())
+
+    def test_temp_workroot_is_cleaned_up_on_dry_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--dry-run",
+                ]
+            )
+            # Find the clone path from commands
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+            clone_cmd_call = next(
+                cmd for cmd in self.commands if len(cmd) >= 2 and cmd[0] == "git" and cmd[1] == "clone"
+            )
+            clone_path = Path(clone_cmd_call[-1])
+            temp_workroot = clone_path.parent
+            # Assert temporary workroot was cleaned up
+            self.assertFalse(temp_workroot.exists())
+
+    def test_utf8_encoding_handles_unicode_characters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            test_file = Path(tmp) / "unicode.md"
+            unicode_text = "# Policy \u2014 Magpie \u00a9 2026 \u2713\n"
+            test_file.write_text(unicode_text, encoding="utf-8")
+            read_back = model_pr._read_or_none(test_file)
+            self.assertEqual(read_back, unicode_text)
 
 
 if __name__ == "__main__":
