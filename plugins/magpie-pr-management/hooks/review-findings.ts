@@ -964,6 +964,31 @@ const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'a
  * for them. Render anchors on a truthy `line`, so with `line` normalised to
  * an integer >= 1 or null, its numbering over this file is formatKeepAnswer's.
  */
+/**
+ * The finding fields a curated sidecar carries: the Step-4 finding schema
+ * (skills/code-review/review-flow.md, adversarial.md) and what `code-review
+ * render` reads (tools/pr-management code_review/body.py). Only these are
+ * copied from the source finding; `file`, `line` and `severity` are set from
+ * the curated state after.
+ */
+export const SIDECAR_KEYS: readonly string[] = [
+  'side',
+  'category',
+  'rule_source',
+  'rule_section',
+  'rule_id',
+  'quoted_rule',
+  'excerpt',
+  'dependency_evidence',
+  'explanation',
+  'suggestion',
+  'suggestion_block',
+  'fixup',
+  'comment',
+  'source',
+  'reviewers',
+];
+
 export function serializeFindingsForRender(
   findings: readonly ReviewFinding[],
   options?: { pr?: number | null; sourceHash?: string | null }
@@ -974,10 +999,14 @@ export function serializeFindingsForRender(
 
   const payload = activeFindings.map((f) => {
     const raw = f.raw;
-    const base: Record<string, unknown> =
-      typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-        ? { ...(raw as Record<string, unknown>) }
-        : {};
+    const base: Record<string, unknown> = {};
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+      for (const key of SIDECAR_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(raw, key)) {
+          base[key] = (raw as Record<string, unknown>)[key];
+        }
+      }
+    }
     for (const key of ALIAS_KEYS) {
       delete base[key];
     }
@@ -1068,6 +1097,7 @@ export async function cleanCuratedFindingsFiles(
 ): Promise<void> {
   if (!originalPath) return;
   try {
+    if (!(await isConfinedFindingsPath($, originalPath))) return;
     const { curatedJsonPath, curatedKeepPath } = getCuratedFindingsPaths(originalPath);
     // Only a sidecar that already exists as a regular file is overwritten: a
     // missing one needs no marker, and a link or anything else is left alone.
@@ -1108,6 +1138,14 @@ export async function syncCuratedStateToDisk(
     return { success: true };
   }
   try {
+    // Nothing is read or written beside a path outside the allowed roots, or
+    // through a link between them and the file.
+    if (!(await isConfinedFindingsPath($, state.findingsPath))) {
+      return {
+        success: false,
+        error: `Refusing to write sidecars outside the session or temporary roots: ${state.findingsPath}`,
+      };
+    }
     // Verify that the original source findings file exists before writing sidecars
     const exists = await $.fs.exists(state.findingsPath);
     if (!exists) {
@@ -1118,6 +1156,12 @@ export async function syncCuratedStateToDisk(
       };
     }
 
+    if ((await classifyWriteTarget($, state.findingsPath)) !== 'regular') {
+      return {
+        success: false,
+        error: `Refusing to read a source findings path that is not a regular file: ${state.findingsPath}`,
+      };
+    }
     let rawSource = sourceContent;
     if (rawSource === undefined) {
       try {
@@ -1451,6 +1495,100 @@ export function resolveRelativePath(baseDir: string, filePath: string): string {
   return `${cleanBase}/${cleanPath}`;
 }
 
+/** System temporary roots, where the skills' session scratch files live. */
+export const TEMP_FINDINGS_ROOTS: readonly string[] = [
+  '/tmp',
+  '/private/tmp',
+  '/var/folders',
+  '/private/var/folders',
+];
+
+/**
+ * An absolute path with `.` segments and repeated slashes removed, or null when
+ * it is relative, has a `..` segment (refused rather than resolved, so a path
+ * cannot climb out of an allowed root), ends in a slash (a directory, never a
+ * findings file), or holds a backslash outside a Windows drive path (on POSIX a
+ * backslash is part of a name, so it must not be read as a separator).
+ */
+export function normalizeAbsolutePath(path: string): string | null {
+  if (path.endsWith('/') || path.endsWith('\\')) return null;
+  if (path.includes('\\') && !/^[A-Za-z]:\\/.test(path)) return null;
+  const p = path.replace(/\\/g, '/');
+  const drive = /^[A-Za-z]:\//.exec(p);
+  const prefix = drive ? drive[0].slice(0, 2) : '';
+  const rest = drive ? p.slice(2) : p;
+  if (!rest.startsWith('/')) return null;
+  const parts = rest.split('/').filter((s) => s !== '' && s !== '.');
+  if (parts.includes('..')) return null;
+  return `${prefix}/${parts.join('/')}`;
+}
+
+/**
+ * Whether a findings file may be read at ``path``, and its sidecars written
+ * beside it: under the session working directory or root, or a system
+ * temporary root. Anything else is left alone.
+ */
+export function isAllowedFindingsPath(path: string, sessionRoots: readonly (string | undefined)[]): boolean {
+  return allowedRootFor(path, sessionRoots) !== null;
+}
+
+/** The deepest allowed root ``path`` sits under, normalised, or null. */
+export function allowedRootFor(path: string, sessionRoots: readonly (string | undefined)[]): string | null {
+  const target = normalizeAbsolutePath(path);
+  if (!target) return null;
+  const roots = [...sessionRoots, ...TEMP_FINDINGS_ROOTS]
+    .map((r) => (r ? normalizeAbsolutePath(r) : null))
+    .filter((r): r is string => Boolean(r) && r !== '/')
+    .filter((r) => target.startsWith(`${r}/`))
+    .sort((a, b) => b.length - a.length);
+  return roots[0] ?? null;
+}
+
+/** The session working directory and root, each undefined when the harness has none. */
+async function sessionRootsOf($: any): Promise<(string | undefined)[]> {
+  const roots: (string | undefined)[] = [];
+  for (const get of [() => $.session.cwd(), () => $.session.root()]) {
+    try {
+      roots.push(await get());
+    } catch {
+      roots.push(undefined);
+    }
+  }
+  return roots;
+}
+
+/**
+ * Whether ``path`` is a findings location the hook may read and write beside:
+ * under an allowed root (`isAllowedFindingsPath`), with every directory between
+ * that root and the file a real directory, not a link. The root itself may be
+ * a link (`/tmp` is one on macOS); the file itself is checked by
+ * `classifyWriteTarget`. Any stat failure refuses.
+ */
+export async function isConfinedFindingsPath(
+  $: any,
+  path: string,
+  sessionRoots?: readonly (string | undefined)[]
+): Promise<boolean> {
+  const roots = sessionRoots ?? (await sessionRootsOf($));
+  const target = normalizeAbsolutePath(path);
+  if (target === null) return false;
+  const root = allowedRootFor(path, roots);
+  if (!target || !root) return false;
+  const parts = target.slice(root.length + 1).split('/');
+  let current = root;
+  for (const part of parts.slice(0, -1)) {
+    current = `${current}/${part}`;
+    let stat: any;
+    try {
+      stat = await $.fs.stat(current);
+    } catch {
+      return false;
+    }
+    if (!stat || stat.isLink !== false || stat.kind !== 'dir') return false;
+  }
+  return true;
+}
+
 /**
  * Matches an incoming finding to an existing finding from prior state
  * to preserve maintainer curation across disposition re-runs.
@@ -1529,15 +1667,19 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           const base = sessionCwd || sessionRoot || '';
           const candidatePath = base ? resolveRelativePath(base, rawPath) : rawPath;
 
+          // Only a regular file (not a link) under the session or a temporary
+          // root is read, and only there are sidecars written or invalidated
+          // beside it; for any other path the pane is cleared and disk untouched.
+          const normalized = normalizeAbsolutePath(candidatePath);
+          const allowed =
+            normalized !== null && (await isConfinedFindingsPath($, normalized, [sessionCwd, sessionRoot]));
+
           let effectivePath: string | null = null;
           let fileContent: string | null = null;
-          try {
-            fileContent = await $.fs.read(candidatePath);
-            effectivePath = candidatePath;
-          } catch {
+          if (allowed && normalized && (await classifyWriteTarget($, normalized)) === 'regular') {
             try {
-              fileContent = await $.fs.read(rawPath);
-              effectivePath = rawPath;
+              fileContent = await $.fs.read(normalized);
+              effectivePath = normalized;
             } catch {
               fileContent = null;
               effectivePath = null;
@@ -1577,7 +1719,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
                 });
               }
 
-              const targetFindingsFile = effectivePath || rawPath;
+              const targetFindingsFile = effectivePath || normalized || candidatePath;
               const sourceHash = computeFindingsHash(fileContent);
 
               const nextState: ReviewFindingsState = {
@@ -1632,11 +1774,13 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
               // NOTE: Never write .curated.* files at initial disposition.
               // Curated files are only written when curated sidecars exist or when curated in UI.
             } else {
-              await cleanCuratedFindingsFiles($, effectivePath || rawPath);
+              await cleanCuratedFindingsFiles($, effectivePath || normalized || candidatePath);
               await setReviewFindingsState($, null);
             }
           } else {
-            await cleanCuratedFindingsFiles($, effectivePath || rawPath);
+            if (allowed) {
+              await cleanCuratedFindingsFiles($, effectivePath || normalized || candidatePath);
+            }
             await setReviewFindingsState($, null);
           }
         }
