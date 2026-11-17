@@ -75,7 +75,12 @@ def add_parsers(sub: Any) -> None:
         "--unpacked-dir", help="unpacked source artefact (default: its filename without extension)"
     )
     p.add_argument("--previous-dir", help="directory holding the previous release's NOTICE and LICENSE")
-    p.add_argument("--podling", action="store_true", help="check the ASF podling source disclaimer")
+    p.add_argument(
+        "--podling",
+        action="store_true",
+        default=None,
+        help="force the ASF podling disclaimer check (default: the config's project_stage decides)",
+    )
 
     p = with_load("rat", "Step 4: RAT exit code and report → PASS / FAIL; no RAT config → SKIP + WARN")
     p.add_argument("--exit-code", type=int, help="RAT's exit code")
@@ -105,7 +110,8 @@ def add_parsers(sub: Any) -> None:
         p.add_argument("--staged-dir", help="local staging copy (listed for .jar / .pom)")
         if name == "jvm":
             p.add_argument(
-                "--tree", help="unpacked source artefact (DISCLAIMER / DISCLAIMER-WIP → --podling)"
+                "--tree",
+                help="unpacked source artefact (fallback podling signal when project_stage is unset)",
             )
             p.add_argument("--report", help="file holding maven-artifact-verify's JSON report")
         else:

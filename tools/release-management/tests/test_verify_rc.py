@@ -47,6 +47,7 @@ def loaded(
     artefacts: list[dict[str, Any]] | None = None,
     digests: list[str] | None = None,
     convenience: list[dict[str, Any]] | None = None,
+    config: dict[str, Any] | None = None,
     **meta: Any,
 ) -> dict[str, Any]:
     base: dict[str, Any] = {
@@ -79,7 +80,7 @@ def loaded(
         "build_command": None,
         "convenience_artefacts": convenience or [],
     }
-    return {"organization": organization, "config": {}, "metadata": base | meta}
+    return {"organization": organization, "config": config or {}, "metadata": base | meta}
 
 
 def vrc(**kw: Any) -> VerifyRc:
@@ -326,6 +327,26 @@ def test_licence_notice_pass_is_not_reported(tmp_path: Path) -> None:
     )
     assert out["status"] == "PASS"
     assert out["licence_notice_findings"] == []
+
+
+def test_case_1_podling_recipe_follows_the_configured_stage(tmp_path: Path) -> None:
+    """One signal per run: a recorded stage decides even when the tree says otherwise.
+
+    The podling RC that lacks its disclaimer is exactly the case Step 5 must fail:
+    Step 6b cannot keep dropping the POM-disclaimer check just because no file is there.
+    """
+    report_text = mav_report("PASS")
+    below = tmp_path / "incubating"
+    below.mkdir()
+    incubating = vrc(jvm_companion_location="nexus-staging", config={"project_stage": "incubating"})
+    out = run_jvm(incubating, podling_tree(below, None), report_text)
+    assert HAS_PODLING.search(out["paste_recipe"])
+    # a top-level project's stray disclaimer file does not switch the check on
+    stray = tmp_path / "tlp"
+    stray.mkdir()
+    tlp = vrc(jvm_companion_location="nexus-staging", config={"project_stage": "top-level"})
+    out = run_jvm(tlp, podling_tree(stray), report_text)
+    assert not HAS_PODLING.search(out["paste_recipe"])
 
 
 def test_case_4_jar_absent_nexus_only(tmp_path: Path) -> None:
@@ -1336,3 +1357,50 @@ def test_args_cli_podling(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert main(["verify-rc", "args", "--load", str(config), "--podling"]) == 0
     commands = json.loads(capsys.readouterr().out)["commands"]
     assert "--podling" in commands["notice-license"] and "--podling" in commands["all"]
+
+
+def test_args_podling_comes_from_project_stage_in_the_config() -> None:
+    """The stage is read, not passed: `project_stage: incubating` alone emits the flag."""
+    out = args_mod.invocations(vrc(config={"project_stage": "incubating"}))
+    for name, command in out["commands"].items():
+        assert ("--podling" in command) == (name in {"notice-license", "all"})
+    assert out["project_stage"] == "incubating" and out["podling"] is True
+    assert not any("project_stage" in w for w in out["warnings"])
+
+
+def test_args_top_level_project_stage_emits_no_podling() -> None:
+    out = args_mod.invocations(vrc(config={"project_stage": "top-level"}))
+    assert out["project_stage"] == "top-level" and out["podling"] is False
+    assert all("--podling" not in command for command in out["commands"].values())
+    assert not any("project_stage" in w for w in out["warnings"])
+
+
+def test_args_unset_project_stage_warns_on_an_asf_project() -> None:
+    """Nothing recorded → no check, but never silently: the RM is told what to fill in."""
+    out = args_mod.invocations(vrc())
+    assert out["project_stage"] is None and out["podling"] is False
+    assert all("--podling" not in command for command in out["commands"].values())
+    assert any("project_stage is unset" in w for w in out["warnings"])
+
+
+def test_args_unset_project_stage_is_silent_for_a_non_asf_adopter() -> None:
+    out = args_mod.invocations(vrc(organization="independent"))
+    assert out["project_stage"] is None
+    assert not any("project_stage" in w for w in out["warnings"])
+
+
+def test_args_podling_flag_overrides_an_unset_project_stage() -> None:
+    out = args_mod.invocations(vrc(), podling=True)
+    assert out["podling"] is True and "--podling" in out["commands"]["notice-license"]
+
+
+@pytest.mark.parametrize("stage", ["podling", "TLP", "incubated"])
+def test_project_stage_takes_only_the_vocabulary_values(stage: str) -> None:
+    with pytest.raises(VerifyError, match="project_stage"):
+        vrc(config={"project_stage": stage}).project_stage
+
+
+def test_project_stage_is_normalised() -> None:
+    assert vrc(config={"project_stage": " Incubating "}).project_stage == "incubating"
+    assert vrc(config={"project_stage": ""}).project_stage is None
+    assert vrc(config={"project_stage": "<project-stage>"}).project_stage is None

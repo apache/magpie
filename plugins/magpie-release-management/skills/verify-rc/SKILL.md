@@ -278,9 +278,13 @@ uv run --project <framework>/tools/release-management release-management verify-
 `commands` holds one resolved [`release-verify`](../../../../tools/release-verify/README.md) command per step (`all` runs Steps 1–3 and 5–8 at once),
 built from `§ Expected artefact list` (`--expect` / `--expect-optional` by its `required` / `optional` marking, in order),
 `§ Digest set`, `§ Binary-exclude list`, `§ Source-tree validators` and `version_manifest_files`.
-For an ASF project whose resolved `<project-stage>` is `incubating`, add `--podling` to the `verify-rc args` invocation above.
-Do not infer the stage from the presence of a disclaimer file: the missing file is what the check must detect.
-For an unset stage, a top-level project or a non-ASF adopter, omit it and retain the existing checks.
+`args` adds `--podling` by itself when `project_stage` in `release-management-config.md` is `incubating`:
+read the stage from that key or from `args`' own `project_stage` (never from a disclaimer file —
+the missing file is what the podling check must detect), and carry its `podling` value into the report.
+When the key is unset for an ASF project, `args` warns and no disclaimer check runs:
+ask the RM once whether the project is incubating (as `committer-onboarding` asks for organization facts),
+record `project_stage: incubating` or `top-level` in `<project-config>/release-management-config.md`,
+and re-run `release-config load` — the stage is a config fact, not a per-RC decision.
 Run them as printed; surface `warnings`.
 
 `<verify-rc>` below is `uv run --project <framework>/tools/release-management release-management verify-rc <command> --load <scratch>/verify-rc-load.json`:
@@ -368,7 +372,7 @@ The tool's `status` is `FAIL` when either file is absent from the root of the cu
 That is a defect of this RC, whatever any previous release contains:
 the diff counts are `null` because there is nothing to diff, not because a previous release is missing.
 It is `PASS` when both are present and there is no previous release or no change.
-With `--podling`, `disclaimer_present` reports whether `DISCLAIMER` or `DISCLAIMER-WIP` is a file at the RC root.
+When `args` added `--podling` (a recorded `project_stage: incubating`), `disclaimer_present` reports whether `DISCLAIMER` or `DISCLAIMER-WIP` is a file at the RC root.
 If neither exists, the tool returns `FAIL`; a file in a previous release does not satisfy this check.
 Presence alone does not validate the disclaimer wording or approve a release.
 `REVIEW` means a diff exists and the call is yours:

@@ -236,13 +236,19 @@ def jvm(
         raise VerifyError(
             "--report is not maven-artifact-verify's JSON report (no PASS / WARN / FAIL / SKIP status)"
         )
-    # The podling signal is read from the unpacked tree; without one, the report's own flag stands.
-    is_podling = podling(tree) if tree else bool(report and report.get("podling"))
+    # One signal per run: a recorded `project_stage` decides; the source-root file is only the
+    # fallback for a config that has not recorded one, so Step 5 and Step 6b cannot disagree here.
+    if v.project_stage is not None:
+        is_podling = v.is_podling
+    else:
+        is_podling = podling(tree) if tree else bool(report and report.get("podling"))
     if report is None or report_text is None:
         pending = ["run the paste_recipe and pass --report with maven-artifact-verify's JSON"]
-        if not tree:
+        if v.project_stage is None and not tree:
             pending.insert(
-                0, "pass --tree <unpacked-dir> so --podling is decided from DISCLAIMER / DISCLAIMER-WIP"
+                0,
+                "record project_stage in release-management-config.md (or pass --tree <unpacked-dir>) "
+                "so --podling is decided from the configured stage, else DISCLAIMER / DISCLAIMER-WIP",
             )
         return base | {
             "paste_recipe": recipe(v, staged, is_podling=is_podling, companions=[]),
