@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 5933
+measured_tokens: 5970
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -138,7 +138,7 @@ The `[VOTE]` body is a paste-ready block.
 The skill calls no send-mail capability, MCP endpoint, or CLI that posts to mailing lists.
 
 **Golden rule 3 — never shorten the vote window below the floor.**
-The ASF floor is 72 hours per [release-policy.html § release approval](https://www.apache.org/legal/release-policy.html#release-approval).
+[release-policy.html § release approval](https://www.apache.org/legal/release-policy.html#release-approval) says release votes SHOULD remain open for at least 72 hours, and allows a shorter window only for an expedited release; this skill treats 72 hours as its floor unless `--expedited` is passed.
 `vote_window_hours` in `<project-config>/release-management-config.md` may raise the floor (e.g. `120`) but never lowers it.
 If the configured value is below 72 and no `--expedited` flag is present, the skill refuses and explains why.
 
@@ -203,7 +203,7 @@ uv run --project <framework>/tools/release-config release-config preflight \
   > <scratch>/vote-draft-preflight.json
 ```
 
-It covers the RC identifier format, the required config keys and the 72-hour vote-window floor.
+It covers the RC identifier format, the required config keys and the skill's 72-hour vote-window floor.
 
 Then read what the tool cannot see:
 

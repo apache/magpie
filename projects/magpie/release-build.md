@@ -104,9 +104,9 @@ source_tree_validators:
 
 - `sha512` — **required** (ASF baseline).
 
-`md5` and `sha1` are prohibited for new ASF releases per
-[release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums)
-and are never emitted.
+`md5` and `sha1` are deprecated for new ASF releases (SHOULD NOT be supplied) per
+[release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
+and Magpie never emits them.
 
 ## Reproducibility checks
 
