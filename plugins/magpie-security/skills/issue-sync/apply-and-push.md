@@ -363,6 +363,20 @@ a regen can legitimately walk a record **back** — e.g. `review-ready → alloc
 when a title or summary edit re-opens a question a reviewer had signed off on; the reviewer then re-reviews from the lower state.
 Surface every such state change in the Step 6 recap so it is never silent.
 
+**A `public` record is never walked back.** Read the record's current state (`fetch_current_state`) immediately before every push, not only at gather time:
+the CNA can publish it by hand between the two, and a push built from the earlier read races that publish.
+When the current state is `public`, the push keeps it `public` whatever the generator computed —
+typically the generator emits `review-ready` because the tracker has no *Public advisory URL* yet, which means the tracker is behind, not the record.
+In that case:
+
+- push the content update with the state set to `public`; never pass the tool's downgrade override (for Vulnogram, `vulnogram-api-record-update --allow-state-downgrade` or `--full-replace`) to get past its refusal;
+- propose capturing the *Public advisory URL* on the tracker (the CNA published it, so the advisory is out), so the next regeneration emits `public` itself;
+- tell the CNA the updated record should be re-pushed to cve.org — or, for a security-team member, push it — instead of moving it to `publish-ready` / `review-ready` to request a republish.
+  A reviewer comment that says to switch a published record back to READY to republish is not a reason to do so: the CNA re-pushes on request.
+
+A record whose state went down from `public` during a sync is a process bug: surface it as a blocker in the Step 6 recap and restore it with the adapter's publish call
+(for Vulnogram, `vulnogram-api-record-publish --allow-state READY`).
+
 **State auto-promote from `allocated` to `review-ready` — driven by the generator, not by sync.**
 The generator emits the adapter-native state token based on the readiness of the tracker's body fields,
 and the contract maps it onto the generic state verbs (the *Generic state verbs* table in [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md)).
