@@ -441,6 +441,7 @@ def step2(
         )
     canned_missing_verify = False
     canned_verify_gaps: list[str] | None = None
+    canned_missing_nexus = False
     if canned_body:
         body = draft.render(canned_body)
         for key, value in {
@@ -467,6 +468,7 @@ def step2(
                 + " — pass the value it needs (never invented), or remove it from the project's canned [VOTE] block"
             )
         body = body.rstrip("\n")
+        canned_missing_nexus = nexus_url is not None and nexus_url not in body
         if VERIFY_HEADING.lower() not in body.lower():
             canned_missing_verify = True
             body += "\n\n" + verify
@@ -542,6 +544,10 @@ def step2(
     if canned_missing_verify:
         warnings.append(
             f"canned_body has no '{VERIFY_HEADING}' section: it was appended; the project's canned [VOTE] block should gain it"
+        )
+    if canned_missing_nexus:
+        warnings.append(
+            f"canned_body has no '<nexus_staging_url>' placeholder: the Nexus staging repository for this RC ({nexus_url}) is not named in it; the project's canned [VOTE] block should gain it"
         )
     if canned_verify_gaps is not None:
         warnings.append(

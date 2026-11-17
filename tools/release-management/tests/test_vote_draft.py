@@ -604,6 +604,20 @@ def test_step2_canned_body_gets_the_nexus_staging_url() -> None:
     assert "<nexus_staging_url>" not in out["body"]
 
 
+def test_step2_canned_body_without_the_nexus_placeholder_warns() -> None:
+    canned = "Vote at <staging_url>.\n"
+    out = render.step2(
+        draft(),
+        canned_body=canned,
+        nexus_staging_repo="orgapacheairflow-7",
+        **urls("2.11.0-rc1"),
+    )
+    assert "orgapacheairflow-7" not in out["body"]
+    assert any(
+        "<nexus_staging_url>" in warning and "orgapacheairflow-7" in warning for warning in out["warnings"]
+    )
+
+
 def test_step2_atr_backend_adds_the_candidate_page_and_the_command() -> None:
     d = draft(vote_backend="atr", backend="svnpubsub")
     with pytest.raises(render.RenderError, match="atr_candidate_url"):

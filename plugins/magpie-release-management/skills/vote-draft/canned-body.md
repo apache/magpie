@@ -8,6 +8,9 @@ The render substitutes the metadata placeholders (`<vote_list>`, `<product-name>
 and appends the `[EXPEDITED]` / `[SKIP-VERIFY]` notices when those overrides are in force.
 `<nexus_staging_url>` is set only when the RC has a Nexus staging repository (JVM artefacts); a canned block that carries it on a project without one is refused as a leftover placeholder.
 
+A project that ships JVM artefacts and has a Nexus staging repository should carry `<nexus_staging_url>` in its `[VOTE]` block.
+The render substitutes the URL only where the placeholder already is, and adds a `warnings` entry when it is missing, because the body would otherwise name no staging repository.
+
 The *How to verify* section is part of every `[VOTE]`, whichever backend sends it and whether the body came from the default template or from `canned_body`:
 a PMC member reading the thread on their phone must find the agentic one-liner, the human-readable page, and the reproducibility record without opening the tracker.
 When `canned_body` lacks the section, append it and tell the RM the project's canned block should gain it.
