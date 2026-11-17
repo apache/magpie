@@ -287,7 +287,7 @@ your web of trust.)
 sha512sum -c "${ARTIFACT}.sha512"     # macOS: shasum -a 512 -c
 ```
 
-Expect `OK`. Only SHA-512 is provided — `md5`/`sha1` are prohibited and
+Expect `OK`. Only SHA-512 is provided — `md5`/`sha1` are deprecated and
 their absence is correct, not a gap.
 
 ### 4. Unpack and inspect the tree

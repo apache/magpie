@@ -34,6 +34,6 @@
 - [ASF release policy](https://www.apache.org/legal/release-policy.html) —
   governance on release tagging, signing, and distribution.
 - [ASF release distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums) —
-  MD5 / SHA-1 prohibition; SHA-512 baseline.
+  SHA-256 and/or SHA-512 required for new releases; MD5 / SHA-1 deprecated (SHOULD NOT).
 - [ASF release signing](https://infra.apache.org/release-signing.html) —
   key-management and signing-command guidance.

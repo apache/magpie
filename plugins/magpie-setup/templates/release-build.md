@@ -214,8 +214,8 @@ TODO: list which digests the project publishes alongside each
 artefact. ASF baseline is `sha512`, the only digest
 `release-verify-rc` Step 3 requires; many projects also publish
 `sha256` for older downstream tools, which Step 3 checks whenever it
-is staged (a mismatch fails the RC). `md5` is no longer accepted per
-ASF infrastructure guidance: a staged `.md5` is a warning, never a
+is staged (a mismatch fails the RC). ASF infrastructure guidance
+deprecates `md5` (SHOULD NOT be supplied): a staged `.md5` is a warning, never a
 failure on its own.
 
 Example shape:

@@ -141,7 +141,7 @@ jobs:
           # A CI self-comparison is a smoke test only; the policy's validation
           # happens on a committer's trusted hardware in release-verify-rc.
 
-      - name: Checksums (sha512 only; md5 and sha1 are prohibited)
+      - name: Checksums (sha512 only; md5 and sha1 are deprecated)
         working-directory: dist
         run: |
           set -euo pipefail

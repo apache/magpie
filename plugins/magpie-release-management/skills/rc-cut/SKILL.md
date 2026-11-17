@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6650
+measured_tokens: 6667
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -137,8 +137,8 @@ The RM's key agent handles passphrase prompting when they run the command.
 **Golden rule 3 — SHA-512 only by default; SHA-256 when configured;
 MD5 and SHA-1 never.**
 The digest set comes from `<project-config>/release-build.md` (`sha512` required, `sha256` optional).
-MD5 and SHA-1 are prohibited per
-[release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
+[release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums)
+says a new release SHOULD NOT supply MD5 or SHA-1 because they are deprecated; Magpie goes further and never emits them,
 even if configured: Step 0's `release-config preflight` blocks on them and the render refuses them; surface the violation.
 
 **Golden rule 4 — every state-changing action is a proposal.**

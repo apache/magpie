@@ -68,7 +68,7 @@ Per the
   them automatically).
 - It must be **cryptographically signed** by the RM with a
   **detached** signature (`.asc`), and accompanied by a **SHA-512**
-  checksum. `MD5` and `SHA-1` are prohibited for new releases per
+  checksum. `MD5` and `SHA-1` are deprecated and SHOULD NOT be supplied for new releases per
   [release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums).
 - It must be **distributed via `dist.apache.org`** (svnpubsub),
   staged under `dist/dev/` for the vote and only moved to
