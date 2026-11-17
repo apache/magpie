@@ -430,6 +430,21 @@ def test_case_6_public_record_advisory_closeout(capsys, tmp_path):
     assert (out["action"], out["state_advance"], out["recap_blocker"]) == ("push", None, False)
 
 
+@pytest.mark.parametrize("regenerated", ["REVIEW", "READY", "DRAFT"])
+def test_a_public_record_is_never_walked_back(capsys, tmp_path, regenerated):
+    """The CNA published by hand while the tracker still lacks the advisory URL:
+    the regenerated JSON says REVIEW, and pushing it would race the publish."""
+    out = decide(capsys, tmp_path, session="valid", record_state="PUBLIC", record=record(state=regenerated))
+    assert (out["action"], out["gate_failed"]) == ("block", "public_state_kept")
+    assert "PUBLIC" in out["reason"] and "downgrade" in out["reason"]
+    assert out["next"] is None  # nothing is pushed
+
+
+def test_a_public_record_in_the_generic_vocabulary_is_kept_too(capsys, tmp_path):
+    out = decide(capsys, tmp_path, session="valid", record_state="public", record=record(state="REVIEW"))
+    assert (out["action"], out["gate_failed"]) == ("block", "public_state_kept")
+
+
 def test_case_7_not_configured_fix_released(capsys, tmp_path):
     out = decide(
         capsys, tmp_path, session="not-configured", record_state="DRAFT", fix_released_transition=True

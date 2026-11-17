@@ -27,6 +27,9 @@ previous one printed (`next` names the command to run and pass back):
    trigger conditions, the incomplete-fix clause, the private-finder
    anonymisation, the conservative affected range. A verdict not given is
    asked for, never assumed;
+   a record that is `public` in the CVE tool while the regenerated JSON
+   carries a lower state is a `block` too (`public_state_kept`): the CNA
+   published it, the tracker is behind, and the push would walk it back;
 3. the session probe — `expired` / `not-configured` is a manual-paste
    `hand-off`, with a recap blocker only when a `fix released` transition
    leaves the record `allocated`;
@@ -140,6 +143,18 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             )
     before = _state(data.get("record_state"))
     pushed = _state(((data.get("record") or {}).get("CNA_private") or {}).get("state"))
+    if before == "public" and pushed != "public":
+        # The CNA published the record (possibly by hand, after this sync's gather):
+        # a push carrying a lower state would walk it back. The tracker is behind,
+        # not the record.
+        return out(
+            "block",
+            f"the record is public in the CVE tool but the regenerated JSON carries {pushed or 'no state'}: "
+            "set CNA_private.state to PUBLIC in the JSON before pushing, never pass the tool's downgrade "
+            "override, propose capturing the Public advisory URL on the tracker, and ask the CNA to re-push "
+            "the update to cve.org",
+            gate_failed="public_state_kept",
+        )
     transition = bool(data.get("fix_released_transition"))
     stuck = transition and before == "allocated"
     probe = one_line(data.get("session")).lower() or None
