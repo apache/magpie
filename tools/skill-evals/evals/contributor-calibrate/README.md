@@ -4,7 +4,7 @@
 # contributor-calibrate eval suite
 
 Behavioural eval suite for the
-[`contributor-calibrate`](../../../../skills/contributor-calibrate/SKILL.md)
+[`contributor-calibrate`](../../../../plugins/magpie-contributor-growth/skills/calibrate/SKILL.md)
 skill. Tests three decision points:
 
 | Step dir | What is tested | Cases |
