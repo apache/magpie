@@ -57,8 +57,10 @@ STABLE_LINK = account_home() / ".claude" / "magpie" / "vetted-ops"
 
 #: The only variables copied from the caller's environment into the child.
 #: Everything else (``VULNOGRAM_*``, ``PYTHON*``, ``UV_*``, ``DYLD_*``, ``LD_*``,
-#: ``VIRTUAL_ENV``, proxies) is dropped.
-PASSED_ENV = ("LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "TMPDIR")
+#: ``VIRTUAL_ENV``, proxies) is dropped. ``TMPDIR`` is dropped too: inside the
+#: harness it points at a sandbox-writable directory, and uv builds there, so
+#: the child falls back to the system temporary directory instead.
+PASSED_ENV = ("LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ")
 
 #: The child's ``PATH`` after the directory ``uv`` was found in.
 SYSTEM_PATH = ("/usr/bin", "/bin")

@@ -510,10 +510,15 @@ overrides. Three operations run it instead, outside the sandbox through
   the record commands' merge-mode guards always apply.
 - The child gets an allowlisted environment: `HOME` from the password
   database, `PATH` set to the directory of the absolute `uv` binary followed by
-  the system directories, plus locale and `TMPDIR`. No `VULNOGRAM_*` session
-  override and no `PYTHON*`, `UV_*`, `DYLD_*` or `LD_*` variable reaches it, so
-  the session is always the user's own default file and nothing the caller
-  exports changes what Python or uv load.
+  the system directories, plus locale. No `VULNOGRAM_*` session override, no
+  `PYTHON*`, `UV_*`, `DYLD_*` or `LD_*` variable and no `TMPDIR` (sandbox-writable
+  inside the harness, and where uv builds) reaches it, so the session is always
+  the user's own default file and nothing the caller exports changes what Python
+  or uv load.
+- `cve-record-update` parses the record before it is sent and refuses it unless
+  its `cveMetadata.cveId` is the target id (the client posts to `--cve-id`
+  whatever the document says), and refuses a top-level `go` key, which Vulnogram
+  reads as a request envelope rather than record content.
 - Publishing (`vulnogram-api-record-publish`) has no operation. It is the
   release manager's terminal step and stays a hand-run command. For the same
   reason `cve-record-update` always passes `--no-promote-to-public`: a push
