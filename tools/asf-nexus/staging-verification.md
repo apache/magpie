@@ -46,7 +46,7 @@ with the reason stated explicitly:
 - A staging repository id is resolvable: the
   `nexus_staging_repo` key of `release-build.md § JVM artefact
   checks`, then the planning issue body when the RM passed
-  `--post-to`. Nexus assigns the id (`orgapache<project>-NNNN`) at
+  `--post-to`. Nexus assigns the id (`orgapache<name>-NNNN`) at
   deploy time and it cannot be predicted, so an unresolvable id is a
   clean `SKIP` naming where to supply it — never a guess.
 
