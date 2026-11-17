@@ -46,7 +46,8 @@ No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, 
 A render that would emit something a skill must refuse (a `dist/release/` staging target, an MD5 or SHA-1 digest, an unconfigured backend)
 exits `2` with `{"ok": false, "refused": "<why>"}` instead of printing a block.
 
-For ASF incubating projects, `verify-rc args --podling` passes the explicit source-disclaimer check to the generated `notice-license` and `all` commands; other commands and the default behavior are unchanged.
+For an ASF project that records `project_stage: incubating` in `release-management-config.md`, `verify-rc args` adds the explicit source-disclaimer check (`--podling`) to the generated `notice-license` and `all` commands, and `verify-rc jvm` uses the same stage; other commands and the default behavior are unchanged.
+`--podling` remains an explicit override for a run whose config has not recorded the stage yet.
 
 ## Prerequisites
 

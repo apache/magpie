@@ -62,7 +62,7 @@ def invocations(
     keys_file: str = "<keys-file>",
     unpacked_dir: str | None = None,
     previous_dir: str | None = None,
-    podling: bool = False,
+    podling: bool | None = None,
 ) -> dict[str, Any]:
     """Every `release-verify` command of Steps 1-3 and 5-8, plus `all`, resolved from the config."""
     tree = unpacked_dir or v.unpacked_dir
@@ -83,7 +83,10 @@ def invocations(
     validators = [f"--validator {dq(c)}" for c in v.meta.get("source_tree_validators") or []]
     manifests = [f"--manifest {q(str(m))}" for m in v.meta.get("version_manifest_files") or []]
     previous = [f"--previous {q(previous_dir)}"] if previous_dir else []
-    disclaimer = ["--podling"] if podling else []
+    # The stage is a config fact (`project_stage`), never an inference from a staged file:
+    # `--podling` stays an explicit override for a run whose config has not recorded it yet.
+    is_podling = v.is_podling if podling is None else podling
+    disclaimer = ["--podling"] if is_podling else []
     staged, unpacked = q(staging_copy), q(tree)
     commands = {
         "inventory": _join(f"{RELEASE_VERIFY} inventory", [f"--dir {staged}", *expect, *digest]),
@@ -116,6 +119,11 @@ def invocations(
         ),
     }
     warnings = []
+    if v.is_asf and v.project_stage is None:
+        warnings.append(
+            "project_stage is unset: record `incubating` or `top-level` in release-management-config.md "
+            "so the podling checks are decided by the config; no disclaimer check is emitted"
+        )
     if not v.artefacts:
         warnings.append("release-build.md § Expected artefact list names no artefact: fill it before Step 1")
     if not manifests:
@@ -128,6 +136,8 @@ def invocations(
     return {
         "rc_tag": v.rc_tag,
         "unpacked_dir": tree,
+        "project_stage": v.project_stage,
+        "podling": is_podling,
         "required": [e["name"] for e in v.artefacts if e.get("required", True)],
         "optional": [e["name"] for e in v.artefacts if not e.get("required", True)],
         "digests": checked,

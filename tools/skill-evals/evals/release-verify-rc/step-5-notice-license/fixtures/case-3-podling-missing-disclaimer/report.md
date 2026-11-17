@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-This ASF project is incubating. Run Step 5 with `--podling`.
+This ASF project records `project_stage: incubating`, so `verify-rc args` emitted `--podling` for Step 5;
+the flag itself is not re-decided here.
 The source root contains LICENSE and NOTICE but neither DISCLAIMER nor DISCLAIMER-WIP.
 No previous release was fetched. The tool returned:
 
