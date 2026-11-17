@@ -124,6 +124,27 @@ def test_mention_others_pr_still_denied_when_operator_known(monkeypatch):
     assert reason and "bob" in reason and "mention" in reason
 
 
+def test_mention_app_author_allowed(monkeypatch):
+    # `gh pr view --json author` reports a GitHub App author as `app/<slug>`,
+    # while its @-mention handle is `<slug>`: `@dependabot rebase` on a
+    # Dependabot PR addresses the author.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="app/dependabot")))
+    assert dispatch('gh pr comment 5 --body "@dependabot rebase"') is None
+
+
+def test_mention_bot_suffix_author_allowed(monkeypatch):
+    # The REST spelling of the same author is `dependabot[bot]`.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="dependabot[bot]")))
+    assert dispatch('gh pr comment 5 --body "@dependabot rebase"') is None
+
+
+def test_mention_app_author_others_still_denied(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="app/dependabot")))
+    reason = dispatch('gh pr comment 5 --body "@dependabot rebase, @bob please merge"')
+    # Only the maintainer is refused; the App author stays allowed.
+    assert reason and "maintainer(s) ['bob']" in reason
+
+
 def test_fold_any_mention_denied(monkeypatch):
     # Hermetic: a non-author maintainer @-mention in a fold edit is denied.
     # Stubbed so it never depends on a real `gh pr view` (and so the own-PR
