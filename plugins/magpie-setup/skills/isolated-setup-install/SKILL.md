@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:d5448b4b8e6480e1
 license: Apache-2.0
-measured_tokens: 5510
+measured_tokens: 5567
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
