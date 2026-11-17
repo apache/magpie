@@ -82,6 +82,19 @@ def _nobody(what, mentions):
     )
 
 
+def _mention_handle(login):
+    """The handle that @-mentions ``login``, lowercased.
+
+    ``gh pr/issue view --json author`` reports a GitHub App author as
+    ``app/<slug>`` and the REST API as ``<slug>[bot]``; either way the App is
+    @-mentioned as ``@<slug>`` (``@dependabot rebase``). User logins contain
+    neither ``/`` nor ``[``, so they pass through unchanged.
+    """
+    handle = login.strip().lower()
+    handle = handle.removeprefix("app/")
+    return handle.removesuffix("[bot]")
+
+
 def _allowlist(ctx):
     """Handles the project lets every surface keep live: the committed `mention_allowlist`."""
     values = ctx.committed_config_values("pr-management-config.md", "mention_allowlist")
@@ -160,7 +173,8 @@ def guard(ctx):
     operator = ctx.run(["gh", "api", "user", "--jq", ".login"])
     if operator and operator.lower() == author.lower():
         return None
-    offenders = sorted({m for m in mentions if m != author.lower()} - _allowlist(ctx))
+    author_handle = _mention_handle(author)
+    offenders = sorted({m for m in mentions if m != author_handle} - _allowlist(ctx))
     if offenders and is_comment and _is_mentoring_handoff(ctx, offenders):
         return None
     if offenders:
