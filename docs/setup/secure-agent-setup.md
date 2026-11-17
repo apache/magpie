@@ -530,6 +530,12 @@ The full block below is the two merged, annotated.
     // fixed link its plugin's SessionStart hook maintains, never a `*` where
     // the plugin version sits: that would also match `uv` options spliced in
     // at that position and run them unsandboxed.
+    // cve-tool reads the CVE tool's session under ~/.config/apache-magpie,
+    // which the sandbox denies, so it runs outside the sandbox from the fixed
+    // link the magpie-security-tools SessionStart hook keeps on the plugin's
+    // tools/ (never the writable ~/.cache/apache-magpie/framework copy). It
+    // allocates, pushes and publishes CVE records, so every call keeps its
+    // `ask` below, reads included (sandbox-lint enforces the pairing).
     "excludedCommands": [
       "gh *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
@@ -538,7 +544,8 @@ The full block below is the two merged, annotated.
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
-      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
+      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+      "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
     // true` in `.lychee.toml`): it validates only local cross-file and
@@ -758,7 +765,9 @@ The full block below is the two merged, annotated.
       "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
       // The adversarial-review tool runs unsandboxed (excludedCommands above), so
       // the code it runs must not be editable by the agent that calls it.
-      "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
+      "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
+      // Likewise cve-tool, run outside the sandbox from the plugin's tools/.
+      "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)"
     ],
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
@@ -766,6 +775,7 @@ The full block below is the two merged, annotated.
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+      "Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)",  // cve-tool: excluded from the sandbox above, and it changes CVE records, so every call asks
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
       // then ask, then allow, and "a matching ask rule prompts even when a
       // more specific allow rule also matches the same call" — so a catch-all
@@ -4215,6 +4225,17 @@ never delete it:
     when missing). Probe it: `uv cache dir` inside the sandbox prints the
     default cache, not the configured one (✗ if it prints the host cache —
     the sandbox can read the config).
+19. **cve-tool exclusion**, if the `magpie-security-tools` plugin is
+    installed (n/a otherwise). `sandbox.excludedCommands` contains
+    `"uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *"`,
+    `permissions.ask` contains the same command as a `Bash(…)` rule,
+    `permissions.deny` contains
+    `Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)`,
+    and **no** `permissions.allow` entry covers `cve-tool`. A missing
+    exclusion is ⚠ (session-backed calls stay sandboxed and fail); a
+    missing `ask` or deny, an `allow`, or an exclusion naming the writable
+    `~/.cache/apache-magpie/framework/` copy is ✗ (unprompted or editable
+    code changing CVE records outside the sandbox).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

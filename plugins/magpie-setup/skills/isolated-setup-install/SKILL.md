@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:cb0c81b693d9aa76
+surface_hash: sha256:d5448b4b8e6480e1
 license: Apache-2.0
-measured_tokens: 5510
+measured_tokens: 5567
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -237,6 +237,13 @@ Only applies when the `magpie-adversarial-review` plugin is installed. If it
 is not, skip this step and say so.
 
 **Full procedure:** [`step-r-adversarial-review.md`](step-r-adversarial-review.md).
+
+### Step C — The cve-tool exclusion
+
+Only applies when the `magpie-security-tools` plugin is installed. If it
+is not, skip this step and say so.
+
+**Full procedure:** [`step-c-cve-tool.md`](step-c-cve-tool.md).
 
 ### Step W — Working directories for the read block
 

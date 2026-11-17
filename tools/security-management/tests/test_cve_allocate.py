@@ -305,7 +305,7 @@ def test_preflight_picks_the_step_3_path(capsys, tmp_path, data, path, setup):
     if setup:
         assert (
             out["setup_command"]
-            == "uv run --project '<framework>/tools/cve-tool' cve-tool setup --pmc airflow"
+            == "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool setup --pmc airflow"
         )
 
 
@@ -415,7 +415,9 @@ def test_the_relay_is_a_terse_request(capsys, tmp_path):
 
 def test_the_api_command_quotes_the_title(capsys, tmp_path):
     out = recipe(capsys, tmp_path, True, {"path": "api"}, title="x'; rm -rf / #`")
-    assert out["command"].startswith("uv run --project '<framework>/tools/cve-tool' cve-tool allocate --pmc ")
+    assert out["command"].startswith(
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool allocate --pmc "
+    )
     assert out["command"].endswith("--title 'x'\"'\"'; rm -rf / #`'")
     assert "```text\nx'; rm -rf / #`\n```" in out["text"]
 

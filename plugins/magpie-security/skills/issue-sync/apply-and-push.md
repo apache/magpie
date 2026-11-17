@@ -160,7 +160,7 @@ Use:
   `--allow-state review-ready --allow-state publish-ready` also accepts a record moved to `publish-ready` manually, and no earlier state can be published:
 
   ```bash
-  uv run --project <framework>/tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
+  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
   ```
 
   Use it only as part of the *Advisory archived on `<users-list>`* combined apply in [Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet):
@@ -277,13 +277,13 @@ When any of the report's `normalisation_changes`, `missing_required` or `needs_d
 When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change:
 
 ```bash
-uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
 ```
 
 If the state is `public`, save the live record and pass it as the baseline:
 
 ```bash
-uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
 uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json --baseline <scratch>/cve-live-<N>.json
 ```
 
@@ -340,7 +340,7 @@ Capture the printed URL — it deep-links to the `## CVE JSON — paste-ready fo
 ## Step 5b — Push the regenerated JSON to the CVE tool via the adapter
 
 **When the operator's machine has a valid authenticated session** for the adapter named in `cve_authority.tool`
-(one-time setup: `uv run --project <framework>/tools/cve-tool cve-tool setup …` with the adapter's own flags, per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md);
+(one-time setup: `uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool setup …` with the adapter's own flags, per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md);
 for Vulnogram, `cve-tool setup --pmc <project>`, see
 [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
 **sync pushes the JSON to the record directly** through the adapter's `push_update(cve_id, fields, state_transition=None)` method
@@ -487,7 +487,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    The `cve-tool push` operation runs it through the configured adapter:
 
    ```bash
-   uv run --project <framework>/tools/cve-tool cve-tool push \
+   uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push \
      --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
 

@@ -130,8 +130,9 @@ _ASF_PONYMAIL_READ_TOOLS: frozenset[str] = frozenset(
 #
 # A `Bash(...)` pattern here must match the command a skill actually runs.
 # The security skills reach the ASF CVE tool through
-# `uv run --project <framework>/tools/cve-tool cve-tool fetch …`, whose path
-# differs per install, so no fixed pattern can pre-allow it safely.
+# `uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch …`, which
+# runs outside the sandbox under the secure setup and so is never pre-allowed:
+# every cve-tool call stays on `ask`.
 RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
     "ASF": {
         "release-management": _ASF_PONYMAIL_READ_TOOLS,
