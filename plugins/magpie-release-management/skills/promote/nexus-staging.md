@@ -21,8 +21,8 @@ A repository created by `mvn deploy` starts `open`, which means its contents can
 The release manager closes it before sending the `[VOTE]`, which makes Nexus run its own rules (signatures, POM metadata, the sources and javadoc companions) and freezes the contents.
 `release-verify-rc` Step 6c expects `closed`; an `open` repository is a hard finding there, because a vote cannot bind artefacts that may still move.
 
-Close it with the Nexus UI's **Close** action, or with the staging plugin's close goal for the project's build (`mvn nexus-staging:close -DstagingRepositoryId=<id>`).
-The build's own configuration decides which spelling applies; this skill does not emit either one.
+Close it with the Nexus UI's **Close** action, or with the close goal of the project's own staging plugin, when its build configures `nexus-staging-maven-plugin`.
+The build's own configuration decides whether that goal exists; this skill does not emit the command.
 Record the outcome on the planning issue so voters and the verifier see the same state.
 
 ## Promote, after the vote passes
@@ -32,7 +32,7 @@ Run it only after the planning issue carries `vote-passed`, and treat it as part
 The repository id is the one Step 6c verified as `closed` and matching this RC.
 
 When the project declares the promotion as a convenience artefact's `publish_command` (for example `mvn nexus-staging:release -DstagingRepositoryId=<id>`), Step 2's block already emits it verbatim; use that line.
-Otherwise promote through the Nexus UI's **Release** action, or the staging plugin's release goal for the project's build (`mvn nexus-staging:release -DstagingRepositoryId=<id>`), and confirm the flags with `mvn nexus-staging:help` before running them.
+Otherwise promote through the Nexus UI's **Release** action, or the release goal of the project's own staging plugin, when its build configures `nexus-staging-maven-plugin`; confirm the goal and its flags in the project's build documentation before running it.
 The authoritative background is [ASF Infra's publishing guide](https://infra.apache.org/publishing-maven-artifacts.html): deploy, close, vote, promote, then Central picks the artefacts up.
 
 Do not flip the `promoted` label until both halves are done: the distribution promotion in Step 2 and the Nexus promotion here.
@@ -41,7 +41,7 @@ Do not flip the `promoted` label until both halves are done: the distribution pr
 
 A repository whose vote failed, or that the RM withdraws, is dropped rather than promoted.
 Dropping publishes nothing: it discards the staging repository, and its artefacts never reach Central.
-Drop it with the Nexus UI's **Drop** action, or the staging plugin's drop goal for the project's build (`mvn nexus-staging:drop -DstagingRepositoryId=<id>`).
+Drop it with the Nexus UI's **Drop** action, or the drop goal of the project's own staging plugin, when its build configures `nexus-staging-maven-plugin`.
 The next release candidate gets a new repository and a new id, so a dropped id is never reused.
 
 Two cautions.
@@ -56,5 +56,5 @@ It never closes, drops or promotes a repository, and never emits a transition co
 - The read-only [`tools/asf-nexus`](../../../../tools/asf-nexus/README.md) adapter verifies state and never transitions it.
 - The `~/.config/apache-magpie/asf-nexus/netrc` credentials the authenticated reads need are denied to the sandboxed agent by design, so the RM runs them in their own terminal.
 
-When the RM asks the skill to close, drop or promote a repository, say what the action does, confirm it is the right one for the vote's outcome, and give them the matching UI action or the project's own command.
+When the RM asks the skill to close, drop or promote a repository, say what the action does, confirm it is the right one for the vote's outcome, and give them the matching UI action or the command the project's build already declares.
 Then wait for them to report the result; do not run it on their behalf.
