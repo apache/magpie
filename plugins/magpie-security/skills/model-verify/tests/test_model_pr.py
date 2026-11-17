@@ -540,6 +540,99 @@ class CmdOpenSafetyTest(unittest.TestCase):
             read_back = model_pr._read_or_none(test_file)
             self.assertEqual(read_back, unicode_text)
 
+    def test_remove_tree_symlink_does_not_modify_target_permissions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp) / "outside_target"
+            target_dir.mkdir()
+            target_file = target_dir / "data.txt"
+            target_file.write_text("critical data", encoding="utf-8")
+
+            symlink = Path(tmp) / "workdir" / "repo_clone"
+            symlink.parent.mkdir()
+            try:
+                symlink.symlink_to(target_dir, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"Symlinks not supported in this environment: {exc}")
+
+            target_mode_before = target_dir.stat().st_mode
+            model_pr._remove_tree(symlink)
+
+            self.assertFalse(symlink.is_symlink())
+            self.assertFalse(symlink.exists())
+            self.assertTrue(target_dir.exists())
+            self.assertEqual(target_dir.stat().st_mode, target_mode_before)
+            self.assertEqual(target_file.read_text(encoding="utf-8"), "critical data")
+
+    def test_remove_tree_broken_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            symlink = Path(tmp) / "broken_link"
+            nonexistent = Path(tmp) / "missing_dir"
+            try:
+                symlink.symlink_to(nonexistent, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"Symlinks not supported in this environment: {exc}")
+
+            self.assertTrue(symlink.is_symlink())
+            self.assertFalse(symlink.exists())
+            model_pr._remove_tree(symlink)
+            self.assertFalse(symlink.is_symlink())
+
+    def test_model_name_lexical_validation_fails_before_side_effects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--model-name",
+                    "../escaped.md",
+                    "--date",
+                    "2026-11-17",
+                ]
+            )
+            with self.assertRaises(SystemExit) as ctx:
+                model_pr.cmd_open(args)
+            self.assertIn("--model-name must be a relative path", str(ctx.exception))
+            # Zero subprocess commands executed (no gh api, no gh repo fork, no git clone)
+            self.assertEqual(self.commands, [])
+
+    def test_model_reference_uses_validated_model_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            model_file = Path(tmp) / "model.md"
+            model_file.write_text("# Model", encoding="utf-8")
+            workdir = Path(tmp) / "work"
+            workdir.mkdir()
+            args = model_pr.build_parser().parse_args(
+                [
+                    "open",
+                    "--repo",
+                    "example/widget",
+                    "--model",
+                    str(model_file),
+                    "--model-name",
+                    "  docs/threat_model.md  ",
+                    "--workdir",
+                    str(workdir),
+                    "--date",
+                    "2026-11-17",
+                    "--report-to",
+                    "security@example.com",
+                    "--dry-run",
+                ]
+            )
+            exit_code = model_pr.cmd_open(args)
+            self.assertEqual(exit_code, 0)
+            clone = workdir / "widget"
+            written_model = clone / "docs" / "threat_model.md"
+            self.assertTrue(written_model.is_file())
+            security_md = (clone / "SECURITY.md").read_text(encoding="utf-8")
+            self.assertIn("./docs/threat_model.md", security_md)
+            self.assertNotIn("./  docs/threat_model.md  ", security_md)
+
 
 if __name__ == "__main__":
     unittest.main()

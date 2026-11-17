@@ -295,12 +295,17 @@ def _remove_tree(path: Path) -> None:
     """Remove a directory tree or file, clearing read-only attributes on Windows."""
 
     def _on_error(func: object, p: str, _: object) -> None:
-        os.chmod(p, stat.S_IWRITE)
+        with contextlib.suppress(OSError):
+            if not os.path.islink(p):
+                st = os.stat(p)
+                os.chmod(p, st.st_mode | stat.S_IWRITE)
         func(p)  # type: ignore[operator]
 
-    if path.is_file() or path.is_symlink():
+    if path.is_symlink():
+        path.unlink()
+    elif path.is_file():
         with contextlib.suppress(OSError):
-            os.chmod(path, stat.S_IWRITE)
+            os.chmod(path, path.stat().st_mode | stat.S_IWRITE)
         path.unlink()
     elif path.is_dir():
         if sys.version_info >= (3, 12):
@@ -309,18 +314,29 @@ def _remove_tree(path: Path) -> None:
             shutil.rmtree(path, onerror=_on_error)
 
 
-def _validate_model_name(clone: Path, model_name: str) -> Path:
-    """Validate that model_name is a relative path confined to the clone directory."""
+def _validate_model_name_lexical(model_name: str) -> Path:
+    """Validate lexical structure of model_name without needing a clone directory."""
     raw = model_name.strip()
     if not raw or raw in (".", "..") or raw.startswith(("/", "\\")) or ":" in raw:
         raise SystemExit(f"--model-name must be a relative path within the repository, got {model_name!r}")
     p = Path(raw)
     if p.is_absolute() or p.drive or p.root or ".." in p.parts:
         raise SystemExit(f"--model-name must be a relative path within the repository, got {model_name!r}")
+    return p
+
+
+def _assert_path_within_clone(clone: Path, p: Path, model_name: str) -> Path:
+    """Ensure resolved model path does not escape clone root."""
     target = (clone / p).resolve()
     if not target.is_relative_to(clone.resolve()) or target == clone.resolve():
         raise SystemExit(f"--model-name escapes the repository: {model_name!r}")
     return p
+
+
+def _validate_model_name(clone: Path, model_name: str) -> Path:
+    """Validate lexical structure and assert containment within clone."""
+    p = _validate_model_name_lexical(model_name)
+    return _assert_path_within_clone(clone, p, model_name)
 
 
 def _read_or_none(path: Path) -> str | None:
@@ -333,8 +349,11 @@ def cmd_open(args: argparse.Namespace) -> int:
     _, name = args.repo.split("/", 1)
     repo_url = f"https://github.com/{args.repo}.git"
 
-    if args.model and not Path(args.model).is_file():
-        raise SystemExit(f"--model file not found: {args.model}")
+    model_path: Path | None = None
+    if args.model:
+        if not Path(args.model).is_file():
+            raise SystemExit(f"--model file not found: {args.model}")
+        model_path = _validate_model_name_lexical(args.model_name)
     if args.body_file and not Path(args.body_file).is_file():
         raise SystemExit(f"--body-file not found: {args.body_file}")
 
@@ -356,8 +375,8 @@ def cmd_open(args: argparse.Namespace) -> int:
     clone = workroot / name
 
     try:
-        if clone.exists():
-            if args.workdir and not getattr(args, "overwrite", False):
+        if clone.exists() or clone.is_symlink():
+            if args.workdir and not args.overwrite:
                 raise SystemExit(
                     f"Destination directory already exists in --workdir: {clone}. "
                     "Pass --overwrite to reuse it or use a clean --workdir."
@@ -373,18 +392,20 @@ def cmd_open(args: argparse.Namespace) -> int:
         base = args.base or _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(clone), capture=True)
         _run(["git", "checkout", "-q", "-b", branch], cwd=str(clone))
 
-        if args.model:
-            model_path = _validate_model_name(clone, args.model_name)
+        if args.model and model_path is not None:
+            _assert_path_within_clone(clone, model_path, args.model_name)
             model_text = ensure_license_header(
                 Path(args.model).read_text(encoding="utf-8"), args.license_header
             )
             target_model = clone / model_path
             target_model.parent.mkdir(parents=True, exist_ok=True)
             target_model.write_text(model_text, encoding="utf-8")
-            files = [str(model_path), "SECURITY.md", "AGENTS.md"]
+            files = [model_path.as_posix(), "SECURITY.md", "AGENTS.md"]
         else:
             files = ["SECURITY.md", "AGENTS.md"]
-        model_ref = model_reference(args.model_name if args.model else None, args.pointer)
+        model_ref = model_reference(
+            model_path.as_posix() if args.model and model_path else None, args.pointer
+        )
 
         (clone / "SECURITY.md").write_text(
             build_security_md(
