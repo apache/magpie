@@ -153,6 +153,10 @@ def _validate_params(
             resolved[name] = ops_mod.field_name(raw)
         else:  # pragma: no cover - guarded by the catalogue test
             raise ops_mod.ParamError(f"operation {op.name!r} declares unknown parameter {name!r}")
+    if op.name == "cve-record-update" and body is not None:
+        # The record is pushed to the id on the command line; its own id has to be
+        # that one, so content written for one record never lands on another.
+        ops_mod.check_cve_record(body, resolved["cve_id"])
     return resolved, body
 
 

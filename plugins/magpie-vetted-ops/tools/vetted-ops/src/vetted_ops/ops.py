@@ -223,6 +223,36 @@ def cve_id(value: str) -> str:
     return _check(_CVE_ID, value, "CVE id")
 
 
+#: Top-level keys a CVE record pushed through `cve-record-update` may not carry:
+#: Vulnogram reads `go` as a request envelope rather than record content.
+_CVE_RECORD_FORBIDDEN_KEYS = frozenset({"go"})
+
+
+def check_cve_record(body: bytes, expected_id: str) -> None:
+    """
+    Refuse a CVE record whose own id is not the one it is pushed to.
+
+    The client posts the document to the `--cve-id` it is given, whatever the
+    document says; a record written for one id must never land on another.
+    A refusal never quotes the document, only what is wrong with it.
+    """
+    try:
+        document = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ParamError("the CVE record is not UTF-8 JSON") from None
+    if not isinstance(document, dict):
+        raise ParamError("the CVE record is not a JSON object")
+    forbidden = sorted(_CVE_RECORD_FORBIDDEN_KEYS & document.keys())
+    if forbidden:
+        raise ParamError(f"the CVE record carries top-level key(s) {forbidden}, which are not record content")
+    meta = document.get("cveMetadata")
+    record_id = meta.get("cveId") if isinstance(meta, dict) else None
+    if not isinstance(record_id, str):
+        raise ParamError("the CVE record has no cveMetadata.cveId to check against the target id")
+    if record_id.strip().upper() != expected_id.upper():
+        raise ParamError(f"the CVE record is for {record_id.strip()!r}, not the target {expected_id!r}")
+
+
 #: A calendar date, strictly YYYY-MM-DD: it is written into a search string.
 _DATE = re.compile(r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$")
 

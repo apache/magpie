@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -83,11 +84,12 @@ def test_fetch_runs_the_record_fetch_command_with_only_the_id(policy: config.Con
 def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, workspace: Path) -> None:
     """The client reads `-`, so the bytes vetted-ops read are the bytes pushed."""
     record = workspace / "cve.json"
-    record.write_text('{"dataType": "CVE_RECORD"}')
+    content = json.dumps({"dataType": "CVE_RECORD", "cveMetadata": {"cveId": CVE}})
+    record.write_text(content)
     op = ops.resolve("cve-record-update")
     assert op.writes
     params, body = cli._validate_params(op, [CVE, str(record)], policy)
-    assert body == b'{"dataType": "CVE_RECORD"}'
+    assert body == content.encode()
     assert cli.build_argv(op, params, policy) == [
         *_prefix(),
         "vulnogram-api-record-update",
@@ -97,6 +99,36 @@ def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, works
         "-",
         "--no-promote-to-public",
     ]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ('{"cveMetadata": {"cveId": "CVE-2026-99999"}}', "is for 'CVE-2026-99999', not the target"),
+        ('{"dataType": "CVE_RECORD"}', "has no cveMetadata.cveId"),
+        ('{"cveMetadata": {"cveId": 12345}}', "has no cveMetadata.cveId"),
+        (json.dumps({"go": "x", "cveMetadata": {"cveId": CVE}}), "top-level key"),
+        ("[1, 2]", "not a JSON object"),
+        ("not json", "not UTF-8 JSON"),
+    ],
+)
+def test_update_refuses_a_record_for_another_id_or_a_request_envelope(
+    policy: config.Config, workspace: Path, content: str, message: str
+) -> None:
+    """The client posts to --cve-id whatever the document says, so the ids must agree."""
+    record = workspace / "cve.json"
+    record.write_text(content)
+    with pytest.raises(ops.ParamError, match=message):
+        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
+
+
+def test_the_record_id_match_ignores_case_and_surrounding_space(
+    policy: config.Config, workspace: Path
+) -> None:
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": f" {CVE.lower()} "}}))
+    params, _ = cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
+    assert params["cve_id"] == CVE
 
 
 def test_update_refuses_a_record_outside_the_workspace(policy: config.Config, tmp_path: Path) -> None:
@@ -160,6 +192,7 @@ def test_a_tampered_argv_is_refused(policy: config.Config) -> None:
         "LD_PRELOAD",
         "HTTPS_PROXY",
         "SOME_UNRELATED_VAR",
+        "TMPDIR",  # sandbox-writable inside the harness; uv builds there
     ],
 )
 def test_the_child_environment_is_an_allowlist(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
