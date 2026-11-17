@@ -249,8 +249,10 @@ def check_cve_record(body: bytes, expected_id: str) -> None:
     record_id = meta.get("cveId") if isinstance(meta, dict) else None
     if not isinstance(record_id, str):
         raise ParamError("the CVE record has no cveMetadata.cveId to check against the target id")
-    if record_id.strip().upper() != expected_id.upper():
-        raise ParamError(f"the CVE record is for {record_id.strip()!r}, not the target {expected_id!r}")
+    # Exact match, no normalisation: Vulnogram can act on the document's own id
+    # (the rename case), so " cve-…" must not pass for "CVE-…".
+    if record_id != expected_id:
+        raise ParamError(f"the CVE record is for {record_id!r}, not the target {expected_id!r}")
 
 
 #: A calendar date, strictly YYYY-MM-DD: it is written into a search string.

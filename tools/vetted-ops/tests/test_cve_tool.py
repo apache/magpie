@@ -122,13 +122,13 @@ def test_update_refuses_a_record_for_another_id_or_a_request_envelope(
         cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
 
 
-def test_the_record_id_match_ignores_case_and_surrounding_space(
-    policy: config.Config, workspace: Path
-) -> None:
+@pytest.mark.parametrize("variant", [CVE.lower(), f" {CVE}", f"{CVE} ", f"{CVE}\n"])
+def test_the_record_id_must_match_exactly(policy: config.Config, workspace: Path, variant: str) -> None:
+    """Vulnogram can act on the document's own id, so a near-match is a different id."""
     record = workspace / "cve.json"
-    record.write_text(json.dumps({"cveMetadata": {"cveId": f" {CVE.lower()} "}}))
-    params, _ = cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
-    assert params["cve_id"] == CVE
+    record.write_text(json.dumps({"cveMetadata": {"cveId": variant}}))
+    with pytest.raises(ops.ParamError, match="not the target"):
+        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
 
 
 def test_update_refuses_a_record_outside_the_workspace(policy: config.Config, tmp_path: Path) -> None:
