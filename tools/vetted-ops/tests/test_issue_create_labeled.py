@@ -330,3 +330,27 @@ def test_consume_leaves_links_and_files_outside_the_workspace(policy: Path, tmp_
     assert outside.read_text() == "keep"
     assert link.is_symlink()
     assert target.read_text() == "keep too"
+
+
+def test_consume_does_not_follow_a_directory_swapped_for_a_link(policy: Path, tmp_path: Path) -> None:
+    """A directory below the workspace replaced by a link after the read stops the delete."""
+    loaded = config.load(policy)
+    op = ops.resolve("issue-create-labeled")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    secret = elsewhere / "body.md"
+    secret.write_text("not the workspace's")
+    (loaded.workspace / "sub").symlink_to(elsewhere, target_is_directory=True)
+    cli._consume(op, ["[]", str(loaded.workspace / "sub" / "body.md"), "[]"], loaded)
+    assert secret.read_text() == "not the workspace's"
+
+
+def test_consume_removes_a_file_in_a_real_subdirectory(policy: Path) -> None:
+    loaded = config.load(policy)
+    op = ops.resolve("issue-create-labeled")
+    sub = loaded.workspace / "sub"
+    sub.mkdir()
+    body = sub / "body.md"
+    body.write_text("x")
+    cli._consume(op, ["[]", str(body), "[]"], loaded)
+    assert not body.exists()

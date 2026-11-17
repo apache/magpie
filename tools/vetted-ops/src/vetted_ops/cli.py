@@ -64,6 +64,7 @@ from pathlib import Path
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
 from .config import Config, ConfigError, describe, load
+from .safe_read import unlink_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -442,19 +443,23 @@ def _consume(op: ops_mod.Op, values: list[str], config: Config) -> None:
     """Delete the body and title files a successful write has published.
 
     They hold text written for the tracker or a public surface, often from a
-    private report, and the workspace outlives the session. Only a file that is
-    still a regular file inside the workspace is removed; a failed write keeps
-    its files for a retry.
+    private report, and the workspace outlives the session. This runs outside
+    the sandbox, so the delete walks from the checked workspace with
+    ``O_NOFOLLOW`` and unlinks relative to the parent's descriptor
+    (`safe_read.unlink_regular_file`): only a regular file this user owns,
+    reached without a symlink, is removed. A failed write keeps its files for
+    a retry.
     """
-    root = Path(os.path.realpath(config.workspace))
+    try:
+        root = ops_mod.checked_workspace(config.workspace)
+    except ops_mod.ParamError:
+        return
     for name, raw in zip(op.params, values, strict=False):
         if name not in op.body_files and name not in op.title_files:
             continue
         path = Path(os.path.abspath(Path(raw).expanduser()))
-        if root not in path.parents or path.is_symlink() or not path.is_file():
-            continue
         try:
-            path.unlink()
+            unlink_regular_file(path, root)
         except OSError as exc:
             print(
                 f"vetted-op: published, but could not remove {str(path)!r}: {exc.strerror}", file=sys.stderr
