@@ -766,6 +766,44 @@ def test_licence_and_notice_txt_spellings_pass(tmp_path: Path) -> None:
     assert "META-INF/LICENSE and META-INF/NOTICE present" in check["detail"]
 
 
+def test_licence_directory_entry_does_not_count_as_the_licence(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    jar = tmp_path / "foo-core-1.0.0.jar"
+    with zipfile.ZipFile(jar, "w") as zf:
+        zf.writestr("org/apache/foo/Main.class", b"class-bytes-here")
+        zf.writestr("META-INF/license/", b"")
+        zf.writestr("META-INF/license/LICENSE.foo.txt", b"third-party licence text")
+        zf.writestr("META-INF/notice/", b"")
+    report = json.loads(mav_json(tmp_path, ()))
+    check = report["jars"][0]["licence_notice"]
+    assert check["status"] == "WARN"
+    assert "META-INF/LICENSE" in check["detail"] and "META-INF/NOTICE" in check["detail"]
+
+
+def test_licence_entries_with_backslash_separators_pass(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    jar = tmp_path / "foo-core-1.0.0.jar"
+    with zipfile.ZipFile(jar, "w") as zf:
+        zf.writestr("org/apache/foo/Main.class", b"class-bytes-here")
+        zf.writestr("META-INF\\LICENSE", b"Apache License 2.0")
+        zf.writestr("META-INF\\NOTICE", b"Apache Foo")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["jars"][0]["licence_notice"]["status"] == "PASS"
+
+
+def test_unreadable_main_jar_skips_the_licence_check(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    (tmp_path / "foo-core-1.0.0.jar").write_bytes(b"not a zip archive")
+    report = json.loads(mav_json(tmp_path, ()))
+    check = report["jars"][0]["licence_notice"]
+    assert check["status"] == "SKIP"
+    assert "not a readable zip archive" in check["detail"]
+    assert report["status"] == "PASS"
+
+
 def test_licence_check_never_fails_the_rc(tmp_path: Path) -> None:
     write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
     write_staged(tmp_path)

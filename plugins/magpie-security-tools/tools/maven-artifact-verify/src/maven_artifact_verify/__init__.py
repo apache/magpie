@@ -752,14 +752,14 @@ def licence_notice_check(jar: Path) -> dict:
     """
     try:
         with zipfile.ZipFile(jar) as archive:
-            names = archive.namelist()
+            names = [info.filename for info in archive.infolist() if not info.is_dir()]
     except (zipfile.BadZipFile, OSError, NotImplementedError, UnicodeDecodeError, ValueError) as exc:
         return {
             "jar": jar.name,
             "status": "SKIP",
             "detail": f"not a readable zip archive, so {', '.join(LICENCE_NOTICE_LABELS.values())} could not be checked (the unreadable-jar observation reports it): {exc}",
         }
-    folded = {name.rstrip("/").casefold() for name in names}
+    folded = {name.replace("\\", "/").strip("/").casefold() for name in names}
     present = {kind: any(candidate in folded for candidate in candidates) for kind, candidates in LICENCE_NOTICE_FILES.items()}
     missing = [LICENCE_NOTICE_LABELS[kind] for kind, here in present.items() if not here]
     if not missing:

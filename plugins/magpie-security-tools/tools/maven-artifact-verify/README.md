@@ -119,6 +119,9 @@ parent POM adds them through `remote-resources`, so a jar missing one
 is worth a reviewer's look before the vote opens; `META-INF/LICENSE.txt`
 and `META-INF/NOTICE.txt` count, and a jar that cannot be opened is
 `SKIP` there (the unreadable-jar observation already reports it).
+The check opens the POM-declared main jars only: classified jars
+(`-shaded`, `-tests`, ...) and the `-sources` / `-javadoc` companions
+are published to Central too, but they are not checked here.
 
 The overall `status` is `FAIL` when any check fails, `WARN` when only
 `INHERITED-UNVERIFIED` or licence/notice results remain, `PASS`
