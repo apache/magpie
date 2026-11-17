@@ -216,10 +216,12 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set",
                            "cve-check-published",
                            "advisory-view", "advisory-comments", "advisory-comment",
-                           "issue-create-labeled"]
+                           "issue-create-labeled",
+                           "cve-record-fetch", "cve-record-update"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
-                           "body-field-get", "body-field-set"]
+                           "body-field-get", "body-field-set",
+                           "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append"]
