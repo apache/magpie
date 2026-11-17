@@ -576,6 +576,16 @@ def test_step2_nexus_staging_url_accepts_a_full_url_and_the_config_value() -> No
     )
 
 
+def test_step2_warns_when_the_nexus_id_comes_from_the_config() -> None:
+    d = draft(nexus_staging_repo="orgapacheairflow-1234")
+    config_only = render.step2(d, **urls("2.11.0-rc1"))
+    assert any(
+        "release-build.md" in warning and "previous RC" in warning for warning in config_only["warnings"]
+    )
+    from_issue = render.step2(d, nexus_staging_repo="orgapacheairflow-1234", **urls("2.11.0-rc1"))
+    assert not any("previous RC" in warning for warning in from_issue["warnings"])
+
+
 def test_step2_nexus_staging_repo_is_validated_never_spliced_raw() -> None:
     for bad in ("snapshots", "../../etc/passwd", "orgapacheairflow", "orgApacheAirflow-1"):
         with pytest.raises(render.RenderError, match="Nexus id shape"):

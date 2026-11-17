@@ -360,7 +360,8 @@ def _missing(
 def nexus_staging_url(value: str | None) -> str | None:
     """The staging-repository URL to name in the `[VOTE]`, from an id or a URL.
 
-    Accepts `orgapache<project>-NNNN` or any URL that carries it (the
+    Accepts an `orgapache<name>-NNNN` id (the profile name follows the
+    groupId, not the project slug) or any URL that carries it (the
     `/content/repositories/` and `/service/local/staging/repository/`
     spellings). The id can come from the planning issue, so it is
     validated before it reaches the body: anything else is refused, never
@@ -373,7 +374,7 @@ def nexus_staging_url(value: str | None) -> str | None:
     if not NEXUS_ID.fullmatch(repo):
         raise RenderError(
             f"nexus staging repository {repo!r} does not match the Nexus id shape "
-            "orgapache<project>-NNNN: read it from the planning issue or "
+            "orgapache<name>-NNNN: read it from the planning issue or "
             "release-build.md § JVM artefact checks, never guess it"
         )
     return f"{NEXUS_URL}/{repo}/"
@@ -552,6 +553,11 @@ def step2(
         warnings += [
             f"canned_body's '{VERIFY_HEADING}' section is missing {gap}" for gap in canned_verify_gaps
         ]
+    if nexus_url and not nexus_staging_repo and draft.meta.get("nexus_staging_repo"):
+        warnings.append(
+            "nexus_staging_url came from nexus_staging_repo in release-build.md, which can name the previous RC: "
+            "confirm it is this RC's staging repository, or pass the id from the planning issue as --nexus-staging-repo"
+        )
     text = f"Subject: {subject}\n\n{body}" + (f"\n\n{atr}" if atr else "")
     return {
         "subject": subject,
