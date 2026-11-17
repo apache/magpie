@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.error
@@ -343,6 +344,21 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
 
+    code = _dispatch(op, command, params, body, args, config)
+    if code == EXIT_OK and op.writes and not args.dry_run:
+        _consume(op, list(args.params), config)
+    return code
+
+
+def _dispatch(
+    op: ops_mod.Op,
+    command: object,
+    params: dict[str, str],
+    body: bytes | None,
+    args: argparse.Namespace,
+    config: Config,
+) -> int:
+    """Run a validated operation and return the dispatcher's exit code."""
     if isinstance(command, tracker_backends.BackendCall):
         return _run_backend(command, body, dry_run=args.dry_run, save=args.save, config=config)
 
@@ -420,6 +436,29 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         return EXIT_OK
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
+
+
+def _consume(op: ops_mod.Op, values: list[str], config: Config) -> None:
+    """Delete the body and title files a successful write has published.
+
+    They hold text written for the tracker or a public surface, often from a
+    private report, and the workspace outlives the session. Only a file that is
+    still a regular file inside the workspace is removed; a failed write keeps
+    its files for a retry.
+    """
+    root = Path(os.path.realpath(config.workspace))
+    for name, raw in zip(op.params, values, strict=False):
+        if name not in op.body_files and name not in op.title_files:
+            continue
+        path = Path(os.path.abspath(Path(raw).expanduser()))
+        if root not in path.parents or path.is_symlink() or not path.is_file():
+            continue
+        try:
+            path.unlink()
+        except OSError as exc:
+            print(
+                f"vetted-op: published, but could not remove {str(path)!r}: {exc.strerror}", file=sys.stderr
+            )
 
 
 def _run_backend(

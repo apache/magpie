@@ -100,6 +100,11 @@ Being precise, because a security tool that overstates itself is worse than none
   one open. Handing `gh` a path would leave a window between the check and the
   send in which the file could be swapped; the bytes that were validated are the
   bytes that get published.
+- **Published files do not stay behind.** Once a write succeeds, the dispatcher
+  deletes the body and title files it read, when each is still a regular file
+  inside the workspace. The workspace outlives the session, and these files often
+  carry text from a private report. A failed write or a `--dry-run` keeps them,
+  so the call can be retried; a file a skill needs again is kept elsewhere.
 - **Writes cannot be reached through the read entry point.** `vetted-op-read`
   refuses any operation with `writes=True` *before* it consults the policy or
   looks at `--caller`, so the refusal cannot be argued out of it by argv. This

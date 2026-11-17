@@ -282,7 +282,7 @@ Render the draft with the [`release-management`](../../../../tools/release-manag
 uv run --project <framework>/tools/release-management release-management vote-draft render --step 2 \
   --load <scratch>/vote-draft-load.json --product-name "<product-name>" \
   --tag-url <tag_url> --changelog-url <changelog_url> [--staging-url <url>] [--svn-revision <rev>] \
-  [--rc-comment <workspace>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
+  [--rc-comment <scratch>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
   [--expedited "<neutral reason>"] [--skip-verify-check "<reason>"] [--planning-issue <url>] \
   [--atr-candidate-url <url>] [--atr-revision <rev>] [--project <project>] [--rm-name "<RM name>"]
 ```

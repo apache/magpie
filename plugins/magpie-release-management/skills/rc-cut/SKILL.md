@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6650
+measured_tokens: 6685
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -408,11 +408,11 @@ A failed reproducibility outcome is refused before a staging label is proposed; 
 `record_missing` names record fields the RM has not pasted back (and `self_check` under `ci-automated` when the outcome is missing or `skipped`); ask for them rather than inventing values.
 
 Present `comment` to the RM and ask for confirmation before posting (Golden rule 4).
-If the RM confirms, write it to `<workspace>/rc-cut-comment.md` and post it with
+If the RM confirms, write it to `<scratch>/rc-cut-comment.md` (the record `vote-draft` reads later), copy it to `<workspace>/rc-cut-comment.md`, and post that copy with
 `uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller release-rc-cut repo-issue-comment <planning-issue-number> <workspace>/rc-cut-comment.md`
-(every write still asks).
+(every write still asks; the dispatcher deletes the posted copy once the comment is up).
 Without the secure setup, the same two calls are the plain `gh api repos/<upstream>/git/matching-refs/tags/<version>-<rcN> --jq '.[].ref'`
-and `gh issue comment <planning-issue-number> --repo <upstream> --body-file <workspace>/rc-cut-comment.md`.
+and `gh issue comment <planning-issue-number> --repo <upstream> --body-file <scratch>/rc-cut-comment.md`.
 
 Return the render's `proposed_comment_summary`, `includes_rc_tag`, `includes_staging_url`, `includes_artefact_list`, `proposed_label` and `proposed` as this step's JSON.
 Posting happens only after the RM's explicit confirmation in the conversation.
