@@ -168,9 +168,15 @@ The board lists embargoed trackers, so it holds nothing else and stays private. 
 ```bash
 gh api graphql -F project=<project-id> -f desc="Security trackers only" -f readme="<what the board is for>" -f query='
 mutation($project: ID!, $desc: String!, $readme: String!) {
-  updateProjectV2(input: {projectId: $project, shortDescription: $desc, readme: $readme, public: false}) { projectV2 { id } }
+  updateProjectV2(input: {projectId: $project, shortDescription: $desc, readme: $readme}) { projectV2 { id public } }
 }'
 ```
+
+Leave `public` out of the mutation: changing a board's visibility, even to private, needs owner rights
+(`Viewer not authorized to change project visibility` otherwise). Check `public` is `false` in the result;
+if it is not, ask an owner to make the board private.
+Keep the text to what the board is for: the public-surface guard refuses the mutation when it names a lifecycle column
+such as the allocation stage, and the columns are visible on the board anyway.
 
 The sync enforces the rest: its end-of-sync sweep reads every item (`board-items`) and proposes archiving anything that is not
 an issue in the tracker repository carrying the security label.
