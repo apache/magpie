@@ -422,6 +422,29 @@ def test_the_api_command_quotes_the_title(capsys, tmp_path):
     assert "```text\nx'; rm -rf / #`\n```" in out["text"]
 
 
+def test_the_vetted_route_reads_the_title_from_a_workspace_file(capsys, tmp_path):
+    hostile = "x'; rm -rf / #`"
+    out = recipe(capsys, tmp_path, True, {"path": "api"}, title=hostile, vetted_workspace="/ws/")
+    assert out["command"] == (
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-cve-allocate "
+        "cve-allocate /ws/cve-title-242.txt"
+    )
+    assert hostile not in out["command"]
+    assert out["title_file"] == {"path": "/ws/cve-title-242.txt", "text": hostile + "\n"}
+    assert out["api_allocation_proposed"] is True
+
+
+def test_without_a_vetted_workspace_the_api_path_keeps_cve_tool(capsys, tmp_path):
+    out = recipe(capsys, tmp_path, True, {"path": "api"})
+    assert "cve-tool allocate --pmc airflow" in out["command"]
+    assert out["title_file"] is None
+
+
+def test_the_vetted_workspace_is_ignored_off_the_api_path(capsys, tmp_path):
+    out = recipe(capsys, tmp_path, True, {"path": "recipe"}, vetted_workspace="/ws")
+    assert out["command"] is None and out["title_file"] is None
+
+
 def test_a_backtick_run_in_the_title_lengthens_the_fence(capsys, tmp_path):
     out = recipe(capsys, tmp_path, True, title="a ``` b")
     assert "````text\na ``` b\n````" in out["text"].replace("   ", "")

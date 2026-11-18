@@ -39,6 +39,8 @@ from security_management.shell import w
 STABLE = "~/.claude/magpie/security-tools/cve-tool"
 #: Where a framework checkout or snapshot install keeps the tool, run sandboxed.
 PROJECT = "<framework>/tools/cve-tool"
+#: The vetted-ops link, spelled as the sandbox exclusion matches it.
+VETTED_OPS = "~/.claude/magpie/vetted-ops"
 
 
 def stable_installed() -> bool:
@@ -64,3 +66,16 @@ def command(data: Mapping[str, Any], operation: str, *args: object) -> str:
         return " ".join(("uv run --project", w(str(project)), "cve-tool", operation, *quoted))
     # The literal `~`, unquoted: the sandbox exclusion and the `ask` rule match this spelling.
     return " ".join(("uvx --from", STABLE, "cve-tool", operation, *quoted))
+
+
+def vetted_command(caller: str, operation: str, *args: object) -> str:
+    """`uvx --from <VETTED_OPS> vetted-op --caller <caller> <operation> <args>`.
+
+    The vetted operations (tools/vetted-ops, "The Vulnogram CVE-tool operations")
+    run the shipped Vulnogram client outside the sandbox with a fixed argv: no
+    override flag, no other session file. Arguments are shell-quoted here, like
+    `command`; a value the operation reads from a file (an allocation title, a
+    record) is passed as that file's workspace path, never inline.
+    """
+    quoted = (shlex.quote(str(arg)) for arg in args)
+    return " ".join(("uvx --from", VETTED_OPS, "vetted-op --caller", shlex.quote(caller), operation, *quoted))
