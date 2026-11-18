@@ -479,7 +479,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    or extract it from the body via `awk` between the
    `<!-- generate-cve-json: cve=<CVE> version=v1 -->` / `<!-- generate-cve-json:end ... -->` markers —
    the generator is deterministic, so both yield the same bytes.
-   Conventional path: `<scratch>/cve-<CVE-ID>-<N>.json`.
+   Conventional path: `<scratch>/cve-<CVE-ID>-<N>.json`, or `<workspace>/cve-<CVE-ID>-<N>.json` for the vetted push in step 3, which reads only the workspace.
    `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 3. **Push the update through the adapter's `push_update` method**
@@ -490,6 +490,24 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push \
      --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
+
+   **Under the secure setup**, when the vetted-ops policy grants `security-issue-sync` the `cve-record-update` operation,
+   push through it instead, with the JSON at `<workspace>/cve-<CVE-ID>-<N>.json` (the vetted-ops policy's `workspace`):
+
+   ```bash
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
+   ```
+
+   It runs the same Vulnogram push with a fixed argv and no override flag
+   ([vetted-ops § *The Vulnogram CVE-tool operations*](../../../../tools/vetted-ops/README.md#the-vulnogram-cve-tool-operations)),
+   so it covers every push above except three, which keep the `cve-tool push` command:
+   a JSON whose `CNA_private.state` is `PUBLIC` while the live record is not (the vetted push never promotes a record to `PUBLIC`),
+   and the two overrides below.
+   When the client fails, `vetted-op` exits 4 and names the client's own code on stderr (`CVE tool exit N`), which reads as the `cve-tool push` exit `N`;
+   an exit 3 whose stderr says the caller `is not permitted to run 'cve-record-update'` means the policy does not grant it: use `cve-tool push`.
+   Any other exit 2 or 3 is `vetted-op` rejecting the record (a forbidden key, an ID that does not match `<CVE-ID>`) or the arguments:
+   nothing was pushed, and the push stops there; report the stderr, and never send the same JSON through `cve-tool push` to get past the refusal.
+   Any other outcome (an interrupted run) may or may not have saved: push again, which the idempotence note below makes safe.
 
    For Vulnogram, the push merges into the live record and refuses to rename an affected product or package.
    Two explicit overrides exist; use them only after confirming with the user:

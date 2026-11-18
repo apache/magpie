@@ -516,7 +516,7 @@ overrides. Three operations run it instead, outside the sandbox through
 |---|---|---|
 | `cve-record-fetch` (read) | `cve_id` | `vulnogram-api-record-fetch --cve-id <id>` |
 | `cve-record-update` (write) | `cve_id body` | `vulnogram-api-record-update --cve-id <id> --json-file -`, the record on stdin |
-| `cve-allocate` (write) | `title` (a workspace file) | `vulnogram-api-allocate --title <title>` |
+| `cve-allocate` (write) | `pmc title` (title a workspace file) | `vulnogram-api-allocate --pmc <pmc> --title <title>`; the client refuses a token held for another PMC |
 
 - The client is the copy shipped in this plugin beside vetted-ops
   (`tools/cve-tool-vulnogram/oauth-api`, resolved like the tracker backends),

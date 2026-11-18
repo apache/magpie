@@ -145,6 +145,8 @@ def _validate_params(
             resolved[name] = ops_mod.commit_hash(raw)
         elif name == "cve_id":
             resolved[name] = ops_mod.cve_id(raw)
+        elif name == "pmc":
+            resolved[name] = ops_mod.pmc(raw)
         elif name == "date":
             resolved[name] = ops_mod.date(raw)
         elif name == "cursor":

@@ -224,6 +224,14 @@ def cve_id(value: str) -> str:
     return _check(_CVE_ID, value, "CVE id")
 
 
+#: A Vulnogram PMC / committee id (`airflow`, `incubator-foo`): lowercase, no path or flag.
+_PMC = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+
+
+def pmc(value: str) -> str:
+    return _check(_PMC, value, "PMC")
+
+
 #: Top-level keys a CVE record pushed through `cve-record-update` may not carry:
 #: Vulnogram reads `go` as a request envelope rather than record content.
 _CVE_RECORD_FORBIDDEN_KEYS = frozenset({"go"})
@@ -3018,12 +3026,14 @@ _register(
 _register(
     Op(
         name="cve-allocate",
-        params=("title",),
+        params=("pmc", "title"),
         backend="cve-tool",
         writes=True,
         summary="Allocate a CVE id for a title through the Vulnogram CVE tool.",
         title_files=("title",),
-        build=lambda cfg, title: cve_tool.argv("vulnogram-api-allocate", "--title", title),
+        # `--pmc` lets the client refuse a token held for any other PMC, so the
+        # id is reserved for the PMC the user approved, whatever session is current.
+        build=lambda cfg, pmc, title: cve_tool.argv("vulnogram-api-allocate", "--pmc", pmc, "--title", title),
     )
 )
 
