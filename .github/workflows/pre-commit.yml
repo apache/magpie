@@ -147,8 +147,11 @@ jobs:
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
         with:
+          # `prek/*`, not `prek`: the action tars each matched path whole, so an
+          # exclusion only drops a path the glob matched on its own. With the
+          # bare directory, `!…/cache` would match nothing and stay in.
           path: |
-            ~/.cache/prek
+            ~/.cache/prek/*
             !~/.cache/prek/cache
           # `v2`: a fresh prefix, so the first run builds a lean archive instead
           # of restoring the old ~3.5 GB one (download caches and stale envs
