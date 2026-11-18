@@ -35,6 +35,8 @@ and is shell-quoted in the API command, since it is reporter-influenced.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -95,13 +97,16 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         )
         workspace = one_line(data.get("vetted_workspace"))
         if workspace:
-            # The vetted operation reads the title from a workspace file and allocates
-            # for the PMC its token holds, which the pre-flight checked is `pmc`.
-            title_file = {
-                "path": f"{workspace.rstrip('/')}/cve-title-{data['issue']}.txt",
-                "text": title + "\n",
-            }
-            command = cve_tool.vetted_command("security-cve-allocate", "cve-allocate", title_file["path"])
+            # The vetted operation reads the title from a workspace file; `pmc` lets the
+            # client refuse a token held for any other PMC. The file is named by a hash of
+            # tracker, issue and the approved title, so no other run (another tracker, or
+            # this issue with another title) writes the same file between the write and
+            # the allocation; a sanitised slug would not do (`a-b/c` and `a/b-c` collide).
+            key = hashlib.sha256(json.dumps([tracker, str(data["issue"]), title]).encode()).hexdigest()[:24]
+            title_file = {"path": f"{workspace.rstrip('/')}/cve-title-{key}.txt", "text": title + "\n"}
+            command = cve_tool.vetted_command(
+                "security-cve-allocate", "cve-allocate", pmc, title_file["path"]
+            )
         else:
             command = cve_tool.command(data, "allocate", "--pmc", pmc, "--title", title)
     elif member:

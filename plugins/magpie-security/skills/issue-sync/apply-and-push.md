@@ -504,7 +504,10 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    a JSON whose `CNA_private.state` is `PUBLIC` while the live record is not (the vetted push never promotes a record to `PUBLIC`),
    and the two overrides below.
    When the client fails, `vetted-op` exits 4 and names the client's own code on stderr (`CVE tool exit N`), which reads as the `cve-tool push` exit `N`;
-   any other non-zero exit (the caller is not granted the operation, or a usage error) means nothing was pushed: use `cve-tool push`.
+   an exit 3 whose stderr says the caller `is not permitted to run 'cve-record-update'` means the policy does not grant it: use `cve-tool push`.
+   Any other exit 2 or 3 is `vetted-op` rejecting the record (a forbidden key, an ID that does not match `<CVE-ID>`) or the arguments:
+   nothing was pushed, and the push stops there; report the stderr, and never send the same JSON through `cve-tool push` to get past the refusal.
+   Any other outcome (an interrupted run) may or may not have saved: push again, which the idempotence note below makes safe.
 
    For Vulnogram, the push merges into the live record and refuses to rename an affected product or package.
    Two explicit overrides exist; use them only after confirming with the user:

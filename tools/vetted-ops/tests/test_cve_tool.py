@@ -145,10 +145,12 @@ def test_allocate_reads_its_title_from_a_workspace_file(policy: config.Config, w
     title.write_text("Config API: section aliases bypass masking\n")
     op = ops.resolve("cve-allocate")
     assert op.writes
-    params, _ = cli._validate_params(op, [str(title)], policy)
+    params, _ = cli._validate_params(op, ["airflow", str(title)], policy)
     assert cli.build_argv(op, params, policy) == [
         *_prefix(),
         "vulnogram-api-allocate",
+        "--pmc",
+        "airflow",
         "--title",
         "Config API: section aliases bypass masking",
     ]
@@ -162,10 +164,18 @@ def test_a_malformed_cve_id_never_reaches_the_client(policy: config.Config, bad:
         cli._validate_params(ops.resolve("cve-record-fetch"), [bad], policy)
 
 
+@pytest.mark.parametrize("bad", ["Airflow", "airflow --credentials", "--credentials", "../x", ""])
+def test_a_malformed_pmc_never_reaches_the_client(policy: config.Config, workspace: Path, bad: str) -> None:
+    title = workspace / "title.txt"
+    title.write_text("A title\n")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(ops.resolve("cve-allocate"), [bad, str(title)], policy)
+
+
 def test_no_override_flag_is_reachable() -> None:
     """The caller's values are the only variable parts; no `--allow-*` / `--credentials`."""
     for name in ("cve-record-fetch", "cve-record-update", "cve-allocate"):
-        assert set(ops.resolve(name).params) <= {"cve_id", "body", "title"}
+        assert set(ops.resolve(name).params) <= {"cve_id", "body", "title", "pmc"}
 
 
 def test_a_tampered_argv_is_refused(policy: config.Config) -> None:
@@ -253,6 +263,7 @@ def test_a_dry_run_shows_the_title_only_as_its_size(
             "security-cve-allocate",
             "--dry-run",
             "cve-allocate",
+            "airflow",
             str(title),
             "--config",
             str(policy_path),

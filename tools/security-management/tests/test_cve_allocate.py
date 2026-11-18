@@ -425,13 +425,35 @@ def test_the_api_command_quotes_the_title(capsys, tmp_path):
 def test_the_vetted_route_reads_the_title_from_a_workspace_file(capsys, tmp_path):
     hostile = "x'; rm -rf / #`"
     out = recipe(capsys, tmp_path, True, {"path": "api"}, title=hostile, vetted_workspace="/ws/")
+    title_path = out["title_file"]["path"]
+    assert title_path.startswith("/ws/cve-title-") and title_path.endswith(".txt")
     assert out["command"] == (
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-cve-allocate "
-        "cve-allocate /ws/cve-title-242.txt"
+        f"cve-allocate airflow {title_path}"
     )
     assert hostile not in out["command"]
-    assert out["title_file"] == {"path": "/ws/cve-title-242.txt", "text": hostile + "\n"}
+    assert out["title_file"] == {"path": title_path, "text": hostile + "\n"}
     assert out["api_allocation_proposed"] is True
+
+
+def test_title_files_of_different_trackers_never_collide(capsys, tmp_path):
+    paths = {
+        recipe(capsys, tmp_path, True, {"path": "api"}, tracker=tracker, vetted_workspace="/ws")[
+            "title_file"
+        ]["path"]
+        for tracker in ("a-b/c", "a/b-c", "a/b")
+    }
+    assert len(paths) == 3
+
+
+def test_another_title_for_the_same_issue_gets_its_own_file(capsys, tmp_path):
+    paths = {
+        recipe(capsys, tmp_path, True, {"path": "api"}, title=title, vetted_workspace="/ws")["title_file"][
+            "path"
+        ]
+        for title in ("First title", "Second title")
+    }
+    assert len(paths) == 2
 
 
 def test_without_a_vetted_workspace_the_api_path_keeps_cve_tool(capsys, tmp_path):

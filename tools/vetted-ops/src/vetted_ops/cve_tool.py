@@ -27,7 +27,7 @@ and the rest. These operations instead run each command with a fixed argv:
 * the client is the copy shipped beside vetted-ops (``tool_dir``), never a path
   the agent can write;
 * only the CVE id, the record JSON (piped on stdin, the bytes vetted-ops
-  validated) and the allocation title are the caller's; every override flag
+  validated), the allocation PMC and the allocation title are the caller's; every override flag
   stays off, so the record commands' merge-mode guards always apply;
 * the child gets an allowlisted environment (``child_env``): ``HOME`` from the
   password database, a fixed ``PATH``, locale and ``TMPDIR`` only. No
