@@ -35,6 +35,7 @@ import json
 import os
 import re
 import stat as stat_mod
+import time
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -398,8 +399,47 @@ _SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 #: The marker that makes a `saved/` directory a `--save` target. See `save_output`.
 SAVE_MARKER = ".vetted-ops-save"
 
+#: How long a saved read is kept by default; `[values] saved_retention_days` overrides it.
+DEFAULT_SAVED_RETENTION_DAYS = 7
 
-def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
+
+def saved_retention_days(value: object) -> int:
+    """The policy's `saved_retention_days`, or the default; a whole number of days, at least 1."""
+    if value is None:
+        return DEFAULT_SAVED_RETENTION_DAYS
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ParamError(f"saved_retention_days must be a whole number of days, at least 1, not {value!r}")
+    return value
+
+
+def _prune_saved(dir_fd: int, *, keep: str, max_age_days: int) -> None:
+    """Remove saved reads older than ``max_age_days`` from the open ``saved/`` directory.
+
+    Saved reads carry tracker and pull-request text, and the workspace outlives
+    the session, so they are not left to accumulate. Everything here is relative
+    to ``dir_fd`` and never follows a link: only a regular file or a symlink this
+    user owns is removed (a symlink is unlinked, its target untouched), and the
+    marker, dot-files (another save's temporary file), subdirectories and the
+    file just written are kept. Any error leaves the entry alone.
+    """
+    cutoff = time.time() - max_age_days * 86400
+    for entry in os.listdir(dir_fd):
+        if entry == keep or entry.startswith("."):
+            continue
+        try:
+            st = os.stat(entry, dir_fd=dir_fd, follow_symlinks=False)
+            if not (stat_mod.S_ISREG(st.st_mode) or stat_mod.S_ISLNK(st.st_mode)):
+                continue
+            if st.st_uid != os.getuid() or st.st_mtime >= cutoff:
+                continue
+            os.unlink(entry, dir_fd=dir_fd)
+        except OSError:
+            continue
+
+
+def save_output(
+    name: str, data: bytes, *, workspace: Path, retention_days: int = DEFAULT_SAVED_RETENTION_DAYS
+) -> Path:
     """
     Write a read operation's output to ``<workspace>/saved/<name>``.
 
@@ -425,6 +465,9 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
 
     The name is one path component, and every path is resolved with
     ``O_NOFOLLOW`` relative to a descriptor for the checked workspace.
+
+    After the write, saved reads older than ``retention_days`` are pruned from
+    the same directory (`_prune_saved`).
     """
     _check(_SAVE_NAME, name, "save name")
     root = checked_workspace(workspace)
@@ -465,6 +508,7 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
             with contextlib.suppress(OSError):
                 os.unlink(temp, dir_fd=dir_fd)
             raise
+        _prune_saved(dir_fd, keep=name, max_age_days=retention_days)
     finally:
         os.close(dir_fd)
     return root / SAVED_DIR / name

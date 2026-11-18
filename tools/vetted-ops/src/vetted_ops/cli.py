@@ -536,7 +536,8 @@ def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *,
 def _save(name: str, data: bytes, config: Config) -> int:
     """Write saved output and report where, in one line the caller can parse."""
     try:
-        path = ops_mod.save_output(name, data, workspace=config.workspace)
+        retention = ops_mod.saved_retention_days(config.values.get("saved_retention_days"))
+        path = ops_mod.save_output(name, data, workspace=config.workspace, retention_days=retention)
     except ops_mod.ParamError as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY

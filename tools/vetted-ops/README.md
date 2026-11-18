@@ -474,6 +474,12 @@ kilobytes — which a deterministic tool then reads from the file.
   through. Every path is opened with `O_NOFOLLOW` relative to the checked
   workspace.
 - An HTTP read saved this way still never touches any other path.
+- **Old saved reads are pruned.** Saved reads carry tracker and pull-request
+  text, and the workspace outlives the session, so each `--save` also removes
+  entries of `saved/` older than `saved_retention_days` (under `[values]`; a
+  whole number of days, default 7). Only regular files and symlinks you own
+  are removed, relative to the same `saved/` descriptor and without following
+  a link; the marker, dot-files, subdirectories and the file just written stay.
 
 ### Searching the upstream repository
 
