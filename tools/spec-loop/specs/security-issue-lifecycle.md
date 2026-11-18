@@ -651,6 +651,10 @@ publication, with a human gate and an audit-log entry at every step.
   (exit `4`) a record with no `references[]` entry tagged
   `vendor-advisory`, so the CVE JSON is re-pushed with the archived URL
   first ([CVE tooling](cve-tooling.md)).
+  The converse holds too: a re-push never walks a record already `PUBLIC`
+  back to `REVIEW` / `READY`. A reviewer may publish by hand before the
+  tracker carries the public advisory URL, so sync's push step reads the
+  current state first and keeps `PUBLIC` (#2158).
 - **Dashboard mode reconciles with the ASF Security dashboard, ASF only
   (#1780, #1798).** On *"sync dashboard"*, `security-issue-sync` follows
   `issue-sync/dashboard.md`.
