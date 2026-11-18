@@ -182,17 +182,17 @@ Use:
   Surface the extracted summary in the Step 2 proposal so the user can spot over- or under-extraction before the body-field update applies;
   accept a free-form override at re-confirmation if the heuristic misfires.
 - **Close / reopen:** `gh issue close <N> --repo <tracker> --reason completed` (or `not planned`).
-  On a GitHub-backed tracker that uses a project board, **always** follow a successful close with the *Archive a board item* mutation in
-  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#archive-a-board-item--terminal-state-cleanup)
+  On a GitHub-backed tracker that uses a project board, **always** follow a successful close with
+  `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-archive-item <item_id>`
+  (the *Archive a board item* mutation in [`tools/github/project-board.md`](../../../../tools/github/project-board.md#archive-a-board-item--terminal-state-cleanup) without vetted-ops)
   — otherwise a reopened tracker resurfaces on its old column and board sweeps still see it.
   Archive on every close, whatever the reason (terminal Step 15, or `invalid` / `duplicate` / `wontfix`); the mutation is idempotent.
-- **Project-board column:** apply the `updateProjectV2ItemFieldValue` recipe in
-  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column),
-  with the board node ID, status-field node ID and target-column option ID from
-  [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board)
-  and the `itemId` captured in Step 1a's board read.
-  The same doc has the orphan-issue path (`addProjectV2ItemById` then `updateProjectV2ItemFieldValue`) for an issue with no project item,
-  and the introspection query to re-fetch option IDs when a write starts returning `not found`.
+- **Project-board column:** `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-set-status <item_id> "<Column>"`,
+  with the `item_id` from Step 1a's `board-item` read and a column the policy declares.
+  For a tracker with no item yet, first `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-add-item <node_id>` (it prints the new item id), then set its column.
+  Without vetted-ops, the `updateProjectV2ItemFieldValue` and orphan-issue recipes in
+  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column) do the same,
+  and its introspection query re-fetches option IDs when a write starts returning `not found`.
 - **Gmail draft:** include `security_cc` from the shared
   [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
   in every draft's CC; block creation if unresolved.
@@ -563,13 +563,18 @@ For each tracker:
 
 1. **Board `Status` column.** Compute the correct column from the tracker's labels + body per the label→column mapping the adopter declares in
    [`<project-config>/project.md`](../../../../<project-config>/project.md),
-   and move any tracker whose current column differs via the `updateProjectV2ItemFieldValue` mutation
-   (introspection + write recipe in [`tools/github/project-board.md`](../../../../tools/github/project-board.md)).
+   and move any tracker whose current column differs with `board-set-status` (vetted-ops; the raw mutation in
+   [`tools/github/project-board.md`](../../../../tools/github/project-board.md) without it).
+   An **open tracker that is not on the board** (Step 1a's `board-item` printed `item: null`) is added with `board-add-item` and then given its column.
    Precedence when several labels coexist: a *needs-triage* marker keeps the tracker in the triage column until a disposition lands
    (per-adopter — some projects couple `needs triage` with scope, some treat them as independent; follow the adopter's `project.md`);
    otherwise the **highest fix-flow state wins**
    (advisory-shipped › fix-released › pr-merged › pr-created › cve-allocated › assessed).
-   Closed trackers that have shipped their advisory are **archived off the board**, not recoloured.
+   **Every closed tracker** still on the board, whatever it closed as (announced, invalid, duplicate, not affected, hardening),
+   is **archived off the board** with `board-archive-item`, not recoloured.
+   When Step 1a recorded *"no board configured"*, skip this item and add one recap line proposing the board step of
+   [`setup config`](../../../../plugins/magpie-setup/skills/setup/config.md#step-3a1--project-board-github-trackers),
+   unless `tracker.project_board_enabled` is `false`.
 
 2. **Milestone.** Compute the correct milestone from the fix PR's milestone / the shipped release per
    [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md)
