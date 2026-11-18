@@ -122,12 +122,11 @@ jobs:
         # `package = false` so member packages and their
         # `[project.scripts]` entry points would be skipped.
         run: uv sync --all-packages --group dev
-      # Cache prek's hook environments. The `lychee` hook is
-      # `language: rust` with `additional_dependencies: [cli:lychee:…]`,
-      # so prek `cargo install`s lychee into a hook env under
-      # `~/.cache/prek` — a multi-minute compile. Caching that dir
-      # reuses the built binary (and every other hook env) across runs;
-      # keyed on the prek config so a hook/version change busts it.
+      # Cache prek's hook environments, so each run reuses the built envs
+      # instead of installing every hook's dependencies again; keyed on the
+      # prek config so a hook/version change busts it. (lychee, the one
+      # `language: rust` hook, is not among them in CI: it runs from a
+      # prebuilt binary, see "Install lychee" below.)
       #
       # Kept small for `ubuntu-slim` (#2175), whose single vCPU has to
       # download and unpack the archive on every PR run. The archive had
@@ -153,13 +152,15 @@ jobs:
           path: |
             ~/.cache/prek/*
             !~/.cache/prek/cache
-          # `v2`: a fresh prefix, so the first run builds a lean archive instead
-          # of restoring the old ~3.5 GB one (download caches and stale envs
-          # included) through `restore-keys`. Bump it whenever the archive
-          # must start over rather than carry the previous one forward.
-          key: prek-v2-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          # `v3` (`v2` was the cache-size fix): CI stopped building lychee's
+          # Rust env (see "Install lychee" below). `prek cache gc` keeps envs
+          # of every hook the config names, so under the old prefix
+          # `restore-keys` would carry that env forward for good; a new prefix
+          # starts the archive without it. Bump it whenever the archive must
+          # start over rather than carry the previous one forward.
+          key: prek-v3-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            prek-v2-${{ runner.os }}-
+            prek-v3-${{ runner.os }}-
       # There is deliberately no lychee result cache here. `.lychee.toml`
       # sets `offline = true`, so the hook resolves only in-repo paths and
       # anchors and never fetches a URL — there are no results to cache.
@@ -279,16 +280,39 @@ jobs:
       #
       # Cheap enough to do on both events: `.lychee.toml` sets
       # `offline = true`, so this resolves in-repo paths and `#anchor`
-      # fragments only and fetches no URL. The hook is `language: rust`
-      # (no Docker daemon, no service container), so it runs on
-      # `ubuntu-slim` as happily as on `ubuntu-latest`, and the prek
-      # hook-env cache above already holds the compiled binary.
+      # fragments only and fetches no URL.
+      #
+      # CI runs lychee's prebuilt release binary rather than the hook:
+      # the hook is `language: rust`, so prek would `cargo install` it, a
+      # multi-minute compile on `ubuntu-slim`'s one vCPU and the biggest
+      # thing in the hook-env cache (#2175). The release tarball is pinned
+      # by version and SHA-256 (the digest GitHub reports for the asset);
+      # the static musl build runs on both runner images. The arguments are
+      # the hook's own, from `.pre-commit-config.yaml`: keep the two in
+      # step. Contributors still run the hook locally through prek.
+      - name: Install lychee (pinned prebuilt release)
+        if: ${{ !cancelled() }}
+        env:
+          LYCHEE_VERSION: "0.24.2"
+          LYCHEE_SHA256: "73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5"
+        run: |
+          dir="$RUNNER_TEMP/lychee"
+          mkdir -p "$dir/bin"
+          curl -sSfL --retry 3 -o "$dir/lychee.tar.gz" \
+            "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-musl.tar.gz"
+          echo "${LYCHEE_SHA256}  $dir/lychee.tar.gz" | sha256sum --check --strict
+          tar -xzf "$dir/lychee.tar.gz" -C "$dir"
+          bin="$(find "$dir" -path "$dir/bin" -prune -o -type f -name lychee -print | head -n 1)"
+          test -n "$bin"
+          install -m 0755 "$bin" "$dir/bin/lychee"
+          echo "$dir/bin" >> "$GITHUB_PATH"
+          "$dir/bin/lychee" --version
       #
       # `!cancelled()` rather than `always()`: a link break and a hook
       # failure in the step above are independent, and a contributor
       # should see both in one run instead of fixing one to discover the
       # other. `always()` would also run this on a cancelled job.
-      - name: Run prek (lychee — whole repo, both events)
+      - name: Run lychee (whole repo, both events)
         if: ${{ !cancelled() }}
         # GITHUB_TOKEN lets lychee authenticate its github.com link
         # checks — unauthenticated requests get rate-limited (429) once a
@@ -298,7 +322,7 @@ jobs:
         # kept so flipping that back on needs no workflow change.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: prek run lychee --color=always --all-files
+        run: lychee --config .lychee.toml --no-progress .
       # Claude Code mods: `claude plugin validate --strict` and `claude plugin
       # test` on every plugin whose `hooks/hooks.json` declares `modules`. The
       # hook is `stages: [manual]` so contributors' commits never fetch the

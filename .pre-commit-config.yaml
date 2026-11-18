@@ -225,14 +225,16 @@ repos:
   # whole repo (so a renamed link target is caught no matter which
   # file references it); `files:` only gates *whether* the whole-repo
   # scan fires, i.e. it runs when any doc file changes and always on
-  # `prek run --all-files`. That gate is why CI gives this hook a step
-  # of its own (`prek run lychee --all-files`, both events) instead of
+  # `prek run --all-files`. That gate is why CI gives lychee a step
+  # of its own (whole repo, both events) instead of
   # letting it ride along with the pull-request run's `--from-ref`
   # scope: a PR that breaks a link by renaming a non-doc file matches
   # no `.md`, so the hook would never fire. `.lychee.toml` sets
   # `offline = true`, so no external URL is fetched and the
   # `.lycheecache` result cache stays empty — CI carries no cache step
-  # for it.
+  # for it. CI runs a pinned prebuilt lychee with this hook's `args`
+  # rather than the hook itself (no cargo build on the runner, see
+  # `.github/workflows/pre-commit.yml`): change the args in both places.
   - repo: local
     hooks:
       - id: lychee
