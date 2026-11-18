@@ -208,7 +208,8 @@ media / cross-thread-followup / fix-already-public):
    (`date`, `reporter`, `title` — the thread subject, verbatim, the tool strips `Re:`/`Fwd:` —, `canned` slug, `thread` id, `archive`, `summary`):
    it keeps every value on one line, so attacker-derived text can neither add a key nor forge a second record,
    and writes `archive: unresolved (archive lag)` when no permalink is given.
-   Write its `text` to `<scratch>/rejection-<threadId>.md` with the Write tool.
+   Write its `text` to `<workspace>/rejection-<threadId>.md` with the Write tool
+   (vetted-ops refuses a body file outside its configured workspace).
 
    Record **`title:`** (the verbatim thread subject) and **`archive:`** (a stable mail-archive permalink) besides the mailbox `thread:` id:
    a bare threadId resolves only inside the one mailbox that holds it,
@@ -218,9 +219,12 @@ media / cross-thread-followup / fix-already-public):
    if the thread is not yet indexed, leave `archive` out
    and keep the mailbox `thread:` id so a later run can backfill it.
 
+   Post it through vetted-ops, not raw `gh api`:
+   agent-guard blocks a raw public-surface write,
+   and a ledger record carries the private-list terms it matches.
+
    ```bash
-   gh api repos/<tracker>/issues/<ledger-N>/comments \
-     -F body=@<scratch>/rejection-<threadId>.md --jq '.id'
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-comment <ledger-N> <workspace>/rejection-<threadId>.md
    ```
 
    If the resolution returns no number (no ledger issue exists yet),
