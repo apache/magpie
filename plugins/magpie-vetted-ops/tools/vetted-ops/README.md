@@ -786,14 +786,14 @@ shapes, behind the harness's confirmation like `vetted-op`:
 
 | Operation | Parameters | What it does |
 |---|---|---|
-| `git-push-branch` | `checkout branch target remote_branch expected hooks` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>`. `expected` is the remote branch's current full SHA, or `new`. `hooks` is `verify` (run the pre-push hook) or `no-verify`. |
+| `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
 
 ```bash
 uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller <skill> git-push-branch \
-  ~/code/project fix-thing fork fix-thing 0123…(40 hex) verify
+  ~/code/project fix-thing fork fix-thing 0123…(40 hex)
 ```
 
 The policy's `[git]` table bounds them:
@@ -853,15 +853,18 @@ What makes running git unsandboxed acceptable here:
 - **No environment steers git.** Every `GIT_*` variable is dropped, `HOME`
   comes from the password database and `XDG_CONFIG_HOME` is dropped, so the
   global configuration git reads is the account's own.
-- **Hooks.** The worktree operations never run hooks. A push runs the
-  `pre-push` hook from `.git/hooks` or the user's global `core.hooksPath`,
-  exactly as the user's own `git push` would, so push-time checks are not
-  silently lost. Such a hook may run code the working tree carries (a hook
-  manager reading its configuration from the tree): that is the one place
-  repository code runs outside the sandbox, and it runs only behind the
-  confirmation. `no-verify` is the special case for a hook that cannot run in
-  this environment; the caller runs the same checks inside the sandbox first
-  and tells the user it skipped the hook.
+- **Hooks never run.** No operation runs a hook: the worktree operations set
+  `core.hooksPath=/dev/null`, and a push also passes `--no-verify`. A
+  `pre-push` hook is code the agent can write (`.git/hooks/pre-push`, or a
+  hook manager reading its configuration from the working tree), and the
+  confirmation shows the push, not what the hook would execute, so running it
+  here would run agent-written code outside the sandbox. The push-time checks
+  still run: the caller runs them inside the sandbox first (for prek,
+  `prek run --hook-stage pre-push --from-ref <base> --to-ref <branch>`), fixes
+  what they report, and only then pushes.
+- **Unapproved policy, dry run.** `--dry-run` against a policy that is not an
+  approved copy checks the parameters and runs no git command; only an
+  approved policy prints the command it would run.
 
 Everything else git does in a sandboxed session stays there. Rewriting history
 for a branch checked out in a worktree you did not create is done in a scratch

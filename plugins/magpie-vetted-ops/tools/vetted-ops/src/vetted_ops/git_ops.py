@@ -36,20 +36,19 @@ outside the sandbox and stays behind the harness's confirmation (``ask``), like
 
 What makes running git outside the sandbox safe here, beyond the closed shapes:
 
-* **Push keeps the user's pre-push checks.** A push runs the ``pre-push``
-  hook, as the user's own ``git push`` would: skipping it would silently drop
-  whatever the project checks at push time. That hook can run code the working
-  tree carries (a hook manager reading its configuration from the tree), so
-  that is the one place repository code runs outside the sandbox, and only
-  behind the confirmation the harness puts in front of every call. Only
-  ``.git/hooks`` and the user's global ``core.hooksPath`` count: a
-  repository-level ``core.hooksPath`` is refused like any other steering key.
-  ``no-verify`` skips the hook, for the special case where it cannot run in
-  this environment; the caller runs the same checks in the sandbox first and
-  says so to the user.
-* **No other repository code runs.** Every other operation switches hooks off
-  (``core.hooksPath=/dev/null``), so a ``post-checkout`` hook cannot run code
-  from the working tree.
+* **The pre-push checks run in the sandbox, not here.** A push never runs a
+  hook. Whatever a ``pre-push`` hook would run — ``.git/hooks/pre-push``, or a
+  hook manager reading its configuration from the working tree — is code the
+  agent can write, and running it here would run that code outside the
+  sandbox; the harness confirmation shows the push, not the code the hook
+  would execute. The caller runs the same checks inside the sandbox first
+  (for prek: ``prek run --hook-stage pre-push --from-ref <base> --to-ref
+  <branch>``), fixes what they report, and only then pushes. The checks still
+  run; they just run where working-tree code belongs.
+* **No repository code runs.** Every operation switches hooks off
+  (``core.hooksPath=/dev/null``, plus ``--no-verify`` on the push), so neither
+  a ``pre-push`` nor a ``post-checkout`` hook can run code from the working
+  tree.
 * **No repository configuration steers git.** A key that makes git run a
   program, rewrite a URL, or pick credentials (``core.sshCommand``,
   ``url.*.insteadOf``, ``filter.*``, ``core.fsmonitor``, ``include.path``, …)
@@ -586,6 +585,20 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
     git.check_version()
     if git_dir_identity(worktree.checkout) != worktree.git_dir_id:
         raise GitRefused(f"{str(worktree.checkout / '.git')!r} changed since it was validated")
+    # A linked worktree's common directory comes from its `commondir` file, which
+    # can be rewritten after `resolve_worktree` looked: ask git again, through the
+    # same pinned git directory the command will use, and require the same answer.
+    lines = git.run(
+        worktree.path, "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir"
+    )
+    common, git_dir = (Path(os.path.realpath(line)) for line in lines.splitlines()[:2])
+    if common != worktree.checkout / ".git":
+        raise GitRefused(
+            f"the common git directory of {str(worktree.path)!r} is now {str(common)!r}, "
+            f"not {str(worktree.checkout / '.git')!r}"
+        )
+    if git_dir != worktree.git_dir:
+        raise GitRefused(f"the git directory of {str(worktree.path)!r} changed since it was validated")
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)
     object_format = git.run(worktree.path, "rev-parse", "--show-object-format").strip()
@@ -673,16 +686,14 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     lease = "" if expected == "new" else sha(expected, "expected")
     if not git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{local}"):
         raise GitRefused(f"there is no local branch {local!r}")
-    verify = _param(p["hooks"], "hooks")
-    if verify not in ("verify", "no-verify"):
-        raise GitRefused(f"hooks must be 'verify' or 'no-verify', got {verify!r}")
-    run_hooks = verify == "verify"
     commit = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{local}^{{commit}}").strip()
     if lease:
         _refuse_empty_branch(git, worktree, commit, local)
     args = [
         "push",
-        *(() if run_hooks else ("--no-verify",)),
+        # The pre-push checks run in the sandbox before this call (see the module
+        # docstring): a hook here would run working-tree code outside it.
+        "--no-verify",
         # Only the one ref: `push.followTags` would also publish reachable tags.
         "--no-follow-tags",
         "--porcelain",
@@ -691,12 +702,11 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
         f"{commit}:refs/heads/{remote_branch}",
     ]
     if dry_run:
-        return " ".join(git.argv(worktree.path, *args, hooks=run_hooks))
+        return " ".join(git.argv(worktree.path, *args))
     check_repository_config(git, worktree)
-    git.run(worktree.path, *args, hooks=run_hooks)
+    git.run(worktree.path, *args)
     was = "created" if not lease else f"was {lease}"
-    skipped = "" if run_hooks else "; pre-push hook skipped"
-    return f"pushed {commit} to {repo} {remote_branch} ({was}{skipped})"
+    return f"pushed {commit} to {repo} {remote_branch} ({was})"
 
 
 def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
@@ -784,10 +794,10 @@ OPS: dict[str, GitOp] = {
     for op in (
         GitOp(
             "git-push-branch",
-            ("checkout", "branch", "target", "remote_branch", "expected", "hooks"),
+            ("checkout", "branch", "target", "remote_branch", "expected"),
             "push local <branch> to <remote_branch> of the fork or upstream; <expected> is the "
-            "remote branch's current full SHA, or 'new'; <hooks> is 'verify' (run pre-push) or "
-            "'no-verify' (only when the hook cannot run here)",
+            "remote branch's current full SHA, or 'new'. No hook runs: run the pre-push checks "
+            "in the sandbox first",
             push_branch,
         ),
         GitOp(
@@ -834,10 +844,19 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
         print(f"{PROG}: refused: --caller given more than once", file=sys.stderr)
         return EXIT_POLICY
 
+    # Like every entry point that runs outside the sandbox: only a policy the user
+    # placed in the approved directory themselves drives git. A dry run against
+    # one that is not approved yet still checks its parameters, but runs no git
+    # command at all: even read-only git, out here, is steered by that policy.
+    approved = True
     try:
-        # Like every entry point that runs outside the sandbox: only a policy
-        # the user placed in the approved directory themselves.
-        config = load(approved_only=args.operation != "policy" and not args.dry_run)
+        try:
+            config = load(approved_only=args.operation != "policy")
+        except ConfigError:
+            if not args.dry_run:
+                raise
+            config = load(approved_only=False)
+            approved = False
         policy = git_policy(config)
     except ConfigError as exc:
         print(f"{PROG}: config error: {exc}", file=sys.stderr)
@@ -869,6 +888,12 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
         params = dict(zip(op.params, args.params, strict=True))
         for name, value in params.items():
             _param(value, name)
+        if not approved:
+            print(
+                f"{PROG}: dry run against a policy that is not approved: the parameters are well formed; "
+                "no git command was run. Approve the policy to see the command it would run."
+            )
+            return EXIT_OK
         runner = git or Git()
         try:
             print(op.run(runner, policy, params, args.dry_run))

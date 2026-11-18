@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 from collections.abc import Callable
@@ -119,7 +120,6 @@ def _push(
     target: str,
     remote_branch: str,
     expected: str,
-    hooks: str = "verify",
     dry_run: bool = False,
 ) -> str:
     return git_ops.push_branch(
@@ -131,7 +131,6 @@ def _push(
             "target": target,
             "remote_branch": remote_branch,
             "expected": expected,
-            "hooks": hooks,
         },
         dry_run,
     )
@@ -318,16 +317,6 @@ def test_git_older_than_2_42_is_refused(repo: Path, output: str, refused: bool) 
         git.check_version()
 
 
-def test_a_failing_hooks_stdout_is_kept(git: Git, policy: LocalPolicy, repo: Path) -> None:
-    hook = repo / ".git" / "hooks" / "pre-push"
-    hook.write_text("#!/bin/sh\necho 'static checks failed: run prek'\nexit 1\n")
-    hook.chmod(0o755)
-    _git(repo, "branch", "topic")
-    with pytest.raises(git_ops.GitFailed) as failed:
-        _push(git, policy, repo, "topic", "fork", "topic", "new")
-    assert "static checks failed" in failed.value.stdout + failed.value.stderr
-
-
 def test_a_root_swapped_for_a_symlink_after_the_checks_cannot_redirect_the_worktree(
     git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
 ) -> None:
@@ -415,6 +404,25 @@ def test_a_linked_worktrees_git_file_is_not_read_after_validation(
     assert git.run(path, "rev-parse", "--absolute-git-dir").strip() == str(worktree.git_dir)
 
 
+def test_a_commondir_rewritten_after_validation_is_refused_before_the_command(
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """A linked worktree's common directory comes from a file that can change after the check."""
+    start = _git(repo, "rev-parse", "HEAD")
+    path = policy.worktree_roots[0] / "wt"
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": "t", "start": start}, False
+    )
+    other = Path(os.path.realpath(tmp_path)) / "other"
+    other.mkdir()
+    _git(other, "init", "-q", "-b", "main")
+    worktree = git_ops.resolve_worktree(git, str(path), policy)
+    git_ops.check_repository_config(git, worktree)  # passes as validated
+    (worktree.git_dir / "commondir").write_text(f"{other / '.git'}\n")
+    with pytest.raises(GitRefused, match="common git directory"):
+        git_ops.check_repository_config(git, worktree)
+
+
 def test_a_checkout_ancestor_swapped_after_validation_is_refused(
     git: Git, policy: LocalPolicy, repo: Path
 ) -> None:
@@ -469,35 +477,18 @@ def _hook(repo: Path, name: str, marker: Path, exit_code: int = 0) -> None:
     hook.chmod(0o755)
 
 
-def test_push_runs_the_pre_push_hook(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
-    marker = tmp_path / "hook-ran"
-    _hook(repo, "pre-push", marker)
-    _git(repo, "branch", "topic")
-    message = _push(git, policy, repo, "topic", "fork", "topic", "new")
-    assert marker.exists()
-    assert "skipped" not in message
-
-
-def test_a_failing_pre_push_hook_stops_the_push(
-    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
-) -> None:
-    _hook(repo, "pre-push", tmp_path / "hook-ran", exit_code=1)
-    _git(repo, "branch", "topic")
-    with pytest.raises(git_ops.GitFailed):
-        _push(git, policy, repo, "topic", "fork", "topic", "new")
-    with pytest.raises(subprocess.CalledProcessError):
-        _remote_head(policy, "me/project", "topic")
-
-
-def test_no_verify_skips_the_pre_push_hook_and_says_so(
-    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
-) -> None:
+def test_a_push_never_runs_a_pre_push_hook(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    """The hook is working-tree code; it runs in the sandbox before the push, never out here."""
     marker = tmp_path / "hook-ran"
     _hook(repo, "pre-push", marker, exit_code=1)
     _git(repo, "branch", "topic")
-    message = _push(git, policy, repo, "topic", "fork", "topic", "new", hooks="no-verify")
+    _push(git, policy, repo, "topic", "fork", "topic", "new")
     assert not marker.exists()
-    assert "pre-push hook skipped" in message
+    assert _remote_head(policy, "me/project", "topic") == _git(repo, "rev-parse", "topic")
+
+
+def test_a_push_has_no_hooks_parameter() -> None:
+    assert "hooks" not in git_ops.OPS["git-push-branch"].params
 
 
 def test_worktree_operations_never_run_hooks(
@@ -521,7 +512,6 @@ def test_worktree_operations_never_run_hooks(
         ("branch", "--upload-pack=x", "may not"),
         ("remote_branch", "a..b", "branch name"),
         ("checkout", "relative/path", "absolute"),
-        ("hooks", "maybe", "verify"),
     ],
 )
 def test_push_validates_parameters(
@@ -534,7 +524,6 @@ def test_push_validates_parameters(
         "target": "fork",
         "remote_branch": "topic",
         "expected": "new",
-        "hooks": "verify",
         field: value,
     }
     with pytest.raises(GitRefused, match=message):
@@ -632,8 +621,8 @@ def test_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> N
     _git(repo, "branch", "topic")
     printed = _push(git, policy, repo, "topic", "fork", "topic", "new", dry_run=True)
     assert "--force-with-lease=refs/heads/topic:" in printed
-    assert "core.hooksPath" not in printed
-    assert "--no-verify" not in printed
+    assert "core.hooksPath=/dev/null" in printed
+    assert "--no-verify" in printed
     assert "--no-follow-tags" in printed
     with pytest.raises(subprocess.CalledProcessError):
         _remote_head(policy, "me/project", "topic")
@@ -686,3 +675,48 @@ def test_parse_config_scopes_handles_both_separators() -> None:
         ("global", "user.name"),
     ]
     assert git_ops.parse_config_scopes("local\tcore.bare\x00") == [("local", "core.bare")]
+
+
+class _ExplodingGit(Git):
+    """Fails the test the moment anything would run git."""
+
+    def __init__(self) -> None:
+        super().__init__(runner=_runner(os.devnull), protocols=("https", "ssh", "file"))
+
+    def run(self, *args: object, **kwargs: object) -> str:
+        raise AssertionError("a dry run against an unapproved policy ran git")
+
+    def ok(self, *args: object, **kwargs: object) -> bool:
+        raise AssertionError("a dry run against an unapproved policy ran git")
+
+
+def test_a_dry_run_against_an_unapproved_policy_runs_no_git(
+    policy: LocalPolicy, repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Even read-only git, outside the sandbox, is steered by the policy: an unapproved one runs none."""
+    config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
+    loads: list[bool] = []
+
+    def fake_load(*, approved_only: bool = False, **_: object) -> Config:
+        loads.append(approved_only)
+        if approved_only:
+            raise ConfigError("the policy is not an approved copy")
+        return config
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    monkeypatch.setattr(git_ops, "git_policy", lambda _config: policy)
+    argv = ["--caller", "skill", "--dry-run", "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
+    assert loads == [True, False]  # the approved policy is always tried first
+    assert "no git command was run" in capsys.readouterr().out
+
+
+def test_a_real_run_against_an_unapproved_policy_is_refused(
+    policy: LocalPolicy, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_load(*, approved_only: bool = False, **_: object) -> Config:
+        raise ConfigError("the policy is not an approved copy")
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    argv = ["--caller", "skill", "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
