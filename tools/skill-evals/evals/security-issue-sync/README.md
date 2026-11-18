@@ -59,6 +59,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-18 | `57480dcf` (fix/1736-allocation-placeholder) | `opus[1m]` | 1 | pass |  |
 | 2026-11-18 | `add4ee52` (feat/security-skills-vetted-cve-ops) | `opus[1m]` | 2 | pass |  |
 | 2026-11-18 | `9e979ff3` (feat/security-skills-vetted-cve-ops) | `opus[1m]` | 1 | pass |  |
 | 2026-11-13 | `c22d5769` (feat/cve-tool-interface) | `claude-sonnet-5-5` | 10 | `step-2b-proposed-changes/case-2-milestone-missing-create` failed 1 of 2; `step-2b-proposed-changes/case-5-pre-announce-distributors` failed 2 of 2; `step-2b-proposed-changes/case-6-reporter-unresponsive` errored 1 of 2 | cross-model check for #1800; cross-model check for #1800 (re-run of infra failures) |
