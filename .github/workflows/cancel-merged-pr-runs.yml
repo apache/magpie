@@ -1,0 +1,91 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Cancels workflow runs that are still queued or running for pull requests
+# that have already merged. A committer can merge a PR past `main`'s checks
+# through the `main` ruleset's bypass (see `.asf.yaml`); the PR's runs then
+# keep going, or keep waiting for a runner, with nothing left to gate. A run
+# still active after its PR merged is wasted either way, so this also stops
+# the non-required runs (CodeQL, say) of a PR merged the ordinary way.
+#
+# Every 10 minutes, and runnable from the Actions tab (*Run workflow*). Each
+# run looks at the PRs merged in the last `LOOKBACK_HOURS` and cancels the
+# active runs on each PR's head commit. It finds runs by head commit rather
+# than by the run's `pull_requests` field, which GitHub leaves empty for a PR
+# from a fork. Runs on `main` itself are never touched: the squash merge
+# creates a new commit, which is not any PR's head.
+#
+# A run it cannot cancel (it finished in the meantime, say) is reported and
+# skipped; the job fails only when the listing calls fail.
+---
+name: cancel runs of merged PRs
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  cancel:
+    name: Cancel runs of merged PRs
+    # Scheduled workflows do not run on forks by default; this keeps it so.
+    if: github.repository == 'apache/magpie'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      # Listing and cancelling workflow runs.
+      actions: write
+      # Listing merged pull requests.
+      pull-requests: read
+    steps:
+      - name: Cancel active runs on merged PR heads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          LOOKBACK_HOURS: "6"
+        run: |
+          set -euo pipefail
+          since=$(date -u -d "-${LOOKBACK_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
+          heads=$(gh pr list --repo "$REPO" --state merged --limit 100 \
+            --search "merged:>=${since}" \
+            --json number,headRefOid \
+            --jq '.[] | "\(.number) \(.headRefOid)"')
+          if [ -z "$heads" ]; then
+            echo "No PRs merged since ${since}."
+            exit 0
+          fi
+          cancelled=0
+          while read -r number sha; do
+            runs=$(gh api "repos/$REPO/actions/runs?head_sha=${sha}&per_page=100" \
+              --jq '.workflow_runs[] | select(.status != "completed") | "\(.id) \(.name)"' </dev/null)
+            [ -z "$runs" ] && continue
+            while read -r id name; do
+              if gh api -X POST "repos/$REPO/actions/runs/${id}/cancel" </dev/null >/dev/null 2>&1; then
+                echo "PR #${number}: cancelled run ${id} (${name})"
+                cancelled=$((cancelled + 1))
+              else
+                echo "PR #${number}: could not cancel run ${id} (${name}); skipped"
+              fi
+            done <<< "$runs"
+          done <<< "$heads"
+          echo "Cancelled ${cancelled} run(s)."
