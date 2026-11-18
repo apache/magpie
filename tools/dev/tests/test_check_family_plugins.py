@@ -654,8 +654,11 @@ def test_every_stable_magpie_path_a_skill_runs_is_linked_by_vetted_ops(tmp_path)
     named = set()
     for skill in (REPO_ROOT / "plugins").glob("magpie-*/skills/**/*.md"):
         named |= set(re.findall(r"~/\.claude/magpie/([a-z0-9-]+)", skill.read_text(encoding="utf-8")))
-    # adversarial-review is linked by its own plugin.
-    named.discard("adversarial-review")
+    # adversarial-review and security-tools are linked by their own plugins'
+    # session hooks (security-tools only where magpie-security-tools is
+    # installed, since its record client runs outside the sandbox from that path; its
+    # link is tested in tools/security-management/tests/test_framework_link_hook.py).
+    named -= {"adversarial-review", "security-tools"}
     assert "skill-lock" in named
     plugin = REPO_ROOT / "plugins" / "magpie-vetted-ops"
     home = tmp_path / "home"
