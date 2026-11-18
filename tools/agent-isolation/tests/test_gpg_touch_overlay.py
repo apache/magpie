@@ -201,6 +201,9 @@ def test_stays_quiet_for_commands_that_cannot_sign(command: str) -> None:
         "gpg --detach-sign --armor apache-magpie-0.2.0.tar.gz",
         "gpg2 --clearsign message.txt",
         "gpg --decrypt secrets.asc",
+        # The vetted git dispatcher pushes over ssh, in both launcher forms.
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller x git-push-branch ~/code/p b fork b new verify",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git --caller x git-push-branch ~/code/p b fork b new verify",
         # The ssh-format signer and the agent query, invoked directly.
         "ssh-keygen -Y sign -f ~/.ssh/id_rsa_yubikey.pub -n file x",
         "ssh-add -l",

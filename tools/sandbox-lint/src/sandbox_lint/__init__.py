@@ -155,12 +155,12 @@ VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
 # allow, and the prompt is then the gate on every remote mutation.
 VETTED_OP_WRITE_SAMPLE_COMMANDS = tuple(
     f"{launcher} {VETTED_OPS_BASE} {name} --caller sandbox-lint pr-add-label 1 sandbox-lint"
-    for name in ("vetted-op-tracker", "vetted-op")
+    for name in ("vetted-op-tracker", "vetted-op-git", "vetted-op")
     for launcher in VETTED_OP_READ_LAUNCHERS
 )
 # Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
 # the `vetted-ops` path segment alone does not count.
-VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
+VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op-git", "vetted-op ")
 # The tamper protection that makes the unprompted read safe to allow.
 REQUIRED_VETTED_OPS_DENY = (
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
@@ -317,6 +317,8 @@ EXCLUDED_COMMAND_ALLOWLIST = frozenset(
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
@@ -1041,7 +1043,7 @@ def _vetted_op_read_never_prompts(
 def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: list[str]) -> list[str]:
     """Violations of the always-prompt shape for the vetted-ops write dispatchers.
 
-    `vetted-op` and `vetted-op-tracker` run outside the sandbox (a sandboxed
+    `vetted-op`, `vetted-op-tracker` and `vetted-op-git` run outside the sandbox (a sandboxed
     `gh` cannot verify TLS), which is safe only while every call still asks.
     A write command that is excluded or allowed must therefore match an `ask` rule.
     """

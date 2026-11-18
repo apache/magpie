@@ -8,9 +8,11 @@
     "excludedCommands": [
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op *"
     ],
     "filesystem": {
@@ -135,6 +137,8 @@
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       "Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(gh api -X*)",

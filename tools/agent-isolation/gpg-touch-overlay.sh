@@ -337,7 +337,9 @@ readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pul
 # keeps `ssh-agent` (starts one, never asks the key) and `sshuttle` out
 # while leaving `ssh-keygen -Y sign` and `ssh-add -l` in. Longer names
 # lead the alternation so the match cannot stop short at `ssh`.
-readonly KEY_COMMANDS='ssh-keygen|ssh-add|ssh|scp|sftp|sshfs|rsync|svn|gpg2|gpg'
+# `vetted-op-git` pushes over ssh outside the sandbox (tools/vetted-ops), and
+# it is launched through uv, so no git word precedes the push it runs.
+readonly KEY_COMMANDS='vetted-op-git|ssh-keygen|ssh-add|ssh|scp|sftp|sshfs|rsync|svn|gpg2|gpg'
 
 # gh runs git for these, over ssh when its git_protocol is ssh: `create`
 # pushes a branch or repository that is not on GitHub yet. Options
