@@ -142,6 +142,13 @@ A read too large to carry through the agent's context goes to a file:
 sweep's pages reach a deterministic tool such as `tools/pr-management`
 without passing through the agent (#1570).
 Writes and procedures refuse it, and `NAME` is a single path component.
+Each `--save` also prunes `saved/` entries older than `saved_retention_days`
+(under `[values]`, default 7 days): only regular files and symlinks the
+caller owns, relative to the same `saved/` descriptor, never following a
+link; the marker, dot-files, subdirectories and the file just written stay
+(#2183).
+Body and title files are removed from the workspace once their write
+succeeds (#2163).
 Because `vetted-op-read` runs outside the sandbox and `--config` can name a
 policy the agent wrote, `--save` writes only into a `<workspace>/saved/`
 directory that already exists and holds a regular `.vetted-ops-save` marker;
@@ -224,6 +231,24 @@ through from the exact root Codex's own hook substitutes for `~` (the
 registered `--stable-path`, else the account's home from the password
 database), since Codex execpolicy cannot match `~`; any other root is one the
 agent could have built and stays refused.
+
+**Project-board operations** (#2179, #2181).
+A GitHub-backed tracker's Projects V2 board is kept through five operations
+whose ids come from the policy (`board_project_id`, `board_status_field_id`,
+`[values.board_columns]`): reads `board-item` and `board-items`, writes
+`board-add-item`, `board-set-status` and `board-archive-item`.
+`security-issue-sync` adds a missing item, moves it to the column its labels
+call for and archives it once closed; its end-of-sync sweep archives anything
+that is not a security tracker, keeping the board security-only
+(`tools/github/project-board.md`).
+
+**Every skill carries the sandbox golden rule** (#2162).
+The shared block `tools/dev/blocks/sandbox-golden-rule.md`, kept in sync by
+`check-shared-blocks.py`, tells the agent that a step the sandbox blocks
+becomes a vetted operation (`vetted-op-read`, `vetted-op`, `vetted-op-tracker`,
+`vetted-op-git`) or a documented in-sandbox route, never a bypass or a wider
+exclusion; if none exists it gives the user the one command and proposes
+`setup-upstream-fix`.
 
 ## Scoping — what is real and what is aspiration
 
@@ -358,6 +383,33 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    dispatcher, its wildcard `ask` rules become dead weight;
    [`tools/permission-audit`](../../permission-audit/README.md) is the natural
    place to detect and offer to remove them.
+
+## Git operations the sandbox blocks (`vetted-op-git`)
+
+A fourth entry point, `vetted-op-git`
+(`tools/vetted-ops/src/vetted_ops/git_ops.py`, #2161), runs the git steps a
+sandboxed session cannot: a push over SSH (the proxy gives no TCP and a
+hardware key's touch prompt never reaches the user) and adding, moving or
+removing a linked worktree the session did not create (its administrative
+directory is read-only). It is excluded from the sandbox and kept on `ask`,
+like `vetted-op`.
+Operations are closed shapes: `git-push-branch` (a leased push, `--force-with-lease`
+on the caller's expected SHA or `new`, to the policy's `fork` or to an
+`upstream_push`-matching branch of upstream, protected branches always
+refused, an emptied rebase refused), `git-worktree-sync` (`reset --keep` of a
+clean linked worktree), `git-worktree-add` and `git-worktree-remove` (never
+`--force`).
+The policy's `[git]` table bounds them (`checkouts`, `fork`, `upstream_push`,
+`protected`, `worktree_roots`).
+Safety rests on: destinations built from policy, never from a configured
+remote; refusal while repository config holds any key outside an inert list,
+checked in every working tree and again before the acting command; pinned
+config (no fsmonitor/gc, `https`/`ssh` only, attributes read from the empty
+tree, hooks never run, `--no-verify`); validated directories held by
+descriptor and git given the validated git directory; and every `GIT_*`
+variable dropped with `HOME` taken from the password database.
+Git 2.42 or newer is required.
+The `pre-push` checks run in the sandbox first.
 
 ## Codex native integration
 

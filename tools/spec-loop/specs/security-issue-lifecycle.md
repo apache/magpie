@@ -249,6 +249,10 @@ publication, with a human gate and an audit-log entry at every step.
   `issue-create-labeled` instead (#1982), and the import skills and
   `security-issue-invalidate` point at `tools/github/project-board.md`
   for the orphan-issue, introspection and archive board recipes.
+- The tracker's Projects V2 board stays security-only: `security-issue-sync`
+  adds, moves and archives items through the vetted `board-*` operations and
+  its end-of-sync sweep archives non-security items (#2179, #2181; see
+  [vetted-command-surface.md](vetted-command-surface.md)).
 - Status rollups are written by `tools/github-rollup/`
   (`append`, `amend-latest`, `fold`, `list`, `latest`).
   Under the secure setup that CLI's `gh` runs sandboxed and fails, so the
