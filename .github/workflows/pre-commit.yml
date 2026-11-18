@@ -128,13 +128,35 @@ jobs:
       # `~/.cache/prek` — a multi-minute compile. Caching that dir
       # reuses the built binary (and every other hook env) across runs;
       # keyed on the prek config so a hook/version change busts it.
+      #
+      # Kept small for `ubuntu-slim` (#2175), whose single vCPU has to
+      # download and unpack the archive on every PR run. The archive had
+      # grown to ~3.5 GB, which took 2.5-3.5 minutes there (31-58s on
+      # `ubuntu-latest`), so:
+      #  - `~/.cache/prek/cache` (prek's uv / npm / cargo download caches)
+      #    is left out: once the hook envs are built nothing reads it;
+      #  - the last step runs `prek cache gc`, so envs of an older config,
+      #    pulled in through `restore-keys`, are not saved again (the
+      #    archive otherwise only grows with every config change);
+      #  - `SEGMENT_DOWNLOAD_TIMEOUT_MINS` gives up on a stalled segment
+      #    after 2 minutes instead of the action's default 10, the stall
+      #    that once cost 10 minutes and pushed the job past its timeout.
+      #    A restore that gives up only means the hook envs get built.
       - name: Cache prek hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
         with:
-          path: ~/.cache/prek
-          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          path: |
+            ~/.cache/prek
+            !~/.cache/prek/cache
+          # `v2`: a fresh prefix, so the first run builds a lean archive instead
+          # of restoring the old ~3.5 GB one (download caches and stale envs
+          # included) through `restore-keys`. Bump it whenever the archive
+          # must start over rather than carry the previous one forward.
+          key: prek-v2-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            prek-${{ runner.os }}-
+            prek-v2-${{ runner.os }}-
       # There is deliberately no lychee result cache here. `.lychee.toml`
       # sets `offline = true`, so the hook resolves only in-repo paths and
       # anchors and never fetches a URL — there are no results to cache.
@@ -287,3 +309,8 @@ jobs:
       - name: Run prek (Claude Code mods — whole repo, both events)
         if: ${{ !cancelled() }}
         run: prek run check-claude-mods --hook-stage manual --color=always --all-files
+      # Last, so the cache's post step saves only what this config uses
+      # (see "Cache prek hook environments" above).
+      - name: Prune unused prek hook environments
+        if: ${{ !cancelled() }}
+        run: prek cache gc
