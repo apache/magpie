@@ -536,6 +536,21 @@ Codex's own absolute-path rewrite is the one exception.
 The same holds for the eval wrapper, `~/.claude/scripts/magpie-run-evals.sh`, and for any sandbox-excluded command:
 write it bare, with the literal `~`, as the whole command line (not behind `env` or `command`), or it runs inside the sandbox and fails.
 
+**Golden rule — a step the sandbox blocks becomes a vetted operation, never a bypass.**
+Whenever a skill, or anything an agent does while running one, needs something the sandbox does not allow
+(a transport the proxy does not carry, such as an SSH push; a path the harness keeps read-only, such as a linked
+worktree's administrative directory; a credential or socket the profile denies), the answer is never to leave the
+sandbox, and never a wider `excludedCommands` or `allow` entry. Look first for a route that stays inside, then for a
+vetted operation that already covers the step. When neither exists, the framework is missing one: the agent gives
+the user the one command for this time and proposes [`setup-upstream-fix`](skills/setup-upstream-fix/SKILL.md),
+and the fix adds a closed shape to [`vetted-ops`](tools/vetted-ops/README.md) (fixed argv, parameters that cannot
+become flags, a destination taken from the approved policy, nothing from the repository's code, configuration or
+the environment able to steer it, the call kept behind `ask`) or documents the in-sandbox route.
+A pasted command is the stopgap, never the design.
+Every skill carries this rule as the shared block
+[`tools/dev/blocks/sandbox-golden-rule.md`](tools/dev/blocks/sandbox-golden-rule.md), right after its pre-flight;
+a new skill gets it the same way (an empty `sandbox-golden-rule` region, filled by `check-shared-blocks.py --fix`).
+
 **Tool credentials live under `$HOME`, never in the project tree.** Any
 persistent token, API key, OAuth refresh token, or session cookie a
 framework tool needs goes under a well-known home-directory path —

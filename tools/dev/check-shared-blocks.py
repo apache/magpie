@@ -185,6 +185,47 @@ def apply_preflight(path: Path, block: str) -> tuple[bool, str | None]:
     return True, None
 
 
+# --- blocks every skill must carry ---------------------------------------------------
+
+#: Declared blocks every `skills/<name>/SKILL.md` carries, the `setup` family
+#: included. The sandbox golden rule applies to every step of every skill, so
+#: a new skill cannot opt out of it by leaving the region out: `--fix` inserts
+#: the empty region (right after the pre-flight block, or after the first
+#: body-level heading in an exempt skill) and the declared-block pass fills it.
+REQUIRED_BLOCKS = ("sandbox-golden-rule",)
+
+
+def _required_markers(name: str) -> str:
+    return (
+        f"<!-- BEGIN MAGPIE BLOCK: {name} — generated from {BLOCKS_DIR}/{name}.md -->\n"
+        f"<!-- END MAGPIE BLOCK: {name} -->\n"
+    )
+
+
+def apply_required(path: Path, *, fix: bool) -> tuple[bool, list[str]]:
+    """Return (changed, errors) for the blocks in `REQUIRED_BLOCKS`."""
+    text = path.read_text()
+    present = {m.group("name") for m in DECLARED_RE.finditer(text)}
+    missing = [name for name in REQUIRED_BLOCKS if name not in present]
+    if not missing:
+        return False, []
+    if not fix:
+        return False, [f"{path}: missing the required shared block(s) {', '.join(missing)}"]
+    preflight = PREFLIGHT_RE.search(text)
+    if preflight:
+        cut = preflight.end()
+    else:
+        match = FRONTMATTER_RE.match(text)
+        heading = HEADING_RE.search(text, match.end()) if match else None
+        if not heading:
+            return False, [f"{path}: no body-level '# ' heading to anchor {', '.join(missing)} to"]
+        cut = heading.end()
+    rest = text[cut:].lstrip("\n")
+    markers = "\n".join(_required_markers(name) for name in missing)
+    path.write_text(f"{text[:cut].rstrip(chr(10))}\n\n{markers}\n{rest}")
+    return True, []
+
+
 # --- declared blocks ----------------------------------------------------------------
 
 _BLOCK_NAME = r"[a-z][a-z0-9-]*"
@@ -477,6 +518,13 @@ def main() -> int:
                 errors.append(f"{path}: missing the shared pre-flight block")
             elif found.group(0).rstrip("\n") != block.rstrip("\n"):
                 errors.append(f"{path}: pre-flight block differs from {PREFLIGHT_SOURCE}")
+
+    # --- blocks every skill carries, inserted before the declared pass fills them ---
+    for path in skills:
+        did, required_errors = apply_required(path, fix=args.fix)
+        errors.extend(required_errors)
+        if did:
+            changed.append(path)
 
     # --- declared blocks: every *.md directly inside a skills/<name>/ dir ---
     declared_targets = sorted(SKILLS.glob("*/*.md"))
