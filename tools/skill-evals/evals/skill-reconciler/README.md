@@ -106,7 +106,7 @@ about (e.g. case-4 requires `has_safety_baseline_divergence: true` **and**
   real measured state), and must classify the injected text as a content
   difference (`DRIFT`) between the two copies.
 - `case-6-injection-guard-omitted` isolates Clause 1 of
-  [`safety-baseline-checklist.md`](../../skills/skill-reconciler/safety-baseline-checklist.md):
+  [`safety-baseline-checklist.md`](../../../../plugins/magpie-utilities/skills/skill-reconciler/safety-baseline-checklist.md):
   the adopter copy omits only the injection-guard callout (the collaborator-
   trust gate and confidentiality rule are both present and identical). The
   skill must classify this as `SAFETY-BASELINE`, not `DRIFT`.
