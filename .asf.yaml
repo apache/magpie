@@ -152,18 +152,24 @@ github:
       # No signed-commit requirement: contributors without GPG/SSH
       # signing could not contribute.
       #
+      #
+      # `required_pull_request_reviews` must be present whenever
+      # `required_conversation_resolution` is set: asfyaml builds one
+      # pull-request rule from both, and GitHub refuses that rule (and so
+      # the whole ruleset) without the review fields.
+      #
       # APPROVAL REQUIREMENT TEMPORARILY LIFTED. After becoming a
       # Top-Level Project every PR into `main` needed one committer
       # approval (#818). It is lifted while the marketplace installation
       # and the reworked permission handling land as many small, fast
       # iterations; this is a time-boxed exception, not a governance
-      # change. Restore by removing the leading `# ` from the three lines
-      # below. `dismiss_stale_reviews: false` keeps an approval across a
+      # change. Restore by setting `required_approving_review_count` to
+      # 1. `dismiss_stale_reviews: false` keeps an approval across a
       # rebase or a fixup push; `require_code_owner_reviews` stays off
       # because there is no CODEOWNERS file.
-      # required_pull_request_reviews:
-      #   required_approving_review_count: 1
-      #   dismiss_stale_reviews: false
+      required_pull_request_reviews:
+        required_approving_review_count: 0
+        dismiss_stale_reviews: false
 
 notifications:
   # Magpie is a Top-Level Project with its own mailing lists. All
