@@ -203,6 +203,12 @@ Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
 the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
 `$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
 `vetted-op-tracker` and `adversarial-review`, and names the `~` command.
+The `excluded-chain` guard covers the other half of the exclusion contract:
+a sandbox-excluded command (a `~/.claude/magpie/…` `uv run --project` /
+`uvx --from` launch, or an excluded user-scope script) runs outside the
+sandbox only as the whole command line, so a chained, piped, substituted or
+redirected line is refused with an instruction to run it alone
+(`MAGPIE_ALLOW_CHAINED_EXCLUSION=1` overrides; #2142).
 It accepts the `~` only bare and space-separated: a quoted or escaped `~`,
 a quote after it, or the `--project=~/…` form leaves it unexpanded, so uv
 gets a directory named `~` and the exclusion does not match. Because an
