@@ -6,7 +6,7 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611180456
+  version: 0.9.0.dev202611180540
   at:      2026-11-18
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
