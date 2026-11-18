@@ -358,7 +358,15 @@ Then, for both:
    and the board operations (`board-item`, `board-add-item`, `board-set-status`, `board-archive-item`) for the
    `security-issue-sync` caller per the [canonical grants](../../../../tools/vetted-ops/README.md#configuration).
    The policy is a security control: show the draft and let the user save and approve it, as below.
-3. Suggest a first `sync all` so the sync adds the open trackers to the board and archives the closed ones.
+3. **Keep the board security-only.** Its auto-add filter cannot be set through GitHub's API, so give the operator these UI steps
+   at `<project_board_url>/workflows`, and confirm each is done:
+   - *Auto-add to project*: filter `is:issue label:"<security_marker label>"`, so only security trackers land on it;
+   - *Auto-add sub-issues to project*: off, unless the team tracks work as sub-issues of a tracker;
+   - the board stays **private**: it lists embargoed trackers.
+
+   Offer to set the board's short description and README (the `updateProjectV2` mutation in
+   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#keep-the-board-security-only)) to say it holds security trackers only.
+4. Suggest a first `sync all` so the sync adds the open trackers to the board and archives the closed ones and anything else.
 
 ### Personal tool configs, for a project that has not adopted Magpie
 

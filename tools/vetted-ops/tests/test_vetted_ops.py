@@ -882,6 +882,19 @@ def test_board_item_reads_the_tracker_issue_on_the_configured_board(policy: conf
     assert 'select(.project.id == "PVT_proj")' in jq
 
 
+def test_board_items_lists_the_configured_board_on_every_page(policy: config.Config) -> None:
+    op = ops.resolve("board-items")
+    assert not op.writes
+    params, _ = cli._validate_params(op, [], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:4] == ["gh", "api", "graphql", "--paginate"]
+    assert "board=PVT_proj" in argv
+    query = next(a for a in argv if a.startswith("query="))
+    assert "$endCursor" in query and "pageInfo" in query and "mutation" not in query
+    assert "select(.isArchived | not)" in argv[argv.index("--jq") + 1]
+
+
 def test_board_item_refuses_a_non_number(policy: config.Config) -> None:
     op = ops.resolve("board-item")
     with pytest.raises(ops.ParamError):
@@ -892,7 +905,11 @@ def test_board_operations_refuse_without_a_board(policy: config.Config) -> None:
     """A policy with no board configuration refuses by name rather than failing on a missing key."""
     cfg = dict(policy.as_mapping())
     cfg.pop("board_project_id", None)
-    for name, args in (("board-item", {"number": "12"}), ("board-add-item", {"content_id": "I_kwDOabc"})):
+    for name, args in (
+        ("board-item", {"number": "12"}),
+        ("board-items", {}),
+        ("board-add-item", {"content_id": "I_kwDOabc"}),
+    ):
         with pytest.raises(ops.ParamError, match="project board"):
             ops.resolve(name).build(cfg, **args)
 

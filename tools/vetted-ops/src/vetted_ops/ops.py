@@ -1452,6 +1452,43 @@ _register(
     )
 )
 
+#: Every item on the board, every page: what it is and where it comes from,
+#: so a sweep can archive anything that is not a security tracker.
+_BOARD_ITEMS_QUERY = (
+    "query($board:ID!,$endCursor:String){node(id:$board){... on ProjectV2{"
+    "items(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{"
+    "id isArchived type content{"
+    "... on Issue{number state repository{nameWithOwner} labels(first:30){nodes{name}}} "
+    "... on PullRequest{number state repository{nameWithOwner}}} "
+    'fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}'
+)
+_BOARD_ITEMS_JQ = (
+    ".data.node.items.nodes[] | select(.isArchived | not) | "
+    "{item_id: .id, type: .type, repo: (.content.repository.nameWithOwner // null), "
+    "number: (.content.number // null), state: (.content.state // null), "
+    "labels: [.content.labels.nodes[]?.name], status: (.fieldValueByName.name // null)}"
+)
+
+_register(
+    Op(
+        name="board-items",
+        params=(),
+        summary="Every item on the project board, one JSON line each: type, repository, number, state, labels, column.",
+        build=lambda cfg: [
+            "gh",
+            "api",
+            "graphql",
+            "--paginate",
+            "-F",
+            f"board={_board(cfg)}",
+            "-f",
+            f"query={_BOARD_ITEMS_QUERY}",
+            "--jq",
+            _BOARD_ITEMS_JQ,
+        ],
+    )
+)
+
 _register(
     Op(
         name="board-add-item",
