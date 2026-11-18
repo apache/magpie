@@ -224,7 +224,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "advisory-view", "advisory-comments", "advisory-comment",
                            "issue-create-labeled",
                            "cve-record-fetch", "cve-record-update",
-                           "board-item", "board-add-item", "board-set-status", "board-archive-item"]
+                           "board-item", "board-items", "board-add-item", "board-set-status",
+                           "board-archive-item"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
@@ -551,12 +552,14 @@ policy without them is refused by name.
 | Operation | Kind | Parameters | What it does |
 |---|---|---|---|
 | `board-item` | read | `number` | One tracker issue's node id, and its item on the configured board, archived ones included: `{node_id, item}` with `item` `null` when the issue is not on the board, else `{item_id, status, archived}`. |
+| `board-items` | read | — | Every item still on the board, every page, one JSON line each: `{item_id, type, repo, number, state, labels, status}`. The sweep uses it to find anything that is not a security tracker. |
 | `board-add-item` | write | `content_id` | Add an issue (by its node id, from `board-item`) to the board; returns the item id. Idempotent. |
 | `board-set-status` | write | `item_id column` | Move an item to a configured column. |
 | `board-archive-item` | write | `item_id` | Archive an item off the board (a closed tracker). Idempotent. |
 
 `security-issue-sync` reads `board-item` for each tracker it syncs and, on confirmation, adds a
-missing item, moves it to the column its labels call for, and archives it once the tracker is closed
+missing item, moves it to the column its labels call for, and archives it once the tracker is closed;
+its end-of-sync sweep also reads `board-items` and archives anything that is not a security tracker
 ([`tools/github/project-board.md`](../github/project-board.md)).
 
 ### The pr-management-triage reads

@@ -203,6 +203,7 @@ NOT_ON_BACKEND: dict[str, str] = {
     "rollup-fold": "there are no legacy bot comments to fold on this backend",
     "board-add-item": "this backend has no project board",
     "board-item": "this backend has no project board",
+    "board-items": "this backend has no project board",
     "board-archive-item": "this backend has no project board",
     "board-set-status": "this backend has no project board",
 }

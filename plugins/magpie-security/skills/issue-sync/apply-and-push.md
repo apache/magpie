@@ -572,6 +572,11 @@ For each tracker:
    (advisory-shipped › fix-released › pr-merged › pr-created › cve-allocated › assessed).
    **Every closed tracker** still on the board, whatever it closed as (announced, invalid, duplicate, not affected, hardening),
    is **archived off the board** with `board-archive-item`, not recoloured.
+   **The board holds security trackers only.** Once per run, also read every item with
+   `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync board-items`
+   and propose archiving each one that is not an issue in `<tracker>` carrying the `tracker.labels.security_marker` label
+   (pull requests, draft items, issues from another repository, the rejections ledger, an unlabelled stray).
+   List them by number and title in the proposal; archiving is reversible from the board's *Archived items* view.
    When Step 1a recorded *"no board configured"*, skip this item and add one recap line proposing the board step of
    [`setup config`](../../../../plugins/magpie-setup/skills/setup/config.md#step-3a1--project-board-github-trackers),
    unless `tracker.project_board_enabled` is `false`.

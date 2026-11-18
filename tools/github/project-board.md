@@ -10,6 +10,7 @@
   - [Auto-add workflow filter](#auto-add-workflow-filter)
   - [Per-project configuration](#per-project-configuration)
   - [Create a board](#create-a-board)
+  - [Keep the board security-only](#keep-the-board-security-only)
   - [Introspection — find the itemId and current column](#introspection--find-the-itemid-and-current-column)
   - [Introspection — re-fetch the option IDs](#introspection--re-fetch-the-option-ids)
   - [Write — move a tracker to a different column](#write--move-a-tracker-to-a-different-column)
@@ -155,6 +156,24 @@ A new board already carries a default `Status` field; when step 3 reports a name
 instead (`updateProjectV2Field` with the same `singleSelectOptions`), or rename it first.
 Record the board's `id`, `number` and `url`, the field `id` and each option's `id` in the
 [per-project configuration](#per-project-configuration) and the vetted-ops policy.
+
+## Keep the board security-only
+
+The board lists embargoed trackers, so it holds nothing else and stays private. Three settings keep it that way:
+
+- **Auto-add to project** filters on the security label, as in [the auto-add filter](#auto-add-workflow-filter) (UI only).
+- **Auto-add sub-issues to project** is off: it adds sub-issues of anything on the board, whatever their labels (UI only).
+- The board's description says what it is for:
+
+```bash
+gh api graphql -F project=<project-id> -f desc="Security trackers only" -f readme="<what the board is for>" -f query='
+mutation($project: ID!, $desc: String!, $readme: String!) {
+  updateProjectV2(input: {projectId: $project, shortDescription: $desc, readme: $readme, public: false}) { projectV2 { id } }
+}'
+```
+
+The sync enforces the rest: its end-of-sync sweep reads every item (`board-items`) and proposes archiving anything that is not
+an issue in the tracker repository carrying the security label.
 
 ## Introspection — find the itemId and current column
 
