@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -260,3 +262,26 @@ def test_a_dry_run_shows_the_title_only_as_its_size(
     out = capsys.readouterr().out
     assert "Embargoed title" not in out
     assert "<from file, 15 chars>" in out
+
+
+#: The grants the README's CVE-tool section tells adopters to make.
+CVE_TOOL_GRANTS = {
+    "security-issue-sync": {"cve-record-fetch", "cve-record-update"},
+    "security-cve-allocate": {"cve-record-fetch", "cve-record-update", "cve-allocate"},
+}
+
+
+def _readme_callers() -> dict[str, list[str]]:
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    for block in re.findall(r"```toml\n(.*?)```", readme.read_text(encoding="utf-8"), re.S):
+        if "[callers]" in block and "security-cve-allocate" in block:
+            return tomllib.loads(block)["callers"]
+    raise AssertionError("no [callers] example with the security callers in the README")
+
+
+@pytest.mark.parametrize("caller", sorted(CVE_TOOL_GRANTS))
+def test_the_readme_callers_example_grants_the_cve_tool_operations(caller: str) -> None:
+    # Adopters and `setup config` derive their policy from this example, so a
+    # grant the prose asks for but the example leaves out is refused everywhere.
+    missing = sorted(CVE_TOOL_GRANTS[caller] - set(_readme_callers()[caller]))
+    assert not missing, f"the README [callers] example does not grant {caller}: {missing}"
