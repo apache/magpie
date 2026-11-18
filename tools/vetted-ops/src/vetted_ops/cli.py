@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.error
@@ -63,6 +64,7 @@ from pathlib import Path
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
 from .config import Config, ConfigError, describe, load
+from .safe_read import unlink_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -343,6 +345,21 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
 
+    code = _dispatch(op, command, params, body, args, config)
+    if code == EXIT_OK and op.writes and not args.dry_run:
+        _consume(op, list(args.params), config)
+    return code
+
+
+def _dispatch(
+    op: ops_mod.Op,
+    command: object,
+    params: dict[str, str],
+    body: bytes | None,
+    args: argparse.Namespace,
+    config: Config,
+) -> int:
+    """Run a validated operation and return the dispatcher's exit code."""
     if isinstance(command, tracker_backends.BackendCall):
         return _run_backend(command, body, dry_run=args.dry_run, save=args.save, config=config)
 
@@ -420,6 +437,33 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         return EXIT_OK
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
+
+
+def _consume(op: ops_mod.Op, values: list[str], config: Config) -> None:
+    """Delete the body and title files a successful write has published.
+
+    They hold text written for the tracker or a public surface, often from a
+    private report, and the workspace outlives the session. This runs outside
+    the sandbox, so the delete walks from the checked workspace with
+    ``O_NOFOLLOW`` and unlinks relative to the parent's descriptor
+    (`safe_read.unlink_regular_file`): only a regular file this user owns,
+    reached without a symlink, is removed. A failed write keeps its files for
+    a retry.
+    """
+    try:
+        root = ops_mod.checked_workspace(config.workspace)
+    except ops_mod.ParamError:
+        return
+    for name, raw in zip(op.params, values, strict=False):
+        if name not in op.body_files and name not in op.title_files:
+            continue
+        path = Path(os.path.abspath(Path(raw).expanduser()))
+        try:
+            unlink_regular_file(path, root)
+        except OSError as exc:
+            print(
+                f"vetted-op: published, but could not remove {str(path)!r}: {exc.strerror}", file=sys.stderr
+            )
 
 
 def _run_backend(

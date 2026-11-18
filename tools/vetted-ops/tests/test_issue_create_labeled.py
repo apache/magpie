@@ -258,3 +258,99 @@ def test_github_failure_returns_command_error(policy: Path, monkeypatch: pytest.
     assert result == cli.EXIT_COMMAND
     assert len(calls) == 1
     assert calls[0][0] == "gh"
+
+
+# --------------------------------------------------------------------------- #
+# Published body and title files are removed from the workspace
+# --------------------------------------------------------------------------- #
+
+
+def _create(
+    policy: Path, monkeypatch: pytest.MonkeyPatch, gh_exit: int, *extra: str
+) -> tuple[int, Path, Path]:
+    import subprocess
+
+    loaded = config.load(policy)
+    monkeypatch.setattr(cli, "load", lambda _path, *, approved_only: loaded)
+
+    def fake_run(argv: list[str], *, check: bool, input: bytes) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(argv, gh_exit)
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    title = Path(_title_file(policy, "A report\n"))
+    body = policy.parent / "scratch" / "body.md"
+    body.write_text("report text")
+    rc = cli.main(
+        [
+            *extra,
+            "--caller",
+            "security-issue-import",
+            "issue-create-labeled",
+            str(title),
+            str(body),
+            '["needs triage"]',
+        ]
+    )
+    return rc, title, body
+
+
+def test_a_successful_write_removes_its_body_and_title_files(
+    policy: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rc, title, body = _create(policy, monkeypatch, 0)
+    assert rc == cli.EXIT_OK
+    assert not title.exists()
+    assert not body.exists()
+
+
+def test_a_failed_write_keeps_its_files_for_a_retry(policy: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rc, title, body = _create(policy, monkeypatch, 1)
+    assert rc == cli.EXIT_COMMAND
+    assert title.exists()
+    assert body.exists()
+
+
+def test_a_dry_run_keeps_its_files(policy: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rc, title, body = _create(policy, monkeypatch, 0, "--dry-run")
+    assert rc == cli.EXIT_OK
+    assert title.exists()
+    assert body.exists()
+
+
+def test_consume_leaves_links_and_files_outside_the_workspace(policy: Path, tmp_path: Path) -> None:
+    loaded = config.load(policy)
+    op = ops.resolve("issue-create-labeled")
+    outside = tmp_path / "outside.md"
+    outside.write_text("keep")
+    target = loaded.workspace / "target.md"
+    target.write_text("keep too")
+    link = loaded.workspace / "link.md"
+    link.symlink_to(target)
+    cli._consume(op, [str(outside), str(link), "[]"], loaded)
+    assert outside.read_text() == "keep"
+    assert link.is_symlink()
+    assert target.read_text() == "keep too"
+
+
+def test_consume_does_not_follow_a_directory_swapped_for_a_link(policy: Path, tmp_path: Path) -> None:
+    """A directory below the workspace replaced by a link after the read stops the delete."""
+    loaded = config.load(policy)
+    op = ops.resolve("issue-create-labeled")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    secret = elsewhere / "body.md"
+    secret.write_text("not the workspace's")
+    (loaded.workspace / "sub").symlink_to(elsewhere, target_is_directory=True)
+    cli._consume(op, ["[]", str(loaded.workspace / "sub" / "body.md"), "[]"], loaded)
+    assert secret.read_text() == "not the workspace's"
+
+
+def test_consume_removes_a_file_in_a_real_subdirectory(policy: Path) -> None:
+    loaded = config.load(policy)
+    op = ops.resolve("issue-create-labeled")
+    sub = loaded.workspace / "sub"
+    sub.mkdir()
+    body = sub / "body.md"
+    body.write_text("x")
+    cli._consume(op, ["[]", str(body), "[]"], loaded)
+    assert not body.exists()

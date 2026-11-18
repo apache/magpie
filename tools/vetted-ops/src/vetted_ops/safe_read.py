@@ -82,3 +82,39 @@ def read_regular_file(path: Path) -> bytes | None:
             return handle.read()
     finally:
         os.close(fd)
+
+
+def unlink_regular_file(path: Path, root: Path) -> bool:
+    """Remove the regular file at ``path`` inside ``root``; True when it was removed.
+
+    ``root`` must already be checked (owned by this user, no symlink on its
+    path). Every directory from ``root`` to the file is opened relative to the
+    previous one with ``O_NOFOLLOW``, and the entry is examined and unlinked
+    relative to its parent's descriptor, so a symlink swapped in anywhere below
+    ``root`` stops the walk instead of redirecting the delete. Only a regular
+    file this user owns is removed; anything else is left alone.
+    """
+    target = Path(os.path.abspath(path))
+    base = Path(os.path.abspath(root))
+    if base not in target.parents:
+        return False
+    parts = target.relative_to(base).parts
+    dir_fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for name in parts[:-1]:
+            try:
+                next_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd)
+            except OSError:
+                return False
+            os.close(dir_fd)
+            dir_fd = next_fd
+        try:
+            st = os.stat(parts[-1], dir_fd=dir_fd, follow_symlinks=False)
+        except OSError:
+            return False
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid():
+            return False
+        os.unlink(parts[-1], dir_fd=dir_fd)
+        return True
+    finally:
+        os.close(dir_fd)

@@ -393,10 +393,15 @@ def test_body_travels_on_stdin_and_backend_refusal_maps_to_policy(
     assert discovered(cli.main, args, local_policy) == cli.EXIT_OK
     assert seen["input"] == b"secret report text"
     assert body not in seen["argv"]
+    # A successful write consumes the body file; a refused one keeps it for a retry.
+    assert not Path(body).exists()
+    _body(local_policy, "secret report text")
     seen["rc"] = 4
     assert discovered(cli.main, args, local_policy) == cli.EXIT_POLICY
+    assert Path(body).exists()
     seen["rc"] = 5
     assert discovered(cli.main, args, local_policy) == cli.EXIT_COMMAND
+    assert Path(body).exists()
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not installed")

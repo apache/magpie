@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 5809
+measured_tokens: 5828
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -373,9 +373,10 @@ Without the secure setup, see [`backends/vetted-ops.md`](backends/vetted-ops.md)
 
 ### 5e — Cleanup (per finding)
 
-Delete `<workspace>/import-md-<basename>-<index>-title.txt`,
-`<workspace>/import-md-<basename>-<index>-body.md`, and
-`<workspace>/import-md-<basename>-<index>-rollup.md` so they do not accumulate.
+The dispatcher deletes `<workspace>/import-md-<basename>-<index>-title.txt`,
+`<workspace>/import-md-<basename>-<index>-body.md` and
+`<workspace>/import-md-<basename>-<index>-rollup.md` once each write succeeds.
+Delete any of them a failed or abandoned write left behind, so they do not accumulate.
 
 ### 5f — Loop progress
 
