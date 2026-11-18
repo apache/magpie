@@ -369,7 +369,15 @@ class Git:
     git_dirs: dict[Path, Path] = field(default_factory=dict)
 
     def anchor(self, path: Path, fd: int | None = None) -> int:
-        if path not in self.anchors:
+        """Return the open descriptor for ``path``, opening it on first use.
+
+        Takes ownership of a passed ``fd``: it is kept until `close`, or closed
+        at once when ``path`` already has a descriptor.
+        """
+        if path in self.anchors:
+            if fd is not None and fd != self.anchors[path]:
+                os.close(fd)
+        else:
             self.anchors[path] = open_dir(path) if fd is None else fd
         return self.anchors[path]
 

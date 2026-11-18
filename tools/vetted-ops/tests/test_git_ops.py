@@ -720,3 +720,32 @@ def test_a_real_run_against_an_unapproved_policy_is_refused(
     monkeypatch.setattr(git_ops, "load", fake_load)
     argv = ["--caller", "skill", "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
     assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+
+
+def _is_open(fd: int) -> bool:
+    try:
+        os.fstat(fd)
+    except OSError:
+        return False
+    return True
+
+
+def test_anchor_closes_a_passed_descriptor_for_a_path_it_already_holds(git: Git, tmp_path: Path) -> None:
+    path = Path(os.path.realpath(tmp_path))
+    first = git.anchor(path)
+    second = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    assert git.anchor(path, second) == first
+    assert not _is_open(second)
+    assert _is_open(first)
+    git.close()
+    assert not _is_open(first)
+
+
+def test_anchor_keeps_a_passed_descriptor_for_a_new_path_until_close(git: Git, tmp_path: Path) -> None:
+    path = Path(os.path.realpath(tmp_path))
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    assert git.anchor(path, fd) == fd
+    assert git.anchor(path, fd) == fd
+    assert _is_open(fd)
+    git.close()
+    assert not _is_open(fd)
