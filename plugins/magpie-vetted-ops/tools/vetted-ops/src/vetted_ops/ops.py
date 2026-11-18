@@ -644,6 +644,18 @@ def _upstream(cfg: dict[str, str]) -> str:
     return cfg["upstream_repo"]
 
 
+def _board(cfg: dict[str, str]) -> str:
+    """The project board's node id, or a refusal naming what the policy lacks."""
+    board = cfg.get("board_project_id")
+    if not board:
+        raise ParamError(
+            "this operation addresses the project board, which the policy does not configure. "
+            "Declare `board_project_id`, `board_status_field_id` and `[values.board_columns]` "
+            "to enable it (setup's board step fills them in)."
+        )
+    return board
+
+
 def _owner_name(repo: str) -> tuple[str, str]:
     """Split ``owner/name``. The value comes from policy, validated on load."""
     owner, _, name = repo.partition("/")
@@ -1395,6 +1407,51 @@ _register(
     )
 )
 
+#: The tracker issue's node id and its items on any project, archived included;
+#: the jq filter below keeps only the configured board's item.
+_BOARD_ITEM_QUERY = (
+    "query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){"
+    "issue(number:$n){id projectItems(first:20,includeArchived:true){nodes{"
+    "id isArchived project{id} "
+    'fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}'
+)
+
+
+def _board_item_argv(cfg: dict[str, str], number: str) -> list[str]:
+    owner, name = _tracker(cfg).split("/", 1)
+    board = _board(cfg)
+    jq = (
+        ".data.repository.issue as $i | {node_id: $i.id, item: ("
+        f'[$i.projectItems.nodes[] | select(.project.id == "{board}") '
+        "| {item_id: .id, status: (.fieldValueByName.name // null), archived: .isArchived}]"
+        " | first // null)}"
+    )
+    return [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        f"owner={owner}",
+        "-F",
+        f"name={name}",
+        "-F",
+        f"n={number}",
+        "-f",
+        f"query={_BOARD_ITEM_QUERY}",
+        "--jq",
+        jq,
+    ]
+
+
+_register(
+    Op(
+        name="board-item",
+        params=("number",),
+        summary="One tracker issue's node id and its item on the project board (id, Status column, archived), or null.",
+        build=_board_item_argv,
+    )
+)
+
 _register(
     Op(
         name="board-add-item",
@@ -1406,7 +1463,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"content={content_id}",
             "-f",
@@ -1428,7 +1485,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"item={item_id}",
             "-f",
@@ -1469,7 +1526,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"item={item_id}",
             "-F",

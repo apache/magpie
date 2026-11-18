@@ -327,6 +327,39 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
 For **every configured security caller** (not only the three import callers), inspect the tracker operations its workflow actually uses through the [security-tracker command mapping](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations). Use the canonical [vetted-ops `[callers]` example](../../../../tools/vetted-ops/README.md#configuration) for its existing base grants, then propose the missing backend-specific operations for that caller only. Include applicable `tracker-doctor`, `issue-view`, `issue-comments`, `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, and, for local-files writes, `tracker-pending` and `tracker-publish`. This is an operation checklist, not a blanket permission grant. Show the exact per-caller diff and require confirmation; preserve existing operations and unrelated callers.
 
+## Step 3a.1 — Project board (GitHub trackers)
+
+Run this when a `security-*` skill is in scope, `tracker.platform` is `github`, the
+[GitHub project board](../../templates/project.md#github-project-board) table in `project.md` is empty,
+and `tracker.project_board_enabled` is not `false`.
+The board is the team's overview of every tracker by lifecycle state, and `security-issue-sync` keeps it current;
+without one, the sync has nothing to reconcile and says so on every run.
+
+Ask once, in Step 3's batch: *create a board*, *use an existing board* (its URL), or *no board*.
+
+- **No board**: write `tracker.project_board_enabled: false` to `project.md`. Nothing asks again.
+- **Create a board** (an outward-facing action, so only on the user's explicit yes):
+  1. Check the operator's `gh` token has the `project` scope (`gh auth status` lists the scopes).
+     If not, give the user `gh auth refresh -s project` to run and continue after it.
+  2. Create a Projects V2 board owned by the tracker's owner, linked to the tracker repository, titled after the tracker,
+     with a single-select `Status` field holding the seven columns
+     `Needs triage`, `Assessed`, `CVE allocated`, `PR created`, `PR merged`, `Fix released`, `Announced`
+     ([`tools/github/project-board.md` → Create a board](../../../../tools/github/project-board.md#create-a-board) has the GraphQL).
+     Show each mutation before running it.
+- **Use an existing board**: read its node ID, its `Status` field ID and the option IDs with the introspection query in
+  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#introspection--re-fetch-the-option-ids),
+  and show which of the seven columns it has; a missing column is the user's to add or to drop from the mapping.
+
+Then, for both:
+
+1. Fill the `project.md` board table (URL, number, node ID, `Status` field ID and the column → option-ID table)
+   and set `tracker.project_board_enabled: true`.
+2. Draft the vetted-ops policy changes: `board_project_id`, `board_status_field_id` and `[values.board_columns]`,
+   and the board operations (`board-item`, `board-add-item`, `board-set-status`, `board-archive-item`) for the
+   `security-issue-sync` caller per the [canonical grants](../../../../tools/vetted-ops/README.md#configuration).
+   The policy is a security control: show the draft and let the user save and approve it, as below.
+3. Suggest a first `sync all` so the sync adds the open trackers to the board and archives the closed ones.
+
 ### Personal tool configs, for a project that has not adopted Magpie
 
 Two security tools read a config file the `requires_config:` check does not cover, so a maintainer working alone passes pre-flight and then stops mid-run without them.

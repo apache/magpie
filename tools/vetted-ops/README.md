@@ -15,6 +15,7 @@
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
     - [The Vulnogram CVE-tool operations](#the-vulnogram-cve-tool-operations)
+    - [The project board](#the-project-board)
     - [The pr-management-triage reads](#the-pr-management-triage-reads)
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
@@ -217,7 +218,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-check-published",
                            "advisory-view", "advisory-comments", "advisory-comment",
                            "issue-create-labeled",
-                           "cve-record-fetch", "cve-record-update"]
+                           "cve-record-fetch", "cve-record-update",
+                           "board-item", "board-add-item", "board-set-status", "board-archive-item"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
@@ -533,6 +535,24 @@ Grant them to the callers that push records or allocate:
 `security-cve-allocate`, and `cve-allocate` to `security-cve-allocate`. The
 user still runs `vulnogram-api-setup` once per login session to approve the
 tokens; nothing here can mint one.
+
+### The project board
+
+A GitHub-backed tracker can keep a Projects V2 board, one `Status` column per lifecycle state.
+The board's node id, its `Status` field id and the column → option-id map come from the policy
+(`board_project_id`, `board_status_field_id`, `[values.board_columns]`); an operation run under a
+policy without them is refused by name.
+
+| Operation | Kind | Parameters | What it does |
+|---|---|---|---|
+| `board-item` | read | `number` | One tracker issue's node id, and its item on the configured board, archived ones included: `{node_id, item}` with `item` `null` when the issue is not on the board, else `{item_id, status, archived}`. |
+| `board-add-item` | write | `content_id` | Add an issue (by its node id, from `board-item`) to the board; returns the item id. Idempotent. |
+| `board-set-status` | write | `item_id column` | Move an item to a configured column. |
+| `board-archive-item` | write | `item_id` | Archive an item off the board (a closed tracker). Idempotent. |
+
+`security-issue-sync` reads `board-item` for each tracker it syncs and, on confirmation, adds a
+missing item, moves it to the column its labels call for, and archives it once the tracker is closed
+([`tools/github/project-board.md`](../github/project-board.md)).
 
 ### The pr-management-triage reads
 

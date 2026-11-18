@@ -868,6 +868,35 @@ def test_board_add_item_takes_a_content_node_id(policy: config.Config) -> None:
     assert "addProjectV2ItemById" in argv[-1]
 
 
+def test_board_item_reads_the_tracker_issue_on_the_configured_board(policy: config.Config) -> None:
+    op = ops.resolve("board-item")
+    assert not op.writes
+    params, _ = cli._validate_params(op, ["12"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:3] == ["gh", "api", "graphql"]
+    assert "owner=acme" in argv and "name=tracker" in argv and "n=12" in argv
+    query = next(a for a in argv if a.startswith("query="))
+    assert "includeArchived:true" in query and "mutation" not in query
+    jq = argv[argv.index("--jq") + 1]
+    assert 'select(.project.id == "PVT_proj")' in jq
+
+
+def test_board_item_refuses_a_non_number(policy: config.Config) -> None:
+    op = ops.resolve("board-item")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["12; rm -rf /"], policy)
+
+
+def test_board_operations_refuse_without_a_board(policy: config.Config) -> None:
+    """A policy with no board configuration refuses by name rather than failing on a missing key."""
+    cfg = dict(policy.as_mapping())
+    cfg.pop("board_project_id", None)
+    for name, args in (("board-item", {"number": "12"}), ("board-add-item", {"content_id": "I_kwDOabc"})):
+        with pytest.raises(ops.ParamError, match="project board"):
+            ops.resolve(name).build(cfg, **args)
+
+
 def test_board_add_item_refuses_a_non_node_id(policy: config.Config) -> None:
     op = ops.resolve("board-add-item")
     with pytest.raises(ops.ParamError):
