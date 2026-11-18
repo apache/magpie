@@ -23,6 +23,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -416,3 +417,61 @@ def test_a_failed_read_saves_nothing(
     )
     assert rc == cli.EXIT_COMMAND
     assert not (workspace / "saved" / "x.json").exists()
+
+
+# --- pruning old saved reads ------------------------------------------------
+
+
+def _age(path: Path, days: float) -> None:
+    then = time.time() - days * 86400
+    os.utime(path, (then, then), follow_symlinks=False)
+
+
+def test_save_prunes_saved_reads_older_than_the_retention(
+    policy_path: Path, workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    saved = workspace / "saved"
+    old, fresh = saved / "old.json", saved / "fresh.json"
+    old.write_text("old")
+    fresh.write_text("fresh")
+    _age(old, 8)
+    _age(fresh, 1)
+    target = tmp_path / "target"
+    target.write_text("outside")
+    link = saved / "link.json"
+    link.symlink_to(target)
+    _age(link, 30)
+    sub = saved / "sub"
+    sub.mkdir()
+    _age(sub, 30)
+    _age(saved / ops.SAVE_MARKER, 30)
+    assert _save_rc(policy_path, monkeypatch, b"new") == cli.EXIT_OK
+    assert not old.exists()
+    assert fresh.read_text() == "fresh"
+    assert not link.is_symlink()
+    assert target.read_text() == "outside"
+    assert sub.is_dir()
+    assert (saved / ops.SAVE_MARKER).exists()
+    assert (saved / "x.json").read_bytes() == b"new"
+
+
+def test_the_file_just_saved_is_never_pruned(
+    policy_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = workspace / "saved" / "x.json"
+    target.write_text("previous")
+    _age(target, 30)
+    assert _save_rc(policy_path, monkeypatch, b"new") == cli.EXIT_OK
+    assert target.read_bytes() == b"new"
+
+
+@pytest.mark.parametrize("value", [None, 1, 30])
+def test_saved_retention_days_accepts_a_whole_number_of_days(value: object) -> None:
+    expected = ops.DEFAULT_SAVED_RETENTION_DAYS if value is None else value
+    assert ops.saved_retention_days(value) == expected
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "7", True])
+def test_saved_retention_days_refuses_anything_else(value: object) -> None:
+    with pytest.raises(ops.ParamError):
+        ops.saved_retention_days(value)
