@@ -88,71 +88,88 @@ github:
   # asfyaml / PyGithub interaction is fixed upstream and a release
   # workflow exists that needs the environment.
 
-  # Merge rules for `main` live in the `main` ruleset below, not in
-  # classic `protected_branches`. ASF Infra reconciles both within a few
-  # minutes of a merge to main (asfyaml features `rulesets` and
-  # `protected_branches`).
+  # Merge rules for `main` live in the two rulesets below, not in classic
+  # `protected_branches`. ASF Infra reconciles them within a few minutes of
+  # a merge to main (asfyaml features `rulesets` and `protected_branches`).
+  # The layout follows apache/airflow's `.asf.yaml`.
   #
-  # Why a ruleset: a ruleset can name who may bypass it, and classic
-  # branch protection cannot (`.asf.yaml` exposes no `enforce_admins`,
-  # and GitHub applies classic protection whatever a ruleset says).
-  # `bypass_teams: magpie-committers` with `bypass_mode: pull_request`
-  # lets a committer merge a PR past these rules, through GitHub's
-  # "merge without waiting for requirements" option, when CI is stuck
-  # or broken for reasons the PR does not cause. It is an escape hatch,
-  # not a way of working: nobody can push to `main` past the rules, and
-  # every bypass is recorded in the PR timeline and the repository's
-  # rule insights. Use it only when the failing check is unrelated to the
-  # change, and say why in the PR.
-  #
-  # `protected_branches: ~` removes the classic protection the block
-  # used to set on `main`; leaving it would keep blocking regardless of
-  # the ruleset's bypass list.
+  # `protected_branches: ~` keeps the classic protection off: GitHub
+  # enforces it whatever a ruleset's bypass list says, so it would block
+  # the committer override below.
   protected_branches: ~
 
   rulesets:
-    - name: main
+    # The required checks, which committers can bypass when merging a PR,
+    # through GitHub's "merge without waiting for requirements" option,
+    # when CI is stuck or broken for reasons the PR does not cause. It is
+    # an escape hatch, not a way of working: use it only when the failing
+    # check is unrelated to the change, and say why in the PR. Every
+    # bypass is recorded in the PR timeline and the repository's rule
+    # insights. Nobody can push to `main` directly anyway: the "Branch
+    # protection" ruleset below requires a PR for every change and has no
+    # bypass.
+    #
+    # Raw Rulesets API payload, because the convenience syntax can only
+    # name teams as bypass actors and GitHub refuses the `magpie-committers`
+    # team ("must be part of the ruleset source or owner organization").
+    # The bypass actor is instead the Write repository role (actor_id 4):
+    # on this repository only committers hold it, granted by ASF Infra from
+    # the project's LDAP group, so it follows committer changes with no
+    # update here. The external `collaborators` above get the Triage role,
+    # not Write, so they cannot bypass.
+    #
+    # Listed checks MUST run on every PR against `main`: a path-filtered
+    # workflow that does not post a status would block the PR. Excluded for
+    # that reason: `asf-allowlist-check` (paths: `.github/**`) and `lint
+    # .claude/settings.json against baseline` from sandbox-lint (see
+    # `paths:` in `.github/workflows/sandbox-lint.yml`). CodeQL is not
+    # required either: the repository publishes no runtime artefacts, so
+    # per-PR CodeQL gating adds noise rather than value; `codeql.yml` still
+    # runs on every PR for visibility. The checks are not pinned to the
+    # GitHub Actions app: asfyaml passes a raw `integration_id` as a string,
+    # which the API rejects.
+    - name: "Require CI on main"
+      target: branch
+      enforcement: active
+      conditions:
+        ref_name:
+          include:
+            - "refs/heads/main"
+          exclude: []
+      bypass_actors:
+        - actor_id: 4
+          actor_type: RepositoryRole
+          bypass_mode: always
+      rules:
+        - type: required_status_checks
+          parameters:
+            # Do not require the PR branch to be up to date with `main`:
+            # with strict checks every merge forces a rebase of every open PR.
+            strict_required_status_checks_policy: false
+            required_status_checks:
+              # zizmor: GitHub Actions security lint.
+              - context: "zizmor"
+              # prek: the static checks across the repository, including
+              # the lychee link check.
+              - context: "prek"
+              # tests-ok: the umbrella job over the per-project pytest
+              # matrix in tests.yml, so a matrix change needs no
+              # `.asf.yaml` change.
+              - context: "tests-ok"
+    # The rest of `main`'s rules, with no bypass: the override is for CI,
+    # not for skipping review threads, deleting the branch or rewriting
+    # history.
+    - name: "Branch protection"
       type: branch
       branches:
         includes:
           - main
-      bypass_teams:
-        - magpie-committers
-      bypass_mode: pull_request
-      # Branch deletion and force pushes stay blocked: `restrict_deletion`
-      # and `restrict_force_push` default to on in a ruleset.
-      #
-      # Required status checks. Listed checks MUST run on every PR
-      # against `main`: a path-filtered workflow that does not post a
-      # status would block the PR. Excluded for that reason:
-      # `asf-allowlist-check` (paths: `.github/**`) and `lint
-      # .claude/settings.json against baseline` from sandbox-lint (see
-      # `paths:` in `.github/workflows/sandbox-lint.yml`). CodeQL is
-      # not required either: the repository publishes no runtime
-      # artefacts, so per-PR CodeQL gating adds noise rather than value;
-      # `codeql.yml` still runs on every PR for visibility.
-      required_status_checks:
-        # zizmor: GitHub Actions security lint.
-        - zizmor
-        # prek: the static checks across the repository, including the
-        # lychee link check.
-        - prek
-        # tests-ok: the umbrella job over the per-project pytest matrix
-        # in tests.yml, so a matrix change needs no `.asf.yaml` change.
-        - tests-ok
-      # Do not require the PR branch to be up to date with `main`: with
-      # strict checks every merge forces a rebase of every open PR.
-      required_status_checks_strict: false
       # Squash is the only merge button, so history stays linear.
       required_linear_history: true
       # Block merge until every review thread is resolved: with no
       # approval requirement (below) an unresolved thread is the signal
       # that a reviewer's point is still open.
       required_conversation_resolution: true
-      # No signed-commit requirement: contributors without GPG/SSH
-      # signing could not contribute.
-      #
-      #
       # `required_pull_request_reviews` must be present whenever
       # `required_conversation_resolution` is set: asfyaml builds one
       # pull-request rule from both, and GitHub refuses that rule (and so
@@ -170,6 +187,11 @@ github:
       required_pull_request_reviews:
         required_approving_review_count: 0
         dismiss_stale_reviews: false
+      # No signed-commit requirement: contributors without GPG/SSH
+      # signing could not contribute.
+      #
+      # Branch deletion and force pushes stay blocked, with no bypass:
+      # `restrict_deletion` and `restrict_force_push` default to on.
 
 notifications:
   # Magpie is a Top-Level Project with its own mailing lists. All
