@@ -537,11 +537,35 @@ def test_file_copy_passes_and_reports_drift(tree, monkeypatch):
     ],
 )
 def test_source_changes_trigger_packaging_hook(path):
+    assert re.match(_packaging_hook_files_pattern(), path), f"packaging check would skip {path}"
+
+
+def _packaging_hook_files_pattern() -> str:
     config = (REPO_ROOT / ".pre-commit-config.yaml").read_text()
     block = config.split("- id: check-family-plugins\n", 1)[1].split("pass_filenames:", 1)[0]
     match = re.search(r"files: (.+)", block)
     assert match is not None
-    assert re.match(match.group(1), path), f"packaging check would skip {path}"
+    return match.group(1)
+
+
+def test_every_copied_file_triggers_packaging_hook():
+    # A source the plugins copy, but the hook pattern misses, goes stale in its
+    # plugin copy whenever a commit touches only that file (#2166). Walk every
+    # copy the way check_substrate does, so a new copy cannot drift from the hook.
+    pattern = _packaging_hook_files_pattern()
+    missed = set()
+    for spec in mod.SUBSTRATE_PLUGINS.values():
+        for src_rel in spec.get("copies", {}).values():
+            src = REPO_ROOT / src_rel
+            if src.is_file():
+                files = [src]
+            else:
+                files = [p for p in src.rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+            for path in files:
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                if not re.match(pattern, rel):
+                    missed.add(rel)
+    assert not missed, f"packaging check would skip {sorted(missed)}"
 
 
 # --- the packaged pyproject of a copied tool -------------------------------------
