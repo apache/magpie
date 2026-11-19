@@ -16,7 +16,7 @@ when_to_use: >-
   upgrade that changes the secure-setup files, and weekly otherwise.
   Cheap and never destructive.
 capability: capability:platform
-surface_hash: sha256:1f327e069312dad2
+surface_hash: sha256:51ecb7683ea269cf
 license: Apache-2.0
 measured_tokens: 5850
 ---

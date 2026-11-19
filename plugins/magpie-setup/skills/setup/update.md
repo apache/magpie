@@ -1032,9 +1032,16 @@ checkout in the same pass, so it does not silently rot between
 framework upgrades.
 
 For each of `ponymail` / `apache-projects` registered in the
-user/project `mcpServers` config, resolve the checkout root from
-its `args` path (`<comdev>/mcp/<server>/index.js`), then — **surface
-only, never auto-pull** (same contract as Step 6b):
+user/project `mcpServers` config, take `<server-dir>` (the
+directory holding the `index.js` in its `args`, such as
+`…/comdev/mcp/ponymail-mcp`, **not** `mcp/<server name>`) and
+`<root>` (`git -C <server-dir> rev-parse --show-toplevel`), as
+[`comdev-mcp.md`](../isolated-setup-update/comdev-mcp.md) defines
+them. Print commands with those absolute paths, never a
+placeholder. When the sandbox keeps the agent from reading the
+registration, print that file's self-resolving check instead
+([When the registration cannot be read](../isolated-setup-update/comdev-mcp.md#when-the-registration-cannot-be-read)).
+Then — **surface only, never auto-pull** (same contract as Step 6b):
 
 1. Confirm `origin` is an `apache/comdev` URL and the checkout is on
    `main` (`git -C <root> rev-parse --abbrev-ref HEAD`). Flag a
@@ -1046,7 +1053,7 @@ only, never auto-pull** (same contract as Step 6b):
 
    ```bash
    git -C <root> pull --ff-only
-   ( cd <root>/mcp/<server> && npm install )
+   ( cd <server-dir> && npm install )
    ```
 
    with the `github.com/apache/comdev/compare/<sha>...main` link.

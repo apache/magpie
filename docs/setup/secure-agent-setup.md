@@ -4397,8 +4397,9 @@ anything — I will decide what to apply:
    my settings, resolve its `apache/comdev` checkout from the
    `args` path, `git -C <root> fetch origin main`, and report the
    behind-count. When behind, print (do not run)
-   `git -C <root> pull --ff-only` + `npm install` in the affected
-   `mcp/<server>/` dir, plus the
+   `git -C <root> pull --ff-only` + `npm install` in the server's
+   own dir (where its registered `index.js` lives, e.g.
+   `mcp/ponymail-mcp/`), with real absolute paths, plus the
    `github.com/apache/comdev/compare/<sha>...main` link. These
    servers track `main` by design — no manifest bump, no cooldown.
 5. Diff my project `.claude/settings.json` `permissions.allow`
