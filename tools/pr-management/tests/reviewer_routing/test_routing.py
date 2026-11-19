@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-from pr_management.reviewer_routing import cli, codeowners, roster, score
+from pr_management.reviewer_routing import cli, roster, score
 
 ROSTER = """# Reviewer roster
 
@@ -234,10 +234,27 @@ def test_release_trains_rotations_are_read() -> None:
 
 
 def test_codeowners_last_match_wins() -> None:
-    rules = codeowners.parse("* @all\n/docs/ @docs-team\n*.py @py\n")
-    assert codeowners.owners_of("docs/a.py", rules) == ["py"]
-    assert codeowners.owners_of("docs/a.md", rules) == ["docs-team"]
-    assert codeowners.owners_of("x/y.txt", rules) == ["all"]
+    owners = cli.owned_paths("* @all\n/docs/ @docs-team\n*.py @py\n", ["docs/a.py", "docs/a.md", "x/y.txt"])
+    assert owners == {"py": {"docs/a.py"}, "docs-team": {"docs/a.md"}, "all": {"x/y.txt"}}
+
+
+@pytest.mark.parametrize(
+    ("text", "path", "owner"),
+    [
+        # GitHub's About code owners examples the old routing matcher missed (#2203).
+        ("apps/ @octocat", "src/apps/x.py", "octocat"),
+        ("**/logs @octocat", "logs/x.log", "octocat"),
+        ("docs/* @Docs", "docs/getting-started.md", "docs"),
+        ("/apps/ @octo-org/Apps", "apps/x.py", "octo-org/apps"),
+    ],
+)
+def test_codeowners_match_the_code_review_rules(text: str, path: str, owner: str) -> None:
+    assert cli.owned_paths(text, [path]) == {owner: {path}}
+
+
+def test_codeowners_skip_nested_files_under_a_wildcard_and_email_owners() -> None:
+    assert cli.owned_paths("docs/* @docs\n", ["docs/build-app/troubleshooting.md"]) == {}
+    assert cli.owned_paths("*.go docs@example.com\n", ["main.go"]) == {}
 
 
 def test_propose_asks_for_reads_then_scores(tmp_path: Path) -> None:
