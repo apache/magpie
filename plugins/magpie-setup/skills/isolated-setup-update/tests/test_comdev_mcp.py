@@ -98,6 +98,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
             server = self.upstream / "mcp" / name
             server.mkdir(parents=True)
             (server / "index.js").write_text("// stub\n", encoding="utf-8")
+            (server / "package-lock.json").write_text("{}\n", encoding="utf-8")
         _git("add", ".", cwd=self.upstream)
         _git("commit", "-q", "-m", "init", cwd=self.upstream)
         self.comdev = self.root / "code" / "comdev"
@@ -139,11 +140,13 @@ class SelfResolvingScriptTest(unittest.TestCase):
         self._fetch_from(self.upstream)
         self.npm_log = self.root / "npm.log"
         self.npm_fail_once = self.root / "npm-fail-once"
+        self.npm_rewrites_lock = self.root / "npm-rewrites-lock"
         npm = self.bindir / "npm"
         # Reads stdin like an interactive tool would: without </dev/null it would swallow the loop's input.
         npm.write_text(
             "#!/bin/sh\ncat >/dev/null\n"
             f'if [ -e "{self.npm_fail_once}" ]; then rm "{self.npm_fail_once}"; exit 1; fi\n'
+            f'if [ -e "{self.npm_rewrites_lock}" ]; then echo rewritten >> package-lock.json; fi\n'
             f'pwd >> "{self.npm_log}"\n',
             encoding="utf-8",
         )
@@ -399,6 +402,55 @@ class SelfResolvingScriptTest(unittest.TestCase):
                 out = self._run(shell)
                 self.assertNotIn("could not parse", out)
                 self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind", out)
+
+    def test_a_lockfile_rewritten_by_the_first_install_does_not_block_the_second(self) -> None:
+        self.npm_rewrites_lock.touch()
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self._reset()
+                out = self._run(shell, refresh=self.ahead)
+                self.assertNotIn("local changes", out)
+                self.assertEqual(self._npm_dirs(), self._both_dirs())
+
+    def test_refresh_refuses_a_checkout_with_local_changes(self) -> None:
+        changes = {
+            "modified": lambda: (self.ponymail / "package-lock.json").write_text('{"x": 1}\n', encoding="utf-8"),
+            "untracked": lambda: (self.ponymail / ".npmrc").write_text("x\n", encoding="utf-8"),
+        }
+        for kind, make in changes.items():
+            for shell in SHELLS:
+                with self.subTest(kind=kind, shell=shell):
+                    self._reset()
+                    _git("clean", "-q", "-fd", cwd=self.comdev)
+                    make()
+                    out = self._run(shell, refresh=self.ahead)
+                    self.assertEqual(out.count("has local changes"), 2)
+                    self.assertEqual(self._head(), self.start)
+                    self.assertEqual(self._npm_dirs(), [])
+
+    def test_refresh_refuses_a_checkout_already_past_the_commit(self) -> None:
+        (self.upstream / "LATER").write_text("later\n", encoding="utf-8")
+        _git("add", ".", cwd=self.upstream)
+        _git("commit", "-q", "-m", "later", cwd=self.upstream)
+        later = _git("rev-parse", "HEAD", cwd=self.upstream)
+        _git("fetch", "-q", str(self.upstream), "main", cwd=self.comdev)
+        _git("reset", "-q", "--hard", later, cwd=self.comdev)
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                out = self._run(shell, refresh=self.ahead)
+                self.assertIn(f"is already past {self.ahead}", out)
+                self.assertNotIn("npm install done", out)
+                self.assertEqual(self._head(), later)
+                self.assertEqual(self._npm_dirs(), [])
+
+    def test_refresh_takes_only_a_full_commit_hash(self) -> None:
+        for value in ("main", "origin/main", self.ahead[:12], "-x", self.ahead.upper()):
+            for shell in SHELLS:
+                with self.subTest(value=value, shell=shell):
+                    out = self._run(shell, refresh=value)
+                    self.assertIn("refresh= takes the full 40-character commit", out)
+                    self.assertEqual(self._head(), self.start)
+                    self.assertEqual(self._npm_dirs(), [])
 
     def test_a_non_object_document_is_not_a_parse_error(self) -> None:
         self._register([1, 2, 3])

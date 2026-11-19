@@ -36,7 +36,8 @@ It reads the registration in the operator's own shell, so it works from any dire
 It reads only `~/.claude.json`, user-scope and per-project registrations alike, and only an absolute `index.js` path in them: never a `.mcp.json`, which a cloned repository or a sandboxed agent can write, while the sandbox can neither read nor write `~/.claude.json`.
 It makes the same checks as the steps above: an origin that is exactly `apache/comdev` on GitHub, as `git remote get-url` reports it after any `insteadOf` rewrite; the `main` branch; a fetch that succeeded.
 A checkout failing one of them is reported and skipped, never counted.
-Its `git fetch` and `git merge` run with `core.hooksPath=/dev/null`, so no hook in the checkout runs outside the sandbox.
+Its `git fetch` and `git merge` run with `core.hooksPath=/dev/null`, so no hook in the checkout runs.
+Beyond that it trusts the checkout's own `.git/config`, as any git command run there does: the checkout is the operator's, and the sandbox cannot write it.
 It runs in a subshell, so its `exit` cannot close the operator's terminal and its variables do not stay behind, and it carries no `#` comments, which interactive zsh does not treat as comments by default.
 
 ```bash
@@ -76,20 +77,34 @@ if [ -z "$refresh" ]; then
   [ -z "$ok" ] || echo "to update, read the changes, then run this again with refresh=<the commit after 'main at'>"
   exit 0
 fi
+case "$refresh" in *[!0-9a-f]*) refresh=bad ;; esac
+[ "${#refresh}" -eq 40 ] || { echo "refresh= takes the full 40-character commit printed after 'main at'"; exit 1; }
+go=""
 while IFS=$'\t' read -r s d root up; do
   [ -n "$s" ] || continue
-  target=$(git -C "$root" rev-parse --verify -q "$refresh^{commit}") && git -C "$root" merge-base --is-ancestor "$target" "$up" || { echo "$s: $refresh is not on the main just fetched for $root; nothing changed"; continue; }
-  git -c core.hooksPath=/dev/null -C "$root" merge -q --ff-only "$target" </dev/null || { echo "$s: fast-forward failed in $root"; continue; }
-  if ( cd "$d" && npm install </dev/null ); then echo "$s: $d is at $target, npm install done"
-  else echo "$s: npm install failed in $d; run this again to retry"; fi
+  git -C "$root" merge-base --is-ancestor "$refresh" "$up" 2>/dev/null || { echo "$s: $refresh is not on the main just fetched for $root; nothing changed"; continue; }
+  git -C "$root" merge-base --is-ancestor HEAD "$refresh" || { echo "$s: $root is already past $refresh; nothing changed"; continue; }
+  [ -z "$(git -C "$root" status --porcelain)" ] || { echo "$s: $root has local changes; commit or remove them first; nothing changed"; continue; }
+  go="$go$s"$'\t'"$d"$'\t'"$root"$'\n'
 done <<EOF
 $ok
+EOF
+while IFS=$'\t' read -r s d root; do
+  [ -n "$s" ] || continue
+  git -c core.hooksPath=/dev/null -C "$root" merge -q --ff-only "$refresh" </dev/null || { echo "$s: fast-forward failed in $root"; continue; }
+  [ "$(git -C "$root" rev-parse HEAD)" = "$refresh" ] || { echo "$s: $root did not end at $refresh; nothing installed"; continue; }
+  if ( cd "$d" && npm install </dev/null ); then echo "$s: $d is at $refresh, npm install done"
+  else echo "$s: npm install failed in $d; run this again to retry"; fi
+done <<EOF
+$go
 EOF
 )
 ```
 
 As printed it only reports: one line per registered server, with the commit on `apache/comdev` `main` it was compared with.
 When a checkout is behind, the operator reads the compare link, then runs the script again with `refresh=` set to the commit that line printed after `main at`.
-That run fetches again but fast-forwards to the commit the operator reviewed, never past it, and only when that commit is on the `main` just fetched.
-It runs `npm install` in every checked server's own directory, so two servers sharing a checkout end on the same commit, and a run after a failed install retries it.
+That run fetches again but fast-forwards to the commit the operator reviewed, never past it.
+It checks every checkout before changing any, and changes nothing in one where that commit is not on the `main` just fetched, where the checkout is already past it, or where the working tree has local changes, which `npm install` would otherwise run.
+It then runs `npm install` in every checked server's own directory, so two servers sharing a checkout end on the same commit, even when the first install rewrites a lockfile.
+A run after a failed install retries it; if that install left the lockfile modified, the run names the local changes, and `git -C <checkout> checkout -- .` clears them.
 Restart the agent afterwards so the servers reload.
