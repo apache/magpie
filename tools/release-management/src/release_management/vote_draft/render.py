@@ -49,7 +49,7 @@ RM_PLACEHOLDER = "<RM name>"
 # check the published jars. The id is read from the planning issue or the
 # project config, so it is validated before it reaches the body.
 NEXUS_URL = "https://repository.apache.org/content/repositories"
-NEXUS_ID = re.compile(r"^orgapache[a-z0-9]+-[0-9]+$")
+NEXUS_ID = re.compile(r"^[a-z0-9]+-[0-9]+$")
 NEXUS_URL_ID = re.compile(
     r"repository\.apache\.org/(?:content/repositories|service/local/staging/repository)/([^/\s`\"'<>)]+)"
 )
@@ -360,12 +360,13 @@ def _missing(
 def nexus_staging_url(value: str | None) -> str | None:
     """The staging-repository URL to name in the `[VOTE]`, from an id or a URL.
 
-    Accepts an `orgapache<name>-NNNN` id (the profile name follows the
-    groupId, not the project slug) or any URL that carries it (the
-    `/content/repositories/` and `/service/local/staging/repository/`
-    spellings). The id can come from the planning issue, so it is
-    validated before it reaches the body: anything else is refused, never
-    rendered. `snapshots` is refused too, because it is never a vote target.
+    Accepts a `<name>-NNNN` id such as `maven-2471` or `orgapachecommons-1965`
+    (Nexus profile names are not always derived from the groupId) or any URL
+    that carries one (the `/content/repositories/` and
+    `/service/local/staging/repository/` spellings). The id can come from the
+    planning issue, so it is validated before it reaches the body: anything
+    else is refused, never rendered. `snapshots` is refused too, because it
+    is never a vote target.
     """
     if not value:
         return None
@@ -374,7 +375,7 @@ def nexus_staging_url(value: str | None) -> str | None:
     if not NEXUS_ID.fullmatch(repo):
         raise RenderError(
             f"nexus staging repository {repo!r} does not match the Nexus id shape "
-            "orgapache<name>-NNNN: read it from the planning issue or "
+            "<name>-NNNN: read it from the planning issue or "
             "release-build.md § JVM artefact checks, never guess it"
         )
     return f"{NEXUS_URL}/{repo}/"

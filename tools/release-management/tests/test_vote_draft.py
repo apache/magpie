@@ -576,6 +576,18 @@ def test_step2_nexus_staging_url_accepts_a_full_url_and_the_config_value() -> No
     )
 
 
+def test_step2_nexus_staging_repo_accepts_maven_and_commons_shapes() -> None:
+    for repo in ("maven-2471", "orgapachecommons-1965"):
+        out = render.step2(draft(), nexus_staging_repo=repo, **urls("2.11.0-rc1"))
+        assert out["nexus_staging_url"] == f"{render.NEXUS_URL}/{repo}/"
+        from_url = render.step2(
+            draft(),
+            nexus_staging_repo=f"https://repository.apache.org/service/local/staging/repository/{repo}",
+            **urls("2.11.0-rc1"),
+        )
+        assert from_url["nexus_staging_url"] == f"{render.NEXUS_URL}/{repo}/"
+
+
 def test_step2_warns_when_the_nexus_id_comes_from_the_config() -> None:
     d = draft(nexus_staging_repo="orgapacheairflow-1234")
     config_only = render.step2(d, **urls("2.11.0-rc1"))
