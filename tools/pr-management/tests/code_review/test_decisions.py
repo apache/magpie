@@ -412,6 +412,199 @@ def test_an_empty_intersection_is_broken_without_a_failing_resolution() -> None:
     assert result["classification"] == "broken" and result["evidence"] == {"uninstallable_in": ["*"]}
 
 
+@pytest.mark.parametrize(
+    ("specifier", "minimum", "available_versions"),
+    [
+        ("==1.0.*", ">=1.2", ["1.0.0", "1.0.5", "1.2.0", "1.3.0"]),
+        ("~=1.4.0", ">=1.5", ["1.4.0", "1.4.2", "1.5.0", "1.6.1"]),
+    ],
+)
+def test_release_prefix_precision_can_make_an_intersection_empty(
+    specifier: str, minimum: str, available_versions: list[str]
+) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}, {"via": "app -> bridge", "specifier": minimum}],
+            "available_versions": available_versions,
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "broken"
+    assert result["environments"]["*"]["satisfying"] == []
+    assert result["evidence"] == {"uninstallable_in": ["*"]}
+    assert result["runtime_finding_allowed"] is True
+
+
+@pytest.mark.parametrize(
+    ("specifier", "candidate", "expected"),
+    [
+        ("==1.0.*", "1", True),
+        ("==1.0.*", "1.0.5", True),
+        ("==1.0.0.*", "1.0.1", False),
+        ("!=1.0.*", "1", False),
+        ("!=1.0.*", "1.2", True),
+        ("~=1.0.0", "1", True),
+        ("~=1.0.0", "1.5", False),
+        ("~=1.0", "1.5", True),
+        ("~=1.4.0", "1.4", True),
+        ("~=1.4.2", "1.4.1", False),
+        ("~=1.4.2", "1.4.2", True),
+        ("==1.0", "1.0.0", True),
+        ("<1.0", "1.0.0", False),
+    ],
+)
+def test_numeric_dependency_specifier(specifier: str, candidate: str, expected: bool) -> None:
+    (clause,) = deps.clauses(specifier)
+    assert clause.admits(candidate) is expected
+
+
+@pytest.mark.parametrize("specifier", ["~=1.4.post1", "~=1.4.dev0"])
+def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}, {"via": "app -> bridge", "specifier": ">=1.5"}],
+            "available_versions": ["1.4.0", "1.5.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "compatible"
+    assert result["environments"]["*"]["satisfying"] == ["1.5.0"]
+    assert result["evidence"] == {"exhaustive": True}
+    assert result["runtime_finding_allowed"] is False
+
+
+@pytest.mark.parametrize(
+    ("specifier", "candidate", "expected"),
+    [
+        ("~=1.4a1.dev0", "1.5.0", True),
+        ("~=1.0.post1", "1.1", True),
+        ("~=1.4.0.post1", "1.4.1", True),
+        ("~=1.4.0.post1", "1.5.0", False),
+        ("==1.0.*", "1+build.2", True),
+        ("!=1.0.*", "1+build.2", False),
+        ("~=1.4.0.0", "1.4+build.2", True),
+    ],
+)
+def test_release_prefix_ignores_suffixes(specifier: str, candidate: str, expected: bool) -> None:
+    (clause,) = deps.clauses(specifier)
+    assert clause.admits(candidate) is expected
+
+
+@pytest.mark.parametrize(
+    ("specifier", "candidate", "expected"),
+    [
+        ("~=1.0.1", "1+build.2", False),
+        ("~=1.0.1", "1.0+build.2", False),
+        ("~=1.0.1", "1.0.1+build.2", True),
+        ("~=1.4.0.1", "1.4+build.2", False),
+        (">=1.0.1", "1+build.2", False),
+        ("<1.1", "1+build.2", True),
+        ("<=1.1", "1+build.2", True),
+        (">1.1", "1+build.2", False),
+        ("==1.2", "1+build.2", False),
+        ("!=1.2", "1+build.2", True),
+    ],
+)
+def test_local_label_does_not_change_release_comparison(
+    specifier: str, candidate: str, expected: bool
+) -> None:
+    (clause,) = deps.clauses(specifier)
+    assert clause.admits(candidate) is expected
+
+
+@pytest.mark.parametrize("specifier", ["~=1.0.1", ">=1.0.1"])
+def test_local_label_cannot_satisfy_a_higher_release_bound(specifier: str) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}],
+            "available_versions": ["1+build.2", "1.0.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "broken"
+    assert result["environments"]["*"]["satisfying"] == []
+    assert result["evidence"] == {"uninstallable_in": ["*"]}
+    assert result["runtime_finding_allowed"] is True
+
+
+def test_local_labels_do_not_change_ledger_release_order() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=1"}],
+            "available_versions": ["1.1", "1+build.2", "1.0.5"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "compatible"
+    assert result["environments"]["*"]["satisfying"] == ["1+build.2", "1.0.5", "1.1"]
+    assert result["runtime_finding_allowed"] is False
+
+
+@pytest.mark.parametrize("op", ["==", "!="])
+@pytest.mark.parametrize(
+    ("value", "candidate", "equal"),
+    [
+        ("1.0+build.2", "1.0", False),
+        ("1.0+build.2", "1.0+build.1", False),
+        ("1.0+build.2", "1.0+build.2", True),
+        ("1.0+BUILD.02", "1+build_2", True),
+        ("01.00+build-2", "1.0.0+BUILD.002", True),
+        ("1.0+build_2", "1.0+build.02", True),
+        ("1.0+build.2", "1.0.1+build.2", False),
+        ("1.0", "1.0+build.2", True),
+        ("1.0+foo02", "1+foo2", False),
+        ("1.0+02", "1+2", True),
+    ],
+)
+def test_explicit_local_label_matches_normalized_label(
+    op: str, value: str, candidate: str, equal: bool
+) -> None:
+    (clause,) = deps.clauses(f"{op}{value}")
+    assert clause.admits(candidate) is (equal if op == "==" else not equal)
+
+
+@pytest.mark.parametrize(
+    ("specifier", "available", "satisfying", "classification"),
+    [
+        ("==1.0+build.2", ["1.0", "1.0+build.1"], [], "broken"),
+        (
+            "==1.0+build.2",
+            ["1.0", "1.0+build.1", "1.0+build.2"],
+            ["1.0+build.2"],
+            "compatible",
+        ),
+        (
+            "!=1.0+build.2",
+            ["1.0", "1.0+build.1", "1.0+build.2"],
+            ["1.0", "1.0+build.1"],
+            "compatible",
+        ),
+    ],
+)
+def test_explicit_local_label_dependency_ledger(
+    specifier: str, available: list[str], satisfying: list[str], classification: str
+) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}],
+            "available_versions": available,
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == classification
+    assert result["environments"]["*"]["satisfying"] == satisfying
+    assert result["runtime_finding_allowed"] is (classification == "broken")
+    if classification == "broken":
+        assert result["evidence"] == {"uninstallable_in": ["*"]}
+    else:
+        assert result["evidence"] == {"exhaustive": True}
+
+
 def test_a_satisfying_version_without_the_api_is_broken() -> None:
     result = deps.classify(
         {
