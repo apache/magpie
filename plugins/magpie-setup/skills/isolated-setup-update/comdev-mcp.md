@@ -33,25 +33,27 @@ Under the secure setup the sandbox denies `~/.claude.json`, where Claude Code ke
 Do not hand the operator a command with a placeholder in it.
 Print this script instead, unchanged.
 It reads the registration in the operator's own shell, so it works from any directory, pasted into bash or zsh; it needs `jq`, in `/usr/bin` on macOS 15 and later.
-It reads only `~/.claude.json`, user-scope and per-project registrations alike: never a `.mcp.json`, which a cloned repository or a sandboxed agent can write, while the sandbox can neither read nor write `~/.claude.json`.
+It reads only `~/.claude.json`, user-scope and per-project registrations alike, and only an absolute `index.js` path in them: never a `.mcp.json`, which a cloned repository or a sandboxed agent can write, while the sandbox can neither read nor write `~/.claude.json`.
 It makes the same checks as the steps above: an origin that is exactly `apache/comdev` on GitHub, as `git remote get-url` reports it after any `insteadOf` rewrite; the `main` branch; a fetch that succeeded.
 A checkout failing one of them is reported and skipped, never counted.
+Its `git fetch` and `git merge` run with `core.hooksPath=/dev/null`, so no hook in the checkout runs outside the sandbox.
 It runs in a subshell, so its `exit` cannot close the operator's terminal and its variables do not stay behind, and it carries no `#` comments, which interactive zsh does not treat as comments by default.
 
 ```bash
 (
-refresh=no
+refresh=
 command -v jq >/dev/null || { echo "jq is not installed; install it and run this again"; exit 1; }
 [ -r ~/.claude.json ] || { echo "cannot read ~/.claude.json, where Claude Code registers MCP servers"; exit 1; }
 regs=$(jq -r '
-    ((.mcpServers // {}), ((.projects // {})[] | .mcpServers // {}))
-    | to_entries[] | select(.key == "ponymail" or .key == "apache-projects")
-    | . as $e | [$e.value.args[]? | select(type == "string" and endswith("index.js"))][0] // empty
+    [.mcpServers?, ((.projects? // {}) | objects | .[]? | objects | .mcpServers?)]
+    | .[] | objects | to_entries[] | select(.key == "ponymail" or .key == "apache-projects")
+    | . as $e | [$e.value | objects | .args[]? | strings | select(startswith("/") and endswith("/index.js"))][0] // empty
     | "\($e.key)\t\(.)"' ~/.claude.json) || { echo "could not parse ~/.claude.json"; exit 1; }
 regs=$(printf '%s\n' "$regs" | sort -u)
 [ -n "$regs" ] || { echo "no ponymail or apache-projects registration in ~/.claude.json"; exit 0; }
 ok=""
 while IFS=$'\t' read -r s js; do
+  [ -n "$s" ] || continue
   d=$(dirname "$js")
   root=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { echo "$s: $d is not a git checkout"; continue; }
   url=$(git -C "$root" remote get-url --all origin 2>/dev/null)
@@ -63,18 +65,22 @@ while IFS=$'\t' read -r s js; do
   esac
   br=$(git -C "$root" rev-parse --abbrev-ref HEAD)
   [ "$br" = main ] || { echo "$s: $root is on '$br', not main; run: git -C '$root' checkout main"; continue; }
-  up=$(git -C "$root" fetch -q origin main </dev/null && git -C "$root" rev-parse --verify -q FETCH_HEAD) || { echo "$s: fetch failed in $root; not checked"; continue; }
+  up=$(git -c core.hooksPath=/dev/null -C "$root" fetch -q origin main </dev/null && git -C "$root" rev-parse --verify -q FETCH_HEAD) || { echo "$s: fetch failed in $root; not checked"; continue; }
   n=$(git -C "$root" rev-list --count "HEAD..$up") || { echo "$s: cannot compare $root with the fetched main; not checked"; continue; }
-  echo "$s: $d is $n commit(s) behind apache/comdev main; changes: https://github.com/apache/comdev/compare/$(git -C "$root" rev-parse HEAD)...$up"
+  echo "$s: $d is $n commit(s) behind apache/comdev main at $up; changes: https://github.com/apache/comdev/compare/$(git -C "$root" rev-parse HEAD)...$up"
   ok="$ok$s"$'\t'"$d"$'\t'"$root"$'\t'"$up"$'\n'
 done <<EOF
 $regs
 EOF
-[ "$refresh" = yes ] || exit 0
+if [ -z "$refresh" ]; then
+  [ -z "$ok" ] || echo "to update, read the changes, then run this again with refresh=<the commit after 'main at'>"
+  exit 0
+fi
 while IFS=$'\t' read -r s d root up; do
   [ -n "$s" ] || continue
-  git -C "$root" merge -q --ff-only "$up" </dev/null || { echo "$s: fast-forward failed in $root"; continue; }
-  if ( cd "$d" && npm install </dev/null ); then echo "$s: $d is at $up, npm install done"
+  target=$(git -C "$root" rev-parse --verify -q "$refresh^{commit}") && git -C "$root" merge-base --is-ancestor "$target" "$up" || { echo "$s: $refresh is not on the main just fetched for $root; nothing changed"; continue; }
+  git -c core.hooksPath=/dev/null -C "$root" merge -q --ff-only "$target" </dev/null || { echo "$s: fast-forward failed in $root"; continue; }
+  if ( cd "$d" && npm install </dev/null ); then echo "$s: $d is at $target, npm install done"
   else echo "$s: npm install failed in $d; run this again to retry"; fi
 done <<EOF
 $ok
@@ -82,8 +88,8 @@ EOF
 )
 ```
 
-As printed it only reports: one line per registered server, with the commit it would move to.
-When a checkout is behind, the operator reads the compare link, then runs the script again with `refresh=no` changed to `refresh=yes`.
-That fast-forwards each checkout to exactly the commit it just reported, never to another branch's upstream, and runs `npm install` in every checked server's own directory.
-`npm install` runs even when nothing was behind, so a run after a failed install retries it.
+As printed it only reports: one line per registered server, with the commit on `apache/comdev` `main` it was compared with.
+When a checkout is behind, the operator reads the compare link, then runs the script again with `refresh=` set to the commit that line printed after `main at`.
+That run fetches again but fast-forwards to the commit the operator reviewed, never past it, and only when that commit is on the `main` just fetched.
+It runs `npm install` in every checked server's own directory, so two servers sharing a checkout end on the same commit, and a run after a failed install retries it.
 Restart the agent afterwards so the servers reload.

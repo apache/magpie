@@ -168,11 +168,11 @@ class SelfResolvingScriptTest(unittest.TestCase):
         text = data if isinstance(data, str) else json.dumps(data)
         (self.home / ".claude.json").write_text(text, encoding="utf-8")
 
-    def _run(self, shell: str, refresh: bool = False) -> str:
+    def _run(self, shell: str, refresh: str = "") -> str:
         script = _script()
         if refresh:
-            self.assertIn("refresh=no", script)
-            script = script.replace("refresh=no", "refresh=yes", 1)
+            self.assertTrue(script.startswith("(\nrefresh=\n"))
+            script = script.replace("(\nrefresh=\n", f"(\nrefresh={refresh}\n", 1)
         if shell == "zsh":
             script = "setopt no_interactive_comments\n" + script
         env = {**os.environ, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
@@ -199,8 +199,13 @@ class SelfResolvingScriptTest(unittest.TestCase):
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 out = self._run(shell)
-                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind apache/comdev main; changes: {link}", out)
+                self.assertIn(
+                    f"ponymail: {self.ponymail} is 1 commit(s) behind apache/comdev main at {self.ahead}; "
+                    f"changes: {link}",
+                    out,
+                )
                 self.assertIn(f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out)
+                self.assertIn("run this again with refresh=<the commit after 'main at'>", out)
                 self.assertEqual(self._npm_dirs(), [], "report mode never installs")
                 self.assertEqual(self._head(), self.start, "report mode never merges")
 
@@ -208,7 +213,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 self._reset()
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertEqual(out.count("is 1 commit(s) behind"), 2, "both report before anything moves")
                 self.assertEqual(self._head(), self.ahead)
                 self.assertEqual(self._npm_dirs(), self._both_dirs(), "a stdin-reading npm skips no server")
@@ -219,11 +224,11 @@ class SelfResolvingScriptTest(unittest.TestCase):
             with self.subTest(shell=shell):
                 self._reset()
                 self.npm_fail_once.touch()
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertIn("npm install failed in", out)
                 self.assertEqual(self._head(), self.ahead)
                 self.npm_log.unlink(missing_ok=True)
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertEqual(out.count("is 0 commit(s) behind"), 2)
                 self.assertEqual(self._npm_dirs(), self._both_dirs())
 
@@ -236,7 +241,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
         )
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertIn("no ponymail or apache-projects registration in ~/.claude.json", out)
                 self.assertNotIn(str(hostile), out)
 
@@ -258,7 +263,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
         _git("checkout", "-q", "-b", "feature", cwd=self.comdev)
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertIn("is on 'feature', not main", out)
                 self.assertNotIn("commit(s) behind", out)
                 self.assertEqual(self._npm_dirs(), [])
@@ -279,7 +284,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
             _git("remote", "set-url", "origin", url, cwd=self.comdev)
             for shell in SHELLS:
                 with self.subTest(url=url, shell=shell):
-                    out = self._run(shell, refresh=True)
+                    out = self._run(shell, refresh=self.ahead)
                     self.assertIn("not apache/comdev; skipped", out)
                     self.assertNotIn("commit(s) behind", out)
                     self.assertEqual(self._npm_dirs(), [])
@@ -289,20 +294,20 @@ class SelfResolvingScriptTest(unittest.TestCase):
         _git("config", f"url.{self.upstream}.insteadOf", COMDEV_URL, cwd=self.comdev)
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=True))
+                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=self.ahead))
                 self.assertEqual(self._head(), self.start)
 
     def test_a_second_origin_url_cannot_pass_the_origin_check(self) -> None:
         _git("remote", "set-url", "--add", "origin", "https://evil.example/comdev.git", cwd=self.comdev)
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=True))
+                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=self.ahead))
 
     def test_a_failed_fetch_reports_no_count(self) -> None:
         self._fetch_from(self.root / "gone")
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                out = self._run(shell, refresh=True)
+                out = self._run(shell, refresh=self.ahead)
                 self.assertIn("fetch failed in", out)
                 self.assertNotIn("commit(s) behind", out)
                 self.assertEqual(self._npm_dirs(), [])
@@ -313,6 +318,93 @@ class SelfResolvingScriptTest(unittest.TestCase):
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 self.assertIn("is not a git checkout", self._run(shell))
+
+    def test_refresh_stops_at_the_reviewed_commit(self) -> None:
+        # main moves on after the report; the refresh must not take the unreviewed commit.
+        (self.upstream / "LATER").write_text("unreviewed\n", encoding="utf-8")
+        _git("add", ".", cwd=self.upstream)
+        _git("commit", "-q", "-m", "later", cwd=self.upstream)
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self._reset()
+                out = self._run(shell, refresh=self.ahead)
+                self.assertEqual(self._head(), self.ahead)
+                self.assertIn(f"is at {self.ahead}, npm install done", out)
+                self.assertEqual(self._npm_dirs(), self._both_dirs())
+
+    def test_refresh_refuses_a_commit_not_on_the_fetched_main(self) -> None:
+        _git("checkout", "-q", "-b", "side", self.start, cwd=self.upstream)
+        (self.upstream / "SIDE").write_text("side\n", encoding="utf-8")
+        _git("add", ".", cwd=self.upstream)
+        _git("commit", "-q", "-m", "side", cwd=self.upstream)
+        side = _git("rev-parse", "HEAD", cwd=self.upstream)
+        _git("checkout", "-q", "main", cwd=self.upstream)
+        _git("fetch", "-q", str(self.upstream), "side", cwd=self.comdev)
+        for shell in SHELLS:
+            with self.subTest(shell=shell, target="side commit"):
+                out = self._run(shell, refresh=side)
+                self.assertIn("is not on the main just fetched", out)
+                self.assertEqual(self._head(), self.start)
+                self.assertEqual(self._npm_dirs(), [])
+            with self.subTest(shell=shell, target="unknown"):
+                out = self._run(shell, refresh="0" * 40)
+                self.assertIn("is not on the main just fetched", out)
+                self.assertEqual(self._head(), self.start)
+
+    def test_checkout_hooks_never_run(self) -> None:
+        marker = self.root / "hook-ran"
+        hooks = self.comdev / ".git" / "hooks"
+        for hook in ("reference-transaction", "post-merge", "post-checkout"):
+            path = hooks / hook
+            path.write_text(f'#!/bin/sh\necho {hook} >> "{marker}"\n', encoding="utf-8")
+            path.chmod(0o755)
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self._reset()
+                marker.unlink(missing_ok=True)
+                self._run(shell)
+                self._run(shell, refresh=self.ahead)
+                self.assertEqual(self._head(), self.ahead)
+                self.assertFalse(marker.exists(), marker.read_text() if marker.exists() else "")
+
+    def test_only_absolute_index_js_paths_count(self) -> None:
+        self._register(
+            {
+                "mcpServers": {
+                    "ponymail": {"args": ["mcp/ponymail-mcp/index.js"]},
+                    "apache-projects": {"args": [f"--require={self.projects / 'index.js'}"]},
+                }
+            }
+        )
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self.assertIn("no ponymail or apache-projects registration", self._run(shell))
+
+    def test_odd_but_valid_shapes_do_not_hide_a_good_registration(self) -> None:
+        self._register(
+            {
+                "mcpServers": {
+                    "ponymail": "not an object",
+                    "apache-projects": {"args": "not a list"},
+                },
+                "projects": {
+                    "/a": "not an object",
+                    "/b": {"mcpServers": "not an object"},
+                    "/c": {"mcpServers": {"ponymail": {"args": [str(self.ponymail / "index.js")]}}},
+                },
+            }
+        )
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                out = self._run(shell)
+                self.assertNotIn("could not parse", out)
+                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind", out)
+
+    def test_a_non_object_document_is_not_a_parse_error(self) -> None:
+        self._register([1, 2, 3])
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self.assertIn("no ponymail or apache-projects registration", self._run(shell))
 
 
 if __name__ == "__main__":
