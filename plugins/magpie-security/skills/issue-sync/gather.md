@@ -57,14 +57,18 @@ Record:
   The flags are informational observations; they do not stop the sync.
   A missing `announced` label on a tracker whose body has the `announced` date populated is a missing label (propose adding it), not overdue.
 
-Also read the tracker's **project-board status** on the "Security issues" board:
+Also read the tracker's **project-board status**, when [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board) declares a board:
 every issue has exactly one `Status` option, and when it drifts from the label-derived state the sync proposes a move.
-The GraphQL introspection recipe is in
-[`tools/github/project-board.md`](../../../../tools/github/project-board.md#introspection--find-the-itemid-and-current-column);
-the board URL, node IDs and label → column mapping are in
-[`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board).
-Substitute `<tracker-owner>` / `<tracker-name>` / `<project-number>` into the query,
-then record the item's `itemId` (for the Step 4 move) and its current `status` column.
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync board-item <N>
+```
+
+It prints `{node_id, item}`: record `node_id` (to add a missing item), and from `item` the `item_id`, the current `status` and `archived`.
+`item: null` means the tracker is not on the board yet; an open tracker in that state gets an *add to the board* proposal.
+Without the secure setup, the same read is the introspection recipe in
+[`tools/github/project-board.md`](../../../../tools/github/project-board.md#introspection--find-the-itemid-and-current-column).
+When `project.md` declares no board and `tracker.project_board_enabled` is not `false`, record *"no board configured"*: Step 5d turns it into a setup proposal.
 
 ### 1b. Find referenced and referencing PRs
 

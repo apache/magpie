@@ -18,7 +18,10 @@
 
 - `api` (a governance-authorised user, pre-flight `api`): one proposal to
   allocate through the CVE tool's API, with the form URL as the fallback and
-  the one `cve-tool allocate` command to run on a yes.
+  the one `cve-tool allocate` command to run on a yes. With `vetted_workspace`
+  (the secure setup's vetted operations), the command is the vetted
+  `cve-allocate` instead, and `title_file` is the workspace file to write the
+  title to first.
 - `recipe` (authorised, any other pre-flight outcome): open the allocation
   URL, paste the title, submit, paste the ID back.
 - `relay` (not authorised): a terse request for an authorised member — the
@@ -32,6 +35,8 @@ and is shell-quoted in the API command, since it is reporter-influenced.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -78,6 +83,7 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
     )
     block = fence(title)
     command = None
+    title_file = None
     if member and (data.get("preflight") or {}).get("path") == "api":
         pmc = one_line(data.get("pmc"))
         if not pmc:
@@ -89,7 +95,20 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
             "This reserves a CVE ID immediately and cannot be undone.\n"
             f"(Fallback, if the API path fails: the form at {url}.)\n"
         )
-        command = cve_tool.command(data, "allocate", "--pmc", pmc, "--title", title)
+        workspace = one_line(data.get("vetted_workspace"))
+        if workspace:
+            # The vetted operation reads the title from a workspace file; `pmc` lets the
+            # client refuse a token held for any other PMC. The file is named by a hash of
+            # tracker, issue and the approved title, so no other run (another tracker, or
+            # this issue with another title) writes the same file between the write and
+            # the allocation; a sanitised slug would not do (`a-b/c` and `a/b-c` collide).
+            key = hashlib.sha256(json.dumps([tracker, str(data["issue"]), title]).encode()).hexdigest()[:24]
+            title_file = {"path": f"{workspace.rstrip('/')}/cve-title-{key}.txt", "text": title + "\n"}
+            command = cve_tool.vetted_command(
+                "security-cve-allocate", "cve-allocate", pmc, title_file["path"]
+            )
+        else:
+            command = cve_tool.command(data, "allocate", "--pmc", pmc, "--title", title)
     elif member:
         path = "recipe"
         indented = "\n".join("   " + line for line in block.split("\n"))
@@ -115,6 +134,7 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         "path": path,
         "text": text,
         "command": command,
+        "title_file": title_file,
         "governance_member_path": member,
         "relay_message_present": path == "relay",
         "api_allocation_proposed": path == "api",

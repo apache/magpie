@@ -16,6 +16,16 @@
 # Runs every session, so a marketplace upgrade materialises the new version and
 # moves the link without anyone re-pointing it. It only ever replaces a symlink;
 # a real file or directory at `current` is left alone and reported.
+#
+# It also keeps ~/.claude/magpie/security-tools pointing at the plugin's own
+# tools/ in the plugin cache. That is the fixed path the secure setup excludes
+# `cve-tool` from the sandbox on (`uvx --from
+# ~/.claude/magpie/security-tools/cve-tool cve-tool …`), since cve-tool needs
+# the CVE tool's session under ~/.config/apache-magpie. It names the whole
+# tools/ directory because cve-tool's dependencies are sibling tools found by
+# relative path. Unlike the writable copy above, the plugin cache and
+# ~/.claude/magpie are denied to the agent's edits, so the code that runs
+# outside the sandbox cannot be changed from inside it.
 set -euo pipefail
 
 # Drain any event JSON delivered on stdin (unused).
@@ -27,6 +37,15 @@ root="${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}"
 
 version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$root/.claude-plugin/plugin.json" 2>/dev/null | head -n 1)"
 [ -n "$version" ] || version="unversioned"
+stable_dir="$HOME/.claude/magpie"
+stable="$stable_dir/security-tools"
+if [ -e "$stable" ] && [ ! -L "$stable" ]; then
+  echo "magpie-security-tools: $stable exists and is not a symlink; not replacing it" >&2
+elif [ ! -L "$stable" ] || [ "$(readlink "$stable")" != "$root/tools" ]; then
+  mkdir -p "$stable_dir"
+  ln -sfn "$root/tools" "$stable"
+fi
+
 base="$HOME/.cache/apache-magpie/framework"
 target="$base/$version"
 link="$base/current"

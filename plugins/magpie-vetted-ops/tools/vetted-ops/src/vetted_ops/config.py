@@ -166,6 +166,8 @@ class Config:
     #: The non-GitHub security tracker, when ``[tracker] platform`` selects one.
     #: ``None`` means GitHub: tracker operations run their ``gh`` builders.
     tracker_backend: TrackerBackend | None = None
+    #: The raw ``[git]`` table, validated by `git_ops.git_policy` for `vetted-op-git`.
+    git: object = None
 
     def as_mapping(self) -> dict[str, object]:
         """The mapping handed to an operation's ``build`` callable."""
@@ -421,6 +423,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
         endpoints=endpoints,
         callers=callers,
         tracker_backend=_tracker_backend(raw.get("tracker")),
+        git=raw.get("git"),
     )
 
 
@@ -435,6 +438,7 @@ def describe(config: Config) -> str:
             "endpoints": dict(sorted(config.endpoints.items())),
             "callers": {k: sorted(v) for k, v in sorted(config.callers.items())},
             "tracker_backend": (dict(vars(config.tracker_backend)) if config.tracker_backend else "github"),
+            "git": config.git,
         },
         indent=2,
         sort_keys=True,

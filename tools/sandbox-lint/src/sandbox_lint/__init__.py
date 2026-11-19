@@ -155,12 +155,12 @@ VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
 # allow, and the prompt is then the gate on every remote mutation.
 VETTED_OP_WRITE_SAMPLE_COMMANDS = tuple(
     f"{launcher} {VETTED_OPS_BASE} {name} --caller sandbox-lint pr-add-label 1 sandbox-lint"
-    for name in ("vetted-op-tracker", "vetted-op")
+    for name in ("vetted-op-tracker", "vetted-op-git", "vetted-op")
     for launcher in VETTED_OP_READ_LAUNCHERS
 )
 # Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
 # the `vetted-ops` path segment alone does not count.
-VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
+VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op-git", "vetted-op ")
 # The tamper protection that makes the unprompted read safe to allow.
 REQUIRED_VETTED_OPS_DENY = (
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
@@ -176,6 +176,36 @@ REQUIRED_VETTED_OPS_DENY = (
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
+)
+
+# `cve-tool` reads the CVE tool's session under ~/.config/apache-magpie, which
+# the sandbox denies, so the secure setup may run it outside the sandbox from
+# the fixed link the magpie-security-tools SessionStart hook keeps. It
+# allocates, pushes and publishes CVE records, and options may come before the
+# operation, so every call asks: the exclusion is accepted only with an `ask`
+# rule matching each sample below, no `allow` rule matching any, and the
+# plugin cache the link points into denied to the agent's edits.
+CVE_TOOL_BASE = "~/.claude/magpie/security-tools/cve-tool"
+CVE_TOOL_EXCLUSION = f"uvx --from {CVE_TOOL_BASE} cve-tool *"
+CVE_TOOL_SAMPLE_COMMANDS = tuple(
+    f"uvx --from {CVE_TOOL_BASE} cve-tool {tail}"
+    for tail in (
+        "allocate --title sandbox-lint",
+        "push --cve-id CVE-2000-0001 --json-file record.json",
+        "publish --cve-id CVE-2000-0001",
+        "fetch --cve-id CVE-2000-0001 --state-only",
+        "check",
+        "setup --pmc sandbox-lint",
+        "which",
+        # Options come before the operation, and adapters may add operations:
+        # the ask has to cover any of them.
+        "--tool vulnogram publish --cve-id CVE-2000-0001",
+        "sandbox-lint-unknown-operation",
+    )
+)
+REQUIRED_CVE_TOOL_DENY = (
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)",
+    "Edit(~/.claude/magpie/**)",
 )
 
 # permissions.deny must contain at least these entries verbatim. Each
@@ -287,9 +317,12 @@ EXCLUDED_COMMAND_ALLOWLIST = frozenset(
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+        CVE_TOOL_EXCLUSION,
         "~/.claude/scripts/magpie-run-evals.sh *",
     }
 )
@@ -881,6 +914,7 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         excluded = [e for e in sandbox.get("excludedCommands", []) or [] if isinstance(e, str)]
         errors.extend(_vetted_op_read_never_prompts(perms, ask, deny, excluded))
         errors.extend(_vetted_op_writes_prompt(perms, ask, excluded))
+        errors.extend(_cve_tool_prompts(perms, ask, deny, excluded))
         if "Bash(gh *)" in ask:
             errors.append(
                 "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
@@ -1009,7 +1043,7 @@ def _vetted_op_read_never_prompts(
 def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: list[str]) -> list[str]:
     """Violations of the always-prompt shape for the vetted-ops write dispatchers.
 
-    `vetted-op` and `vetted-op-tracker` run outside the sandbox (a sandboxed
+    `vetted-op`, `vetted-op-tracker` and `vetted-op-git` run outside the sandbox (a sandboxed
     `gh` cannot verify TLS), which is safe only while every call still asks.
     A write command that is excluded or allowed must therefore match an `ask` rule.
     """
@@ -1031,6 +1065,44 @@ def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: lis
                 f"permissions.ask: must contain a rule matching {dispatcher!r} "
                 f"(sandbox.excludedCommands {excluded_by[0]!r} runs it outside the sandbox, "
                 "so its prompt is the only gate on the write)"
+            )
+    return errors
+
+
+def _cve_tool_prompts(perms: dict[str, Any], ask: set[str], deny: set[str], excluded: list[str]) -> list[str]:
+    """Violations of the always-prompt shape for an excluded `cve-tool`."""
+    errors: list[str] = []
+    allow = [r for r in perms.get("allow", []) or [] if isinstance(r, str)]
+    for rule in allow:
+        # Any allow that can match a cve-tool call, not only the samples: a rule
+        # naming one operation (`… cve-tool push *`) must fail too.
+        if rule.startswith("Bash(") and "cve-tool" in rule and CVE_TOOL_BASE in rule:
+            errors.append(
+                f"permissions.allow: {rule!r} approves cve-tool calls without a prompt; "
+                "cve-tool belongs in permissions.ask, never allow"
+            )
+            continue
+        for command in CVE_TOOL_SAMPLE_COMMANDS:
+            if _bash_rule_matches(rule, command):
+                errors.append(
+                    f"permissions.allow: {rule!r} approves {command!r} without a prompt; "
+                    "cve-tool belongs in permissions.ask, never allow"
+                )
+                break
+    if not any(fnmatch.fnmatchcase(c, e) for c in CVE_TOOL_SAMPLE_COMMANDS for e in excluded):
+        return errors
+    for command in CVE_TOOL_SAMPLE_COMMANDS:
+        if not any(_bash_rule_matches(rule, command) for rule in ask):
+            errors.append(
+                f"permissions.ask: must contain a rule matching {command!r} "
+                "(sandbox.excludedCommands runs cve-tool outside the sandbox, so its prompt is the "
+                "only gate on a CVE-record change)"
+            )
+    for required in REQUIRED_CVE_TOOL_DENY:
+        if required not in deny:
+            errors.append(
+                f"permissions.deny: must contain {required!r} "
+                "(tamper protection for the cve-tool code that runs outside the sandbox)"
             )
     return errors
 

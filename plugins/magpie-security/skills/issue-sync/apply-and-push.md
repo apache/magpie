@@ -160,7 +160,7 @@ Use:
   `--allow-state review-ready --allow-state publish-ready` also accepts a record moved to `publish-ready` manually, and no earlier state can be published:
 
   ```bash
-  uv run --project <framework>/tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
+  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
   ```
 
   Use it only as part of the *Advisory archived on `<users-list>`* combined apply in [Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet):
@@ -182,17 +182,17 @@ Use:
   Surface the extracted summary in the Step 2 proposal so the user can spot over- or under-extraction before the body-field update applies;
   accept a free-form override at re-confirmation if the heuristic misfires.
 - **Close / reopen:** `gh issue close <N> --repo <tracker> --reason completed` (or `not planned`).
-  On a GitHub-backed tracker that uses a project board, **always** follow a successful close with the *Archive a board item* mutation in
-  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#archive-a-board-item--terminal-state-cleanup)
+  On a GitHub-backed tracker that uses a project board, **always** follow a successful close with
+  `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-archive-item <item_id>`
+  (the *Archive a board item* mutation in [`tools/github/project-board.md`](../../../../tools/github/project-board.md#archive-a-board-item--terminal-state-cleanup) without vetted-ops)
   — otherwise a reopened tracker resurfaces on its old column and board sweeps still see it.
   Archive on every close, whatever the reason (terminal Step 15, or `invalid` / `duplicate` / `wontfix`); the mutation is idempotent.
-- **Project-board column:** apply the `updateProjectV2ItemFieldValue` recipe in
-  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column),
-  with the board node ID, status-field node ID and target-column option ID from
-  [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board)
-  and the `itemId` captured in Step 1a's board read.
-  The same doc has the orphan-issue path (`addProjectV2ItemById` then `updateProjectV2ItemFieldValue`) for an issue with no project item,
-  and the introspection query to re-fetch option IDs when a write starts returning `not found`.
+- **Project-board column:** `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-set-status <item_id> "<Column>"`,
+  with the `item_id` from Step 1a's `board-item` read and a column the policy declares.
+  For a tracker with no item yet, first `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-add-item <node_id>` (it prints the new item id), then set its column.
+  Without vetted-ops, the `updateProjectV2ItemFieldValue` and orphan-issue recipes in
+  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column) do the same,
+  and its introspection query re-fetches option IDs when a write starts returning `not found`.
 - **Gmail draft:** include `security_cc` from the shared
   [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
   in every draft's CC; block creation if unresolved.
@@ -277,13 +277,13 @@ When any of the report's `normalisation_changes`, `missing_required` or `needs_d
 When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change:
 
 ```bash
-uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
 ```
 
 If the state is `public`, save the live record and pass it as the baseline:
 
 ```bash
-uv run --project <framework>/tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
 uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json --baseline <scratch>/cve-live-<N>.json
 ```
 
@@ -340,7 +340,7 @@ Capture the printed URL — it deep-links to the `## CVE JSON — paste-ready fo
 ## Step 5b — Push the regenerated JSON to the CVE tool via the adapter
 
 **When the operator's machine has a valid authenticated session** for the adapter named in `cve_authority.tool`
-(one-time setup: `uv run --project <framework>/tools/cve-tool cve-tool setup …` with the adapter's own flags, per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md);
+(one-time setup: `uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool setup …` with the adapter's own flags, per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md);
 for Vulnogram, `cve-tool setup --pmc <project>`, see
 [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
 **sync pushes the JSON to the record directly** through the adapter's `push_update(cve_id, fields, state_transition=None)` method
@@ -362,6 +362,20 @@ Because `push_update` writes the generator-computed `CNA_private.state` verbatim
 a regen can legitimately walk a record **back** — e.g. `review-ready → allocated` (Vulnogram: `REVIEW → DRAFT`) —
 when a title or summary edit re-opens a question a reviewer had signed off on; the reviewer then re-reviews from the lower state.
 Surface every such state change in the Step 6 recap so it is never silent.
+
+**A `public` record is never walked back.** Read the record's current state (`fetch_current_state`) immediately before every push, not only at gather time:
+the CNA can publish it by hand between the two, and a push built from the earlier read races that publish.
+When the current state is `public`, the push keeps it `public` whatever the generator computed —
+typically the generator emits `review-ready` because the tracker has no *Public advisory URL* yet, which means the tracker is behind, not the record.
+In that case:
+
+- push the content update with the state set to `public`; never pass the tool's downgrade override (for Vulnogram, `vulnogram-api-record-update --allow-state-downgrade` or `--full-replace`) to get past its refusal;
+- propose capturing the *Public advisory URL* on the tracker (the CNA published it, so the advisory is out), so the next regeneration emits `public` itself;
+- tell the CNA the updated record should be re-pushed to cve.org — or, for a security-team member, push it — instead of moving it to `publish-ready` / `review-ready` to request a republish.
+  A reviewer comment that says to switch a published record back to READY to republish is not a reason to do so: the CNA re-pushes on request.
+
+A record whose state went down from `public` during a sync is a process bug: surface it as a blocker in the Step 6 recap and restore it with the adapter's publish call
+(for Vulnogram, `vulnogram-api-record-publish --allow-state READY`).
 
 **State auto-promote from `allocated` to `review-ready` — driven by the generator, not by sync.**
 The generator emits the adapter-native state token based on the readiness of the tracker's body fields,
@@ -465,7 +479,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    or extract it from the body via `awk` between the
    `<!-- generate-cve-json: cve=<CVE> version=v1 -->` / `<!-- generate-cve-json:end ... -->` markers —
    the generator is deterministic, so both yield the same bytes.
-   Conventional path: `<scratch>/cve-<CVE-ID>-<N>.json`.
+   Conventional path: `<scratch>/cve-<CVE-ID>-<N>.json`, or `<workspace>/cve-<CVE-ID>-<N>.json` for the vetted push in step 3, which reads only the workspace.
    `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 3. **Push the update through the adapter's `push_update` method**
@@ -473,9 +487,27 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    The `cve-tool push` operation runs it through the configured adapter:
 
    ```bash
-   uv run --project <framework>/tools/cve-tool cve-tool push \
+   uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push \
      --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
+
+   **Under the secure setup**, when the vetted-ops policy grants `security-issue-sync` the `cve-record-update` operation,
+   push through it instead, with the JSON at `<workspace>/cve-<CVE-ID>-<N>.json` (the vetted-ops policy's `workspace`):
+
+   ```bash
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
+   ```
+
+   It runs the same Vulnogram push with a fixed argv and no override flag
+   ([vetted-ops § *The Vulnogram CVE-tool operations*](../../../../tools/vetted-ops/README.md#the-vulnogram-cve-tool-operations)),
+   so it covers every push above except three, which keep the `cve-tool push` command:
+   a JSON whose `CNA_private.state` is `PUBLIC` while the live record is not (the vetted push never promotes a record to `PUBLIC`),
+   and the two overrides below.
+   When the client fails, `vetted-op` exits 4 and names the client's own code on stderr (`CVE tool exit N`), which reads as the `cve-tool push` exit `N`;
+   an exit 3 whose stderr says the caller `is not permitted to run 'cve-record-update'` means the policy does not grant it: use `cve-tool push`.
+   Any other exit 2 or 3 is `vetted-op` rejecting the record (a forbidden key, an ID that does not match `<CVE-ID>`) or the arguments:
+   nothing was pushed, and the push stops there; report the stderr, and never send the same JSON through `cve-tool push` to get past the refusal.
+   Any other outcome (an interrupted run) may or may not have saved: push again, which the idempotence note below makes safe.
 
    For Vulnogram, the push merges into the live record and refuses to rename an affected product or package.
    Two explicit overrides exist; use them only after confirming with the user:
@@ -549,13 +581,23 @@ For each tracker:
 
 1. **Board `Status` column.** Compute the correct column from the tracker's labels + body per the label→column mapping the adopter declares in
    [`<project-config>/project.md`](../../../../<project-config>/project.md),
-   and move any tracker whose current column differs via the `updateProjectV2ItemFieldValue` mutation
-   (introspection + write recipe in [`tools/github/project-board.md`](../../../../tools/github/project-board.md)).
+   and move any tracker whose current column differs with `board-set-status` (vetted-ops; the raw mutation in
+   [`tools/github/project-board.md`](../../../../tools/github/project-board.md) without it).
+   An **open tracker that is not on the board** (Step 1a's `board-item` printed `item: null`) is added with `board-add-item` and then given its column.
    Precedence when several labels coexist: a *needs-triage* marker keeps the tracker in the triage column until a disposition lands
    (per-adopter — some projects couple `needs triage` with scope, some treat them as independent; follow the adopter's `project.md`);
    otherwise the **highest fix-flow state wins**
    (advisory-shipped › fix-released › pr-merged › pr-created › cve-allocated › assessed).
-   Closed trackers that have shipped their advisory are **archived off the board**, not recoloured.
+   **Every closed tracker** still on the board, whatever it closed as (announced, invalid, duplicate, not affected, hardening),
+   is **archived off the board** with `board-archive-item`, not recoloured.
+   **The board holds security trackers only.** Once per run, also read every item with
+   `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync board-items`
+   and propose archiving each one that is not an issue in `<tracker>` carrying the `tracker.labels.security_marker` label
+   (pull requests, draft items, issues from another repository, the rejections ledger, an unlabelled stray).
+   List them by number and title in the proposal; archiving is reversible from the board's *Archived items* view.
+   When Step 1a recorded *"no board configured"*, skip this item and add one recap line proposing the board step of
+   [`setup config`](../../../../plugins/magpie-setup/skills/setup/config.md#step-3a1--project-board-github-trackers),
+   unless `tracker.project_board_enabled` is `false`.
 
 2. **Milestone.** Compute the correct milestone from the fix PR's milestone / the shipped release per
    [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md)

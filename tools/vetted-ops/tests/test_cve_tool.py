@@ -18,8 +18,11 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -83,11 +86,12 @@ def test_fetch_runs_the_record_fetch_command_with_only_the_id(policy: config.Con
 def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, workspace: Path) -> None:
     """The client reads `-`, so the bytes vetted-ops read are the bytes pushed."""
     record = workspace / "cve.json"
-    record.write_text('{"dataType": "CVE_RECORD"}')
+    content = json.dumps({"dataType": "CVE_RECORD", "cveMetadata": {"cveId": CVE}})
+    record.write_text(content)
     op = ops.resolve("cve-record-update")
     assert op.writes
     params, body = cli._validate_params(op, [CVE, str(record)], policy)
-    assert body == b'{"dataType": "CVE_RECORD"}'
+    assert body == content.encode()
     assert cli.build_argv(op, params, policy) == [
         *_prefix(),
         "vulnogram-api-record-update",
@@ -97,6 +101,36 @@ def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, works
         "-",
         "--no-promote-to-public",
     ]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ('{"cveMetadata": {"cveId": "CVE-2026-99999"}}', "is for 'CVE-2026-99999', not the target"),
+        ('{"dataType": "CVE_RECORD"}', "has no cveMetadata.cveId"),
+        ('{"cveMetadata": {"cveId": 12345}}', "has no cveMetadata.cveId"),
+        (json.dumps({"go": "x", "cveMetadata": {"cveId": CVE}}), "top-level key"),
+        ("[1, 2]", "not a JSON object"),
+        ("not json", "not UTF-8 JSON"),
+    ],
+)
+def test_update_refuses_a_record_for_another_id_or_a_request_envelope(
+    policy: config.Config, workspace: Path, content: str, message: str
+) -> None:
+    """The client posts to --cve-id whatever the document says, so the ids must agree."""
+    record = workspace / "cve.json"
+    record.write_text(content)
+    with pytest.raises(ops.ParamError, match=message):
+        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
+
+
+@pytest.mark.parametrize("variant", [CVE.lower(), f" {CVE}", f"{CVE} ", f"{CVE}\n"])
+def test_the_record_id_must_match_exactly(policy: config.Config, workspace: Path, variant: str) -> None:
+    """Vulnogram can act on the document's own id, so a near-match is a different id."""
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": variant}}))
+    with pytest.raises(ops.ParamError, match="not the target"):
+        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
 
 
 def test_update_refuses_a_record_outside_the_workspace(policy: config.Config, tmp_path: Path) -> None:
@@ -111,10 +145,12 @@ def test_allocate_reads_its_title_from_a_workspace_file(policy: config.Config, w
     title.write_text("Config API: section aliases bypass masking\n")
     op = ops.resolve("cve-allocate")
     assert op.writes
-    params, _ = cli._validate_params(op, [str(title)], policy)
+    params, _ = cli._validate_params(op, ["airflow", str(title)], policy)
     assert cli.build_argv(op, params, policy) == [
         *_prefix(),
         "vulnogram-api-allocate",
+        "--pmc",
+        "airflow",
         "--title",
         "Config API: section aliases bypass masking",
     ]
@@ -128,10 +164,18 @@ def test_a_malformed_cve_id_never_reaches_the_client(policy: config.Config, bad:
         cli._validate_params(ops.resolve("cve-record-fetch"), [bad], policy)
 
 
+@pytest.mark.parametrize("bad", ["Airflow", "airflow --credentials", "--credentials", "../x", ""])
+def test_a_malformed_pmc_never_reaches_the_client(policy: config.Config, workspace: Path, bad: str) -> None:
+    title = workspace / "title.txt"
+    title.write_text("A title\n")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(ops.resolve("cve-allocate"), [bad, str(title)], policy)
+
+
 def test_no_override_flag_is_reachable() -> None:
     """The caller's values are the only variable parts; no `--allow-*` / `--credentials`."""
     for name in ("cve-record-fetch", "cve-record-update", "cve-allocate"):
-        assert set(ops.resolve(name).params) <= {"cve_id", "body", "title"}
+        assert set(ops.resolve(name).params) <= {"cve_id", "body", "title", "pmc"}
 
 
 def test_a_tampered_argv_is_refused(policy: config.Config) -> None:
@@ -160,6 +204,7 @@ def test_a_tampered_argv_is_refused(policy: config.Config) -> None:
         "LD_PRELOAD",
         "HTTPS_PROXY",
         "SOME_UNRELATED_VAR",
+        "TMPDIR",  # sandbox-writable inside the harness; uv builds there
     ],
 )
 def test_the_child_environment_is_an_allowlist(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
@@ -218,6 +263,7 @@ def test_a_dry_run_shows_the_title_only_as_its_size(
             "security-cve-allocate",
             "--dry-run",
             "cve-allocate",
+            "airflow",
             str(title),
             "--config",
             str(policy_path),
@@ -227,3 +273,26 @@ def test_a_dry_run_shows_the_title_only_as_its_size(
     out = capsys.readouterr().out
     assert "Embargoed title" not in out
     assert "<from file, 15 chars>" in out
+
+
+#: The grants the README's CVE-tool section tells adopters to make.
+CVE_TOOL_GRANTS = {
+    "security-issue-sync": {"cve-record-fetch", "cve-record-update"},
+    "security-cve-allocate": {"cve-record-fetch", "cve-record-update", "cve-allocate"},
+}
+
+
+def _readme_callers() -> dict[str, list[str]]:
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    for block in re.findall(r"```toml\n(.*?)```", readme.read_text(encoding="utf-8"), re.S):
+        if "[callers]" in block and "security-cve-allocate" in block:
+            return tomllib.loads(block)["callers"]
+    raise AssertionError("no [callers] example with the security callers in the README")
+
+
+@pytest.mark.parametrize("caller", sorted(CVE_TOOL_GRANTS))
+def test_the_readme_callers_example_grants_the_cve_tool_operations(caller: str) -> None:
+    # Adopters and `setup config` derive their policy from this example, so a
+    # grant the prose asks for but the example leaves out is refused everywhere.
+    missing = sorted(CVE_TOOL_GRANTS[caller] - set(_readme_callers()[caller]))
+    assert not missing, f"the README [callers] example does not grant {caller}: {missing}"

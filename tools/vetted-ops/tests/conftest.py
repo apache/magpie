@@ -95,13 +95,28 @@ def _denied_policy_path(exc: BaseException) -> str | None:
     return None
 
 
+def _skip_if_denied(exc: OSError) -> None:
+    path = _denied_policy_path(exc)
+    if path is None or _policy_paths_writable():
+        return
+    pytest.skip(f"the sandbox denies writes to vetted-ops policy paths ({path}); CI runs this test")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
+    """The same skip for a fixture that builds the policy before the test runs."""
+    try:
+        return (yield)
+    except OSError as exc:
+        _skip_if_denied(exc)
+        raise
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_call(item: pytest.Item) -> Iterator[None]:
     """Skip, rather than fail, a test the secure sandbox stops from writing a policy."""
     try:
         return (yield)
     except OSError as exc:
-        path = _denied_policy_path(exc)
-        if path is None or _policy_paths_writable():
-            raise
-        pytest.skip(f"the sandbox denies writes to vetted-ops policy paths ({path}); CI runs this test")
+        _skip_if_denied(exc)
+        raise

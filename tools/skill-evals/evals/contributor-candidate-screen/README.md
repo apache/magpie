@@ -4,7 +4,7 @@
 # contributor-candidate-screen eval suite
 
 Behavioural eval suite for the
-[`contributor-candidate-screen`](../../../../skills/contributor-candidate-screen/SKILL.md)
+[`contributor-candidate-screen`](../../../../plugins/magpie-contributor-growth/skills/candidate-screen/SKILL.md)
 skill. Tests six decision points:
 
 | Step dir | What is tested | Cases |

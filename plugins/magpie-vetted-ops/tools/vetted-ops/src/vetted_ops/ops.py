@@ -35,6 +35,7 @@ import json
 import os
 import re
 import stat as stat_mod
+import time
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -223,6 +224,46 @@ def cve_id(value: str) -> str:
     return _check(_CVE_ID, value, "CVE id")
 
 
+#: A Vulnogram PMC / committee id (`airflow`, `incubator-foo`): lowercase, no path or flag.
+_PMC = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+
+
+def pmc(value: str) -> str:
+    return _check(_PMC, value, "PMC")
+
+
+#: Top-level keys a CVE record pushed through `cve-record-update` may not carry:
+#: Vulnogram reads `go` as a request envelope rather than record content.
+_CVE_RECORD_FORBIDDEN_KEYS = frozenset({"go"})
+
+
+def check_cve_record(body: bytes, expected_id: str) -> None:
+    """
+    Refuse a CVE record whose own id is not the one it is pushed to.
+
+    The client posts the document to the `--cve-id` it is given, whatever the
+    document says; a record written for one id must never land on another.
+    A refusal never quotes the document, only what is wrong with it.
+    """
+    try:
+        document = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ParamError("the CVE record is not UTF-8 JSON") from None
+    if not isinstance(document, dict):
+        raise ParamError("the CVE record is not a JSON object")
+    forbidden = sorted(_CVE_RECORD_FORBIDDEN_KEYS & document.keys())
+    if forbidden:
+        raise ParamError(f"the CVE record carries top-level key(s) {forbidden}, which are not record content")
+    meta = document.get("cveMetadata")
+    record_id = meta.get("cveId") if isinstance(meta, dict) else None
+    if not isinstance(record_id, str):
+        raise ParamError("the CVE record has no cveMetadata.cveId to check against the target id")
+    # Exact match, no normalisation: Vulnogram can act on the document's own id
+    # (the rename case), so " cve-…" must not pass for "CVE-…".
+    if record_id != expected_id:
+        raise ParamError(f"the CVE record is for {record_id!r}, not the target {expected_id!r}")
+
+
 #: A calendar date, strictly YYYY-MM-DD: it is written into a search string.
 _DATE = re.compile(r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$")
 
@@ -366,8 +407,47 @@ _SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 #: The marker that makes a `saved/` directory a `--save` target. See `save_output`.
 SAVE_MARKER = ".vetted-ops-save"
 
+#: How long a saved read is kept by default; `[values] saved_retention_days` overrides it.
+DEFAULT_SAVED_RETENTION_DAYS = 7
 
-def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
+
+def saved_retention_days(value: object) -> int:
+    """The policy's `saved_retention_days`, or the default; a whole number of days, at least 1."""
+    if value is None:
+        return DEFAULT_SAVED_RETENTION_DAYS
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ParamError(f"saved_retention_days must be a whole number of days, at least 1, not {value!r}")
+    return value
+
+
+def _prune_saved(dir_fd: int, *, keep: str, max_age_days: int) -> None:
+    """Remove saved reads older than ``max_age_days`` from the open ``saved/`` directory.
+
+    Saved reads carry tracker and pull-request text, and the workspace outlives
+    the session, so they are not left to accumulate. Everything here is relative
+    to ``dir_fd`` and never follows a link: only a regular file or a symlink this
+    user owns is removed (a symlink is unlinked, its target untouched), and the
+    marker, dot-files (another save's temporary file), subdirectories and the
+    file just written are kept. Any error leaves the entry alone.
+    """
+    cutoff = time.time() - max_age_days * 86400
+    for entry in os.listdir(dir_fd):
+        if entry == keep or entry.startswith("."):
+            continue
+        try:
+            st = os.stat(entry, dir_fd=dir_fd, follow_symlinks=False)
+            if not (stat_mod.S_ISREG(st.st_mode) or stat_mod.S_ISLNK(st.st_mode)):
+                continue
+            if st.st_uid != os.getuid() or st.st_mtime >= cutoff:
+                continue
+            os.unlink(entry, dir_fd=dir_fd)
+        except OSError:
+            continue
+
+
+def save_output(
+    name: str, data: bytes, *, workspace: Path, retention_days: int = DEFAULT_SAVED_RETENTION_DAYS
+) -> Path:
     """
     Write a read operation's output to ``<workspace>/saved/<name>``.
 
@@ -393,6 +473,9 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
 
     The name is one path component, and every path is resolved with
     ``O_NOFOLLOW`` relative to a descriptor for the checked workspace.
+
+    After the write, saved reads older than ``retention_days`` are pruned from
+    the same directory (`_prune_saved`).
     """
     _check(_SAVE_NAME, name, "save name")
     root = checked_workspace(workspace)
@@ -433,6 +516,7 @@ def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
             with contextlib.suppress(OSError):
                 os.unlink(temp, dir_fd=dir_fd)
             raise
+        _prune_saved(dir_fd, keep=name, max_age_days=retention_days)
     finally:
         os.close(dir_fd)
     return root / SAVED_DIR / name
@@ -610,6 +694,18 @@ def _tracker(cfg: dict[str, str]) -> str:
 
 def _upstream(cfg: dict[str, str]) -> str:
     return cfg["upstream_repo"]
+
+
+def _board(cfg: dict[str, str]) -> str:
+    """The project board's node id, or a refusal naming what the policy lacks."""
+    board = cfg.get("board_project_id")
+    if not board:
+        raise ParamError(
+            "this operation addresses the project board, which the policy does not configure. "
+            "Declare `board_project_id`, `board_status_field_id` and `[values.board_columns]` "
+            "to enable it (setup's board step fills them in)."
+        )
+    return board
 
 
 def _owner_name(repo: str) -> tuple[str, str]:
@@ -1363,6 +1459,88 @@ _register(
     )
 )
 
+#: The tracker issue's node id and its items on any project, archived included;
+#: the jq filter below keeps only the configured board's item.
+_BOARD_ITEM_QUERY = (
+    "query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){"
+    "issue(number:$n){id projectItems(first:20,includeArchived:true){nodes{"
+    "id isArchived project{id} "
+    'fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}'
+)
+
+
+def _board_item_argv(cfg: dict[str, str], number: str) -> list[str]:
+    owner, name = _tracker(cfg).split("/", 1)
+    board = _board(cfg)
+    jq = (
+        ".data.repository.issue as $i | {node_id: $i.id, item: ("
+        f'[$i.projectItems.nodes[] | select(.project.id == "{board}") '
+        "| {item_id: .id, status: (.fieldValueByName.name // null), archived: .isArchived}]"
+        " | first // null)}"
+    )
+    return [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        f"owner={owner}",
+        "-F",
+        f"name={name}",
+        "-F",
+        f"n={number}",
+        "-f",
+        f"query={_BOARD_ITEM_QUERY}",
+        "--jq",
+        jq,
+    ]
+
+
+_register(
+    Op(
+        name="board-item",
+        params=("number",),
+        summary="One tracker issue's node id and its item on the project board (id, Status column, archived), or null.",
+        build=_board_item_argv,
+    )
+)
+
+#: Every item on the board, every page: what it is and where it comes from,
+#: so a sweep can archive anything that is not a security tracker.
+_BOARD_ITEMS_QUERY = (
+    "query($board:ID!,$endCursor:String){node(id:$board){... on ProjectV2{"
+    "items(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{"
+    "id isArchived type content{"
+    "... on Issue{number state repository{nameWithOwner} labels(first:30){nodes{name}}} "
+    "... on PullRequest{number state repository{nameWithOwner}}} "
+    'fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}'
+)
+_BOARD_ITEMS_JQ = (
+    ".data.node.items.nodes[] | select(.isArchived | not) | "
+    "{item_id: .id, type: .type, repo: (.content.repository.nameWithOwner // null), "
+    "number: (.content.number // null), state: (.content.state // null), "
+    "labels: [.content.labels.nodes[]?.name], status: (.fieldValueByName.name // null)}"
+)
+
+_register(
+    Op(
+        name="board-items",
+        params=(),
+        summary="Every item on the project board, one JSON line each: type, repository, number, state, labels, column.",
+        build=lambda cfg: [
+            "gh",
+            "api",
+            "graphql",
+            "--paginate",
+            "-F",
+            f"board={_board(cfg)}",
+            "-f",
+            f"query={_BOARD_ITEMS_QUERY}",
+            "--jq",
+            _BOARD_ITEMS_JQ,
+        ],
+    )
+)
+
 _register(
     Op(
         name="board-add-item",
@@ -1374,7 +1552,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"content={content_id}",
             "-f",
@@ -1396,7 +1574,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"item={item_id}",
             "-f",
@@ -1437,7 +1615,7 @@ _register(
             "api",
             "graphql",
             "-F",
-            f"project={cfg['board_project_id']}",
+            f"project={_board(cfg)}",
             "-F",
             f"item={item_id}",
             "-F",
@@ -2848,12 +3026,14 @@ _register(
 _register(
     Op(
         name="cve-allocate",
-        params=("title",),
+        params=("pmc", "title"),
         backend="cve-tool",
         writes=True,
         summary="Allocate a CVE id for a title through the Vulnogram CVE tool.",
         title_files=("title",),
-        build=lambda cfg, title: cve_tool.argv("vulnogram-api-allocate", "--title", title),
+        # `--pmc` lets the client refuse a token held for any other PMC, so the
+        # id is reserved for the PMC the user approved, whatever session is current.
+        build=lambda cfg, pmc, title: cve_tool.argv("vulnogram-api-allocate", "--pmc", pmc, "--title", title),
     )
 )
 

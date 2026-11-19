@@ -4,7 +4,7 @@
 # Eval suite: `release-verify-rc`
 
 Behavioural eval suite for the
-[`release-verify-rc`](../../../../skills/release-verify-rc/SKILL.md) skill.
+[`release-verify-rc`](../../../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) skill.
 
 ## Suites
 

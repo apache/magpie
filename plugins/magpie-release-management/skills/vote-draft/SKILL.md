@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 6210
+measured_tokens: 6518
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -107,6 +107,28 @@ On a pinned-snapshot or self-adopted install, setup answers to the shorter
 `/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
+
+<!-- BEGIN MAGPIE BLOCK: sandbox-golden-rule — generated from tools/dev/blocks/sandbox-golden-rule.md -->
+
+**Golden rule — a step the sandbox blocks becomes a vetted operation, never
+a bypass.** This holds for the whole run. When anything you need to do fails
+on a sandbox restriction (a blocked host or transport, a read-only path, a
+denied credential or socket):
+
+1. Never leave the sandbox for it: no sandbox-disabling flag, and no wider
+   exclusion or allow rule proposed as the fix.
+2. Look for a route that stays safe: a spelling the sandbox allows (fetch in
+   the main checkout, rewrite history in a scratch clone), or a vetted
+   operation that already covers it (`vetted-op-read`, `vetted-op`,
+   `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+3. If none exists, do the rest of the work, give the user the one command to
+   run this time, and propose `/magpie-setup:upstream-fix` for it: a
+   closed-shape vetted operation (fixed argv, validated parameters, destination
+   from the approved policy, no repository code or configuration steering it,
+   behind a confirmation) or a documented in-sandbox route. Opening that PR
+   needs the user's go-ahead, like any other publication.
+
+<!-- END MAGPIE BLOCK: sandbox-golden-rule -->
 
 This skill drafts the `[VOTE]` email and planning-issue comment for an Apache-convention RC vote.
 It is Step 7 of the [release-management lifecycle](../../../../docs/release-management/process.md).
@@ -283,7 +305,7 @@ Render the draft with the [`release-management`](../../../../tools/release-manag
 uv run --project <framework>/tools/release-management release-management vote-draft render --step 2 \
   --load <scratch>/vote-draft-load.json --product-name "<product-name>" \
   --tag-url <tag_url> --changelog-url <changelog_url> [--staging-url <url>] [--svn-revision <rev>] \
-  [--rc-comment <workspace>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
+  [--rc-comment <scratch>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
   [--expedited "<neutral reason>"] [--skip-verify-check "<reason>"] [--planning-issue <url>] \
   [--atr-candidate-url <url>] [--atr-revision <rev>] [--nexus-staging-repo <id-or-url>] \
   [--project <project>] [--rm-name "<RM name>"]

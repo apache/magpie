@@ -214,6 +214,67 @@ def test_write_dispatcher_ask_rule_does_not_catch_the_read_dispatcher(baseline: 
     assert not [e for e in errors if "vetted-op-read" in e], errors
 
 
+CVE_TOOL = "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *"
+
+
+def test_baseline_excludes_and_asks_cve_tool(baseline: dict[str, Any]) -> None:
+    # cve-tool needs the CVE tool's session the sandbox denies, so it runs
+    # outside it from the plugin's fixed link; every call still asks.
+    assert CVE_TOOL in baseline["sandbox"]["excludedCommands"]
+    assert f"Bash({CVE_TOOL})" in baseline["permissions"]["ask"]
+    assert f"Bash({CVE_TOOL})" not in baseline["permissions"]["allow"]
+    assert (
+        "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)"
+        in baseline["permissions"]["deny"]
+    )
+    assert not [r for r in baseline["sandbox"]["excludedCommands"] if "apache-magpie/framework" in r]
+
+
+def test_excluded_cve_tool_without_ask_is_an_invariant_error(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["ask"].remove(f"Bash({CVE_TOOL})")
+    errors = check_invariants(weakened)
+    assert any("permissions.ask" in e and "cve-tool allocate" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("operation", ["fetch", "push", "publish", "check", "--tool vulnogram"])
+def test_allowed_cve_tool_is_an_invariant_error(baseline: dict[str, Any], operation: str) -> None:
+    weakened = copy.deepcopy(baseline)
+    rule = f"Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool {operation} *)"
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any("permissions.allow" in e and rule in e for e in errors), errors
+
+
+def test_per_operation_cve_tool_asks_do_not_cover_the_exclusion(baseline: dict[str, Any]) -> None:
+    # Options precede the operation and adapters may add operations, so one
+    # rule per known operation leaves calls the exclusion runs unprompted.
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["ask"].remove(f"Bash({CVE_TOOL})")
+    weakened["permissions"]["ask"] += [
+        f"Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool {op} *)"
+        for op in ("allocate", "push", "publish", "fetch", "check", "setup", "which")
+    ]
+    errors = check_invariants(weakened)
+    assert any("permissions.ask" in e and "--tool vulnogram" in e for e in errors), errors
+
+
+def test_excluded_cve_tool_needs_the_plugin_cache_edit_deny(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    rule = "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)"
+    weakened["permissions"]["deny"].remove(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "cve-tool" in e for e in errors), errors
+
+
+def test_cve_tool_from_the_writable_framework_copy_is_not_excludable(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    entry = "uvx --from ~/.cache/apache-magpie/framework/current/tools/cve-tool cve-tool *"
+    weakened["sandbox"]["excludedCommands"].append(entry)
+    errors = check_invariants(weakened)
+    assert any(entry in e and "allowlist" in e for e in errors), errors
+
+
 def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline: dict[str, Any]) -> None:
     # A `*` where the plugin version sits also matches spaces, so it would
     # approve, and run unsandboxed, a command with extra uv options spliced in.

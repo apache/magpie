@@ -33,6 +33,8 @@ import {
   formatSeverityBadge,
   getReviewFindingsState,
   handleBashToolCall,
+  isAllowedFindingsPath,
+  normalizeAbsolutePath,
   handleFindingsCommand,
   handleUiPress,
   isAnchored,
@@ -102,6 +104,9 @@ function createMockEngine(overrides: any = {}): any {
     // whether the path itself is a link.
     stat: async (path: string) => {
       if (files.has(path)) return { kind: 'file', size: files.get(path)!.length, mtimeMs: 0, isLink: false };
+      if ([...files.keys()].some((f) => f.startsWith(`${path}/`))) {
+        return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
+      }
       throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
     },
     _files: files,
@@ -125,6 +130,10 @@ function createMockEngine(overrides: any = {}): any {
     },
     ui: {
       invalidate: () => {},
+    },
+    session: {
+      cwd: async () => '/work',
+      root: async () => '/work',
     },
     ...overrides,
     fs: {
@@ -1221,7 +1230,8 @@ End of observations.
       // Item 1 (edited): explanation MUST be updated, suggestion deleted
       assertStrictEqual(parsed[0].explanation, 'Customized explanation by maintainer');
       assertStrictEqual(parsed[0].suggestion, undefined);
-      assertStrictEqual(parsed[0].custom_metadata, 'preserved');
+      // Only the finding schema reaches the sidecar render reads.
+      assertStrictEqual(parsed[0].custom_metadata, undefined);
 
       // Item 2 (accepted): explanation preserved from raw
       assertStrictEqual(parsed[1].explanation, 'Original text kept as is');
@@ -1488,6 +1498,11 @@ End of observations.
           cwd: async () => '/work/repo',
         },
         fs: {
+          stat: async (path: string) => {
+            if (path.includes('findings-1887.json')) return { kind: 'file', size: 1, mtimeMs: 0, isLink: false };
+            if (path === '/work/repo/saved') return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
+            throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+          },
           read: async (path: string) => {
             if (path.includes('findings-1887.json')) {
               return JSON.stringify(mockFindings);
@@ -1806,6 +1821,11 @@ End of observations.
           cwd: async () => '/work/repo',
         },
         fs: {
+          stat: async (path: string) => {
+            if (path.includes('findings-1887.json')) return { kind: 'file', size: 1, mtimeMs: 0, isLink: false };
+            if (path === '/work/repo/saved') return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
+            throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+          },
           read: async (path: string) => {
             if (path.includes('findings-1887.json')) {
               return JSON.stringify(rawFindings);
@@ -2286,7 +2306,8 @@ End of observations.
       const failingTest$ = createMockEngine({
         fs: {
           exists: async () => true,
-          stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: false }),
+          // Parent directories are directories; everything with a suffix is a file.
+          stat: async (p: string) => ({ kind: /\.[a-z]+$/.test(p) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: false }),
           read: async () => '[]',
           write: async (path: string, content: string) => {
             if (path.endsWith('.keep')) {
@@ -2564,7 +2585,15 @@ End of observations.
 
       const result = await syncCuratedStateToDisk(test$, state);
       assertStrictEqual(result.success, false);
-      assert(result.error?.includes('Source findings file does not exist'));
+      // Its directory is missing too, so the confinement check refuses before the existence check.
+      assert(result.error?.includes('Refusing to write sidecars outside'));
+      assertStrictEqual(test$.fs._files.size, 0);
+
+      // With the directory present, the missing source itself is reported.
+      test$.fs._files.set('/work/nonexistent/other.json', '[]');
+      const again = await syncCuratedStateToDisk(test$, state);
+      assertStrictEqual(again.success, false);
+      assert(again.error?.includes('Source findings file does not exist'));
     });
 
     test('computeFindingsHash matches known-answer SHA-256 vectors', () => {
@@ -2730,6 +2759,7 @@ End of observations.
             if (p.endsWith('.curated.json')) {
               return { kind: 'file', size: 0, mtimeMs: 0, isLink: true };
             }
+            if (p === '/work/saved') return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
             return { kind: 'file', size: 0, mtimeMs: 0, isLink: false };
           },
         },
@@ -2758,6 +2788,7 @@ End of observations.
             if (p.endsWith('.curated.json')) {
               return { kind: 'file', size: 0, mtimeMs: 0, isLink: true };
             }
+            if (p === '/work/saved') return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
             return { kind: 'file', size: 0, mtimeMs: 0, isLink: false };
           },
         },
@@ -2836,6 +2867,202 @@ End of observations.
       });
       await cleanCuratedFindingsFiles(test$, '/work/saved/findings.json');
       assertStrictEqual(written.length, 0);
+    });
+  });
+
+  describe('findings path confinement and sidecar fields', () => {
+    const FINDING = JSON.stringify([{ file: 'a.py', line: 3, severity: 'minor', explanation: 'x' }]);
+    const SESSION = { root: async () => '/work/repo', cwd: async () => '/work/repo' };
+
+    function engineWith(entries: Record<string, any>): any {
+      const reads: string[] = [];
+      const writes: string[] = [];
+      const test$ = createMockEngine({
+        session: SESSION,
+        fs: {
+          stat: async (path: string) => {
+            const entry = entries[path];
+            if (entry !== undefined) return entry.stat;
+            if (Object.keys(entries).some((k) => k.startsWith(`${path}/`))) {
+              return { kind: 'dir', size: 0, mtimeMs: 0, isLink: false };
+            }
+            throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+          },
+          read: async (path: string) => {
+            reads.push(path);
+            const entry = entries[path];
+            if (entry === undefined) throw new Error(`ENOENT: ${path}`);
+            return entry.content;
+          },
+          exists: async (path: string) => entries[path] !== undefined,
+          write: async (path: string) => {
+            writes.push(path);
+          },
+        },
+      });
+      return { test$, reads, writes };
+    }
+
+    const regular = (content: string) => ({ stat: { kind: 'file', size: content.length, mtimeMs: 0, isLink: false }, content });
+    const link = (content: string) => ({ stat: { kind: 'file', size: content.length, mtimeMs: 0, isLink: true }, content });
+    const directory = { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false }, content: FINDING };
+    const disposition = (path: string) => `uv run pr-management code-review disposition --pr 7 --findings ${path}`;
+
+    test('normalizeAbsolutePath refuses relative and parent-segment paths', () => {
+      assertStrictEqual(normalizeAbsolutePath('/work//repo/./saved/f.json'), '/work/repo/saved/f.json');
+      assertStrictEqual(normalizeAbsolutePath('saved/f.json'), null);
+      assertStrictEqual(normalizeAbsolutePath('/work/repo/../../etc/passwd'), null);
+      assertStrictEqual(normalizeAbsolutePath('C:\\work\\f.json'), 'C:/work/f.json');
+      assertStrictEqual(normalizeAbsolutePath('/work/repo/link/'), null);
+      assertStrictEqual(normalizeAbsolutePath('/work/repo/link\\child/f.json'), null);
+    });
+
+    test('isAllowedFindingsPath accepts the session and temporary roots only', () => {
+      const roots = ['/work/repo', undefined];
+      assert(isAllowedFindingsPath('/work/repo/saved/f.json', roots));
+      assert(isAllowedFindingsPath('/private/tmp/claude-501/scratch/f.json', roots));
+      assert(isAllowedFindingsPath('/var/folders/ab/T/f.json', roots));
+      assert(!isAllowedFindingsPath('/work/repository/f.json', roots));
+      assert(!isAllowedFindingsPath('/home/alice/.config/app/f.json', roots));
+      assert(!isAllowedFindingsPath('/tmp', roots));
+      assert(!isAllowedFindingsPath('/work/repo/../other/f.json', roots));
+      assert(!isAllowedFindingsPath('/etc/f.json', ['/']));
+    });
+
+    test('a findings file under the session or a temporary root hydrates the pane', async () => {
+      for (const path of ['/work/repo/saved/f.json', '/private/tmp/claude-501/scratch/f.json']) {
+        const { test$, reads } = engineWith({ [path]: regular(FINDING) });
+        await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+        const state = await getReviewFindingsState(test$);
+        assertStrictEqual(state?.findingsPath, path);
+        assertDeepStrictEqual(reads, [path]);
+      }
+    });
+
+    test('a path outside the allowed roots is neither read nor written beside', async () => {
+      for (const path of ['/home/alice/.config/app/f.json', '/work/repo/../elsewhere/f.json']) {
+        const { test$, reads, writes } = engineWith({
+          [path]: regular(FINDING),
+          [`${path}.curated.json`]: regular('{"schema_version":1,"pr":8}'),
+        });
+        await setReviewFindingsState(test$, {
+          prNumber: 7,
+          findingsPath: '/work/repo/old.json',
+          findings: [],
+          summary: calculateSummary([]),
+          selectedIndex: 0,
+        });
+        let nextCalled = false;
+        await handleBashToolCall(test$, { command: disposition(path) }, () => {
+          nextCalled = true;
+        });
+        assert(nextCalled, 'the command itself still runs');
+        assertDeepStrictEqual(reads, []);
+        assertDeepStrictEqual(writes, []);
+        assertStrictEqual(await getReviewFindingsState(test$), null);
+      }
+    });
+
+    test('a link or a directory at the findings path is not read', async () => {
+      const path = '/work/repo/saved/f.json';
+      for (const entry of [link(FINDING), directory]) {
+        const { test$, reads } = engineWith({ [path]: entry });
+        await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+        assertDeepStrictEqual(reads, []);
+        assertStrictEqual(await getReviewFindingsState(test$), null);
+      }
+    });
+
+    test('a link between the root and the file is refused', async () => {
+      const path = '/work/repo/linked/f.json';
+      const { test$, reads } = engineWith({
+        '/work/repo/linked': { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true }, content: '' },
+        [path]: regular(FINDING),
+      });
+      await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+      assertDeepStrictEqual(reads, []);
+      assertStrictEqual(await getReviewFindingsState(test$), null);
+    });
+
+    test('the allowed root itself may be a link', async () => {
+      // `/tmp` is a link to `/private/tmp` on macOS; only what lies below a root is checked.
+      const path = '/tmp/claude-501/scratch/f.json';
+      const { test$, reads } = engineWith({
+        '/tmp': { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true }, content: '' },
+        [path]: regular(FINDING),
+      });
+      await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+      assertDeepStrictEqual(reads, [path]);
+    });
+
+    test('a directory turned into a link after hydration stops the sidecar writes', async () => {
+      const path = '/work/repo/saved/f.json';
+      const entries: Record<string, any> = { [path]: regular(FINDING) };
+      const { test$, writes } = engineWith(entries);
+      await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+      const state = must(await getReviewFindingsState(test$), 'state');
+      entries['/work/repo/saved'] = { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true }, content: '' };
+      entries[`${path}.curated.json`] = regular('{}');
+      const res = await syncCuratedStateToDisk(test$, state);
+      assertStrictEqual(res.success, false);
+      await cleanCuratedFindingsFiles(test$, path);
+      assertDeepStrictEqual(writes, []);
+    });
+
+    test('a trailing-slash path is neither read nor cleaned up beside', async () => {
+      const path = '/work/repo/link/';
+      const { test$, reads, writes } = engineWith({
+        '/work/repo/link': { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true }, content: '' },
+        '/work/repo/link/.curated.json': regular('{}'),
+        '/work/repo/link/.curated.keep': regular('1'),
+      });
+      await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+      assertDeepStrictEqual(reads, []);
+      assertDeepStrictEqual(writes, []);
+    });
+
+    test('the sidecar sync reads nothing once the source is no longer confined', async () => {
+      const path = '/work/repo/saved/f.json';
+      const entries: Record<string, any> = { [path]: regular(FINDING) };
+      const { test$, reads } = engineWith(entries);
+      await handleBashToolCall(test$, { command: disposition(path) }, () => {});
+      const state = must(await getReviewFindingsState(test$), 'state');
+      reads.length = 0;
+      entries['/work/repo/saved'] = { stat: { kind: 'dir', size: 0, mtimeMs: 0, isLink: true }, content: '' };
+      assertStrictEqual((await syncCuratedStateToDisk(test$, state)).success, false);
+      delete entries['/work/repo/saved'];
+      entries[path] = link(FINDING);
+      assertStrictEqual((await syncCuratedStateToDisk(test$, state)).success, false);
+      assertDeepStrictEqual(reads, []);
+    });
+
+    test('the sidecar carries only the finding schema', () => {
+      const parsed = parseFindings([
+        {
+          file: 'a.py',
+          line: 3,
+          severity: 'minor',
+          explanation: 'kept',
+          rule_source: 'criteria.md',
+          dependency_evidence: 'ledger',
+          unknown_field: 'dropped',
+          __proto__extra: 'dropped',
+        },
+      ]);
+      const [out] = JSON.parse(serializeFindingsForRender(parsed.findings));
+      assertStrictEqual(out.explanation, 'kept');
+      assertStrictEqual(out.rule_source, 'criteria.md');
+      assertStrictEqual(out.dependency_evidence, 'ledger');
+      assertStrictEqual(out.unknown_field, undefined);
+      assertStrictEqual(out.__proto__extra, undefined);
+      assertDeepStrictEqual(Object.keys(out).sort(), [
+        'dependency_evidence',
+        'explanation',
+        'file',
+        'line',
+        'rule_source',
+        'severity',
+      ]);
     });
   });
 });

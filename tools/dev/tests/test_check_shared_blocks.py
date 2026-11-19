@@ -122,6 +122,66 @@ def test_auto_block_apply_is_idempotent(tmp_path: Path) -> None:
     assert skill.read_text() == first
 
 
+# --- blocks every skill must carry ---------------------------------------------
+
+
+def _golden_begin() -> str:
+    return "<!-- BEGIN MAGPIE BLOCK: sandbox-golden-rule"
+
+
+def test_required_block_goes_right_after_the_preflight(tmp_path: Path) -> None:
+    skill = tmp_path / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(NON_EXEMPT_SKILL)
+    MOD.apply_preflight(skill, MOD.preflight_block_text(REPO / "tools" / "dev" / "preflight-block.md"))
+
+    assert MOD.apply_required(skill, fix=True) == (True, [])
+
+    text = skill.read_text()
+    assert text.index(MOD.PREFLIGHT_END) < text.index(_golden_begin()) < text.index("## Step 1")
+
+
+def test_required_block_reaches_exempt_skills_after_the_heading(tmp_path: Path) -> None:
+    skill = tmp_path / "skills" / "setup-demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(EXEMPT_SKILL)
+
+    assert MOD.apply_required(skill, fix=True) == (True, [])
+
+    text = skill.read_text()
+    assert text.index("# Demo setup skill") < text.index(_golden_begin()) < text.index("## Step 1")
+
+
+def test_required_block_insertion_is_idempotent(tmp_path: Path) -> None:
+    skill = tmp_path / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(EXEMPT_SKILL)
+    MOD.apply_required(skill, fix=True)
+    first = skill.read_text()
+
+    assert MOD.apply_required(skill, fix=True) == (False, [])
+    assert skill.read_text() == first
+
+
+def test_missing_required_block_is_an_error_without_fix(tmp_path: Path) -> None:
+    skill = tmp_path / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(NON_EXEMPT_SKILL)
+
+    changed, errors = MOD.apply_required(skill, fix=False)
+
+    assert not changed
+    assert errors and "sandbox-golden-rule" in errors[0]
+    assert skill.read_text() == NON_EXEMPT_SKILL
+
+
+def test_every_live_skill_carries_the_sandbox_golden_rule() -> None:
+    skills = sorted((REPO / "skills").glob("*/SKILL.md"))
+    assert skills
+    missing = [str(path) for path in skills if _golden_begin() not in path.read_text()]
+    assert missing == []
+
+
 def test_every_live_preflight_copy_is_byte_identical_to_regenerated() -> None:
     """The load-bearing guarantee: regenerating the auto block for every one
     of the live skills must reproduce exactly the text already committed —

@@ -4,6 +4,7 @@
     "excludedCommands": [
       "gh *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+      "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *",
       "~/.claude/scripts/magpie-run-evals.sh *"
     ],
     "filesystem": {

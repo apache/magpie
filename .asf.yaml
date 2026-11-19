@@ -88,122 +88,110 @@ github:
   # asfyaml / PyGithub interaction is fixed upstream and a release
   # workflow exists that needs the environment.
 
-  # Branch protection on `main`. ASF Infra reconciles this within a
-  # few minutes of merge to main (asfyaml feature
-  # `protected_branches`). Earlier note about "configured directly in
-  # GitHub" was superseded by inspection — no direct-on-GitHub rule
-  # ever existed, so the protection now lives here next to the rest
-  # of the repo config.
+  # Merge rules for `main` live in the two rulesets below, not in classic
+  # `protected_branches`. ASF Infra reconciles them within a few minutes of
+  # a merge to main (asfyaml features `rulesets` and `protected_branches`).
+  # The layout follows apache/airflow's `.asf.yaml`.
   #
-  # APPROVAL REQUIREMENT TEMPORARILY LIFTED ON `main`
-  # -------------------------------------------------
-  # During the framework's bootstrap phase (running under the Airflow
-  # PMC umbrella with a small set of committers, see MISSION.md) PR
-  # approvals were NOT required and a maintainer could self-merge
-  # after CI green. On becoming a Top-Level Project with its own PMC,
-  # every PR into `main` was made to require one approving review from
-  # a committer (#818).
-  #
-  # That requirement is **temporarily lifted** while the marketplace-
-  # installation replacement and the reworked permission handling are
-  # brought up: both land as many small, fast iterations that need to
-  # be tested against a real merged `main`, and a per-PR approval
-  # round-trip stalls that loop for hours at a time.
-  #
-  # This is a deliberate, time-boxed exception, not a governance
-  # change. Everything else that gates `main` stays on — the
-  # `zizmor` / `prek` / `tests-ok` status checks below still have to
-  # pass, review threads still have to be resolved, and history is
-  # still linear — so nothing merges unreviewed by CI.
-  #
-  # RESTORE by uncommenting the `required_pull_request_reviews` block
-  # below once that work has landed. ASF Infra reconciles the change
-  # within a few minutes of the merge to `main`.
-  protected_branches:
-    main:
-      # Required status checks. Listed contexts MUST run on every PR
-      # against `main` — path-filtered workflows are excluded
-      # (classic branch-protection has no "require only if run"
-      # semantics, so a path-filtered job that doesn't post a status
-      # would block the PR). Excluded for that reason:
-      # `asf-allowlist-check` (paths: `.github/**`) and
-      # `lint .claude/settings.json against baseline` from
-      # sandbox-lint (paths: `.claude/settings.json`, `.claude/settings.local.json`,
-      # `tools/agent-isolation/claude-settings.local.template.json`,
-      # `plugins/magpie-setup/skills/setup/family-mcp-allows.json`,
-      # `.gemini/**` and `tools/sandbox-lint/**`; see `paths:` in
-      # `.github/workflows/sandbox-lint.yml`).
-      #
-      # CodeQL (`Analyze (python)`, `Analyze (actions)`) is NOT
-      # required. The framework repo is docs- and skills-heavy with
-      # no published runtime artefacts — the per-PR incremental
-      # value of CodeQL gating is low relative to the noise it
-      # produces on changes that do not touch real attack surface.
-      # The `codeql.yml` workflow still runs on every PR for
-      # visibility (findings surface in the Security tab), but a
-      # finding does not block merge. Re-introduce as a required
-      # gate if/when the project starts publishing runtime
-      # artefacts that warrant per-PR static analysis.
-      required_status_checks:
-        # `strict: false` — don't require the PR branch to be up
-        # to date with `main` before merging. With `strict: true`,
-        # every merge to `main` invalidates every other open PR and
-        # forces a rebase loop. False matches typical ASF practice
-        # for multi-contributor repos.
-        strict: false
-        contexts:
-          # zizmor — GitHub Actions security lint.
-          - "zizmor"
-          # Pre-commit (prek) — static checks across the repo,
-          # including the `lychee` link-check hook (link rot, broken
-          # `#anchor` fragments, dead external URLs). lychee was a
-          # standalone `link-check.yml` workflow with its own required
-          # `lychee` status; it is now a prek hook, so the `prek`
-          # context above is what gates link health. (Converting also
-          # dropped the old daily-cron rot sweep — link rot on files
-          # no PR touches is now only caught when a PR next edits them.)
-          - "prek"
-          # Per-project pytest matrix from tests.yml. Required via
-          # the single `tests-ok` umbrella job rather than the
-          # individual `pytest (<project>)` matrix entries — branch
-          # protection and rulesets both require exact-match status
-          # check names, so listing matrix entries here would force
-          # an `.asf.yaml` change on every matrix add / rename /
-          # removal. `tests-ok` requires successful member discovery
-          # and a passing matrix (or a confirmed empty selection
-          # when the matrix is skipped).
-          - "tests-ok"
-      # TEMPORARILY DISABLED — see the note above. Restore by removing
-      # the three leading `# ` markers; the values are the ones that were
-      # in force before, so restoring is a pure uncomment.
-      #
-      # One approving review from a committer is required before any
-      # PR merges into `main`. `dismiss_stale_reviews: false` — an
-      # approval survives later pushes to the branch, so a rebase or a
-      # review-comment fixup does not force a re-approval round-trip.
-      # `require_code_owner_reviews` is left off: there is no CODEOWNERS
-      # file, so any committer's approval satisfies the requirement.
-      # required_pull_request_reviews:
-      #   required_approving_review_count: 1
-      #   dismiss_stale_reviews: false
-      #
-      # Linear history matches `enabled_merge_buttons.squash: true`
-      # above — squash is the only enabled merge mode, so every
-      # merge results in a single commit on top of main.
+  # `protected_branches: ~` keeps the classic protection off: GitHub
+  # enforces it whatever a ruleset's bypass list says, so it would block
+  # the committer override below.
+  protected_branches: ~
+
+  rulesets:
+    # The required checks, which committers can bypass when merging a PR,
+    # through GitHub's "merge without waiting for requirements" option,
+    # when CI is stuck or broken for reasons the PR does not cause. It is
+    # an escape hatch, not a way of working: use it only when the failing
+    # check is unrelated to the change, and say why in the PR. Every
+    # bypass is recorded in the PR timeline and the repository's rule
+    # insights. Nobody can push to `main` directly anyway: the "Branch
+    # protection" ruleset below requires a PR for every change and has no
+    # bypass.
+    #
+    # Raw Rulesets API payload, because the convenience syntax can only
+    # name teams as bypass actors and GitHub refuses the `magpie-committers`
+    # team ("must be part of the ruleset source or owner organization").
+    # The bypass actor is instead the Write repository role (actor_id 4):
+    # on this repository only committers hold it, granted by ASF Infra from
+    # the project's LDAP group, so it follows committer changes with no
+    # update here. The external `collaborators` above get the Triage role,
+    # not Write, so they cannot bypass.
+    #
+    # Listed checks MUST run on every PR against `main`: a path-filtered
+    # workflow that does not post a status would block the PR. Excluded for
+    # that reason: `asf-allowlist-check` (paths: `.github/**`) and `lint
+    # .claude/settings.json against baseline` from sandbox-lint (see
+    # `paths:` in `.github/workflows/sandbox-lint.yml`). CodeQL is not
+    # required either: the repository publishes no runtime artefacts, so
+    # per-PR CodeQL gating adds noise rather than value; `codeql.yml` still
+    # runs on every PR for visibility. The checks are not pinned to the
+    # GitHub Actions app: asfyaml passes a raw `integration_id` as a string,
+    # which the API rejects.
+    - name: "Require CI on main"
+      target: branch
+      enforcement: active
+      conditions:
+        ref_name:
+          include:
+            - "refs/heads/main"
+          exclude: []
+      bypass_actors:
+        - actor_id: 4
+          actor_type: RepositoryRole
+          bypass_mode: always
+      rules:
+        - type: required_status_checks
+          parameters:
+            # Do not require the PR branch to be up to date with `main`:
+            # with strict checks every merge forces a rebase of every open PR.
+            strict_required_status_checks_policy: false
+            required_status_checks:
+              # zizmor: GitHub Actions security lint.
+              - context: "zizmor"
+              # prek: the static checks across the repository, including
+              # the lychee link check.
+              - context: "prek"
+              # tests-ok: the umbrella job over the per-project pytest
+              # matrix in tests.yml, so a matrix change needs no
+              # `.asf.yaml` change.
+              - context: "tests-ok"
+    # The rest of `main`'s rules, with no bypass: the override is for CI,
+    # not for skipping review threads, deleting the branch or rewriting
+    # history.
+    - name: "Branch protection"
+      type: branch
+      branches:
+        includes:
+          - main
+      # Squash is the only merge button, so history stays linear.
       required_linear_history: true
-      # Block merge until every review thread is resolved. With the
-      # approval requirement lifted above, an unresolved thread is the
-      # only signal left that a reviewer's point is still open, and
-      # nothing stopped a PR from merging past it. Resolving a thread
-      # is cheap — the author does it after pushing the fix, or the
-      # reviewer does when a nit is deliberately left as-is — and it
-      # makes "every point was answered" a gate rather than a hope.
+      # Block merge until every review thread is resolved: with no
+      # approval requirement (below) an unresolved thread is the signal
+      # that a reviewer's point is still open.
       required_conversation_resolution: true
-      # Do NOT require signed commits. External contributors
-      # without configured GPG/SSH signing would be unable to
-      # contribute. Re-enable if/when the project adopts a
-      # committer-only signing policy.
-      required_signatures: false
+      # `required_pull_request_reviews` must be present whenever
+      # `required_conversation_resolution` is set: asfyaml builds one
+      # pull-request rule from both, and GitHub refuses that rule (and so
+      # the whole ruleset) without the review fields.
+      #
+      # APPROVAL REQUIREMENT TEMPORARILY LIFTED. After becoming a
+      # Top-Level Project every PR into `main` needed one committer
+      # approval (#818). It is lifted while the marketplace installation
+      # and the reworked permission handling land as many small, fast
+      # iterations; this is a time-boxed exception, not a governance
+      # change. Restore by setting `required_approving_review_count` to
+      # 1. `dismiss_stale_reviews: false` keeps an approval across a
+      # rebase or a fixup push; `require_code_owner_reviews` stays off
+      # because there is no CODEOWNERS file.
+      required_pull_request_reviews:
+        required_approving_review_count: 0
+        dismiss_stale_reviews: false
+      # No signed-commit requirement: contributors without GPG/SSH
+      # signing could not contribute.
+      #
+      # Branch deletion and force pushes stay blocked, with no bypass:
+      # `restrict_deletion` and `restrict_force_push` default to on.
 
 notifications:
   # Magpie is a Top-Level Project with its own mailing lists. All

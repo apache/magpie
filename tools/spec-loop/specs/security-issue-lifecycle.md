@@ -249,6 +249,10 @@ publication, with a human gate and an audit-log entry at every step.
   `issue-create-labeled` instead (#1982), and the import skills and
   `security-issue-invalidate` point at `tools/github/project-board.md`
   for the orphan-issue, introspection and archive board recipes.
+- The tracker's Projects V2 board stays security-only: `security-issue-sync`
+  adds, moves and archives items through the vetted `board-*` operations and
+  its end-of-sync sweep archives non-security items (#2179, #2181; see
+  [vetted-command-surface.md](vetted-command-surface.md)).
 - Status rollups are written by `tools/github-rollup/`
   (`append`, `amend-latest`, `fold`, `list`, `latest`).
   Under the secure setup that CLI's `gh` runs sandboxed and fails, so the
@@ -651,6 +655,10 @@ publication, with a human gate and an audit-log entry at every step.
   (exit `4`) a record with no `references[]` entry tagged
   `vendor-advisory`, so the CVE JSON is re-pushed with the archived URL
   first ([CVE tooling](cve-tooling.md)).
+  The converse holds too: a re-push never walks a record already `PUBLIC`
+  back to `REVIEW` / `READY`. A reviewer may publish by hand before the
+  tracker carries the public advisory URL, so sync's push step reads the
+  current state first and keeps `PUBLIC` (#2158).
 - **Dashboard mode reconciles with the ASF Security dashboard, ASF only
   (#1780, #1798).** On *"sync dashboard"*, `security-issue-sync` follows
   `issue-sync/dashboard.md`.
