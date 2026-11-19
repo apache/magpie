@@ -31,28 +31,46 @@ Read from `SKILL.md` § *What to check* when either server is registered in the 
 
 Under the secure setup the sandbox denies `~/.claude.json`, where Claude Code keeps `mcpServers`, so the agent may not learn either path.
 Do not hand the operator a command with a placeholder in it.
-Print this check instead, unchanged; it reads the registration in the operator's own shell and works from any directory (it needs `jq`, in `/usr/bin` on macOS 15 and later):
+Print this script instead, unchanged.
+It reads the registration in the operator's own shell, so it works from any directory, in bash or zsh; it needs `jq`, in `/usr/bin` on macOS 15 and later.
+It covers every registration it finds, user-scope and per-project in `~/.claude.json` plus a `.mcp.json` in the current directory, and makes the same checks as the steps above: an `apache/comdev` origin, the `main` branch, a fetch that succeeded.
+A checkout failing one of them is reported and skipped, never counted.
 
 ```bash
-for s in ponymail apache-projects; do
-  js=$(jq -r --arg s "$s" '[.mcpServers[$s]?, .projects[]?.mcpServers[$s]?]
-        | map(select(. != null)) | first | .args[]? | select(endswith("index.js"))' ~/.claude.json)
-  [ -n "$js" ] || { echo "$s: not registered"; continue; }
-  d=$(dirname "$js"); git -C "$d" fetch -q origin main
-  echo "$s: $d is $(git -C "$d" rev-list --count HEAD..origin/main) commit(s) behind"
-done
+refresh=no  # yes: fast-forward the checkouts that are behind, then npm install
+for f in ~/.claude.json .mcp.json; do
+  [ -f "$f" ] && jq -r '
+      ((.mcpServers // {}), ((.projects // {})[] | .mcpServers // {}))
+      | to_entries[] | select(.key == "ponymail" or .key == "apache-projects")
+      | . as $e | [$e.value.args[]? | select(type == "string" and endswith("index.js"))][0] // empty
+      | "\($e.key)\t\(.)"' "$f"
+done | sort -u | {
+  found=no; refreshed=" "
+  while IFS=$'\t' read -r s js; do
+    found=yes; d=$(dirname "$js")
+    root=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { echo "$s: $d is not a git checkout"; continue; }
+    url=$(git -C "$root" config --get remote.origin.url)
+    case "$url" in
+      *github.com[:/]apache/comdev|*github.com[:/]apache/comdev.git) ;;
+      *) echo "$s: origin of $root is '$url', not apache/comdev; skipped"; continue ;;
+    esac
+    br=$(git -C "$root" rev-parse --abbrev-ref HEAD)
+    [ "$br" = main ] || { echo "$s: $root is on '$br', not main; run: git -C '$root' checkout main"; continue; }
+    git -C "$root" fetch -q origin main || { echo "$s: fetch failed in $root; not checked"; continue; }
+    n=$(git -C "$root" rev-list --count HEAD..origin/main)
+    echo "$s: $d is $n commit(s) behind; changes: https://github.com/apache/comdev/compare/$(git -C "$root" rev-parse HEAD)...main"
+    [ "$refresh" = yes ] || continue
+    if [ "$n" -gt 0 ]; then
+      git -C "$root" merge -q --ff-only origin/main || { echo "$s: fast-forward failed in $root"; continue; }
+      refreshed="$refreshed$root "
+    fi
+    case "$refreshed" in *" $root "*) ( cd "$d" && npm install ) ;; esac
+  done
+  [ "$found" = yes ] || echo "no ponymail or apache-projects registration in ~/.claude.json or ./.mcp.json"
+}
 ```
 
-When it reports a server behind, the refresh is the same loop with its last two lines replaced:
-
-```bash
-for s in ponymail apache-projects; do
-  js=$(jq -r --arg s "$s" '[.mcpServers[$s]?, .projects[]?.mcpServers[$s]?]
-        | map(select(. != null)) | first | .args[]? | select(endswith("index.js"))' ~/.claude.json)
-  [ -n "$js" ] || continue
-  d=$(dirname "$js"); git -C "$d" pull --ff-only && ( cd "$d" && npm install )
-done
-```
-
-Both servers usually share one checkout, so the second `pull` finds nothing new; its `npm install` still runs for that server's own directory.
+As printed it only reports.
+When it shows a checkout behind, the operator reads the compare link, then runs it again with `refresh=yes`.
+That fast-forwards to the `origin/main` just checked, never to another branch's upstream, and runs `npm install` in each server's own directory, including the second server of a checkout both share.
 Restart the agent afterwards so the servers reload.

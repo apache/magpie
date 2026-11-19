@@ -1039,7 +1039,7 @@ directory holding the `index.js` in its `args`, such as
 [`comdev-mcp.md`](../isolated-setup-update/comdev-mcp.md) defines
 them. Print commands with those absolute paths, never a
 placeholder. When the sandbox keeps the agent from reading the
-registration, print that file's self-resolving check instead
+registration, print that file's self-resolving script instead
 ([When the registration cannot be read](../isolated-setup-update/comdev-mcp.md#when-the-registration-cannot-be-read)).
 Then — **surface only, never auto-pull** (same contract as Step 6b):
 

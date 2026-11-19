@@ -4400,7 +4400,11 @@ anything — I will decide what to apply:
    `git -C <root> pull --ff-only` + `npm install` in the server's
    own dir (where its registered `index.js` lives, e.g.
    `mcp/ponymail-mcp/`), with real absolute paths, plus the
-   `github.com/apache/comdev/compare/<sha>...main` link. These
+   `github.com/apache/comdev/compare/<sha>...main` link. If the
+   sandbox keeps you from reading where they are registered, print
+   the self-resolving script from the framework's
+   `plugins/magpie-setup/skills/isolated-setup-update/comdev-mcp.md`
+   for me to run, never a command with a placeholder in it. These
    servers track `main` by design — no manifest bump, no cooldown.
 5. Diff my project `.claude/settings.json` `permissions.allow`
    against the framework's. List every read-only entry I am
