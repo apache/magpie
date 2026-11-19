@@ -14,13 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""The comdev MCP refresh commands resolve real directories.
+"""The comdev MCP refresh commands resolve real directories, safely.
 
 The registered server names (`ponymail`, `apache-projects`) are not the
 checkout directories (`mcp/ponymail-mcp`, `mcp/apache-projects-mcp`), so
 a command built as `mcp/<server>` fails in every shell. These tests keep
 that spelling out of the docs and run the documented self-resolving script
-against fake registrations and a real git checkout, under bash and zsh.
+against fake registrations and a real git checkout, under bash and under
+zsh with interactive comments off (how a pasted script runs there).
+
+A `git` wrapper on PATH sends only `fetch` to a local upstream, so the
+script's origin check still sees the real GitHub URL.
 """
 
 from __future__ import annotations
@@ -45,15 +49,7 @@ DOCS = [
 SECTION = "## When the registration cannot be read"
 COMDEV_URL = "https://github.com/apache/comdev.git"
 SHELLS = [s for s in ("bash", "zsh") if shutil.which(s)]
-
-
-def _script() -> str:
-    text = COMDEV_MCP.read_text(encoding="utf-8")
-    blocks = re.findall(r"```bash\n(.*?)```", text[text.index(SECTION) :], flags=re.S)
-    assert len(blocks) == 1, "the section carries exactly one script"
-    return blocks[0]
-
-
+REAL_GIT = shutil.which("git")
 GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_SYSTEM": os.devnull,
@@ -64,21 +60,33 @@ GIT_ENV = {
 }
 
 
+def _script() -> str:
+    text = COMDEV_MCP.read_text(encoding="utf-8")
+    blocks = re.findall(r"```bash\n(.*?)```", text[text.index(SECTION) :], flags=re.S)
+    assert len(blocks) == 1, "the section carries exactly one script"
+    return blocks[0]
+
+
 def _git(*args: str, cwd: Path) -> str:
     result = subprocess.run(
-        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True, env={**os.environ, **GIT_ENV}
+        [REAL_GIT, *args], cwd=cwd, check=True, capture_output=True, text=True, env={**os.environ, **GIT_ENV}
     )
     return result.stdout.strip()
 
 
-class NoServerNamePathTest(unittest.TestCase):
+class DocsTest(unittest.TestCase):
     def test_docs_never_build_the_dir_from_the_server_name(self) -> None:
         for doc in DOCS:
             with self.subTest(doc=doc.name):
                 self.assertNotIn("mcp/<server>", doc.read_text(encoding="utf-8"))
 
+    def test_script_reads_no_project_file_and_has_no_comments(self) -> None:
+        script = _script()
+        self.assertNotIn(".mcp.json", script)
+        self.assertIsNone(re.search(r"(^|\s)#", script), "interactive zsh would run a # as a command")
 
-@unittest.skipUnless(shutil.which("jq") and SHELLS, "needs jq and bash or zsh")
+
+@unittest.skipUnless(shutil.which("jq") and SHELLS and REAL_GIT, "needs jq, git and bash or zsh")
 class SelfResolvingScriptTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory(prefix="comdev mcp ")  # a space, on purpose
@@ -94,14 +102,14 @@ class SelfResolvingScriptTest(unittest.TestCase):
         _git("commit", "-q", "-m", "init", cwd=self.upstream)
         self.comdev = self.root / "code" / "comdev"
         _git("clone", "-q", str(self.upstream), str(self.comdev), cwd=self.root)
-        self.start = _git("rev-parse", "HEAD", cwd=self.comdev)
-        # The script checks origin is apache/comdev; fetch still reaches the local upstream.
         _git("remote", "set-url", "origin", COMDEV_URL, cwd=self.comdev)
-        _git("config", f"url.{self.upstream}.insteadOf", COMDEV_URL, cwd=self.comdev)
-        # Upstream moves one commit ahead, so a fetch that silently failed shows up as 0.
+        self.start = _git("rev-parse", "HEAD", cwd=self.comdev)
+        # Upstream moves one commit ahead, so a fetch that silently failed would show 0.
         (self.upstream / "CHANGES").write_text("new\n", encoding="utf-8")
         _git("add", ".", cwd=self.upstream)
         _git("commit", "-q", "-m", "ahead", cwd=self.upstream)
+        self.ahead = _git("rev-parse", "HEAD", cwd=self.upstream)
+
         self.home = self.root / "home"
         self.home.mkdir()
         self.cwd = self.root / "elsewhere"
@@ -125,75 +133,126 @@ class SelfResolvingScriptTest(unittest.TestCase):
                 },
             }
         )
+
         self.bindir = self.root / "bin"
         self.bindir.mkdir()
+        self._fetch_from(self.upstream)
         self.npm_log = self.root / "npm.log"
+        self.npm_fail_once = self.root / "npm-fail-once"
         npm = self.bindir / "npm"
-        npm.write_text(f'#!/bin/sh\npwd >> "{self.npm_log}"\n', encoding="utf-8")
+        # Reads stdin like an interactive tool would: without </dev/null it would swallow the loop's input.
+        npm.write_text(
+            "#!/bin/sh\ncat >/dev/null\n"
+            f'if [ -e "{self.npm_fail_once}" ]; then rm "{self.npm_fail_once}"; exit 1; fi\n'
+            f'pwd >> "{self.npm_log}"\n',
+            encoding="utf-8",
+        )
         npm.chmod(0o755)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _register(self, data: dict) -> None:
-        (self.home / ".claude.json").write_text(json.dumps(data), encoding="utf-8")
+    def _fetch_from(self, source: Path) -> None:
+        shim = self.bindir / "git"
+        shim.write_text(
+            "#!/bin/sh\n"
+            'for a in "$@"; do\n'
+            f'  [ "$a" = fetch ] && exec "{REAL_GIT}" -c "url.{source}.insteadOf={COMDEV_URL}" "$@"\n'
+            "done\n"
+            f'exec "{REAL_GIT}" "$@"\n',
+            encoding="utf-8",
+        )
+        shim.chmod(0o755)
+
+    def _register(self, data: object) -> None:
+        text = data if isinstance(data, str) else json.dumps(data)
+        (self.home / ".claude.json").write_text(text, encoding="utf-8")
 
     def _run(self, shell: str, refresh: bool = False) -> str:
         script = _script()
         if refresh:
+            self.assertIn("refresh=no", script)
             script = script.replace("refresh=no", "refresh=yes", 1)
+        if shell == "zsh":
+            script = "setopt no_interactive_comments\n" + script
         env = {**os.environ, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
-        result = subprocess.run(
-            [shell, "-c", script], cwd=self.cwd, env=env, check=True, capture_output=True, text=True
-        )
-        return result.stdout
+        result = subprocess.run([shell, "-c", script], cwd=self.cwd, env=env, capture_output=True, text=True)
+        return result.stdout + result.stderr
+
+    def _reset(self) -> None:
+        _git("reset", "-q", "--hard", self.start, cwd=self.comdev)
+        self.npm_log.unlink(missing_ok=True)
 
     def _npm_dirs(self) -> list[str]:
         if not self.npm_log.exists():
             return []
         return sorted(os.path.realpath(p) for p in self.npm_log.read_text(encoding="utf-8").splitlines())
 
-    def test_reports_each_server_dir_behind_count_and_compare_link(self) -> None:
-        head = self.start
+    def _both_dirs(self) -> list[str]:
+        return sorted([os.path.realpath(self.ponymail), os.path.realpath(self.projects)])
+
+    def _head(self) -> str:
+        return _git("rev-parse", "HEAD", cwd=self.comdev)
+
+    def test_reports_each_server_against_the_fetched_commit(self) -> None:
+        link = f"https://github.com/apache/comdev/compare/{self.start}...{self.ahead}"
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 out = self._run(shell)
-                link = f"https://github.com/apache/comdev/compare/{head}...main"
-                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind; changes: {link}", out)
-                self.assertIn(f"apache-projects: {self.projects} is 1 commit(s) behind; changes: {link}", out)
-                self.assertEqual(self._npm_dirs(), [], "check mode never installs")
-                self.assertEqual(_git("rev-parse", "HEAD", cwd=self.comdev), head, "check mode never merges")
+                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind apache/comdev main; changes: {link}", out)
+                self.assertIn(f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out)
+                self.assertEqual(self._npm_dirs(), [], "report mode never installs")
+                self.assertEqual(self._head(), self.start, "report mode never merges")
 
-    def test_refresh_fast_forwards_once_and_installs_both_servers(self) -> None:
+    def test_refresh_fast_forwards_and_installs_both_servers_of_a_shared_checkout(self) -> None:
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                _git("reset", "-q", "--hard", self.start, cwd=self.comdev)
-                self.npm_log.unlink(missing_ok=True)
-                self._run(shell, refresh=True)
-                self.assertEqual(
-                    _git("rev-parse", "HEAD", cwd=self.comdev), _git("rev-parse", "HEAD", cwd=self.upstream)
-                )
-                self.assertEqual(
-                    self._npm_dirs(), sorted([os.path.realpath(self.ponymail), os.path.realpath(self.projects)])
-                )
-                self.assertIn("is 0 commit(s) behind", self._run(shell))
+                self._reset()
+                out = self._run(shell, refresh=True)
+                self.assertEqual(out.count("is 1 commit(s) behind"), 2, "both report before anything moves")
+                self.assertEqual(self._head(), self.ahead)
+                self.assertEqual(self._npm_dirs(), self._both_dirs(), "a stdin-reading npm skips no server")
+                self.assertIn("npm install done", out)
 
-    def test_reads_mcp_json_in_the_current_directory(self) -> None:
+    def test_a_failed_npm_install_is_retried_by_the_next_run(self) -> None:
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self._reset()
+                self.npm_fail_once.touch()
+                out = self._run(shell, refresh=True)
+                self.assertIn("npm install failed in", out)
+                self.assertEqual(self._head(), self.ahead)
+                self.npm_log.unlink(missing_ok=True)
+                out = self._run(shell, refresh=True)
+                self.assertEqual(out.count("is 0 commit(s) behind"), 2)
+                self.assertEqual(self._npm_dirs(), self._both_dirs())
+
+    def test_ignores_a_project_mcp_json(self) -> None:
         self._register({})
+        hostile = self.root / "hostile"
         (self.cwd / ".mcp.json").write_text(
-            json.dumps({"mcpServers": {"ponymail": {"args": [str(self.ponymail / "index.js")]}}}), encoding="utf-8"
+            json.dumps({"mcpServers": {"ponymail": {"args": [str(hostile / "mcp/ponymail-mcp/index.js")]}}}),
+            encoding="utf-8",
         )
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                out = self._run(shell)
-                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind", out)
-                self.assertNotIn("apache-projects", out)
+                out = self._run(shell, refresh=True)
+                self.assertIn("no ponymail or apache-projects registration in ~/.claude.json", out)
+                self.assertNotIn(str(hostile), out)
 
     def test_names_a_missing_registration(self) -> None:
         self._register({"mcpServers": {"other": {"args": ["/x/index.js"]}}})
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 self.assertIn("no ponymail or apache-projects registration", self._run(shell))
+
+    def test_a_malformed_registration_is_not_reported_as_absent(self) -> None:
+        self._register("{not json")
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                out = self._run(shell)
+                self.assertIn("could not parse ~/.claude.json", out)
+                self.assertNotIn("no ponymail", out)
 
     def test_skips_a_checkout_off_main(self) -> None:
         _git("checkout", "-q", "-b", "feature", cwd=self.comdev)
@@ -204,24 +263,50 @@ class SelfResolvingScriptTest(unittest.TestCase):
                 self.assertNotIn("commit(s) behind", out)
                 self.assertEqual(self._npm_dirs(), [])
 
-    def test_skips_a_foreign_origin(self) -> None:
-        _git("remote", "set-url", "origin", "https://github.com/someone/comdev.git", cwd=self.comdev)
+    def test_skips_any_origin_but_apache_comdev_on_github(self) -> None:
+        lookalikes = [
+            "https://github.com/someone/comdev.git",
+            "https://notgithub.com/apache/comdev.git",
+            "https://notgithub.com/apache/comdev",
+            "https://evil.example/github.com/apache/comdev.git",
+            "https://evil.example/github.com/apache/comdev",
+            "ssh://git@evil.example/github.com/apache/comdev",
+            "http://github.com/apache/comdev.git",
+            "git@notgithub.com:apache/comdev.git",
+            str(self.upstream),
+        ]
+        for url in lookalikes:
+            _git("remote", "set-url", "origin", url, cwd=self.comdev)
+            for shell in SHELLS:
+                with self.subTest(url=url, shell=shell):
+                    out = self._run(shell, refresh=True)
+                    self.assertIn("not apache/comdev; skipped", out)
+                    self.assertNotIn("commit(s) behind", out)
+                    self.assertEqual(self._npm_dirs(), [])
+                    self.assertEqual(self._head(), self.start)
+
+    def test_an_insteadof_rewrite_cannot_pass_the_origin_check(self) -> None:
+        _git("config", f"url.{self.upstream}.insteadOf", COMDEV_URL, cwd=self.comdev)
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                out = self._run(shell, refresh=True)
-                self.assertIn("not apache/comdev; skipped", out)
-                self.assertNotIn("commit(s) behind", out)
-                self.assertEqual(self._npm_dirs(), [])
+                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=True))
+                self.assertEqual(self._head(), self.start)
+
+    def test_a_second_origin_url_cannot_pass_the_origin_check(self) -> None:
+        _git("remote", "set-url", "--add", "origin", "https://evil.example/comdev.git", cwd=self.comdev)
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                self.assertIn("not apache/comdev; skipped", self._run(shell, refresh=True))
 
     def test_a_failed_fetch_reports_no_count(self) -> None:
-        _git("config", "--unset-all", f"url.{self.upstream}.insteadOf", cwd=self.comdev)
-        _git("config", f"url.{self.root / 'gone'}.insteadOf", COMDEV_URL, cwd=self.comdev)
+        self._fetch_from(self.root / "gone")
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 out = self._run(shell, refresh=True)
                 self.assertIn("fetch failed in", out)
                 self.assertNotIn("commit(s) behind", out)
                 self.assertEqual(self._npm_dirs(), [])
+                self.assertEqual(self._head(), self.start)
 
     def test_a_missing_checkout_is_named(self) -> None:
         self._register({"mcpServers": {"ponymail": {"args": [str(self.root / "deleted/mcp/ponymail-mcp/index.js")]}}})

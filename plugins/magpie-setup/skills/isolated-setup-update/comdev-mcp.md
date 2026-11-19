@@ -32,45 +32,58 @@ Read from `SKILL.md` § *What to check* when either server is registered in the 
 Under the secure setup the sandbox denies `~/.claude.json`, where Claude Code keeps `mcpServers`, so the agent may not learn either path.
 Do not hand the operator a command with a placeholder in it.
 Print this script instead, unchanged.
-It reads the registration in the operator's own shell, so it works from any directory, in bash or zsh; it needs `jq`, in `/usr/bin` on macOS 15 and later.
-It covers every registration it finds, user-scope and per-project in `~/.claude.json` plus a `.mcp.json` in the current directory, and makes the same checks as the steps above: an `apache/comdev` origin, the `main` branch, a fetch that succeeded.
+It reads the registration in the operator's own shell, so it works from any directory, pasted into bash or zsh; it needs `jq`, in `/usr/bin` on macOS 15 and later.
+It reads only `~/.claude.json`, user-scope and per-project registrations alike: never a `.mcp.json`, which a cloned repository or a sandboxed agent can write, while the sandbox can neither read nor write `~/.claude.json`.
+It makes the same checks as the steps above: an origin that is exactly `apache/comdev` on GitHub, as `git remote get-url` reports it after any `insteadOf` rewrite; the `main` branch; a fetch that succeeded.
 A checkout failing one of them is reported and skipped, never counted.
+It runs in a subshell, so its `exit` cannot close the operator's terminal and its variables do not stay behind, and it carries no `#` comments, which interactive zsh does not treat as comments by default.
 
 ```bash
-refresh=no  # yes: fast-forward the checkouts that are behind, then npm install
-for f in ~/.claude.json .mcp.json; do
-  [ -f "$f" ] && jq -r '
-      ((.mcpServers // {}), ((.projects // {})[] | .mcpServers // {}))
-      | to_entries[] | select(.key == "ponymail" or .key == "apache-projects")
-      | . as $e | [$e.value.args[]? | select(type == "string" and endswith("index.js"))][0] // empty
-      | "\($e.key)\t\(.)"' "$f"
-done | sort -u | {
-  found=no; refreshed=" "
-  while IFS=$'\t' read -r s js; do
-    found=yes; d=$(dirname "$js")
-    root=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { echo "$s: $d is not a git checkout"; continue; }
-    url=$(git -C "$root" config --get remote.origin.url)
-    case "$url" in
-      *github.com[:/]apache/comdev|*github.com[:/]apache/comdev.git) ;;
-      *) echo "$s: origin of $root is '$url', not apache/comdev; skipped"; continue ;;
-    esac
-    br=$(git -C "$root" rev-parse --abbrev-ref HEAD)
-    [ "$br" = main ] || { echo "$s: $root is on '$br', not main; run: git -C '$root' checkout main"; continue; }
-    git -C "$root" fetch -q origin main || { echo "$s: fetch failed in $root; not checked"; continue; }
-    n=$(git -C "$root" rev-list --count HEAD..origin/main)
-    echo "$s: $d is $n commit(s) behind; changes: https://github.com/apache/comdev/compare/$(git -C "$root" rev-parse HEAD)...main"
-    [ "$refresh" = yes ] || continue
-    if [ "$n" -gt 0 ]; then
-      git -C "$root" merge -q --ff-only origin/main || { echo "$s: fast-forward failed in $root"; continue; }
-      refreshed="$refreshed$root "
-    fi
-    case "$refreshed" in *" $root "*) ( cd "$d" && npm install ) ;; esac
-  done
-  [ "$found" = yes ] || echo "no ponymail or apache-projects registration in ~/.claude.json or ./.mcp.json"
-}
+(
+refresh=no
+command -v jq >/dev/null || { echo "jq is not installed; install it and run this again"; exit 1; }
+[ -r ~/.claude.json ] || { echo "cannot read ~/.claude.json, where Claude Code registers MCP servers"; exit 1; }
+regs=$(jq -r '
+    ((.mcpServers // {}), ((.projects // {})[] | .mcpServers // {}))
+    | to_entries[] | select(.key == "ponymail" or .key == "apache-projects")
+    | . as $e | [$e.value.args[]? | select(type == "string" and endswith("index.js"))][0] // empty
+    | "\($e.key)\t\(.)"' ~/.claude.json) || { echo "could not parse ~/.claude.json"; exit 1; }
+regs=$(printf '%s\n' "$regs" | sort -u)
+[ -n "$regs" ] || { echo "no ponymail or apache-projects registration in ~/.claude.json"; exit 0; }
+ok=""
+while IFS=$'\t' read -r s js; do
+  d=$(dirname "$js")
+  root=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null) || { echo "$s: $d is not a git checkout"; continue; }
+  url=$(git -C "$root" remote get-url --all origin 2>/dev/null)
+  case "$url" in
+    https://github.com/apache/comdev|https://github.com/apache/comdev.git) ;;
+    git@github.com:apache/comdev|git@github.com:apache/comdev.git) ;;
+    ssh://git@github.com/apache/comdev|ssh://git@github.com/apache/comdev.git) ;;
+    *) echo "$s: origin of $root is '$url', not apache/comdev; skipped"; continue ;;
+  esac
+  br=$(git -C "$root" rev-parse --abbrev-ref HEAD)
+  [ "$br" = main ] || { echo "$s: $root is on '$br', not main; run: git -C '$root' checkout main"; continue; }
+  up=$(git -C "$root" fetch -q origin main </dev/null && git -C "$root" rev-parse --verify -q FETCH_HEAD) || { echo "$s: fetch failed in $root; not checked"; continue; }
+  n=$(git -C "$root" rev-list --count "HEAD..$up") || { echo "$s: cannot compare $root with the fetched main; not checked"; continue; }
+  echo "$s: $d is $n commit(s) behind apache/comdev main; changes: https://github.com/apache/comdev/compare/$(git -C "$root" rev-parse HEAD)...$up"
+  ok="$ok$s"$'\t'"$d"$'\t'"$root"$'\t'"$up"$'\n'
+done <<EOF
+$regs
+EOF
+[ "$refresh" = yes ] || exit 0
+while IFS=$'\t' read -r s d root up; do
+  [ -n "$s" ] || continue
+  git -C "$root" merge -q --ff-only "$up" </dev/null || { echo "$s: fast-forward failed in $root"; continue; }
+  if ( cd "$d" && npm install </dev/null ); then echo "$s: $d is at $up, npm install done"
+  else echo "$s: npm install failed in $d; run this again to retry"; fi
+done <<EOF
+$ok
+EOF
+)
 ```
 
-As printed it only reports.
-When it shows a checkout behind, the operator reads the compare link, then runs it again with `refresh=yes`.
-That fast-forwards to the `origin/main` just checked, never to another branch's upstream, and runs `npm install` in each server's own directory, including the second server of a checkout both share.
+As printed it only reports: one line per registered server, with the commit it would move to.
+When a checkout is behind, the operator reads the compare link, then runs the script again with `refresh=no` changed to `refresh=yes`.
+That fast-forwards each checkout to exactly the commit it just reported, never to another branch's upstream, and runs `npm install` in every checked server's own directory.
+`npm install` runs even when nothing was behind, so a run after a failed install retries it.
 Restart the agent afterwards so the servers reload.
