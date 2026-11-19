@@ -38,7 +38,8 @@ It makes the same checks as the steps above: an origin that is exactly `apache/c
 A checkout failing one of them is reported and skipped, never counted.
 Its `git fetch` and `git merge` run with `core.hooksPath=/dev/null`, so no hook in the checkout runs.
 Beyond that it trusts the checkout's own `.git/config`, as any git command run there does: the checkout is the operator's, and the sandbox cannot write it.
-It runs in a subshell, so its `exit` cannot close the operator's terminal and its variables do not stay behind, and it carries no `#` comments, which interactive zsh does not treat as comments by default.
+It runs in a subshell, so its `exit` cannot close the operator's terminal and its variables do not stay behind.
+It carries no `#` comments, which interactive zsh does not treat as comments by default, and no `!`, which interactive zsh takes for history expansion.
 
 ```bash
 (
@@ -77,13 +78,13 @@ if [ -z "$refresh" ]; then
   [ -z "$ok" ] || echo "to update, read the changes, then run this again with refresh=<the commit after 'main at'>"
   exit 0
 fi
-case "$refresh" in *[!0-9a-f]*) refresh=bad ;; esac
+case "$refresh" in *[^0-9a-f]*) refresh=bad ;; esac
 [ "${#refresh}" -eq 40 ] || { echo "refresh= takes the full 40-character commit printed after 'main at'"; exit 1; }
 go=""
 while IFS=$'\t' read -r s d root up; do
   [ -n "$s" ] || continue
   git -C "$root" merge-base --is-ancestor "$refresh" "$up" 2>/dev/null || { echo "$s: $refresh is not on the main just fetched for $root; nothing changed"; continue; }
-  git -C "$root" merge-base --is-ancestor HEAD "$refresh" || { echo "$s: $root is already past $refresh; nothing changed"; continue; }
+  git -C "$root" merge-base --is-ancestor HEAD "$refresh" || { echo "$s: $root has commits that $refresh lacks (already past it, or local commits); nothing changed"; continue; }
   [ -z "$(git -C "$root" status --porcelain)" ] || { echo "$s: $root has local changes; commit or remove them first; nothing changed"; continue; }
   go="$go$s"$'\t'"$d"$'\t'"$root"$'\n'
 done <<EOF
@@ -102,7 +103,7 @@ EOF
 ```
 
 As printed it only reports: one line per registered server, with the commit on `apache/comdev` `main` it was compared with.
-When a checkout is behind, the operator reads the compare link, then runs the script again with `refresh=` set to the commit that line printed after `main at`.
+When a checkout is behind, the operator reads the compare link, then pastes the script again with its second line, `refresh=`, edited to `refresh=<the commit that line printed after 'main at'>`; a `refresh=` set outside the script does not count, since that line resets it.
 That run fetches again but fast-forwards to the commit the operator reviewed, never past it.
 It checks every checkout before changing any, and changes nothing in one where that commit is not on the `main` just fetched, where the checkout is already past it, or where the working tree has local changes, which `npm install` would otherwise run.
 It then runs `npm install` in every checked server's own directory, so two servers sharing a checkout end on the same commit, even when the first install rewrites a lockfile.

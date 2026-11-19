@@ -84,6 +84,7 @@ class DocsTest(unittest.TestCase):
         script = _script()
         self.assertNotIn(".mcp.json", script)
         self.assertIsNone(re.search(r"(^|\s)#", script), "interactive zsh would run a # as a command")
+        self.assertNotIn("!", script, "interactive zsh would take a ! for history expansion")
 
 
 @unittest.skipUnless(shutil.which("jq") and SHELLS and REAL_GIT, "needs jq, git and bash or zsh")
@@ -438,7 +439,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 out = self._run(shell, refresh=self.ahead)
-                self.assertIn(f"is already past {self.ahead}", out)
+                self.assertIn(f"has commits that {self.ahead} lacks", out)
                 self.assertNotIn("npm install done", out)
                 self.assertEqual(self._head(), later)
                 self.assertEqual(self._npm_dirs(), [])
@@ -451,6 +452,30 @@ class SelfResolvingScriptTest(unittest.TestCase):
                     self.assertIn("refresh= takes the full 40-character commit", out)
                     self.assertEqual(self._head(), self.start)
                     self.assertEqual(self._npm_dirs(), [])
+
+    @unittest.skipUnless("zsh" in SHELLS, "needs zsh")
+    def test_pasted_into_interactive_zsh_it_reports_and_refreshes(self) -> None:
+        # A real paste: interactive zsh reading the script, with history expansion and no
+        # interactive comments, as the operator's terminal has by default.
+        env = {**os.environ, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
+        for refresh in ("", self.ahead):
+            with self.subTest(refresh=refresh or "report"):
+                script = _script().replace("(\nrefresh=\n", f"(\nrefresh={refresh}\n", 1)
+                result = subprocess.run(
+                    ["zsh", "-f", "-i"],
+                    input=script + "exit\n",
+                    cwd=self.cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                out = result.stdout + result.stderr
+                self.assertNotIn("event not found", out)
+                self.assertNotIn("command not found", out)
+                self.assertIn(f"ponymail: {self.ponymail} is 1 commit(s) behind", out)
+        self.assertEqual(self._head(), self.ahead)
+        self.assertEqual(self._npm_dirs(), self._both_dirs())
 
     def test_a_non_object_document_is_not_a_parse_error(self) -> None:
         self._register([1, 2, 3])
