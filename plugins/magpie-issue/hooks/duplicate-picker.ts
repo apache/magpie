@@ -943,7 +943,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
     try {
       const command = e.command;
       const match = /\.magpie-issue-candidates-(\d+)\.json/.exec(command);
-      if (match) {
+      if (match && match[1]) {
         const targetIssue = parseInt(match[1], 10);
         const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
         let exists = false;
@@ -987,7 +987,7 @@ export async function handleWriteToolCall($: any, e: any, next: any): Promise<an
 
       if (filePath) {
         const match = /\.magpie-issue-candidates-(\d+)\.json$/.exec(filePath);
-        if (match) {
+        if (match && match[1]) {
           const targetIssue = parseInt(match[1], 10);
           if (isWorkspaceCandidatePath(filePath, targetIssue)) {
             const fileName = `.magpie-issue-candidates-${targetIssue}.json`;

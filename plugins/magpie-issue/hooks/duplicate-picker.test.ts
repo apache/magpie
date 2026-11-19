@@ -284,11 +284,11 @@ describe('parseCandidatePayload', () => {
     if (parsed.target_author !== 'octocat') {
       throw new Error(`expected octocat without @, got ${parsed.target_author}`);
     }
-    if (parsed.candidates[0].author !== 'alice') {
-      throw new Error(`expected alice without @, got ${parsed.candidates[0].author}`);
+    if (parsed.candidates[0]?.author !== 'alice') {
+      throw new Error(`expected alice without @, got ${parsed.candidates[0]?.author}`);
     }
-    if (parsed.candidates[1].author !== 'bob') {
-      throw new Error(`expected bob, got ${parsed.candidates[1].author}`);
+    if (parsed.candidates[1]?.author !== 'bob') {
+      throw new Error(`expected bob, got ${parsed.candidates[1]?.author}`);
     }
   });
 
@@ -1519,7 +1519,7 @@ describe('handleBashToolCall', () => {
     await handleBashToolCall(test$, { command: 'cat .magpie-issue-candidates-60.json' }, nextSpy);
 
     const state = await getDuplicatePickerState(test$);
-    if (!state || state.candidates[0].issue_number !== 58) {
+    if (!state || state.candidates[0]?.issue_number !== 58) {
       throw new Error(`expected re-hydrated candidates with issue 58, got: ${JSON.stringify(state?.candidates)}`);
     }
     if (state.selectedKeptIssue !== null) {
