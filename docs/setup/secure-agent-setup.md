@@ -4397,9 +4397,14 @@ anything — I will decide what to apply:
    my settings, resolve its `apache/comdev` checkout from the
    `args` path, `git -C <root> fetch origin main`, and report the
    behind-count. When behind, print (do not run)
-   `git -C <root> pull --ff-only` + `npm install` in the affected
-   `mcp/<server>/` dir, plus the
-   `github.com/apache/comdev/compare/<sha>...main` link. These
+   `git -C <root> pull --ff-only` + `npm install` in the server's
+   own dir (where its registered `index.js` lives, e.g.
+   `mcp/ponymail-mcp/`), with real absolute paths, plus the
+   `github.com/apache/comdev/compare/<sha>...main` link. If the
+   sandbox keeps you from reading where they are registered, print
+   the self-resolving script from the framework's
+   `plugins/magpie-setup/skills/isolated-setup-update/comdev-mcp.md`
+   for me to run, never a command with a placeholder in it. These
    servers track `main` by design — no manifest bump, no cooldown.
 5. Diff my project `.claude/settings.json` `permissions.allow`
    against the framework's. List every read-only entry I am
