@@ -508,7 +508,7 @@ def test_jvm_missing_companion_asc_gets_no_gpg_line(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- Step 6c
 
 HAS_EXISTENCE = re.compile(
-    r"https://repository\.apache\.org/content/repositories/(orgapache[a-z0-9]+-[0-9]+|snapshots)/"
+    r"https://repository\.apache\.org/content/repositories/([a-z0-9]+-[0-9]+|snapshots)/"
 )
 HAS_INVENTORY = re.compile(r"crawl|href=")
 HAS_CRED_STATE = re.compile(r"--netrc-file[\s\S]{0,200}?service/local/staging/")
@@ -672,6 +672,23 @@ def test_case_9_malformed_id_skip() -> None:
     assert_safe_recipe(out)
 
 
+def test_case_10_maven_named_staging_repo() -> None:
+    """Maven names its staging repositories `maven-NNNN`, not `orgapache<project>-NNNN`."""
+    v = vrc(nexus_staging_repo="maven-2471")
+    state = json.dumps({"data": {"repositoryId": "maven-2471", "state": "closed", "transitioning": False}})
+    profile = "maven-2469\tclosed\torg.apache.maven\nmaven-2471\tclosed\torg.apache.maven\n"
+    out = run_nexus(
+        v, rm_credentials=True, state_text=state, profile_text=profile, crawl_text=crawl_text("1.0.0")
+    )
+    assert out["status"] == "WARN"
+    assert out["staging_repos"] == [
+        {"id": "maven-2469", "state": "closed", "matches_rc": False},
+        {"id": "maven-2471", "state": "closed", "matches_rc": True},
+    ]
+    assert len(out["nexus_findings"]) == 1 and "maven-2469" in out["nexus_findings"][0]
+    assert_safe_recipe(out)
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -679,7 +696,6 @@ def test_case_9_malformed_id_skip() -> None:
         "orgapachefoo-1024$(id)",
         "OrgApacheFoo-1024",
         "orgapachefoo-1024/../../service/local/staging/bulk/promote",
-        "orgapache-1024",
     ],
 )
 def test_id_shape_rejects_anything_that_could_reach_a_url(value: str) -> None:

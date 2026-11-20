@@ -18,10 +18,11 @@
 
 The staging repository id is spliced into `curl` URLs the agent runs itself,
 and it can come from the planning issue body, so it is validated against the
-Nexus shape before any recipe is rendered: anything but
-`orgapache<name>-NNNN` (or the literal `snapshots`, which the rules then
-flag) is a `SKIP` naming the bad value. Every recipe is a `GET`; nothing
-here closes, drops or promotes a repository, and nothing here runs one.
+Nexus shape before any recipe is rendered: anything but `<name>-NNNN` (for
+example `orgapache<project>-NNNN` or `maven-NNNN`; the literal `snapshots`,
+which the rules then flag) is a `SKIP` naming the bad value. Every recipe is a
+`GET`; nothing here closes, drops or promotes a repository, and nothing here
+runs one.
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from release_management.verify_rc.jvm import NAMES_PENDING, is_jvm
 
 NEXUS = "https://repository.apache.org"
 NETRC = "~/.config/apache-magpie/asf-nexus/netrc"
-ID_SHAPE = re.compile(r"^orgapache[a-z0-9]+-[0-9]+$")
+ID_SHAPE = re.compile(r"^[a-z0-9]+-[0-9]+$")
 SNAPSHOTS = "snapshots"
 CHECKSUMS = (".sha1", ".md5", ".sha256", ".sha512")
 _URL_ID = re.compile(
@@ -172,7 +173,8 @@ def gate(
         )
     if not valid_id(repo):
         finding = (
-            f"nexus_staging_repo value {repo!r} does not match the Nexus id shape (orgapache<name>-NNNN) — "
+            f"nexus_staging_repo value {repo!r} does not match the Nexus id shape "
+            "(<name>-NNNN, such as orgapache<project>-NNNN or maven-NNNN) — "
             "no probe run; supply a valid staging repository id"
         )
         return _skip(f"malformed staging repository id {repo!r}", [finding]), None
@@ -223,7 +225,7 @@ def _profile(text: str) -> list[dict[str, str]]:
         rows = []
         for line in text.splitlines():
             cells = line.split("\t") if "\t" in line else line.split()
-            if len(cells) >= 2 and cells[0].startswith("orgapache"):
+            if len(cells) >= 2 and ID_SHAPE.fullmatch(cells[0]):
                 rows.append({"id": cells[0], "state": cells[1], "description": ""})
         return rows
     items = data.get("data", []) if isinstance(data, dict) else data

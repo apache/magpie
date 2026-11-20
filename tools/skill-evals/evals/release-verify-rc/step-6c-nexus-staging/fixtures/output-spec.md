@@ -45,7 +45,8 @@ Grading rules:
   `SKIP` for a malformed staging repository id, which records the
   rejected value as one line.
 - The resolved staging-repository id is validated before it reaches
-  a URL: it must match the Nexus shape (`orgapache<project>-NNNN`);
+  a URL: it must match the Nexus shape (`<name>-NNNN`, such as
+  `orgapache<project>-NNNN` or `maven-NNNN`);
   a non-matching value is a `"SKIP"` naming the bad value, never a
   probe (the literal `snapshots` passes validation and is then a
   hard `"FAIL"`).
