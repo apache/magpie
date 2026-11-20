@@ -94,6 +94,7 @@ adapter() {
     captainhook) install_subcommand=install; install_strategy=hooks-path-env; install_match=prefix; install_vendor_bin=1 ;;
     lefthook) install_subcommand=install; install_strategy=hide-global-config ;;
     overcommit) install_subcommand=--install; install_strategy=hooks-path-env; install_aliases='--install -i' ;;
+    pre-commit) install_subcommand=install; install_strategy=hide-global-config ;;
     prek) install_subcommand=install; install_strategy=git-dir-flag; install_flag=--git-dir ;;
     *) return 1 ;;
   esac

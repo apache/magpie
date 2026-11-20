@@ -53,7 +53,9 @@ def _make_git_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _run(cwd: Path, args: list | None = None, extra_env: dict | None = None) -> subprocess.CompletedProcess:
+def _run(
+    cwd: Path, args: list | None = None, extra_env: dict | None = None
+) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     if extra_env:
         env.update(extra_env)
@@ -100,6 +102,61 @@ class TestBasicCreation:
         content = (repo / ".claude" / "settings.local.json").read_text()
         parsed = json.loads(content)  # raises if invalid
         assert isinstance(parsed, dict)
+
+
+# ---------------------------------------------------------------------------
+# hook managers whose home cannot spell `~`
+# ---------------------------------------------------------------------------
+
+
+class TestHookManagerHomes:
+    """pre-commit keeps `~` literal, so its sandbox home is an absolute path."""
+
+    def test_absolute_home_for_a_repository_that_uses_pre_commit(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _make_git_repo(tmp_path)
+        (repo / ".pre-commit-config.yaml").write_text("repos: []\n")
+        home = tmp_path / "home"
+        assert _run(repo, extra_env={"HOME": str(home)}).returncode == 0
+        data = _load(repo / ".claude" / "settings.local.json")
+        assert data["env"]["PRE_COMMIT_HOME"] == str(
+            home / ".cache" / "pre-commit-sandbox"
+        )
+
+    def test_no_home_for_a_repository_without_the_manager(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        assert _run(repo, extra_env={"HOME": str(home)}).returncode == 0
+        data = _load(repo / ".claude" / "settings.local.json")
+        assert "env" not in data
+
+    def test_an_installed_hook_that_names_the_manager_counts(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _make_git_repo(tmp_path)
+        hook = repo / ".git" / "hooks" / "pre-push"
+        hook.write_text(
+            '#!/bin/sh\nexec pre-commit hook-impl --config=ci/hooks.yaml "$@"\n'
+        )
+        home = tmp_path / "home"
+        assert _run(repo, extra_env={"HOME": str(home)}).returncode == 0
+        data = _load(repo / ".claude" / "settings.local.json")
+        assert data["env"]["PRE_COMMIT_HOME"] == str(
+            home / ".cache" / "pre-commit-sandbox"
+        )
+
+    def test_a_stale_absolute_home_is_removed(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        (repo / ".claude").mkdir()
+        settings_file = repo / ".claude" / "settings.local.json"
+        settings_file.write_text(
+            json.dumps({"env": {"PRE_COMMIT_HOME": str(tmp_path / "old" / "home")}})
+        )
+        assert _run(repo).returncode == 0
+        data = _load(settings_file)
+        assert "env" not in data
+        assert str(repo) in data["sandbox"]["filesystem"]["allowRead"]
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +209,10 @@ class TestMerge:
         repo = _make_git_repo(tmp_path)
         claude_dir = repo / ".claude"
         claude_dir.mkdir(parents=True, exist_ok=True)
-        existing = {"sandbox": {"filesystem": {"allowRead": ["/other"]}}, "someKey": "someValue"}
+        existing = {
+            "sandbox": {"filesystem": {"allowRead": ["/other"]}},
+            "someKey": "someValue",
+        }
         (claude_dir / "settings.local.json").write_text(json.dumps(existing))
         _run(repo)
         data = _load(claude_dir / "settings.local.json")
@@ -166,7 +226,16 @@ class TestMerge:
 
 
 def _tool_reads(home: Path) -> list[str]:
-    return [str(home / p) for p in (".gitconfig", ".config/git", ".cache", ".local/share/uv", ".local/bin")]
+    return [
+        str(home / p)
+        for p in (
+            ".gitconfig",
+            ".config/git",
+            ".cache",
+            ".local/share/uv",
+            ".local/bin",
+        )
+    ]
 
 
 def _tool_writes(home: Path) -> list[str]:
@@ -179,7 +248,9 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        read_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowRead"]
+        read_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"][
+            "filesystem"
+        ]["allowRead"]
         for path in _tool_reads(home):
             assert path in read_paths
 
@@ -187,7 +258,9 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        write_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
+        write_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"][
+            "filesystem"
+        ]["allowWrite"]
         assert write_paths == [str(repo)] + _tool_writes(home)
 
     def test_never_adds_credential_paths(self, tmp_path: Path) -> None:
@@ -212,33 +285,55 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         cache = str(home / ".cache")
-        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [cache], "allowWrite": [cache]}}})
+        _seed_settings(
+            repo,
+            {"sandbox": {"filesystem": {"allowRead": [cache], "allowWrite": [cache]}}},
+        )
         _run(repo, extra_env={"HOME": str(home)})
         data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
         assert data["allowRead"].count(cache) == 1
         assert data["allowWrite"].count(cache) == 1
         assert data["allowRead"][0] == cache  # existing entries keep their place
 
-    def test_removes_the_uv_data_dir_write_an_earlier_version_added(self, tmp_path: Path) -> None:
+    def test_removes_the_uv_data_dir_write_an_earlier_version_added(
+        self, tmp_path: Path
+    ) -> None:
         """Hooks, MCP servers and excluded uv commands run its interpreters unsandboxed."""
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         uv = str(home / ".local" / "share" / "uv")
         stale = [uv, uv + "/", "~/.local/share/uv", "~/.local/share/uv/"]
-        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [uv], "allowWrite": ["/opt/data", *stale]}}})
+        _seed_settings(
+            repo,
+            {
+                "sandbox": {
+                    "filesystem": {
+                        "allowRead": [uv],
+                        "allowWrite": ["/opt/data", *stale],
+                    }
+                }
+            },
+        )
         _run(repo, extra_env={"HOME": str(home)})
         data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
         assert not set(stale) & set(data["allowWrite"])
         assert "/opt/data" in data["allowWrite"]
         assert uv in data["allowRead"]  # reading it stays allowed
 
-    def test_removes_the_uv_data_dir_write_even_without_tool_paths(self, tmp_path: Path) -> None:
+    def test_removes_the_uv_data_dir_write_even_without_tool_paths(
+        self, tmp_path: Path
+    ) -> None:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         uv = str(home / ".local" / "share" / "uv")
         _seed_settings(repo, {"sandbox": {"filesystem": {"allowWrite": [uv]}}})
         _run(repo, args=["--no-tool-paths"], extra_env={"HOME": str(home)})
-        assert uv not in _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
+        assert (
+            uv
+            not in _load(repo / ".claude" / "settings.local.json")["sandbox"][
+                "filesystem"
+            ]["allowWrite"]
+        )
 
     def test_no_tool_paths_flag_adds_project_root_only(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)
@@ -271,7 +366,9 @@ class TestWorkingDirs:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        for entry in _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]:
+        for entry in _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]:
             assert "*" not in entry
             assert not entry.startswith("~")
 
@@ -280,29 +377,45 @@ class TestWorkingDirs:
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
         _run(repo, extra_env={"HOME": str(home)})
-        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]
         assert dirs == _work_dirs(home)
 
     def test_keeps_existing_working_dirs(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
-        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data"], "allow": ["Bash(ls *)"]}})
+        _seed_settings(
+            repo,
+            {
+                "permissions": {
+                    "additionalDirectories": ["/opt/data"],
+                    "allow": ["Bash(ls *)"],
+                }
+            },
+        )
         _run(repo, extra_env={"HOME": str(home)})
         permissions = _load(repo / ".claude" / "settings.local.json")["permissions"]
         assert permissions["additionalDirectories"] == ["/opt/data"] + _work_dirs(home)
         assert permissions["allow"] == ["Bash(ls *)"]  # other permission keys untouched
 
     @pytest.mark.parametrize("extra_args", [[], ["--no-working-dirs"]])
-    def test_removes_the_writable_magpie_dir(self, tmp_path: Path, extra_args: list[str]) -> None:
+    def test_removes_the_writable_magpie_dir(
+        self, tmp_path: Path, extra_args: list[str]
+    ) -> None:
         # A working directory is sandbox-writable, and the vetted-ops commands
         # run from ~/.claude/magpie outside the sandbox.
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         magpie = str(home / ".claude" / "magpie")
         stale = [magpie, magpie + "/", "~/.claude/magpie", "~/.claude/magpie/"]
-        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data", *stale]}})
+        _seed_settings(
+            repo, {"permissions": {"additionalDirectories": ["/opt/data", *stale]}}
+        )
         _run(repo, extra_args, extra_env={"HOME": str(home)})
-        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]
         assert not set(stale) & set(dirs)
         assert dirs[0] == "/opt/data"
 
@@ -323,7 +436,9 @@ def _seed_settings(repo: Path, content: dict | None = None) -> Path:
     claude_dir = repo / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
     settings = claude_dir / "settings.local.json"
-    settings.write_text(json.dumps(content or {"sandbox": {"filesystem": {"allowRead": []}}}))
+    settings.write_text(
+        json.dumps(content or {"sandbox": {"filesystem": {"allowRead": []}}})
+    )
     return settings
 
 
@@ -444,7 +559,8 @@ class TestGitignoreSafetyCheck:
         # fell through to writing anyway, which would mask the bug.
         (repo / ".claude").mkdir()
         result = _run(
-            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
         )
 
         assert "is not gitignored" not in result.stderr
@@ -455,15 +571,21 @@ class TestGitignoreSafetyCheck:
         """The allowlist entry must be the repo root, not the .claude subdir."""
         repo = _make_git_repo(tmp_path)
         (repo / ".claude").mkdir()
-        _run(repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)})
+        _run(
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
+        )
         data = _load(repo / ".claude" / "settings.local.json")
         assert str(repo) in data["sandbox"]["filesystem"]["allowRead"]
 
-    def test_git_dir_exported_still_refuses_when_not_gitignored(self, tmp_path: Path) -> None:
+    def test_git_dir_exported_still_refuses_when_not_gitignored(
+        self, tmp_path: Path
+    ) -> None:
         """The fix must not turn the safety check into a no-op."""
         repo = _bare_git_repo(tmp_path)
         result = _run(
-            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
         )
 
         assert "is not gitignored" in result.stderr
@@ -473,11 +595,25 @@ class TestGitignoreSafetyCheck:
         """The real-world trigger: a hook firing inside a git worktree."""
         repo = _make_git_repo(tmp_path)
         subprocess.run(
-            ["git", "-C", str(repo), "add", ".gitignore"], check=True, capture_output=True
+            ["git", "-C", str(repo), "add", ".gitignore"],
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
-            ["git", "-C", str(repo), "-c", "user.email=t@e.st", "-c", "user.name=t",
-             "-c", "commit.gpgsign=false", "commit", "-m", "init"],
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "user.email=t@e.st",
+                "-c",
+                "user.name=t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "init",
+            ],
             check=True,
             capture_output=True,
         )
@@ -489,7 +625,10 @@ class TestGitignoreSafetyCheck:
         )
 
         (wt / ".claude").mkdir()
-        result = _run(wt, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)})
+        result = _run(
+            wt,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)},
+        )
 
         assert "is not gitignored" not in result.stderr
         assert (wt / ".claude" / "settings.local.json").exists()
@@ -543,7 +682,9 @@ def _fake_bin_failing_mv(tmp_path: Path) -> Path:
     fake_bin = tmp_path / "fake_mv_bin"
     fake_bin.mkdir(exist_ok=True)
     mv = fake_bin / "mv"
-    mv.write_text("#!/bin/sh\necho \"mv: rename $1 to $2: Operation not permitted\" >&2\nexit 1\n")
+    mv.write_text(
+        '#!/bin/sh\necho "mv: rename $1 to $2: Operation not permitted" >&2\nexit 1\n'
+    )
     mv.chmod(0o755)
     return fake_bin
 
@@ -551,14 +692,18 @@ def _fake_bin_failing_mv(tmp_path: Path) -> Path:
 class TestReplaceFails:
     def _run_denied(self, repo: Path, tmp_path: Path) -> subprocess.CompletedProcess:
         fake_bin = _fake_bin_failing_mv(tmp_path)
-        return _run(repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"})
+        return _run(
+            repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"}
+        )
 
     def test_leaves_no_temp_file(self, tmp_path: Path) -> None:
         """Regression: a failed rename left `settings.local.json.XXXXXX` behind."""
         repo = _make_git_repo(tmp_path)
         _seed_settings(repo)
         self._run_denied(repo, tmp_path)
-        leftovers = sorted(p.name for p in (repo / ".claude").glob("settings.local.json.*"))
+        leftovers = sorted(
+            p.name for p in (repo / ".claude").glob("settings.local.json.*")
+        )
         assert leftovers == []
 
     def test_leaves_file_untouched(self, tmp_path: Path) -> None:
