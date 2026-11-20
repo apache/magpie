@@ -41,7 +41,7 @@ from pathlib import Path
 PLUGINS = Path("plugins")
 TOOLS = "tools"
 UV = shutil.which("uv") or "uv"
-TIMEOUT = 600
+TIMEOUT = 120
 
 
 @dataclass(frozen=True)
@@ -70,20 +70,40 @@ def modules_of(data: dict) -> tuple[str, ...]:
     return (name.replace("-", "_"),) if name else ()
 
 
+SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules"}
+
+
+def _tool_dirs(tools_root: Path):
+    """Every directory under a plugin's `tools/` that holds a pyproject, following links."""
+    seen: set[Path] = set()
+    for current, dirs, files in os.walk(tools_root, followlinks=True):
+        real = Path(current).resolve()
+        if real in seen:
+            dirs[:] = []
+            continue
+        seen.add(real)
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        if "pyproject.toml" in files:
+            yield Path(current)
+
+
 def discover(root: Path) -> list[PackagedTool]:
     tools: list[PackagedTool] = []
-    for pyproject in sorted((root / PLUGINS).glob(f"*/{TOOLS}/**/pyproject.toml")):
-        relative = pyproject.parent.relative_to(root / PLUGINS)
-        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-        tools.append(
-            PackagedTool(
-                plugin=relative.parts[0],
-                path=Path(TOOLS, *relative.parts[2:]),
-                scripts=scripts_of(data),
-                modules=modules_of(data),
+    for plugin_dir in sorted((root / PLUGINS).iterdir()):
+        tools_root = plugin_dir / TOOLS
+        if not tools_root.is_dir():
+            continue
+        for tool_dir in _tool_dirs(tools_root):
+            data = tomllib.loads((tool_dir / "pyproject.toml").read_text(encoding="utf-8"))
+            tools.append(
+                PackagedTool(
+                    plugin=plugin_dir.name,
+                    path=Path(TOOLS, *tool_dir.relative_to(tools_root).parts),
+                    scripts=scripts_of(data),
+                    modules=modules_of(data),
+                )
             )
-        )
-    return tools
+    return sorted(tools, key=lambda tool: tool.label)
 
 
 def probes(tool: PackagedTool, project: Path) -> list[tuple[str, list[str]]]:

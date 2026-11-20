@@ -223,10 +223,10 @@ jobs:
           enable-cache: true
           cache-suffix: "packaged-tools"
           cache-dependency-glob: "**/pyproject.toml"
-      # uv supplies the interpreter, so the job does not rely on the runner
-      # image's `python3` having `tomllib` (3.11+).
+      # 3.11 is the floor the tools declare; `--python` makes uv fetch it
+      # rather than using whatever interpreter the runner happens to have.
       - name: Start every copied tool once
-        run: uv run --no-project python tools/dev/start-packaged-tools.py
+        run: uv run --no-project --python 3.11 python tools/dev/start-packaged-tools.py
 
   # Umbrella status check. `.asf.yaml`'s `required_status_checks`
   # cannot use patterns or wildcards (GitHub's branch-protection and
