@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _SCRIPT = Path(__file__).resolve().parents[1] / "start-packaged-tools.py"
 
 
@@ -43,6 +45,20 @@ def _tool(root: Path, rel: str, text: str) -> None:
     path = root / "plugins" / "magpie-x" / "tools" / rel / "pyproject.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def test_discover_follows_a_symlinked_tool(tmp_path: Path) -> None:
+    _tool(tmp_path, "a", '[project]\nname = "a"\n')
+    real = tmp_path / "real-b"
+    real.mkdir()
+    (real / "pyproject.toml").write_text('[project]\nname = "b"\n', encoding="utf-8")
+    link = tmp_path / "plugins" / "magpie-x" / "tools" / "b"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable")
+    assert [tool.path.as_posix() for tool in mod.discover(tmp_path)] == ["tools/a", "tools/b"]
 
 
 def test_discover_reads_scripts_and_nested_tools(tmp_path: Path) -> None:
