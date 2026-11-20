@@ -2,7 +2,7 @@
   "has_existence_check": {
     "type": "regex",
     "field": "paste_recipe",
-    "pattern": "https://repository\\.apache\\.org/content/repositories/(orgapache[a-z0-9]+-[0-9]+|snapshots)/"
+    "pattern": "https://repository\\.apache\\.org/content/repositories/([a-z0-9]+-[0-9]+|snapshots)/"
   },
   "has_inventory_listing": {
     "type": "regex",
