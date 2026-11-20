@@ -68,6 +68,7 @@ def _script() -> str:
 
 
 def _git(*args: str, cwd: Path) -> str:
+    assert REAL_GIT is not None, "the test class is skipped without git"
     result = subprocess.run(
         [REAL_GIT, *args], cwd=cwd, check=True, capture_output=True, text=True, env={**os.environ, **GIT_ENV}
     )
@@ -208,7 +209,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
                     f"changes: {link}",
                     out,
                 )
-                self.assertIn(f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out)
+                self.assertIn(
+                    f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out
+                )
                 self.assertIn("run this again with refresh=<the commit after 'main at'>", out)
                 self.assertEqual(self._npm_dirs(), [], "report mode never installs")
                 self.assertEqual(self._head(), self.start, "report mode never merges")
@@ -318,7 +321,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
                 self.assertEqual(self._head(), self.start)
 
     def test_a_missing_checkout_is_named(self) -> None:
-        self._register({"mcpServers": {"ponymail": {"args": [str(self.root / "deleted/mcp/ponymail-mcp/index.js")]}}})
+        self._register(
+            {"mcpServers": {"ponymail": {"args": [str(self.root / "deleted/mcp/ponymail-mcp/index.js")]}}}
+        )
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 self.assertIn("is not a git checkout", self._run(shell))
@@ -415,7 +420,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
 
     def test_refresh_refuses_a_checkout_with_local_changes(self) -> None:
         changes = {
-            "modified": lambda: (self.ponymail / "package-lock.json").write_text('{"x": 1}\n', encoding="utf-8"),
+            "modified": lambda: (self.ponymail / "package-lock.json").write_text(
+                '{"x": 1}\n', encoding="utf-8"
+            ),
             "untracked": lambda: (self.ponymail / ".npmrc").write_text("x\n", encoding="utf-8"),
         }
         for kind, make in changes.items():
