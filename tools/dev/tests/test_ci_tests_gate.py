@@ -80,7 +80,7 @@ def _expression(value: str, require_wrapper: bool = False) -> str:
 
 def _assert_dependencies(job: str) -> None:
     needs = [token for token in _tokens(_field(job, "needs"), sequence=True) if token != "-"]
-    assert set(needs) == {"members", "pytest"}
+    assert set(needs) == {"members", "pytest", "packaged-tools"}
     assert _expression(_field(job, "if")) == "always()"
 
 
@@ -127,7 +127,7 @@ def bash() -> str:
     return _working_bash()
 
 
-def test_gate_waits_for_both_jobs_and_runs_after_failure(gate_job: str) -> None:
+def test_gate_waits_for_every_job_and_runs_after_failure(gate_job: str) -> None:
     _assert_dependencies(gate_job)
 
 
@@ -137,17 +137,26 @@ def test_gate_reads_batches_from_discovery(gate_job: str) -> None:
 
 
 def _run_gate(
-    gate_job: str, bash: str, members_result: str, pytest_result: str, batches: str | None = "[]"
+    gate_job: str,
+    bash: str,
+    members_result: str,
+    pytest_result: str,
+    batches: str | None = "[]",
+    packaged_result: str = "success",
 ) -> subprocess.CompletedProcess[str]:
     # The assert step's own `run: |` block, found by its name, so a step added
     # before it can never be the script under test.
     run = re.search(
-        r"(?ms)^      - name: Assert member discovery and pytest matrix results\n.*?^        run: \|\n((?:          .*\n|\n)+)",
+        r"(?ms)^      - name: Assert member discovery, pytest matrix, and packaged-tool results\n.*?^        run: \|\n((?:          .*\n|\n)+)",
         gate_job,
     )
     assert run is not None, "tests-ok shell assertion is missing"
     script = dedent(run[1])
-    for job, result in (("members", members_result), ("pytest", pytest_result)):
+    for job, result in (
+        ("members", members_result),
+        ("pytest", pytest_result),
+        ("packaged-tools", packaged_result),
+    ):
         script = script.replace("${{ needs." + job + ".result }}", result)
     assert "${{" not in script, "unresolved Actions expression in the gate"
     env = os.environ.copy()
@@ -182,6 +191,12 @@ def test_gate_results(gate_job: str, bash: str, members_result: str, pytest_resu
         _assert_result(completed, 0, f"pytest gate satisfied (matrix result: {pytest_result})")
 
 
+@pytest.mark.parametrize("packaged_result", ["failure", "cancelled", "skipped"])
+def test_packaged_tool_failure_fails_the_gate(gate_job: str, bash: str, packaged_result: str) -> None:
+    completed = _run_gate(gate_job, bash, "success", "success", packaged_result=packaged_result)
+    _assert_result(completed, 1, f"packaged tools result: {packaged_result}")
+
+
 @pytest.mark.parametrize(
     "batches",
     [None, "", "[ ]", '[{"name":"dev"}]', "not-json", "$(exit 23)", "`exit 24`"],
@@ -210,14 +225,17 @@ def test_successful_matrix_accepts_a_nonempty_selection(gate_job: str, bash: str
 @pytest.mark.parametrize(
     ("needs", "condition"),
     [
-        ("[members, pytest]", "always()"),
-        ("[members, pytest]  # comment", "always()"),
-        ("['members', 'pytest']", "always()"),
-        ('["members", "pytest"]', "always()"),
-        ("\n      - members\n      - pytest", "always()"),
-        ("\n      - 'members'\n      - 'pytest'  # comment", "${{ always() }}"),
-        ("[members, pytest]", "${{ always() }}"),
-        ("[members, pytest]", "'${{ always() }}'  # comment"),
+        ("[members, pytest, packaged-tools]", "always()"),
+        ("[members, pytest, packaged-tools]  # comment", "always()"),
+        ("['members', 'pytest', 'packaged-tools']", "always()"),
+        ('["members", "pytest", "packaged-tools"]', "always()"),
+        ("\n      - members\n      - pytest\n      - packaged-tools", "always()"),
+        (
+            "\n      - 'members'\n      - 'pytest'\n      - 'packaged-tools'  # comment",
+            "${{ always() }}",
+        ),
+        ("[members, pytest, packaged-tools]", "${{ always() }}"),
+        ("[members, pytest, packaged-tools]", "'${{ always() }}'  # comment"),
     ],
 )
 def test_equivalent_dependency_declarations(needs: str, condition: str) -> None:
@@ -229,9 +247,10 @@ def test_equivalent_dependency_declarations(needs: str, condition: str) -> None:
     [
         ("[pytest]", "always()"),
         ("[members]", "always()"),
-        ("[members, pytest]", "success()"),
-        ("[members, pytest]", "al ways()"),
-        ("[members, pytest, other]", "always()"),
+        ("[members, pytest]", "always()"),
+        ("[members, pytest, packaged-tools]", "success()"),
+        ("[members, pytest, packaged-tools]", "al ways()"),
+        ("[members, pytest, packaged-tools, other]", "always()"),
     ],
 )
 def test_incorrect_dependency_declarations_are_rejected(needs: str, condition: str) -> None:
@@ -279,7 +298,7 @@ def test_unusable_bash_fails_on_ci(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_gate_step_runs_with_the_tested_shell_flags(gate_job: str) -> None:
-    step = gate_job.split("- name: Assert member discovery and pytest matrix results", 1)[1]
+    step = gate_job.split("- name: Assert member discovery, pytest matrix, and packaged-tool results", 1)[1]
     assert re.search(r"(?m)^        shell: bash\s*$", step), (
         "the gate step must set `shell: bash` to match _BASH_FLAGS"
     )

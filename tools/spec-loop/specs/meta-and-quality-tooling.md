@@ -327,8 +327,9 @@ trustworthy as it grows.
   `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
   (`AGENTS.md` § Local setup).
   The required `tests-ok` job runs `if: always()` and fails unless member
-  discovery succeeded and the matrix either succeeded or was skipped on an
-  explicitly empty `[]` selection (#1807).
+  discovery succeeded, the matrix either succeeded or was skipped on an
+  explicitly empty `[]` selection (#1807), and every copied plugin tool
+  started once from a temporary copy outside the checkout (#2170).
   CodeQL, not a required check, picks its analyses per pull request: `python`
   only when a `.py` file changed, `actions` only when something under
   `.github/` did, both when the workflow itself changed or on a push to
@@ -448,8 +449,8 @@ trustworthy as it grows.
     vendors or an empty entry (#1575).
 15. A pull request's `tests` run picks only the workspace members its
     changes affect, and the required `tests-ok` gate fails when member
-    discovery fails or the matrix is skipped without an empty selection
-    (#1717, #1807).
+    discovery fails, the matrix is skipped without an empty selection,
+    or a packaged tool cannot start (#1717, #1807, #2170).
 16. `pre-release-sweep` changes nothing before its PR plan is approved,
     lands one concern per PR, and closes no issue on a commit message
     alone or without the maintainer's confirmation; its classification of
