@@ -676,7 +676,11 @@ def test_case_10_maven_named_staging_repo() -> None:
     """Maven names its staging repositories `maven-NNNN`, not `orgapache<project>-NNNN`."""
     v = vrc(nexus_staging_repo="maven-2471")
     state = json.dumps({"data": {"repositoryId": "maven-2471", "state": "closed", "transitioning": False}})
-    profile = "maven-2469\tclosed\torg.apache.maven\nmaven-2471\tclosed\torg.apache.maven\n"
+    profile = (
+        "maven-2469\tclosed\torg.apache.maven\n"
+        "maven-2471\tclosed\torg.apache.maven\n"
+        "orgapachefoo-1024\tclosed\torg.apache.foo\n"
+    )
     out = run_nexus(
         v, rm_credentials=True, state_text=state, profile_text=profile, crawl_text=crawl_text("1.0.0")
     )
@@ -686,6 +690,7 @@ def test_case_10_maven_named_staging_repo() -> None:
         {"id": "maven-2471", "state": "closed", "matches_rc": True},
     ]
     assert len(out["nexus_findings"]) == 1 and "maven-2469" in out["nexus_findings"][0]
+    assert 'grep -i "^maven-"' in out["paste_recipe"]
     assert_safe_recipe(out)
 
 

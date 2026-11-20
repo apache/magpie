@@ -124,7 +124,7 @@ def recipe(repo: str, *, rm_credentials: bool) -> str:
             f"curl -fsS --netrc-file {NETRC} \\",
             f'  "{NEXUS}/service/local/staging/profile_repositories" \\',
             "| jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' \\",
-            f'| grep -i "{prefix}"',
+            f'| grep -i "^{prefix}-"',
         ]
     return "\n".join(lines)
 
