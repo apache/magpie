@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 6881
+measured_tokens: 6898
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -312,7 +312,7 @@ Return ONLY the tool's JSON (`step`, `status`, `results[]` with `file`, `sig_fil
 
 Verify the digests of every staged artefact with `commands.checksums`.
 Each artefact–digest pair is `PASS`, `MISMATCH` or `MISSING-DIGEST`.
-Only `sha512` is required: a missing `.sha512` is `MISSING-DIGEST` and `FAIL`s the step.
+The first digest in the Digest set is required (usually `sha512`; a SHA-256-only project requires `.sha256`): a missing required digest is `MISSING-DIGEST` and `FAIL`s the step.
 Every other digest (`sha256`, …) is optional — checked when its file is staged, not listed when it is not — and a `MISMATCH` on one still `FAIL`s.
 md5 never fails alone: `md5` is no longer accepted per ASF infrastructure guidance,
 so a `.md5` file sets `deprecated_md5_present` and makes the step `WARN`, even when its digest mismatches.
