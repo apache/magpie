@@ -19,33 +19,28 @@
 
 The hooks discover their members from the root ``pyproject.toml`` and run the
 check across all of them, so the ``files:`` filter only decides when to start.
-A filter that names only ``tools/`` leaves the ``plugins`` and ``ai-tutors``
-members unchecked on a pull request, which is how a formatting break reached
-``main`` in #2201.
+A filter that names only ``tools/src`` and ``tools/tests`` leaves the other
+layouts unchecked on a pull request, which is how a formatting break reached
+``main`` in #2199 (tracked in #2201).
+
+The paths come from ``git ls-files`` filtered by the workspace members, so a
+new member, or a new layout inside an existing one, cannot slip past silently.
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
+import tomllib
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 HOOKS = ("workspace-ruff-check", "workspace-ruff-format", "workspace-mypy")
 
-# One path per member and per shape the filter has to recognise: Python at the
-# member root, Python inside a skill, a test, and the member's own config.
-MEMBER_PATHS = (
-    "plugins/pyproject.toml",
-    "plugins/magpie-setup/skills/setup/scripts/example.py",
-    "plugins/magpie-setup/skills/setup/tests/test_example.py",
-    "ai-tutors/pyproject.toml",
-    "ai-tutors/inject-knowledge-base.py",
-    "ai-tutors/test_inject_knowledge_base.py",
-    "tools/dev/pyproject.toml",
-    "tools/dev/src/magpie_dev/example.py",
-    "tools/cve-tool-vulnogram/generate-cve-json/src/example.py",
-)
+# Markdown-only changes under the members still skip the static checks on
+# purpose; widening the filter must not start running them.
+MARKDOWN_ONLY_PATH = "plugins/magpie-setup/skills/setup/SKILL.md"
 
 
 def files_pattern(hook_id: str) -> str:
@@ -56,8 +51,37 @@ def files_pattern(hook_id: str) -> str:
     return match.group(1)
 
 
+def workspace_members() -> tuple[str, ...]:
+    root = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return tuple(root["tool"]["uv"]["workspace"]["members"])
+
+
+def checked_paths() -> list[str]:
+    tracked = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "-z"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.split("\0")
+    members = workspace_members()
+    return [
+        path
+        for path in tracked
+        if path.endswith((".py", "pyproject.toml"))
+        and any(path == member or path.startswith(f"{member}/") for member in members)
+    ]
+
+
 def test_every_workspace_static_check_fires_on_every_member():
+    paths = checked_paths()
+    assert paths, "no tracked Python under a workspace member"
     for hook in HOOKS:
         pattern = files_pattern(hook)
-        for path in MEMBER_PATHS:
+        for path in paths:
             assert re.match(pattern, path), f"{hook} would skip {path}"
+        assert re.match(pattern, "tools/dev/run-workspace-check.sh"), hook
+
+
+def test_markdown_only_changes_skip_the_static_checks():
+    for hook in HOOKS:
+        assert not re.match(files_pattern(hook), MARKDOWN_ONLY_PATH), hook
