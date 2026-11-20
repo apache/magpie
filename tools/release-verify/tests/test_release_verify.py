@@ -103,6 +103,14 @@ def test_inventory_optional_present_is_found(staging: Path, capsys: pytest.Captu
     assert out["found"] == [SRC, BIN] and out["missing_optional"] == []
 
 
+def test_inventory_sha256_only_digest_set(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    (staging / f"{BIN}.sha512").unlink()
+    out = run(capsys, "inventory", "--dir", str(staging), "--expect", PATTERNS[0], "--expect", PATTERNS[1], "--digest", "sha256")
+    assert out["status"] == "PASS"
+    assert out["unexpected"] == []
+
+
 def test_inventory_unexpected_is_warn(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (staging / "notes.txt").write_text("x")
     (staging / f"{SRC}.md5").write_text("x")
@@ -138,9 +146,24 @@ def test_checksums_mismatch_is_fail(staging: Path, capsys: pytest.CaptureFixture
     assert bin_result["digests"] == [{"type": "sha512", "classification": "MISMATCH"}, {"type": "sha256", "classification": "PASS"}]
 
 
-def test_checksums_missing_sha512_is_fail(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_checksums_sha256_only_digest_set_passes(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (staging / f"{SRC}.sha512").unlink()
     out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0], "--digest", "sha256")
+    assert out["status"] == "PASS"
+    assert out["results"][0]["digests"] == [{"type": "sha256", "classification": "PASS"}]
+
+
+def test_checksums_missing_required_sha256_is_fail(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    (staging / f"{SRC}.sha256").unlink()
+    out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0], "--digest", "sha256")
+    assert out["status"] == "FAIL"
+    assert out["results"][0]["digests"] == [{"type": "sha256", "classification": "MISSING-DIGEST"}]
+
+
+def test_checksums_default_requires_sha512(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0])
     assert out["status"] == "FAIL"
     assert out["results"][0]["digests"][0] == {"type": "sha512", "classification": "MISSING-DIGEST"}
 
