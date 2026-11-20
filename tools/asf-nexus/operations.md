@@ -138,11 +138,13 @@ told the verification failed. A sandbox network refusal is the same
 curl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \
   "https://repository.apache.org/service/local/staging/profile_repositories" \
 | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' \
-| grep -i "<id-prefix>"
+| grep -i "^<id-prefix>-"
 ```
 
 `<id-prefix>` is the id before the final hyphen: `orgapachecommons` for
-`orgapachecommons-1965`, `maven` for `maven-2471`.
+`orgapachecommons-1965`, `maven` for `maven-2471`. The `^` keeps the
+match to the first TSV column, `repositoryId`, so a profile name that
+mentions the project cannot pull in another row.
 
 A retried deploy or a reactor deployed in more than one pass leaves
 several staging repositories for one version. Surface **all** of them
