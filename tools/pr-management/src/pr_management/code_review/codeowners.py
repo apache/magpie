@@ -60,7 +60,18 @@ def _compile(pattern: str) -> re.Pattern[str]:
         i += 1
     if not anchored and "/" not in body:
         out = "(?:.*/)?" + out  # a bare name matches at any depth
-    tail = "/.*" if directory else "(?:/.*)?"
+    # A pattern that names a directory owns everything below it; one whose last
+    # component is a glob does not. GitHub matches `docs/*` against
+    # `docs/getting-started.md` but not `docs/build-app/troubleshooting.md`,
+    # while `/apps/github` owns that whole subdirectory.
+    last = body.rsplit("/", 1)[-1]
+    literal_last = "*" not in last and "?" not in last
+    if directory:
+        tail = "/.*"
+    elif literal_last:
+        tail = "(?:/.*)?"
+    else:
+        tail = ""
     return re.compile("^" + out + tail + "$")
 
 

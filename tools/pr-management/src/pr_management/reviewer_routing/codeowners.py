@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 import re
 
 
@@ -35,15 +34,44 @@ def parse(text: str) -> list[tuple[str, list[str]]]:
 
 
 def _matches(pattern: str, path: str) -> bool:
+    """GitHub's CODEOWNERS glob: `*` stays within a component, `**` crosses it."""
     anchored = pattern.startswith("/")
-    pat = pattern.lstrip("/")
-    if pat.endswith("/"):
-        pat += "**"
-    if "/" not in pat.rstrip("*") and not anchored:
-        # A bare name matches at any depth.
-        return any(fnmatch.fnmatch(part, pat) for part in path.split("/")) or fnmatch.fnmatch(path, pat)
-    regex = re.escape(pat).replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
-    return re.match(rf"^{regex}(/.*)?$", path) is not None
+    body = pattern.strip("/") if pattern != "/" else ""
+    directory = pattern.endswith("/")
+    out = ""
+    i = 0
+    while i < len(body):
+        char = body[i]
+        if body.startswith("**/", i):
+            out += "(?:.*/)?"
+            i += 3
+            continue
+        if body.startswith("**", i):
+            out += ".*"
+            i += 2
+            continue
+        if char == "*":
+            out += "[^/]*"
+        elif char == "?":
+            out += "[^/]"
+        else:
+            out += re.escape(char)
+        i += 1
+    if not anchored and "/" not in body:
+        out = "(?:.*/)?" + out  # a bare name matches at any depth
+    # A pattern that names a directory owns everything below it; one whose last
+    # component is a glob does not. `docs/*` matches `docs/getting-started.md`
+    # but not `docs/build-app/troubleshooting.md`, while `/apps/github` owns
+    # that whole subdirectory.
+    last = body.rsplit("/", 1)[-1]
+    literal_last = "*" not in last and "?" not in last
+    if directory:
+        tail = "/.*"
+    elif literal_last:
+        tail = "(?:/.*)?"
+    else:
+        tail = ""
+    return re.match("^" + out + tail + "$", path) is not None
 
 
 def owners_of(path: str, rules: list[tuple[str, list[str]]]) -> list[str]:
