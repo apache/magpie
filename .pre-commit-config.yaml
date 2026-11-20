@@ -688,19 +688,19 @@ repos:
         name: ruff check (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff "ruff check"
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|(plugins|ai-tutors)/(.*\.py|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
         pass_filenames: false
       - id: workspace-ruff-format
         name: ruff format (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff-format "ruff format --check"
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|(plugins|ai-tutors)/(.*\.py|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
         pass_filenames: false
       - id: workspace-mypy
         name: mypy (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh mypy mypy
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|(plugins|ai-tutors)/(.*\.py|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
         pass_filenames: false
       - id: workspace-pytest
         name: pytest (workspace)
