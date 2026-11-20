@@ -205,26 +205,50 @@ jobs:
             exit 1
           fi
 
+  # The copies under `plugins/*/tools/` are what an adopter actually installs.
+  # Nothing started them, so a copy uv could not resolve shipped twice
+  # (#1357, #1937). This starts every one from a temporary copy outside the
+  # checkout, where no workspace can hide a broken packaged `pyproject.toml`.
+  packaged-tools:
+    name: packaged tools start
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          cache-suffix: "packaged-tools"
+          cache-dependency-glob: "**/pyproject.toml"
+      # uv supplies the interpreter, so the job does not rely on the runner
+      # image's `python3` having `tomllib` (3.11+).
+      - name: Start every copied tool once
+        run: uv run --no-project python tools/dev/start-packaged-tools.py
+
   # Umbrella status check. `.asf.yaml`'s `required_status_checks`
   # cannot use patterns or wildcards (GitHub's branch-protection and
   # rulesets APIs both require exact context names), so a matrix job
   # with N entries would otherwise force N `.asf.yaml` lines that
   # must be kept in lock-step with the matrix. This single
   # `tests-ok` job is the only pytest-related context required by
-  # branch protection — it requires successful member discovery and
-  # a passing matrix (or a confirmed empty selection). Matrix changes
-  # no longer require `.asf.yaml` updates.
+  # branch protection — it requires successful member discovery, a
+  # passing matrix (or a confirmed empty selection) and a successful
+  # packaged-tool probe. Matrix changes no longer require `.asf.yaml`
+  # updates.
   tests-ok:
     name: tests-ok
     runs-on: ubuntu-slim
-    needs: [members, pytest]
+    needs: [members, pytest, packaged-tools]
     # `always()` — without it, this job would be skipped (not
     # failed) when an upstream matrix entry fails, and a skipped
     # required check does not block merging. Run unconditionally and
     # assert on discovery as well: its failure skips the matrix too.
     if: always()
     steps:
-      - name: Assert member discovery and pytest matrix results
+      - name: Assert member discovery, pytest matrix, and packaged-tool results
         # Explicit, so the runner uses the same flags the gate test runs it
         # with (`--noprofile --norc -eo pipefail`), not the `bash -e` default.
         shell: bash
@@ -247,6 +271,11 @@ jobs:
           fi
           if [ "${result}" != "success" ] && [ "${result}" != "skipped" ]; then
             echo "pytest matrix result: ${result}"
+            exit 1
+          fi
+          packaged="${{ needs.packaged-tools.result }}"
+          if [ "${packaged}" != "success" ]; then
+            echo "packaged tools result: ${packaged}"
             exit 1
           fi
           echo "pytest gate satisfied (matrix result: ${result})"
