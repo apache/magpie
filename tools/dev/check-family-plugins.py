@@ -1102,12 +1102,14 @@ def codex_catalog_entry(name: str) -> dict:
 
 
 def write_client_catalogs(fam: dict[str, set[str]]) -> list[str]:
-    """Rewrite the family entries of both non-Claude client catalogues.
+    """Rebuild the `plugins` list of both non-Claude client catalogues from the family map.
 
     These catalogues are checked by `check_client_catalogs`, but `--fix` used to
     leave their family entries to hand editing: it repaired only the Codex
     substrates, reported success, and the next check failed with the same
     missing entry. Deriving both lists from the family map closes that loop.
+    The whole `plugins` list is replaced, so a hand-added entry does not survive
+    the next `--fix`.
     """
     families = [f"magpie-{family}" for family in sorted(fam)]
     errors: list[str] = []

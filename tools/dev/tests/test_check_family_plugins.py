@@ -238,6 +238,13 @@ def test_writing_the_client_catalogs_satisfies_the_catalog_check(tmp_path, monke
         "magpie-setup",
     } | set(mod.CODEX_SUBSTRATES)
 
+    def installation(entries: list[dict]) -> dict[str, str]:
+        return {e["name"]: e["policy"]["installation"] for e in entries}
+
+    wanted = {"magpie-alpha": "AVAILABLE", "magpie-setup": "INSTALLED_BY_DEFAULT"}
+    assert installation(copilot["plugins"]) == wanted
+    assert {name: installation(codex["plugins"])[name] for name in wanted} == wanted
+
 
 def test_vetted_plugin_startup_creates_the_dispatcher_path(tmp_path):
     plugin = REPO_ROOT / mod.PLUGINS / "magpie-vetted-ops"
