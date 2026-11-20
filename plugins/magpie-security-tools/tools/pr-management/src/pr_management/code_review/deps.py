@@ -29,13 +29,11 @@ rule prescribes:
   resolution as the evidence;
 * otherwise, exhaustive coverage → `compatible`; partial coverage → `unknown`.
 
-Specifiers follow PEP 440's operators on dotted numeric versions
-(`==`, `!=`, `>=`, `<=`, `>`, `<`, `~=`, `==X.*`, `!=X.*`); markers are compared as
-literal environment names. Numeric comparisons and ledger ordering use the
-leading release segments. For equality and exclusion, an explicit local
-label in the constraint is normalized and matched as well. Suffix precedence
-for pre-releases, post-releases and development releases is outside this
-numeric model.
+Specifiers follow PEP 440 and are evaluated with `packaging` (`==`, `!=`,
+`>=`, `<=`, `>`, `<`, `~=`, `==X.*`, `!=X.*`); markers are compared as
+literal environment names. Version ordering and matching are PEP 440's, so
+pre-releases, post-releases and development releases compare and satisfy a
+specifier the way `packaging` says they do.
 """
 
 from __future__ import annotations
@@ -44,40 +42,15 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import Version
+
 _SPEC = re.compile(r"^\s*(==|!=|>=|<=|~=|>|<)\s*([0-9][0-9A-Za-z.*+_-]*)\s*$")
-_RELEASE_SEGMENT = re.compile(r"\d+(?:\.\d+)*")
 
 
-def _release_parts(value: str) -> list[int]:
-    parts = []
-    for piece in value.split("."):
-        digits = re.match(r"\d+", piece)
-        parts.append(int(digits.group(0)) if digits else 0)
-    return parts
-
-
-def version(value: str) -> tuple[int, ...]:
-    parts = _prefix_release_parts(value)
-    while len(parts) > 1 and parts[-1] == 0:
-        parts.pop()
-    return tuple(parts)
-
-
-def _prefix_release_parts(value: str) -> list[int]:
-    release = _RELEASE_SEGMENT.match(value)
-    return _release_parts(release[0] if release else value)
-
-
-def _matches_release_prefix(candidate: str, prefix: list[int]) -> bool:
-    release = _prefix_release_parts(candidate)
-    width = len(prefix)
-    padded = release + [0] * max(0, width - len(release))
-    return padded[:width] == prefix
-
-
-def _local_parts(value: str) -> tuple[int | str, ...]:
-    parts = re.split(r"[._-]", value.lower())
-    return tuple(int(part) if part.isdecimal() else part for part in parts)
+def version(value: str) -> Version:
+    """The PEP 440 version, used to order candidates by full precedence."""
+    return Version(value)
 
 
 @dataclass(frozen=True)
@@ -86,31 +59,7 @@ class Clause:
     value: str
 
     def admits(self, candidate: str) -> bool:
-        if self.value.endswith(".*"):
-            prefix = _release_parts(self.value[:-2])
-            hit = _matches_release_prefix(candidate, prefix)
-            return hit if self.op == "==" else not hit
-        v = version(candidate)
-        target = version(self.value)
-        if self.op in {"==", "!="}:
-            hit = v == target
-            if "+" in self.value:
-                hit = hit and _local_parts(candidate.partition("+")[2]) == _local_parts(
-                    self.value.partition("+")[2]
-                )
-            return hit if self.op == "==" else not hit
-        if self.op == ">=":
-            return v >= target
-        if self.op == "<=":
-            return v <= target
-        if self.op == ">":
-            return v > target
-        if self.op == "<":
-            return v < target
-        # ~=X.Y.Z  ->  >=X.Y.Z, ==X.Y.*
-        release = _prefix_release_parts(self.value)
-        prefix = release[:-1] if len(release) > 1 else release
-        return v >= target and _matches_release_prefix(candidate, prefix)
+        return SpecifierSet(f"{self.op}{self.value}").contains(candidate)
 
 
 def clauses(specifier: str) -> list[Clause]:
@@ -121,7 +70,12 @@ def clauses(specifier: str) -> list[Clause]:
         match = _SPEC.match(part)
         if not match:
             raise ValueError(f"unsupported specifier clause {part.strip()!r}")
-        found.append(Clause(match.group(1), match.group(2)))
+        op, value = match.group(1), match.group(2)
+        try:
+            SpecifierSet(f"{op}{value}")
+        except InvalidSpecifier as exc:
+            raise ValueError(f"unsupported specifier clause {part.strip()!r}") from exc
+        found.append(Clause(op, value))
     return found
 
 

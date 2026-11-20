@@ -459,6 +459,35 @@ def test_numeric_dependency_specifier(specifier: str, candidate: str, expected: 
     assert clause.admits(candidate) is expected
 
 
+@pytest.mark.parametrize(
+    ("specifier", "available_versions", "satisfying"),
+    [
+        (">=1.5", ["1.4.0", "1.5rc1"], []),
+        (">=1.5", ["1.4.0", "1.5.0.dev1"], []),
+        ("<=1.4.0", ["1.4.0", "1.4.0.post1"], ["1.4.0"]),
+        (">=1.5", ["1.4.0", "1.5.0"], ["1.5.0"]),
+    ],
+)
+def test_pep440_suffix_precedence(
+    specifier: str, available_versions: list[str], satisfying: list[str]
+) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}],
+            "available_versions": available_versions,
+            "exhaustive": True,
+        }
+    )
+    assert result["environments"]["*"]["satisfying"] == satisfying
+    assert result["classification"] == ("broken" if not satisfying else "compatible")
+
+
+def test_pep440_orders_pre_dev_and_post_releases() -> None:
+    ordered = ["1.5.dev1", "1.5a1", "1.5b1", "1.5rc1", "1.5", "1.5.post1"]
+    assert sorted(ordered, key=deps.version) == ordered
+
+
 @pytest.mark.parametrize("specifier", ["~=1.4.post1", "~=1.4.dev0"])
 def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) -> None:
     result = deps.classify(
@@ -487,7 +516,7 @@ def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) 
         ("~=1.4.0.0", "1.4+build.2", True),
     ],
 )
-def test_release_prefix_ignores_suffixes(specifier: str, candidate: str, expected: bool) -> None:
+def test_compatible_release_uses_the_release_segment(specifier: str, candidate: str, expected: bool) -> None:
     (clause,) = deps.clauses(specifier)
     assert clause.admits(candidate) is expected
 
