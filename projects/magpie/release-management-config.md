@@ -72,6 +72,7 @@ mandatory ASF approval + announce mechanisms (`dev-list-vote`,
 |---|---|
 | `project_dist_name` | `magpie` |
 | `product_name` | `Apache Magpie` |
+| `project_stage` | `top-level` |
 | `upstream` | `apache/magpie` |
 | `git_upstream_remote` | `upstream` |
 | `release_planning_issue_template` | *(none — uses the `release-prepare` default template)* |

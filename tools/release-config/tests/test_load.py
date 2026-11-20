@@ -299,6 +299,7 @@ def test_framework_templates_parse():
     assert rmc["release_dist_backend"] == "svnpubsub"
     assert rmc["rm_key_fingerprint"] is None
     assert rmc["keys_file_branch"] is None  # optional, unset in the template
+    assert rmc["project_stage"] is None  # optional (ASF only), unset in the template
     assert rmc["version_manifest_files"] == ["setup.cfg", "foo/__init__.py"]
     assert "github-discussion" not in rmc  # the mechanism table is not a key table
     roster = md.parse_roster(TEMPLATES / "pmc-roster.md")
@@ -444,6 +445,13 @@ def test_load_build_carries_the_voter_inputs(project, load):
     assert build["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
     default = load(project(), None)["build"]
     assert default["rat_excludes_path"] == ".rat-excludes" and default["source_tree_validators"] == []
+
+
+def test_project_stage_reaches_the_config_block(project, load):
+    """The stage is an adopter fact the skills read from `config`, not from an artefact."""
+    loaded = load(project({"project_stage": "incubating"}), "verify-rc", "1.0.0-rc1")
+    assert loaded["config"]["project_stage"] == "incubating"
+    assert "project_stage" not in load(project(), "verify-rc", "1.0.0-rc1")["config"]
 
 
 def test_org_manifest_found_in_the_marketplace_framework_copy(tmp_path, monkeypatch):

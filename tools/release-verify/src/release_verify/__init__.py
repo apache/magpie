@@ -566,7 +566,7 @@ def _diff(current: Path, previous: Path, name: str) -> tuple[int, str]:
     return changed, "".join(lines)
 
 
-def notice_license(tree: Path, previous: Path | None) -> dict[str, Any]:
+def notice_license(tree: Path, previous: Path | None, *, podling: bool = False) -> dict[str, Any]:
     if not tree.is_dir():
         raise InputError(f"not a directory: {tree}")
     out: dict[str, Any] = {"step": "notice-license", "status": None}
@@ -595,11 +595,17 @@ def notice_license(tree: Path, previous: Path | None) -> dict[str, Any]:
         out["status"] = "PASS"
     else:
         out["status"] = "REVIEW"
+    if podling:
+        out["disclaimer_present"] = any((tree / name).is_file() for name in ("DISCLAIMER", "DISCLAIMER-WIP"))
+        if not out["disclaimer_present"]:
+            out["status"] = "FAIL"
+            detail = "DISCLAIMER or DISCLAIMER-WIP absent from the root of the podling RC artefact."
+            out["detail"] = f"{out['detail']} {detail}" if "detail" in out else detail
     return out
 
 
 def cmd_notice_license(args: argparse.Namespace) -> dict[str, Any]:
-    return notice_license(Path(args.tree), Path(args.previous) if args.previous else None)
+    return notice_license(Path(args.tree), Path(args.previous) if args.previous else None, podling=args.podling)
 
 
 # ---------------------------------------------------------------------------
@@ -883,7 +889,7 @@ def cmd_all(args: argparse.Namespace) -> dict[str, Any]:
         inventory(_dir_names(staging), args.expect, args.digest, str(staging), args.expect_optional or []),
         signatures(staging, _patterns(args), args.keys, args.keys_url, args.extra_key or []),
         checksums(staging, _patterns(args), args.digest),
-        notice_license(tree, Path(args.previous) if args.previous else None),
+        notice_license(tree, Path(args.previous) if args.previous else None, podling=args.podling),
         binaries(tree, args.prohibit or [], args.accept or [], args.recipe_dir),
         symlinks(tree, args.validator or [], args.recipe_dir),
         version_consistency(tree, args.expected or expected_version(args.rc_tag), args.manifest),
@@ -964,6 +970,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("notice-license", help="Step 5: NOTICE / LICENSE presence and diff")
     p.add_argument("--tree", required=True, help="unpacked source artefact")
     p.add_argument("--previous", help="directory holding the previous release's NOTICE and LICENSE")
+    p.add_argument("--podling", action="store_true", help="require DISCLAIMER or DISCLAIMER-WIP in the source artefact root")
     p.set_defaults(func=cmd_notice_license)
 
     p = sub.add_parser("binaries", help="Step 6: prohibited binaries in the unpacked source")
@@ -996,6 +1003,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_digest(p)
     _add_keys(p)
     p.add_argument("--previous", help="directory holding the previous release's NOTICE and LICENSE")
+    p.add_argument("--podling", action="store_true", help="require DISCLAIMER or DISCLAIMER-WIP in the source artefact root")
     p.add_argument("--prohibit", action="append", metavar="GLOB")
     p.add_argument("--accept", action="append", metavar="GLOB")
     p.add_argument("--validator", action="append", metavar="CMD")
