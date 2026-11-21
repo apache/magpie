@@ -52,6 +52,27 @@ def test_documented_example(text: str, path: str, expected: tuple[str, ...]) -> 
     assert codeowners.owners_of(codeowners.parse(text), path) == expected
 
 
+# Further cases from #2210 (by @Anurag-S1ngh): a glob leaf with an extension,
+# case-sensitive matching, and a deeper anchored directory.
+EXTRA_CASES = [
+    ("docs/*.md @docs", "docs/a/b.md", ()),
+    ("/Docs/ @docs", "docs/x.md", ()),
+    ("/apps/github/docs/ @doctocat", "apps/github/docs/a.md", ("@doctocat",)),
+]
+
+
+@pytest.mark.parametrize(("text", "path", "expected"), EXTRA_CASES)
+def test_further_example(text: str, path: str, expected: tuple[str, ...]) -> None:
+    assert codeowners.owners_of(codeowners.parse(text), path) == expected
+
+
+def test_a_question_mark_leaf_stays_at_its_level() -> None:
+    # `?` is a glob like `*`, so a leaf holding one owns only its own level (#2210).
+    rules = codeowners.parse("docs/v? @v\n")
+    assert codeowners.owners_of(rules, "docs/v1") == ("@v",)
+    assert codeowners.owners_of(rules, "docs/v1/x.md") == ()
+
+
 def test_a_wildcard_leaf_keeps_its_depth_rules() -> None:
     # Dropping the nested-file tail for `docs/*` must not stop a bare wildcard
     # matching at any depth, or `**` crossing directories.
