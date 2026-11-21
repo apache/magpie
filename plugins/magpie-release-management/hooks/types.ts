@@ -60,6 +60,28 @@ export interface VerifyRcState {
   completedAt?: number | null;
 }
 
+export type VoteStatus = 'voting' | 'passed' | 'failed' | 'closed';
+
+export interface VoteTallyState {
+  rcTag: string;
+  version: string;
+  openedAt: string;
+  windowHours: number;
+  binding: {
+    plus: number;
+    minus: number;
+    zero: number;
+  };
+  nonBinding: {
+    plus: number;
+    minus: number;
+    zero: number;
+  };
+  vetoes: string[];
+  status: VoteStatus;
+  updatedAt: number;
+}
+
 /**
  * Returns the canonical 13 verification steps in exact SKILL.md execution order,
  * all initialized in 'pending' status.
