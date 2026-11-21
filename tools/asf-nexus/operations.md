@@ -83,14 +83,15 @@ Base: `https://repository.apache.org` (Nexus Repository Manager 2).
 ## Recipes
 
 In all recipes: `<repo>` is the staging repository id
-(`orgapache<project>-NNNN`, read from the planning issue or
+(`<name>-NNNN`, such as `orgapache<project>-NNNN` or `maven-NNNN`;
+read from the planning issue or
 `release-build.md § JVM artefact checks` → `nexus_staging_repo` —
 Nexus assigns the number at deploy time, it cannot be predicted).
 
 ### 1. Existence (anonymous, every run)
 
 Before the id reaches a URL, validate it: the resolved value must
-match the Nexus shape `^orgapache[a-z0-9]+-[0-9]+$` (or be the
+match the Nexus shape `^[a-z0-9]+-[0-9]+$` (or be the
 literal `snapshots`, which the classification rules then flag as a
 finding). The id can come from the planning issue body — content the
 step reads — and it is spliced into `curl` URLs the agent runs
@@ -137,8 +138,13 @@ told the verification failed. A sandbox network refusal is the same
 curl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \
   "https://repository.apache.org/service/local/staging/profile_repositories" \
 | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' \
-| grep -i "orgapache<project>"
+| grep -i "^<id-prefix>-"
 ```
+
+`<id-prefix>` is the id before the final hyphen: `orgapachecommons` for
+`orgapachecommons-1965`, `maven` for `maven-2471`. The `^` keeps the
+match to the first TSV column, `repositoryId`, so a profile name that
+mentions the project cannot pull in another row.
 
 A retried deploy or a reactor deployed in more than one pass leaves
 several staging repositories for one version. Surface **all** of them
