@@ -86,7 +86,7 @@ scope").
 ## Centralized-model note
 
 There is no local checkout to reason about: the staging repository is
-addressed by its id (`orgapache<project>-NNNN`, assigned by Nexus at
+addressed by its id (`orgapache<name>-NNNN`, assigned by Nexus at
 deploy time and not predictable, so it must be read from the planning
 issue or passed in — the same way `release-promote` sources
 `staging_url`). The snapshots repository

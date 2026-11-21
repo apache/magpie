@@ -702,6 +702,7 @@ def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[s
             "reproducibility_doc_url": _render(cfg.raw.get("reproducibility_doc_url"), version, rc),
             "verification_skill": cfg.get("vote_verification_skill"),
             "staging_url": _staging_url(cfg, version, rc),
+            "nexus_staging_repo": build.value("nexus_staging_repo"),
         }
     if skill == "announce-draft":
         clear = plus_one_hour(args.promote_timestamp) if args.promote_timestamp else None

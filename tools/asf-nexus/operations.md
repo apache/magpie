@@ -83,7 +83,7 @@ Base: `https://repository.apache.org` (Nexus Repository Manager 2).
 ## Recipes
 
 In all recipes: `<repo>` is the staging repository id
-(`orgapache<project>-NNNN`, read from the planning issue or
+(`orgapache<name>-NNNN`, read from the planning issue or
 `release-build.md § JVM artefact checks` → `nexus_staging_repo` —
 Nexus assigns the number at deploy time, it cannot be predicted).
 
@@ -137,7 +137,7 @@ told the verification failed. A sandbox network refusal is the same
 curl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \
   "https://repository.apache.org/service/local/staging/profile_repositories" \
 | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' \
-| grep -i "orgapache<project>"
+| grep -i "orgapache<name>"
 ```
 
 A retried deploy or a reactor deployed in more than one pass leaves
