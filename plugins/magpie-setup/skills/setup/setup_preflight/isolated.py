@@ -177,14 +177,16 @@ def _project_settings(root: Path) -> list[Path]:
     ]
 
 
-def _sandbox_walk_paths(
-    root: Path,
-    home: Path | None = None,
-    managed_dirs: tuple[Path, ...] | None = None,
-) -> list[Path]:
-    """Every settings file that can influence sandbox.enabled, highest precedence first."""
-    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
-    return [*managed_settings_files(managed_dirs), *_project_settings(root), user]
+def _managed_sandbox_enabled(managed_dirs: tuple[Path, ...] | None = None) -> bool | None:
+    """The effective `sandbox.enabled` across the managed settings layer, if set.
+
+    Claude Code loads `managed-settings.json` and then every drop-in in
+    `managed-settings.d/` in alphabetical order, with later files replacing
+    earlier files. The last explicit boolean across the managed files is the
+    effective managed setting (or `None` if no managed file sets it).
+    """
+    settings = _sandbox_settings(managed_settings_files(managed_dirs))
+    return settings[-1] if settings else None
 
 
 def sandbox_enabled_in_project(root: Path) -> bool:
@@ -211,7 +213,10 @@ def installed(
     block = _load_stamp(root).get(BLOCK)
     if isinstance(block, dict) and block:
         return block.get("enabled") is not False
-    return True in _sandbox_settings(_sandbox_walk_paths(root, home, managed_dirs))
+    if _managed_sandbox_enabled(managed_dirs) is True:
+        return True
+    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
+    return True in _sandbox_settings([*_project_settings(root), user])
 
 
 def sandbox_active(
@@ -221,11 +226,17 @@ def sandbox_active(
 ) -> bool:
     """Whether Claude Code's sandbox is active for this session.
 
-    Follows Claude Code's precedence walk: managed settings first, then the main
-    checkout (if in a linked worktree), then the project checkout, then user
-    settings. The first explicit boolean wins. Defaults to False.
+    Follows Claude Code's precedence walk: managed settings first (merged across
+    `managed-settings.json` and `managed-settings.d/` drop-ins, where later files
+    replace earlier ones), then the main checkout (if in a linked worktree), then
+    the project checkout, then user settings. The first explicit boolean wins.
+    Defaults to False.
     """
-    return next(iter(_sandbox_settings(_sandbox_walk_paths(root, home, managed_dirs))), False)
+    managed = _managed_sandbox_enabled(managed_dirs)
+    if managed is not None:
+        return managed
+    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
+    return next(iter(_sandbox_settings([*_project_settings(root), user])), False)
 
 
 def configured(root: Path, home: Path | None = None) -> bool:
@@ -687,7 +698,12 @@ STALE_UV_HEADER = (
 )
 
 
-def session_start(root: Path, notice: str = "", home: Path | None = None) -> str:
+def session_start(
+    root: Path,
+    notice: str = "",
+    home: Path | None = None,
+    managed_dirs: tuple[Path, ...] | None = None,
+) -> str:
     """What the SessionStart hook prints: its own notice, plus the warning while unconfigured.
 
     The hook fires once per session, which is the cadence the warning wants.
@@ -710,10 +726,10 @@ def session_start(root: Path, notice: str = "", home: Path | None = None) -> str
     messages = [m for m in (stale_message, hooks_message) if m]
     contexts = [part for part in (notice, stale_message, hooks_message) if part]
     if project is not None and not warning_opted_out(project):
-        if not installed(project, home):
+        if not installed(project, home, managed_dirs=managed_dirs):
             messages.append(UNCONFIGURED_WARNING)
             contexts.append(UNCONFIGURED_CONTEXT)
-        elif not sandbox_active(project, home):
+        elif not sandbox_active(project, home, managed_dirs=managed_dirs):
             messages.append(SANDBOX_DISABLED_WARNING)
             contexts.append(SANDBOX_DISABLED_CONTEXT)
     if not messages:

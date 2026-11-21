@@ -413,6 +413,69 @@ def test_managed_settings_sandbox_active_precedence(
     assert isolated.installed(project, home=isolated_home, managed_dirs=(managed_dir,)) is True
 
 
+@pytest.mark.parametrize(
+    ("base", "drop_in", "expected_active", "expected_disabled_warning"),
+    [
+        (True, False, False, True),  # 90-team false overrides base true -> disabled warning
+        (False, True, True, False),  # 90-team true overrides base false -> active, no warning
+    ],
+)
+def test_managed_settings_drop_in_overrides_base_file(
+    project: Path,
+    isolated_home: Path,
+    tmp_path: Path,
+    base: bool,
+    drop_in: bool,
+    expected_active: bool,
+    expected_disabled_warning: bool,
+) -> None:
+    adopt(project)
+    (isolated_home / ".claude").mkdir(exist_ok=True)
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    managed_dir = tmp_path / f"managed_base_{base}_drop_{drop_in}"
+    managed_dir.mkdir()
+    (managed_dir / "managed-settings.json").write_text(json.dumps({"sandbox": {"enabled": base}}))
+    drop_ins = managed_dir / "managed-settings.d"
+    drop_ins.mkdir()
+    (drop_ins / "90-team.json").write_text(json.dumps({"sandbox": {"enabled": drop_in}}))
+
+    assert (
+        isolated.sandbox_active(project, home=isolated_home, managed_dirs=(managed_dir,)) is expected_active
+    )
+    assert isolated.installed(project, home=isolated_home, managed_dirs=(managed_dir,)) is True
+
+    out = isolated.session_start(project, "notice", home=isolated_home, managed_dirs=(managed_dir,))
+    if expected_disabled_warning:
+        assert json.loads(out)["systemMessage"] == isolated.SANDBOX_DISABLED_WARNING
+    else:
+        assert out == "notice"
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "expected"),
+    [
+        (True, False, False),  # 90-second false overrides 10-first true
+        (False, True, True),  # 90-second true overrides 10-first false
+    ],
+)
+def test_managed_settings_conflicting_drop_ins(
+    project: Path,
+    isolated_home: Path,
+    tmp_path: Path,
+    first: bool,
+    second: bool,
+    expected: bool,
+) -> None:
+    managed_dir = tmp_path / f"managed_conflicting_{first}_{second}"
+    managed_dir.mkdir()
+    drop_ins = managed_dir / "managed-settings.d"
+    drop_ins.mkdir()
+    (drop_ins / "10-first.json").write_text(json.dumps({"sandbox": {"enabled": first}}))
+    (drop_ins / "90-second.json").write_text(json.dumps({"sandbox": {"enabled": second}}))
+
+    assert isolated.sandbox_active(project, home=isolated_home, managed_dirs=(managed_dir,)) is expected
+
+
 def test_linked_worktree_sandbox_active_precedence(tmp_path: Path, isolated_home: Path) -> None:
     main_repo = git_repo(tmp_path / "main_repo")
     subprocess.run(["git", "-C", str(main_repo), "config", "user.email", "test@example.com"], check=True)
