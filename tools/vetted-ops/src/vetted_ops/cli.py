@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.error
@@ -63,6 +64,7 @@ from pathlib import Path
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
 from .config import Config, ConfigError, describe, load
+from .safe_read import unlink_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -143,6 +145,8 @@ def _validate_params(
             resolved[name] = ops_mod.commit_hash(raw)
         elif name == "cve_id":
             resolved[name] = ops_mod.cve_id(raw)
+        elif name == "pmc":
+            resolved[name] = ops_mod.pmc(raw)
         elif name == "date":
             resolved[name] = ops_mod.date(raw)
         elif name == "cursor":
@@ -153,6 +157,10 @@ def _validate_params(
             resolved[name] = ops_mod.field_name(raw)
         else:  # pragma: no cover - guarded by the catalogue test
             raise ops_mod.ParamError(f"operation {op.name!r} declares unknown parameter {name!r}")
+    if op.name == "cve-record-update" and body is not None:
+        # The record is pushed to the id on the command line; its own id has to be
+        # that one, so content written for one record never lands on another.
+        ops_mod.check_cve_record(body, resolved["cve_id"])
     return resolved, body
 
 
@@ -339,6 +347,21 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
 
+    code = _dispatch(op, command, params, body, args, config)
+    if code == EXIT_OK and op.writes and not args.dry_run:
+        _consume(op, list(args.params), config)
+    return code
+
+
+def _dispatch(
+    op: ops_mod.Op,
+    command: object,
+    params: dict[str, str],
+    body: bytes | None,
+    args: argparse.Namespace,
+    config: Config,
+) -> int:
+    """Run a validated operation and return the dispatcher's exit code."""
     if isinstance(command, tracker_backends.BackendCall):
         return _run_backend(command, body, dry_run=args.dry_run, save=args.save, config=config)
 
@@ -418,6 +441,33 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
 
 
+def _consume(op: ops_mod.Op, values: list[str], config: Config) -> None:
+    """Delete the body and title files a successful write has published.
+
+    They hold text written for the tracker or a public surface, often from a
+    private report, and the workspace outlives the session. This runs outside
+    the sandbox, so the delete walks from the checked workspace with
+    ``O_NOFOLLOW`` and unlinks relative to the parent's descriptor
+    (`safe_read.unlink_regular_file`): only a regular file this user owns,
+    reached without a symlink, is removed. A failed write keeps its files for
+    a retry.
+    """
+    try:
+        root = ops_mod.checked_workspace(config.workspace)
+    except ops_mod.ParamError:
+        return
+    for name, raw in zip(op.params, values, strict=False):
+        if name not in op.body_files and name not in op.title_files:
+            continue
+        path = Path(os.path.abspath(Path(raw).expanduser()))
+        try:
+            unlink_regular_file(path, root)
+        except OSError as exc:
+            print(
+                f"vetted-op: published, but could not remove {str(path)!r}: {exc.strerror}", file=sys.stderr
+            )
+
+
 def _run_backend(
     call: tracker_backends.BackendCall,
     body: bytes | None,
@@ -488,7 +538,8 @@ def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *,
 def _save(name: str, data: bytes, config: Config) -> int:
     """Write saved output and report where, in one line the caller can parse."""
     try:
-        path = ops_mod.save_output(name, data, workspace=config.workspace)
+        retention = ops_mod.saved_retention_days(config.values.get("saved_retention_days"))
+        path = ops_mod.save_output(name, data, workspace=config.workspace, retention_days=retention)
     except ops_mod.ParamError as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY

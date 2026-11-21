@@ -19,9 +19,9 @@ when_to_use: >-
   goes to `welcome-guide`.
 argument-hint: "[install|config|adopt|unadopt|update|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:7915f16976882871
+surface_hash: sha256:80ed41e60eb0db69
 license: Apache-2.0
-measured_tokens: 5431
+measured_tokens: 5741
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -43,6 +43,28 @@ measured_tokens: 5431
                                    See [`docs/setup/install-recipes.md`](../../../../docs/quick-start/other-install-methods.md). -->
 
 # setup
+
+<!-- BEGIN MAGPIE BLOCK: sandbox-golden-rule — generated from tools/dev/blocks/sandbox-golden-rule.md -->
+
+**Golden rule — a step the sandbox blocks becomes a vetted operation, never
+a bypass.** This holds for the whole run. When anything you need to do fails
+on a sandbox restriction (a blocked host or transport, a read-only path, a
+denied credential or socket):
+
+1. Never leave the sandbox for it: no sandbox-disabling flag, and no wider
+   exclusion or allow rule proposed as the fix.
+2. Look for a route that stays safe: a spelling the sandbox allows (fetch in
+   the main checkout, rewrite history in a scratch clone), or a vetted
+   operation that already covers it (`vetted-op-read`, `vetted-op`,
+   `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+3. If none exists, do the rest of the work, give the user the one command to
+   run this time, and propose `/magpie-setup:upstream-fix` for it: a
+   closed-shape vetted operation (fixed argv, validated parameters, destination
+   from the approved policy, no repository code or configuration steering it,
+   behind a confirmation) or a documented in-sandbox route. Opening that PR
+   needs the user's go-ahead, like any other publication.
+
+<!-- END MAGPIE BLOCK: sandbox-golden-rule -->
 
 **The marketplace install is the default.**
 One `marketplace add`, then one `plugin install` per skill family, and nothing is written to the repo.

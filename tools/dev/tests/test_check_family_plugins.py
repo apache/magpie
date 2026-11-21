@@ -215,6 +215,37 @@ def test_codex_advertises_self_contained_substrates_only(monkeypatch):
     assert NAME not in {e["name"] for e in json.loads(copilot.read_text())["plugins"]}
 
 
+def _client_catalog_tree(root: Path) -> None:
+    for name in ("magpie-alpha", "magpie-setup", "magpie-vetted-ops"):
+        (root / mod.PLUGINS / name / "skills" / "example").mkdir(parents=True)
+    (root / "marketplace.json").write_text('{"plugins": []}\n', encoding="utf-8")
+    (root / mod.CODEX_CATALOG).parent.mkdir(parents=True)
+    (root / mod.CODEX_CATALOG).write_text('{"plugins": []}\n', encoding="utf-8")
+
+
+def test_writing_the_client_catalogs_satisfies_the_catalog_check(tmp_path, monkeypatch):
+    """#2168: `--fix` reported success while a client catalogue entry was still
+    missing, so the next check failed on the same entry."""
+    _client_catalog_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert mod.write_client_catalogs({"alpha": set(), "setup": set()}) == []
+    assert mod.check_client_catalogs() == []
+    copilot = json.loads((tmp_path / "marketplace.json").read_text(encoding="utf-8"))
+    assert {e["name"] for e in copilot["plugins"]} == {"magpie-alpha", "magpie-setup"}
+    codex = json.loads((tmp_path / mod.CODEX_CATALOG).read_text(encoding="utf-8"))
+    assert {e["name"] for e in codex["plugins"]} == {
+        "magpie-alpha",
+        "magpie-setup",
+    } | set(mod.CODEX_SUBSTRATES)
+
+    def installation(entries: list[dict]) -> dict[str, str]:
+        return {e["name"]: e["policy"]["installation"] for e in entries}
+
+    wanted = {"magpie-alpha": "AVAILABLE", "magpie-setup": "INSTALLED_BY_DEFAULT"}
+    assert installation(copilot["plugins"]) == wanted
+    assert {name: installation(codex["plugins"])[name] for name in wanted} == wanted
+
+
 def test_vetted_plugin_startup_creates_the_dispatcher_path(tmp_path):
     plugin = REPO_ROOT / mod.PLUGINS / "magpie-vetted-ops"
     hooks = json.loads((plugin / "hooks/hooks.json").read_text())
@@ -654,8 +685,11 @@ def test_every_stable_magpie_path_a_skill_runs_is_linked_by_vetted_ops(tmp_path)
     named = set()
     for skill in (REPO_ROOT / "plugins").glob("magpie-*/skills/**/*.md"):
         named |= set(re.findall(r"~/\.claude/magpie/([a-z0-9-]+)", skill.read_text(encoding="utf-8")))
-    # adversarial-review is linked by its own plugin.
-    named.discard("adversarial-review")
+    # adversarial-review and security-tools are linked by their own plugins'
+    # session hooks (security-tools only where magpie-security-tools is
+    # installed, since its record client runs outside the sandbox from that path; its
+    # link is tested in tools/security-management/tests/test_framework_link_hook.py).
+    named -= {"adversarial-review", "security-tools"}
     assert "skill-lock" in named
     plugin = REPO_ROOT / "plugins" / "magpie-vetted-ops"
     home = tmp_path / "home"

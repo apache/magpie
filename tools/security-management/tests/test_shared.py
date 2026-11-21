@@ -174,8 +174,22 @@ def test_tracker_link_per_backend() -> None:
 def test_cve_tool_command_quotes_each_raw_argument() -> None:
     command = cve_tool.command({}, "push", "--cve-id", "CVE-2026-1", "--json-file", "/s/my file.json")
     assert command == (
-        "uv run --project '<framework>/tools/cve-tool' cve-tool push --cve-id CVE-2026-1 --json-file '/s/my file.json'"
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push --cve-id CVE-2026-1 --json-file '/s/my file.json'"
     )
+
+
+def test_cve_tool_command_falls_back_to_the_framework_copy_without_the_plugin(monkeypatch) -> None:
+    # A snapshot install or framework checkout has no ~/.claude/magpie/security-tools link.
+    monkeypatch.setattr(cve_tool, "stable_installed", lambda: False)
+    assert cve_tool.command({}, "check") == "uv run --project '<framework>/tools/cve-tool' cve-tool check"
+
+
+def test_cve_tool_stable_installed_reads_the_link(monkeypatch, tmp_path) -> None:
+    monkeypatch.undo()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert not cve_tool.stable_installed()
+    (tmp_path / ".claude" / "magpie" / "security-tools" / "cve-tool").mkdir(parents=True)
+    assert cve_tool.stable_installed()
 
 
 def test_cve_tool_command_quotes_a_placeholder_shaped_value() -> None:

@@ -4,7 +4,7 @@
 # good-first-issue-sweep evals
 
 Eval suite for the
-[`magpie-good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md)
+[`magpie-good-first-issue-sweep`](../../../../plugins/magpie-mentoring/skills/good-first-issue-sweep/SKILL.md)
 skill.
 
 ## Coverage

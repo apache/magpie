@@ -112,6 +112,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "version",
         "commit_hash",
         "cve_id",
+        "pmc",
         "action",
         "field",
         "date",
@@ -157,6 +158,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "version": "1.0.0",
         "commit_hash": "a1b2c3d",
         "cve_id": "CVE-2023-1234",
+        "pmc": "airflow",
         "ecosystem": "PyPI",
         "action": "Sync",
         "field": "CVE tool link",
@@ -866,6 +868,52 @@ def test_board_add_item_takes_a_content_node_id(policy: config.Config) -> None:
     assert "content=I_kwDOabc123" in argv
     assert "project=PVT_proj" in argv
     assert "addProjectV2ItemById" in argv[-1]
+
+
+def test_board_item_reads_the_tracker_issue_on_the_configured_board(policy: config.Config) -> None:
+    op = ops.resolve("board-item")
+    assert not op.writes
+    params, _ = cli._validate_params(op, ["12"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:3] == ["gh", "api", "graphql"]
+    assert "owner=acme" in argv and "name=tracker" in argv and "n=12" in argv
+    query = next(a for a in argv if a.startswith("query="))
+    assert "includeArchived:true" in query and "mutation" not in query
+    jq = argv[argv.index("--jq") + 1]
+    assert 'select(.project.id == "PVT_proj")' in jq
+
+
+def test_board_items_lists_the_configured_board_on_every_page(policy: config.Config) -> None:
+    op = ops.resolve("board-items")
+    assert not op.writes
+    params, _ = cli._validate_params(op, [], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:4] == ["gh", "api", "graphql", "--paginate"]
+    assert "board=PVT_proj" in argv
+    query = next(a for a in argv if a.startswith("query="))
+    assert "$endCursor" in query and "pageInfo" in query and "mutation" not in query
+    assert "select(.isArchived | not)" in argv[argv.index("--jq") + 1]
+
+
+def test_board_item_refuses_a_non_number(policy: config.Config) -> None:
+    op = ops.resolve("board-item")
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(op, ["12; rm -rf /"], policy)
+
+
+def test_board_operations_refuse_without_a_board(policy: config.Config) -> None:
+    """A policy with no board configuration refuses by name rather than failing on a missing key."""
+    cfg = dict(policy.as_mapping())
+    cfg.pop("board_project_id", None)
+    for name, args in (
+        ("board-item", {"number": "12"}),
+        ("board-items", {}),
+        ("board-add-item", {"content_id": "I_kwDOabc"}),
+    ):
+        with pytest.raises(ops.ParamError, match="project board"):
+            ops.resolve(name).build(cfg, **args)
 
 
 def test_board_add_item_refuses_a_non_node_id(policy: config.Config) -> None:

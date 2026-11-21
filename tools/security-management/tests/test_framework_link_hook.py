@@ -103,3 +103,24 @@ def test_a_lock_left_by_a_killed_installer_is_reclaimed(tmp_path: Path) -> None:
     _run(home, _plugin(tmp_path, "1.0"))
     assert (base / "1.0" / ".complete").is_file()
     assert not lock.exists()
+
+
+def test_the_stable_path_names_the_plugin_tools(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    old, new = _plugin(tmp_path, "1.0.0"), _plugin(tmp_path, "1.1.0")
+    _run(home, old)
+    stable = home / ".claude" / "magpie" / "security-tools"
+    assert stable.is_symlink() and Path(os.readlink(stable)) == old / "tools"
+    _run(home, new)
+    assert Path(os.readlink(stable)) == new / "tools"
+
+
+def test_a_real_directory_at_the_stable_path_is_left_alone(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    stable = home / ".claude" / "magpie" / "security-tools"
+    stable.mkdir(parents=True)
+    (stable / "keep").write_text("mine")
+    _run(home, _plugin(tmp_path, "1.0.0"))
+    assert not stable.is_symlink() and (stable / "keep").read_text() == "mine"
+    # The framework copy is still made.
+    assert (home / ".cache" / "apache-magpie" / "framework" / "current").is_symlink()

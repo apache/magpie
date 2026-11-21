@@ -1025,14 +1025,28 @@ That also means **any** draft PR in this repo starts its checks when it
 is marked ready, which is the behaviour most people already expect — and
 it is what lets the bump workflow carry no check jobs of its own.
 
-Reviewing a bump PR is quick: every changed line should be the version
-string and nothing else.
+Reviewing a bump PR is quick. Outside `.apache-magpie.lock`, every
+changed line should be the version string and nothing else. Inside it,
+the `reconciled:` block moves too: its `at:` date, and the `sha256`
+surface hash of each skill whose surface changed since the previous
+stamp (the `refresh-reconciled-stamp.py` step above).
 
 ```bash
-git fetch origin && git diff --stat main..<branch>
-git diff main..<branch> | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
+git fetch origin main <branch>
+git diff --stat origin/main...origin/<branch>
+# Every file but the lock: only the version string changes.
+git diff origin/main...origin/<branch> -- . ':!.apache-magpie.lock' \
+    | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
     | grep -v 'dev[0-9]\{12\}'    # should print nothing
+# The lock: only the reconciled date and skill surface hashes change.
+git diff origin/main...origin/<branch> -- .apache-magpie.lock \
+    | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
+    | grep -Ev 'dev[0-9]{12}|^[-+] +at: +[0-9]{4}-[0-9]{2}-[0-9]{2}$|^[-+] +[a-z0-9-]+: +sha256:[0-9a-f]{16}$'    # should print nothing
 ```
+
+The three dots compare the branch with the commit it left `main` from,
+so work that landed on `main` after the bump does not show up as a
+change.
 
 ## Opening a pull request
 

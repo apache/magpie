@@ -2063,6 +2063,7 @@ VETTED_ENTRY_POINTS = {
     "vetted-op": "vetted-ops",
     "vetted-op-read": "vetted-ops",
     "vetted-op-tracker": "vetted-ops",
+    "vetted-op-git": "vetted-ops",
     "adversarial-review": "adversarial-review",
 }
 VETTED_STABLE_BASE = "~/.claude/magpie/"

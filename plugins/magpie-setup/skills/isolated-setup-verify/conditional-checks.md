@@ -599,3 +599,36 @@ reading this file; read the section for a check whose condition holds.
       for the operator to inspect. A roborev entry is ⚠: the harness starts it
       outside the sandbox and outside the Bash prompt; report it as the
       operator's accepted cost only if they say they chose it.
+
+## Check 20 — cve-tool exclusion, if installed
+
+20. **cve-tool exclusion, if installed.** Optional (step C of
+    `setup-isolated-setup-install`): report **n/a** when the
+    `magpie-security-tools` plugin is not installed.
+
+    When it is:
+
+    - **20a — the exclusion.** `sandbox.excludedCommands` contains
+      `uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *`.
+      Missing is ⚠, not ✗: nothing is exposed, but every session-backed
+      `cve-tool` call fails in the sandbox and the security skills fall back
+      to commands the operator pastes. An exclusion naming
+      `~/.cache/apache-magpie/framework/` instead is ✗: that copy is
+      agent-writable, so its code would run outside the sandbox.
+    - **20b — every call asks.** `permissions.ask` contains
+      `Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)`,
+      and no `permissions.allow` entry matches any `cve-tool` invocation.
+      Either failing is ✗: `allocate`, `push` and `publish` change CVE
+      records, and options before the operation defeat a per-operation rule.
+    - **20c — the plugin cache is not agent-writable.** `permissions.deny`
+      contains `Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)`
+      and `Edit(~/.claude/magpie/**)`. Missing is ✗: the exclusion runs that
+      code outside the sandbox.
+    - **20d — the link resolves into the plugin.**
+      `~/.claude/magpie/security-tools` is a symlink to
+      `~/.claude/plugins/cache/apache-magpie/magpie-security-tools/<version>/tools`,
+      and `cve-tool/` exists under it. A broken link is ⚠: the calls stay
+      sandboxed; a new session lets the plugin's `SessionStart` hook re-point
+      it. A real file or directory at the path, or a link anywhere else, is
+      ✗: the exclusion would run that code outside the sandbox, and the hook
+      refuses to replace anything that is not a symlink.

@@ -24,7 +24,7 @@ argument-hint: "[pr:N | stack:N] [layers:a-b] [read-budget:LINES] [no-fetch] [dr
 capability: capability:review
 surface_hash: sha256:f0872f2cf794b6d2
 license: Apache-2.0
-measured_tokens: 4668
+measured_tokens: 4976
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -97,6 +97,28 @@ On a pinned-snapshot or self-adopted install, setup answers to the shorter
 `/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
+
+<!-- BEGIN MAGPIE BLOCK: sandbox-golden-rule — generated from tools/dev/blocks/sandbox-golden-rule.md -->
+
+**Golden rule — a step the sandbox blocks becomes a vetted operation, never
+a bypass.** This holds for the whole run. When anything you need to do fails
+on a sandbox restriction (a blocked host or transport, a read-only path, a
+denied credential or socket):
+
+1. Never leave the sandbox for it: no sandbox-disabling flag, and no wider
+   exclusion or allow rule proposed as the fix.
+2. Look for a route that stays safe: a spelling the sandbox allows (fetch in
+   the main checkout, rewrite history in a scratch clone), or a vetted
+   operation that already covers it (`vetted-op-read`, `vetted-op`,
+   `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+3. If none exists, do the rest of the work, give the user the one command to
+   run this time, and propose `/magpie-setup:upstream-fix` for it: a
+   closed-shape vetted operation (fixed argv, validated parameters, destination
+   from the approved policy, no repository code or configuration steering it,
+   behind a confirmation) or a documented in-sandbox route. Opening that PR
+   needs the user's go-ahead, like any other publication.
+
+<!-- END MAGPIE BLOCK: sandbox-golden-rule -->
 
 This skill reviews a **stack of pull requests as one change**.
 GitHub reviews and merges a stack one layer at a time, so nothing on the platform answers the two questions a maintainer has before the bottom layer merges:

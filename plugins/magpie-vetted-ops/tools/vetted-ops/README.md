@@ -15,11 +15,13 @@
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
     - [The Vulnogram CVE-tool operations](#the-vulnogram-cve-tool-operations)
+    - [The project board](#the-project-board)
     - [The pr-management-triage reads](#the-pr-management-triage-reads)
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Tracker backends](#tracker-backends)
+  - [Git operations the sandbox blocks](#git-operations-the-sandbox-blocks)
   - [Wiring it into settings](#wiring-it-into-settings)
     - [Codex native rules](#codex-native-rules)
   - [Tests](#tests)
@@ -100,6 +102,11 @@ Being precise, because a security tool that overstates itself is worse than none
   one open. Handing `gh` a path would leave a window between the check and the
   send in which the file could be swapped; the bytes that were validated are the
   bytes that get published.
+- **Published files do not stay behind.** Once a write succeeds, the dispatcher
+  deletes the body and title files it read, when each is still a regular file
+  inside the workspace. The workspace outlives the session, and these files often
+  carry text from a private report. A failed write or a `--dry-run` keeps them,
+  so the call can be retried; a file a skill needs again is kept elsewhere.
 - **Writes cannot be reached through the read entry point.** `vetted-op-read`
   refuses any operation with `writes=True` *before* it consults the policy or
   looks at `--caller`, so the refusal cannot be argued out of it by argv. This
@@ -145,6 +152,7 @@ scripts over one catalogue:
 |---|---|---|
 | `vetted-op-read` | never — refused before policy is consulted | `allow` |
 | `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
+| `vetted-op-git` | only the [git operations](#git-operations-the-sandbox-blocks) — no `gh` operation exists there | `ask`, and excluded from the sandbox |
 | `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
 
 That split is what lets the read path lose its prompts without the write path
@@ -216,10 +224,14 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set",
                            "cve-check-published",
                            "advisory-view", "advisory-comments", "advisory-comment",
-                           "issue-create-labeled"]
+                           "issue-create-labeled",
+                           "cve-record-fetch", "cve-record-update",
+                           "board-item", "board-items", "board-add-item", "board-set-status",
+                           "board-archive-item"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
-                           "body-field-get", "body-field-set"]
+                           "body-field-get", "body-field-set",
+                           "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
@@ -465,6 +477,12 @@ kilobytes — which a deterministic tool then reads from the file.
   through. Every path is opened with `O_NOFOLLOW` relative to the checked
   workspace.
 - An HTTP read saved this way still never touches any other path.
+- **Old saved reads are pruned.** Saved reads carry tracker and pull-request
+  text, and the workspace outlives the session, so each `--save` also removes
+  entries of `saved/` older than `saved_retention_days` (under `[values]`; a
+  whole number of days, default 7). Only regular files and symlinks you own
+  are removed, relative to the same `saved/` descriptor and without following
+  a link; the marker, dot-files, subdirectories and the file just written stay.
 
 ### Searching the upstream repository
 
@@ -501,7 +519,7 @@ overrides. Three operations run it instead, outside the sandbox through
 |---|---|---|
 | `cve-record-fetch` (read) | `cve_id` | `vulnogram-api-record-fetch --cve-id <id>` |
 | `cve-record-update` (write) | `cve_id body` | `vulnogram-api-record-update --cve-id <id> --json-file -`, the record on stdin |
-| `cve-allocate` (write) | `title` (a workspace file) | `vulnogram-api-allocate --title <title>` |
+| `cve-allocate` (write) | `pmc title` (title a workspace file) | `vulnogram-api-allocate --pmc <pmc> --title <title>`; the client refuses a token held for another PMC |
 
 - The client is the copy shipped in this plugin beside vetted-ops
   (`tools/cve-tool-vulnogram/oauth-api`, resolved like the tracker backends),
@@ -511,10 +529,15 @@ overrides. Three operations run it instead, outside the sandbox through
   the record commands' merge-mode guards always apply.
 - The child gets an allowlisted environment: `HOME` from the password
   database, `PATH` set to the directory of the absolute `uv` binary followed by
-  the system directories, plus locale and `TMPDIR`. No `VULNOGRAM_*` session
-  override and no `PYTHON*`, `UV_*`, `DYLD_*` or `LD_*` variable reaches it, so
-  the session is always the user's own default file and nothing the caller
-  exports changes what Python or uv load.
+  the system directories, plus locale. No `VULNOGRAM_*` session override, no
+  `PYTHON*`, `UV_*`, `DYLD_*` or `LD_*` variable and no `TMPDIR` (sandbox-writable
+  inside the harness, and where uv builds) reaches it, so the session is always
+  the user's own default file and nothing the caller exports changes what Python
+  or uv load.
+- `cve-record-update` parses the record before it is sent and refuses it unless
+  its `cveMetadata.cveId` is the target id (the client posts to `--cve-id`
+  whatever the document says), and refuses a top-level `go` key, which Vulnogram
+  reads as a request envelope rather than record content.
 - Publishing (`vulnogram-api-record-publish`) has no operation. It is the
   release manager's terminal step and stays a hand-run command. For the same
   reason `cve-record-update` always passes `--no-promote-to-public`: a push
@@ -527,6 +550,26 @@ Grant them to the callers that push records or allocate:
 `security-cve-allocate`, and `cve-allocate` to `security-cve-allocate`. The
 user still runs `vulnogram-api-setup` once per login session to approve the
 tokens; nothing here can mint one.
+
+### The project board
+
+A GitHub-backed tracker can keep a Projects V2 board, one `Status` column per lifecycle state.
+The board's node id, its `Status` field id and the column → option-id map come from the policy
+(`board_project_id`, `board_status_field_id`, `[values.board_columns]`); an operation run under a
+policy without them is refused by name.
+
+| Operation | Kind | Parameters | What it does |
+|---|---|---|---|
+| `board-item` | read | `number` | One tracker issue's node id, and its item on the configured board, archived ones included: `{node_id, item}` with `item` `null` when the issue is not on the board, else `{item_id, status, archived}`. |
+| `board-items` | read | — | Every item still on the board, every page, one JSON line each: `{item_id, type, repo, number, state, labels, status}`. The sweep uses it to find anything that is not a security tracker. |
+| `board-add-item` | write | `content_id` | Add an issue (by its node id, from `board-item`) to the board; returns the item id. Idempotent. |
+| `board-set-status` | write | `item_id column` | Move an item to a configured column. |
+| `board-archive-item` | write | `item_id` | Archive an item off the board (a closed tracker). Idempotent. |
+
+`security-issue-sync` reads `board-item` for each tracker it syncs and, on confirmation, adds a
+missing item, moves it to the column its labels call for, and archives it once the tracker is closed;
+its end-of-sync sweep also reads `board-items` and archives anything that is not a security tracker
+([`tools/github/project-board.md`](https://github.com/apache/magpie/blob/main/tools/github/project-board.md)).
 
 ### The pr-management-triage reads
 
@@ -726,6 +769,109 @@ On a non-GitHub tracker the `number` parameter of a tracker operation takes the
 backend's own IDs (`SEC-0012`, `FOOSEC-12`, `2024-007-xss`): letters, digits,
 `-` and `_` only, so an ID can never name a path.
 
+## Git operations the sandbox blocks
+
+Three git steps fail in a sandboxed session however the agent phrases them, and
+used to end in a command the user pasted into their own terminal:
+
+- **Pushing over SSH.** The sandbox routes network through an HTTP proxy, so an
+  SSH transport gets no TCP at all, and a hardware key's touch prompt never
+  reaches the user.
+- **Moving a linked worktree** to a rebased or pushed commit. Harnesses keep
+  `.git/worktrees/<name>/` read-only for worktrees the session did not create,
+  so `git reset`, `git fetch` and `git rebase` in such a worktree stop half-way.
+- **Adding or removing a linked worktree**, for the same reason.
+
+`vetted-op-git` runs exactly those four steps outside the sandbox, as closed
+shapes, behind the harness's confirmation like `vetted-op`:
+
+| Operation | Parameters | What it does |
+|---|---|---|
+| `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
+| `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
+| `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
+| `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller <skill> git-push-branch \
+  ~/code/project fix-thing fork fix-thing 0123…(40 hex)
+```
+
+The policy's `[git]` table bounds them:
+
+```toml
+[git]
+# Main checkouts the operations may act on; their linked worktrees count too.
+checkouts = ["~/code/project"]
+# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
+fork = "alice/project"
+# Branches a push may create or move on [repos] upstream. Empty or absent: never.
+upstream_push = ["ci-*", "stack/*"]
+# Added to the built-in list (main, master, trunk, develop, gh-pages, release*, v*-test, v*-stable, *-stable, asf-site).
+protected = ["prod"]
+# Directories new worktrees may be created in, directly.
+worktree_roots = ["~/code/project/files"]
+```
+
+What makes running git unsandboxed acceptable here:
+
+- **Closed destinations.** A push goes to a URL built from the policy's
+  repository names, never to a remote the repository configures. Protected
+  branches are refused whatever the policy says, and upstream takes only
+  branches matching `upstream_push`.
+- **Nothing lost silently.** Every push carries a lease on the full SHA the
+  caller expects (`new` for a branch that must not exist yet), so a branch
+  someone else moved is never overwritten, and moving a branch to a commit with
+  nothing over a remote's default branch (an emptied rebase, which would close
+  the pull request it heads) is refused, as agent-guard's `empty-rebase` guard
+  refuses the plain `git push`. A worktree moves only when it has
+  no local changes, and the previous commit is printed and stays in the reflog.
+- **No repository configuration steers git.** Keys such as `core.sshCommand`,
+  `url.*.insteadOf`, `filter.*`, `core.fsmonitor`, `core.hooksPath` or
+  `include.path` can be planted in a repository's own config; the operation
+  refuses to run while the local or worktree config holds any key outside a
+  short list of inert ones (remotes, branch tracking, `user.name`, …). Global
+  and system configuration are the user's own and stay in effect, so an SSH
+  wrapper or touch overlay configured there keeps working. The check covers
+  every working tree the operation runs git in, and runs again right before
+  the command that acts.
+- **Pinned on every call**, so a key added between that check and the command
+  cannot take effect: no file-system monitor, no automatic gc or maintenance,
+  only `https` and `ssh` transports, `core.sshCommand` set to the user's global
+  value (or `ssh`), and hooks off wherever they are not wanted. Attributes are
+  read from the empty tree, so no `.gitattributes` can switch on a filter
+  (the cost: a worktree is checked out without LFS smudging or line-ending
+  conversion). A push sends the one ref, never tags (`--no-follow-tags`), and
+  `GIT_ALLOW_PROTOCOL` limits transports whatever the configuration says.
+- **Directories are held, not named.** Each validated directory is opened
+  without following a symlink at any component, and git runs inside it by
+  descriptor, so a directory swapped for a symlink after the checks cannot
+  send git elsewhere. A new worktree is created through its root's descriptor
+  and added as `.`, so git names its administrative directory `-` (`-1`, …).
+  A URL rewrite (`url.*.insteadOf`) cannot be pinned away: that it cannot
+  appear while the confirmed command runs rests on the harness keeping
+  `.git/config` write-protected, as Claude Code's sandbox does.
+- **No environment steers git.** Every `GIT_*` variable is dropped, `HOME`
+  comes from the password database and `XDG_CONFIG_HOME` is dropped, so the
+  global configuration git reads is the account's own.
+- **Hooks never run.** No operation runs a hook: the worktree operations set
+  `core.hooksPath=/dev/null`, and a push also passes `--no-verify`. A
+  `pre-push` hook is code the agent can write (`.git/hooks/pre-push`, or a
+  hook manager reading its configuration from the working tree), and the
+  confirmation shows the push, not what the hook would execute, so running it
+  here would run agent-written code outside the sandbox. The push-time checks
+  still run: the caller runs them inside the sandbox first (for prek,
+  `prek run --hook-stage pre-push --from-ref <base> --to-ref <branch>`), fixes
+  what they report, and only then pushes.
+- **Unapproved policy, dry run.** `--dry-run` against a policy that is not an
+  approved copy checks the parameters and runs no git command; only an
+  approved policy prints the command it would run.
+
+Everything else git does in a sandboxed session stays there. Rewriting history
+for a branch checked out in a worktree you did not create is done in a scratch
+clone (`git clone --shared <checkout> <scratch>`), fetched back into the main
+checkout, pushed with `git-push-branch` and applied with `git-worktree-sync`.
+
 ## Wiring it into settings
 
 Replace the wildcard `ask` rules with one `allow` entry, and keep an `ask` on
@@ -746,7 +892,9 @@ anything still invoked directly:
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
-    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -780,6 +928,8 @@ fails the same way:
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op *"
   ]

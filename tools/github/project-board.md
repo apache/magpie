@@ -9,6 +9,8 @@
   - [What the board is for](#what-the-board-is-for)
   - [Auto-add workflow filter](#auto-add-workflow-filter)
   - [Per-project configuration](#per-project-configuration)
+  - [Create a board](#create-a-board)
+  - [Keep the board security-only](#keep-the-board-security-only)
   - [Introspection — find the itemId and current column](#introspection--find-the-itemid-and-current-column)
   - [Introspection — re-fetch the option IDs](#introspection--re-fetch-the-option-ids)
   - [Write — move a tracker to a different column](#write--move-a-tracker-to-a-different-column)
@@ -36,6 +38,14 @@ state as part of its apply loop.
 Board-column mutations go through the GitHub GraphQL API
 (`updateProjectV2ItemFieldValue`) — the `gh` CLI does not expose a
 flag-based interface for Projects V2.
+
+**Under the secure setup, use the vetted operations instead of the raw
+recipes below:** `board-item <N>` reads the issue's node id and its board
+item (id, column, archived), and `board-add-item`, `board-set-status` and
+`board-archive-item` make the writes, each behind a prompt
+([vetted-ops → The project board](../vetted-ops/README.md#the-project-board)).
+The GraphQL below is what those operations run, and stays the reference for
+a setup without vetted-ops.
 
 ## What the board is for
 
@@ -105,6 +115,71 @@ manifest:
 For the adopting project (Airflow), all three values are
 declared in
 [`../../<project-config>/project.md`](../../<project-config>/project.md#github-project-board).
+
+## Create a board
+
+Setup's board step ([`setup config`](../../plugins/magpie-setup/skills/setup/config.md#step-3a1--project-board-github-trackers))
+creates a board only on the operator's explicit yes, and needs the `project` scope on the `gh` token
+(`gh auth refresh -s project`). Three mutations, run in order, each shown before it runs:
+
+```bash
+# 1. The board, owned by the tracker's owner (an organisation or a user node id).
+gh api graphql -F owner=<owner-node-id> -F title="<tracker> security tracker" -f query='
+mutation($owner: ID!, $title: String!) {
+  createProjectV2(input: {ownerId: $owner, title: $title}) { projectV2 { id number url } }
+}'
+
+# 2. Linked to the tracker repository, so its issues can be added.
+gh api graphql -F project=<project-id> -F repo=<tracker-repo-node-id> -f query='
+mutation($project: ID!, $repo: ID!) {
+  linkProjectV2ToRepository(input: {projectId: $project, repositoryId: $repo}) { repository { id } }
+}'
+
+# 3. The Status field with the seven lifecycle columns.
+gh api graphql -F project=<project-id> -f query='
+mutation($project: ID!) {
+  createProjectV2Field(input: {projectId: $project, dataType: SINGLE_SELECT, name: "Status",
+    singleSelectOptions: [
+      {name: "Needs triage", color: GRAY, description: ""},
+      {name: "Assessed", color: BLUE, description: ""},
+      {name: "CVE allocated", color: PURPLE, description: ""},
+      {name: "PR created", color: YELLOW, description: ""},
+      {name: "PR merged", color: ORANGE, description: ""},
+      {name: "Fix released", color: GREEN, description: ""},
+      {name: "Announced", color: PINK, description: ""}]}) {
+    projectV2Field { ... on ProjectV2SingleSelectField { id options { id name } } }
+  }
+}'
+```
+
+A new board already carries a default `Status` field; when step 3 reports a name clash, add the seven options to that field
+instead (`updateProjectV2Field` with the same `singleSelectOptions`), or rename it first.
+Record the board's `id`, `number` and `url`, the field `id` and each option's `id` in the
+[per-project configuration](#per-project-configuration) and the vetted-ops policy.
+
+## Keep the board security-only
+
+The board lists embargoed trackers, so it holds nothing else and stays private. Three settings keep it that way:
+
+- **Auto-add to project** filters on the security label, as in [the auto-add filter](#auto-add-workflow-filter) (UI only).
+- **Auto-add sub-issues to project** is off: it adds sub-issues of anything on the board, whatever their labels (UI only).
+- The board's description says what it is for:
+
+```bash
+gh api graphql -F project=<project-id> -f desc="Security trackers only" -f readme="<what the board is for>" -f query='
+mutation($project: ID!, $desc: String!, $readme: String!) {
+  updateProjectV2(input: {projectId: $project, shortDescription: $desc, readme: $readme}) { projectV2 { id public } }
+}'
+```
+
+Leave `public` out of the mutation: changing a board's visibility, even to private, needs owner rights
+(`Viewer not authorized to change project visibility` otherwise). Check `public` is `false` in the result;
+if it is not, ask an owner to make the board private.
+Keep the text to what the board is for: the public-surface guard refuses the mutation when it names a lifecycle column
+such as the allocation stage, and the columns are visible on the board anyway.
+
+The sync enforces the rest: its end-of-sync sweep reads every item (`board-items`) and proposes archiving anything that is not
+an issue in the tracker repository carrying the security label.
 
 ## Introspection — find the itemId and current column
 

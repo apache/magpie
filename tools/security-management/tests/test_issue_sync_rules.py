@@ -395,12 +395,12 @@ def test_case_4_private_scanner_credit(capsys, tmp_path):
 def test_case_5_clean_push_fix_released(capsys, tmp_path):
     base = {"session": "valid", "record_state": "DRAFT", "fix_released_transition": True}
     assert decide(capsys, tmp_path, **base)["next"] == (
-        "uv run --project '<framework>/tools/cve-tool' cve-tool push"
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push"
         " --cve-id CVE-2026-41107 --json-file '<scratch>/cve-CVE-2026-41107.json'"
     )
     pending = decide(capsys, tmp_path, **base, push_exit=0)
     assert pending["next"] == (
-        "uv run --project '<framework>/tools/cve-tool' cve-tool fetch --cve-id CVE-2026-41107 --state-only"
+        "uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id CVE-2026-41107 --state-only"
     )
     out = decide(capsys, tmp_path, **base, push_exit=0, fetched_state="REVIEW")
     assert (out["action"], out["handoff_variant"], out["state_advance"], out["recap_blocker"]) == (
@@ -428,6 +428,21 @@ def test_case_6_public_record_advisory_closeout(capsys, tmp_path):
         capsys, tmp_path, session="valid", record_state="PUBLIC", record=record(state="PUBLIC"), push_exit=0
     )
     assert (out["action"], out["state_advance"], out["recap_blocker"]) == ("push", None, False)
+
+
+@pytest.mark.parametrize("regenerated", ["REVIEW", "READY", "DRAFT"])
+def test_a_public_record_is_never_walked_back(capsys, tmp_path, regenerated):
+    """The CNA published by hand while the tracker still lacks the advisory URL:
+    the regenerated JSON says REVIEW, and pushing it would race the publish."""
+    out = decide(capsys, tmp_path, session="valid", record_state="PUBLIC", record=record(state=regenerated))
+    assert (out["action"], out["gate_failed"]) == ("block", "public_state_kept")
+    assert "PUBLIC" in out["reason"] and "downgrade" in out["reason"]
+    assert out["next"] is None  # nothing is pushed
+
+
+def test_a_public_record_in_the_generic_vocabulary_is_kept_too(capsys, tmp_path):
+    out = decide(capsys, tmp_path, session="valid", record_state="public", record=record(state="REVIEW"))
+    assert (out["action"], out["gate_failed"]) == ("block", "public_state_kept")
 
 
 def test_case_7_not_configured_fix_released(capsys, tmp_path):

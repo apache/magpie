@@ -415,7 +415,7 @@ configuration before executing any command:
 | `<project>` | The project's **infrastructure slug**, as it appears inside mailing-list addresses, roster URLs, and svn / dist paths (example: `foo` in `dev@foo.apache.org`, `svn.apache.org/repos/asf/foo/site`, `dist.apache.org/repos/dist/dev/foo`). Lower-case throughout. Not interchangeable with `<PROJECT>` — see the note below the table. | `<project-config>/project.md` → `short_name`, lowercased — equivalently the name half of `upstream_repo` |
 | `<project-config>` | The adopting project's config directory in its tracker repo (alongside the gitignored `.apache-magpie/` snapshot, not inside it). Bootstrapped from `projects/_template/`. | Filesystem convention. |
 | `<framework>` | The framework root — `.` in framework standalone, `.apache-magpie/` (the gitignored snapshot) on a pinned-snapshot install, and `~/.cache/apache-magpie/framework/current` on a marketplace install: a writable copy of the shipped tools that the `magpie-security-tools` plugin's session hook materialises for the installed version. Used in `uv run` and other invocations that address the framework's `tools/<name>/` subtrees; on every install `uv run --project <framework>/tools/<tool> …` works as written. | Filesystem convention. |
-| `<workspace>` | The vetted-ops workspace: the `workspace` the active vetted-ops policy names (`uvx --from ~/.claude/magpie/vetted-ops vetted-op-read policy` prints it, and every body-file refusal names it). Every title, body or value file passed to `vetted-op` or `vetted-op-tracker` is written there, with the file-writing tool, since the write dispatchers read files from nowhere else; `--save` reads land in `<workspace>/saved/`. Other scratch files stay in the session scratch directory. | vetted-ops policy → `workspace` |
+| `<workspace>` | The vetted-ops workspace: the `workspace` the active vetted-ops policy names (`uvx --from ~/.claude/magpie/vetted-ops vetted-op-read policy` prints it, and every body-file refusal names it). Every title, body or value file passed to `vetted-op` or `vetted-op-tracker` is written there, with the file-writing tool, since the write dispatchers read files from nowhere else, and they delete each body and title file once its write succeeds, so a file needed again later is kept in `<scratch>` and copied in; `--save` reads land in `<workspace>/saved/`. Other scratch files stay in the session scratch directory. | vetted-ops policy → `workspace` |
 | `<tracker>` | GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s`). | `<project-config>/project.md` → `tracker_repo` |
 | `<upstream>` | GitHub slug of the upstream codebase the fixes land in (example: `apache/airflow`). | `<project-config>/project.md` → `upstream_repo` |
 | `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `security_list` (under **Mailing lists**) |
@@ -535,6 +535,21 @@ The agent-guard [`vetted-ops-spelling`](tools/agent-guard/README.md#guards) guar
 Codex's own absolute-path rewrite is the one exception.
 The same holds for the eval wrapper, `~/.claude/scripts/magpie-run-evals.sh`, and for any sandbox-excluded command:
 write it bare, with the literal `~`, as the whole command line (not behind `env` or `command`), or it runs inside the sandbox and fails.
+
+**Golden rule — a step the sandbox blocks becomes a vetted operation, never a bypass.**
+Whenever a skill, or anything an agent does while running one, needs something the sandbox does not allow
+(a transport the proxy does not carry, such as an SSH push; a path the harness keeps read-only, such as a linked
+worktree's administrative directory; a credential or socket the profile denies), the answer is never to leave the
+sandbox, and never a wider `excludedCommands` or `allow` entry. Look first for a route that stays inside, then for a
+vetted operation that already covers the step. When neither exists, the framework is missing one: the agent gives
+the user the one command for this time and proposes [`setup-upstream-fix`](skills/setup-upstream-fix/SKILL.md),
+and the fix adds a closed shape to [`vetted-ops`](tools/vetted-ops/README.md) (fixed argv, parameters that cannot
+become flags, a destination taken from the approved policy, nothing from the repository's code, configuration or
+the environment able to steer it, the call kept behind `ask`) or documents the in-sandbox route.
+A pasted command is the stopgap, never the design.
+Every skill carries this rule as the shared block
+[`tools/dev/blocks/sandbox-golden-rule.md`](tools/dev/blocks/sandbox-golden-rule.md), right after its pre-flight;
+a new skill gets it the same way (an empty `sandbox-golden-rule` region, filled by `check-shared-blocks.py --fix`).
 
 **Tool credentials live under `$HOME`, never in the project tree.** Any
 persistent token, API key, OAuth refresh token, or session cookie a

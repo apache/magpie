@@ -27,6 +27,9 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+# Same default as the Bitbucket and GitLab bridges.
+DEFAULT_TIMEOUT_SECONDS = 30
+
 
 class SourceHutError(Exception):
     """General exception for SourceHut client errors."""
@@ -98,7 +101,7 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
     opener = urllib.request.build_opener(NoAuthRedirectHandler)
 
     try:
-        with opener.open(req) as resp:
+        with opener.open(req, timeout=DEFAULT_TIMEOUT_SECONDS) as resp:
             body = resp.read().decode("utf-8")
             res_json = json.loads(body)
             errors = res_json.get("errors")
@@ -135,5 +138,8 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
         raise SourceHutError(f"HTTP request to {url} failed with status {exc.code}") from exc
     except urllib.error.URLError as exc:
         raise SourceHutError(f"Failed to connect to {url}: {exc.reason}") from exc
+    except TimeoutError as exc:
+        # A stall while reading the body is a bare TimeoutError, not a URLError.
+        raise SourceHutError(f"Timed out waiting for {url} after {DEFAULT_TIMEOUT_SECONDS}s") from exc
     except json.JSONDecodeError as exc:
         raise SourceHutError(f"Failed to parse JSON response from {url}") from exc

@@ -4,7 +4,7 @@
 # contributor-to-committer eval suite
 
 Behavioural eval suite for the
-[`contributor-to-committer`](../../../../skills/contributor-to-committer/SKILL.md)
+[`contributor-to-committer`](../../../../plugins/magpie-contributor-growth/skills/contributor-to-committer/SKILL.md)
 skill. Tests four decision points:
 
 | Step dir | What is tested | Cases |
