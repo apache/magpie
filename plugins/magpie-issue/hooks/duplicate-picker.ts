@@ -61,14 +61,240 @@ export async function setDuplicatePickerState(
 }
 
 /**
- * Atomically updates the duplicatePickerState in the session store and invalidates the UI.
+ * Computes deterministic SHA-256 hex digest of a UTF-8 string in pure TS
+ * without external module imports, adhering to mod import boundaries.
+ */
+export function computePayloadHash(content: string): string {
+  const ascii = unescape(encodeURIComponent(content));
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const words: number[] = [];
+  const asciiBitLength = ascii.length * 8;
+  const hash: number[] = [];
+  const k: number[] = [];
+  let primeCounter = 0;
+  const isComposite: Record<number, number> = {};
+
+  for (let candidate = 2; primeCounter < 64; candidate += 1) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) {
+        isComposite[i] = candidate;
+      }
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+      primeCounter += 1;
+    }
+  }
+
+  let padded = ascii + '\x80';
+  while (padded.length % 64 !== 56) {
+    padded += '\x00';
+  }
+
+  for (let i = 0; i < padded.length; i += 1) {
+    const code = padded.charCodeAt(i);
+    words[i >> 2] = (words[i >> 2] ?? 0) | (code << ((3 - (i % 4)) * 8));
+  }
+
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+
+  for (let j = 0; j < words.length; ) {
+    const w = words.slice(j, (j += 16));
+    const oldHash = [...hash];
+    for (let i = 0; i < 64; i += 1) {
+      const w15 = w[i - 15] ?? 0;
+      const w2 = w[i - 2] ?? 0;
+      const a = hash[0] ?? 0;
+      const e = hash[4] ?? 0;
+      const h1 = hash[1] ?? 0;
+      const h2 = hash[2] ?? 0;
+      const s1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+      const ch = (e & (hash[5] ?? 0)) ^ (~e & (hash[6] ?? 0));
+      const s0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+      const maj = (a & h1) ^ (a & h2) ^ (h1 & h2);
+
+      const wi =
+        i < 16
+          ? (w[i] ?? 0)
+          : (((w[i - 16] ?? 0) +
+              (((w15 >>> 7) | (w15 << 25)) ^ ((w15 >>> 18) | (w15 << 14)) ^ (w15 >>> 3)) +
+              (w[i - 7] ?? 0) +
+              (((w2 >>> 17) | (w2 << 15)) ^ ((w2 >>> 19) | (w2 << 13)) ^ (w2 >>> 10))) |
+              0);
+      w[i] = wi;
+
+      const temp1 = ((hash[7] ?? 0) + s1 + ch + (k[i] ?? 0) + wi) | 0;
+      const temp2 = (s0 + maj) | 0;
+
+      hash[7] = hash[6] ?? 0;
+      hash[6] = hash[5] ?? 0;
+      hash[5] = e;
+      hash[4] = ((hash[3] ?? 0) + temp1) | 0;
+      hash[3] = h2;
+      hash[2] = h1;
+      hash[1] = a;
+      hash[0] = (temp1 + temp2) | 0;
+    }
+    for (let i = 0; i < 8; i += 1) {
+      hash[i] = ((hash[i] ?? 0) + (oldHash[i] ?? 0)) | 0;
+    }
+  }
+
+  let result = '';
+  for (let i = 0; i < 8; i += 1) {
+    for (let j = 3; j >= 0; j -= 1) {
+      const b = ((hash[i] ?? 0) >>> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+/**
+ * What stands at a path the pane is about to write, judged on the shape
+ * `$.fs.stat` resolves with in the mod harness: `{ kind, size, mtimeMs, isLink }`.
+ * `isLink` describes the path itself and `kind` what it leads to, so a link to a
+ * regular file and a link that leads nowhere are both `unsafe`. Only a missing
+ * path (`ENOENT`) is `missing`; any other stat failure is `unsafe`, so the write
+ * fails closed. `$.fs.exists` is not consulted: it answers for what the path
+ * leads to, which says nothing about a link that leads nowhere.
+ */
+export type WriteTarget = 'missing' | 'regular' | 'unsafe';
+
+function isNotFound(err: any): boolean {
+  return err?.code === 'ENOENT' || /ENOENT/.test(String(err?.message ?? err));
+}
+
+export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
+  let stat: any;
+  try {
+    stat = await $.fs.stat(path);
+  } catch (err: any) {
+    return isNotFound(err) ? 'missing' : 'unsafe';
+  }
+  if (!stat || stat.isLink !== false || stat.kind !== 'file') return 'unsafe';
+  return 'regular';
+}
+
+/**
+ * Safely writes a decision file to disk, refusing to follow symlinks or non-regular files,
+ * and ensuring the source candidates file exists.
+ */
+export async function safeWriteDecisionFile(
+  $: any,
+  targetIssue: number,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  const candidatePath = `.magpie-issue-candidates-${targetIssue}.json`;
+  const decisionPath = `.magpie-issue-decision-${targetIssue}.json`;
+
+  try {
+    let candidateExists = false;
+    try {
+      candidateExists = await $.fs.exists(candidatePath);
+    } catch {
+      candidateExists = false;
+    }
+    if (!candidateExists) {
+      return {
+        success: false,
+        error: `Candidate file missing: ${candidatePath}`,
+      };
+    }
+
+    if ((await classifyWriteTarget($, decisionPath)) === 'unsafe') {
+      return {
+        success: false,
+        error: `Refusing to write to symlink or non-regular file: ${decisionPath}`,
+      };
+    }
+
+    await $.fs.write(decisionPath, content);
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || `Failed to write decision file: ${decisionPath}`,
+    };
+  }
+}
+
+/**
+ * Invalidates any existing decision file on disk so downstream skills do not load stale choices.
+ */
+export async function invalidateDecisionFile(
+  $: any,
+  targetIssue: number
+): Promise<void> {
+  const decisionPath = `.magpie-issue-decision-${targetIssue}.json`;
+  try {
+    // Only an existing regular file is overwritten; a missing path needs no
+    // invalidation, and a link or anything else is left alone.
+    if ((await classifyWriteTarget($, decisionPath)) !== 'regular') return;
+
+    const invalidEnvelope: DuplicatePickerDecision = {
+      schema_version: 1,
+      target_issue: targetIssue,
+      status: 'reviewing',
+      kept_issue: targetIssue,
+      dropped_issues: [],
+      dismissed_issues: [],
+      invalidated: true,
+      updated_at: new Date().toISOString(),
+    };
+    await $.fs.write(decisionPath, JSON.stringify(invalidEnvelope, null, 2));
+  } catch {
+    // Fail-open
+  }
+}
+
+/**
+ * Atomically updates the duplicatePickerState in the session store, stages
+ * decisions to disk via $.fs.write when curated, and invalidates the UI.
  */
 export async function updateDuplicatePickerState(
   $: any,
   updater: (prev: DuplicatePickerState | null) => DuplicatePickerState | null
 ): Promise<void> {
   try {
-    await update($, duplicatePickerState, (prev: any) => updater(prev ?? null));
+    let nextState: DuplicatePickerState | null = null;
+    await update($, duplicatePickerState, (prev: any) => {
+      nextState = updater(prev ?? null);
+      return nextState;
+    });
+
+    if (nextState) {
+      const state = nextState as DuplicatePickerState;
+      const decision = serializeDecision(state);
+      const syncResult = await safeWriteDecisionFile(
+        $,
+        state.targetIssue,
+        JSON.stringify(decision, null, 2)
+      );
+
+      if (!syncResult.success) {
+        // If write failed, record syncError on state and invalidate file on disk
+        await invalidateDecisionFile($, state.targetIssue);
+        await update($, duplicatePickerState, (prev: any) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            syncError: syncResult.error || 'Failed to write decision file',
+          };
+        });
+      } else if (state.syncError) {
+        // Clear syncError on successful write
+        await update($, duplicatePickerState, (prev: any) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            syncError: null,
+          };
+        });
+      }
+    }
+
     try {
       $.ui.invalidate('ui.render');
     } catch {
@@ -132,7 +358,8 @@ export function parseCandidatePayload(raw: unknown): DuplicateCandidatePayload |
   if (!targetTitle) {
     return null;
   }
-  const targetAuthor = sanitizeText(obj.target_author) || undefined;
+  const targetAuthor =
+    sanitizeText(obj.target_author).replace(/^@+/, '') || undefined;
   const candidates: CandidateIssue[] = [];
 
   if (Array.isArray(obj.candidates)) {
@@ -157,7 +384,8 @@ export function parseCandidatePayload(raw: unknown): DuplicateCandidatePayload |
       if (!title) {
         continue;
       }
-      const author = sanitizeText(c.author) || 'unknown';
+      const author =
+        sanitizeText(c.author).replace(/^@+/, '') || 'unknown';
       let score: number | undefined;
       if (
         typeof c.similarity_score === 'number' &&
@@ -213,9 +441,12 @@ export function createStateFromPayload(payload: DuplicateCandidatePayload): Dupl
   };
 }
 
+export const MAX_VISIBLE_CANDIDATES = 10;
+
 /**
  * Derives the decision status dynamically from the current maintainer selection.
  * Single source of truth shared by the serializer, footer, and tests.
+ * Restricts the dismissed check strictly to visible rendered candidates.
  */
 export function deriveStatus(
   state: DuplicatePickerState
@@ -224,9 +455,10 @@ export function deriveStatus(
     return 'reviewing';
   }
 
-  const allDismissed = state.candidates.every((c) =>
-    state.dismissedIssues.includes(c.issue_number)
-  );
+  const visible = state.candidates.slice(0, MAX_VISIBLE_CANDIDATES);
+  const allDismissed =
+    visible.length > 0 &&
+    visible.every((c) => state.dismissedIssues.includes(c.issue_number));
   if (allDismissed) {
     return 'dismissed';
   }
@@ -240,6 +472,7 @@ export function deriveStatus(
 
 /**
  * Serializes the current maintainer selection into a standard DuplicatePickerDecision.
+ * Restricts dropped candidates strictly to visible candidates that were rendered to the user.
  */
 export function serializeDecision(
   state: DuplicatePickerState,
@@ -247,8 +480,9 @@ export function serializeDecision(
 ): DuplicatePickerDecision {
   const status = deriveStatus(state);
   const kept = state.selectedKeptIssue ?? state.targetIssue;
-  const pool = [state.targetIssue, ...state.candidates.map((c) => c.issue_number)];
-  // Only drop candidates if the maintainer actually made a curated selection!
+  const visible = (state.candidates || []).slice(0, MAX_VISIBLE_CANDIDATES);
+  const pool = [state.targetIssue, ...visible.map((c) => c.issue_number)];
+  // Only drop candidates that were rendered and not dismissed!
   const dropped =
     status === 'curated'
       ? Array.from(new Set(pool)).filter(
@@ -263,6 +497,7 @@ export function serializeDecision(
     kept_issue: kept,
     dropped_issues: dropped,
     dismissed_issues: [...state.dismissedIssues],
+    source_candidates_sha256: state.candidatesSha256 ?? null,
     updated_at: nowIso,
   };
 }
@@ -319,10 +554,14 @@ export function renderDuplicatePickerPane(
   const items: any[] = [];
   const isTargetKept = state.selectedKeptIssue === state.targetIssue;
 
-  // Header: Target issue with explicit canonical action
+  // Header: Target issue with explicit canonical action and author
   const headerChildren: any[] = [
     Text({
-      children: [`[Deduplication Target: #${state.targetIssue}]`],
+      children: [
+        state.targetAuthor
+          ? `[Deduplication Target: #${state.targetIssue} (@${state.targetAuthor})]`
+          : `[Deduplication Target: #${state.targetIssue}]`,
+      ],
       bold: true,
       color: 'info',
     }),
@@ -370,8 +609,10 @@ export function renderDuplicatePickerPane(
     })
   );
 
-  // Candidate list
-  for (const c of state.candidates) {
+  // Candidate list (capped at MAX_VISIBLE_CANDIDATES)
+  const visibleCandidates = state.candidates.slice(0, MAX_VISIBLE_CANDIDATES);
+
+  for (const c of visibleCandidates) {
     const isDismissed = state.dismissedIssues.includes(c.issue_number);
     const isKept = state.selectedKeptIssue === c.issue_number;
     const badge = formatSimilarityBadge(c.similarity_score);
@@ -433,7 +674,9 @@ export function renderDuplicatePickerPane(
                 if (!prev) return null;
                 return {
                   ...prev,
-                  dismissedIssues: prev.dismissedIssues.filter((id) => id !== c.issue_number),
+                  dismissedIssues: prev.dismissedIssues.filter(
+                    (num) => num !== c.issue_number
+                  ),
                 };
               });
             },
@@ -498,6 +741,27 @@ export function renderDuplicatePickerPane(
     );
   }
 
+  if (state.candidates.length > MAX_VISIBLE_CANDIDATES) {
+    const remaining = state.candidates.length - MAX_VISIBLE_CANDIDATES;
+    items.push(
+      Box({
+        flexDirection: 'row',
+        padding: 1,
+        marginBottom: 1,
+        borderStyle: 'single',
+        borderColor: 'gray',
+        children: [
+          Text({
+            children: [
+              `... and ${remaining} more candidate(s) (curate above or review via CLI)`,
+            ],
+            color: 'dim',
+          }),
+        ],
+      })
+    );
+  }
+
   // Summary / Status footer
   const status = deriveStatus(state);
   const footerChildren: any[] = [
@@ -506,7 +770,7 @@ export function renderDuplicatePickerPane(
 
   if (status === 'curated') {
     const keptIssue = state.selectedKeptIssue ?? state.targetIssue;
-    const pool = [state.targetIssue, ...state.candidates.map((c) => c.issue_number)];
+    const pool = [state.targetIssue, ...visibleCandidates.map((c) => c.issue_number)];
     const dropped = Array.from(new Set(pool)).filter(
       (num) => num !== keptIssue && !state.dismissedIssues.includes(num)
     );
@@ -538,11 +802,213 @@ export function renderDuplicatePickerPane(
     })
   );
 
+  if (state.syncError) {
+    items.push(
+      Box({
+        flexDirection: 'row',
+        padding: 1,
+        marginTop: 1,
+        borderStyle: 'single',
+        borderColor: 'yellow',
+        children: [
+          Text({
+            children: [
+              `[!] Warning: Curation sync failed (${state.syncError}). Staged decision invalidated; fall back to terminal prompt.`,
+            ],
+            color: 'warning',
+            bold: true,
+          }),
+        ],
+      })
+    );
+  }
+
   return Box({
     flexDirection: 'column',
     padding: 1,
     children: items,
   });
+}
+
+/**
+ * Hydrates candidate state from disk and opens the interactive duplicate-picker pane.
+ * If candidate content hash and target issue match active state, skips re-hydration
+ * to preserve in-flight maintainer selections. Re-hydrates whenever the hash changes.
+ */
+export async function hydrateCandidatesFromFile($: any, filePath: string): Promise<boolean> {
+  if (!filePath) {
+    return false;
+  }
+  try {
+    let content: string | null = null;
+    try {
+      content = await $.fs.read(filePath);
+    } catch {
+      return false;
+    }
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return false;
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(content);
+    } catch {
+      return false;
+    }
+
+    const payload = parseCandidatePayload(parsedJson);
+    if (!payload) {
+      return false;
+    }
+
+    const candidatesSha256 = computePayloadHash(content);
+    const currentState = await getDuplicatePickerState($);
+    if (
+      currentState &&
+      currentState.targetIssue === payload.target_issue &&
+      currentState.candidatesSha256 === candidatesSha256 &&
+      currentState.candidates &&
+      currentState.candidates.length > 0
+    ) {
+      // Content hash and target are identical; skip re-hydration to preserve in-flight curation
+      return true;
+    }
+
+    const state: DuplicatePickerState = {
+      ...createStateFromPayload(payload),
+      candidatesSha256,
+    };
+    await setDuplicatePickerState($, state);
+
+    try {
+      await $.ui.open({
+        id: 'duplicate-picker',
+        title: `Duplicate Candidates (#${payload.target_issue})`,
+      });
+    } catch {
+      // Fail-open in non-interactive/headless contexts
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates that a candidate file path is strictly within the workspace directory
+ * and does not attempt directory traversal or target external paths.
+ */
+export function isWorkspaceCandidatePath(filePath: string, targetIssue: number, wsRoot?: string): boolean {
+  if (!filePath || typeof filePath !== 'string') return false;
+  const expected = `.magpie-issue-candidates-${targetIssue}.json`;
+  const normalized = filePath.replace(/\\/g, '/');
+
+  const segments = normalized.split('/');
+  if (segments.includes('..')) {
+    return false;
+  }
+
+  if (
+    normalized === expected ||
+    normalized === `./${expected}` ||
+    (!normalized.includes('/') && normalized === expected)
+  ) {
+    return true;
+  }
+
+  if (wsRoot && typeof wsRoot === 'string') {
+    const cleanWs = wsRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (cleanWs && normalized === `${cleanWs}/${expected}`) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Intercepts Bash tool calls that produce duplicate candidate session files.
+ * Re-hydrates candidate state, letting hydrateCandidatesFromFile check content hashes.
+ */
+export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+  let result: any;
+  if (typeof next === 'function') {
+    result = await next(e);
+  }
+
+  if (e && typeof e.command === 'string') {
+    try {
+      const command = e.command;
+      const match = /\.magpie-issue-candidates-(\d+)\.json/.exec(command);
+      if (match && match[1]) {
+        const targetIssue = parseInt(match[1], 10);
+        const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
+        let exists = false;
+        try {
+          exists = await $.fs.exists(fileName);
+        } catch {
+          exists = false;
+        }
+        if (exists) {
+          await hydrateCandidatesFromFile($, fileName);
+        }
+      }
+    } catch {
+      // Fail-open
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Intercepts Write tool calls that write duplicate candidate session files.
+ * Rejects writes outside the workspace root and re-hydrates candidate state.
+ */
+export async function handleWriteToolCall($: any, e: any, next: any): Promise<any> {
+  let result: any;
+  if (typeof next === 'function') {
+    result = await next(e);
+  }
+
+  if (e) {
+    try {
+      const filePath =
+        typeof e.file_path === 'string'
+          ? e.file_path
+          : typeof e.path === 'string'
+          ? e.path
+          : typeof e.filePath === 'string'
+          ? e.filePath
+          : undefined;
+
+      if (filePath) {
+        const match = /\.magpie-issue-candidates-(\d+)\.json$/.exec(filePath);
+        if (match && match[1]) {
+          const targetIssue = parseInt(match[1], 10);
+          if (isWorkspaceCandidatePath(filePath, targetIssue)) {
+            const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
+            let exists = false;
+            try {
+              exists = await $.fs.exists(fileName);
+            } catch {
+              exists = false;
+            }
+            if (exists) {
+              await hydrateCandidatesFromFile($, fileName);
+            }
+          }
+        }
+      }
+    } catch {
+      // Fail-open
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -562,6 +1028,14 @@ export function register(hooks: any): void {
 
   hooks('ui.render', { component: 'Pane' }, async ($: any, e: any, next: any) => {
     try {
+      if (e) {
+        if (e.requestId && e.requestId !== 'duplicate-picker') {
+          return typeof next === 'function' ? next(e) : undefined;
+        }
+        if (e.id && e.id !== 'duplicate-picker') {
+          return typeof next === 'function' ? next(e) : undefined;
+        }
+      }
       const state = await getDuplicatePickerState($);
       const pane = renderDuplicatePickerPane($, e, state);
       if (pane) {
@@ -574,6 +1048,9 @@ export function register(hooks: any): void {
       return next(e);
     }
   });
+
+  hooks('tool.call', { tool: 'Bash' }, handleBashToolCall);
+  hooks('tool.call', { tool: 'Write' }, handleWriteToolCall);
 }
 
 export default register;
