@@ -14,6 +14,7 @@
   - [Variant 4 — Apache-hosted endpoint](#variant-4--apache-hosted-endpoint)
   - [Variant 5 — AWS Bedrock](#variant-5--aws-bedrock)
   - [Variant 6 — Direct Anthropic API (opt-in)](#variant-6--direct-anthropic-api-opt-in)
+  - [Variant 7 — Grok / xAI API (opt-in)](#variant-7--grok--xai-api-opt-in)
   - [Verifying the setup](#verifying-the-setup)
   - [Updating after a framework version bump](#updating-after-a-framework-version-bump)
   - [Status — provisional pending ASF Legal](#status--provisional-pending-asf-legal)
@@ -355,6 +356,68 @@ The *Approved-by* line is required because Direct-Anthropic is
 opt-in. A `<project-config>/privacy-llm.md` that lists this
 endpoint without the *Approved-by* line will be flagged by the
 gate as incomplete.
+
+## Variant 7 — Grok / xAI API (opt-in)
+
+**Opt-in.**
+Running framework skills under the Grok agent harness routes model queries to an xAI endpoint.
+Because xAI is not in the default-approved set, any skill reading `<private-list>` content requires an explicit opt-in entry backed by an enterprise data-residency or no-training agreement.
+
+**Authentication duality and session precedence:**
+Grok CLI (`grok build`) supports two distinct authentication paths:
+
+1. *Direct API authentication (`$XAI_API_KEY`):*
+   Routes queries directly to `https://api.x.ai/v1` (or `https://us.api.x.ai/v1` for US data residency); data retention depends on the terms applied to that key or organization, so confirm Zero Data Retention (ZDR) in the xAI Console.
+2. *Interactive browser/SSO sessions (`grok login`):*
+   Routes queries through an inference proxy (`https://cli-chat-proxy.grok.com`) using session tokens stored in `~/.grok/`.
+
+> [!WARNING]
+> Grok CLI credential resolution prioritizes an active login session over the `$XAI_API_KEY` environment variable.
+> Personal `grok login` sessions must **never** be approved or used for `<private-list>` skills.
+> To ensure traffic uses the enterprise API key, run `grok logout` before executing skills on private data.
+> Conversely, if the project has approved an enterprise team SSO account, verify that the active session belongs to the approved organization (sessions may be pinned via `force_login_team_uuid` in Grok's login policy inspected with `grok inspect`; check xAI's documentation for your deployment's policy settings).
+
+**Prerequisites:**
+
+- An xAI account with API access and a verified data-processing or no-training agreement (e.g. xAI Console ZDR or Enterprise Agreement).
+- For direct API key usage: a zero-data-retention agreement applied to the API key, stored at `~/.config/apache-magpie/xai-api.json` or exported as `$XAI_API_KEY` from a home-directory shell profile — never in the project tree — with no cached login session (run `grok logout`).
+- For enterprise team sessions: active login verified under the approved organization (personal logins are strictly prohibited).
+
+**`<project-config>/privacy-llm.md`** content:
+
+```markdown
+## Currently configured LLM stack
+
+- Grok (xAI API at https://api.x.ai/v1)
+
+## Approved third-party endpoints (opt-in)
+
+- Grok — xAI API (https://api.x.ai/v1)
+  - Data-residency contract: xAI Enterprise Terms / no-training agreement
+    (https://docs.x.ai/ or xAI Console ZDR settings last reviewed YYYY-MM-DD)
+  - Approved-by: <PMC-member-initials> <YYYY-MM-DD>
+
+## Private mailing lists for this project
+
+- private@<project>.apache.org
+```
+
+*(For teams operating via enterprise SSO sessions rather than direct API keys, replace the endpoint with `https://cli-chat-proxy.grok.com` and cite the team organization agreement).*
+
+> [!NOTE]
+> The declared-stack check matches opt-in entries by provider shortname (`grok`).
+> Because an approval for the direct API path matches a session proxy stack entry at the declared-stack check level, the PMC's *Approved-by* and *Data-residency contract* notes must explicitly state the exact endpoint and authentication path approved for the project.
+
+**Setup steps:**
+
+1. Verify that the xAI data-residency contract and retention terms meet your project's expectations for foundation private data.
+   Document the reference link in the *Data-residency contract* line above.
+2. Determine the authentication method (direct API key or enterprise SSO session) and ensure the environment matches:
+   if using direct API, confirm no lingering browser session exists by running `grok logout`;
+   if using team SSO, confirm the active session belongs to the approved organization.
+   Personal login sessions must never be used for private-list skills.
+3. Place the file at `<project-config>/privacy-llm.md` with the *Approved-by* line signed off by a PMC member of the security team.
+   Commit the file.
 
 ## Verifying the setup
 
