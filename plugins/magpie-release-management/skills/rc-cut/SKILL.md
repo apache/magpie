@@ -18,9 +18,9 @@ when_to_use: |
   dist/dev". Run after the prep PR merged; skip if that RC tag exists.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
-surface_hash: sha256:60623e456e72bbf6
+surface_hash: sha256:70b271e91a4ee44a
 license: Apache-2.0
-measured_tokens: 6993
+measured_tokens: 7004
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -156,9 +156,8 @@ The skill emits `gpg --detach-sign --armor <artefact>` commands per artefact.
 It does not pass `--passphrase`, does not read `$GPG_PASSPHRASE`, does not reference a key file, and does not invoke `gpg` itself.
 The RM's key agent handles passphrase prompting when they run the command.
 
-**Golden rule 3 — SHA-512 only by default; SHA-256 when configured;
-MD5 and SHA-1 never.**
-The digest set comes from `<project-config>/release-build.md` (`sha512` required, `sha256` optional).
+**Golden rule 3 — SHA-512 or SHA-256; MD5 and SHA-1 never.**
+The digest set comes from `<project-config>/release-build.md` (at least one of `sha512` and `sha256` is required; the other is optional).
 MD5 and SHA-1 are prohibited per
 [release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
 even if configured: Step 0's `release-config preflight` blocks on them and the render refuses them; surface the violation.
@@ -314,7 +313,7 @@ Return ONLY valid JSON with this structure:
   "rc_number": "<rcN>",
   "build_command": "<string>",
   "expected_artefacts": ["<artefact filename pattern>"],
-  "digest_set": ["sha512"] | ["sha512", "sha256"],
+  "digest_set": ["sha512"] | ["sha256"] | ["sha512", "sha256"],
   "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "vote_backend": "manual" | "atr",
   "staging_url": "<URL>",

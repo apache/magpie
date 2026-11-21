@@ -35,7 +35,7 @@ CHECKED_DIGESTS = ("sha512", "sha256")
 
 
 def _digests(v: VerifyRc) -> tuple[list[str], list[str]]:
-    wanted = ["sha512", *v.digests]
+    wanted = ["sha512", *v.digests] if not v.digests or "sha512" in v.digests else list(v.digests)
     checked = [d for d in dict.fromkeys(wanted) if d in CHECKED_DIGESTS]
     ignored = [d for d in dict.fromkeys(v.digests) if d not in CHECKED_DIGESTS]
     return checked, ignored

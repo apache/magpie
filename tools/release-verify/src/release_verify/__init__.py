@@ -27,8 +27,9 @@ it and reports. The rules are the skill's, implemented once:
 - ``signatures`` — Step 2: ``gpg --verify`` in a throwaway GNUPGHOME
   holding only the project's *public* KEYS → PASS / KEY-NOT-IN-KEYS / FAIL.
 - ``checksums``  — Step 3: digest compare → PASS / MISMATCH /
-  MISSING-DIGEST. Only sha512 is required; other digests are checked
-  when present; md5 never fails alone (present or mismatched → WARN).
+  MISSING-DIGEST. The first digest in the Digest set is required; other
+  digests are checked when present; md5 never fails alone (present or
+  mismatched → WARN).
 - ``notice-license`` — Step 5: NOTICE / LICENSE presence and diff line
   counts. Whether a non-empty diff is *material* is left to the reader
   (status ``REVIEW``).
@@ -75,7 +76,6 @@ from typing import Any
 STATUSES = ("PASS", "WARN", "FAIL", "SKIP")
 BASELINE_FILE_GLOBS = ("*.class", "*.jar", "*.so", "*.dylib", "*.dll", "*.exe", "*.pyc")
 DIGEST_TYPES = ("sha512", "sha256", "md5")
-REQUIRED_DIGEST = "sha512"
 HEX_LEN = {"sha512": 128, "sha256": 64, "md5": 32}
 PRIVATE_KEY_MARKER = "PRIVATE KEY BLOCK"
 STEP_ORDER = (
@@ -160,7 +160,7 @@ def inventory(names: Sequence[str], patterns: Sequence[str], digests: Sequence[s
     are the entries ``release-build.md`` marks optional (missing → WARN).
     """
     every = [*patterns, *optional]
-    companions = (".asc", *(f".{d}" for d in dict.fromkeys(["sha512", *digests])))
+    companions = (".asc", *(f".{d}" for d in dict.fromkeys(digests or ["sha512"])))
     found = _found_artefacts(names, every)
     missing = [p for p in patterns if not any(fnmatch.fnmatchcase(n, p) for n in names)]
     missing_optional = [p for p in optional if not any(fnmatch.fnmatchcase(n, p) for n in names)]
@@ -510,7 +510,9 @@ def _digest_of(path: Path, kind: str) -> str:
 def checksums(directory: Path, patterns: Sequence[str], digests: Sequence[str]) -> dict[str, Any]:
     """Compare digest files with the artefacts.
 
-    ``sha512`` is the only required digest: absent → MISSING-DIGEST, a FAIL.
+    The first digest in the Digest set is required: absent → MISSING-DIGEST,
+    a FAIL. That is ``sha512`` unless the config says otherwise, so a
+    SHA-256-only project gets the same gate on its ``.sha256`` files.
     Every other known digest is optional and checked when its file is
     present; a MISMATCH on one FAILs, except ``md5``, which never fails
     alone — its presence or its mismatch is a WARN.
@@ -518,13 +520,14 @@ def checksums(directory: Path, patterns: Sequence[str], digests: Sequence[str]) 
     names = _dir_names(directory)
     artefacts = _found_artefacts(names, patterns)
     md5_present = any(n.endswith(".md5") for n in names)
+    required = digests[0] if digests else "sha512"
     results: list[dict[str, Any]] = []
     recipe: list[str] = []
     status = "PASS" if artefacts else "FAIL"
     for name in artefacts:
         entries: list[dict[str, Any]] = []
         present = [k for k in DIGEST_TYPES if (directory / f"{name}.{k}").is_file()]
-        kinds = list(dict.fromkeys([REQUIRED_DIGEST, *(d for d in digests if d in present), *present]))
+        kinds = list(dict.fromkeys([required, *(d for d in digests[1:] if d in present), *present]))
         for kind in kinds:
             dfile = directory / f"{name}.{kind}"
             if kind != "md5":
@@ -912,7 +915,7 @@ def _add_digest(p: argparse.ArgumentParser) -> None:
         action="append",
         choices=DIGEST_TYPES[:2],
         metavar="TYPE",
-        help="digest type of the Digest set (repeatable): sha512 is always required, others are checked when present",
+        help="digest type of the Digest set (repeatable): the first is required, others are checked when present",
     )
 
 
