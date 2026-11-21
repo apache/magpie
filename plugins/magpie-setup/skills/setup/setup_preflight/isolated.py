@@ -50,6 +50,8 @@ fingerprint into the stamp:
     python3 -m setup_preflight.isolated record-reminder   # the suggestion was shown
     python3 -m setup_preflight.isolated fingerprint       # print the current value
     python3 -m setup_preflight.isolated configured        # {"configured": true|false}
+    python3 -m setup_preflight.isolated installed         # {"installed": true|false}
+    python3 -m setup_preflight.isolated sandbox-active    # {"sandbox_active": true|false}
     python3 -m setup_preflight.isolated session-start     # the SessionStart hook's output
     python3 -m setup_preflight.isolated write-constant    # framework repo only (prek)
 """
@@ -70,7 +72,14 @@ from datetime import date
 from pathlib import Path
 
 from .gateway import managed_settings_files
-from .layers import OVERRIDES_DIR, adopted, config_layers, main_worktree, personal_dir, personal_layers
+from .layers import (
+    OVERRIDES_DIR,
+    adopted,
+    config_layers,
+    personal_dir,
+    personal_layers,
+    project_settings,
+)
 
 #: The files a secure-setup install copies or mirrors, relative to the
 #: framework root.  Documentation is left out on purpose: a reworded
@@ -163,18 +172,7 @@ def _sandbox_settings(paths: list[Path]) -> list[bool]:
     return settings
 
 
-def _project_settings(root: Path) -> list[Path]:
-    """The project settings a session in `root` loads, highest precedence first.
-
-    In a linked worktree the main checkout's settings lead, matching Claude Code's
-    project scoping and `sandbox-status-line.sh`.
-    """
-    checkouts = [*filter(None, [main_worktree(root)]), root]
-    return [
-        checkout / ".claude" / name
-        for checkout in checkouts
-        for name in ("settings.local.json", "settings.json")
-    ]
+_project_settings = project_settings
 
 
 def _managed_sandbox_enabled(managed_dirs: tuple[Path, ...] | None = None) -> bool | None:
@@ -198,6 +196,15 @@ def sandbox_enabled_in_project(root: Path) -> bool:
     return True in _sandbox_settings(_project_settings(root))
 
 
+def _home_dir(home: Path | None = None) -> Path:
+    if home is not None:
+        return home
+    try:
+        return Path.home()
+    except RuntimeError:
+        return Path(os.environ.get("USERPROFILE") or os.environ.get("HOME", "."))
+
+
 def installed(
     root: Path,
     home: Path | None = None,
@@ -215,7 +222,7 @@ def installed(
         return block.get("enabled") is not False
     if _managed_sandbox_enabled(managed_dirs) is True:
         return True
-    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
+    user = _home_dir(home) / ".claude" / "settings.json"
     return True in _sandbox_settings([*_project_settings(root), user])
 
 
@@ -235,7 +242,7 @@ def sandbox_active(
     managed = _managed_sandbox_enabled(managed_dirs)
     if managed is not None:
         return managed
-    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
+    user = _home_dir(home) / ".claude" / "settings.json"
     return next(iter(_sandbox_settings([*_project_settings(root), user])), False)
 
 
@@ -309,6 +316,35 @@ SANDBOX_DISABLED_CONTEXT = (
     "pull requests, issues, comments, mail or other content written by people outside the project, "
     "remind the user once in this session that the sandbox is off, and suggest enabling it with "
     "/sandbox."
+)
+
+#: Shown to the user once per session, at session start, when an administrator's
+#: managed settings turn the sandbox off. `/sandbox` cannot override managed
+#: settings, so no `/sandbox` advice is given.
+SANDBOX_MANAGED_DISABLED_WARNING = """\
+Apache Magpie: the isolated sandbox is disabled for this session.
+
+The isolated setup is installed on this machine, but an administrator's managed \
+settings turn the sandbox off.
+
+Why it matters: Magpie skills read text written by other people - pull \
+requests, issues, comments, mailing-list threads, attachments. Any of it can \
+hide instructions aimed at your agent (prompt injection). Without the sandbox \
+the agent runs with your full access: it can read your credentials (SSH keys, \
+GitHub and cloud tokens, .env files), reach any host on the network, and act \
+in your name. An injected instruction could leak those secrets or private \
+content such as unreleased security reports, or push, comment, close or merge \
+as you.
+
+Until it is enabled, do not use Magpie on untrusted content - pull requests, \
+issues, comments or mail from people you do not know - and read every command \
+before you approve it."""
+
+SANDBOX_MANAGED_DISABLED_CONTEXT = (
+    "The Apache Magpie isolated sandbox is disabled for this session. The user was shown a "
+    "warning about it at session start; do not repeat it unprompted. Before a Magpie skill reads "
+    "pull requests, issues, comments, mail or other content written by people outside the project, "
+    "remind the user once in this session that an administrator's managed settings turn the sandbox off."
 )
 
 
@@ -730,8 +766,12 @@ def session_start(
             messages.append(UNCONFIGURED_WARNING)
             contexts.append(UNCONFIGURED_CONTEXT)
         elif not sandbox_active(project, home, managed_dirs=managed_dirs):
-            messages.append(SANDBOX_DISABLED_WARNING)
-            contexts.append(SANDBOX_DISABLED_CONTEXT)
+            if _managed_sandbox_enabled(managed_dirs) is False:
+                messages.append(SANDBOX_MANAGED_DISABLED_WARNING)
+                contexts.append(SANDBOX_MANAGED_DISABLED_CONTEXT)
+            else:
+                messages.append(SANDBOX_DISABLED_WARNING)
+                contexts.append(SANDBOX_DISABLED_CONTEXT)
     if not messages:
         return notice
     message = "\n\n".join(messages)

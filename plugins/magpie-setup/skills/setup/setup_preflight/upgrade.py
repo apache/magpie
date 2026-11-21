@@ -261,7 +261,7 @@ def isolated_summary(root: Path, today: date | None = None, home: Path | None = 
 
     `state` is `opted-out` (the stamp's `enabled: false`), `in-use`, or
     `unknown`, never `absent`: inside the sandbox the user-scope settings
-    are read-denied, so a `False` from `isolated.configured` proves nothing.
+    are read-denied, so a `False` from `isolated.installed` proves nothing.
     `changed` is true when the secure-setup fingerprint differs from the one
     the last `setup-isolated-setup-update` run recorded, or either is
     unknown; a reminder that was only shown (`acknowledged`) is not a check

@@ -398,6 +398,19 @@ def test_the_sandbox_disabled_warning_says_what_matters() -> None:
         assert phrase in text
 
 
+def test_the_managed_sandbox_disabled_warning_says_what_matters() -> None:
+    text = isolated.SANDBOX_MANAGED_DISABLED_WARNING
+    assert "administrator's managed settings turn the sandbox off" in text
+    assert "/sandbox" not in text
+    for phrase in (
+        "isolated sandbox is disabled for this session",
+        "prompt injection",
+        "credentials",
+        "do not use Magpie on untrusted content",
+    ):
+        assert phrase in text
+
+
 def test_managed_settings_sandbox_active_precedence(
     project: Path, isolated_home: Path, tmp_path: Path
 ) -> None:
@@ -446,7 +459,9 @@ def test_managed_settings_drop_in_overrides_base_file(
 
     out = isolated.session_start(project, "notice", home=isolated_home, managed_dirs=(managed_dir,))
     if expected_disabled_warning:
-        assert json.loads(out)["systemMessage"] == isolated.SANDBOX_DISABLED_WARNING
+        loaded = json.loads(out)
+        assert loaded["systemMessage"] == isolated.SANDBOX_MANAGED_DISABLED_WARNING
+        assert isolated.SANDBOX_MANAGED_DISABLED_CONTEXT in loaded["hookSpecificOutput"]["additionalContext"]
     else:
         assert out == "notice"
 
@@ -838,3 +853,19 @@ def test_the_rewritten_config_keeps_its_mode(tmp_path: Path, isolated_home: Path
     isolated.session_start(repo, home=isolated_home)
     assert local_hooks_path(repo) == ""
     assert config.stat().st_mode & 0o777 == 0o640
+
+
+def test_project_settings_returns_local_and_shared_settings(project: Path) -> None:
+    from setup_preflight.layers import project_settings
+
+    paths = project_settings(project)
+    assert paths == [
+        project / ".claude" / "settings.local.json",
+        project / ".claude" / "settings.json",
+    ]
+    # Verify that isolated and gateway aliases point to the exact same function
+    from setup_preflight.gateway import _project_settings as gateway_ps
+    from setup_preflight.isolated import _project_settings as isolated_ps
+
+    assert gateway_ps is project_settings
+    assert isolated_ps is project_settings
