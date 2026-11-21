@@ -160,7 +160,7 @@ def inventory(names: Sequence[str], patterns: Sequence[str], digests: Sequence[s
     are the entries ``release-build.md`` marks optional (missing → WARN).
     """
     every = [*patterns, *optional]
-    companions = (".asc", *(f".{d}" for d in dict.fromkeys(["sha256", "sha512", *digests])))
+    companions = (".asc", *(f".{d}" for d in dict.fromkeys(digests or ["sha512"])))
     found = _found_artefacts(names, every)
     missing = [p for p in patterns if not any(fnmatch.fnmatchcase(n, p) for n in names)]
     missing_optional = [p for p in optional if not any(fnmatch.fnmatchcase(n, p) for n in names)]

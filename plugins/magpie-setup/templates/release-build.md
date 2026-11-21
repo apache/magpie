@@ -211,18 +211,20 @@ signature regime.
 ## Digest set
 
 TODO: list which digests the project publishes alongside each
-artefact. ASF policy accepts `sha256` and/or `sha512`, and
-`release-verify-rc` Step 3 requires the first digest listed here.
-Many projects publish `sha512`, plus `sha256` for older downstream
-tools, which Step 3 checks whenever it is staged (a mismatch fails
-the RC). `md5` is no longer accepted per
+artefact. ASF policy accepts `sha256` and/or `sha512`. When the set
+lists `sha512`, Step 3 requires it; otherwise `sha256` is the
+required digest. Many projects publish `sha512`, plus `sha256` for
+older downstream tools, which Step 3 checks whenever it is staged (a
+mismatch fails the RC). `md5` is no longer accepted per
 ASF infrastructure guidance: a staged `.md5` is a warning, never a
 failure on its own.
 
 Example shape:
 
-> - `sha512`, required (or make `sha256` the first entry for a SHA-256-only release).
+> - `sha512`, required.
 > - `sha256`, published for downstream-tool compatibility.
+
+For a SHA-256-only release, list only `sha256`.
 
 ## JVM artefact checks
 

@@ -111,6 +111,12 @@ def test_inventory_sha256_only_digest_set(staging: Path, capsys: pytest.CaptureF
     assert out["unexpected"] == []
 
 
+def test_inventory_digest_outside_the_set_is_unexpected(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "inventory", "--dir", str(staging), "--expect", PATTERNS[0], "--expect", PATTERNS[1], "--digest", "sha256")
+    assert out["status"] == "WARN"
+    assert out["unexpected"] == [f"{BIN}.sha512", f"{SRC}.sha512"]
+
+
 def test_inventory_unexpected_is_warn(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (staging / "notes.txt").write_text("x")
     (staging / f"{SRC}.md5").write_text("x")
