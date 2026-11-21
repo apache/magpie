@@ -25,12 +25,49 @@ import type {
   VerifyStepId,
   StepStatus,
   OverallVerifyStatus,
+  VoteTallyState,
 } from './types.js';
+import {
+  renderVoteTallyBandComponent,
+  processVoteCommand,
+} from './vote-tally-band.js';
 
 export const verifyRcState = atom(
   { plugin: 'magpie-release-management', key: 'verifyRcState' },
   null as VerifyRcState | null
 );
+
+export const voteTallyState = atom(
+  { plugin: 'magpie-release-management', key: 'voteTallyState' },
+  null as VoteTallyState | null
+);
+
+/**
+ * Retrieves the current voteTallyState from the session state store.
+ */
+export async function getVoteTallyState($: any): Promise<VoteTallyState | null> {
+  try {
+    return (await read($, voteTallyState)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets the voteTallyState in the session state store and invalidates the UI.
+ */
+export async function setVoteTallyState($: any, state: VoteTallyState | null): Promise<void> {
+  try {
+    await update($, voteTallyState, () => state);
+    try {
+      $.ui.invalidate('ui.render');
+    } catch {
+      // UI invalidation optional in non-interactive / headless contexts
+    }
+  } catch {
+    // Fail-open
+  }
+}
 
 /**
  * Retrieves the current verifyRcState from the session state store.
@@ -435,7 +472,12 @@ export function mapCliSubcommandToStepId(command: string): VerifyStepId | 'all' 
     }
 
     if (tool === 'release-config' || tool === 'release_config') {
-      if (/^preflight\b/.test(rest)) return 'preflight';
+      if (/^preflight\b/.test(rest)) {
+        if (/(?:^|\s)--skill(?:\s+|=)(?!verify-rc\b)\S+/i.test(rest)) {
+          return null;
+        }
+        return 'preflight';
+      }
     }
 
     if (tool === 'verify-rc' || tool === 'verify_rc') {
@@ -608,13 +650,19 @@ export function applyJvmSkipRules(
  * 4. Fails open on any error so command execution is never obstructed.
  */
 export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
-  const command = e && typeof e.command === 'string' ? e.command : '';
+  const command =
+    typeof e?.params?.command === 'string'
+      ? e.params.command
+      : typeof e?.command === 'string'
+        ? e.command
+        : '';
   if (!command) {
     return typeof next === 'function' ? next(e) : undefined;
   }
 
   const stepId = mapCliSubcommandToStepId(command);
-  if (!stepId) {
+  const isVoteCommand = command.includes('vote-tally');
+  if (!stepId && !isVoteCommand) {
     return typeof next === 'function' ? next(e) : undefined;
   }
 
@@ -633,7 +681,7 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
   const isFreshRun = stepId === 'preflight' || (Boolean(rcTag) && Boolean(state?.rcTag) && rcTag !== state?.rcTag);
 
   // Initialize fresh state if starting verify-rc, if preflight re-runs, or if RC tag changed
-  if ((!state && stepId) || (state && isFreshRun)) {
+  if (stepId && (!state || isFreshRun)) {
     const effectiveRcTag = rcTag || state?.rcTag || 'RC';
     state = {
       rcTag: effectiveRcTag,
@@ -904,20 +952,53 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
     }
   }
 
+  if (isVoteCommand) {
+    try {
+      const resObj = res && typeof res === 'object' ? res : null;
+      const innerResult = resObj?.result;
+      const innerObj = innerResult && typeof innerResult === 'object' ? innerResult : null;
+
+      const rawOutput: string =
+        (typeof innerObj?.output === 'string' ? innerObj.output : null) ??
+        (typeof innerObj?.stdout === 'string' ? innerObj.stdout : null) ??
+        (typeof innerObj?.content === 'string' ? innerObj.content : null) ??
+        (typeof innerObj?.text === 'string' ? innerObj.text : null) ??
+        (typeof innerResult === 'string' ? innerResult : null) ??
+        (typeof resObj?.output === 'string' ? resObj.output : null) ??
+        (typeof resObj?.stdout === 'string' ? resObj.stdout : null) ??
+        (typeof resObj?.content === 'string' ? resObj.content : null) ??
+        (typeof resObj?.text === 'string' ? resObj.text : null) ??
+        (typeof res === 'string' ? res : '');
+
+      const currentVote = await getVoteTallyState($);
+      const updatedVote = processVoteCommand(command, rawOutput, currentVote);
+      if (updatedVote !== undefined) {
+        await setVoteTallyState($, updatedVote);
+      }
+    } catch {
+      // Fail-open
+    }
+  }
+
   return res;
 }
 
 /**
- * Registers the magpie-release-management verify-rc checklist mod hooks.
+ * Registers the magpie-release-management mod hooks:
  *
- * 1. session.start - Initializes or resets the verifyRcState atom to null
- * 2. ui.render (component=Pane) - Renders the verification checklist pane
- * 3. tool.call (tool=Bash) - Passively feeds CLI check progress to the atom
+ * 1. session.start - Initializes or resets verifyRcState and voteTallyState atoms to null
+ * 2. ui.render - Renders the verification checklist pane (Pane) or live vote-tally band (AbovePrompt)
+ * 3. tool.call (tool=Bash) - Passively feeds CLI check and vote tally progress to the atoms
  */
 export function register(hooks: any): void {
   hooks('session.start', async ($: any, e: any, next: any) => {
     try {
       await setVerifyRcState($, null);
+    } catch {
+      // Fail-open
+    }
+    try {
+      await setVoteTallyState($, null);
     } catch {
       // Fail-open
     }
@@ -931,6 +1012,21 @@ export function register(hooks: any): void {
         const pane = renderVerifyRcPane($, e, state);
         if (pane) {
           return pane;
+        }
+      } catch {
+        // Fail-open to next render handler
+      }
+    } else if (e.component === 'AbovePrompt') {
+      try {
+        const state = await getVoteTallyState($);
+        if (state) {
+          const { Box, Text } = $.ui.resolve(e);
+          if (Box && Text) {
+            const band = renderVoteTallyBandComponent(Box, Text, state);
+            if (band) {
+              return band;
+            }
+          }
         }
       } catch {
         // Fail-open to next render handler

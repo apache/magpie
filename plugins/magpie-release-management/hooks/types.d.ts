@@ -68,6 +68,25 @@ declare module 'claude-code' {
         startedAt: number;
         completedAt?: number | null;
       } | null;
+      voteTallyState: {
+        rcTag: string;
+        version: string;
+        openedAt: string;
+        windowHours: number;
+        binding: {
+          plus: number;
+          minus: number;
+          zero: number;
+        };
+        nonBinding: {
+          plus: number;
+          minus: number;
+          zero: number;
+        };
+        vetoes: string[];
+        status: 'voting' | 'passed' | 'failed' | 'closed';
+        updatedAt: number;
+      } | null;
     };
   }
 }
