@@ -476,6 +476,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
                     capture_output=True,
                     text=True,
                     timeout=120,
+                    start_new_session=True,
                 )
                 out = result.stdout + result.stderr
                 self.assertNotIn("event not found", out)
