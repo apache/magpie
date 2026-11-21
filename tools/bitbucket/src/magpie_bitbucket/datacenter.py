@@ -185,6 +185,42 @@ def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
     return combined
 
 
+def create_pull_request(
+    config: BitbucketConfig,
+    source: str,
+    target: str,
+    title: str,
+    body: str | None,
+) -> dict[str, Any]:
+    """Create a same-repository pull request on Bitbucket Data Center."""
+    raw_project_key = require(config.project_key, "BITBUCKET_PROJECT_KEY")
+    raw_repo_slug = require(config.repo_slug, "BITBUCKET_REPO_SLUG")
+    project_key = quote_path(raw_project_key)
+    repo_slug = quote_path(raw_repo_slug)
+
+    url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests"
+
+    repository = {
+        "slug": raw_repo_slug,
+        "project": {"key": raw_project_key},
+    }
+    payload: dict[str, Any] = {
+        "title": title,
+        "fromRef": {
+            "id": f"refs/heads/{source}",
+            "repository": repository,
+        },
+        "toRef": {
+            "id": f"refs/heads/{target}",
+            "repository": repository,
+        },
+    }
+    if body is not None:
+        payload["description"] = body
+
+    return post_json(url, config, payload)
+
+
 def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch one pull request from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
