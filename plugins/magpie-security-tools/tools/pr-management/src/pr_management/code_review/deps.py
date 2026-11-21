@@ -29,6 +29,13 @@ rule prescribes:
   resolution as the evidence;
 * otherwise, exhaustive coverage → `compatible`; partial coverage → `unknown`.
 
+Versions that are not PEP 440 (Maven's `6.4.4.Final`, `5.3.39.RELEASE`,
+`1.2.0-SNAPSHOT`, and the like) are set aside and listed as
+`unparsed_versions`; a ledger with any of them is `unknown`, so a version
+`packaging` cannot parse never makes a ledger `broken` and never supports a
+runtime finding. A concrete failing resolution among the parsed versions is
+still `broken`, since it does not depend on the unparsed ones.
+
 Specifiers follow PEP 440 and are evaluated with `packaging` (`==`, `!=`,
 `>=`, `<=`, `>`, `<`, `~=`, `==X.*`, `!=X.*`); markers are compared as
 literal environment names. Version ordering and matching are PEP 440's, so
@@ -39,11 +46,11 @@ specifier the way `packaging` says they do.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 _SPEC = re.compile(r"^\s*(==|!=|>=|<=|~=|>|<)\s*([0-9][0-9A-Za-z.*+_-]*)\s*$")
 
@@ -57,9 +64,13 @@ def version(value: str) -> Version:
 class Clause:
     op: str
     value: str
+    specifier: SpecifierSet = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "specifier", SpecifierSet(f"{self.op}{self.value}"))
 
     def admits(self, candidate: str) -> bool:
-        return SpecifierSet(f"{self.op}{self.value}").contains(candidate)
+        return self.specifier.contains(candidate)
 
 
 def clauses(specifier: str) -> list[Clause]:
@@ -70,12 +81,10 @@ def clauses(specifier: str) -> list[Clause]:
         match = _SPEC.match(part)
         if not match:
             raise ValueError(f"unsupported specifier clause {part.strip()!r}")
-        op, value = match.group(1), match.group(2)
         try:
-            SpecifierSet(f"{op}{value}")
+            found.append(Clause(match.group(1), match.group(2)))
         except InvalidSpecifier as exc:
             raise ValueError(f"unsupported specifier clause {part.strip()!r}") from exc
-        found.append(Clause(op, value))
     return found
 
 
@@ -89,6 +98,14 @@ def classify(ledger: dict[str, Any]) -> dict[str, Any]:
     environments = ledger.get("environments") or ["*"]
     available = [str(v) for v in ledger.get("available_versions") or []]
     lacking = {str(v) for v in ledger.get("lacking_api") or []}
+    parsed = []
+    unparsed = []
+    for candidate in available:
+        try:
+            parsed.append((version(candidate), candidate))
+        except InvalidVersion:
+            unparsed.append(candidate)
+    parsed.sort()
     per_env: dict[str, dict[str, Any]] = {}
     for env in environments:
         active = [
@@ -97,16 +114,18 @@ def classify(ledger: dict[str, Any]) -> dict[str, Any]:
             if not p.get("environments") or env in p["environments"] or "*" in p.get("environments", [])
         ]
         rules = [c for p in active for c in clauses(str(p.get("specifier") or ""))]
-        satisfying = sorted((v for v in available if all(c.admits(v) for c in rules)), key=version)
+        satisfying = [candidate for _, candidate in parsed if all(c.admits(candidate) for c in rules)]
         failing = [v for v in satisfying if v in lacking]
         per_env[env] = {"paths": [p.get("via") for p in active], "satisfying": satisfying, "failing": failing}
     empty = [env for env, r in per_env.items() if not r["satisfying"]]
     failing_by_env = {env: r["failing"] for env, r in per_env.items() if r["failing"]}
     evidence: dict[str, Any]
-    if empty:
-        status, evidence = "broken", {"uninstallable_in": empty}
-    elif failing_by_env:
+    if failing_by_env:
         status, evidence = "broken", {"failing_resolution": failing_by_env}
+    elif unparsed:
+        status, evidence = "unknown", {"unparsed_versions": unparsed}
+    elif empty:
+        status, evidence = "broken", {"uninstallable_in": empty}
     elif ledger.get("exhaustive"):
         status, evidence = "compatible", {"exhaustive": True}
     else:

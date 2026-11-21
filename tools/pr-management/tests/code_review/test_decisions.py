@@ -488,6 +488,52 @@ def test_pep440_orders_pre_dev_and_post_releases() -> None:
     assert sorted(ordered, key=deps.version) == ordered
 
 
+def test_versions_outside_pep440_never_make_the_ledger_broken() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=6.4"}],
+            "available_versions": ["6.4.4.Final", "6.5.2.Final"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "unknown"
+    assert result["evidence"] == {"unparsed_versions": ["6.4.4.Final", "6.5.2.Final"]}
+    assert result["runtime_finding_allowed"] is False
+
+
+def test_an_unparsed_version_keeps_the_parsed_matches_visible() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=1.0"}],
+            "available_versions": ["1.2.0-SNAPSHOT", "1.1.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "unknown"
+    assert result["environments"]["*"]["satisfying"] == ["1.1.0"]
+    assert result["evidence"] == {"unparsed_versions": ["1.2.0-SNAPSHOT"]}
+
+
+def test_a_concrete_failing_resolution_stays_broken_beside_an_unparsed_version() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=1.0"}],
+            "available_versions": ["1.2.0-SNAPSHOT", "1.1.0"],
+            "lacking_api": ["1.1.0"],
+        }
+    )
+    assert result["classification"] == "broken"
+    assert result["evidence"] == {"failing_resolution": {"*": ["1.1.0"]}}
+
+
+def test_an_unsupported_specifier_clause_is_refused() -> None:
+    with pytest.raises(ValueError):
+        deps.clauses("~>1.0")
+
+
 @pytest.mark.parametrize("specifier", ["~=1.4.post1", "~=1.4.dev0"])
 def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) -> None:
     result = deps.classify(
