@@ -46,6 +46,10 @@ pushing, or opening anything.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -287,8 +291,56 @@ def _run(cmd: list[str], cwd: str | None = None, capture: bool = False) -> str:
     return (result.stdout or "").strip() if capture else ""
 
 
+def _remove_tree(path: Path) -> None:
+    """Remove a directory tree or file, clearing read-only attributes on Windows."""
+
+    def _on_error(func: object, p: str, _: object) -> None:
+        with contextlib.suppress(OSError):
+            if not os.path.islink(p):
+                st = os.stat(p)
+                os.chmod(p, st.st_mode | stat.S_IWRITE)
+        func(p)  # type: ignore[operator]
+
+    if path.is_symlink():
+        path.unlink()
+    elif path.is_file():
+        with contextlib.suppress(OSError):
+            os.chmod(path, path.stat().st_mode | stat.S_IWRITE)
+        path.unlink()
+    elif path.is_dir():
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=lambda func, p, exc: _on_error(func, p, exc))
+        else:
+            shutil.rmtree(path, onerror=_on_error)
+
+
+def _validate_model_name_lexical(model_name: str) -> Path:
+    """Validate lexical structure of model_name without needing a clone directory."""
+    raw = model_name.strip()
+    if not raw or raw in (".", "..") or raw.startswith(("/", "\\")) or ":" in raw:
+        raise SystemExit(f"--model-name must be a relative path within the repository, got {model_name!r}")
+    p = Path(raw)
+    if p.is_absolute() or p.drive or p.root or ".." in p.parts:
+        raise SystemExit(f"--model-name must be a relative path within the repository, got {model_name!r}")
+    return p
+
+
+def _assert_path_within_clone(clone: Path, p: Path, model_name: str) -> Path:
+    """Ensure resolved model path does not escape clone root."""
+    target = (clone / p).resolve()
+    if not target.is_relative_to(clone.resolve()) or target == clone.resolve():
+        raise SystemExit(f"--model-name escapes the repository: {model_name!r}")
+    return p
+
+
+def _validate_model_name(clone: Path, model_name: str) -> Path:
+    """Validate lexical structure and assert containment within clone."""
+    p = _validate_model_name_lexical(model_name)
+    return _assert_path_within_clone(clone, p, model_name)
+
+
 def _read_or_none(path: Path) -> str | None:
-    return path.read_text() if path.exists() else None
+    return path.read_text(encoding="utf-8") if path.exists() else None
 
 
 def cmd_open(args: argparse.Namespace) -> int:
@@ -297,91 +349,129 @@ def cmd_open(args: argparse.Namespace) -> int:
     _, name = args.repo.split("/", 1)
     repo_url = f"https://github.com/{args.repo}.git"
 
-    fork_owner = args.fork_owner or _run(["gh", "api", "user", "--jq", ".login"], capture=True)
+    model_path: Path | None = None
+    if args.model:
+        if not Path(args.model).is_file():
+            raise SystemExit(f"--model file not found: {args.model}")
+        model_path = _validate_model_name_lexical(args.model_name)
+    if args.body_file and not Path(args.body_file).is_file():
+        raise SystemExit(f"--body-file not found: {args.body_file}")
+
+    if args.fork_owner:
+        fork_owner = args.fork_owner
+    elif args.dry_run:
+        try:
+            fork_owner = _run(["gh", "api", "user", "--jq", ".login"], capture=True)
+        except (SystemExit, FileNotFoundError):
+            fork_owner = "<fork-owner>"
+    else:
+        fork_owner = _run(["gh", "api", "user", "--jq", ".login"], capture=True)
+
     kind = "threat-model" if args.model else "discoverability"
     branch = args.branch or branch_name(kind, args.date, args.branch_prefix)
 
+    is_temp_workroot = not args.workdir
     workroot = Path(args.workdir) if args.workdir else Path(tempfile.mkdtemp(prefix="model-pr-"))
     clone = workroot / name
-    if clone.exists():
-        _run(["rm", "-rf", str(clone)])
 
-    # Make sure the fork exists (a no-op when it already does), then clone the
-    # upstream. Most repositories reject a direct branch push from a
-    # non-committer, so the head branch lives on the fork either way.
-    _run(["gh", "repo", "fork", args.repo, "--clone=false"], capture=True)
-    _run(clone_cmd(repo_url, args.base, str(clone)), capture=True)
-    base = args.base or _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(clone), capture=True)
-    _run(["git", "checkout", "-q", "-b", branch], cwd=str(clone))
+    try:
+        if clone.exists() or clone.is_symlink():
+            if args.workdir and not args.overwrite:
+                raise SystemExit(
+                    f"Destination directory already exists in --workdir: {clone}. "
+                    "Pass --overwrite to reuse it or use a clean --workdir."
+                )
+            _remove_tree(clone)
 
-    if args.model:
-        model_text = ensure_license_header(Path(args.model).read_text(), args.license_header)
-        (clone / args.model_name).write_text(model_text)
-        files = [args.model_name, "SECURITY.md", "AGENTS.md"]
-    else:
-        files = ["SECURITY.md", "AGENTS.md"]
-    model_ref = model_reference(args.model_name if args.model else None, args.pointer)
+        # Make sure the fork exists (a no-op when it already does), then clone the
+        # upstream. Most repositories reject a direct branch push from a
+        # non-committer, so the head branch lives on the fork either way.
+        if not args.dry_run:
+            _run(["gh", "repo", "fork", args.repo, "--clone=false"], capture=True)
+        _run(clone_cmd(repo_url, args.base, str(clone)), capture=True)
+        base = args.base or _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(clone), capture=True)
+        _run(["git", "checkout", "-q", "-b", branch], cwd=str(clone))
 
-    (clone / "SECURITY.md").write_text(
-        build_security_md(
-            _read_or_none(clone / "SECURITY.md"),
+        if args.model and model_path is not None:
+            _assert_path_within_clone(clone, model_path, args.model_name)
+            model_text = ensure_license_header(
+                Path(args.model).read_text(encoding="utf-8"), args.license_header
+            )
+            target_model = clone / model_path
+            target_model.parent.mkdir(parents=True, exist_ok=True)
+            target_model.write_text(model_text, encoding="utf-8")
+            files = [model_path.as_posix(), "SECURITY.md", "AGENTS.md"]
+        else:
+            files = ["SECURITY.md", "AGENTS.md"]
+        model_ref = model_reference(
+            model_path.as_posix() if args.model and model_path else None, args.pointer
+        )
+
+        (clone / "SECURITY.md").write_text(
+            build_security_md(
+                _read_or_none(clone / "SECURITY.md"),
+                args.repo,
+                model_ref,
+                report_to=args.report_to,
+                report_policy_url=args.report_policy_url,
+                license_header=args.license_header,
+            ),
+            encoding="utf-8",
+        )
+        (clone / "AGENTS.md").write_text(
+            build_agents_md(
+                _read_or_none(clone / "AGENTS.md"),
+                name,
+                args.agents_note,
+                license_header=args.license_header,
+            ),
+            encoding="utf-8",
+        )
+
+        _run(["git", "add", *files], cwd=str(clone))
+        _run(["git", "--no-pager", "diff", "--cached"], cwd=str(clone))
+        if args.dry_run:
+            print(f"\n[dry-run] would commit + push {branch} to {fork_owner} and open a PR on {args.repo}")
+            return 0
+
+        subject = args.title or (
+            "Add a draft threat model, SECURITY.md, and AGENTS.md for security-model discoverability"
+            if args.model
+            else "Add SECURITY.md and AGENTS.md for security-model discoverability"
+        )
+        _run(["git", "commit", "-q", "-m", subject], cwd=str(clone))
+        _run(
+            ["git", "remote", "add", "fork", f"https://github.com/{fork_owner}/{name}.git"],
+            cwd=str(clone),
+        )
+        _run(["git", "push", "-q", "-u", "fork", branch], cwd=str(clone), capture=True)
+
+        pr_cmd = [
+            "gh",
+            "pr",
+            "create",
+            "--repo",
             args.repo,
-            model_ref,
-            report_to=args.report_to,
-            report_policy_url=args.report_policy_url,
-            license_header=args.license_header,
-        )
-    )
-    (clone / "AGENTS.md").write_text(
-        build_agents_md(
-            _read_or_none(clone / "AGENTS.md"),
-            name,
-            args.agents_note,
-            license_header=args.license_header,
-        )
-    )
-
-    _run(["git", "add", *files], cwd=str(clone))
-    _run(["git", "diff", "--cached"], cwd=str(clone))
-    if args.dry_run:
-        print(f"\n[dry-run] would commit + push {branch} to {fork_owner} and open a PR on {args.repo}")
+            "--head",
+            f"{fork_owner}:{branch}",
+            "--base",
+            base,
+            "--title",
+            subject,
+        ]
+        pr_cmd += ["--body-file", args.body_file] if args.body_file else ["--body", subject]
+        # `--web` is the second gate: the human reads the rendered diff in the
+        # browser and clicks Submit. `--submit` skips it, and is for the case where
+        # that read-through already happened.
+        pr_cmd += [] if args.submit else ["--web"]
+        out = _run(pr_cmd, cwd=str(clone), capture=True)
+        if out:
+            print(out)
+        print(f"\nDone: {args.repo} branch {branch} (base {base}) pushed to {fork_owner}.", file=sys.stderr)
         return 0
-
-    subject = args.title or (
-        "Add a draft threat model, SECURITY.md, and AGENTS.md for security-model discoverability"
-        if args.model
-        else "Add SECURITY.md and AGENTS.md for security-model discoverability"
-    )
-    _run(["git", "commit", "-q", "-m", subject], cwd=str(clone))
-    _run(
-        ["git", "remote", "add", "fork", f"https://github.com/{fork_owner}/{name}.git"],
-        cwd=str(clone),
-    )
-    _run(["git", "push", "-q", "-u", "fork", branch], cwd=str(clone), capture=True)
-
-    pr_cmd = [
-        "gh",
-        "pr",
-        "create",
-        "--repo",
-        args.repo,
-        "--head",
-        f"{fork_owner}:{branch}",
-        "--base",
-        base,
-        "--title",
-        subject,
-    ]
-    pr_cmd += ["--body-file", args.body_file] if args.body_file else ["--body", subject]
-    # `--web` is the second gate: the human reads the rendered diff in the
-    # browser and clicks Submit. `--submit` skips it, and is for the case where
-    # that read-through already happened.
-    pr_cmd += [] if args.submit else ["--web"]
-    out = _run(pr_cmd, cwd=str(clone), capture=True)
-    if out:
-        print(out)
-    print(f"\nDone: {args.repo} branch {branch} (base {base}) pushed to {fork_owner}.", file=sys.stderr)
-    return 0
+    finally:
+        if is_temp_workroot:
+            _remove_tree(workroot)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -415,6 +505,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title", help="PR title, also the commit subject.")
     p.add_argument("--body-file", help="Path to the PR body Markdown.")
     p.add_argument("--workdir", help="Where to clone (default: a temporary directory).")
+    p.add_argument(
+        "--overwrite", action="store_true", help="Allow overwriting an existing clone in --workdir."
+    )
     p.add_argument("--submit", action="store_true", help="Create the PR directly instead of --web.")
     p.add_argument("--dry-run", action="store_true", help="Build the files and show the diff; write nothing.")
     return parser

@@ -42,6 +42,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .. import markers, people
+from ..code_review import codeowners as codeowners_rules
 
 # --------------------------------------------------------------------------
 # Constants (project-overridable via --config)
@@ -598,44 +599,8 @@ def compute_weekly_velocity(closed_prs, weeks, ctx):
     return out
 
 
-def parse_codeowners(text):
-    rules = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if "#" in stripped:
-            stripped = stripped[: stripped.index("#")].strip()
-            if not stripped:
-                continue
-        parts = stripped.split()
-        if len(parts) < 2:
-            continue
-        pattern = parts[0]
-        owners = [o.lstrip("@") for o in parts[1:] if o.startswith("@")]
-        if owners:
-            rules.append((pattern, owners))
-    return rules
-
-
-def codeowners_match(file_path, rules):
-    matched = []
-    for pattern, owners in rules:
-        pat = pattern
-        pat = "^" + pat[1:] if pat.startswith("/") else "(^|.*/)" + pat
-        if pat.endswith("/"):
-            pat = pat + ".*"
-        pat = pat.replace("*", "[^/]*")
-        try:
-            if re.match(pat, file_path):
-                matched = owners
-        except re.error:
-            continue
-    return matched
-
-
 def compute_codeowners_panel(open_prs, files_per_pr, codeowners_text):
-    rules = parse_codeowners(codeowners_text)
+    rules = codeowners_rules.parse(codeowners_text)
     owner_prs = defaultdict(set)
     owner_waiting = defaultdict(set)
     ready_by_num = {pr["number"]: pr for pr in open_prs if pr["_has_ready"]}
@@ -645,8 +610,9 @@ def compute_codeowners_panel(open_prs, files_per_pr, codeowners_text):
             continue
         owners_for_pr = set()
         for f in files:
-            for o in codeowners_match(f, rules):
-                owners_for_pr.add(o)
+            for o in codeowners_rules.owners_of(rules, f):
+                if o.startswith("@"):
+                    owners_for_pr.add(o[1:])
         author = pr["_author"]
         author_last_act = None
         if pr.get("commits", {}).get("nodes"):

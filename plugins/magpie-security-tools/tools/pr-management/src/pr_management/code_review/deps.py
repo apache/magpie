@@ -30,8 +30,12 @@ rule prescribes:
 * otherwise, exhaustive coverage → `compatible`; partial coverage → `unknown`.
 
 Specifiers follow PEP 440's operators on dotted numeric versions
-(`==`, `!=`, `>=`, `<=`, `>`, `<`, `~=`, `==X.*`); markers are compared as
-literal environment names.
+(`==`, `!=`, `>=`, `<=`, `>`, `<`, `~=`, `==X.*`, `!=X.*`); markers are compared as
+literal environment names. Numeric comparisons and ledger ordering use the
+leading release segments. For equality and exclusion, an explicit local
+label in the constraint is normalized and matched as well. Suffix precedence
+for pre-releases, post-releases and development releases is outside this
+numeric model.
 """
 
 from __future__ import annotations
@@ -40,17 +44,40 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-_SPEC = re.compile(r"^\s*(==|!=|>=|<=|~=|>|<)\s*([0-9][0-9A-Za-z.*+-]*)\s*$")
+_SPEC = re.compile(r"^\s*(==|!=|>=|<=|~=|>|<)\s*([0-9][0-9A-Za-z.*+_-]*)\s*$")
+_RELEASE_SEGMENT = re.compile(r"\d+(?:\.\d+)*")
 
 
-def version(value: str) -> tuple[int, ...]:
+def _release_parts(value: str) -> list[int]:
     parts = []
     for piece in value.split("."):
         digits = re.match(r"\d+", piece)
         parts.append(int(digits.group(0)) if digits else 0)
+    return parts
+
+
+def version(value: str) -> tuple[int, ...]:
+    parts = _prefix_release_parts(value)
     while len(parts) > 1 and parts[-1] == 0:
         parts.pop()
     return tuple(parts)
+
+
+def _prefix_release_parts(value: str) -> list[int]:
+    release = _RELEASE_SEGMENT.match(value)
+    return _release_parts(release[0] if release else value)
+
+
+def _matches_release_prefix(candidate: str, prefix: list[int]) -> bool:
+    release = _prefix_release_parts(candidate)
+    width = len(prefix)
+    padded = release + [0] * max(0, width - len(release))
+    return padded[:width] == prefix
+
+
+def _local_parts(value: str) -> tuple[int | str, ...]:
+    parts = re.split(r"[._-]", value.lower())
+    return tuple(int(part) if part.isdecimal() else part for part in parts)
 
 
 @dataclass(frozen=True)
@@ -59,16 +86,19 @@ class Clause:
     value: str
 
     def admits(self, candidate: str) -> bool:
-        v = version(candidate)
         if self.value.endswith(".*"):
-            prefix = version(self.value[:-2])
-            hit = v[: len(prefix)] == prefix
+            prefix = _release_parts(self.value[:-2])
+            hit = _matches_release_prefix(candidate, prefix)
             return hit if self.op == "==" else not hit
+        v = version(candidate)
         target = version(self.value)
-        if self.op == "==":
-            return v == target
-        if self.op == "!=":
-            return v != target
+        if self.op in {"==", "!="}:
+            hit = v == target
+            if "+" in self.value:
+                hit = hit and _local_parts(candidate.partition("+")[2]) == _local_parts(
+                    self.value.partition("+")[2]
+                )
+            return hit if self.op == "==" else not hit
         if self.op == ">=":
             return v >= target
         if self.op == "<=":
@@ -77,10 +107,10 @@ class Clause:
             return v > target
         if self.op == "<":
             return v < target
-        # ~=X.Y  ->  >=X.Y, ==X.*
-        base = version(self.value)
-        upper = base[:-1] if len(base) > 1 else base
-        return v >= base and v[: len(upper)] == upper
+        # ~=X.Y.Z  ->  >=X.Y.Z, ==X.Y.*
+        release = _prefix_release_parts(self.value)
+        prefix = release[:-1] if len(release) > 1 else release
+        return v >= target and _matches_release_prefix(candidate, prefix)
 
 
 def clauses(specifier: str) -> list[Clause]:
