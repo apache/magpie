@@ -118,6 +118,20 @@ def test_a_policy_differing_by_one_byte_is_not_approved(
     )
 
 
+def test_the_operator_git_file_is_never_an_approved_policy(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # It holds one operator's [git] values, not a policy; even a byte-identical
+    # copy of the repository's policy under that name approves nothing.
+    data = (project / config.DEFAULT_RELATIVE_PATH).read_bytes()
+    (approved / config.OPERATOR_GIT_FILE).write_bytes(data)
+    _nothing_runs(monkeypatch)
+    assert (
+        cli.main(["--caller", "security-issue-sync", "issue-add-label", "7", "needs triage"])
+        == cli.EXIT_POLICY
+    )
+
+
 def test_a_symlink_in_the_approved_directory_does_not_approve(
     project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

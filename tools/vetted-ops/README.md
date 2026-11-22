@@ -823,25 +823,46 @@ uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller <skill> git-push-b
   ~/code/project fix-thing fork fix-thing 0123…(40 hex)
 ```
 
-The policy's `[git]` table bounds them:
+They are bounded by `[git]` values from two places.
+The shared policy's `[git]` table holds what the project decides, the same for everyone who approves it:
 
 ```toml
 [git]
-# Main checkouts the operations may act on; their linked worktrees count too.
-checkouts = ["~/code/project"]
-# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
-fork = "alice/project"
 # Branches a push may create or move on [repos] upstream. Empty or absent: never.
 upstream_push = ["ci-*", "stack/*"]
 # Added to the built-in list (main, master, trunk, develop, gh-pages, release*, v*-test, v*-stable, *-stable, asf-site).
 protected = ["prod"]
-# Directories new worktrees may be created in, directly.
-worktree_roots = ["~/code/project/files"]
-# Remote-tracking namespace git-fetch writes to (refs/remotes/<this>/<branch>). Default: upstream.
-upstream_remote = "upstream"
 # The upstream branch git-pr-create targets. Default: main.
 pr_base = "main"
+# The forge pushes and pull requests go to. Default: github.com.
+host = "github.com"
 ```
+
+Where your clones, worktrees and fork are differs per person, so it does not belong in a policy everyone commits and approves.
+Each operator keeps those values in `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository, picked by the policy's `[repos] upstream`:
+
+```toml
+["acme/project"]
+# Main checkouts the operations may act on; their linked worktrees count too.
+checkouts = ["~/code/project"]
+# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
+fork = "alice/project"
+transport = "ssh"
+# Directories new worktrees may be created in, directly. Each must exist, be
+# owned by you and be writable by nobody else (mkdir -m 700).
+worktree_roots = ["~/.cache/apache-magpie/worktrees"]
+# Remote-tracking namespace git-fetch writes to (refs/remotes/<this>/<branch>). Default: upstream.
+upstream_remote = "upstream"
+# Added to the policy's list; an operator can protect more branches, never fewer.
+protected = ["my-wip-*"]
+```
+
+That directory is outside every repository and every sandbox-writable root, and `Edit`-denied, so the file needs no separate approval step: only you put it there.
+Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`) is refused, so nothing in it widens what the shared policy allows.
+Its values win over the same keys in the policy, which keeps an older policy that still carries them working.
+The file is never one of the approved policies, even byte-for-byte.
+With neither source naming a value for the upstream, every git operation refuses, and skills fall back to handing over the commands.
+`vetted-op-git policy` prints the effective values, each with the file it came from.
 
 `git-stage`, `git-commit` and `git-pr-create` read their path list, message
 and body from the policy's top-level `workspace`, under the same checks

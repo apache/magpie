@@ -399,8 +399,12 @@ on the caller's expected SHA or `new`, to the policy's `fork` or to an
 refused, an emptied rebase refused), `git-worktree-sync` (`reset --keep` of a
 clean linked worktree), `git-worktree-add` and `git-worktree-remove` (never
 `--force`).
-The policy's `[git]` table bounds them (`checkouts`, `fork`, `upstream_push`,
-`protected`, `worktree_roots`).
+`[git]` values bound them: the project's (`upstream_push`, `protected`,
+`pr_base`, `host`) from the policy's `[git]` table, and each operator's
+(`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, more
+`protected`) from `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one
+table per upstream repository, which may not set a project key. A worktree
+root must be owned by the operator and writable by nobody else.
 Safety rests on: destinations built from policy, never from a configured
 remote; refusal while repository config holds any key outside an inert list,
 checked in every working tree and again before the acting command; pinned

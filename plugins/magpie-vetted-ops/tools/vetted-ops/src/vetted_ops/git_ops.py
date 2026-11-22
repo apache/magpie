@@ -99,12 +99,23 @@ import re
 import stat
 import subprocess
 import sys
+import tomllib
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .config import Config, ConfigError, _expand_home, account_home, describe, load
+from .config import (
+    OPERATOR_GIT_FILE,
+    Config,
+    ConfigError,
+    _expand_home,
+    account_home,
+    approved_dir,
+    describe,
+    load,
+)
+from .safe_read import TamperedPath, read_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -247,13 +258,120 @@ def _str_list(table: dict[str, object], key: str) -> list[str]:
     return list(value)
 
 
-def git_policy(config: Config) -> GitPolicy:
-    """Validate the policy's ``[git]`` table; without one, every operation refuses."""
-    table = config.git
+#: Each operator's own ``[git]`` values live in `OPERATOR_GIT_FILE`, one table
+#: per upstream repository (``["apache/airflow"]``), in the approved-policy
+#: directory: outside every repository and every sandbox-writable root, so only
+#: the operator puts them there, and a shared, committed policy never has to
+#: name one person's paths.
+#:
+#: What an operator's table may set: where their clones, worktrees and fork are,
+#: and how they reach the forge. The project-wide keys (``upstream_push``,
+#: ``pr_base``, ``host``) stay in the shared policy, and ``protected`` only adds
+#: branches to the policy's list.
+OPERATOR_KEYS = frozenset(
+    {"checkouts", "fork", "worktree_roots", "upstream_remote", "transport", "protected"}
+)
+
+
+def operator_git_path() -> Path:
+    return approved_dir() / OPERATOR_GIT_FILE
+
+
+def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
+    """The operator's table for ``upstream_repo``, or None when they declare none."""
+    path = operator_git_path()
+    try:
+        data = read_regular_file(path)
+    except TamperedPath as exc:
+        raise ConfigError(str(exc)) from None
+    if data is None:
+        return None
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{path} is not valid TOML: {exc}") from None
+    table = raw.get(upstream_repo)
     if table is None:
-        raise ConfigError("the policy has no [git] table, so no git operation may run")
+        return None
     if not isinstance(table, dict):
+        raise ConfigError(f'{path}: ["{upstream_repo}"] must be a table')
+    unknown = sorted(set(table) - OPERATOR_KEYS)
+    if unknown:
+        raise ConfigError(
+            f'{path}: ["{upstream_repo}"] may not set {", ".join(unknown)}; '
+            "those are the project's, in the shared policy's [git] table"
+        )
+    return table
+
+
+def _git_table(config: Config) -> dict[str, object]:
+    """The shared policy's ``[git]`` table with the operator's own values over it."""
+    project = config.git
+    if project is not None and not isinstance(project, dict):
         raise ConfigError("[git] must be a table")
+    operator = operator_git_table(config.upstream_repo)
+    if project is None and operator is None:
+        raise ConfigError(
+            f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
+            f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
+        )
+    merged = dict(project or {})
+    if operator is not None:
+        protected = _str_list(merged, "protected") + _str_list(operator, "protected")
+        merged.update(operator)
+        merged["protected"] = protected
+    return merged
+
+
+def describe_git(config: Config, policy: GitPolicy) -> str:
+    """The effective ``[git]`` values, each with the file it came from."""
+    operator = operator_git_table(config.upstream_repo) or {}
+    project = config.git if isinstance(config.git, dict) else {}
+
+    def source(key: str) -> str:
+        if key in operator:
+            return str(operator_git_path())
+        return "policy" if key in project else "default"
+
+    values: list[tuple[str, object]] = [
+        ("checkouts", [str(p) for p in policy.checkouts]),
+        ("fork", policy.fork_repo),
+        ("worktree_roots", [str(p) for p in policy.worktree_roots]),
+        ("upstream_remote", policy.upstream_remote),
+        ("transport", policy.transport),
+        ("host", policy.host),
+        ("upstream_push", list(policy.upstream_push)),
+        ("pr_base", policy.pr_base),
+    ]
+    lines = ["[git] (effective)"]
+    lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
+    extra = [p for p in policy.protected if p not in DEFAULT_PROTECTED]
+    origins = [
+        s for s, table in ((str(operator_git_path()), operator), ("policy", project)) if "protected" in table
+    ]
+    lines.append(f"  protected += {extra!r}  # {', '.join(origins) or 'default'}")
+    return "\n".join(lines)
+
+
+def _owned_private_dir(path: Path, key: str) -> Path:
+    """Refuse a directory another account owns or may write: worktrees there hold
+    unpublished work and are where git later runs outside the sandbox."""
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        raise ConfigError(f"[git] {key} entry {str(path)!r} does not exist") from None
+    if not stat.S_ISDIR(st.st_mode):
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is not a directory")
+    if st.st_uid != os.getuid():
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is not owned by you")
+    if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is writable by others (chmod go-w it)")
+    return path
+
+
+def git_policy(config: Config) -> GitPolicy:
+    """Validate the ``[git]`` values; without any, every operation refuses."""
+    table = _git_table(config)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
         raise ConfigError("[git] checkouts must name at least one main checkout")
@@ -279,7 +397,8 @@ def git_policy(config: Config) -> GitPolicy:
         upstream_push=tuple(_str_list(table, "upstream_push")),
         protected=DEFAULT_PROTECTED + tuple(_str_list(table, "protected")),
         worktree_roots=tuple(
-            _absolute_real_dir(raw, "worktree_roots") for raw in _str_list(table, "worktree_roots")
+            _owned_private_dir(_absolute_real_dir(raw, "worktree_roots"), "worktree_roots")
+            for raw in _str_list(table, "worktree_roots")
         ),
         host=host,
         transport=transport,
@@ -1098,6 +1217,7 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
 
     if args.operation == "policy":
         print(describe(config))
+        print(describe_git(config, policy))
         return EXIT_OK
 
     if not args.caller:
