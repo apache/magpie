@@ -510,7 +510,9 @@ def _git(cwd: Path, *args: str) -> str:
     import subprocess
 
     return subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
+        # A scratch repository must not inherit the operator's signing setup:
+        # with commit.gpgsign on, the commit waits for (or fails to reach) the key.
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "commit.gpgsign=false", *args],
         cwd=cwd,
         check=True,
         capture_output=True,
