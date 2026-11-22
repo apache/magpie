@@ -51,7 +51,9 @@ COMDEV_URL = "https://github.com/apache/comdev.git"
 SHELLS = [s for s in ("bash", "zsh") if shutil.which(s)]
 REAL_GIT = shutil.which("git")
 # git exports these to its hooks (GIT_INDEX_FILE on every commit), so a test run from
-# a commit hook would point its scratch repositories at the commit's own index.
+# a commit hook would point its scratch repositories at the commit's own index. The
+# config ones carry `git -c` values and the whole-user dispatcher's core.hooksPath,
+# which would override the empty global and system config below.
 REPO_GIT_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -60,8 +62,14 @@ REPO_GIT_VARS = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_COMMON_DIR",
     "GIT_PREFIX",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
 )
-BASE_ENV = {k: v for k, v in os.environ.items() if k not in REPO_GIT_VARS}
+BASE_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in REPO_GIT_VARS and not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+}
 GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_SYSTEM": os.devnull,
