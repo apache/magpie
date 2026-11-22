@@ -377,6 +377,24 @@ def test_security_pages_reminder(capsys, tmp_path, data, pending):
     assert out["advisory_records"] == "not_configured"
 
 
+def test_no_reminder_without_a_security_page(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "closed-announced",
+        closed(public_advisory_url="https://lists.apache.org/thread/x", security_pages_configured=False),
+    )
+    assert out["security_pages_reminder_pending"] is False
+    assert out["security_pages"] == "not_configured"
+
+
+def test_reminder_kept_when_the_page_flag_is_absent_or_true(capsys, tmp_path):
+    for flag in ({}, {"security_pages_configured": True}):
+        out = ok(capsys, tmp_path, "closed-announced", closed(public_advisory_url="u", **flag))
+        assert out["security_pages_reminder_pending"] is True
+        assert "security_pages" not in out
+
+
 @pytest.mark.parametrize(
     ("data", "step"),
     [

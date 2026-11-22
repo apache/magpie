@@ -217,6 +217,15 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
                 out["blockers"].append(
                     f"advisory records refused: {one_line(data.get('planner_reason')) or 'see the planner output'}"
                 )
+    elif data.get("security_pages_configured") is False:
+        # No security page to update and no records to write: the
+        # post-announcement step does not exist for this project, so
+        # there is nothing to remind anyone about. Only an explicit
+        # `false` counts; a caller that does not pass the flag keeps
+        # the reminder.
+        out["advisory_records"] = "not_configured"
+        out["security_pages"] = "not_configured"
+        out["security_pages_reminder_pending"] = False
     else:
         out["advisory_records"] = "not_configured"
         populated = bool(one_line(data.get("public_advisory_url")))
