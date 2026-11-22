@@ -1,0 +1,1 @@
+{"route": "brief-to-session", "clone_in_this_sandbox": false, "confirm_with_user_first": true, "reason": "The run is in an adopter repo whose sandbox cannot reach the framework clone, and a live session works there, so it gets a self-contained brief for Steps 4-5."}
