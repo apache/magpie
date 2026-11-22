@@ -21,6 +21,34 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VCS_SRC = REPO_ROOT / "tools" / "vcs" / "src"
 TARGET_TS = REPO_ROOT / "plugins" / "magpie-security" / "hooks" / "forbidden-terms.ts"
+# vetted-op-git's pull-request text check reads the same list (it runs outside
+# the sandbox, where the guard does not see the files it publishes).
+TARGET_PY = REPO_ROOT / "tools" / "vetted-ops" / "src" / "vetted_ops" / "forbidden_terms.py"
+
+PY_HEADER = '''# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+"""Terms never published before disclosure, matched case-insensitively.
+
+Generated from tools/vcs/src/magpie_vcs/publication.py:DEFAULT_TERMS by
+tools/dev/sync-forbidden-terms.py. Do not edit.
+"""
+
+DEFAULT_TERMS: tuple[tuple[str, str], ...] = (
+'''
 
 if str(VCS_SRC) not in sys.path:
     sys.path.insert(0, str(VCS_SRC))
@@ -87,6 +115,17 @@ def generate_ts_content(terms: list[dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def generate_py_content(terms: list[dict[str, str]]) -> str:
+    lines = [PY_HEADER.rstrip("\n")]
+    for term in terms:
+        # Double-quoted, the pattern as a raw string: the form ruff format keeps.
+        if '"' in term["pattern"] or term["pattern"].endswith("\\"):
+            raise ValueError(f"pattern {term['name']!r} cannot be written as a raw string")
+        lines.append(f'    ({json.dumps(term["name"])}, r"{term["pattern"]}"),')
+    lines.append(")\n")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -97,29 +136,28 @@ def main() -> int:
     args = parser.parse_args()
 
     data = generate_terms_data()
-    ts_serialized = generate_ts_content(data)
+    targets = {TARGET_TS: generate_ts_content(data), TARGET_PY: generate_py_content(data)}
 
     if args.check:
-        if not TARGET_TS.exists():
-            sys.stderr.write(
-                "sync-forbidden-terms: target file does not exist. "
-                "Run 'python tools/dev/sync-forbidden-terms.py' to generate.\n"
-            )
-            return 1
-
-        existing_ts = TARGET_TS.read_text(encoding="utf-8")
-        if existing_ts != ts_serialized:
-            sys.stderr.write(
-                "sync-forbidden-terms: target has drifted from DEFAULT_TERMS. "
-                "Run 'python tools/dev/sync-forbidden-terms.py' to synchronize.\n"
-            )
-            return 1
-
+        for target, content in targets.items():
+            if not target.exists():
+                sys.stderr.write(
+                    f"sync-forbidden-terms: {target.name} does not exist. "
+                    "Run 'python tools/dev/sync-forbidden-terms.py' to generate.\n"
+                )
+                return 1
+            if target.read_text(encoding="utf-8") != content:
+                sys.stderr.write(
+                    f"sync-forbidden-terms: {target.name} has drifted from DEFAULT_TERMS. "
+                    "Run 'python tools/dev/sync-forbidden-terms.py' to synchronize.\n"
+                )
+                return 1
         return 0
 
-    TARGET_TS.parent.mkdir(parents=True, exist_ok=True)
-    TARGET_TS.write_text(ts_serialized, encoding="utf-8")
-    print(f"Synchronized {len(data)} canonical forbidden terms to {TARGET_TS.name}")
+    for target, content in targets.items():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        print(f"Synchronized {len(data)} canonical forbidden terms to {target.name}")
     return 0
 
 
