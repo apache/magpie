@@ -87,7 +87,7 @@ Suites are currently implemented for:
 - **security-issue-import-via-forwarder** — 6 cases across 2 suites (step-1-detect-adapter, step-2-extract-credit); Steps 0 and 3 and the scripted Step 1 cases are pytest-tested in `tools/security-management`
 - **security-tracker-stats-dashboard** — 11 cases across 3 suites (step-1-resolve-config, step-2-cache-freshness, step-3-hard-rules)
 - **setup-override-upstream** — 17 cases across 5 suites (step-0-preflight, step-1-pick-override, step-3-decide-upstreamable, step-6-pr-confirm, pointer-routing)
-- **setup-upstream-fix** — 14 cases across 4 suites (step-2-classify, step-3-dedup, step-5-adversarial-review, pointer-routing)
+- **setup-upstream-fix** — 19 cases across 5 suites (step-0-preflight, step-2-classify, step-3-dedup, step-5-adversarial-review, pointer-routing)
 - **skill-reconciler** — 12 cases across 2 suites (step-0-discover-pairs, step-2-classify)
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **workflow-optimization** — 8 cases across 2 suites (step-2-classify, step-3-plan)

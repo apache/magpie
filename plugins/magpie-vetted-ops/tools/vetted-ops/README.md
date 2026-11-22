@@ -152,7 +152,7 @@ scripts over one catalogue:
 |---|---|---|
 | `vetted-op-read` | never — refused before policy is consulted | `allow` |
 | `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
-| `vetted-op-git` | only the [git operations](#git-operations-the-sandbox-blocks) — no `gh` operation exists there | `ask`, and excluded from the sandbox |
+| `vetted-op-git` | only the [git operations](#git-operations-the-sandbox-blocks), plus `git-pr-create` (the one `gh` call there) | `ask`, and excluded from the sandbox |
 | `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
 
 That split is what lets the read path lose its prompts without the write path
@@ -234,7 +234,15 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
-"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
+                           # Step 7: put the new tracker on the board in Needs triage.
+                           "board-item", "board-add-item", "board-set-status",
+                           # Rejections-ledger records for reject-without-tracker dispositions.
+                           "issue-comment",
+                           # Fold-ins: add an independent finder to an existing tracker's credit.
+                           "body-field-get", "body-field-set",
+                           # Receipts for reports relayed from a GitHub Security Advisory.
+                           "advisory-comment"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
@@ -269,7 +277,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Do not duplicate TOML keys or grant every operation to every caller.
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
-                           "osv-get-vuln", "osv-query-package"]
+                           "osv-get-vuln", "osv-query-package",
+                           # Step 6: the confirmed triage-proposal comment.
+                           "issue-comment"]
 "security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
 "dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
@@ -770,7 +780,7 @@ backend's own IDs (`SEC-0012`, `FOOSEC-12`, `2024-007-xss`): letters, digits,
 
 ## Git operations the sandbox blocks
 
-Three git steps fail in a sandboxed session however the agent phrases them, and
+These steps fail in a sandboxed session however the agent phrases them, and
 used to end in a command the user pasted into their own terminal:
 
 - **Pushing over SSH.** The sandbox routes network through an HTTP proxy, so an
@@ -780,9 +790,17 @@ used to end in a command the user pasted into their own terminal:
   `.git/worktrees/<name>/` read-only for worktrees the session did not create,
   so `git reset`, `git fetch` and `git rebase` in such a worktree stop half-way.
 - **Adding or removing a linked worktree**, for the same reason.
+- **Staging and committing in such a worktree**: both write its index and the
+  shared object store, and a signed commit needs the user's key (its PIN and
+  touch), which the sandbox does not reach.
+- **Fetching over SSH**, for the same reason as pushing.
+- **Opening the pull request.** Raw `gh pr create` runs unconfirmed, and the
+  publication guard refuses its text when it cannot read the body file.
 
-`vetted-op-git` runs exactly those four steps outside the sandbox, as closed
-shapes, behind the harness's confirmation like `vetted-op`:
+`vetted-op-git` runs exactly those steps outside the sandbox, as closed
+shapes, behind the harness's confirmation like `vetted-op`, so the whole path
+from a change to an open pull request needs no sandbox bypass and no pasted
+command, and every step is still confirmed by the user:
 
 | Operation | Parameters | What it does |
 |---|---|---|
@@ -790,27 +808,66 @@ shapes, behind the harness's confirmation like `vetted-op`:
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
+| `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |
+| `git-commit` | `worktree message_file` | Commits what is staged on the current branch (never a protected one, never `--amend`), message from `message_file` (a workspace file), with `--no-verify`. Signing follows the user's global git configuration. Run the pre-commit checks in the sandbox first (for prek, `prek run --files <paths>`). |
+| `git-fetch` | `checkout branch` | Fetches upstream `branch` into `refs/remotes/<upstream_remote>/<branch>` from the URL built from the policy, never from a remote the repository configures; no tags, no submodules. |
+| `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`). |
+
+From a change to an open pull request, then, with each step confirmed:
+`git-worktree-add` (or `git-fetch` + `git-worktree-sync` to refresh one), edit in
+the sandbox, run the checks in the sandbox, `git-stage`, `git-commit`,
+`git-push-branch … fork <branch> new`, `git-pr-create`.
 
 ```bash
 uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller <skill> git-push-branch \
   ~/code/project fix-thing fork fix-thing 0123…(40 hex)
 ```
 
-The policy's `[git]` table bounds them:
+They are bounded by `[git]` values from two places.
+The shared policy's `[git]` table holds what the project decides, the same for everyone who approves it:
 
 ```toml
 [git]
-# Main checkouts the operations may act on; their linked worktrees count too.
-checkouts = ["~/code/project"]
-# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
-fork = "alice/project"
 # Branches a push may create or move on [repos] upstream. Empty or absent: never.
 upstream_push = ["ci-*", "stack/*"]
 # Added to the built-in list (main, master, trunk, develop, gh-pages, release*, v*-test, v*-stable, *-stable, asf-site).
 protected = ["prod"]
-# Directories new worktrees may be created in, directly.
-worktree_roots = ["~/code/project/files"]
+# The upstream branch git-pr-create targets. Default: main.
+pr_base = "main"
+# The forge pushes and pull requests go to. Default: github.com.
+host = "github.com"
 ```
+
+Where your clones, worktrees and fork are differs per person, so it does not belong in a policy everyone commits and approves.
+Each operator keeps those values in `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository, picked by the policy's `[repos] upstream`:
+
+```toml
+["acme/project"]
+# Main checkouts the operations may act on; their linked worktrees count too.
+checkouts = ["~/code/project"]
+# Pushed over git@<host>:<repo>.git (transport = "https" for https://<host>/<repo>.git).
+fork = "alice/project"
+transport = "ssh"
+# Directories new worktrees may be created in, directly. Each must exist, be
+# owned by you and be writable by nobody else (mkdir -m 700).
+worktree_roots = ["~/.cache/apache-magpie/worktrees"]
+# Remote-tracking namespace git-fetch writes to (refs/remotes/<this>/<branch>). Default: upstream.
+upstream_remote = "upstream"
+# Added to the policy's list; an operator can protect more branches, never fewer.
+protected = ["my-wip-*"]
+```
+
+That directory is outside every repository and every sandbox-writable root, and `Edit`-denied, so the file needs no separate approval step: only you put it there.
+Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`) is refused, so nothing in it widens what the shared policy allows.
+Its values win over the same keys in the policy, which keeps an older policy that still carries them working.
+The file is never one of the approved policies, even byte-for-byte.
+With neither source naming a value for the upstream, every git operation refuses, and skills fall back to handing over the commands.
+`vetted-op-git policy` prints the effective values, each with the file it came from.
+
+`git-stage`, `git-commit` and `git-pr-create` read their path list, message
+and body from the policy's top-level `workspace`, under the same checks
+as every body file (`vetted-op` above), so the confirmation shows a file the
+agent wrote there and the operation reads exactly that file.
 
 What makes running git unsandboxed acceptable here:
 
@@ -853,15 +910,21 @@ What makes running git unsandboxed acceptable here:
 - **No environment steers git.** Every `GIT_*` variable is dropped, `HOME`
   comes from the password database and `XDG_CONFIG_HOME` is dropped, so the
   global configuration git reads is the account's own.
-- **Hooks never run.** No operation runs a hook: the worktree operations set
-  `core.hooksPath=/dev/null`, and a push also passes `--no-verify`. A
+- **Hooks never run.** No operation runs a hook: every operation sets
+  `core.hooksPath=/dev/null`, and a push or commit also passes `--no-verify`. A
   `pre-push` hook is code the agent can write (`.git/hooks/pre-push`, or a
   hook manager reading its configuration from the working tree), and the
   confirmation shows the push, not what the hook would execute, so running it
   here would run agent-written code outside the sandbox. The push-time checks
   still run: the caller runs them inside the sandbox first (for prek,
   `prek run --hook-stage pre-push --from-ref <base> --to-ref <branch>`), fixes
-  what they report, and only then pushes.
+  what they report, and only then pushes; likewise `prek run --files <paths>`
+  before `git-commit`.
+- **Public text is scanned.** `git-pr-create` refuses a title or body holding
+  a never-publish term before it calls `gh`, with the same list the guard
+  applies (generated by `tools/dev/sync-forbidden-terms.py`, checked for drift
+  in pre-commit), because the guard does not read the files this operation
+  publishes.
 - **Unapproved policy, dry run.** `--dry-run` against a policy that is not an
   approved copy checks the parameters and runs no git command; only an
   approved policy prints the command it would run.

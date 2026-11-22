@@ -99,11 +99,23 @@ import re
 import stat
 import subprocess
 import sys
+import tomllib
+import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .config import Config, ConfigError, _expand_home, account_home, describe, load
+from .config import (
+    OPERATOR_GIT_FILE,
+    Config,
+    ConfigError,
+    _expand_home,
+    account_home,
+    approved_dir,
+    describe,
+    load,
+)
+from .safe_read import TamperedPath, read_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -122,6 +134,12 @@ _WORKTREE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,99}$")
 #: `owner/name`, as in `config._REPO`.
 _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
 _HOST = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$")
+#: A remote name: no `/` or `:`, so it can neither nest nor read as a URL.
+_REMOTE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+#: Paths one `git-stage` call may name, at most.
+MAX_STAGE_PATHS = 500
+#: Longest commit message `git-commit` accepts, in characters.
+MAX_COMMIT_MESSAGE = 20000
 
 #: Branches no operation pushes to, whatever the policy adds or grants.
 DEFAULT_PROTECTED = (
@@ -207,6 +225,13 @@ class GitPolicy:
     worktree_roots: tuple[Path, ...] = ()
     host: str = "github.com"
     transport: str = "ssh"
+    #: The policy's workspace: commit messages, path lists and pull-request
+    #: texts are read from files there only (see `ops.read_body`).
+    workspace: Path | None = None
+    #: The remote-tracking namespace `git-fetch` writes upstream branches to.
+    upstream_remote: str = "upstream"
+    #: The upstream branch a pull request opened by `git-pr-create` targets.
+    pr_base: str = "main"
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
@@ -233,13 +258,120 @@ def _str_list(table: dict[str, object], key: str) -> list[str]:
     return list(value)
 
 
-def git_policy(config: Config) -> GitPolicy:
-    """Validate the policy's ``[git]`` table; without one, every operation refuses."""
-    table = config.git
+#: Each operator's own ``[git]`` values live in `OPERATOR_GIT_FILE`, one table
+#: per upstream repository (``["apache/airflow"]``), in the approved-policy
+#: directory: outside every repository and every sandbox-writable root, so only
+#: the operator puts them there, and a shared, committed policy never has to
+#: name one person's paths.
+#:
+#: What an operator's table may set: where their clones, worktrees and fork are,
+#: and how they reach the forge. The project-wide keys (``upstream_push``,
+#: ``pr_base``, ``host``) stay in the shared policy, and ``protected`` only adds
+#: branches to the policy's list.
+OPERATOR_KEYS = frozenset(
+    {"checkouts", "fork", "worktree_roots", "upstream_remote", "transport", "protected"}
+)
+
+
+def operator_git_path() -> Path:
+    return approved_dir() / OPERATOR_GIT_FILE
+
+
+def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
+    """The operator's table for ``upstream_repo``, or None when they declare none."""
+    path = operator_git_path()
+    try:
+        data = read_regular_file(path)
+    except TamperedPath as exc:
+        raise ConfigError(str(exc)) from None
+    if data is None:
+        return None
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{path} is not valid TOML: {exc}") from None
+    table = raw.get(upstream_repo)
     if table is None:
-        raise ConfigError("the policy has no [git] table, so no git operation may run")
+        return None
     if not isinstance(table, dict):
+        raise ConfigError(f'{path}: ["{upstream_repo}"] must be a table')
+    unknown = sorted(set(table) - OPERATOR_KEYS)
+    if unknown:
+        raise ConfigError(
+            f'{path}: ["{upstream_repo}"] may not set {", ".join(unknown)}; '
+            "those are the project's, in the shared policy's [git] table"
+        )
+    return table
+
+
+def _git_table(config: Config) -> dict[str, object]:
+    """The shared policy's ``[git]`` table with the operator's own values over it."""
+    project = config.git
+    if project is not None and not isinstance(project, dict):
         raise ConfigError("[git] must be a table")
+    operator = operator_git_table(config.upstream_repo)
+    if project is None and operator is None:
+        raise ConfigError(
+            f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
+            f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
+        )
+    merged = dict(project or {})
+    if operator is not None:
+        protected = _str_list(merged, "protected") + _str_list(operator, "protected")
+        merged.update(operator)
+        merged["protected"] = protected
+    return merged
+
+
+def describe_git(config: Config, policy: GitPolicy) -> str:
+    """The effective ``[git]`` values, each with the file it came from."""
+    operator = operator_git_table(config.upstream_repo) or {}
+    project = config.git if isinstance(config.git, dict) else {}
+
+    def source(key: str) -> str:
+        if key in operator:
+            return str(operator_git_path())
+        return "policy" if key in project else "default"
+
+    values: list[tuple[str, object]] = [
+        ("checkouts", [str(p) for p in policy.checkouts]),
+        ("fork", policy.fork_repo),
+        ("worktree_roots", [str(p) for p in policy.worktree_roots]),
+        ("upstream_remote", policy.upstream_remote),
+        ("transport", policy.transport),
+        ("host", policy.host),
+        ("upstream_push", list(policy.upstream_push)),
+        ("pr_base", policy.pr_base),
+    ]
+    lines = ["[git] (effective)"]
+    lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
+    extra = [p for p in policy.protected if p not in DEFAULT_PROTECTED]
+    origins = [
+        s for s, table in ((str(operator_git_path()), operator), ("policy", project)) if "protected" in table
+    ]
+    lines.append(f"  protected += {extra!r}  # {', '.join(origins) or 'default'}")
+    return "\n".join(lines)
+
+
+def _owned_private_dir(path: Path, key: str) -> Path:
+    """Refuse a directory another account owns or may write: worktrees there hold
+    unpublished work and are where git later runs outside the sandbox."""
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        raise ConfigError(f"[git] {key} entry {str(path)!r} does not exist") from None
+    if not stat.S_ISDIR(st.st_mode):
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is not a directory")
+    if st.st_uid != os.getuid():
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is not owned by you")
+    if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise ConfigError(f"[git] {key} entry {str(path)!r} is writable by others (chmod go-w it)")
+    return path
+
+
+def git_policy(config: Config) -> GitPolicy:
+    """Validate the ``[git]`` values; without any, every operation refuses."""
+    table = _git_table(config)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
         raise ConfigError("[git] checkouts must name at least one main checkout")
@@ -252,6 +384,12 @@ def git_policy(config: Config) -> GitPolicy:
     transport = table.get("transport", "ssh")
     if transport not in ("ssh", "https"):
         raise ConfigError(f"[git] transport must be 'ssh' or 'https', got {transport!r}")
+    upstream_remote = table.get("upstream_remote", "upstream")
+    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.match(upstream_remote):
+        raise ConfigError(f"[git] upstream_remote must be a plain remote name, got {upstream_remote!r}")
+    pr_base = table.get("pr_base", "main")
+    if not isinstance(pr_base, str) or not _BRANCH.match(pr_base):
+        raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
     return GitPolicy(
         checkouts=checkouts,
         upstream_repo=config.upstream_repo,
@@ -259,10 +397,14 @@ def git_policy(config: Config) -> GitPolicy:
         upstream_push=tuple(_str_list(table, "upstream_push")),
         protected=DEFAULT_PROTECTED + tuple(_str_list(table, "protected")),
         worktree_roots=tuple(
-            _absolute_real_dir(raw, "worktree_roots") for raw in _str_list(table, "worktree_roots")
+            _owned_private_dir(_absolute_real_dir(raw, "worktree_roots"), "worktree_roots")
+            for raw in _str_list(table, "worktree_roots")
         ),
         host=host,
         transport=transport,
+        workspace=config.workspace,
+        upstream_remote=upstream_remote,
+        pr_base=pr_base,
     )
 
 
@@ -289,6 +431,12 @@ def clean_env(environ: dict[str, str] | None = None) -> dict[str, str]:
 
 #: Runs ``argv`` with ``env``, in the directory open as ``cwd_fd`` when one is given.
 Runner = Callable[[list[str], dict[str, str], "int | None"], "subprocess.CompletedProcess[str]"]
+#: Runs ``gh`` (``argv``) with ``env``, feeding ``stdin``.
+GhRunner = Callable[[list[str], dict[str, str], str], "subprocess.CompletedProcess[str]"]
+
+
+def _default_gh_runner(argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(argv, check=False, capture_output=True, text=True, env=env, input=stdin)
 
 
 def _default_runner(
@@ -354,6 +502,8 @@ class Git:
     """Runs git with the pins above; injectable for tests."""
 
     runner: Runner = field(default=_default_runner)
+    #: Runs ``gh`` for `git-pr-create`; injectable for tests.
+    gh_runner: GhRunner = field(default=_default_gh_runner)
     #: Transports a push may use. Tests add ``file``; production cannot.
     protocols: tuple[str, ...] = ("https", "ssh")
     #: The user's global ``core.sshCommand`` (or plain ``ssh``), pinned on every
@@ -797,6 +947,171 @@ def worktree_remove(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: boo
     return f"removed {worktree.path}"
 
 
+def _workspace_text(policy: GitPolicy, value: str, what: str) -> str:
+    """A UTF-8 text file read from the policy's workspace (see `ops.read_body`)."""
+    from .ops import ParamError, read_body
+
+    if policy.workspace is None:
+        raise GitRefused(f"the policy names no workspace, so no {what} file can be read")
+    try:
+        data = read_body(_param(value, what), workspace=policy.workspace)
+    except ParamError as exc:
+        raise GitRefused(str(exc)) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise GitRefused(f"the {what} file is not UTF-8 text") from None
+    if "\x00" in text:
+        raise GitRefused(f"the {what} file holds a NUL character")
+    return text
+
+
+def _stage_paths(worktree: Worktree, text: str) -> list[str]:
+    """The paths of a `git-stage` list: relative, inside the worktree, one per line."""
+    paths = [line for line in (raw.strip() for raw in text.splitlines()) if line]
+    if not paths:
+        raise GitRefused("the path list is empty")
+    if len(paths) > MAX_STAGE_PATHS:
+        raise GitRefused(f"the path list names {len(paths)} paths; at most {MAX_STAGE_PATHS} per call")
+    for path in paths:
+        parts = Path(path).parts
+        if path.startswith(("-", "/", ":")) or ".." in parts or ".git" in parts:
+            raise GitRefused(
+                f"{path!r} is not a plain relative path inside the worktree "
+                "(no leading '-', '/' or ':', no '..', nothing under .git)"
+            )
+        resolved = os.path.abspath(worktree.path / path)
+        if os.path.commonpath([str(worktree.path), resolved]) != str(worktree.path):
+            raise GitRefused(f"{path!r} resolves outside {str(worktree.path)!r}")
+    return paths
+
+
+def stage_paths(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Stage exactly the paths listed in a workspace file (``git add`` with literal pathspecs)."""
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    paths = _stage_paths(worktree, _workspace_text(policy, p["paths_file"], "paths_file"))
+    # Literal pathspecs: no glob or `:(magic)` in a listed path widens what is staged.
+    # Attributes come from the empty tree (`check_repository_config`), so no
+    # `.gitattributes` in the working tree can switch on a clean filter.
+    args = ["--literal-pathspecs", "add", "--", *paths]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    return f"staged {len(paths)} path(s) in {worktree.path}"
+
+
+def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Commit what is staged, with a message from a workspace file, signed per the user's own config."""
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    message = _workspace_text(policy, p["message_file"], "message_file").strip()
+    if not message:
+        raise GitRefused("the commit message is empty")
+    if len(message) > MAX_COMMIT_MESSAGE:
+        raise GitRefused(f"the commit message is longer than {MAX_COMMIT_MESSAGE} characters")
+    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
+        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out a branch first")
+    branch = git.run(worktree.path, "symbolic-ref", "--short", "HEAD").strip()
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; commit on a topic branch")
+    if git.ok(worktree.path, "diff", "--cached", "--quiet"):
+        raise GitRefused("nothing is staged; stage the change first (git-stage)")
+    # No hook runs (`core.hooksPath=/dev/null`, `--no-verify`): the pre-commit
+    # checks are working-tree code, so they run in the sandbox before this call
+    # (for prek: `prek run --files <paths>`). Signing follows the user's global
+    # git configuration, which is theirs; the repository's cannot change it.
+    args = ["commit", "--no-verify", "--cleanup=strip", "-m", message]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args[:-1], "<message from message_file>"))
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    commit = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    return f"committed {commit} on {branch} in {worktree.path}"
+
+
+def fetch_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Fetch one upstream branch into ``refs/remotes/<upstream_remote>/<branch>``."""
+    worktree = resolve_worktree(git, p["checkout"], policy, "checkout")
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    # The URL comes from the policy, never from a remote the repository configures.
+    ref = f"refs/remotes/{policy.upstream_remote}/{branch}"
+    args = [
+        "fetch",
+        "--no-tags",
+        "--no-recurse-submodules",
+        "--no-write-fetch-head",
+        policy.push_url(policy.upstream_repo),
+        f"+refs/heads/{branch}:{ref}",
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    head = git.run(worktree.path, "rev-parse", ref).strip()
+    return f"fetched {policy.upstream_repo} {branch} into {ref} at {head}"
+
+
+def _forbidden_hits(text: str) -> list[str]:
+    from .forbidden_terms import DEFAULT_TERMS
+
+    return [label for label, pattern in DEFAULT_TERMS if re.search(pattern, text, re.IGNORECASE)]
+
+
+def pr_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Open a pull request from ``<fork>:<branch>`` against the policy's ``pr_base`` upstream."""
+    if policy.fork_repo is None:
+        raise GitRefused("the policy names no [git] fork, so no pull request can be opened from one")
+    worktree = resolve_worktree(git, p["checkout"], policy, "checkout")
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; open pull requests from a topic branch")
+    # The title travels on the command line, not in a file, so the confirmation
+    # the user approves shows exactly the title that will be published.
+    title = _param(p["title"], "title").strip()
+    if not title or len(title) > 256 or any(unicodedata.category(c).startswith("C") for c in title):
+        raise GitRefused("the title must be one line of 1 to 256 printable characters")
+    body = _workspace_text(policy, p["body_file"], "body_file")
+    # A pull request is public. The same terms the publication guard refuses in
+    # any public text are refused here, so a security detail cannot reach the
+    # upstream repository through a file the guard does not read.
+    hits = sorted(set(_forbidden_hits(title) + _forbidden_hits(body)))
+    if hits:
+        raise GitRefused(
+            "the pull request text contains terms that are never published before disclosure: "
+            f"{', '.join(hits)}; describe the change in neutral functional terms"
+        )
+    head = f"{policy.fork_repo.split('/', 1)[0]}:{branch}"
+    argv = [
+        "gh",
+        "api",
+        "--hostname",
+        policy.host,
+        "--method",
+        "POST",
+        f"repos/{policy.upstream_repo}/pulls",
+        "-f",
+        f"head={head}",
+        "-f",
+        f"base={policy.pr_base}",
+        "-f",
+        f"title={title}",
+        "-F",
+        "body=@-",
+        "--jq",
+        ".html_url",
+    ]
+    if dry_run:
+        return " ".join([*argv[:-4], "-F", "body=@<body_file>", *argv[-2:]])
+    completed = git.gh_runner(argv, clean_env(), body)
+    if completed.returncode != 0:
+        raise GitFailed(argv[:7], completed.returncode, completed.stderr or "", completed.stdout or "")
+    return f"opened {completed.stdout.strip()} ({head} -> {policy.upstream_repo} {policy.pr_base})"
+
+
 OPS: dict[str, GitOp] = {
     op.name: op
     for op in (
@@ -825,6 +1140,36 @@ OPS: dict[str, GitOp] = {
             ("worktree",),
             "remove a linked worktree that has no changes",
             worktree_remove,
+        ),
+        GitOp(
+            "git-stage",
+            ("worktree", "paths_file"),
+            "stage exactly the relative paths listed, one per line, in <paths_file> (a workspace "
+            "file); literal pathspecs, nothing outside the worktree",
+            stage_paths,
+        ),
+        GitOp(
+            "git-commit",
+            ("worktree", "message_file"),
+            "commit what is staged on the current (non-protected) branch, message from <message_file> "
+            "(a workspace file), signed per the user's global git config. No hook runs: run the "
+            "pre-commit checks in the sandbox first",
+            commit_staged,
+        ),
+        GitOp(
+            "git-fetch",
+            ("checkout", "branch"),
+            "fetch upstream <branch> into refs/remotes/<upstream_remote>/<branch>, from the policy's "
+            "upstream URL",
+            fetch_upstream,
+        ),
+        GitOp(
+            "git-pr-create",
+            ("checkout", "branch", "title", "body_file"),
+            "open a pull request from <fork>:<branch> against the upstream's pr_base; <title> on the "
+            "command line (so the confirmation shows it), body from a workspace file; refused if "
+            "either holds a never-publish term",
+            pr_create,
         ),
     )
 }
@@ -872,6 +1217,7 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
 
     if args.operation == "policy":
         print(describe(config))
+        print(describe_git(config, policy))
         return EXIT_OK
 
     if not args.caller:

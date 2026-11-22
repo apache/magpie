@@ -206,6 +206,65 @@ def test_no_default_approval_no_opt_in_rejects():
     assert "no default-approval rule matches" in v.reason
 
 
+def test_grok_harness_unapproved_by_default():
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
+    [v] = check.check_stack(_cfg(stack))
+    assert v.approved is False
+    assert "no default-approval rule matches" in v.reason
+
+
+def test_grok_harness_approved_with_valid_opt_in():
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
+    opt_in = [
+        OptInEntry(
+            name="Grok — xAI API (https://api.x.ai/v1)",
+            data_residency="https://docs.x.ai/",
+            approved_by="JP 2026-11-16",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack, opt_in))
+    assert v.approved is True
+    assert "opt-in entry" in v.reason
+    assert "Grok" in v.reason
+
+
+def test_grok_harness_rejected_with_placeholder_approved_by():
+    stack = [LLMEntry(raw="Grok (xAI API at https://api.x.ai/v1)", url="https://api.x.ai/v1")]
+    opt_in = [
+        OptInEntry(
+            name="Grok — xAI API (https://api.x.ai/v1)",
+            data_residency="https://docs.x.ai/",
+            approved_by="<PMC-member-initials> <YYYY-MM-DD>",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack, opt_in))
+    assert v.approved is False
+    assert "placeholder" in v.reason.lower()
+
+
+def test_grok_proxy_stack_matches_api_opt_in_by_provider_name():
+    """Pin existing matching granularity: _shortname() matches 'grok', so the
+    PMC's approval note is the authority defining which endpoint/auth path is covered.
+    """
+    stack = [
+        LLMEntry(
+            raw="Grok (session proxy at https://cli-chat-proxy.grok.com)",
+            url="https://cli-chat-proxy.grok.com",
+        )
+    ]
+    opt_in = [
+        OptInEntry(
+            name="Grok — xAI API (https://api.x.ai/v1)",
+            data_residency="https://docs.x.ai/ (ZDR confirmed in xAI console)",
+            approved_by="JP 2026-11-16",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack, opt_in))
+    assert v.approved is True
+    assert "opt-in entry" in v.reason
+    assert "Grok" in v.reason
+
+
 # -- CLI exit codes ---------------------------------------------------
 
 

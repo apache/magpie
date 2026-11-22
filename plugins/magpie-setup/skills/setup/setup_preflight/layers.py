@@ -147,6 +147,20 @@ def main_worktree(root: Path) -> Path | None:
     return main if (main / ".git").is_dir() else None
 
 
+def project_settings(root: Path) -> list[Path]:
+    """The project settings a session in `root` loads, highest precedence first.
+
+    In a linked worktree the main checkout's settings lead, matching Claude Code's
+    project scoping and `sandbox-status-line.sh`.
+    """
+    checkouts = [*filter(None, [main_worktree(root)]), root]
+    return [
+        checkout / ".claude" / name
+        for checkout in checkouts
+        for name in ("settings.local.json", "settings.json")
+    ]
+
+
 def svn_admin_dir(root: Path) -> Path | None:
     """`<root>/.svn` when `root` is the root of a Subversion working copy, else `None`.
 

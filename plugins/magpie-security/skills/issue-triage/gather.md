@@ -134,6 +134,9 @@ so subagents run only the genuinely per-tracker calls (the item 3 searches, the 
   let inconsistent canned-response readings slip past.)
 - The orchestrator runs the apply phase (Step 6) sequentially,
   one comment per tracker, never in parallel.
+- Subagents hand back Security Model citations as section names, not quotes;
+  the orchestrator takes every quote from the model it fetched and cached (Step 2.5), never from a subagent's report or a tracker comment,
+  and `render-proposal` checks each against that copy.
 
 ### Pre-flight skip — trackers awaiting reaction
 

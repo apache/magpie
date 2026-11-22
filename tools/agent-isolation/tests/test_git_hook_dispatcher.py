@@ -191,3 +191,85 @@ def test_a_repository_without_a_detected_manager_still_gets_the_host_home(
     repo, hook, seen = _repo_with_local_hook(tmp_path, config=None)
     _run(repo, hook, {"PREK_HOME": "~/.cache/prek-sandbox"})
     assert seen.read_text() == HOST_HOME.format(home=os.environ["HOME"])
+
+
+PNPM_DIRS = (
+    "PNPM_HOME",
+    "npm_config_cache_dir",
+    "npm_config_state_dir",
+    "npm_config_store_dir",
+)
+GLOBAL_VIRTUAL_STORE = "npm_config_enable_global_virtual_store"
+
+
+def _pnpm_env_seen(tmp_path: Path, env_extra: dict[str, str]) -> dict[str, str]:
+    """The pnpm directories a repository's own pre-commit was given."""
+    repo, hook, _ = _repo_with_local_hook(tmp_path)
+    seen = tmp_path / "pnpm-seen"
+    local = repo / ".git" / "hooks" / "pre-commit"
+    local.write_text(
+        "#!/bin/sh\n"
+        + "".join(
+            f'printf "%s=%s\\n" {v} "${{{v}-<unset>}}" >> {seen}\n' for v in (*PNPM_DIRS, GLOBAL_VIRTUAL_STORE)
+        )
+    )
+    clean = {v: "" for v in (*PNPM_DIRS, GLOBAL_VIRTUAL_STORE)}
+    _run(repo, hook, clean | env_extra)
+    return dict(line.split("=", 1) for line in seen.read_text().splitlines())
+
+
+@pytest.mark.parametrize("var", PNPM_DIRS)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "~/.local/share/pnpm-sandbox/demo",
+        "~/.local/share/pnpm-sandbox/demo/cache",
+        "{home}/.local/share/pnpm-sandbox/demo/store",
+    ],
+)
+def test_outside_the_sandbox_pnpm_leaves_the_sandbox_home(
+    tmp_path: Path, var: str, value: str
+) -> None:
+    """A host pnpm must not run the pnpm versions sandboxed commands downloaded."""
+    given = value.format(home=os.environ["HOME"])
+    assert _pnpm_env_seen(tmp_path, {var: given})[var] == "<unset>"
+
+
+@pytest.mark.parametrize("var", PNPM_DIRS)
+def test_inside_the_sandbox_pnpm_keeps_the_sandbox_home(
+    tmp_path: Path, var: str
+) -> None:
+    seen = _pnpm_env_seen(
+        tmp_path, {"SANDBOX_RUNTIME": "1", var: "~/.local/share/pnpm-sandbox/demo"}
+    )
+    assert seen[var] == "~/.local/share/pnpm-sandbox/demo"
+
+
+@pytest.mark.parametrize(
+    "value", ["/opt/pnpm", "~/.local/share/pnpm-sandboxed", "~/Library/pnpm"]
+)
+def test_outside_the_sandbox_an_operator_pnpm_directory_stays(
+    tmp_path: Path, value: str
+) -> None:
+    assert _pnpm_env_seen(tmp_path, {"PNPM_HOME": value})["PNPM_HOME"] == value
+
+
+def test_outside_the_sandbox_the_global_virtual_store_goes_with_the_sandbox_home(
+    tmp_path: Path,
+) -> None:
+    seen = _pnpm_env_seen(
+        tmp_path,
+        {"PNPM_HOME": "~/.local/share/pnpm-sandbox/demo", GLOBAL_VIRTUAL_STORE: "true"},
+    )
+    assert seen[GLOBAL_VIRTUAL_STORE] == "<unset>"
+
+
+@pytest.mark.parametrize(
+    "extra", [{"PNPM_HOME": "/opt/pnpm"}, {"SANDBOX_RUNTIME": "1", "PNPM_HOME": "~/.local/share/pnpm-sandbox/demo"}]
+)
+def test_the_global_virtual_store_stays_without_a_sandbox_home_to_drop(
+    tmp_path: Path, extra: dict[str, str]
+) -> None:
+    """An operator's own setting, or a sandboxed hook, keeps it."""
+    seen = _pnpm_env_seen(tmp_path, extra | {GLOBAL_VIRTUAL_STORE: "true"})
+    assert seen[GLOBAL_VIRTUAL_STORE] == "true"

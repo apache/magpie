@@ -33,6 +33,14 @@ from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
 
 
+@pytest.fixture(autouse=True)
+def approved(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An empty approved-policy directory, so no test reads the account's real one."""
+    root = Path(os.path.realpath(tmp_path_factory.mktemp("approved")))
+    monkeypatch.setattr(git_ops, "approved_dir", lambda: root)
+    return root
+
+
 def _git(directory: Path, *args: str) -> str:
     env = git_ops.clean_env()
     env.update(
@@ -664,6 +672,98 @@ def test_git_policy_refuses_malformed_tables(table: object) -> None:
         git_ops.git_policy(_config(table))
 
 
+def _operator(approved: Path, text: str) -> None:
+    (approved / git_ops.OPERATOR_GIT_FILE).write_text(text)
+
+
+def test_operator_table_alone_supplies_the_git_values(tmp_path: Path, approved: Path) -> None:
+    checkout = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\nfork = "me/project"\n')
+    policy = git_ops.git_policy(_config(None))
+    assert policy.checkouts == (checkout,)
+    assert policy.fork_repo == "me/project"
+    assert not policy.upstream_push
+    assert policy.pr_base == "main"
+
+
+def test_operator_values_override_the_shared_policy(tmp_path: Path, approved: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    (root / "mine").mkdir()
+    (root / "worktrees").mkdir(mode=0o700)
+    shared = {
+        "checkouts": [str(root)],
+        "fork": "someone/project",
+        "upstream_push": ["ci-*"],
+        "pr_base": "develop",
+        "protected": ["prod"],
+    }
+    _operator(
+        approved,
+        '["acme/project"]\n'
+        f'checkouts = ["{root / "mine"}"]\n'
+        'fork = "me/project"\n'
+        f'worktree_roots = ["{root / "worktrees"}"]\n'
+        'protected = ["staging"]\n',
+    )
+    policy = git_ops.git_policy(_config(shared))
+    assert policy.checkouts == (root / "mine",)
+    assert policy.fork_repo == "me/project"
+    assert policy.worktree_roots == (root / "worktrees",)
+    assert policy.upstream_push == ("ci-*",)
+    assert policy.pr_base == "develop"
+    assert git_ops.is_protected("prod", policy)
+    assert git_ops.is_protected("staging", policy)
+
+
+def test_describe_git_names_where_each_value_came_from(tmp_path: Path, approved: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{root}"]\nfork = "me/project"\n')
+    config = _config({"pr_base": "develop", "protected": ["prod"]})
+    text = git_ops.describe_git(config, git_ops.git_policy(config))
+    operator_file = str(approved / git_ops.OPERATOR_GIT_FILE)
+    assert f"fork = 'me/project'  # {operator_file}" in text
+    assert "pr_base = 'develop'  # policy" in text
+    assert "upstream_remote = 'upstream'  # default" in text
+    assert "protected += ['prod']  # policy" in text
+
+
+def test_operator_table_for_another_upstream_is_ignored(tmp_path: Path, approved: Path) -> None:
+    _operator(approved, f'["other/repo"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n')
+    with pytest.raises(ConfigError, match="no \\[git\\] values for acme/project"):
+        git_ops.git_policy(_config(None))
+
+
+@pytest.mark.parametrize("key", ["upstream_push", "pr_base", "host", "bogus"])
+def test_operator_table_may_not_set_project_keys(tmp_path: Path, approved: Path, key: str) -> None:
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n{key} = "x"\n')
+    with pytest.raises(ConfigError, match=f"may not set {key}"):
+        git_ops.git_policy(_config(None))
+
+
+def test_operator_file_through_a_symlink_is_refused(tmp_path: Path, approved: Path) -> None:
+    real = tmp_path / "elsewhere.toml"
+    real.write_text(f'["acme/project"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n')
+    (approved / git_ops.OPERATOR_GIT_FILE).symlink_to(real)
+    with pytest.raises(ConfigError):
+        git_ops.git_policy(_config(None))
+
+
+@pytest.mark.parametrize("mode", [0o770, 0o777])
+def test_worktree_root_writable_by_others_is_refused(tmp_path: Path, mode: int) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    shared = root / "shared"
+    shared.mkdir()
+    shared.chmod(mode)
+    with pytest.raises(ConfigError, match="writable by others"):
+        git_ops.git_policy(_config({"checkouts": [str(root)], "worktree_roots": [str(shared)]}))
+
+
+def test_missing_worktree_root_is_refused(tmp_path: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    with pytest.raises(ConfigError, match="does not exist"):
+        git_ops.git_policy(_config({"checkouts": [str(root)], "worktree_roots": [str(root / "nope")]}))
+
+
 def test_clean_env_drops_git_variables() -> None:
     env = git_ops.clean_env({"PATH": "/bin", "GIT_SSH_COMMAND": "evil", "GIT_DIR": "/x"})
     assert env == {"PATH": "/bin", "HOME": str(account_home()), "GIT_TERMINAL_PROMPT": "0"}
@@ -749,3 +849,193 @@ def test_anchor_keeps_a_passed_descriptor_for_a_new_path_until_close(git: Git, t
     assert _is_open(fd)
     git.close()
     assert not _is_open(fd)
+
+
+# --- stage, commit, fetch, pull request -------------------------------------
+
+
+@pytest.fixture
+def workspace(tmp_path: Path) -> Path:
+    path = Path(os.path.realpath(tmp_path)) / "workspace"
+    path.mkdir(mode=0o700)
+    return path
+
+
+@pytest.fixture
+def wpolicy(policy: LocalPolicy, workspace: Path) -> LocalPolicy:
+    return dataclasses.replace(policy, workspace=workspace)
+
+
+def _linked(git: Git, policy: GitPolicy, repo: Path, branch: str = "topic") -> Path:
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    path = policy.worktree_roots[0] / branch
+    start = _git(repo, "rev-parse", "HEAD")
+    git_ops.worktree_add(
+        git, policy, {"checkout": str(repo), "path": str(path), "branch": branch, "start": start}, False
+    )
+    return path
+
+
+def _file(workspace: Path, name: str, text: str) -> str:
+    path = workspace / name
+    path.write_text(text)
+    return str(path)
+
+
+def test_stage_and_commit_a_listed_change(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "new.txt").write_text("new")
+    (wt / "other.txt").write_text("not listed")
+    paths = _file(workspace, "p", "new.txt\n")
+    out = git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
+    assert "staged 1 path" in out
+    assert _git(wt, "diff", "--cached", "--name-only") == "new.txt"
+    message = _file(workspace, "m", "feat: add new\n\nBody line.\n")
+    out = git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
+    assert out.startswith("committed ") and "on topic" in out
+    assert _git(wt, "log", "-1", "--format=%B").strip() == "feat: add new\n\nBody line."
+    assert _git(wt, "status", "--porcelain") == "?? other.txt"
+
+
+def test_stage_uses_literal_pathspecs(git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    paths = _file(workspace, "p", "*.txt\n")
+    with pytest.raises(git_ops.GitFailed):
+        git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
+    assert _git(wt, "diff", "--cached", "--name-only") == ""
+
+
+@pytest.mark.parametrize("bad", ["../escape", "/etc/passwd", "-A", ":(glob)*", ".git/config", "a/../../b"])
+def test_stage_refuses_paths_outside_the_worktree(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, bad: str
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    paths = _file(workspace, "p", bad)
+    with pytest.raises(GitRefused):
+        git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
+
+
+def test_stage_refuses_a_list_outside_the_workspace(
+    git: Git, wpolicy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    outside = tmp_path / "elsewhere.txt"
+    outside.write_text("one.txt\n")
+    with pytest.raises(GitRefused, match="workspace"):
+        git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": str(outside)}, False)
+
+
+def test_commit_refuses_with_nothing_staged(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    message = _file(workspace, "m", "x")
+    with pytest.raises(GitRefused, match="nothing is staged"):
+        git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
+
+
+def test_commit_refuses_a_protected_branch(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    (repo / "x.txt").write_text("x")
+    _git(repo, "add", "x.txt")
+    message = _file(workspace, "m", "x")
+    with pytest.raises(GitRefused, match="protected"):
+        git_ops.commit_staged(git, wpolicy, {"worktree": str(repo), "message_file": message}, False)
+
+
+def test_commit_refuses_an_empty_message(git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path) -> None:
+    wt = _linked(git, wpolicy, repo)
+    message = _file(workspace, "m", "  \n")
+    with pytest.raises(GitRefused, match="empty"):
+        git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
+
+
+def test_commit_runs_no_hook(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    marker = tmp_path / "hook-ran"
+    hook = repo / ".git" / "hooks" / "pre-commit"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+    hook.chmod(0o755)
+    (wt / "h.txt").write_text("h")
+    paths = _file(workspace, "p", "h.txt")
+    git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
+    message = _file(workspace, "m", "msg")
+    git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
+    assert not marker.exists()
+
+
+def test_fetch_writes_the_upstream_remote_tracking_ref(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
+    upstream = Path(wpolicy.push_url("acme/project"))
+    _git(repo, "push", "-q", str(upstream), "HEAD:refs/heads/main")
+    head = _git(repo, "rev-parse", "HEAD")
+    out = git_ops.fetch_upstream(git, wpolicy, {"checkout": str(repo), "branch": "main"}, False)
+    assert "refs/remotes/upstream/main" in out
+    assert _git(repo, "rev-parse", "refs/remotes/upstream/main") == head
+
+
+@dataclass
+class FakeGh:
+    calls: list[tuple[list[str], str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append((argv, stdin))
+        return subprocess.CompletedProcess(argv, 0, "https://github.com/acme/project/pull/7\n", "")
+
+
+def _pr(
+    git: Git, policy: GitPolicy, repo: Path, workspace: Path, title: str, body: str, branch: str = "topic"
+) -> str:
+    return git_ops.pr_create(
+        git,
+        policy,
+        {
+            "checkout": str(repo),
+            "branch": branch,
+            "title": title,
+            "body_file": _file(workspace, "b", body),
+        },
+        False,
+    )
+
+
+def test_pr_create_opens_from_the_fork_against_pr_base(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    fake = FakeGh()
+    git.gh_runner = fake
+    out = _pr(git, wpolicy, repo, workspace, "feat: neat thing", "Does a neat thing.\n")
+    assert "pull/7" in out
+    argv, stdin = fake.calls[0]
+    assert "repos/acme/project/pulls" in argv
+    assert "head=me:topic" in argv and "base=main" in argv and "title=feat: neat thing" in argv
+    assert stdin == "Does a neat thing.\n"
+
+
+@pytest.mark.parametrize(("title", "body"), [("fix CVE-2026-1234", "ok"), ("ok", "closes the advisory")])
+def test_pr_create_refuses_never_publish_terms(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, title: str, body: str
+) -> None:
+    fake = FakeGh()
+    git.gh_runner = fake
+    with pytest.raises(GitRefused, match="never published"):
+        _pr(git, wpolicy, repo, workspace, title, body)
+    assert not fake.calls
+
+
+def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    git.gh_runner = FakeGh()
+    with pytest.raises(GitRefused, match="protected"):
+        _pr(git, wpolicy, repo, workspace, "t", "b", branch="main")
+    with pytest.raises(GitRefused, match=r"no \[git\] fork"):
+        _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")

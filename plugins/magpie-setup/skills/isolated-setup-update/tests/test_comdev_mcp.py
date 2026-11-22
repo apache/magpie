@@ -50,6 +50,26 @@ SECTION = "## When the registration cannot be read"
 COMDEV_URL = "https://github.com/apache/comdev.git"
 SHELLS = [s for s in ("bash", "zsh") if shutil.which(s)]
 REAL_GIT = shutil.which("git")
+# git exports these to its hooks (GIT_INDEX_FILE on every commit), so a test run from
+# a commit hook would point its scratch repositories at the commit's own index. The
+# config ones carry `git -c` values and the whole-user dispatcher's core.hooksPath,
+# which would override the empty global and system config below.
+REPO_GIT_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_PREFIX",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+)
+BASE_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in REPO_GIT_VARS and not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+}
 GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_SYSTEM": os.devnull,
@@ -68,8 +88,9 @@ def _script() -> str:
 
 
 def _git(*args: str, cwd: Path) -> str:
+    assert REAL_GIT is not None, "the test class is skipped without git"
     result = subprocess.run(
-        [REAL_GIT, *args], cwd=cwd, check=True, capture_output=True, text=True, env={**os.environ, **GIT_ENV}
+        [REAL_GIT, *args], cwd=cwd, check=True, capture_output=True, text=True, env={**BASE_ENV, **GIT_ENV}
     )
     return result.stdout.strip()
 
@@ -179,7 +200,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
             script = script.replace("(\nrefresh=\n", f"(\nrefresh={refresh}\n", 1)
         if shell == "zsh":
             script = "setopt no_interactive_comments\n" + script
-        env = {**os.environ, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
+        env = {**BASE_ENV, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
         result = subprocess.run([shell, "-c", script], cwd=self.cwd, env=env, capture_output=True, text=True)
         return result.stdout + result.stderr
 
@@ -208,7 +229,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
                     f"changes: {link}",
                     out,
                 )
-                self.assertIn(f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out)
+                self.assertIn(
+                    f"apache-projects: {self.projects} is 1 commit(s) behind apache/comdev main", out
+                )
                 self.assertIn("run this again with refresh=<the commit after 'main at'>", out)
                 self.assertEqual(self._npm_dirs(), [], "report mode never installs")
                 self.assertEqual(self._head(), self.start, "report mode never merges")
@@ -318,7 +341,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
                 self.assertEqual(self._head(), self.start)
 
     def test_a_missing_checkout_is_named(self) -> None:
-        self._register({"mcpServers": {"ponymail": {"args": [str(self.root / "deleted/mcp/ponymail-mcp/index.js")]}}})
+        self._register(
+            {"mcpServers": {"ponymail": {"args": [str(self.root / "deleted/mcp/ponymail-mcp/index.js")]}}}
+        )
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 self.assertIn("is not a git checkout", self._run(shell))
@@ -415,7 +440,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
 
     def test_refresh_refuses_a_checkout_with_local_changes(self) -> None:
         changes = {
-            "modified": lambda: (self.ponymail / "package-lock.json").write_text('{"x": 1}\n', encoding="utf-8"),
+            "modified": lambda: (self.ponymail / "package-lock.json").write_text(
+                '{"x": 1}\n', encoding="utf-8"
+            ),
             "untracked": lambda: (self.ponymail / ".npmrc").write_text("x\n", encoding="utf-8"),
         }
         for kind, make in changes.items():
@@ -457,7 +484,7 @@ class SelfResolvingScriptTest(unittest.TestCase):
     def test_pasted_into_interactive_zsh_it_reports_and_refreshes(self) -> None:
         # A real paste: interactive zsh reading the script, with history expansion and no
         # interactive comments, as the operator's terminal has by default.
-        env = {**os.environ, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
+        env = {**BASE_ENV, **GIT_ENV, "HOME": str(self.home), "PATH": f"{self.bindir}:{os.environ['PATH']}"}
         for refresh in ("", self.ahead):
             with self.subTest(refresh=refresh or "report"):
                 script = _script().replace("(\nrefresh=\n", f"(\nrefresh={refresh}\n", 1)
@@ -469,6 +496,9 @@ class SelfResolvingScriptTest(unittest.TestCase):
                     capture_output=True,
                     text=True,
                     timeout=120,
+                    # Without a session of its own, interactive zsh takes over the terminal
+                    # pytest runs in and, from a background worker, stops waiting for it.
+                    start_new_session=True,
                 )
                 out = result.stdout + result.stderr
                 self.assertNotIn("event not found", out)

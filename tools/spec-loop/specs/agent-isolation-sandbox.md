@@ -390,6 +390,27 @@ See `docs/adapters/harnesses/goose.md`.
   points `PREK_HOME` at `~/.local/share/prek-host` and `XDG_CACHE_HOME`
   at `~/.local/share/prek-host/cache`, keeping an operator's own value
   outside `~/.cache`.
+  pnpm gets the same split without being a hook manager: a pnpm
+  project's own settings `env` (never the shared template, since npm
+  warns about unknown `npm_config_*` names) sets `PNPM_HOME` to a
+  per-project `~/.local/share/pnpm-sandbox/<project>` (spelled `~/`,
+  the only form pnpm expands), `npm_config_cache_dir` inside it and
+  `npm_config_enable_global_virtual_store=true` (keeping
+  `node_modules/.pnpm`, where the harness refuses `.idea/codeStyles`
+  paths, out of the project), and grants only that directory. The
+  home is per project and outside `~/.cache` because the global
+  virtual store makes `node_modules` symlinks into its store, which the
+  project's hooks run outside the sandbox: a shared home would let any
+  project's sandboxed session plant that code. `Edit(~/.cache/pnpm/**)`
+  denies the host cache, `sandbox-lint` requires the env and grant
+  only for a project with a tracked `pnpm-lock.yaml` or
+  `pnpm-workspace.yaml`, accepts the home only spelled exactly
+  `~/.local/share/pnpm-sandbox/<project>` (or absolute, `<project>` a
+  lower-case slug) with the cache exactly `<home>/cache`, and in every
+  project rejects a grant over the whole `~/.local/share/pnpm-sandbox`
+  and a moved store, state or virtual-store directory; the dispatcher
+  unsets any pnpm directory pointing into it, and the global-virtual-store
+  flag with it, when `SANDBOX_RUNTIME` is absent.
   Detection (a root config file, a tracked nested config, or an
   installed hook that runs the manager) decides only what a repository
   is configured with — the sandbox home its settings must carry, the

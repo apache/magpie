@@ -38,6 +38,7 @@ import {
   extractRcTag,
   formatStepStatusBadge,
   getVerifyRcState,
+  getVoteTallyState,
   handleBashToolCall,
   mapCliSubcommandToStepId,
   normalizeStepStatus,
@@ -45,8 +46,10 @@ import {
   renderVerifyRcPane,
   sanitizeText,
   setVerifyRcState,
+  setVoteTallyState,
   truncateText,
   verifyRcState,
+  voteTallyState,
 } from './verify-rc-pane.js';
 
 // Minimal local declaration: the strict mod type-check has no DOM/Node lib for the
@@ -587,7 +590,7 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         return 'next-result';
       };
 
-      // session.start resets state to null
+      // session.start resets verifyRcState and voteTallyState to null
       await setVerifyRcState($, {
         rcTag: 'old-rc',
         version: 'old',
@@ -595,19 +598,49 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         steps: createDefaultVerifySteps(),
         startedAt: Date.now(),
       });
+      await setVoteTallyState($, {
+        rcTag: 'old-rc',
+        version: 'old',
+        openedAt: new Date().toISOString(),
+        windowHours: 72,
+        binding: { plus: 3, minus: 0, zero: 0 },
+        nonBinding: { plus: 0, minus: 0, zero: 0 },
+        vetoes: [],
+        status: 'passed',
+        updatedAt: Date.now(),
+      });
       const sessionHandler = registrations[0][1];
       const sessionResult = await sessionHandler($, { type: 'start' }, next);
       assertStrictEqual(nextCalled, true);
       assertStrictEqual(sessionResult, 'next-result');
       const stateAfterStart = await getVerifyRcState($);
       assertStrictEqual(stateAfterStart, null);
+      const voteStateAfterStart = await getVoteTallyState($);
+      assertStrictEqual(voteStateAfterStart, null);
 
-      // ui.render passes through when component is not Pane
+      // ui.render passes through when component is unknown or state unpopulated
       nextCalled = false;
       const uiHandler = registrations[1][1];
-      const otherComponentResult = await uiHandler($, { component: 'AbovePrompt' }, next);
+      const otherComponentResult = await uiHandler($, { component: 'CustomPrompt' }, next);
       assertStrictEqual(nextCalled, true);
       assertStrictEqual(otherComponentResult, 'next-result');
+
+      // ui.render returns AbovePrompt band when component is AbovePrompt and vote state populated
+      nextCalled = false;
+      await setVoteTallyState($, {
+        rcTag: '3.0.0-rc1',
+        version: '3.0.0',
+        openedAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+        windowHours: 72,
+        binding: { plus: 3, minus: 0, zero: 0 },
+        nonBinding: { plus: 1, minus: 0, zero: 0 },
+        vetoes: [],
+        status: 'passed',
+        updatedAt: Date.now(),
+      });
+      const bandResult = await uiHandler($, { component: 'AbovePrompt' }, next);
+      assertStrictEqual(nextCalled, false);
+      assert(bandResult !== null && bandResult.type === 'Box');
 
       // ui.render returns Pane when component is Pane and state populated
       nextCalled = false;
@@ -666,6 +699,18 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(
           mapCliSubcommandToStepId('uv run release-config load --skill verify-rc 2.11.0-rc1'),
           null // decoupled: load does not map to a verification step and never resets preflight
+        );
+        assertStrictEqual(
+          mapCliSubcommandToStepId('uv run release-config preflight --skill vote-tally 3.0.0-rc1'),
+          null // vote-tally preflight must NOT map to verify-rc preflight
+        );
+        assertStrictEqual(
+          mapCliSubcommandToStepId('uv run release-config preflight --skill=vote-tally 3.0.0-rc1'),
+          null // vote-tally preflight with equals must NOT map to verify-rc preflight
+        );
+        assertStrictEqual(
+          mapCliSubcommandToStepId('uv run release-config preflight --skill=rc-cut 3.0.0-rc1'),
+          null // rc-cut preflight with equals must NOT map to verify-rc preflight
         );
 
         // Individual steps
@@ -1628,6 +1673,69 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
         assertStrictEqual(must(state.steps.find((s: any) => s.id === 'verdict')).status, 'passed');
         assertStrictEqual(state.overallStatus, 'passed');
         assert(typeof state.completedAt === 'number');
+      });
+
+      test('handleBashToolCall passively updates voteTallyState on vote-tally commands', async () => {
+        const $ = createMockEngine();
+
+        // 1. Preflight command
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-config preflight --skill vote-tally 3.0.0-rc1 --vote-opened 2026-11-20T10:00:00Z' },
+          async () => ({ stdout: '{"ok": true}' })
+        );
+        let voteState = must(await getVoteTallyState($), 'voteTallyState after preflight');
+        assertStrictEqual(voteState.rcTag, '3.0.0-rc1');
+        assertStrictEqual(voteState.version, '3.0.0');
+
+        // 2. Tally command
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-management vote-tally tally --votes votes.json' },
+          async () => ({
+            stdout: JSON.stringify({
+              binding_plus1: 3,
+              binding_minus1: 0,
+              nonbinding_plus1: 1,
+              voters: [
+                { login: 'pmc1', binding: true, value: '+1' },
+                { login: 'pmc2', binding: true, value: '+1' },
+                { login: 'pmc3', binding: true, value: '+1' },
+              ],
+            }),
+          })
+        );
+        voteState = must(await getVoteTallyState($), 'voteTallyState after tally');
+        assertStrictEqual(voteState.binding.plus, 3);
+        assertStrictEqual(voteState.status, 'passed');
+
+        // 3. Ensure existing verifyRcState is NOT mutated or reset by vote-tally commands with different RC tag
+        const verifyState: VerifyRcState = {
+          rcTag: '2.11.0-rc1',
+          version: '2.11.0',
+          overallStatus: 'running',
+          currentStepId: 'signatures',
+          steps: [
+            { id: 'preflight', label: 'Pre-flight', status: 'passed' },
+            { id: 'inventory', label: 'Inventory', status: 'passed' },
+            { id: 'signatures', label: 'Signatures', status: 'running' },
+          ],
+          startedAt: 1000,
+          completedAt: null,
+        };
+        await setVerifyRcState($, verifyState);
+
+        await handleBashToolCall(
+          $,
+          { command: 'uv run release-management vote-tally tally --votes votes.json' },
+          async () => ({ stdout: JSON.stringify({ binding_plus1: 3, binding_minus1: 0 }) })
+        );
+
+        const verifyAfter = must(await getVerifyRcState($), 'verifyRcState preserved');
+        assertStrictEqual(verifyAfter.rcTag, '2.11.0-rc1');
+        assertStrictEqual(verifyAfter.steps[0]?.status, 'passed');
+        assertStrictEqual(verifyAfter.steps[1]?.status, 'passed');
+        assertStrictEqual(verifyAfter.currentStepId, 'signatures');
       });
     });
 
