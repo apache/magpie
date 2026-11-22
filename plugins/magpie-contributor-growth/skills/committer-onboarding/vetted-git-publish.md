@@ -19,8 +19,12 @@ uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller committer-onboardi
 
 The policy is found from the working directory, so run the calls from the
 directory whose vetted-ops policy names the target repository as `[repos]
-upstream`. `<checkout>` is a main checkout its `[git] checkouts` lists, and
-`<worktree>` is that checkout or one of its linked worktrees. The paths file,
+upstream`. Where your clones, worktrees and fork are comes from your own
+`~/.config/apache-magpie/vetted-ops/operator-git.toml` (one table per
+upstream repository), laid over the policy's `[git]` table; `vetted-op-git
+policy` prints the effective values. `<checkout>` is a main checkout its
+`checkouts` lists, and `<worktree>` is that checkout or one of its linked
+worktrees. The paths file,
 commit message and pull-request body are files you write into `<workspace>`
 first; the operation reads exactly that file.
 
@@ -36,8 +40,9 @@ first; the operation reads exactly that file.
 | Clean up after merge | `git-worktree-remove <worktree>` (no local changes only) |
 
 **Fallback.** When no `[git]` values are configured for this project (the
-operation refuses with *"the policy has no [git] table"*), or there is no
-approved policy, hand the user the equivalent `git` and
+operation refuses with *"no [git] values for <repository>"*; point the user
+at the `["<repository>"]` table their `operator-git.toml` lacks), or there is
+no approved policy, hand the user the equivalent `git` and
 `gh pr create --web` commands to run themselves, as before. When it
 refuses the caller (`not permitted to run`), name the `git-*` grant
 `committer-onboarding` needs in the policy's `[callers]` table and hand over the
