@@ -348,7 +348,7 @@ repos:
         name: check-forbidden-terms-sync (canonical scrub terms vs publication.py)
         language: system
         entry: python3 tools/dev/sync-forbidden-terms.py --check
-        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts)$
+        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts|tools/vetted-ops/src/vetted_ops/forbidden_terms\.py)$
         pass_filenames: false
       - id: check-family-plugins
         name: check-family-plugins (marketplace plugins vs frontmatter)
