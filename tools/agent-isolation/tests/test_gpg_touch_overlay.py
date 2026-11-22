@@ -35,6 +35,7 @@ import socket
 import subprocess
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -2179,13 +2180,24 @@ def test_wrapped_and_hook_watchers_share_one_dismissal(
             hook.wait(timeout=5)
 
 
+@pytest.fixture
+def agent_sock() -> Iterator[str]:
+    """An agent socket path short enough to bind.
+
+    sun_path is 104 bytes on macOS, and pytest's tmp_path under the default
+    TMPDIR (/private/var/folders/...) can be longer than that.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        yield os.path.join(tmp, "agent.sock")
+
+
 @_needs_a_quiet_signer
 def test_each_ssh_authentication_gets_its_own_reminder(
-    tmp_path: Path, process_named
+    tmp_path: Path, process_named, agent_sock: str
 ) -> None:
     """Actual accepted Unix connections end and restart inside the TTL."""
     window, shown = _fake_window(tmp_path, 0)
-    path = str(tmp_path / "agent.sock")
+    path = agent_sock
     runtime = tmp_path / "runtime" / "magpie-gpg-touch"
     runtime.mkdir(parents=True)
     trace = tmp_path / "trace"
@@ -2232,11 +2244,11 @@ def test_each_ssh_authentication_gets_its_own_reminder(
 
 @_needs_a_quiet_signer
 def test_a_watcher_armed_mid_authentication_keeps_its_dismissal(
-    tmp_path: Path, process_named
+    tmp_path: Path, process_named, agent_sock: str
 ) -> None:
     """A watcher whose baseline already counts the connection never saw it end."""
     window, shown = _fake_window(tmp_path, 0)
-    path = str(tmp_path / "agent.sock")
+    path = agent_sock
     runtime = tmp_path / "runtime" / "magpie-gpg-touch"
     runtime.mkdir(parents=True)
     trace_first, trace_late = tmp_path / "trace-first", tmp_path / "trace-late"
