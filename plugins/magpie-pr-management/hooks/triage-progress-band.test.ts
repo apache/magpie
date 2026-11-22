@@ -36,6 +36,13 @@ import {
   setTriageProgressState,
 } from './review-findings.js';
 
+function must<T>(value: T | null | undefined, what = 'value'): T {
+  if (value === null || value === undefined) {
+    throw new Error(`missing ${what}`);
+  }
+  return value;
+}
+
 function assert(condition: any, message?: string): asserts condition {
   if (!condition) {
     throw new Error(message || 'Assertion failed');
@@ -51,7 +58,6 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
 }
 
 assert.strictEqual = assertStrictEqual;
-assert.ok = assert;
 
 function createMockEngine(overrides: any = {}): any {
   const store = new Map<string, any>();
@@ -221,7 +227,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       });
       const result = parseTriageProgressPayload(raw);
-      assert.ok(result.state);
+      assert(result.state);
       assert.strictEqual(result.state.total, 20);
       assert.strictEqual(result.state.evaluated, 5);
       assert.strictEqual(result.state.remaining, 15);
@@ -240,7 +246,7 @@ describe('triage-progress-band mod', () => {
         dispositions: { labeled: 0, nudged: 8, closed: 4, drafted: 0, approved: 0 },
       };
       const result = parseTriageProgressPayload(obj);
-      assert.ok(result.state);
+      assert(result.state);
       assert.strictEqual(result.state.skill, 'pr-stale-sweep');
       assert.strictEqual(result.state.total, 12);
       assert.strictEqual(result.state.evaluated, 12);
@@ -262,7 +268,7 @@ describe('triage-progress-band mod', () => {
         currentPr: { number: 42, title: '\x1b[31mInjected\x1b[0m <script>' },
       };
       const result = parseTriageProgressPayload(payload);
-      assert.ok(result.state?.currentPr);
+      assert(result.state?.currentPr);
       assert.strictEqual(result.state.currentPr.title, 'Injected script');
     });
 
@@ -274,7 +280,7 @@ describe('triage-progress-band mod', () => {
         processedPrs: largeArray,
       };
       const result = parseTriageProgressPayload(payload);
-      assert.ok(result.state?.processedPrs);
+      assert(result.state?.processedPrs);
       assert.strictEqual(result.state.processedPrs.length, 1000);
     });
   });
@@ -339,7 +345,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const rendered = renderTriageProgressBandComponent(state, mockHelpers);
-      assert.ok(rendered);
+      assert(rendered);
       assert.strictEqual(rendered.type, 'Box');
       assert.strictEqual(rendered.children[0].children[0], '[PR Triage] ');
       assert.strictEqual(rendered.children[0].color, 'cyan');
@@ -356,10 +362,10 @@ describe('triage-progress-band mod', () => {
         status: 'completed',
       };
       const rendered = renderTriageProgressBandComponent(state, mockHelpers);
-      assert.ok(rendered);
+      assert(rendered);
       assert.strictEqual(rendered.children[0].children[0], '[PR Stale Sweep] ');
       assert.strictEqual(rendered.children[1].color, 'green');
-      assert.ok(rendered.children[1].children[0].includes('Sweep complete: 15/15 evaluated'));
+      assert(rendered.children[1].children[0].includes('Sweep complete: 15/15 evaluated'));
     });
   });
 
@@ -367,7 +373,7 @@ describe('triage-progress-band mod', () => {
     test('bootstraps state on gh pr list with limit flag', () => {
       const command = 'gh pr list --state open --limit 25';
       const state = processTriageCommand(command, null);
-      assert.ok(state);
+      assert(state);
       assert.strictEqual(state.total, 25);
       assert.strictEqual(state.evaluated, 0);
       assert.strictEqual(state.remaining, 25);
@@ -376,11 +382,11 @@ describe('triage-progress-band mod', () => {
 
     test('supports inline equals syntax for candidate limit flags', () => {
       const state1 = processTriageCommand('gh pr list --limit=35', null);
-      assert.ok(state1);
+      assert(state1);
       assert.strictEqual(state1.total, 35);
 
       const state2 = processTriageCommand('gh pr list -L=50', null);
-      assert.ok(state2);
+      assert(state2);
       assert.strictEqual(state2.total, 50);
     });
 
@@ -395,7 +401,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const reAnchored = processTriageCommand('gh pr list --limit 20', initial);
-      assert.ok(reAnchored);
+      assert(reAnchored);
       assert.strictEqual(reAnchored.total, 20);
       assert.strictEqual(reAnchored.remaining, 17);
     });
@@ -411,7 +417,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const updated = processTriageCommand('gh pr close 999', initial);
-      assert.ok(updated);
+      assert(updated);
       assert.strictEqual(updated.evaluated, 6);
       assert.strictEqual(updated.remaining, 4);
     });
@@ -427,7 +433,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const updated = processTriageCommand('gh pr view 777 --json title', initial);
-      assert.ok(updated);
+      assert(updated);
       assert.strictEqual(updated.currentPr?.number, 777);
     });
 
@@ -442,11 +448,11 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const updated = processTriageCommand('gh pr edit 777 --add-label "area:core"', initial);
-      assert.ok(updated);
+      assert(updated);
       assert.strictEqual(updated.dispositions.labeled, 2);
       assert.strictEqual(updated.evaluated, 2);
       assert.strictEqual(updated.remaining, 3);
-      assert.ok(updated.processedPrs?.includes(777));
+      assert(updated.processedPrs?.includes(777));
     });
 
     test('deduplicates multiple actions on the same PR without double-incrementing evaluated', () => {
@@ -461,7 +467,7 @@ describe('triage-progress-band mod', () => {
       };
       // Second operation on already processed PR #777
       const updated = processTriageCommand('gh pr comment --body "Please rebase" 777', initial);
-      assert.ok(updated);
+      assert(updated);
       assert.strictEqual(updated.dispositions.nudged, 2);
       assert.strictEqual(updated.evaluated, 2); // Unchanged!
       assert.strictEqual(updated.remaining, 3); // Unchanged!
@@ -478,7 +484,7 @@ describe('triage-progress-band mod', () => {
         status: 'running',
       };
       const updated = processTriageCommand('gh pr close -c "stale" 101', initial);
-      assert.ok(updated);
+      assert(updated);
       assert.strictEqual(updated.dispositions.closed, 1);
       assert.strictEqual(updated.evaluated, 2);
       assert.strictEqual(updated.remaining, 0);
@@ -543,13 +549,13 @@ describe('triage-progress-band mod', () => {
         nextCalled = true;
       });
 
-      assert.ok(rendered);
+      assert(rendered);
       assert.strictEqual(rendered.type, 'Box');
       assert.strictEqual(nextCalled, false); // Consumed by Box render
 
       // Verify state was NOT mutated during rendering
       const stateAfter = await getTriageProgressState(test$);
-      assert.ok(stateAfter);
+      assert(stateAfter);
       assert.strictEqual(stateAfter.status, 'completed');
     });
   });
@@ -616,7 +622,7 @@ describe('triage-progress-band mod', () => {
 
       assert.strictEqual(nextCalled, true);
       const state = await getTriageProgressState(test$);
-      assert.ok(state);
+      assert(state);
       assert.strictEqual(state.status, 'running');
       assert.strictEqual(state.total, 15);
       assert.strictEqual(state.evaluated, 0);
