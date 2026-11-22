@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "advisory_records",
+      "action": "Record CVE-2026-00004 through a pull request against myproject/myproject-site: show the planner's new file security/cves/CVE-2026-00004.json, the pull request's title and body, and, on confirmation, run its eleven commands in order — clean check, branch check (main), update, new-branch advisory-records/CVE-2026-00004, the --apply re-run, stage, diff, commit, push to the operator's fork (publishes the branch on the fork), switch back to main, and gh pr create with MAGPIE_ALLOW_SECURITY_LANG=1 (publishes the pull request) — nothing is pushed to the site repository itself. After the pull request opens, post the advisory-records v1 status comment naming its URL, without ticking the security-pages checklist item (that waits for the merge).",
+      "reason": "advisory_records_pending is true: cve.org reports CVE-2026-00004 PUBLISHED, the project configures advisory_records with publish: pull-request, no advisory-records marker comment exists, no pull request comes from the configured branch, and the planner returned a change."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "security_pages_reminder_proposed": false,
+  "advisory_records_proposed": true
+}

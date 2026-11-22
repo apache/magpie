@@ -383,6 +383,8 @@ Look first, then ask once (in the Step 3 batch when it runs):
 - **Ask:** *"Does the project already publish a page listing its security advisories?"*
   - **Yes** — record its URL as `security_pages_url`. Then offer [Advisory records](../../templates/project.md#advisory-records):
     with it, sync proposes the page change for each published CVE itself instead of reminding the release manager.
+    When the site repository takes changes only through pull requests, set `publish: pull-request`,
+    and record each operator's fork in their `user.md` (`environment.advisory_records_fork`).
   - **No** — propose creating one, and say why (the policy step above, and one place users can check what affects them).
     Offer the `cve-json-file` layout of [`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md):
     one CVE JSON record per file in the site repository, from which the site renders the list, so each new CVE is a one-file change.

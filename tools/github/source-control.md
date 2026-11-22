@@ -47,12 +47,12 @@ the same abstract operation.
 |---|---|---|
 | Locate the repo root / common dir | `git rev-parse --show-toplevel` / `--git-common-dir` / `--git-dir` | worktree setup, all dev-loop skills |
 | Inspect working-copy state | `git status` (`-s` / `--short`) | fix-workflow, code-review pre-flight |
-| Create / switch a line of work | `git checkout` / `git switch`, `git branch` | fix-workflow (branch per fix) |
+| Create / switch a line of work | `git checkout` / `git switch`, `git branch` | fix-workflow (branch per fix), security-issue-sync (advisory records, pull-request mode) |
 | Stage + record a change | `git add`, `git commit -m` | fix-workflow |
 | Show changes | `git diff` (`--cached`, `<base>`) | code-review, fix-workflow |
 | History read | `git log` (`--oneline` / `--grep` / `--author` / `--since`), `git show` | reproducer, reassess, nomination |
 | Determine divergence base | `git merge-base`, `git rev-parse` | code-review (diff against base) |
-| Sync with the forge | `git fetch [origin]`, `git push [-u]` | fix-workflow hand-off |
+| Sync with the forge | `git fetch [origin]`, `git push [-u]` | fix-workflow hand-off, security-issue-sync (advisory records: push to the configured branch, or to the operator's fork) |
 | Bring the working copy up to date / first checkout | `git pull --ff-only`, `git clone` | security-issue-sync (advisory records) |
 | Re-apply onto an updated base | `git rebase` | triage rebase action |
 | Isolated checkouts | `git worktree add` / `list --porcelain` | `magpie-setup` worktree flow |

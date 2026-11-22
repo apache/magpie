@@ -426,7 +426,8 @@ hand-off comment, all of it single clicks in the CVE tool —
    blocking the close-out.
    A project that configures `advisory_records` gets the edit proposed instead:
    once cve.org shows the CVE published, sync proposes the change to the site repository
-   (a CVE JSON file, or an entry in a per-release-line page) and the Git or Subversion commands that publish it —
+   (a CVE JSON file, or an entry in a per-release-line page) and the Git or Subversion commands that publish it,
+   either directly or as a pull request from the sync operator's fork —
    see [`advisory-records.md`](advisory-records.md).
 
 The severity score follows the

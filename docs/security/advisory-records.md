@@ -10,6 +10,12 @@
   - [The two layouts](#the-two-layouts)
   - [Configuration](#configuration)
   - [What the user confirms](#what-the-user-confirms)
+  - [Publishing through a pull request](#publishing-through-a-pull-request)
+    - [Configuration in pull-request mode](#configuration-in-pull-request-mode)
+    - [The commands in pull-request mode](#the-commands-in-pull-request-mode)
+    - [Following the pull request](#following-the-pull-request)
+    - [Why `magpie-vcs` and `gh`, not `vetted-op-git`](#why-magpie-vcs-and-gh-not-vetted-op-git)
+    - [The publication guards](#the-publication-guards)
   - [Safety properties](#safety-properties)
   - [Limits](#limits)
 
@@ -75,6 +81,7 @@ The `advisory_records` block in `<project-config>/project.md`
 ([template](../../plugins/magpie-setup/templates/project.md#advisory-records)):
 `vcs` (`git` or `svn`, defaulting to the project's source-control backend), `repository` (used to propose the first checkout), `working_copy`,
 `branch` and `remote` (Git), `commit_message`, `layout`, and the layout's own block (`cve_json_file` or `release_page`).
+`publish` picks how the commit reaches the site repository: `direct` (the default) or `pull-request` (Git only, see [Publishing through a pull request](#publishing-through-a-pull-request)).
 The working copy is a per-user path, so `user.md → environment.advisory_records_clone` overrides `working_copy`.
 
 Leave the block out and nothing changes: sync notes *"advisory records: not configured — skipped"* and keeps the checklist reminder.
@@ -82,6 +89,7 @@ Leave the block out and nothing changes: sync notes *"advisory records: not conf
 ## What the user confirms
 
 One numbered item in sync's Step 2b proposal: the diff, and the [`magpie-vcs`](../../tools/vcs/README.md) commands in order.
+This table is the `direct` mode; the `pull-request` mode has [its own](#the-commands-in-pull-request-mode).
 
 | Step | Git | Subversion |
 |---|---|---|
@@ -98,11 +106,100 @@ With no working copy yet, the proposal is the single `checkout` command; the cha
 After the commit (and the push on Git) succeeds, sync posts a status comment with the `advisory-records v1` marker and the ticked security-pages checklist item.
 Committing or pushing needs the user's credentials for the site repository; under the [secure agent setup](../setup/secure-agent-setup.md) the user may have to run those commands from their own terminal.
 
+## Publishing through a pull request
+
+Many site repositories take changes only through reviewed pull requests, and a site that builds its security section from one JSON file per CVE
+gets each record the same way.
+With `publish: pull-request`, the person who runs sync (the operator, not the release manager) commits the record on a new branch,
+pushes that branch to their own fork of the site repository, and opens a pull request against the configured `branch`.
+Nothing is ever pushed to the site repository itself.
+
+### Configuration in pull-request mode
+
+| Key | Default | Meaning |
+|---|---|---|
+| `publish` | `direct` | `pull-request` turns the mode on; a Subversion working copy refuses it |
+| `branch` | `main` | the base branch the pull request targets (and the branch the working copy is kept on) |
+| `pull_request.repo` | derived from a GitHub `repository` URL | the site repository as `owner/name`, for `gh pr create --repo` |
+| `pull_request.branch` | `advisory-records/{cve_id}` | the branch the record is committed on, in the working copy and on the fork |
+| `pull_request.title` | `commit_message` | one line; placeholder `{cve_id}` |
+| `pull_request.fork` | — | the operator's fork, `owner/name`; per user, so `user.md → environment.advisory_records_fork` wins |
+| `pull_request.fork_remote` | `fork` | the working copy's remote for that fork; `user.md → environment.advisory_records_fork_remote` wins |
+
+The fork differs per operator, like the working copy, so both fork keys normally live in `user.md` only.
+The operator adds the fork as a remote of the working copy once (`git remote add fork <fork URL>`); the planner never configures remotes.
+
+### The commands in pull-request mode
+
+| Step | Command | |
+|---|---|---|
+| 1 | `clean` | stop on unrelated changes |
+| 2 | `branch` | must print the base branch |
+| 3 | `update` | `pull --ff-only` of the base branch |
+| 4 | `new-branch <pull-request branch>` | local only |
+| 5 | the planner again with `--apply` | writes the change on the new branch, and the pull-request body file beside the record |
+| 6 | `stage <files>` | |
+| 7 | `diff --cached <files>` | |
+| 8 | `commit -m "<message>"` | local |
+| 9 | `push <fork remote> <pull-request branch>` | publishes the branch on the operator's fork |
+| 10 | `switch <base branch>` | local only: the next run starts from the base branch again |
+| 11 | `MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --repo <site repo> --base <base> --head <fork owner>:<branch> --title "<title>" --body-file <file>` | publishes the pull request |
+
+Steps 1 to 10 are [`magpie-vcs`](../../tools/vcs/README.md) commands; step 11 is a plain `gh` command.
+Between steps 8 and 9 sync runs the configured [adversarial review](../../tools/adversarial-review/README.md), as every pull-request-opening skill does;
+it sees only the record, the title and the body the pull request publishes.
+The body names the changed file(s), the date cve.org published the record and the public announcement URL; no tracker text goes into it.
+Once the pull request is open, sync posts the `advisory-records v1` status comment with the pull request's URL.
+The security-pages checklist item stays unticked: the record is not on the site until the pull request merges.
+
+### Following the pull request
+
+The planner cannot see an open pull request, since the base branch does not hold the record until it merges, so the tracker's comments carry the state:
+
+| What the tracker holds | What sync does |
+|---|---|
+| no `advisory-records v1` comment | looks for a pull request from the configured branch (`gh pr list --repo <site repo> --head <branch> --state all`); open or merged → proposes only the status comment that records it, never a second pull request; none, or only a closed one → runs the planner, and the proposal names the closed one |
+| an `advisory-records v1` comment with a pull-request URL | reads that pull request's state (`gh pr view <url> --json state`) |
+| … still open | notes *"advisory records: <URL> open"*; proposes nothing |
+| … merged | proposes a status comment opening with `<!-- apache-magpie: advisory-records-merged v1 -->` and the ticked security-pages checklist item |
+| … closed without merging | a blocker naming the pull request; nothing is re-proposed until the team decides how to record the CVE (to try again, a team member deletes the status comment, and the operator the branch on the fork and in the working copy) |
+| an `advisory-records-merged v1` comment | done |
+
+Both lookups are read-only `gh` calls; a failed lookup proposes nothing and is retried on the next sync.
+
+### Why `magpie-vcs` and `gh`, not `vetted-op-git`
+
+[`vetted-op-git`](../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks) runs the push and the pull-request creation outside the sandbox,
+but its policy names one `upstream` repository and one `fork`: the project's source repository, which the security fix flow publishes to.
+The site repository is a different repository, and widening that policy to a second one would let every `vetted-op-git` caller push there.
+Its `git-pr-create` also refuses a title or body holding any term the publication guard keeps back before disclosure, with no exemption for a disclosure that is already public,
+so it could not open a pull request that names the published CVE.
+Pull-request mode therefore uses the same `magpie-vcs` commands as the direct mode, plus one confirmed `gh pr create`.
+Under the secure agent setup an SSH push may fail in the sandbox, as in the direct mode; the user then runs that command from their own terminal.
+
+### The publication guards
+
+The pull request is opened only after the planner's gate (cve.org `PUBLISHED` and a `vendor-advisory` reference), so naming the CVE is right.
+Three guards look at publishing commands; each was checked against the commands above:
+
+- **agent-guard's `security-language` guard** refuses a CVE ID in the title or body of any `gh pr create`, whatever the repository.
+  Its documented exemption for a disclosure that is already public is the inline `MAGPIE_ALLOW_SECURITY_LANG=1`,
+  so the planner puts it on step 11, where the user sees it in the command they confirm.
+  Without it the default title (`Add {cve_id} to the security pages`) is refused.
+- **The `public-surface-scrub` hook** (the `magpie-security` plugin's mod) scrubs only commands aimed at the project's `upstream_repo`, a repository of the same name, or an undetermined one.
+  `gh pr create --repo <site repo>` names its target, so a site repository named differently from the source repository passes.
+  A project whose site lives in the source repository itself, or that has no `upstream_repo` configured, is refused (`CVE`, `CVE id`);
+  that hook honours only `MAGPIE_ALLOW_EMBARGO_TERMS=1` set before the session starts, never an inline one, so such a project should keep the direct mode or have a maintainer open the pull request.
+- **`magpie-vcs`** scrubs a commit message or a branch name only with `--scrub`, which the planner does not pass,
+  and the hook does not inspect `magpie-vcs` commands, so the commit message and the `advisory-records/<CVE-ID>` branch name are not refused.
+
 ## Safety properties
 
-- **Never before publication.** Refused unless cve.org reports `PUBLISHED` and the record carries the public advisory.
+- **Never before publication.** Refused unless cve.org reports `PUBLISHED` and the record carries the public advisory, in both publishing modes.
 - **Idempotent.** A re-run finds the entry (the CVE ID as an element's whole text or attribute value, or in the Markdown section) and proposes nothing.
   A CVE recorded under a different release is refused, not duplicated.
+  In pull-request mode the status comment and the branch lookup stand in for the entry until the pull request merges.
+- **Nothing reaches the site repository unreviewed in pull-request mode.** The only push goes to the operator's fork, and the site's own review merges the change.
 - **External content is escaped.** Title, description, product and affected-versions text come from the tracker;
   they are escaped for the page format, and identifiers (CVE ID, versions, dates, commit hashes) are validated.
 - **Pages are spliced, not rewritten.** The planner refuses a page that is not well-formed XML, never fetches external entities,
@@ -115,3 +212,5 @@ Committing or pushing needs the user's credentials for the site repository; unde
 - Inputs the record does not carry come from the tracker, the release train or the user:
   the release date (only to create a section), the date the report arrived, and fix commits when no `patch` reference is a commit URL.
 - The default *Affects* text is the record's version range (`>= 9.0.0, < 9.0.99`); a project that writes it differently passes `--affects`.
+- Pull-request mode opens the pull request with `gh`, so the site repository has to be on GitHub; it needs a Git working copy with the operator's fork as a remote.
+- A site that lives in the source repository itself cannot use pull-request mode from an agent session: the `public-surface-scrub` hook refuses the pull request's text there (see [The publication guards](#the-publication-guards)).

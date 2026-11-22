@@ -575,10 +575,22 @@ advisory_records:
   # Local working copy. A per-user path: `user.md → environment.advisory_records_clone` wins over this.
   working_copy: ~/code/<project>-site
   # Git only: the branch and remote the commit is pushed to.
+  # With publish: pull-request, `branch` is the base the pull request targets and `remote` is unused.
   branch: main
   remote: origin
   # One line; placeholder {cve_id}.
   commit_message: "Add {cve_id} to the security pages"
+  # direct       — commit on `branch` and push it (Git), or commit (Subversion). The default.
+  # pull-request — Git only: the operator commits on a new branch, pushes it to their own fork
+  #                and opens a pull request against `branch`; nothing is pushed to the site repository.
+  publish: direct
+  pull_request:
+    repo: <org>/<project>-site                  # owner/name; default: derived from a GitHub `repository` URL
+    branch: "advisory-records/{cve_id}"
+    title: "Add {cve_id} to the security pages" # default: commit_message
+    # Per user: user.md → environment.advisory_records_fork / advisory_records_fork_remote win over these.
+    # fork: <you>/<project>-site
+    fork_remote: fork
 
   # cve-json-file — one CVE 5.x JSON file per CVE, the record generate-cve-json emits
   #                 (e.g. Apache HTTP Server keeps these under content/security/json/).
