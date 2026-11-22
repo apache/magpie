@@ -112,12 +112,15 @@ reading this file; read the section for a check whose condition holds.
    caller name in an example constrains nothing. Verify by
    inspection, not by trusting a comment next to the rule.
 
-   `vetted-op` and `vetted-op-tracker` each belong in `ask` and in
+   `vetted-op`, `vetted-op-tracker` and `vetted-op-git` each belong in `ask` and in
    `sandbox.excludedCommands` (both launcher forms), never in
    `allow` — they write. The exclusion is correct: every operation
    is a fixed `gh` argv with bodies read only from the workspace, so
    it reaches less than the bare `gh *` exclusion, and a sandboxed
    `vetted-op` cannot even read `~/.claude/magpie/` to start.
+   `vetted-op-git` runs closed-shape git operations that cannot run
+   inside (an SSH push, a linked worktree's administrative directory);
+   a missing `vetted-op-git` exclusion is ✗, since every publish fails.
    An excluded write dispatcher with no matching `ask` rule is ✗ —
    the prompt is the only gate on its unsandboxed writes.
    A missing `vetted-op` exclusion is ✗ too: every write op fails
@@ -144,17 +147,21 @@ reading this file; read the section for a check whose condition holds.
      working directory.
    - `~/.config/apache-magpie/vetted-ops/**` — the approved policies,
      the only ones the write dispatchers act on.
-
-   **9c — the approved copy.** The project's policy has a
-   byte-for-byte regular-file copy (not a symlink) in
-   `~/.config/apache-magpie/vetted-ops/`. Missing or stale is ✗:
-   every `vetted-op` / `vetted-op-tracker` write is refused with
-   *"not an approved copy"*. The fix is the user's to run in their
-   own terminal after reviewing the policy — never propose writing
-   that directory from the agent.
    - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
      and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
      maintainer's personal layer.
+
+   **9c — the approved copy.** The project's policy has a
+   byte-for-byte regular-file copy (not a symlink) in
+   `~/.config/apache-magpie/vetted-ops/`. The sandbox cannot read that
+   directory; `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read approval-status`,
+   run from the repository root, answers with `"approved": true|false`
+   ([`setup verify` check 11a](../setup/verify.md#11a-vetted-ops-policy-approval)).
+   Missing or stale is ✗:
+   every `vetted-op` / `vetted-op-tracker` / `vetted-op-git` write is refused with
+   *"not an approved copy"*. The fix is the user's to run in their
+   own terminal after reviewing the policy — never propose writing
+   that directory from the agent.
 
    Any one missing is ✗. One `Edit` rule per surface is the whole
    coverage — in `permissions`, `Edit(path)` binds every file-editing

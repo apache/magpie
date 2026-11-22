@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 7824
+measured_tokens: 8057
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -157,13 +157,14 @@ Read a section, not the whole file: find its heading with `grep -n` and read fro
 | Install health | [`setup verify` → Adoption floor](../setup/verify.md#adoption-floor) | `install` is `marketplace`, and `listing_known` is false or `project_findings` has a floor finding (`below-floor`, `untrusted-marketplace`, `version-unparsable`); otherwise the floor is met |
 | Install health | [`setup verify` → Committed default set](../setup/verify.md#committed-default-set) | `install` is `marketplace` |
 | Install health | [`setup verify` check 8i](../setup/verify.md#8i-adversarial-reviewers-if-configured) (adversarial reviewers) | `adversarial-review.md` resolves in the personal layer or `.apache-magpie-overrides/` |
-| Reconciliation | [`setup verify` check 11](../setup/verify.md#11-reconciliation-sweep-read-only) with [`setup reconcile` → The sweep](../setup/reconcile.md#the-sweep) | `configured` is true |
+| Reconciliation | [`setup verify` check 11](../setup/verify.md#11-reconciliation-sweep-read-only) with [`setup reconcile` → The sweep](../setup/reconcile.md#the-sweep), its caller policy grants (check 3a) included | `configured` is true |
+| Vetted-ops policy | [`setup verify` check 11a](../setup/verify.md#11a-vetted-ops-policy-approval) (`vetted-op-read approval-status`) | a vetted-ops policy exists (committed, or in the personal layer) |
 | Project configuration | [`setup config`](../setup/config.md): [Step 1](../setup/config.md#step-1--work-out-what-is-actually-needed) (`requires_config` per installed skill), [Step 2a](../setup/config.md#step-2a--install-the-pre-flight-checker) (pre-flight checker copy freshness) and [Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) (the reconciliation stamp); `layers` answers Step 0 | `configured` is true |
 | Local changes | [`setup verify` 5d](../setup/verify.md#5d-local-configuration-and-what-it-shadows) (what a shadowing personal file means) | `shadowed` is not empty |
 | Local changes | the local agent settings against the template ([`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)) | always |
 | Isolated setup | [`setup-isolated-setup-verify`](../isolated-setup-verify/SKILL.md) checks with [`conditional-checks.md`](../isolated-setup-verify/conditional-checks.md), and [`setup-isolated-setup-update` → What to check](../isolated-setup-update/SKILL.md#what-to-check) with [`script-inventory.md`](../isolated-setup-update/script-inventory.md) (script-copy drift, settings shape drift, comdev MCP checkouts, the vetted-ops split) | `isolated.attention` is true |
 
-The *Install health* and *Reconciliation* rows, with *Local changes* 5d, are the whole of [`setup verify`](../setup/verify.md) for this install, so a run of this skill is also a verify run.
+The *Install health*, *Reconciliation* and *Vetted-ops policy* rows, with *Local changes* 5d, are the whole of [`setup verify`](../setup/verify.md) for this install, so a run of this skill is also a verify run.
 It writes `verified_at` for it (see [Re-check and record](#re-check-and-record)), and the pre-flight does not suggest a separate verify right after an upgrade.
 A verify finding becomes a plan item like any other; one with no fix this skill may apply goes under *Still open*.
 
@@ -246,6 +247,10 @@ This deliberately relaxes `setup-isolated-setup-update`'s "never re-`cp`" for pl
 **Settings items** add only entries copied verbatim from the framework template (`tools/agent-isolation/claude-settings.local.template.json`) or reference config (the framework `.claude/settings.json`), or written by the helper that owns the write; never a value taken from gathered text.
 
 An item a hard line blocks goes under *Run these yourself*, never under *Still open*: the vetted-ops policy, any committed file (a needed change to the committed `.claude/settings.json` is shown there as a diff), or a credential read.
+Two vetted-ops findings always land there, rendered as [`hard-lines.md` → 1](hard-lines.md#1-never-write-the-vetted-ops-policy) describes:
+a caller lacking grants the README example lists (reconcile check 3a) is the minimal TOML diff for the user to save, and a policy `approval-status` reports as not approved (verify check 11a) is the re-approval command with a one-line "review the diff first" note.
+A grant diff is followed by that re-approval command too, since saving it leaves the approved copy stale.
+This skill never marks either done on the user's word alone: the next run's Gather reports it again until a re-check finds it applied.
 A deny weakening or a removed sandbox restriction is never offered: it goes on a separate *Not offered* line with its reason and no command.
 *Still open* holds the items Gather found but will not offer (such as a user-scope copy with local edits) plus, after Apply, the items skipped there (dropped, changed since gathering, failed); a hard-line item is never there.
 

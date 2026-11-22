@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [Is the policy approved?](#is-the-policy-approved)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
     - [The Vulnogram CVE-tool operations](#the-vulnogram-cve-tool-operations)
@@ -442,7 +443,9 @@ swapped for a link to a private directory such as `~/.ssh` (yours, mode 0700)
 would otherwise pass the workspace checks and turn its files into bodies. Name
 the workspace by its real path (on macOS, `/private/tmp/…` rather than `/tmp/…`).
 `--dry-run`, `policy` and `list-ops` need neither approval nor discovery, and
-still accept `--config`: they publish nothing.
+still accept `--config`: they publish nothing. `vetted-op-read approval-status`
+reports whether the discovered policy is approved (see
+[Is the policy approved?](#is-the-policy-approved)).
 
 When a repo holds more than one policy, bind the flag in the permission rule so
 the grant names the policy it was reasoned about:
@@ -482,6 +485,27 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
 underlying command failed.
+
+### Is the policy approved?
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read approval-status
+# {"policy": "/work/repo/.apache-magpie-overrides/tools/vetted-ops/config.toml", "approved": false, "approved_dir": "/Users/me/.config/apache-magpie/vetted-ops"}
+```
+
+`approval-status` tells a sandboxed session whether the write entry points would act on the policy it works with.
+After a policy change merges, the approved copy is stale until the user copies the policy again, and the first write is refused;
+the sandbox cannot read `~/.config/apache-magpie/`, so without this subcommand a skill cannot see that coming.
+It discovers the policy from the working directory exactly as `vetted-op`, `vetted-op-tracker` and `vetted-op-git` do, and compares it byte for byte with the approved copies, as they do.
+It prints one JSON object and nothing else: `policy` (the discovered path, or `null` when there is none), `approved` (`true` only when an approved copy matches) and `approved_dir`.
+
+- It never prints a file's content, parses nothing and runs nothing, so it needs no approval itself.
+- It takes no `--config`, `--caller`, `--save`, `--dry-run` or parameter; any of them is a usage error (exit `2`).
+  Discovery only: an explicit path would let it probe whether an arbitrary file exists or matches an approved policy.
+- A symlink on the committed policy path is refused (exit `3`), as on the write entry points.
+- It exists on `vetted-op-read` only, which is allowlisted and excluded from the sandbox, so the check never prompts.
+
+When `approved` is `false`, the user reviews the policy and approves it again in their own terminal, with the command under [Configuration](#configuration).
 
 ### Saving a read instead of printing it
 
