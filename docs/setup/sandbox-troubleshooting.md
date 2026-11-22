@@ -1232,22 +1232,27 @@ or, once pnpm's own directories are writable, inside the project:
 EPERM: operation not permitted, mkdir '<repo>/node_modules/.pnpm/iconv-lite@0.6.3/node_modules/iconv-lite_tmp_.../.idea/codeStyles'
 ```
 
+or, with the settings below in place but the home not yet created:
+
+```console
+EPERM: operation not permitted, mkdir '/Users/<you>/.local/share/pnpm-sandbox/<project>/.tools/pnpm/10.28.1_tmp_...'
+```
+
 ### Root cause
 
 Two separate refusals.
-pnpm downloads the pnpm version pinned in `package.json` into `PNPM_HOME/.tools`, and keeps its cache beside it: under `~/Library/` on macOS, which the sandbox does not let it write.
+pnpm downloads the pnpm version pinned in `package.json` into `PNPM_HOME/.tools`, and keeps its cache and content store beside it: under `~/Library/` on macOS, which the sandbox does not let it write.
 Then pnpm links packages into `node_modules/.pnpm` inside the project, and Claude Code refuses any `.idea/codeStyles` directory in the project tree, which some packages ship; the same path under `~/.cache` or `$TMPDIR` is allowed.
-That rule comes from the harness, not from the project's settings, so the setup can only route around it.
+That rule comes from the harness, not from the project's settings.
 
 ### Fix
 
-Give sandboxed pnpm a home of its own for this project, and turn on the global virtual store, which keeps `node_modules/.pnpm` out of the project, in the project's own `.claude/settings.json` ([details](secure-agent-setup.md#host-only-uv-state)). With `<project>` the project's name:
+Give sandboxed pnpm a home of its own for this project in the project's own `.claude/settings.json` ([details](secure-agent-setup.md#host-only-uv-state)). With `<project>` the repository's name:
 
 ```json
 "env": {
   "PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>",
-  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache",
-  "npm_config_enable_global_virtual_store": "true"
+  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"
 },
 "sandbox": {
   "filesystem": {
@@ -1257,15 +1262,37 @@ Give sandboxed pnpm a home of its own for this project, and turn on the global v
 }
 ```
 
-`setup-isolated-setup-install` proposes them for a project with a tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`, and `setup-isolated-setup-update` reports them missing there; restart the session afterwards, since `env` and the sandbox grants are read at startup.
+Then create the directory once, from a terminal outside the sandbox:
+
+```bash
+mkdir -p ~/.local/share/pnpm-sandbox/<project>
+```
+
+A grant takes effect only on a directory that exists, and a sandboxed command cannot create it: `~/.local/share` itself is not writable, so even `mkdir -p` inside the sandbox fails on the first missing level.
+
+`setup-isolated-setup-install` proposes both for a project with a tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`, and `setup-isolated-setup-update` reports either missing there; restart the session after changing the settings, since `env` and the sandbox grants are read at startup (creating the directory needs no restart).
 They stay out of the framework's shared settings on purpose: npm reads the same `npm_config_*` names and warns `Unknown env config` about each on every command, so a project without pnpm should not carry them.
 Do not grant writes to `~/Library/pnpm` or `~/Library/Caches/pnpm` instead: a pnpm run outside the sandbox would then execute what sandboxed commands wrote there.
-Do not put the home under `~/.cache/` either, nor grant `~/.local/share/pnpm-sandbox/` itself: the global virtual store makes `node_modules` symlinks into the home's store, the project's git hooks run that code outside the sandbox, and a home every project's sessions can write would let any of them plant it.
+Do not put the home under `~/.cache/` either, nor grant `~/.local/share/pnpm-sandbox/` itself: the project's `node_modules/.pnpm` is linked from the home's store (hard links on Linux), the project's git hooks run that code outside the sandbox, and a home every project's sessions can write would let any of them plant it.
+
+That clears the first refusal. The `.idea/codeStyles` one is fixed in the project: override the package that ships it to a release without it, in the project's `package.json`, for example
+
+```json
+"pnpm": {
+  "overrides": {
+    "iconv-lite": "^0.7.0"
+  }
+}
+```
+
+(`iconv-lite` 0.6.3 ships `.idea/`; 0.7.0 and later do not, and 0.7.0 is a bug-fix release), or run `pnpm install` outside the sandbox.
+Do not move the virtual store out of the project to avoid it, with `npm_config_enable_global_virtual_store` or `npm_config_virtual_store_dir`: TypeScript resolves a package's types by walking up from its real path to the project's `node_modules`, so from a store anywhere else the project's own `@types/*` packages are out of reach, types collapse to `any`, and type-aware lint and `tsc` fail (an autofix can then rewrite correct code).
 
 ### Notes
 
-- The global virtual store needs pnpm 10.12 or later; an older pnpm ignores the setting and still fails on the `.idea/codeStyles` path.
-- The first sandboxed install after the switch downloads everything into the project's home once; that is expected.
+- To find the package: `find node_modules/.pnpm -maxdepth 4 -name .idea` after an install outside the sandbox, and `pnpm why <package>` for what pulls it in.
+- The first sandboxed install after the switch downloads everything into the project's home once; that is expected. An install over a `node_modules` built with a different store asks to purge it and aborts without a terminal (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`); pass `--config.confirmModulesPurge=false` once.
+- If that old `node_modules` holds a package with `.idea/` (built outside the sandbox, or before the override), the sandboxed purge cannot delete it either and fails with `EPERM ... unlink '.../.idea/...'`, leaving `node_modules` half removed. Delete it once from a terminal outside the sandbox (`rm -rf node_modules`, and any in-project `.pnpm-store`) before the first sandboxed install.
 - Name the home after the repository (lower-case letters, digits, `.`, `_` and `-`), and spell it exactly as above (or its absolute form). pnpm 10.28 expands `~` in these two and nothing else: `${HOME}` in `PNPM_HOME` becomes a `${HOME}` directory inside the project. The git-hook dispatcher drops the home for hooks run outside the sandbox by its literal prefix, so `sandbox-lint` rejects any other spelling, including ones that normalise to the same path.
 - Leave `npm_config_store_dir`, `npm_config_state_dir` and `npm_config_virtual_store_dir` unset: pnpm keeps them inside `PNPM_HOME`, the only place the grant covers (`~` in `npm_config_state_dir` is not expanded either, and pnpm tolerates failing to write its update-check state there). `sandbox-lint` rejects them in any project.
 - On Linux the host pnpm cache is `~/.cache/pnpm`, which `Edit(~/.cache/pnpm/**)` keeps sandboxed commands out of.

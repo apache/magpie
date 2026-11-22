@@ -157,9 +157,9 @@ if [ -z "${SANDBOX_RUNTIME:-}" ]; then
   # reaches a hook Claude Code runs outside the sandbox. Drop any pnpm
   # directory pointing there, so a host pnpm uses its own defaults rather than
   # a binary sandboxed commands could write. sandbox-lint accepts only these
-  # two literal spellings of that home, so a prefix match is enough. The
-  # global virtual store it turns on goes with it: a host pnpm keeps its own
-  # layout, and npm no longer warns about the name.
+  # two literal spellings of that home, so a prefix match is enough. A global
+  # virtual store set beside it (an older setup) goes with it: a host pnpm
+  # keeps the project's own layout, and npm no longer warns about the name.
   _pnpm_dropped=
   for _var in PNPM_HOME npm_config_cache_dir npm_config_state_dir npm_config_store_dir; do
     case "${!_var:-}" in

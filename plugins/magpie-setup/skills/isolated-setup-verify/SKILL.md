@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:7e0d11345084066f
 license: Apache-2.0
-measured_tokens: 6234
+measured_tokens: 6287
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -275,10 +275,14 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
       also carry `env.PNPM_HOME` set to a directory of the project's own,
       exactly `~/.local/share/pnpm-sandbox/<project>` (or its absolute form;
       `<project>` lower-case letters, digits, `.`, `_`, `-`), that directory
-      in `allowWrite`, `env.npm_config_cache_dir` exactly `<home>/cache`, and
-      `env.npm_config_enable_global_virtual_store` = `"true"`. Any missing is
-      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm` or on a
-      `.idea/codeStyles` path in the project. A home spelled any other way
+      in `allowWrite` and existing on disk (`test -d`; a grant on a missing
+      directory does nothing, and the sandbox cannot create it), and `env.npm_config_cache_dir`
+      exactly `<home>/cache`. Any missing is
+      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm`.
+      `env.npm_config_enable_global_virtual_store` = `"true"` is ⚠ (not a
+      sandbox breach): a virtual store outside the project hides the
+      project's own `@types/*` packages from TypeScript, so type-aware checks
+      fail. A home spelled any other way
       (under `~/.cache/`, or `.`/`//` in it), and in any project a scope
       granting `~/.local/share/pnpm-sandbox/` itself or an
       `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, is
