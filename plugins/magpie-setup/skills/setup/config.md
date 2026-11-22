@@ -368,6 +368,31 @@ Then, for both:
    [`tools/github/project-board.md`](../../../../tools/github/project-board.md#keep-the-board-security-only)) to say it holds security trackers only.
 4. Suggest a first `sync all` so the sync adds the open trackers to the board and archives the closed ones and anything else.
 
+## Step 3a.2 — Security advisories page (security family)
+
+Run this when any `security`-family skill is in scope and `security_pages_url` in `project.md` is unset, empty or `TODO`.
+After each advisory ships, the [ASF security-committers policy](https://www.apache.org/security/committers.html)
+expects the project to list it on its own public security pages, and `security-issue-sync` tracks that step only when it knows the page.
+
+Look first, then ask once (in the Step 3 batch when it runs):
+
+- **Auto-detect.** Check the obvious places without guessing a value into the file:
+  for an ASF project, `https://<project>.apache.org/security` and `…/security.html`,
+  and a `security` section in the site repository the `upstream_repo` points to or names.
+  Present what was found as a suggestion.
+- **Ask:** *"Does the project already publish a page listing its security advisories?"*
+  - **Yes** — record its URL as `security_pages_url`. Then offer [Advisory records](../../templates/project.md#advisory-records):
+    with it, sync proposes the page change for each published CVE itself instead of reminding the release manager.
+  - **No** — propose creating one, and say why (the policy step above, and one place users can check what affects them).
+    Offer the `cve-json-file` layout of [`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md):
+    one CVE JSON record per file in the site repository, from which the site renders the list, so each new CVE is a one-file change.
+    Creating the page is a change to the project's website: draft it only on the user's go-ahead, in the site repository,
+    and leave opening the pull request to the user's confirmation. Until a page exists, leave `security_pages_url` unset.
+  - **Not now** — leave it unset.
+
+Whatever the answer, say what it means for sync: with no `security_pages_url`, sync sends no security-pages reminder
+and the release-manager hand-off asks for no website edit; with one, both appear after each advisory.
+
 ### Personal tool configs, for a project that has not adopted Magpie
 
 Two security tools read a config file the `requires_config:` check does not cover, so a maintainer working alone passes pre-flight and then stops mid-run without them.

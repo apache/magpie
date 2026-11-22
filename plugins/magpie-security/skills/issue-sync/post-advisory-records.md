@@ -31,6 +31,8 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   project's security pages"* is a website edit, which sync cannot perform or gate the close-out on
   (the close-out fires on the archive-URL signal).
   Projects that configure `advisory_records` never get this reminder: the *Advisory-records update* above makes the edit.
+  Nor do projects with no `security_pages_url`: there is no page to update, so the step does not exist for them
+  (`/magpie-setup:setup config` asks whether the project has such a page and offers to create one).
   Sync carries the checklist item that records it: both hand-off comment variants embed a
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project
   security pages updated with CVE_ID` box, and ticking it records the completion marker on the tracker.
@@ -54,7 +56,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   followed by one sentence naming the outstanding item with a link to the project's security pages
   (the `security_pages_url` key from
   [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories);
-  when unset, the plain phrase *"the project's security pages"* with no link, and flag the missing key in the proposal), and
+  a project without the key never reaches this proposal, see [`closed-tracker-check.md`](closed-tracker-check.md)), and
   the checklist item
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
   so ticking the box on either comment records the step.

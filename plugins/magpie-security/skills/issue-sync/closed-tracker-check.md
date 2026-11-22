@@ -19,7 +19,7 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason}`
    and run `<sm> closed-announced`. `comments` are the 1a comments with their `author` and `authorAssociation`;
    `collaborators` is the tracker's collaborator list, for a backend whose comments carry no association.
    Only a comment by the team (`OWNER` / `COLLABORATOR`, or a login in `collaborators`) can carry the state markers below; pass the full collaborator list, since team members with access through a GitHub team show as `MEMBER`.
@@ -39,6 +39,9 @@ The same command scans the team's comments from the 1a fetch — no extra API ca
 and sets `security_pages_reminder_pending` only when the *Public advisory URL* is populated and neither exists
 (an unticked box in the hand-off comment is the pending state, not the satisfied one).
 Step 2b turns a pending flag into the *Security-pages reminder comment* proposal ([`signals-to-actions.md`](signals-to-actions.md)).
+Pass `security_pages_configured: false` when [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories) has no `security_pages_url` (unset, empty or still `TODO`):
+the project has no security page to update, so the flag stays `false`, the output carries `security_pages: not_configured`,
+and the observed state records *"security pages: not configured — no reminder"*. `/magpie-setup:setup config` offers to create the page.
 
 **Advisory records.** When [`<project-config>/project.md`](../../../../<project-config>/project.md#advisory-records) declares an `advisory_records` block,
 sync also records the CVE in the project's own security records — a site repository over Git or Subversion
