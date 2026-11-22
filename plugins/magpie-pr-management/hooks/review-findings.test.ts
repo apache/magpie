@@ -779,15 +779,17 @@ End of observations.
       };
 
       register(fakeOn);
-      assertStrictEqual(registered.length, 5);
+      assertStrictEqual(registered.length, 6);
       assertStrictEqual(registered[0]?.event, 'session.start');
       assertStrictEqual(registered[1]?.event, 'ui.render');
       assertStrictEqual(registered[1]?.opts?.component, 'Pane');
-      assertStrictEqual(registered[2]?.event, 'ui.press');
-      assertStrictEqual(registered[3]?.event, 'tool.call');
-      assertStrictEqual(registered[3]?.opts?.tool, 'Bash');
-      assertStrictEqual(registered[4]?.event, 'command.run');
-      assertStrictEqual(registered[4]?.opts?.command, 'magpie-findings');
+      assertStrictEqual(registered[2]?.event, 'ui.render');
+      assertStrictEqual(registered[2]?.opts?.component, 'AbovePrompt');
+      assertStrictEqual(registered[3]?.event, 'ui.press');
+      assertStrictEqual(registered[4]?.event, 'tool.call');
+      assertStrictEqual(registered[4]?.opts?.tool, 'Bash');
+      assertStrictEqual(registered[5]?.event, 'command.run');
+      assertStrictEqual(registered[5]?.opts?.command, 'magpie-findings');
     });
 
     test('session.start fixture hydration routes through setReviewFindingsState and invalidates UI', async () => {
