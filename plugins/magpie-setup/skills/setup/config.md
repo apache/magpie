@@ -406,7 +406,7 @@ Under the secure setup, publishing goes through `vetted-op-git`, which needs thi
 upstream repository: where their checkouts, worktrees and fork are. They live in one file only the operator writes,
 `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository (`["<upstream_repo>"]`),
 never in the committed policy ([`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
-The project-wide `[git]` keys and the `git-*` grants for the publishing skills stay in the shared policy.
+The project-wide `[git]` keys and the publishing skills' grants stay in the shared policy, which this step does not check.
 
 - **Already configured** (that file has a table for `upstream_repo`): say so in one line.
 - **Missing**: propose it. Draft the table with what the repository shows — the main checkout for `checkouts`,
@@ -416,9 +416,6 @@ The project-wide `[git]` keys and the `git-*` grants for the publishing skills s
   Show it, with the line that appends it to the file, for the user to run in their own terminal:
   the sandbox denies that directory by design, and setup never writes it.
   `vetted-op-git` prints the same draft whenever it refuses for missing values.
-- **The shared policy grants no `git-*` operation to a publishing skill's caller**: name the missing grant for the project's
-  maintainers, under [Import caller grants](#import-caller-grants--independent-of-tracker-selection)'s rules; it is a change to the
-  committed policy, not a personal one.
 
 A declined proposal is not a failure; record it like any other declined configuration.
 
