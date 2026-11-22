@@ -17,6 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { register as registerCommitAttribution } from './commit-attribution.js';
+
 export interface ProcessRunResult {
   exitCode: number;
   stdout: string;
@@ -191,6 +193,9 @@ export function register(on: any): void {
       };
     }
   });
+
+  // 3. Register commit-attribution hooks (attribution.text, tool.call Bash guard)
+  registerCommitAttribution(on);
 }
 
 export default register;
