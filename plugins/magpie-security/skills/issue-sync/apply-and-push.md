@@ -153,7 +153,15 @@ Use:
   line 1 is the marker `<!-- apache-magpie: advisory-records v1 -->`, then one sentence naming the file(s) and the commit,
   then the ticked item `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
   which records the security-pages step as done.
+  In pull-request mode, after the `commit` and before the `push`, run the adversarial review in [`pre-pr-adversarial-review.md`](pre-pr-adversarial-review.md)
+  over the site working copy (`--repo-dir`), against the base branch, with the pull request's title and the body file the `--apply` run wrote;
+  a finding the user wants acted on stops the run before anything is pushed.
+  The comment follows a successful `gh pr create` (or records the pull request Step 1g found, for `record_pr`):
+  line 1 is the same marker, then one sentence naming the file(s) and the pull request's full URL, which later syncs read back,
+  and no checklist item — the record is live only once the pull request merges, which the `advisory-records-merged v1` comment records.
   A failed command posts nothing; report it in the recap with the command's output.
+  If the push succeeded but `gh pr create` failed, say so and offer only that command again, on the user's confirmation:
+  the branch is already on the fork, so re-running the earlier commands would stop at `new-branch`.
 - **CVE record state transition (`review-ready → public`):** run the CVE-tool interface's `publish` operation
   ([`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md); for Vulnogram it flips the record's `CNA_private.state` from `REVIEW` to `PUBLIC` over the OAuth API).
   It refuses the transition unless the current state is `review-ready` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);
