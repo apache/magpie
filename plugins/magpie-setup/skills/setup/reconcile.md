@@ -199,10 +199,11 @@ committed one.
    name>` requires `<file>`, which is not configured"* — propose
    `/magpie-setup:setup config <skill>` for it.
 
-3a. **Import caller policy grants.** When an existing vetted-ops policy
-   is present and a security issue-import skill is in scope (step 1),
+3a. **Import and triage caller policy grants.** When an existing vetted-ops policy
+   is present and a security issue-import skill or `security-issue-triage` is in scope (step 1),
    read its `[callers]` table. Compare the applicable caller against
-   the minimum permissions used by the skill:
+   the minimum permissions used by the skill (for triage, the `issue-comment`
+   its Step 6 posts the proposal with):
 
    Derive required operations from the canonical [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including backend-specific operations where applicable. Do not use a second hard-coded mapping.
 
@@ -227,8 +228,10 @@ committed one.
 
    A missing caller or missing required operation is a finding. Name the
    caller, the missing operations, and the existing policy path. Propose
-   adding only those grants; do not grant `body-field-set`, which these
-   import workflows do not use. When a caller already exists, merge
+   adding only those grants, exactly as the README example lists them for
+   that caller (`security-issue-import` includes `body-field-get` /
+   `body-field-set` for fold-in credits; the from-md and from-pr importers
+   do not). When a caller already exists, merge
    missing operations into its existing TOML array rather than creating
    a duplicate key. Preserve comments, unrelated callers and existing
    permissions.

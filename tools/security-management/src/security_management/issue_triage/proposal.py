@@ -191,8 +191,11 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
     text = "\n".join(parts) + "\n"
     scrubbed = scrub(text, data.get("names") or {}, tracker)
     text = scrubbed["text"]
-    scratch = str(data.get("scratch") or "").rstrip("/")
-    path = f"{scratch}/triage-{number}.md"
+    # The comment is posted through the vetted `issue-comment` operation,
+    # which accepts a body file only from its workspace; `scratch` stays
+    # the fallback for callers that do not pass one.
+    workspace = str(data.get("workspace") or data.get("scratch") or "").rstrip("/")
+    path = f"{workspace}/triage-{number}.md"
     return {
         "ok": True,
         "text": text,
@@ -203,7 +206,10 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         "linked_refs": scrubbed["linked_refs"],
         "unlinked_cves": _unlinked_cves(text),
         "file": path,
-        "command": f"gh issue comment {number} --repo {w(tracker)} --body-file {w(path)}",
+        "command": (
+            "uv run --project ~/.claude/magpie/vetted-ops vetted-op "
+            f"--caller security-issue-triage issue-comment {number} {w(path)}"
+        ),
     }
 
 

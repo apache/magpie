@@ -234,7 +234,15 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
-"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
+                           # Step 7: put the new tracker on the board in Needs triage.
+                           "board-item", "board-add-item", "board-set-status",
+                           # Rejections-ledger records for reject-without-tracker dispositions.
+                           "issue-comment",
+                           # Fold-ins: add an independent finder to an existing tracker's credit.
+                           "body-field-get", "body-field-set",
+                           # Receipts for reports relayed from a GitHub Security Advisory.
+                           "advisory-comment"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
@@ -269,7 +277,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Do not duplicate TOML keys or grant every operation to every caller.
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
-                           "osv-get-vuln", "osv-query-package"]
+                           "osv-get-vuln", "osv-query-package",
+                           # Step 6: the confirmed triage-proposal comment.
+                           "issue-comment"]
 "security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
 "dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
