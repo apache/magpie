@@ -1,0 +1,1 @@
+{"route": "brief-to-user", "clone_in_this_sandbox": false, "confirm_with_user_first": true, "reason": "The harness cannot message other sessions, so the brief is written to a file for the user to paste into a session in their framework clone."}
