@@ -56,6 +56,9 @@ PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
 #: `Edit`-denied, so neither a sandboxed command nor the agent's file tools can
 #: put a policy there; a renamed directory or a symlink elsewhere cannot either.
 APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
+#: The operator's own ``[git]`` values (see `git_ops.operator_git_table`), kept
+#: beside the approved policies but never one of them.
+OPERATOR_GIT_FILE = "operator-git.toml"
 
 #: `values.<key>_patterns` adds full-match patterns to the enum list `<key>`.
 PATTERNS_SUFFIX = "_patterns"
@@ -102,7 +105,7 @@ def _approved(data: bytes) -> bool:
     except OSError:
         return False
     for name in names:
-        if not name.endswith(".toml"):
+        if not name.endswith(".toml") or name == OPERATOR_GIT_FILE:
             continue
         try:
             if read_regular_file(root / name) == data:

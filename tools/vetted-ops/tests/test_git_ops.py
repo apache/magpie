@@ -33,6 +33,14 @@ from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
 
 
+@pytest.fixture(autouse=True)
+def approved(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An empty approved-policy directory, so no test reads the account's real one."""
+    root = Path(os.path.realpath(tmp_path_factory.mktemp("approved")))
+    monkeypatch.setattr(git_ops, "approved_dir", lambda: root)
+    return root
+
+
 def _git(directory: Path, *args: str) -> str:
     env = git_ops.clean_env()
     env.update(
@@ -662,6 +670,98 @@ def test_git_policy_defaults_and_protected_branches(tmp_path: Path) -> None:
 def test_git_policy_refuses_malformed_tables(table: object) -> None:
     with pytest.raises(ConfigError):
         git_ops.git_policy(_config(table))
+
+
+def _operator(approved: Path, text: str) -> None:
+    (approved / git_ops.OPERATOR_GIT_FILE).write_text(text)
+
+
+def test_operator_table_alone_supplies_the_git_values(tmp_path: Path, approved: Path) -> None:
+    checkout = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\nfork = "me/project"\n')
+    policy = git_ops.git_policy(_config(None))
+    assert policy.checkouts == (checkout,)
+    assert policy.fork_repo == "me/project"
+    assert not policy.upstream_push
+    assert policy.pr_base == "main"
+
+
+def test_operator_values_override_the_shared_policy(tmp_path: Path, approved: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    (root / "mine").mkdir()
+    (root / "worktrees").mkdir(mode=0o700)
+    shared = {
+        "checkouts": [str(root)],
+        "fork": "someone/project",
+        "upstream_push": ["ci-*"],
+        "pr_base": "develop",
+        "protected": ["prod"],
+    }
+    _operator(
+        approved,
+        '["acme/project"]\n'
+        f'checkouts = ["{root / "mine"}"]\n'
+        'fork = "me/project"\n'
+        f'worktree_roots = ["{root / "worktrees"}"]\n'
+        'protected = ["staging"]\n',
+    )
+    policy = git_ops.git_policy(_config(shared))
+    assert policy.checkouts == (root / "mine",)
+    assert policy.fork_repo == "me/project"
+    assert policy.worktree_roots == (root / "worktrees",)
+    assert policy.upstream_push == ("ci-*",)
+    assert policy.pr_base == "develop"
+    assert git_ops.is_protected("prod", policy)
+    assert git_ops.is_protected("staging", policy)
+
+
+def test_describe_git_names_where_each_value_came_from(tmp_path: Path, approved: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{root}"]\nfork = "me/project"\n')
+    config = _config({"pr_base": "develop", "protected": ["prod"]})
+    text = git_ops.describe_git(config, git_ops.git_policy(config))
+    operator_file = str(approved / git_ops.OPERATOR_GIT_FILE)
+    assert f"fork = 'me/project'  # {operator_file}" in text
+    assert "pr_base = 'develop'  # policy" in text
+    assert "upstream_remote = 'upstream'  # default" in text
+    assert "protected += ['prod']  # policy" in text
+
+
+def test_operator_table_for_another_upstream_is_ignored(tmp_path: Path, approved: Path) -> None:
+    _operator(approved, f'["other/repo"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n')
+    with pytest.raises(ConfigError, match="no \\[git\\] values for acme/project"):
+        git_ops.git_policy(_config(None))
+
+
+@pytest.mark.parametrize("key", ["upstream_push", "pr_base", "host", "bogus"])
+def test_operator_table_may_not_set_project_keys(tmp_path: Path, approved: Path, key: str) -> None:
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n{key} = "x"\n')
+    with pytest.raises(ConfigError, match=f"may not set {key}"):
+        git_ops.git_policy(_config(None))
+
+
+def test_operator_file_through_a_symlink_is_refused(tmp_path: Path, approved: Path) -> None:
+    real = tmp_path / "elsewhere.toml"
+    real.write_text(f'["acme/project"]\ncheckouts = ["{os.path.realpath(tmp_path)}"]\n')
+    (approved / git_ops.OPERATOR_GIT_FILE).symlink_to(real)
+    with pytest.raises(ConfigError):
+        git_ops.git_policy(_config(None))
+
+
+@pytest.mark.parametrize("mode", [0o770, 0o777])
+def test_worktree_root_writable_by_others_is_refused(tmp_path: Path, mode: int) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    shared = root / "shared"
+    shared.mkdir()
+    shared.chmod(mode)
+    with pytest.raises(ConfigError, match="writable by others"):
+        git_ops.git_policy(_config({"checkouts": [str(root)], "worktree_roots": [str(shared)]}))
+
+
+def test_missing_worktree_root_is_refused(tmp_path: Path) -> None:
+    root = Path(os.path.realpath(tmp_path))
+    with pytest.raises(ConfigError, match="does not exist"):
+        git_ops.git_policy(_config({"checkouts": [str(root)], "worktree_roots": [str(root / "nope")]}))
 
 
 def test_clean_env_drops_git_variables() -> None:

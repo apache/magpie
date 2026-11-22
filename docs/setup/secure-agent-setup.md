@@ -975,7 +975,7 @@ policy in a path the sandbox does not grant write to and point
 `vetted-op-tracker`, `vetted-op-git` and `vetted-op` are the write-capable entry points excluded from the sandbox.
 `vetted-op-git` runs four git operations a sandboxed agent cannot (see
 [vetted-ops → Git operations the sandbox blocks](../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)),
-each bounded by the approved policy's `[git]` table.
+each bounded by the approved policy's `[git]` table and the operator's own `operator-git.toml`.
 `vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
 and their runner refuses any `gh` call outside `repos/<tracker>/`.
 `vetted-op` runs the whole write catalogue, but each operation is a fixed `gh` argv with no shell,
