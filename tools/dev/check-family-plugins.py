@@ -21,6 +21,11 @@ Checks that every plugin is properly defined:
   `hooks` entry, else `hooks/hooks.json`) has no top-level key but
   `description` and `hooks` -- Codex rejects the whole file otherwise, so a
   Claude Code mod's `$schema` / `modules` there silently drops its hooks;
+- every plugin's Claude Code `hooks/hooks.json` carries a `hooks` object, even
+  an empty `{}` -- Claude Code releases inside the `claude-code` floor reject a
+  file without one (a mod's file with only `$schema` / `modules`): `claude
+  plugin validate` fails on the plugin and `claude plugin list` reports it as
+  failed to load;
 - the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
   the name pattern, the closed ten-field set (so a Claude-only component path
   never leaks in), and the same shared metadata as the Claude manifest;
@@ -1276,6 +1281,34 @@ def check_codex_hook_files() -> list[str]:
     return errors
 
 
+def check_claude_hook_files() -> list[str]:
+    """Every plugin's `hooks/hooks.json` carries a `hooks` object, even an empty one.
+
+    Claude Code releases inside the `claude-code` floor (`min_version` in
+    `tools/agent-isolation/pinned-versions.toml`) require it: 2.1.220 rejects a
+    mod's file that has only `$schema`, `description` and `modules` with
+    "hooks: Invalid input: expected record, received undefined", so `claude
+    plugin validate` fails on the plugin and `claude plugin list` reports it as
+    failed to load, although a session still loads its skills. Later releases
+    accept the file with or without the key, so an empty `"hooks": {}` costs
+    nothing there. CI validates mods on its pinned, newer release, and
+    `check-claude-mods-local` skips a local Claude Code older than that pin, so
+    this check is the one place the gap shows.
+    """
+    errors: list[str] = []
+    for path in sorted(PLUGINS.glob("*/hooks/hooks.json")):
+        data, err = load_json(path)
+        if err:
+            errors.append(err)
+        elif not isinstance(data, dict) or not isinstance(data.get("hooks"), dict):
+            errors.append(
+                f"{path}: no 'hooks' object -- Claude Code releases inside the claude-code floor "
+                "reject the file, so `claude plugin validate` fails and `claude plugin list` "
+                'reports the plugin as failed to load. Add "hooks": {} next to "modules"'
+            )
+    return errors
+
+
 def root_metadata() -> tuple[dict, list[str]]:
     """The subset of the root manifest that the family plugins inherit."""
     data, err = load_json(ROOT_MANIFEST)
@@ -1460,6 +1493,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
             errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
     errors += check_codex_family_hooks(shared)
     errors += check_codex_hook_files()
+    errors += check_claude_hook_files()
     errors += check_setup_preflight_package()
     errors += welcome_families("check-constant")
 
