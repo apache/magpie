@@ -15,7 +15,9 @@
    When a tool offers its own fix, apply it only where it cannot change behaviour, and say why in the commit (for example, a nested `if` that is the last branch of its `elif` chain).
    Commit the regenerated copies a hook produces along with the source.
 4. Run [the pre-push gate](own-prs.md#the-pre-push-gate) over the whole tree, push to the viewer's fork, and draft the PR: what failed, which merge caused it, why that PR's CI missed it, and why the fix is safe.
+   Run the adversarial review per [pre-pr-adversarial-review.md](pre-pr-adversarial-review.md) once the title and body are final.
    Show the draft; create the PR and enable auto-merge only once the maintainer confirms.
+   Branch, commit, push and PR are the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller pr-management-shepherd`): `git-worktree-add`, `git-stage`, `git-commit`, `git-push-branch … fork <branch> new`, `git-pr-create`.
 5. Tell the maintainer which open PRs will need a rebase once the fix lands.
 
 When the culprit is a PR the maintainer approved, say so plainly; that is the information they need for the next bump.

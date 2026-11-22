@@ -278,8 +278,9 @@ A security team member self-assigns and implements the fix.
 Optional automation:
 [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
 proposes an implementation plan, writes the change in your local
-`<upstream>` clone, runs local tests, and opens a public PR via
-`gh pr create --web` with a scrubbed title + body. Every public
+`<upstream>` clone, runs local tests, and opens a public PR (through
+`vetted-op-git`, or `gh pr create --web` where that is not configured)
+with a scrubbed title + body. Every public
 surface (commit message, branch name, PR title, PR body, newsfragment)
 is grep-checked for `CVE-`, the `<tracker>` slug, *"vulnerability"*,
 *"security fix"*, and similar leakage before being written or pushed.

@@ -39,7 +39,12 @@ Take the roster file path and minimum approvals from `committer_governance_maint
 
 - [ ] **Commit and PR** — open a PR in the project's configuration
   repository updating the roster file. Show the PR body to the nominator
-  and open it only after confirmation.
+  and open it only after confirmation, with the vetted operations in
+  [`vetted-git-publish.md`](../vetted-git-publish.md)
+  (`--caller committer-onboarding`) when that repository is the policy's
+  `[repos] upstream`, after the adversarial review in
+  [`pre-pr-adversarial-review.md`](../pre-pr-adversarial-review.md);
+  otherwise hand the nominator the commands.
 
 - [ ] **Welcome announcement** — post to the project's community channel
   per project conventions, drafted in Step 3a.

@@ -45,7 +45,11 @@ Take the team slug, CODEOWNERS path, and vote channel from `committer_governance
 - [ ] **CODEOWNERS update** (if `codeowners_file` is not `null`) — open
   a PR adding the candidate's GitHub handle to the CODEOWNERS file at the
   path declared in `committer_governance_github_codeowners.codeowners_file`.
-  Show the diff to the nominator and open the PR only after confirmation.
+  Show the diff to the nominator and open the PR only after confirmation,
+  with the vetted operations in [`vetted-git-publish.md`](../vetted-git-publish.md)
+  (`--caller committer-onboarding`) when the file lives in `<upstream>`,
+  after the adversarial review in
+  [`pre-pr-adversarial-review.md`](../pre-pr-adversarial-review.md).
 
 - [ ] **Welcome announcement** — post to the project's community channel
   (GitHub Discussion, mailing list, or Slack, per project conventions),

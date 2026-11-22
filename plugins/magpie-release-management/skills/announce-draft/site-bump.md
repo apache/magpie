@@ -127,6 +127,7 @@ Present the PR title, body, and file scope to the RM and ask for confirmation be
 If the RM confirms, write the approved body to a file in the session scratch directory and open the PR with
 the render's `pr_command`,
 `gh pr create --web --repo <site_repo> --title "<title>" --body-file <scratch>/announce-pr-body.md --base main`.
+When `<site_repo>` is the `[repos] upstream` of the policy found from the working directory (run from the site checkout), commit, push and open it with the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) instead (`--caller release-announce-draft`); otherwise the site repository is outside what they reach, and the commands stay with the RM.
 
 Return ONLY valid JSON with this structure:
 

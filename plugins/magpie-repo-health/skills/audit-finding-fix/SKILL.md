@@ -25,7 +25,7 @@ argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
 surface_hash: sha256:a31ea1f8e96846eb
 license: Apache-2.0
-measured_tokens: 5418
+measured_tokens: 5445
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -446,7 +446,7 @@ the investigation.
 
 This step runs only if `--draft-pr` was passed AND the user explicitly confirms after the hand-back artefact; without `--draft-pr` it is skipped entirely.
 
-Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
+Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation push the branch to the fork with `git-push-branch` ([vetted-git-publish.md](vetted-git-publish.md)) and open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
 
 ---
 

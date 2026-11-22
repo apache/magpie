@@ -25,7 +25,7 @@
 Project-specific mechanics of how the `security-issue-fix` skill
 opens a public fix PR on the project's `<upstream>` repository. Only
 the bits that are **specific to this project** live here; the
-generic flow (clone → branch → commit → push → `gh pr create --web`)
+generic flow (clone → branch → commit → push → open the PR, through `vetted-op-git` where the project's vetted-ops policy configures it)
 is described in the
 [`security-issue-fix`](../../../skills/security-issue-fix/SKILL.md)
 skill itself.
@@ -56,7 +56,9 @@ TODO: list the project's developer toolchain. Example shape:
 The `security-issue-fix` skill assumes a clean clone of `<upstream>`
 reachable from the agent's working directory (path from
 `.apache-magpie-overrides/user.md → environment.upstream_clone`), with a remote named
-for the user's GitHub fork that `gh pr create` can push to.
+for the user's GitHub fork. The skill pushes and opens the PR with
+`vetted-op-git` (`git-push-branch`, `git-pr-create`) when `[git]` values
+are configured for this project, and hands the user the commands otherwise.
 
 ## Backport labels
 
@@ -91,11 +93,13 @@ grep fails.
 
 ## PR creation convention
 
-Always open PRs with `gh pr create --web` so the human reviewer can
-check the title, body, and the Gen-AI disclosure in the browser
-before submission. Pre-fill `--title` and `--body` (including the
-Gen-AI disclosure block) so the reviewer only needs to review, not
-edit.
+The human reviews the title, body, and the Gen-AI disclosure before
+submission. With `vetted-op-git git-pr-create`, the skill shows them
+and the confirmation of that call is the submission; with
+`gh pr create --web` (no `[git]` values configured, a draft, or a base
+other than the policy's `pr_base`), pre-fill `--title` and
+`--body-file` so the reviewer only needs to review in the browser,
+not edit.
 
 When a fix is split into several dependent PRs and the contributor
 has write access to the upstream repository
