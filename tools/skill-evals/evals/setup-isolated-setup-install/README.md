@@ -49,3 +49,16 @@ uv run --project tools/skill-evals skill-eval \
 - `case-3-settings-conflict` must set `proceed: false` — the skill stops and
   diffs the existing file before writing, as required by the golden rules.
 - `step-hook-manager-shim` cases are fully auto-comparable: `dispatcher_installed` is boolean and `installed_shims` is a string array.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-22 | `c63c115a` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | pass |  |
+| 2026-11-22 | `94f36f38` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | pass |  |
+| 2026-11-21 | `94f36f38` (fix/sandbox-pnpm-home) | `opus[1m]` | 2 | pass |  |
