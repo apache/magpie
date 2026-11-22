@@ -274,18 +274,31 @@ def test_the_most_specific_sandbox_setting_wins(
         (isolated_home / ".claude" / "settings.json", user),
     ):
         path.write_text(json.dumps({} if enabled is None else {"sandbox": {"enabled": enabled}}))
-    assert isolated.configured(project) is expected
+    assert isolated.sandbox_active(project) is expected
+    assert isolated.installed(project) is (True in (local, shared, user))
 
 
 def test_unreadable_user_settings_are_not_configured(project: Path, isolated_home: Path) -> None:
     (isolated_home / ".claude").mkdir()
     (isolated_home / ".claude" / "settings.json").write_text("{not json")
     assert isolated.configured(project) is False
+    assert isolated.installed(project) is False
+    assert isolated.sandbox_active(project) is False
 
 
 def test_the_configured_action_prints_json(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert isolated.main(["configured", "--project-root", str(project)]) == 0
     assert json.loads(capsys.readouterr().out) == {"configured": False}
+
+
+def test_the_installed_action_prints_json(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert isolated.main(["installed", "--project-root", str(project)]) == 0
+    assert json.loads(capsys.readouterr().out) == {"installed": False}
+
+
+def test_the_sandbox_active_action_prints_json(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert isolated.main(["sandbox-active", "--project-root", str(project)]) == 0
+    assert json.loads(capsys.readouterr().out) == {"sandbox_active": False}
 
 
 def adopt(root: Path, project_md: str = "") -> None:
@@ -345,6 +358,155 @@ def test_session_start_passes_the_notice_through_once_configured(project: Path) 
     (project / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
     assert isolated.session_start(project, "plugin 1.0 is active") == "plugin 1.0 is active"
     assert isolated.session_start(project) == ""
+
+
+def test_session_start_warns_when_sandbox_is_disabled(project: Path, isolated_home: Path) -> None:
+    adopt(project)
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": false}}')
+    out = json.loads(isolated.session_start(project, "plugin 1.0 is active", home=isolated_home))
+    assert out["systemMessage"] == isolated.SANDBOX_DISABLED_WARNING
+    context = out["hookSpecificOutput"]["additionalContext"]
+    assert context.startswith("plugin 1.0 is active\n\n")
+    assert isolated.SANDBOX_DISABLED_CONTEXT in context
+
+
+def test_session_start_warns_when_stamped_project_has_sandbox_disabled(
+    project: Path, isolated_home: Path
+) -> None:
+    adopt(project)
+    isolated.record(project, "update")
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": false}}')
+    out = json.loads(isolated.session_start(project, home=isolated_home))
+    assert out["systemMessage"] == isolated.SANDBOX_DISABLED_WARNING
+    context = out["hookSpecificOutput"]["additionalContext"]
+    assert isolated.SANDBOX_DISABLED_CONTEXT in context
+
+
+def test_the_sandbox_disabled_warning_says_what_matters() -> None:
+    text = isolated.SANDBOX_DISABLED_WARNING
+    for phrase in (
+        "isolated sandbox is disabled for this session",
+        "/sandbox",
+        "prompt injection",
+        "credentials",
+        "do not use Magpie on untrusted content",
+    ):
+        assert phrase in text
+
+
+def test_the_managed_sandbox_disabled_warning_says_what_matters() -> None:
+    text = isolated.SANDBOX_MANAGED_DISABLED_WARNING
+    assert "administrator's managed settings turn the sandbox off" in text
+    assert "/sandbox" not in text
+    for phrase in (
+        "isolated sandbox is disabled for this session",
+        "prompt injection",
+        "credentials",
+        "do not use Magpie on untrusted content",
+    ):
+        assert phrase in text
+
+
+def test_managed_settings_sandbox_active_precedence(
+    project: Path, isolated_home: Path, tmp_path: Path
+) -> None:
+    managed_dir = tmp_path / "managed"
+    managed_dir.mkdir()
+    (managed_dir / "managed-settings.json").write_text('{"sandbox": {"enabled": false}}')
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": true}}')
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+
+    assert isolated.sandbox_active(project, home=isolated_home, managed_dirs=(managed_dir,)) is False
+    assert isolated.installed(project, home=isolated_home, managed_dirs=(managed_dir,)) is True
+
+
+@pytest.mark.parametrize(
+    ("base", "drop_in", "expected_active", "expected_disabled_warning"),
+    [
+        (True, False, False, True),  # 90-team false overrides base true -> disabled warning
+        (False, True, True, False),  # 90-team true overrides base false -> active, no warning
+    ],
+)
+def test_managed_settings_drop_in_overrides_base_file(
+    project: Path,
+    isolated_home: Path,
+    tmp_path: Path,
+    base: bool,
+    drop_in: bool,
+    expected_active: bool,
+    expected_disabled_warning: bool,
+) -> None:
+    adopt(project)
+    (isolated_home / ".claude").mkdir(exist_ok=True)
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    managed_dir = tmp_path / f"managed_base_{base}_drop_{drop_in}"
+    managed_dir.mkdir()
+    (managed_dir / "managed-settings.json").write_text(json.dumps({"sandbox": {"enabled": base}}))
+    drop_ins = managed_dir / "managed-settings.d"
+    drop_ins.mkdir()
+    (drop_ins / "90-team.json").write_text(json.dumps({"sandbox": {"enabled": drop_in}}))
+
+    assert (
+        isolated.sandbox_active(project, home=isolated_home, managed_dirs=(managed_dir,)) is expected_active
+    )
+    assert isolated.installed(project, home=isolated_home, managed_dirs=(managed_dir,)) is True
+
+    out = isolated.session_start(project, "notice", home=isolated_home, managed_dirs=(managed_dir,))
+    if expected_disabled_warning:
+        loaded = json.loads(out)
+        assert loaded["systemMessage"] == isolated.SANDBOX_MANAGED_DISABLED_WARNING
+        assert isolated.SANDBOX_MANAGED_DISABLED_CONTEXT in loaded["hookSpecificOutput"]["additionalContext"]
+    else:
+        assert out == "notice"
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "expected"),
+    [
+        (True, False, False),  # 90-second false overrides 10-first true
+        (False, True, True),  # 90-second true overrides 10-first false
+    ],
+)
+def test_managed_settings_conflicting_drop_ins(
+    project: Path,
+    isolated_home: Path,
+    tmp_path: Path,
+    first: bool,
+    second: bool,
+    expected: bool,
+) -> None:
+    managed_dir = tmp_path / f"managed_conflicting_{first}_{second}"
+    managed_dir.mkdir()
+    drop_ins = managed_dir / "managed-settings.d"
+    drop_ins.mkdir()
+    (drop_ins / "10-first.json").write_text(json.dumps({"sandbox": {"enabled": first}}))
+    (drop_ins / "90-second.json").write_text(json.dumps({"sandbox": {"enabled": second}}))
+
+    assert isolated.sandbox_active(project, home=isolated_home, managed_dirs=(managed_dir,)) is expected
+
+
+def test_linked_worktree_sandbox_active_precedence(tmp_path: Path, isolated_home: Path) -> None:
+    main_repo = git_repo(tmp_path / "main_repo")
+    subprocess.run(["git", "-C", str(main_repo), "config", "user.email", "test@example.com"], check=True)
+    subprocess.run(["git", "-C", str(main_repo), "config", "user.name", "Test"], check=True)
+    subprocess.run(["git", "-C", str(main_repo), "commit", "--allow-empty", "-m", "initial"], check=True)
+    worktree = tmp_path / "wt"
+    subprocess.run(["git", "-C", str(main_repo), "worktree", "add", str(worktree)], check=True)
+
+    (main_repo / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": false}}')
+    (worktree / ".claude").mkdir(exist_ok=True)
+    (worktree / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": true}}')
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+
+    assert isolated.sandbox_active(worktree, home=isolated_home) is False
+    assert isolated.installed(worktree, home=isolated_home) is True
 
 
 # --- the session start drops the old ~/.local/share/uv write grant ---
@@ -691,3 +853,19 @@ def test_the_rewritten_config_keeps_its_mode(tmp_path: Path, isolated_home: Path
     isolated.session_start(repo, home=isolated_home)
     assert local_hooks_path(repo) == ""
     assert config.stat().st_mode & 0o777 == 0o640
+
+
+def test_project_settings_returns_local_and_shared_settings(project: Path) -> None:
+    from setup_preflight.layers import project_settings
+
+    paths = project_settings(project)
+    assert paths == [
+        project / ".claude" / "settings.local.json",
+        project / ".claude" / "settings.json",
+    ]
+    # Verify that isolated and gateway aliases point to the exact same function
+    from setup_preflight.gateway import _project_settings as gateway_ps
+    from setup_preflight.isolated import _project_settings as isolated_ps
+
+    assert gateway_ps is project_settings
+    assert isolated_ps is project_settings

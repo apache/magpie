@@ -506,9 +506,7 @@ def isolated_setup_findings(
 
     raw = _read_stamp(root).get(isolated.BLOCK)
     block: dict[str, object] = raw if isinstance(raw, dict) else {}
-    if block.get("enabled") is False:
-        return []
-    if not block and not isolated.sandbox_enabled_in_project(root):
+    if not isolated.installed(root):
         # Not used here, or not known to be: nobody is told about a setup
         # they never installed.
         return []
