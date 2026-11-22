@@ -53,6 +53,27 @@ declare module 'claude-code' {
         selectedIndex: number;
         syncError?: string | null;
       } | null;
+      triageProgressState: {
+        skill: 'pr-triage' | 'pr-stale-sweep' | (string & {});
+        total: number;
+        evaluated: number;
+        dispositions: {
+          labeled: number;
+          nudged: number;
+          closed: number;
+          drafted: number;
+          approved: number;
+        };
+        remaining: number;
+        currentPr?: {
+          number: number;
+          title?: string;
+        } | null;
+        processedPrs?: number[];
+        status: 'running' | 'paused' | 'completed';
+        updatedAt?: string;
+        renderCount?: number;
+      } | null;
     };
   }
 }

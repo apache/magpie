@@ -18,8 +18,8 @@
 // under the License.
 
 // Companion ambient declaration lives in types.d.ts for Claude Code mod plugin
-// validation. Any property added to ReviewFindingsState or ReviewFinding must be
-// kept in sync across both files.
+// validation. Any property added to ReviewFindingsState, ReviewFinding, or
+// TriageProgressState must be kept in sync across both files.
 
 export type FindingSeverity = 'blocking' | 'major' | 'minor' | 'nit';
 
@@ -65,4 +65,33 @@ export interface ParseFindingsResult {
   findings: ReviewFinding[];
   errors: string[];
   summary: ReviewFindingsSummary;
+}
+
+export interface TriageDispositionCounts {
+  labeled: number;
+  nudged: number;
+  closed: number;
+  drafted: number;
+  approved: number;
+}
+
+export interface TriageProgressState {
+  skill: 'pr-triage' | 'pr-stale-sweep' | (string & {});
+  total: number;
+  evaluated: number;
+  dispositions: TriageDispositionCounts;
+  remaining: number;
+  currentPr?: {
+    number: number;
+    title?: string;
+  } | null;
+  processedPrs?: number[];
+  status: 'running' | 'paused' | 'completed';
+  updatedAt?: string;
+  renderCount?: number;
+}
+
+export interface ParseTriagePayloadResult {
+  state: TriageProgressState | null;
+  error?: string;
 }
