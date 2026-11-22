@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import sys
 from pathlib import Path
@@ -510,12 +511,23 @@ def _git(cwd: Path, *args: str) -> str:
     import subprocess
 
     return subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "commit.gpgsign=false", *args],
         cwd=cwd,
         check=True,
         capture_output=True,
         text=True,
+        env=_SCRATCH_GIT_ENV,
     ).stdout
+
+
+# A scratch repository must not inherit the operator's git setup: their global
+# config (commit signing, merge.ff=only, a hooks path, an excludes file), or the
+# repository, index and `-c` values git exports to the hook a commit runs.
+_SCRATCH_GIT_ENV = {
+    **{k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_SYSTEM": os.devnull,
+}
 
 
 def _git_evals_tree(tmp_path: Path) -> tuple[Path, Path]:
