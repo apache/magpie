@@ -15,10 +15,25 @@ Covers `.apache-magpie-overrides/tools/vetted-ops/**` and the personal-layer cop
 It is a security control, and the sandbox profile denies the agent's writes to it.
 
 Render: the drafted policy written to the scratch directory, and the target path to save it to.
+A caller grant finding (reconcile check 3a) adds only what the README example lists, as the minimal diff, also written to the scratch directory.
 
 ```text
 • save <scratch>/vetted-ops-policy.toml as <target path>   (vetted-ops policy: the agent never writes it)
+    adds git-fetch, git-worktree-add, … to "pr-management-shepherd"; diff: <scratch>/vetted-ops-policy.diff
 ```
+
+When the policy is committed (`.apache-magpie-overrides/tools/vetted-ops/config.toml`), the change also lands through the project's review, as hard line 2 says.
+
+**Re-approval.** The write entry points act only on a byte-for-byte copy in `~/.config/apache-magpie/vetted-ops/`, which the agent can neither read nor write.
+When `vetted-op-read approval-status` reports `"approved": false`, or a grant change above was just drafted, render the user's copy command with the paths it printed, the policy path single-quoted:
+
+```text
+• review the policy's diff since your last approval first, then:
+  mkdir -p ~/.config/apache-magpie/vetted-ops && cp '<policy>' ~/.config/apache-magpie/vetted-ops/<name>.toml   (stale approved copy: writes are refused until you re-approve)
+```
+
+`<name>` is the earlier approved copy's name, `<project>.toml` by convention.
+A missing operator `[git]` table is not this skill's finding: `vetted-op-git` reports it in its own refusal.
 
 ### 2. Never edit a committed file
 

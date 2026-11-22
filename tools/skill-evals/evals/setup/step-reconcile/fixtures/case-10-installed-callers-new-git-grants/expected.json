@@ -1,0 +1,18 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "pr-management-shepherd",
+      "override_file": null,
+      "detail": "Existing caller pr-management-shepherd lacks git-fetch, git-worktree-add, git-worktree-sync, git-push-branch and git-pr-create; merge them into its array, preserving git-stage and git-commit. The user saves the policy; do not stamp clean."
+    },
+    {
+      "kind": "policy",
+      "skill": "audit-finding-fix",
+      "override_file": null,
+      "detail": "Installed skill audit-finding-fix has no caller in the policy; propose the caller with git-fetch, git-worktree-add, git-stage, git-commit and git-push-branch, exactly as the README example lists. Do not stamp clean."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}

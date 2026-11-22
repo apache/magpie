@@ -25,6 +25,7 @@ copied into `config.approved_dir()`, which no sandboxed command can write.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import NoReturn
@@ -231,3 +232,120 @@ def test_the_approval_hint_quotes_a_hostile_path(
     )
     err = capsys.readouterr().err
     assert f"cp '{root.resolve() / config.DEFAULT_RELATIVE_PATH}'" in err
+
+
+def _status(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, dict[str, object] | None, str]:
+    code = cli.main_read(["approval-status", *argv])
+    out, err = capsys.readouterr()
+    return code, (json.loads(out) if out else None), err
+
+
+def test_approval_status_reports_a_stale_approval(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # An approved copy from before the last policy change: the write entry points would refuse.
+    data = (project / config.DEFAULT_RELATIVE_PATH).read_bytes()
+    (approved / "acme.toml").write_bytes(data.replace(b"issue-comment", b"issue-comments"))
+    _nothing_runs(monkeypatch)
+    code, status, _ = _status(capsys)
+    assert code == cli.EXIT_OK
+    assert status == {
+        "policy": str(project.resolve() / config.DEFAULT_RELATIVE_PATH),
+        "approved": False,
+        "approved_dir": str(approved),
+    }
+
+
+def test_approval_status_reports_an_approved_copy(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (approved / "acme.toml").write_bytes((project / config.DEFAULT_RELATIVE_PATH).read_bytes())
+    _nothing_runs(monkeypatch)
+    code, status, _ = _status(capsys)
+    assert code == cli.EXIT_OK and status is not None
+    assert status["approved"] is True
+    assert set(status) == {"policy", "approved", "approved_dir"}
+
+
+def test_approval_status_agrees_with_the_write_entry_point(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A symlink and the operator file approve nothing for the writes, so not here either.
+    (approved / "linked.toml").symlink_to(project / config.DEFAULT_RELATIVE_PATH)
+    (approved / config.OPERATOR_GIT_FILE).write_bytes((project / config.DEFAULT_RELATIVE_PATH).read_bytes())
+    _nothing_runs(monkeypatch)
+    _, status, _ = _status(capsys)
+    assert status is not None and status["approved"] is False
+
+
+def test_approval_status_never_prints_the_policy(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (approved / "acme.toml").write_bytes((project / config.DEFAULT_RELATIVE_PATH).read_bytes())
+    _nothing_runs(monkeypatch)
+    assert cli.main_read(["approval-status"]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "acme/tracker" not in out and "security-issue-sync" not in out
+    assert out.count("\n") == 1
+
+
+def test_approval_status_with_no_policy(
+    tmp_path: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.chdir(empty)
+    code, status, _ = _status(capsys)
+    assert code == cli.EXIT_OK
+    assert status == {"policy": None, "approved": False, "approved_dir": str(approved)}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--config", "/etc/hosts", "approval-status"],
+        ["--caller", "security-issue-sync", "approval-status"],
+        ["--save", "status.json", "approval-status"],
+        ["--dry-run", "approval-status"],
+        ["approval-status", "extra"],
+    ],
+)
+def test_approval_status_takes_no_options(
+    project: Path,
+    approved: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+) -> None:
+    # Discovery only: `--config` would let it probe whether an arbitrary file
+    # exists or matches an approved policy.
+    _nothing_runs(monkeypatch)
+    code = cli.main_read(argv)
+    out, err = capsys.readouterr()
+    assert code == cli.EXIT_USAGE
+    assert out == "" and "refused" in err
+
+
+def test_approval_status_refuses_a_symlinked_policy(
+    tmp_path: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The committed path redirected to a file the agent can write: refused, as on the writes.
+    root = tmp_path / "checkout"
+    target = root / config.DEFAULT_RELATIVE_PATH
+    target.parent.mkdir(parents=True)
+    elsewhere = tmp_path / "planted.toml"
+    elsewhere.write_text("workspace = '/tmp'\n")
+    target.symlink_to(elsewhere)
+    monkeypatch.chdir(root)
+    code, status, err = _status(capsys)
+    assert code == cli.EXIT_POLICY and status is None
+    assert "refusing" in err
+
+
+def test_approval_status_is_only_on_the_read_entry_point(
+    project: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (approved / "acme.toml").write_bytes((project / config.DEFAULT_RELATIVE_PATH).read_bytes())
+    _nothing_runs(monkeypatch)
+    assert cli.main(["--caller", "security-issue-sync", "approval-status"]) == cli.EXIT_POLICY
+    assert "approved" not in capsys.readouterr().out

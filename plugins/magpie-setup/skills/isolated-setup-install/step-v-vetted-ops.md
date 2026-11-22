@@ -6,13 +6,14 @@
 Read this when the walk-through reaches Step V and both of its conditions in `SKILL.md` hold:
 the adopter routes forge operations through `vetted-ops`, and the sandbox is on.
 
-There are three console scripts over one catalogue, and which of them
+There are four console scripts over one catalogue, and which of them
 gets the `allow` is the entire security question:
 
 | Entry point | Can write? | Permission |
 |---|---|---|
 | `vetted-op-read` | never — refused before policy or `--caller` is consulted | `allow` |
 | `vetted-op-tracker` | only the tracker rollup / body-field procedures — everything else refused before policy | `ask` |
+| `vetted-op-git` | only the git operations the sandbox blocks, plus `git-pr-create` | `ask` |
 | `vetted-op` | yes | `ask` |
 
 **Never propose an `allow` on `vetted-op`.** It is tempting, because
@@ -33,7 +34,9 @@ writes structurally.
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
-    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -63,15 +66,18 @@ gatherer agents use `uvx --from`, because `uv run` in the plugin cache
 needs to write a venv there. A rule for only one form leaves every call
 in the other form prompting.
 
-Add both forms of `vetted-op-tracker` and of `vetted-op` to `sandbox.excludedCommands` too
+Add both forms of `vetted-op-tracker`, `vetted-op-git` and `vetted-op` to `sandbox.excludedCommands` too
 (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *"`,
 `"uv run --project ~/.claude/magpie/vetted-ops vetted-op *"` and `"uvx --from ~/.claude/magpie/vetted-ops vetted-op *"`):
 their writes need a `gh` that can verify TLS, which a sandboxed one cannot,
 and a sandboxed `vetted-op` cannot even read `~/.claude/magpie/` to start.
+`vetted-op-git` does what cannot happen inside at all: an SSH push gets no connection through the sandbox's proxy,
+and a linked worktree's administrative directory is read-only there.
 Excluding them is acceptable because every operation is a fixed `gh` argv with no shell
 and bodies come only from the workspace, so they reach less than the bare `gh *` already excluded;
 `vetted-op-tracker` is further closed to the tracker procedures.
-**Both stay in `ask`, never `allow`**, so each write keeps its confirmation;
+**All three stay in `ask`, never `allow`**, so each write keeps its confirmation;
 `sandbox-lint` fails an exclusion that has lost its `ask`.
 
 Outside the sandbox, the write dispatchers act only on a policy the user approved:
@@ -167,5 +173,5 @@ operator applies it; never write a settings file on your own.
    added from each worktree's `settings.local.json`; propose the hand edit for
    any other covering entry, naming the file.
 
-This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
+This covers the read dispatcher only. `vetted-op-tracker`, `vetted-op-git` and `vetted-op`
 are excluded but stay in `ask`, never in `allow`.
