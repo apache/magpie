@@ -77,13 +77,17 @@ export function extractPrNumberFromCommand(command: string): number | null {
   let subcmdIndex = -1;
   let subcmd = '';
   for (let i = 0; i < rawTokens.length - 1; i++) {
-    const textLower = rawTokens[i].text.toLowerCase();
+    const cur = rawTokens[i];
+    if (!cur) continue;
+    const textLower = cur.text.toLowerCase();
     if (textLower === 'gh') {
       ghSeen = true;
       continue;
     }
     if (ghSeen && textLower === 'pr') {
-      const nextLower = rawTokens[i + 1]?.text.toLowerCase();
+      const nextToken = rawTokens[i + 1];
+      if (!nextToken) continue;
+      const nextLower = nextToken.text.toLowerCase();
       if (['view', 'edit', 'close', 'comment', 'checkout', 'reopen', 'ready', 'diff'].includes(nextLower)) {
         subcmdIndex = i + 1;
         subcmd = nextLower;
@@ -112,6 +116,7 @@ export function extractPrNumberFromCommand(command: string): number | null {
   const args = rawTokens.slice(subcmdIndex + 1);
   for (let i = 0; i < args.length; i++) {
     const token = args[i];
+    if (!token) continue;
 
     // If token is an option with value attached: e.g. --add-label="foo" or -c="stale"
     if (token.text.startsWith('-')) {
@@ -359,10 +364,11 @@ export function processTriageCommand(
   if (!current) return undefined;
 
   const prNum = extractPrNumberFromCommand(command);
+  const processedPrs: number[] = Array.isArray(current.processedPrs) ? [...current.processedPrs] : [];
   const updated: TriageProgressState = {
     ...current,
     dispositions: { ...current.dispositions },
-    processedPrs: Array.isArray(current.processedPrs) ? [...current.processedPrs] : [],
+    processedPrs,
     updatedAt: new Date().toISOString(),
   };
 
@@ -377,9 +383,10 @@ export function processTriageCommand(
   // Label disposition
   if (/\bgh\s+pr\s+edit\b/i.test(command) && /--add-label\b/i.test(command) && prNum) {
     updated.dispositions.labeled += 1;
-    if (!updated.processedPrs.includes(prNum)) {
-      updated.processedPrs.push(prNum);
-      updated.evaluated = Math.max(updated.evaluated + 1, updated.processedPrs.length);
+    if (!processedPrs.includes(prNum)) {
+      processedPrs.push(prNum);
+      updated.processedPrs = processedPrs;
+      updated.evaluated = Math.max(updated.evaluated + 1, processedPrs.length);
       updated.remaining = computeRemainingCount(updated.total, updated.evaluated);
       if (updated.remaining === 0) updated.status = 'completed';
     }
@@ -389,9 +396,10 @@ export function processTriageCommand(
   // Close disposition
   if (/\bgh\s+pr\s+close\b/i.test(command) && prNum) {
     updated.dispositions.closed += 1;
-    if (!updated.processedPrs.includes(prNum)) {
-      updated.processedPrs.push(prNum);
-      updated.evaluated = Math.max(updated.evaluated + 1, updated.processedPrs.length);
+    if (!processedPrs.includes(prNum)) {
+      processedPrs.push(prNum);
+      updated.processedPrs = processedPrs;
+      updated.evaluated = Math.max(updated.evaluated + 1, processedPrs.length);
       updated.remaining = computeRemainingCount(updated.total, updated.evaluated);
       if (updated.remaining === 0) updated.status = 'completed';
     }
@@ -401,9 +409,10 @@ export function processTriageCommand(
   // Comment (nudge) disposition
   if (/\bgh\s+pr\s+comment\b/i.test(command) && prNum) {
     updated.dispositions.nudged += 1;
-    if (!updated.processedPrs.includes(prNum)) {
-      updated.processedPrs.push(prNum);
-      updated.evaluated = Math.max(updated.evaluated + 1, updated.processedPrs.length);
+    if (!processedPrs.includes(prNum)) {
+      processedPrs.push(prNum);
+      updated.processedPrs = processedPrs;
+      updated.evaluated = Math.max(updated.evaluated + 1, processedPrs.length);
       updated.remaining = computeRemainingCount(updated.total, updated.evaluated);
       if (updated.remaining === 0) updated.status = 'completed';
     }
