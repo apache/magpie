@@ -12,6 +12,7 @@ The prose fields are the agent's; the tool only lays them out, checks them and l
 | `tracker`, `number`, `workspace` | `<tracker>`, the issue number, the vetted-ops body workspace (`~/.cache/apache-magpie/vetted-ops-bodies/`, absolute); the comment file is `<workspace>/triage-<N>.md`, the only place the `issue-comment` operation reads a body from. `scratch` is still accepted as a fallback. |
 | `class` | One of the six classes, or `UNCERTAIN` with `tentative_class`: the comment then opens with *"Low-confidence proposal, please challenge."* before the class line, per [`classification.md`](../classification.md#confidence-and-edge-cases). |
 | `summary` | The one-paragraph technical summary, with the 2–3 sentence verbatim Security Model quote and its linked anchor ([Step 2.5](../security-model-and-precedents.md#step-25--apply-the-security-model-verbatim)) and any `precedent-signal` citations. |
+| `model_url`, `model_file` | The Security Model URL from `<project-config>/security-model.md`, and the path of the copy of the model this run fetched and cached (Step 2.5). Every quote in `summary` followed by a link to `model_url` (quotes joined by `and` count as one citation) must appear verbatim in `model_file`, up to inline markup, quote style and whitespace; `[...]` splits a quote into fragments matched in order. A summary that links the model without `model_file` is refused, and so is a quote the model does not contain. |
 | `severity` | A qualitative guess (*"my read is Medium-ish, team-scoring expected"*); a CVSS score, vector or `N/10` is refused. |
 | `open_question` | The load-bearing open question the team scores after; omit when there is none. |
 | `fix_shape` | The fix in one or two sentences, or the "why not" framing for INVALID / INFO-ONLY. DEFENSE-IN-DEPTH gains *"defense-in-depth fix is welcome via public PR; not a CVE."* when the text lacks it. |
@@ -22,6 +23,6 @@ The prose fields are the agent's; the tool only lays them out, checks them and l
 | `kept_tracker` | PROBABLE-DUP: the tracker to keep; the comment names `security-issue-deduplicate <kept> <N>` (kept tracker first). |
 | `upstream`, `prs` | FIX-ALREADY-PUBLIC: each candidate PR's `number`, `author`, `state` and `date`; the reporter-reply draft of [`classification.md`](../classification.md#fix-already-public) is rendered from them, `merged` or `open since` per PR. |
 
-The output carries `text`, `file`, `command` (`uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-triage issue-comment <N> <file>`), `replacements_made`, `linked_refs` and `unlinked_cves`.
+The output carries `text`, `file`, `command` (`uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-triage issue-comment <N> <file>`), `replacements_made`, `linked_refs`, `unlinked_cves` and `model_quotes_verified` (the model quotes it checked).
 `unlinked_cves` must be empty: link those CVE IDs in the prose per [`AGENTS.md`](../../../../../AGENTS.md#linking-cves) and render again.
 A refusal exits `2` with `refused`: fix the input, never the rendered text.

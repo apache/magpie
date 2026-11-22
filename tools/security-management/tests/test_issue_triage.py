@@ -353,6 +353,115 @@ def test_render_proposal_prefers_the_vetted_ops_workspace(capsys, tmp_path):
     assert out["command"].endswith("--caller security-issue-triage issue-comment 212 /ws/triage-212.md")
 
 
+MODEL_URL = "https://example.org/docs/security/security_model.html"
+MODEL_RST = """\
+Connection configuration users
+..............................
+
+They configure connections and potentially execute code on workers during Dag execution. Trust is
+required to prevent misuse of these privileges. They have full write-only access
+to sensitive credentials stored in connections and can modify them, but cannot view them.
+
+Secret masking covers values Airflow has been told are secret: a connection's password and its
+``extra``, and values whose field name matches the sensitive-field list that
+``[core] sensitive_var_conn_names`` extends. It reduces accidental disclosure in logs and the UI.
+It is not a boundary that contains a Dag author, who can always read and print the values their
+tasks are given.
+"""
+
+
+def model_proposal(tmp_path: Path, summary: str, **extra: Any) -> dict[str, Any]:
+    model = tmp_path / "security_model.rst"
+    model.write_text(MODEL_RST)
+    return proposal(summary=summary, model_url=MODEL_URL, model_file=str(model), **extra)
+
+
+def test_verbatim_model_quote_passes_across_markup_and_line_breaks(capsys, tmp_path):
+    summary = (
+        "The model: \"Secret masking covers values Airflow has been told are secret: a connection's "
+        "password and its `extra`, and values whose field name matches the sensitive-field list that "
+        '`[core] sensitive_var_conn_names` extends." '
+        f"([Security Model]({MODEL_URL}#masking))."
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 0, out
+    assert len(out["model_quotes_verified"]) == 1
+
+
+def test_elided_model_quote_matches_fragment_by_fragment(capsys, tmp_path):
+    summary = (
+        '"They have full write-only access to sensitive credentials [...] but cannot view them." '
+        f"([Security Model]({MODEL_URL}))"
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 0, out
+
+
+def test_paraphrase_presented_as_a_model_quote_is_refused(capsys, tmp_path):
+    # The wording a 2026-11-22 triage run copied from an older tracker comment.
+    summary = (
+        'Connection users "have write-only access to sensitive credentials and cannot view them" '
+        f"([Security Model]({MODEL_URL}))."
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 2
+    assert "not found verbatim" in out["refused"]
+
+
+def test_quotes_not_followed_by_a_model_link_are_not_checked(capsys, tmp_path):
+    summary = (
+        'The reporter wrote "this is a critical remote takeover of everything" '
+        f"and the model ([Security Model]({MODEL_URL})) says otherwise in its own words, elsewhere."
+    )
+    long_gap = summary.replace("and the model", "and " + "x" * 400 + " the model")
+    code, _ = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, long_gap))
+    assert code == 0
+
+
+def test_short_quoted_term_does_not_shift_quote_pairing(capsys, tmp_path):
+    # "Connection String" is a term, not a model sentence; skipping it must not
+    # pair its closing mark with the next quote's opening one.
+    summary = (
+        'The hook relabels `schema` as "Connection String" and reads the key from it. '
+        '"They have full write-only access to sensitive credentials stored in connections" '
+        f"([Security Model]({MODEL_URL}))."
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 0, out
+    assert out["model_quotes_verified"] == [
+        "They have full write-only access to sensitive credentials stored in connections"
+    ]
+
+
+def test_quote_marks_inside_code_spans_are_ignored(capsys, tmp_path):
+    summary = (
+        '`_init_file` does `open(full_path, "a")` then `os.chmod`. The model: '
+        '"Trust is required to prevent misuse of these privileges." '
+        f"([Security Model]({MODEL_URL}))"
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 0, out
+    assert len(out["model_quotes_verified"]) == 1
+
+
+def test_quotes_joined_by_and_are_all_checked(capsys, tmp_path):
+    summary = (
+        '"Trust is required to prevent misuse of these privileges." and '
+        '"connection users can see every credential they have ever written" '
+        f"([Security Model]({MODEL_URL}))"
+    )
+    code, out = run(capsys, tmp_path, "render-proposal", model_proposal(tmp_path, summary))
+    assert code == 2
+    assert "can see every credential" in out["refused"]
+
+
+def test_model_citation_without_model_file_is_refused(capsys, tmp_path):
+    summary = f'"Trust is required to prevent misuse of these privileges." ([Security Model]({MODEL_URL}))'
+    code, out = run(capsys, tmp_path, "render-proposal", proposal(summary=summary, model_url=MODEL_URL))
+    assert code == 2
+    assert "model_file" in out["refused"]
+
+
 @pytest.mark.parametrize(
     ("extra", "why"),
     [
