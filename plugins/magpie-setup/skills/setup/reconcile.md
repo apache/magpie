@@ -244,6 +244,12 @@ committed one.
    do not create a vetted-ops policy during reconciliation. If the
    policy cannot be read or parsed, report it as unchecked, not clean.
 
+3b. **Your git values for publishing (secure setup only).** When the isolated setup is in use and a publishing skill is in
+   scope, check that `~/.config/apache-magpie/vetted-ops/operator-git.toml` has a table for the project's `upstream_repo`.
+   That directory is sandbox-denied, so when it cannot be read, report the check as unchecked and show the draft from
+   [`config.md` Step 3a.3](config.md#step-3a3--your-git-values-for-publishing-secure-setup-only) as the line to run; never
+   write the file. Without the secure setup this check does not apply.
+
 4. **Sandboxed sessions cover what they can reach.** Resolving a
    skill's anchors (check 2) needs that skill's `SKILL.md` **and its
    sibling detail files**. On a pinned-snapshot install they sit inside

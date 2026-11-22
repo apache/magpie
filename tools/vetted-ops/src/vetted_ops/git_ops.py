@@ -115,6 +115,7 @@ from .config import (
     describe,
     load,
 )
+from .layers import main_worktree
 from .safe_read import TamperedPath, read_regular_file
 
 EXIT_OK = 0
@@ -304,6 +305,35 @@ def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
     return table
 
 
+def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
+    """A ready-to-save ``["<upstream>"]`` table for the operator file, for a refusal to show.
+
+    Filled from what is known without running anything: the main checkout of
+    the working directory and the upstream's repository name. The fork stays a
+    placeholder, since it is the operator's, not the repository's. Only keys in
+    `OPERATOR_KEYS` appear, so the draft is always one the file accepts.
+    """
+    here = (base or Path.cwd()).resolve()
+    checkout = main_worktree(here) or here
+    name = upstream_repo.split("/", 1)[-1] if "/" in upstream_repo else checkout.name
+    roots = Path(os.path.realpath(checkout.parent)) / f"{checkout.name}-worktrees"
+    path = operator_git_path()
+    return "\n".join(
+        [
+            "",
+            f"Add your own values: append this table to {path}",
+            "(create the worktree_roots directory first; no symlink may be on its path),",
+            "with your fork filled in. Only you can write that file:",
+            "",
+            f'["{upstream_repo}"]',
+            f'checkouts = ["{checkout}"]',
+            f'fork = "<your-github-login>/{name}"',
+            f'worktree_roots = ["{roots}"]',
+            'upstream_remote = "upstream"',
+        ]
+    )
+
+
 def _git_table(config: Config) -> dict[str, object]:
     """The shared policy's ``[git]`` table with the operator's own values over it."""
     project = config.git
@@ -314,6 +344,7 @@ def _git_table(config: Config) -> dict[str, object]:
         raise ConfigError(
             f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
             f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
+            + operator_git_draft(config.upstream_repo)
         )
     merged = dict(project or {})
     if operator is not None:
@@ -374,7 +405,9 @@ def git_policy(config: Config) -> GitPolicy:
     table = _git_table(config)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
-        raise ConfigError("[git] checkouts must name at least one main checkout")
+        raise ConfigError(
+            "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
+        )
     fork = table.get("fork")
     if fork is not None and (not isinstance(fork, str) or not _REPO.match(fork)):
         raise ConfigError(f"[git] fork must be an 'owner/name' string, got {fork!r}")

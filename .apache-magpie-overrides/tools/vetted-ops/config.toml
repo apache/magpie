@@ -43,6 +43,15 @@ upstream_labels = ["ready for maintainer review"]
 close_reasons = ["completed", "not planned"]
 
 [callers]
+# Publishing a framework fix (setup-upstream-fix): worktree, stage, commit, push
+# to the operator's fork and open the pull request, each through vetted-op-git
+# behind a confirmation. Each operator's own checkouts, fork and worktree roots
+# come from their operator-git.toml, never from this shared file.
+"setup-upstream-fix" = [
+    "git-worktree-add", "git-worktree-sync", "git-worktree-remove", "git-fetch",
+    "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+]
+
 # Read-only by construction: every operation below has writes=False, so this
 # caller runs entirely through `vetted-op-read`, which refuses writes before it
 # consults this file at all. The three review *submissions*

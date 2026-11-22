@@ -1039,3 +1039,35 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
         _pr(git, wpolicy, repo, workspace, "t", "b", branch="main")
     with pytest.raises(GitRefused, match=r"no \[git\] fork"):
         _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")
+
+
+def _draft_table(message: str) -> str:
+    """The ["<upstream>"] table a refusal drafted, as TOML text."""
+    # The last occurrence: the refusal's own prose names the table first.
+    return message[message.rindex('["acme/project"]') :]
+
+
+def test_no_git_values_refusal_drafts_the_operator_table(
+    repo: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(repo)
+    with pytest.raises(ConfigError) as caught:
+        git_ops.git_policy(_config(None))
+    message = str(caught.value)
+    assert str(approved / git_ops.OPERATOR_GIT_FILE) in message
+    assert f'checkouts = ["{repo}"]' in message
+    assert 'fork = "<your-github-login>/project"' in message
+    # The draft is one the operator file accepts: only operator keys, valid TOML.
+    _operator(approved, _draft_table(message).replace("<your-github-login>", "me"))
+    assert git_ops.operator_git_table("acme/project") is not None
+
+
+def test_missing_checkouts_refusal_drafts_the_operator_table(
+    repo: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shared [git] for the project keys, but no operator file yet."""
+    monkeypatch.chdir(repo)
+    with pytest.raises(ConfigError) as caught:
+        git_ops.git_policy(_config({"upstream_push": ["ci-*"]}))
+    assert "checkouts must name at least one main checkout" in str(caught.value)
+    assert '["acme/project"]' in str(caught.value)
