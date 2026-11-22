@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:7e0d11345084066f
 license: Apache-2.0
-measured_tokens: 5928
+measured_tokens: 6234
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -269,6 +269,21 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
       `prek-host` block is ✗ (stale: commits Claude runs outside the sandbox
       would use the sandbox home). Per-project scope, or a repository whose own
       `core.hooksPath` skips the dispatcher (check 8), is ⚠ for that same case.
+    - **19e — sandboxed pnpm has its own home.** `permissions.deny` carries
+      `Edit(~/.cache/pnpm/**)` (✗ if missing). When the project uses pnpm (a
+      tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`), the merged settings
+      also carry `env.PNPM_HOME` set to a directory of the project's own,
+      exactly `~/.local/share/pnpm-sandbox/<project>` (or its absolute form;
+      `<project>` lower-case letters, digits, `.`, `_`, `-`), that directory
+      in `allowWrite`, `env.npm_config_cache_dir` exactly `<home>/cache`, and
+      `env.npm_config_enable_global_virtual_store` = `"true"`. Any missing is
+      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm` or on a
+      `.idea/codeStyles` path in the project. A home spelled any other way
+      (under `~/.cache/`, or `.`/`//` in it), and in any project a scope
+      granting `~/.local/share/pnpm-sandbox/` itself or an
+      `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, is
+      ✗: the project's hooks run those packages outside the sandbox, and every
+      project's sessions could write them.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 

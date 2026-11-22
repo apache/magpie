@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 5888
+measured_tokens: 6254
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -334,6 +334,26 @@ can write:
   that Claude Code runs outside the sandbox a host-only home and cache root
   too; if a repository sets its own `core.hooksPath`, propose unsetting it so
   the dispatcher runs there.
+- **Sandboxed pnpm gets its own home.** `permissions.deny` always carries
+  `Edit(~/.cache/pnpm/**)` (in the framework's `.claude/settings.json`). Where
+  a repository uses pnpm (a tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`),
+  propose adding to the project's own `.claude/settings.json`, with
+  `<project>` the repository's name (lower-case letters, digits, `.`, `_`,
+  `-`), spelled exactly as here: in `env`,
+  `"PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>"`,
+  `"npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"` and
+  `"npm_config_enable_global_virtual_store": "true"`, spelled with a leading
+  `~/` (pnpm expands nothing else); and
+  `~/.local/share/pnpm-sandbox/<project>/` in `sandbox.filesystem.allowRead`
+  and `allowWrite`. Without them a sandboxed `pnpm install` fails on
+  `~/Library/pnpm` or on a `.idea/codeStyles` path in the project. Never put
+  the home under `~/.cache/` or grant `~/.local/share/pnpm-sandbox/` itself:
+  the project's hooks run the packages in it outside the sandbox, so only this
+  project's sessions may write it. Never set `npm_config_store_dir`,
+  `npm_config_state_dir` or `npm_config_virtual_store_dir`: pnpm keeps them
+  in the home. Never add the env where pnpm is not used:
+  npm reads the same `npm_config_*` names and warns about each on every
+  command.
 
 Then hand the operator the reinstall commands from the doc to run in a
 terminal: interpreters and tools the sandbox could write before may already
