@@ -59,6 +59,8 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-22 | `6f8fc287` (fix/pnpm-sandbox-home-mkdir) | `opus[1m]` | 1 | pass |  |
+| 2026-11-22 | `e42e89ad` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `c63c115a` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `94f36f38` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | pass |  |
 | 2026-11-21 | `94f36f38` (fix/sandbox-pnpm-home) | `opus[1m]` | 2 | pass |  |

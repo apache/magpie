@@ -1176,7 +1176,6 @@ PNPM_HOME = "~/.local/share/pnpm-sandbox/demo"
 PNPM_ENV = {
     "PNPM_HOME": PNPM_HOME,
     "npm_config_cache_dir": f"{PNPM_HOME}/cache",
-    "npm_config_enable_global_virtual_store": "true",
 }
 
 
@@ -1314,17 +1313,17 @@ def test_the_pnpm_cache_must_be_the_home_cache(
     assert any(e.startswith("env.npm_config_cache_dir:") for e in errors), errors
 
 
-@pytest.mark.parametrize("value", [None, "false", "", "TRUE", True])
-def test_sandboxed_pnpm_needs_the_global_virtual_store(
-    baseline: dict[str, Any], tmp_path: Path, value: str | bool | None
+@pytest.mark.parametrize("value", [None, "true", "false"])
+def test_sandboxed_pnpm_needs_no_global_virtual_store(
+    baseline: dict[str, Any], tmp_path: Path, value: str | None
 ) -> None:
+    """A virtual store outside the project loses its @types packages for TypeScript,
+    so it is not required; the flag is not a sandbox matter either way."""
     settings = _pnpm_settings(baseline)
-    if value is None:
-        settings["env"].pop("npm_config_enable_global_virtual_store")
-    else:
+    if value is not None:
         settings["env"]["npm_config_enable_global_virtual_store"] = value
     errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
-    assert any(e.startswith("env.npm_config_enable_global_virtual_store:") for e in errors), errors
+    assert not any("pnpm" in e.lower() or "virtual_store" in e for e in errors), errors
 
 
 @pytest.mark.parametrize(
