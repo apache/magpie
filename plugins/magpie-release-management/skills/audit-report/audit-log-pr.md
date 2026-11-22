@@ -110,8 +110,11 @@ reviewers reported each, and every entry in `warnings` verbatim.
 <!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->
 
 Present the PR title, body, and target file path to the RM, and ask for confirmation before opening the PR (Golden rule 2).
-If the RM confirms, write the approved body to a file in the session scratch directory and open the PR via
-`gh pr create --web --repo <upstream> --title "<title>" --body-file <scratch>/audit-report-pr-body.md --base <default-branch>` (the render's `gh_command`).
+If the RM confirms, publish with the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller release-audit-report`), each confirmed by the RM:
+`git-fetch` and `git-worktree-add` for a branch off `<default-branch>`, write `target_file` there, then `git-stage`, `git-commit`, `git-push-branch … fork <branch> new`,
+and `git-pr-create <worktree> <branch> "<title>" <workspace>/audit-report-pr-body.md` with the approved body.
+When no `[git]` values are configured for this project, or `<default-branch>` is not the policy's `pr_base`, open it with the render's `gh_command` instead,
+`gh pr create --web --repo <upstream> --title "<title>" --body-file <scratch>/audit-report-pr-body.md --base <default-branch>`, after the RM has committed and pushed the branch.
 
 Return ONLY valid JSON with this structure:
 

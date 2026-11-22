@@ -233,7 +233,36 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set",
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
-                           "body-field-get", "body-field-set"]
+                           "body-field-get", "body-field-set",
+                           # vetted-op-git: from a change to an open pull request.
+                           "git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create"]
+# The other skills that publish a change through vetted-op-git
+# (each skill's vetted-git-publish.md names its caller). Grant only the
+# skills the project runs; the draft-PR flows open the draft with
+# `gh pr create --web --draft`, so they need no git-pr-create.
+"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch"]
+"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch"]
+"release-prepare"       = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch"]
+"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create"]
+"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create"]
+"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                                 "git-push-branch", "git-pr-create"]
+"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create"]
+# Only in a policy whose [repos] upstream is the site repository / apache/magpie.
+"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                            "git-push-branch", "git-pr-create"]
+"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create"]
+"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+                             "git-push-branch", "git-pr-create"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
                            "board-item", "board-add-item", "board-set-status",
@@ -303,7 +332,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "runs-at-head", "workflow-approve", "run-rerun",
                                # The head commit's check runs, read before an APPROVE to confirm real CI
                                # ran there (code-review disposition's secondary check, #2072).
-                               "check-runs"]
+                               "check-runs",
+                               # FIXUP disposition: commit the fixups, push a head branch on upstream.
+                               "git-stage", "git-commit", "git-push-branch"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-merge-candidates" = ["viewer",

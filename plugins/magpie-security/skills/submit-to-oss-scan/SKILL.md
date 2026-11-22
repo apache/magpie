@@ -20,7 +20,7 @@ argument-hint: "[enrol | update] [project-name]"
 capability: capability:authoring
 surface_hash: sha256:cefbd533dc1009f2
 license: Apache-2.0
-measured_tokens: 4599
+measured_tokens: 4686
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -235,6 +235,7 @@ The CLA bot asks for a signature comment; that is a legal act the maintainer pos
 
 Show the files, the title and the body; on confirmation, commit to a branch in the maintainer's fork **of the repository the change belongs to**, push, and open it with `gh pr create --web --repo <scanner-repo or upstream> --title <title> --body-file <file>`, so the maintainer reviews the rendered PR before submitting it.
 `<scanner-repo>` takes the enrolment checklist body; `<upstream>` takes its own PR template and conventions, and its PR names no scan programme beyond the `.oss-scanner/` path itself.
+For the `<upstream>` PR, run the commit, push and PR as the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller security-submit-to-oss-scan`), each confirmed by the maintainer, with `gh pr create --web` as the fallback that file names; `<scanner-repo>` is outside the policy, so its commands stay with the maintainer.
 
 **Adversarial review by other models.** Run it now, per [pre-pr-adversarial-review.md](pre-pr-adversarial-review.md).
 

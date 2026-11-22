@@ -288,7 +288,8 @@ skill:
   confirmation** before making any edits;
 - writes the change in your local `<upstream>` clone, runs the
   local static checks and tests, and iterates on failures;
-- opens the public PR from your fork via `gh pr create --web` with a
+- opens the public PR from your fork (through `vetted-op-git`, or
+  `gh pr create --web` where that is not configured) with a
   scrubbed title and body — every public surface (commit message,
   branch name, PR title, PR body, newsfragment) is grep-checked for
   `CVE-`, the `<tracker>` repo slug, `vulnerability`, *"security fix"*
