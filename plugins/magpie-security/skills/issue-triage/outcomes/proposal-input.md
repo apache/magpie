@@ -9,7 +9,7 @@ The prose fields are the agent's; the tool only lays them out, checks them and l
 
 | Field | What it holds |
 |---|---|
-| `tracker`, `number`, `scratch` | `<tracker>`, the issue number, the scratch directory (the comment file is `<scratch>/triage-<N>.md`). |
+| `tracker`, `number`, `workspace` | `<tracker>`, the issue number, the vetted-ops body workspace (`~/.cache/apache-magpie/vetted-ops-bodies/`, absolute); the comment file is `<workspace>/triage-<N>.md`, the only place the `issue-comment` operation reads a body from. `scratch` is still accepted as a fallback. |
 | `class` | One of the six classes, or `UNCERTAIN` with `tentative_class`: the comment then opens with *"Low-confidence proposal, please challenge."* before the class line, per [`classification.md`](../classification.md#confidence-and-edge-cases). |
 | `summary` | The one-paragraph technical summary, with the 2–3 sentence verbatim Security Model quote and its linked anchor ([Step 2.5](../security-model-and-precedents.md#step-25--apply-the-security-model-verbatim)) and any `precedent-signal` citations. |
 | `severity` | A qualitative guess (*"my read is Medium-ish, team-scoring expected"*); a CVSS score, vector or `N/10` is refused. |
@@ -22,6 +22,6 @@ The prose fields are the agent's; the tool only lays them out, checks them and l
 | `kept_tracker` | PROBABLE-DUP: the tracker to keep; the comment names `security-issue-deduplicate <kept> <N>` (kept tracker first). |
 | `upstream`, `prs` | FIX-ALREADY-PUBLIC: each candidate PR's `number`, `author`, `state` and `date`; the reporter-reply draft of [`classification.md`](../classification.md#fix-already-public) is rendered from them, `merged` or `open since` per PR. |
 
-The output carries `text`, `file`, `command` (`gh issue comment <N> --repo <tracker> --body-file <file>`), `replacements_made`, `linked_refs` and `unlinked_cves`.
+The output carries `text`, `file`, `command` (`uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-triage issue-comment <N> <file>`), `replacements_made`, `linked_refs` and `unlinked_cves`.
 `unlinked_cves` must be empty: link those CVE IDs in the prose per [`AGENTS.md`](../../../../../AGENTS.md#linking-cves) and render again.
 A refusal exits `2` with `refused`: fix the input, never the rendered text.

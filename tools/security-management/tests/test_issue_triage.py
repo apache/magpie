@@ -339,7 +339,18 @@ def test_render_proposal_shape_links_and_command(capsys, tmp_path):
     assert text.rstrip().endswith(
         "@alice @bob — does [apache/airflow#39100](https://github.com/apache/airflow/issues/39100) cover this fully?"
     )
-    assert out["command"] == "gh issue comment 212 --repo example-s/example-s --body-file /s/triage-212.md"
+    assert out["command"] == (
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op "
+        "--caller security-issue-triage issue-comment 212 /s/triage-212.md"
+    )
+    assert out["file"] == "/s/triage-212.md"
+
+
+def test_render_proposal_prefers_the_vetted_ops_workspace(capsys, tmp_path):
+    code, out = run(capsys, tmp_path, "render-proposal", proposal(workspace="/ws/"))
+    assert code == 0
+    assert out["file"] == "/ws/triage-212.md"
+    assert out["command"].endswith("--caller security-issue-triage issue-comment 212 /ws/triage-212.md")
 
 
 @pytest.mark.parametrize(
