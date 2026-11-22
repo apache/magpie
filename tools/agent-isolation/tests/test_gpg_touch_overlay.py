@@ -924,23 +924,88 @@ def test_a_shim_named_for_an_unrelated_command_is_refused(tmp_path: Path) -> Non
     assert "expected arm|disarm|wrap" in result.stderr
 
 
-def test_wrap_stands_aside_inside_an_agent_session(tmp_path: Path) -> None:
+def _agent_env(tmp_path: Path, session: str = "sess-1") -> dict[str, str]:
+    """A command inside an agent session, as Claude Code runs it."""
+    return {
+        **_wrap_env(tmp_path),
+        "CLAUDECODE": "1",
+        "CLAUDE_CODE_SESSION_ID": session,
+    }
+
+
+WATCHED = 'echo "${MAGPIE_GPG_TOUCH_REGISTRATION:-bare}"; exit 3'
+
+
+def test_wrap_stands_aside_when_the_sessions_hook_watcher_is_alive(
+    tmp_path: Path,
+) -> None:
     """One signature, one window: in an agent session the hook owns it.
 
-    The PreToolUse hook armed a watcher outside the sandbox before the
-    command started; a second one from the wrapper, running inside it,
-    would be a second window wherever the sandbox lets it draw. Claude
-    Code marks its Bash with CLAUDECODE=1, and the wrapper only runs the
-    program there.
+    The PreToolUse hook armed a watcher for this session before the
+    command started; a second one from the wrapper would be a second
+    window. So with this session's hook watcher alive, the wrapper only
+    runs the program.
+    """
+    hook_watcher = subprocess.Popen(["sleep", "30"])
+    owners = _owners_dir(tmp_path)
+    owners.mkdir(parents=True)
+    (owners / "s-sess-1").write_text(f"{os.getpid()} {hook_watcher.pid}\n")
+    try:
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "wrap", "sh", "-c", WATCHED],
+            capture_output=True,
+            text=True,
+            env=_agent_env(tmp_path),
+        )
+        assert result.returncode == 3, result.stderr
+        assert result.stdout.strip() == "bare"
+        assert sorted(p.name for p in owners.iterdir()) == ["s-sess-1"]
+    finally:
+        hook_watcher.kill()
+        hook_watcher.wait()
+
+
+def test_wrap_arms_its_own_watcher_for_a_bang_command(tmp_path: Path) -> None:
+    """A `!` command typed into the session gets a window too.
+
+    Claude Code sets CLAUDECODE=1 for it as well, but it is not a tool
+    call: no PreToolUse hook fires and nothing is armed. Standing aside
+    there left the signature blocked on a touch with nothing on screen.
     """
     result = subprocess.run(
-        ["bash", str(SCRIPT), "wrap", "sh", "-c", "exit 3"],
+        ["bash", str(SCRIPT), "wrap", "sh", "-c", WATCHED],
         capture_output=True,
         text=True,
-        env={**_wrap_env(tmp_path), "CLAUDECODE": "1"},
+        env=_agent_env(tmp_path),
     )
     assert result.returncode == 3, result.stderr
-    assert not (tmp_path / "magpie-gpg-touch").exists()
+    assert result.stdout.strip() != "bare", "no watcher was armed"
+    assert _no_registrations(tmp_path), "the wrapper left its registration behind"
+
+
+def test_another_sessions_hook_watcher_does_not_count(tmp_path: Path) -> None:
+    """Another agent session's watcher is not this command's window.
+
+    It closes when that session's command ends, whatever this signature
+    is still waiting for.
+    """
+    other = subprocess.Popen(["sleep", "30"])
+    owners = _owners_dir(tmp_path)
+    owners.mkdir(parents=True)
+    (owners / "s-sess-2").write_text(f"{os.getpid()} {other.pid}\n")
+    try:
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "wrap", "sh", "-c", WATCHED],
+            capture_output=True,
+            text=True,
+            env=_agent_env(tmp_path, session="sess-1"),
+        )
+        assert result.returncode == 3, result.stderr
+        assert result.stdout.strip() != "bare", "no watcher was armed"
+        assert other.poll() is None, "the other session's watcher was killed"
+    finally:
+        other.kill()
+        other.wait()
 
 
 @pytest.mark.skipif(shutil.which("ssh-keygen") is None, reason="needs ssh-keygen")
