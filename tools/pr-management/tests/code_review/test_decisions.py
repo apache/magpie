@@ -738,6 +738,24 @@ def test_markers_split_environments() -> None:
     assert result["evidence"] == {"uninstallable_in": ["py39"]}
 
 
+def test_an_uninstallable_environment_is_named_beside_a_failing_resolution() -> None:
+    result = deps.classify(
+        {
+            "package": "x",
+            "environments": ["py39", "py312"],
+            "paths": [
+                {"via": "p", "specifier": ">=1.0"},
+                {"via": "q", "specifier": "<1.0", "environments": ["py39"]},
+            ],
+            "available_versions": ["0.9", "1.0", "1.1"],
+            "lacking_api": ["1.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "broken"
+    assert result["evidence"] == {"uninstallable_in": ["py39"]}
+
+
 def test_pr_with_lagging_commit_edge_fails_closed_to_comment() -> None:
     # Direction 1 of #2034: latest commit node lags behind headRefOid (4eb3567c != 3ac12395).
     node = {

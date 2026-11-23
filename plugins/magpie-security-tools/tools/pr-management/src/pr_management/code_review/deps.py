@@ -120,12 +120,12 @@ def classify(ledger: dict[str, Any]) -> dict[str, Any]:
     empty = [env for env, r in per_env.items() if not r["satisfying"]]
     failing_by_env = {env: r["failing"] for env, r in per_env.items() if r["failing"]}
     evidence: dict[str, Any]
-    if failing_by_env:
+    if empty and not unparsed:
+        status, evidence = "broken", {"uninstallable_in": empty}
+    elif failing_by_env:
         status, evidence = "broken", {"failing_resolution": failing_by_env}
     elif unparsed:
         status, evidence = "unknown", {"unparsed_versions": unparsed}
-    elif empty:
-        status, evidence = "broken", {"uninstallable_in": empty}
     elif ledger.get("exhaustive"):
         status, evidence = "compatible", {"exhaustive": True}
     else:
