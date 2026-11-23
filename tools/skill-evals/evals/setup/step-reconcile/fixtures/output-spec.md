@@ -24,8 +24,11 @@ Return ONLY valid JSON with this structure:
   when an override's referenced anchor no longer resolves in the target
   skill's current `SKILL.md`; `kind: "config"` when a `requires_config`
   entry does not resolve through the lookup chain; `kind: "policy"` when
-  an applicable import caller, required operation, or required label is absent from an
-  existing vetted-ops policy. Use the caller name as `skill` and name
+  an applicable caller (one the policy declares, or an installed skill's
+  caller the README example names), required operation, or required label
+  is absent from an existing vetted-ops policy. Never propose removing a
+  grant, and never propose an operation the README example does not list
+  for that caller; a policy caller the example does not name is not compared. Use the caller name as `skill` and name
   the exact missing operations or labels in `detail`.
   Policy findings may group missing grants and labels for the same caller.
   Required labels include intake labels and the configured PR scope, PR-state, and security-marker labels, as applicable.

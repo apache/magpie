@@ -28,6 +28,7 @@ import pytest
 from magpie_sourcehut.builds import get_job
 from magpie_sourcehut.cli import main
 from magpie_sourcehut.client import (
+    DEFAULT_TIMEOUT_SECONDS,
     NoAuthRedirectHandler,
     SourceHutError,
     _require_https,
@@ -105,6 +106,30 @@ def test_query_graphql_success(mock_build_opener: MagicMock, mock_env: None) -> 
     mock_opener(mock_build_opener, {"data": {"version": "1.0"}})
     res = query_graphql("todo", "{ version }")
     assert res == {"version": "1.0"}
+
+
+@patch("urllib.request.build_opener")
+def test_query_graphql_passes_timeout(mock_build_opener: MagicMock, mock_env: None) -> None:
+    opener = mock_opener(mock_build_opener, {"data": {"version": "1.0"}})
+    query_graphql("todo", "{ version }")
+    assert opener.open.call_args.kwargs["timeout"] == DEFAULT_TIMEOUT_SECONDS
+
+
+@patch("urllib.request.build_opener")
+def test_query_graphql_read_timeout_raises_sourcehut_error(
+    mock_build_opener: MagicMock, mock_env: None
+) -> None:
+    # The server sent headers and then stalled: read() raises a bare TimeoutError.
+    stalled = MagicMock()
+    stalled.read.side_effect = TimeoutError("timed out")
+    opener = MagicMock()
+    opener.open.return_value = MagicMock(
+        __enter__=MagicMock(return_value=stalled),
+        __exit__=MagicMock(return_value=None),
+    )
+    mock_build_opener.return_value = opener
+    with pytest.raises(SourceHutError, match="Timed out waiting for"):
+        query_graphql("todo", "{ version }")
 
 
 def test_query_graphql_no_token() -> None:

@@ -20,7 +20,7 @@ argument-hint: "[enrol | update] [project-name]"
 capability: capability:authoring
 surface_hash: sha256:cefbd533dc1009f2
 license: Apache-2.0
-measured_tokens: 4529
+measured_tokens: 4686
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -109,6 +109,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -231,6 +235,7 @@ The CLA bot asks for a signature comment; that is a legal act the maintainer pos
 
 Show the files, the title and the body; on confirmation, commit to a branch in the maintainer's fork **of the repository the change belongs to**, push, and open it with `gh pr create --web --repo <scanner-repo or upstream> --title <title> --body-file <file>`, so the maintainer reviews the rendered PR before submitting it.
 `<scanner-repo>` takes the enrolment checklist body; `<upstream>` takes its own PR template and conventions, and its PR names no scan programme beyond the `.oss-scanner/` path itself.
+For the `<upstream>` PR, run the commit, push and PR as the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller security-submit-to-oss-scan`), each confirmed by the maintainer, with `gh pr create --web` as the fallback that file names; `<scanner-repo>` is outside the policy, so its commands stay with the maintainer.
 
 **Adversarial review by other models.** Run it now, per [pre-pr-adversarial-review.md](pre-pr-adversarial-review.md).
 

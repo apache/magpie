@@ -27,7 +27,8 @@ from pathlib import Path
 from typing import Any
 
 from .. import config as core_config
-from . import codeowners, roster, score
+from ..code_review import codeowners
+from . import roster, score
 
 FAMILY = "reviewer-routing"
 _TARGET = re.compile(r"^(?:(pr|issue):)?(\d{1,10})$")
@@ -35,6 +36,21 @@ _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]
 NO_ROSTER_BLOCKER = (
     "no roster file found — create reviewer-roster.md or release-trains.md in the project config directory"
 )
+
+
+def owned_paths(codeowners_text: str, paths: list[str]) -> dict[str, set[str]]:
+    """Each `@handle` or `@org/team` CODEOWNERS gives a changed path, lowercased, without the `@`.
+
+    Matched with the code-review skill's CODEOWNERS rules, so both skills agree on
+    who owns a path; e-mail owners are left out, since a reviewer is a handle.
+    """
+    rules = codeowners.parse(codeowners_text)
+    owners: dict[str, set[str]] = {}
+    for path in paths:
+        for owner in codeowners.owners_of(rules, path):
+            if owner.startswith("@"):
+                owners.setdefault(owner[1:].lower(), set()).add(path)
+    return owners
 
 
 def parse_target(value: str) -> tuple[str, int] | None:
@@ -157,10 +173,7 @@ def propose(args: argparse.Namespace) -> dict[str, Any]:
                 text = base64.b64decode(raw).decode("utf-8")
             except (binascii.Error, UnicodeDecodeError):
                 text = raw
-            rules = codeowners.parse(text)
-            for path in paths:
-                for owner in codeowners.owners_of(path, rules):
-                    owners.setdefault(owner.lower(), set()).add(path)
+            owners = owned_paths(text, paths)
     if needs:
         return {"needs": needs}
     result = score.score(

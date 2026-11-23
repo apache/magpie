@@ -151,6 +151,27 @@ if [ -z "${SANDBOX_RUNTIME:-}" ]; then
       export XDG_CACHE_HOME="$HOME/.local/share/prek-host/cache"
       ;;
   esac
+  # A pnpm project's settings give sandboxed pnpm a home of its own under
+  # ~/.local/share/pnpm-sandbox/<project>, where it keeps the pnpm versions it
+  # downloads and runs (.tools), its cache and its store, and that env also
+  # reaches a hook Claude Code runs outside the sandbox. Drop any pnpm
+  # directory pointing there, so a host pnpm uses its own defaults rather than
+  # a binary sandboxed commands could write. sandbox-lint accepts only these
+  # two literal spellings of that home, so a prefix match is enough. A global
+  # virtual store set beside it (an older setup) goes with it: a host pnpm
+  # keeps the project's own layout, and npm no longer warns about the name.
+  _pnpm_dropped=
+  for _var in PNPM_HOME npm_config_cache_dir npm_config_state_dir npm_config_store_dir; do
+    case "${!_var:-}" in
+      "~/.local/share/pnpm-sandbox/"*|"$HOME/.local/share/pnpm-sandbox/"*)
+        unset "$_var"
+        _pnpm_dropped=1
+        ;;
+    esac
+  done
+  if [ -n "$_pnpm_dropped" ]; then
+    unset npm_config_enable_global_virtual_store
+  fi
 fi
 
 # --- managers that re-read core.hooksPath at run time -----------------------

@@ -23,7 +23,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 6476
+measured_tokens: 6791
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -107,6 +107,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -302,8 +306,9 @@ An `edit` regenerates the plan and asks again; an `ambiguous` reply asks again.
 
 Only after Step 6 confirmation (on the `patch-then-commit` flow, with the changes in [Step 7 (Subversion)](subversion-flow.md#step-7-subversion--implement-without-publishing)):
 
-1. Create the branch with the agreed name off the freshly pulled
-   base.
+1. Create the branch with the agreed name off the freshly fetched
+   base: `git-fetch`, then `git-worktree-add` per
+   [vetted-git-publish.md](vetted-git-publish.md), and make the edits in that worktree.
 2. Make the file edits from 5b, using the small-edit tools where
    possible (prefer `Edit` over `Write` unless creating a new file).
 3. Run the test and static-check commands from 5d. If any fail, stop
@@ -328,28 +333,16 @@ the diff.
 
 On the `patch-then-commit` flow, [share the patch privately](subversion-flow.md#step-8-subversion--share-the-patch-privately) instead, and commit only through [the publication gate](subversion-flow.md#step-9-subversion--commit-once-the-team-clears-publication).
 
-After the user confirms the diff:
+After the user confirms the diff, run these as the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller security-issue-fix`), each confirmed by the user; that file also says what to hand the user when no `[git]` values are configured for this project:
 
-1. Stage only the intentional changes (`git add <paths>` — never
-   `git add -A` or `git add .`).
-2. Commit with the agreed message from 5c, adding the trailer the repository's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)
-   (`Generated-by:` by default), with `git commit --trailer`, per
-   [`AGENTS.md`](../../../../AGENTS.md).
-3. Rebase onto the latest upstream base one more time in case
-   something landed while you were working:
-
-   ```bash
-   git fetch <upstream-remote> <base-branch>
-   git rebase <upstream-remote>/<base-branch>
-   ```
-
-4. Push the branch to the **user's fork** — never to
-   `<upstream>` directly, never with `--force` unless the user
-   explicitly asked (and then only with `--force-with-lease`):
-
-   ```bash
-   git push -u <fork-remote> <branch-name>
-   ```
+1. Stage only the intentional changes: write their paths to a `<workspace>` file and run `git-stage` (never everything in the worktree).
+2. Commit with the agreed message from 5c through `git-commit`, after `prek run --files <paths>` passes.
+   The message file ends with the trailer the repository's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)
+   (`Generated-by:` by default), as its own last paragraph, since `git-commit` takes no `--trailer`.
+3. Pick up anything that landed meanwhile: `git-fetch <checkout> <base-branch>`.
+   When the base moved and the branch no longer applies cleanly, rebase it in a scratch clone (the golden rule above), then `git-worktree-sync` the worktree to the rebased commit.
+4. Push the branch to the **user's fork**, never to `<upstream>` directly: `git-push-branch <worktree> <branch-name> fork <branch-name> new` after the pre-push checks pass.
+   Re-pushing an updated branch passes the remote branch's current SHA instead of `new`, and only with the user's explicit approval.
 
 ---
 
@@ -357,15 +350,17 @@ After the user confirms the diff:
 
 On the `patch-then-commit` flow there is no PR: the public step is the commit, behind [the publication gate](subversion-flow.md#step-9-subversion--commit-once-the-team-clears-publication).
 
-Use `gh pr create --web` with the title and body from 5c and 5g pre-filled; the user reviews title, body and Gen-AI disclosure in the browser before submitting, per [`AGENTS.md`](../../../../AGENTS.md#commit-and-pr-conventions).
-
-`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+Open the PR with `git-pr-create` from [vetted-git-publish.md](vetted-git-publish.md), the title from 5c as its `title` parameter and the body from 5g in `<workspace>/pr-body-<issue>.md`.
+Show the user the exact title, body and Gen-AI disclosure first; their confirmation of the call is the submission gate, per [`AGENTS.md`](../../../../AGENTS.md#commit-and-pr-conventions).
+`git-pr-create` targets the policy's `pr_base`; a PR against another base branch (a backport branch from 5a), or a project with no `[git]` values configured, opens with `gh pr create --web` instead, which the user submits from the browser:
 
 ```bash
 gh pr create --web --repo <upstream> --base <base-branch> \
   --title "<neutral title>" \
   --body-file <scratch>/pr-body-<issue>.md
 ```
+
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 If a backport label is needed, apply the one chosen in 5e (vocabulary in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#backport-labels)) after the PR is created:
 
@@ -375,14 +370,15 @@ gh pr edit <PR-NUMBER> --repo <upstream> --add-label "<backport-label>"
 
 The backport bot fires only on merge, so applying the label right away is safe and keeps it from being forgotten.
 
-**Run `<sm> scrub` on the PR title and body one more time** (the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)) before calling `gh pr create --web`.
+**Run `<sm> scrub` on the PR title and body one more time** (the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)) before opening the PR.
 If it is not `clean`, abort and tell the user.
+`git-pr-create` also refuses a title or body holding a never-publish term, as a second backstop.
 When the framework's secure setup is installed, the agent-guard `security-language` guard ([`guards/security_language.py`](guards/security_language.py)) also blocks a `gh pr create` / `gh pr edit` whose title or body carries a CVE ID, `security fix` or a vulnerability-class name.
 It does not match the bare words `vulnerability` or `advisory`, which would block ordinary PRs everywhere the guard runs, so those rely on this manual check.
 It is a backstop, not a replacement for this check: it covers only a subset of the 5c list, and it does not see the commit message, the branch name, or a newsfragment.
 In Claude Code sessions with the `magpie-security` plugin enabled, the deterministic public-surface scrub mod ([`hooks/public-surface-scrub.ts`](../../hooks/public-surface-scrub.ts)) automatically intercepts and gates `git commit`, `git tag`, `git merge`, `gh pr create|edit|review|comment|merge|close`, `gh issue create|edit|comment|close`, `gh release create`, and `gh api` calls to prevent early disclosure across the full canonical forbidden term list.
 
-After the user submits the PR, capture its URL (from the browser, or `gh pr view --json url --jq .url`) for Step 10.
+Capture the PR URL for Step 10: `git-pr-create` prints it; after a browser submission, take it from the browser or `gh pr view --json url --jq .url`.
 
 ---
 
@@ -414,7 +410,7 @@ the backport label (or that none was needed) and the next step — by default *"
 - **Small edits over large.** Prefer `Edit` over `Write` and the minimum diff that implements the fix; do not tidy surrounding code.
 - **No newsfragment for security fixes** unless explicitly approved — it broadcasts the security nature of the change.
 - **Stop on disagreement.** If local checks, upstream CI, or a reviewer flags a problem the skill did not anticipate, stop and surface it — do not retry indefinitely.
-- **Follow AGENTS.md.** The top-level [`AGENTS.md`](../../../../AGENTS.md) — confidentiality, commit trailers, `gh pr create --web`, tone, CVE linking — applies and takes precedence over this skill if the two disagree.
+- **Follow AGENTS.md.** The top-level [`AGENTS.md`](../../../../AGENTS.md) — confidentiality, commit trailers, how PRs are opened, tone, CVE linking — applies and takes precedence over this skill if the two disagree.
 
 ---
 

@@ -1076,6 +1076,64 @@ def check_codex_policy(path: Path, entries: list) -> list[str]:
     return errors
 
 
+def catalog_installation(name: str) -> str:
+    """The `policy.installation` every client catalogue gives a plugin."""
+    return "INSTALLED_BY_DEFAULT" if name in CODEX_ALWAYS_INSTALLED else CODEX_REQUIRED_INSTALLATION
+
+
+def copilot_catalog_entry(name: str) -> dict:
+    """A plugin entry for the GitHub Copilot / VS Code catalogue."""
+    return {
+        "name": name,
+        "source": f"./plugins/{name}",
+        "category": "maintenance",
+        "policy": {"installation": catalog_installation(name)},
+    }
+
+
+def codex_catalog_entry(name: str) -> dict:
+    """A plugin entry for the Codex catalogue."""
+    return {
+        "name": name,
+        "source": {"source": "local", "path": f"./plugins/{name}"},
+        "category": "maintenance",
+        "policy": {"installation": catalog_installation(name)},
+    }
+
+
+def write_client_catalogs(fam: dict[str, set[str]]) -> list[str]:
+    """Rebuild the `plugins` list of both non-Claude client catalogues from the family map.
+
+    These catalogues are checked by `check_client_catalogs`, but `--fix` used to
+    leave their family entries to hand editing: it repaired only the Codex
+    substrates, reported success, and the next check failed with the same
+    missing entry. Deriving both lists from the family map closes that loop.
+    The whole `plugins` list is replaced, so a hand-added entry does not survive
+    the next `--fix`.
+    """
+    families = [f"magpie-{family}" for family in sorted(fam)]
+    errors: list[str] = []
+    copilot = Path("marketplace.json")  # GitHub Copilot / VS Code
+    if copilot.is_file():
+        catalog, err = load_json(copilot)
+        if err:
+            errors.append(err)
+        else:
+            catalog["plugins"] = [copilot_catalog_entry(name) for name in families]
+            copilot.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    if CODEX_CATALOG.is_file():
+        catalog, err = load_json(CODEX_CATALOG)
+        if err:
+            errors.append(err)
+        else:
+            names = [*sorted(CODEX_SUBSTRATES), *families]
+            catalog["plugins"] = sorted(
+                (codex_catalog_entry(name) for name in names), key=lambda e: e["name"]
+            )
+            CODEX_CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    return errors
+
+
 def codex_family_manifest(name: str, description: str, shared: dict) -> dict:
     """The `.codex-plugin/plugin.json` `--fix` writes for a plugin in `CODEX_FAMILY_HOOKS`.
 
@@ -1689,29 +1747,13 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
     market["plugins"] = keep
     MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
-    # Codex supports the same native plugin hooks, but only self-contained
-    # substrate packages can be advertised: outward symlinks are not installed.
-    if CODEX_CATALOG.is_file():
-        catalog, catalog_error = load_json(CODEX_CATALOG)
-        if catalog_error:
-            print(catalog_error, file=sys.stderr)
-            return 1
-        entries = [e for e in catalog["plugins"] if e.get("name") not in CODEX_SUBSTRATES]
-        entries += [
-            {
-                "name": name,
-                "source": {"source": "local", "path": f"./plugins/{name}"},
-                "category": "maintenance",
-                "policy": {
-                    "installation": "INSTALLED_BY_DEFAULT"
-                    if name in CODEX_ALWAYS_INSTALLED
-                    else CODEX_REQUIRED_INSTALLATION
-                },
-            }
-            for name in sorted(CODEX_SUBSTRATES)
-        ]
-        catalog["plugins"] = sorted(entries, key=lambda e: e["name"])
-        CODEX_CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    # Both non-Claude client catalogues are derived the same way. The Codex one
+    # lists the self-contained substrate packages as well as the families:
+    # outward symlinks are not installed there.
+    if catalog_errs := write_client_catalogs(fam):
+        for e in catalog_errs:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
     if welcome_errs := welcome_families("write-constant"):
         for e in welcome_errs:
             print(f"  - {e}", file=sys.stderr)

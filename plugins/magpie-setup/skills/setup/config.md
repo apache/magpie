@@ -368,6 +368,57 @@ Then, for both:
    [`tools/github/project-board.md`](../../../../tools/github/project-board.md#keep-the-board-security-only)) to say it holds security trackers only.
 4. Suggest a first `sync all` so the sync adds the open trackers to the board and archives the closed ones and anything else.
 
+## Step 3a.2 — Security advisories page (security family)
+
+Run this when any `security`-family skill is in scope and `security_pages_url` in `project.md` is unset, empty or `TODO`.
+After each advisory ships, the [ASF security-committers policy](https://www.apache.org/security/committers.html)
+expects the project to list it on its own public security pages, and `security-issue-sync` tracks that step only when it knows the page.
+
+Look first, then ask once (in the Step 3 batch when it runs):
+
+- **Auto-detect.** Check the obvious places without guessing a value into the file:
+  for an ASF project, `https://<project>.apache.org/security` and `…/security.html`,
+  and a `security` section in the site repository the `upstream_repo` points to or names.
+  Present what was found as a suggestion.
+- **Ask:** *"Does the project already publish a page listing its security advisories?"*
+  - **Yes** — record its URL as `security_pages_url`. Then offer [Advisory records](../../templates/project.md#advisory-records):
+    with it, sync proposes the page change for each published CVE itself instead of reminding the release manager.
+    When the site repository takes changes only through pull requests, set `publish: pull-request`,
+    and record each operator's fork in their `user.md` (`environment.advisory_records_fork`).
+  - **No** — propose creating one, and say why (the policy step above, and one place users can check what affects them).
+    Offer the `cve-json-file` layout of [`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md):
+    one CVE JSON record per file in the site repository, from which the site renders the list, so each new CVE is a one-file change.
+    Creating the page is a change to the project's website: draft it only on the user's go-ahead, in the site repository,
+    and leave opening the pull request to the user's confirmation. Until a page exists, leave `security_pages_url` unset.
+  - **Not now** — leave it unset.
+
+Whatever the answer, say what it means for sync: with no `security_pages_url`, sync sends no security-pages reminder
+and the release-manager hand-off asks for no website edit; with one, both appear after each advisory.
+
+## Step 3a.3 — Your git values for publishing (secure setup only)
+
+Run this only when the isolated setup is in use on this machine
+(`python3 -P -m setup_preflight.isolated configured` prints `{"configured": true}`, with the same `PYTHONPATH` as pre-flight),
+and some installed skill publishes changes (opens a pull request, pushes a branch).
+Without the secure setup, plain `git` and `gh` work and there is nothing to configure: skip this step silently.
+
+Under the secure setup, publishing goes through `vetted-op-git`, which needs this operator's own values for the project's
+upstream repository: where their checkouts, worktrees and fork are. They live in one file only the operator writes,
+`~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository (`["<upstream_repo>"]`),
+never in the committed policy ([`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
+The project-wide `[git]` keys and the publishing skills' grants stay in the shared policy, which this step does not check.
+
+- **Already configured** (that file has a table for `upstream_repo`): say so in one line.
+- **Missing**: propose it. Draft the table with what the repository shows — the main checkout for `checkouts`,
+  the remote name that points at `upstream_repo` for `upstream_remote`, `<fork owner>/<repo>` from a remote pointing at a fork
+  (or ask for the login), and an absolute, symlink-free directory for `worktree_roots` — using only the keys that file accepts
+  (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, `protected`).
+  Show it, with the line that appends it to the file, for the user to run in their own terminal:
+  the sandbox denies that directory by design, and setup never writes it.
+  `vetted-op-git` prints the same draft whenever it refuses for missing values.
+
+A declined proposal is not a failure; record it like any other declined configuration.
+
 ### Personal tool configs, for a project that has not adopted Magpie
 
 Two security tools read a config file the `requires_config:` check does not cover, so a maintainer working alone passes pre-flight and then stops mid-run without them.

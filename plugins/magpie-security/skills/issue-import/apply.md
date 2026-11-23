@@ -75,15 +75,26 @@ For each confirmed `Report` or forwarder-relayed candidate:
    [`tools/github/project-board.md`](../../../../tools/github/project-board.md#orphan-issue-path)
    to **idempotently** ensure the item exists on the board *and* `Status` is `Needs triage`:
 
-   - Resolve the new issue's node id, then `addProjectV2ItemById`
-     (returns the existing item id if the workflow already added the issue, or creates a fresh one — both are safe).
-   - Run `updateProjectV2ItemFieldValue` to set `Status` to the
-     `Needs triage` option id from the project's
+   Under the secure setup, run it through the vetted board operations, each as a command line of its own:
+
+   ```bash
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import board-item <N>
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import board-add-item <node_id>
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import board-set-status <item_id> "Needs triage"
+   ```
+
+   - `board-item` returns the issue's `node_id` and, when the auto-add workflow already put it on the board, its `item_id`.
+   - Only when `item` is `null`, `board-add-item <node_id>` adds it and returns the `item_id`
+     (the GraphQL `addProjectV2ItemById`, which returns the existing item when there is one, so a race with the workflow is safe).
+   - `board-set-status <item_id> "Needs triage"` sets `Status` to the `Needs triage` option id from the project's
      `status_column_option_ids` table in
-     [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board).
+     [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board)
+     (`updateProjectV2ItemFieldValue`).
 
    This does not depend on the workflow being configured correctly,
    and is a no-op when the item is already on the board with the same Status.
+   A refusal naming the caller means the policy lacks `board-item`, `board-add-item` or `board-set-status` for `security-issue-import`:
+   finish the rest of the import, then tell the user which grant to add; never borrow another skill's caller.
 
 4. **Decide the receipt-of-confirmation draft** with `<sm> ack-decision --input <scratch>/ack-<threadId>.json`:
    `class`, `model` and `window_days` from the Step 0 observed-state bag (`reporter_acknowledgement_model`, default `manual`),
@@ -208,7 +219,9 @@ media / cross-thread-followup / fix-already-public):
    (`date`, `reporter`, `title` — the thread subject, verbatim, the tool strips `Re:`/`Fwd:` —, `canned` slug, `thread` id, `archive`, `summary`):
    it keeps every value on one line, so attacker-derived text can neither add a key nor forge a second record,
    and writes `archive: unresolved (archive lag)` when no permalink is given.
-   Write its `text` to `<scratch>/rejection-<threadId>.md` with the Write tool.
+   Write its `text` to `<workspace>/rejection-<threadId>.md` with the Write tool
+   (`<workspace>` is the vetted-ops body workspace, `~/.cache/apache-magpie/vetted-ops-bodies/`, one file per record:
+   the operation consumes each body file it posts).
 
    Record **`title:`** (the verbatim thread subject) and **`archive:`** (a stable mail-archive permalink) besides the mailbox `thread:` id:
    a bare threadId resolves only inside the one mailbox that holds it,
@@ -219,9 +232,13 @@ media / cross-thread-followup / fix-already-public):
    and keep the mailbox `thread:` id so a later run can backfill it.
 
    ```bash
-   gh api repos/<tracker>/issues/<ledger-N>/comments \
-     -F body=@<scratch>/rejection-<threadId>.md --jq '.id'
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import issue-comment <ledger-N> <workspace>/rejection-<threadId>.md
    ```
+
+   Never post the record with raw `gh api …/comments`: the agent guard blocks it (a record names the security list and the report's subject),
+   and the vetted operation is the sanctioned route for private-tracker comments.
+   A refusal naming the caller means the policy lacks the `issue-comment` grant for `security-issue-import`:
+   keep the rendered record, tell the user which grant to add, and continue with the rest of the run.
 
    If the resolution returns no number (no ledger issue exists yet),
    surface a one-line note in the recap (*"no `rejections-ledger`

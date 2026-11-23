@@ -60,7 +60,16 @@ def _compile(pattern: str) -> re.Pattern[str]:
         i += 1
     if not anchored and "/" not in body:
         out = "(?:.*/)?" + out  # a bare name matches at any depth
-    tail = "/.*" if directory else "(?:/.*)?"
+    # A pattern also owns everything under a directory it names, except when
+    # its last segment is a glob (`*` or `?`): GitHub's `docs/*` owns
+    # `docs/getting-started.md` but not `docs/build-app/troubleshooting.md`.
+    leaf = body.rsplit("/", 1)[-1]
+    if directory:
+        tail = "/.*"
+    elif "*" in leaf or "?" in leaf:
+        tail = ""
+    else:
+        tail = "(?:/.*)?"
     return re.compile("^" + out + tail + "$")
 
 

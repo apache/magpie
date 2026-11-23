@@ -26,7 +26,12 @@ import type {
   ReviewFinding,
   ReviewFindingsState,
   ReviewFindingsSummary,
+  TriageProgressState,
 } from './types.js';
+import {
+  processTriageCommand,
+  renderTriageProgressBandComponent,
+} from './triage-progress-band.js';
 
 export interface CuratedFindingsPayload {
   schema_version: 1;
@@ -164,6 +169,11 @@ export const reviewFindingsState = atom(
   null as ReviewFindingsState | null
 );
 
+export const triageProgressState = atom(
+  { plugin: 'magpie-pr-management', key: 'triageProgressState' },
+  null as TriageProgressState | null
+);
+
 export async function setReviewFindingsState(
   $: any,
   state: ReviewFindingsState | null
@@ -183,6 +193,53 @@ export async function getReviewFindingsState(
     return (await read($, reviewFindingsState)) ?? null;
   } catch {
     return null;
+  }
+}
+
+export async function setTriageProgressState(
+  $: any,
+  state: TriageProgressState | null
+): Promise<void> {
+  try {
+    await update($, triageProgressState, () => state);
+    try {
+      $.ui.invalidate('ui.render');
+    } catch {
+      // Invalidation optional in headless contexts
+    }
+  } catch {
+    // Fail-open
+  }
+}
+
+export async function getTriageProgressState(
+  $: any
+): Promise<TriageProgressState | null> {
+  try {
+    return (await read($, triageProgressState)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function handleRenderAbovePrompt($: any, e: any, next: any): Promise<any> {
+  try {
+    const state = await getTriageProgressState($);
+    if (!state) {
+      if (typeof next === 'function') return next(e);
+      return;
+    }
+
+    const { Box, Text } = $.ui.resolve(e);
+    if (Box && Text) {
+      return renderTriageProgressBandComponent(state, { Box, Text });
+    }
+  } catch {
+    // Fail-open to next render handler on error
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
   }
 }
 
@@ -1785,6 +1842,24 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
           }
         }
       }
+
+      try {
+        const currentTriage = await getTriageProgressState($);
+        let triageToProcess = currentTriage;
+        if (currentTriage && (currentTriage.status === 'completed' || currentTriage.remaining === 0)) {
+          const isTriageFollowup = /\bgh\s+pr\s+(?:view|edit|close|comment|checkout)\b/i.test(command);
+          if (!isTriageFollowup) {
+            await setTriageProgressState($, null);
+            triageToProcess = null;
+          }
+        }
+        const updatedTriage = processTriageCommand(command, triageToProcess);
+        if (updatedTriage !== undefined) {
+          await setTriageProgressState($, updatedTriage);
+        }
+      } catch {
+        // Safe no-op
+      }
     } catch {
       // Safe no-op on any parsing or I/O failure (fail-open)
     }
@@ -2161,12 +2236,20 @@ export function register(on: any): void {
         // Safe no-op
       }
     }
+
+    try {
+      await setTriageProgressState($, null);
+    } catch {
+      // Safe no-op
+    }
+
     if (typeof next === 'function') {
       return next(e);
     }
   });
 
   on('ui.render', { component: 'Pane' }, handleRenderPane);
+  on('ui.render', { component: 'AbovePrompt' }, handleRenderAbovePrompt);
   on('ui.press', handleUiPress);
   on('tool.call', { tool: 'Bash' }, handleBashToolCall);
   on('command.run', { command: 'magpie-findings' }, handleFindingsCommand);

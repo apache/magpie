@@ -1170,3 +1170,180 @@ def test_dot_allow_read_over_a_project_subdir_passes(baseline: dict[str, Any], t
     assert not [
         e for e in check_invariants(settings, project_root=tmp_path) if "is a parent of the allowWrite" in e
     ]
+
+
+PNPM_HOME = "~/.local/share/pnpm-sandbox/demo"
+PNPM_ENV = {
+    "PNPM_HOME": PNPM_HOME,
+    "npm_config_cache_dir": f"{PNPM_HOME}/cache",
+}
+
+
+def _pnpm_project(tmp_path: Path, name: str = "pnpm-lock.yaml") -> Path:
+    repo = _git_repo(tmp_path / "r")
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    (repo / name).write_text("")
+    subprocess.run(["git", "-C", str(repo), "add", name], check=True)
+    return repo
+
+
+def _pnpm_settings(baseline: dict[str, Any]) -> dict[str, Any]:
+    settings = copy.deepcopy(baseline)
+    settings["env"] |= PNPM_ENV
+    settings["sandbox"]["filesystem"]["allowRead"].append(f"{PNPM_HOME}/")
+    settings["sandbox"]["filesystem"]["allowWrite"].append(f"{PNPM_HOME}/")
+    return settings
+
+
+def test_the_baseline_denies_the_host_pnpm_cache_but_sets_no_pnpm_env(baseline: dict[str, Any]) -> None:
+    """npm reads the npm_config_* names too, and warns about each in every project."""
+    assert "Edit(~/.cache/pnpm/**)" in baseline["permissions"]["deny"]
+    assert not set(PNPM_ENV) & set(baseline["env"])
+    assert not any("pnpm" in e for e in check_invariants(baseline))
+
+
+@pytest.mark.parametrize("name", ["pnpm-lock.yaml", "pnpm-workspace.yaml", "ui/pnpm-lock.yaml"])
+def test_a_project_using_pnpm_needs_its_sandbox_home(
+    baseline: dict[str, Any], tmp_path: Path, name: str
+) -> None:
+    assert not any("pnpm" in e for e in check_invariants(baseline, project_root=_git_repo(tmp_path / "n")))
+    repo = _pnpm_project(tmp_path, name)
+    errors = check_invariants(baseline, project_root=repo)
+    assert any(e.startswith("env.PNPM_HOME: missing") for e in errors), errors
+    assert not any("pnpm" in e.lower() for e in check_invariants(_pnpm_settings(baseline), project_root=repo))
+
+
+@pytest.mark.parametrize("name", ["airflow", "my-project", "a.b_c", "x1"])
+def test_a_project_names_its_own_pnpm_home(baseline: dict[str, Any], tmp_path: Path, name: str) -> None:
+    for home in (
+        f"~/.local/share/pnpm-sandbox/{name}",
+        os.path.expanduser(f"~/.local/share/pnpm-sandbox/{name}"),
+    ):
+        settings = copy.deepcopy(baseline)
+        settings["env"] |= {**PNPM_ENV, "PNPM_HOME": home, "npm_config_cache_dir": f"{home}/cache"}
+        settings["sandbox"]["filesystem"]["allowRead"].append(f"{home}/")
+        settings["sandbox"]["filesystem"]["allowWrite"].append(f"{home}/")
+        errors = check_invariants(settings, project_root=_pnpm_project(tmp_path / home.replace("/", "_")))
+        assert not any("pnpm" in e.lower() for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "home",
+    [
+        "~/.cache/pnpm-sandbox/demo",  # the shared ~/.cache grant: any project's session writes it
+        "~/.cache/pnpm",
+        "~/.local/share/pnpm-sandbox",  # the root, not a project's own directory
+        "~/.local/share/pnpm-sandbox/",
+        "~/.local/share/pnpm-sandbox/demo/nested",
+        "~/.local/share/pnpm-sandbox/demo/",
+        "~/.local/share/pnpm-sandbox/..",
+        "~/.local/share/pnpm-sandbox/.hidden",
+        "~/.local/share/pnpm-sandbox/Demo",
+        "~/.local/share/./pnpm-sandbox/demo",  # normalised away: the dispatcher would keep it
+        "~//.local/share/pnpm-sandbox/demo",
+        "~/.local/share/pnpm",
+        "${HOME}/.local/share/pnpm-sandbox/demo",  # pnpm makes it a directory in the project
+        "$HOME/.local/share/pnpm-sandbox/demo",
+        ".local/share/pnpm-sandbox/demo",
+    ],
+)
+def test_the_pnpm_home_must_be_spelled_exactly(baseline: dict[str, Any], tmp_path: Path, home: str) -> None:
+    """The project's git hooks run the packages in the home outside the sandbox."""
+    settings = _pnpm_settings(baseline)
+    settings["env"]["PNPM_HOME"] = home
+    errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
+    assert any(e.startswith("env.PNPM_HOME:") and "must be exactly" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("grant", ["~/.local/share/pnpm-sandbox/", "~/.local/share/", "~/"])
+def test_a_grant_over_every_project_pnpm_home_is_rejected(
+    baseline: dict[str, Any], tmp_path: Path, grant: str
+) -> None:
+    settings = _pnpm_settings(baseline)
+    settings["sandbox"]["filesystem"]["allowWrite"].append(grant)
+    errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
+    assert any("covers ~/.local/share/pnpm-sandbox itself" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("where", ["allowWrite", "additionalDirectories"])
+def test_a_grant_over_every_project_pnpm_home_is_rejected_without_pnpm(
+    baseline: dict[str, Any], tmp_path: Path, where: str
+) -> None:
+    """A project that does not use pnpm could still poison every other project's packages."""
+    settings = copy.deepcopy(baseline)
+    if where == "allowWrite":
+        settings["sandbox"]["filesystem"]["allowWrite"].append("~/.local/share/pnpm-sandbox/")
+    else:
+        settings.setdefault("permissions", {}).setdefault("additionalDirectories", []).append(
+            "~/.local/share/pnpm-sandbox"
+        )
+    for repo in (_git_repo(tmp_path / "n"), None):
+        errors = check_invariants(settings, project_root=repo)
+        assert any("covers ~/.local/share/pnpm-sandbox itself" in e for e in errors), errors
+
+
+def test_the_pnpm_home_needs_a_write_grant(baseline: dict[str, Any], tmp_path: Path) -> None:
+    settings = _pnpm_settings(baseline)
+    settings["sandbox"]["filesystem"]["allowWrite"].remove(f"{PNPM_HOME}/")
+    errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
+    assert any(e.startswith("sandbox.filesystem.allowWrite: missing") for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "cache",
+    [
+        "~/.cache/pnpm-sandbox/cache",
+        "~/.cache/pnpm",
+        f"{PNPM_HOME}/other",
+        f"{PNPM_HOME}/./cache",
+        PNPM_HOME,
+        "${HOME}/.local/share/pnpm-sandbox/demo/cache",
+        None,
+    ],
+)
+def test_the_pnpm_cache_must_be_the_home_cache(
+    baseline: dict[str, Any], tmp_path: Path, cache: str | None
+) -> None:
+    settings = _pnpm_settings(baseline)
+    if cache is None:
+        settings["env"].pop("npm_config_cache_dir")
+    else:
+        settings["env"]["npm_config_cache_dir"] = cache
+    errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
+    assert any(e.startswith("env.npm_config_cache_dir:") for e in errors), errors
+
+
+@pytest.mark.parametrize("value", [None, "true", "false"])
+def test_sandboxed_pnpm_needs_no_global_virtual_store(
+    baseline: dict[str, Any], tmp_path: Path, value: str | None
+) -> None:
+    """A virtual store outside the project loses its @types packages for TypeScript,
+    so it is not required; the flag is not a sandbox matter either way."""
+    settings = _pnpm_settings(baseline)
+    if value is not None:
+        settings["env"]["npm_config_enable_global_virtual_store"] = value
+    errors = check_invariants(settings, project_root=_pnpm_project(tmp_path))
+    assert not any("pnpm" in e.lower() or "virtual_store" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["npm_config_store_dir", "npm_config_state_dir", "NPM_CONFIG_STORE_DIR", "npm_config_virtual-store-dir"],
+)
+@pytest.mark.parametrize("uses_pnpm", [True, False])
+def test_pnpm_store_and_state_cannot_move_out_of_the_home(
+    baseline: dict[str, Any], tmp_path: Path, key: str, uses_pnpm: bool
+) -> None:
+    """A store under the shared ~/.cache grant would be writable from every project's sandbox."""
+    repo = _pnpm_project(tmp_path) if uses_pnpm else _git_repo(tmp_path / "n")
+    settings = _pnpm_settings(baseline) if uses_pnpm else copy.deepcopy(baseline)
+    settings["env"][key] = "~/.cache/pnpm-store"
+    errors = check_invariants(settings, project_root=repo)
+    assert any(e.startswith(f"env.{key}: remove it") for e in errors), errors
+
+
+def test_the_host_pnpm_cache_is_denied_even_without_pnpm(baseline: dict[str, Any], tmp_path: Path) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["permissions"]["deny"].remove("Edit(~/.cache/pnpm/**)")
+    errors = check_invariants(settings, project_root=_git_repo(tmp_path / "r"))
+    assert "permissions.deny: must contain 'Edit(~/.cache/pnpm/**)'" in errors, errors

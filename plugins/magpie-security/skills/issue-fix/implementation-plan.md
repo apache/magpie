@@ -93,7 +93,7 @@ The neutral-language / no-security-framing rule above applies to the note as wel
 
 ### 5g. PR body draft
 
-Write out the exact `--body` the skill will pass to `gh pr create --web`.
+Write out the exact body the skill will open the PR with (the `git-pr-create` body file, or `--body-file` on the `gh pr create --web` fallback).
 Include:
 
 - a brief description of the user-visible change,

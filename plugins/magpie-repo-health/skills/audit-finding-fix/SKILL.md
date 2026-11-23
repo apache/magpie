@@ -25,7 +25,7 @@ argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
 surface_hash: sha256:a31ea1f8e96846eb
 license: Apache-2.0
-measured_tokens: 5348
+measured_tokens: 5445
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -116,6 +116,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -442,7 +446,7 @@ the investigation.
 
 This step runs only if `--draft-pr` was passed AND the user explicitly confirms after the hand-back artefact; without `--draft-pr` it is skipped entirely.
 
-Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
+Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation push the branch to the fork with `git-push-branch` ([vetted-git-publish.md](vetted-git-publish.md)) and open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
 
 ---
 

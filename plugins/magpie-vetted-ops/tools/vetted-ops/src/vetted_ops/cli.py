@@ -21,6 +21,7 @@ The dispatcher.
 ``vetted-op --caller <name> <operation> [param …]``       (reads and writes)
 ``vetted-op-read --caller <name> <operation> [param …]``  (reads only, by construction)
 ``vetted-op-tracker --caller <name> <operation> [param …]``  (tracker procedures only, by construction)
+``vetted-op-read approval-status``  (whether the discovered policy is an approved copy; JSON)
 
 Everything the caller supplies is a *parameter*, never a fragment of a command.
 The operation name selects a builder from the closed catalogue; the builder
@@ -63,13 +64,16 @@ from pathlib import Path
 
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
-from .config import Config, ConfigError, describe, load
+from .config import Config, ConfigError, approval_status, describe, load
 from .safe_read import unlink_regular_file
 
 EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_POLICY = 3
 EXIT_COMMAND = 4
+
+#: The `vetted-op-read` subcommand that reports whether the discovered policy is approved.
+APPROVAL_STATUS = "approval-status"
 
 
 def _validate_params(
@@ -265,7 +269,11 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         default=None,
         help="write a read operation's output to <workspace>/saved/NAME and print one JSON line instead",
     )
-    parser.add_argument("operation", nargs="?", help="operation name, or 'list-ops' / 'policy'")
+    parser.add_argument(
+        "operation",
+        nargs="?",
+        help="operation name, or 'list-ops' / 'policy'" + (" / 'approval-status'" if read_only else ""),
+    )
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
 
@@ -276,6 +284,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             kind = "write" if op.writes else "read "
             print(f"{kind}  {name:<22} {' '.join(op.params)}\n        {op.summary}")
         return EXIT_OK
+
+    if read_only and args.operation == APPROVAL_STATUS:
+        return _approval_status(args, prog)
 
     # The write entry points run outside the sandbox, so a policy they act on
     # must be one the agent cannot write. `--config` names any file, including
@@ -351,6 +362,43 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     if code == EXIT_OK and op.writes and not args.dry_run:
         _consume(op, list(args.params), config)
     return code
+
+
+def _approval_status(args: argparse.Namespace, prog: str) -> int:
+    """Print whether the discovered policy is an approved copy, as one JSON object.
+
+    `vetted-op-read` runs outside the sandbox, so it can read the approved
+    directory a sandboxed session cannot, and tell that session when a policy
+    change still waits for the user's re-approval. It answers about the
+    discovered policy only: `--config` is refused, so the subcommand cannot be
+    aimed at an arbitrary file to learn whether it exists or matches an approved
+    policy. It prints two paths and a boolean, never a file's content.
+    """
+    extra = [
+        flag
+        for flag, given in (
+            ("--config", args.config is not None),
+            ("--caller", args.caller is not None),
+            ("--save", args.save is not None),
+            ("--dry-run", args.dry_run),
+            ("parameters", bool(args.params)),
+        )
+        if given
+    ]
+    if extra:
+        print(
+            f"{prog}: refused: {APPROVAL_STATUS} takes no {', '.join(extra)}; it reports on the "
+            "policy discovered from the working directory, as the write entry points find it",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    try:
+        status = approval_status()
+    except ConfigError as exc:
+        print(f"vetted-op: config error: {exc}", file=sys.stderr)
+        return EXIT_POLICY
+    print(json.dumps(status))
+    return EXIT_OK
 
 
 def _dispatch(

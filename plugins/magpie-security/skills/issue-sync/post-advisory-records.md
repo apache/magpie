@@ -13,6 +13,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 
   **Trigger.** Step 1g recorded `advisory_records_pending: true` for a closed-`announced` tracker:
   cve.org reports the CVE `PUBLISHED`, no comment carries the `advisory-records v1` marker,
+  in pull-request mode no open or merged pull request comes from the configured branch,
   and the `advisory-records` planner returned a change (or, with no working copy yet, a `checkout` command).
   Before publication there is no proposal — the planner refuses, and the observed state says *"waiting for cve.org"*.
   Without `advisory_records` there is no proposal either; the observed state says *"not configured — skipped"*.
@@ -23,14 +24,44 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   On Subversion, say that the `commit` publishes the change.
   With no working copy, the item is the single `checkout` command; the change is proposed on the next sync.
 
+  **Pull-request mode** (`advisory_records.publish: pull-request`). The commands are
+  the clean check, the branch check (the base branch), `update`, `new-branch`, the planner re-run with `--apply`
+  (it also writes the pull-request body file), `stage`, `diff`, `commit`, `push` to the operator's fork, `switch` back to the base branch,
+  and `gh pr create` against the site repository — eleven, verbatim and in order.
+  Show the pull request's title and body with them, and say that the push publishes the branch on the fork and `gh pr create` publishes the pull request;
+  between the commit and the push, sync runs the configured adversarial review ([`apply-and-push.md`](apply-and-push.md)).
+  `gh pr create` carries `MAGPIE_ALLOW_SECURITY_LANG=1`, agent-guard's exemption for a disclosure that is already public;
+  keep it — the planner prints the command only past its publication gate.
+  When Step 1g found only a closed pull request (`records_pr_closed_url`), name it in the item: the team removed its status comment to try again.
+
   **Guard.** Never run a command the user has not confirmed, never edit the page or the JSON file by hand,
-  and never push to another branch or remote than the configured ones.
+  and never push to another branch or remote than the configured ones — in pull-request mode, never to the site repository at all.
   The planner is idempotent: an already-recorded CVE yields `unchanged` and no proposal.
+  In pull-request mode an open or merged pull request from the configured branch stands for the record, so there is never a second one.
+
+- **Advisory-records pull request, already open** — Step 1g returned `record_pr`:
+  a pull request from the configured branch exists (`records_pr_url`) but no `advisory-records v1` comment records it.
+  **Proposed action.** Only the status comment that records it, as [`apply-and-push.md`](apply-and-push.md) describes for pull-request mode; no commands.
+
+- **Advisory-records pull request merged** — Step 1g returned `pr_merged`: the pull request the `advisory-records v1` comment names has merged.
+  **Proposed action.** A short status comment: line 1 is the marker
+  ```html
+  <!-- apache-magpie: advisory-records-merged v1 -->
+  ```
+  then one sentence naming the merged pull request,
+  then the ticked item `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`.
+  **Guard.** Once per tracker: never re-propose while a team comment opens with that marker.
+
+- **Advisory-records pull request open or closed** — `pr_open` is an observed-state line (*"advisory records: <URL> open"*), not a proposal.
+  `pr_closed` is a blocker naming the pull request: propose nothing, neither a new pull request nor a reopen;
+  the team decides how to record the CVE.
 
 - **Security-pages reminder comment** — the ASF security-committers policy's post-announcement step *"The project team updates the
   project's security pages"* is a website edit, which sync cannot perform or gate the close-out on
   (the close-out fires on the archive-URL signal).
   Projects that configure `advisory_records` never get this reminder: the *Advisory-records update* above makes the edit.
+  Nor do projects with no `security_pages_url`: there is no page to update, so the step does not exist for them
+  (`/magpie-setup:setup config` asks whether the project has such a page and offers to create one).
   Sync carries the checklist item that records it: both hand-off comment variants embed a
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project
   security pages updated with CVE_ID` box, and ticking it records the completion marker on the tracker.
@@ -54,7 +85,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   followed by one sentence naming the outstanding item with a link to the project's security pages
   (the `security_pages_url` key from
   [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories);
-  when unset, the plain phrase *"the project's security pages"* with no link, and flag the missing key in the proposal), and
+  a project without the key never reaches this proposal, see [`closed-tracker-check.md`](closed-tracker-check.md)), and
   the checklist item
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
   so ticking the box on either comment records the step.

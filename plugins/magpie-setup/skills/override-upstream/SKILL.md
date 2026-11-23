@@ -16,7 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:6aa9dd2488726450
 license: Apache-2.0
-measured_tokens: 4081
+measured_tokens: 4368
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -46,6 +46,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -94,7 +98,7 @@ The framework PR is implemented in the user's local apache-magpie clone, a separ
 If the user has no clone yet, the skill helps set one up.
 
 **Golden rule 3 — assistant proposes, user fires.**
-Per the framework convention (see [`AGENTS.md`](../../../../AGENTS.md)), every state-changing action (clone, branch, commit, push, `gh pr create`) is proposed and runs only on explicit user confirmation.
+Per the framework convention (see [`AGENTS.md`](../../../../AGENTS.md)), every state-changing action (clone, branch, commit, push, opening the PR) is proposed and runs only on explicit user confirmation.
 Public PR content is shown to the user before it is posted.
 
 **Golden rule 4 — decouple PR from override deletion.**
@@ -183,24 +187,24 @@ The output is a concrete plan: which framework files to modify, what to add / re
 
 ### Step 5 — Implement in the framework clone
 
-In `<framework-clone>`:
+In `<framework-clone>`.
+The git steps are the vetted operations in [vetted-git-publish.md](vetted-git-publish.md), run with `--caller setup-override-upstream` and `<framework-clone>` as the working directory, so they act on `apache/magpie`'s own policy; each is confirmed by the user.
+When no `[git]` values are configured there, hand the user the equivalent commands, as that file says.
 
-1. `git fetch origin && git checkout -b
-   feat/<short-description> origin/main`
-2. Apply the changes from the design step.
+1. `git-fetch <framework-clone> main`, then `git-worktree-add <framework-clone> <path> feat/<short-description> <sha of upstream/main>`.
+2. Apply the changes from the design step in that worktree.
    Read the surrounding framework code first (the framework's `AGENTS.md`, the modified skill's supporting files) to match conventions.
-3. Run framework pre-commit: `prek run --all-files`.
-   Fix anything that fires.
+3. Run framework pre-commit in the sandbox: `prek run --all-files`.
+   Fix anything that fires; the vetted commit and push run no hooks, so this run is the check.
 4. Show the user the diff (`git diff`).
    Get explicit confirmation before committing.
-5. Commit with a message matching the framework's conventions (Conventional-Commits prefix: `feat(skills): ...` for new framework behaviour, `refactor(skills): ...` for restructure, etc.).
-   Add a `Generated-by: <agent> (<model>)` trailer with `git commit --trailer`, where `<agent>` and `<model>` are the actual agent and model you are running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`).
+5. Stage the changed paths with `git-stage` and commit with `git-commit`, with a message matching the framework's conventions (Conventional-Commits prefix: `feat(skills): ...` for new framework behaviour, `refactor(skills): ...` for restructure, etc.).
+   End the message file with a `Generated-by: <agent> (<model>)` trailer as its own last paragraph (`git-commit` takes no `--trailer`), where `<agent>` and `<model>` are the actual agent and model you are running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`).
    It is the framework repository's own convention ([`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)), whatever the adopter uses; do not hardcode either value, per the framework's no-coauthored-by hook.
 
 ### Step 6 — Open the PR
 
-1. `git push -u <fork-remote> feat/<branch>`.
-   If no fork remote is configured, help the user add one (`git remote add fork <user>/magpie.git`).
+1. Push to the fork: `git-push-branch <worktree> feat/<short-description> fork feat/<short-description> new`, after the pre-push checks pass in the sandbox.
 2. Draft the PR title + body. Include:
    - **Summary** — what the change is, in 1–3 bullets.
    - **Motivation** — link to the originating override file in the adopter repo (the user's project), with enough context that the framework reviewer understands the use case without reading the full override.
@@ -210,7 +214,7 @@ In `<framework-clone>`:
    **Adversarial review by other models.** Run it now, per [pre-pr-adversarial-review.md](pre-pr-adversarial-review.md).
 3. **Confirm with the user before posting**.
    Show the exact title + body.
-   Wait for "OK to post" / "yes" / "send" / similar before running `gh pr create`.
+   Wait for "OK to post" / "yes" / "send" / similar before opening the PR.
 4. **Pick the labels.** Every framework PR carries at least one `family:*` and one `capability:*` label per [`docs/labels-and-capabilities.md`](../../../../docs/labels-and-capabilities.md).
    The override is upstreaming a change to skill `<skill>`, so:
    - `family:*` — follow the skill's family (`family:pr-management` for `pr-management-*`, `family:security` for `security-*`, `family:setup` for `setup-*`, `family:issue` for `issue-*`, etc.).
@@ -220,13 +224,13 @@ In `<framework-clone>`:
 
    Show the chosen labels in the confirmation preview alongside the PR title and body, so the user sees them before posting.
 
-5. Write the PR body to a tempfile first, then create the PR:
+5. Write the PR body to `<workspace>/override-pr-body.md`, then open the PR and add the labels:
    ```bash
-   # Write tool: file_path: /tmp/override-pr-body.md, content: <PR body>
-   gh pr create --repo apache/magpie --base main \
-     --head <user>:<branch> --title "..." --body-file /tmp/override-pr-body.md \
-     --label "family:<family>" --label "capability:<capability>"
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller setup-override-upstream git-pr-create \
+     <worktree> feat/<short-description> "<title>" <workspace>/override-pr-body.md
    ```
+   then `gh pr edit <N> --repo apache/magpie --add-label "family:<family>" --add-label "capability:<capability>"`.
+   On the fallback, `gh pr create --web --repo apache/magpie --base main --head <user>:feat/<short-description> --title … --body-file … --label … --label …` does both in one step.
 
 ### Step 7 — Post-PR cleanup pointer
 

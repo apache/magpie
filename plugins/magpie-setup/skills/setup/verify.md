@@ -56,8 +56,9 @@ Run these when the repo has no committed lock and Magpie is
 installed as a plugin — the default install path. There is no
 snapshot, no lock, and no symlink to check: the plugin *is* the
 install, and the agent's own plugin manager owns its lifecycle.
-Report, do not remediate. **Also run checks 8i, 11 and 12 below** —
-the adversarial-reviewer check, the read-only reconciliation sweep
+Report, do not remediate. **Also run checks 8i, 11, 11a and 12 below** —
+the adversarial-reviewer check, the read-only reconciliation sweep,
+the vetted-ops policy approval
 and the latest-available-plugin-version comparison apply to every
 project regardless of adoption state, marketplace or snapshot,
 adopted or merely configured; they are not specific to this branch.
@@ -154,7 +155,8 @@ adoption state.
 Checks 11 and 12 below do **not** apply to this branch: there is no
 plugin install and no marketplace clone involved in local
 self-adoption, and no `.apache-magpie-overrides/` surface a
-reconciliation sweep would walk. This branch still writes
+reconciliation sweep would walk. Check 11a does apply when a
+personal-layer vetted-ops policy exists. This branch still writes
 `verified_at` on completion — see
 [Writing `verified_at`](#writing-verified_at).
 
@@ -985,13 +987,16 @@ When no `adversarial-review.md` resolves, this check is skipped.
 
 ### 11. Reconciliation sweep (read-only)
 
-Runs the identical two checks
+Runs the identical checks
 [`reconcile.md` → The sweep](reconcile.md#the-sweep) performs — anchor
 resolution and `requires_config` resolution, over the identical scope
 (every skill named by a file under the personal layer or
-`.apache-magpie-overrides/`) — and reports the findings in the same
+`.apache-magpie-overrides/`), and the
+[caller policy grants](reconcile.md#the-sweep) (sweep check 3a: every
+caller the vetted-ops policy declares, and every installed skill whose
+caller the README example names) — and reports the findings in the same
 shape. This is the same contract reused read-only, not a
-re-implementation: no baseline needed, the same two checks, the same
+re-implementation: no baseline needed, the same checks, the same
 sandboxed-session degradation (`reconcile.md` check 4 — an unreadable
 target `SKILL.md` goes in `unchecked`, never reported as clean).
 
@@ -1008,8 +1013,12 @@ completion (see [Writing `verified_at`](#writing-verified_at) below).
 - ✓ no configuration or adoption surface at all
   ([`reconcile.md` Step 0.1](reconcile.md#step-0--pre-flight)) —
   nothing to reconcile, not a fault.
-- ✓ every override anchor resolves and every `requires_config` entry
-  resolves.
+- ✓ every override anchor resolves, every `requires_config` entry
+  resolves, and every applicable caller holds the grants the README
+  example lists for it.
+- ⚠ a policy caller lacks a grant or label (check 3a) — report the
+  caller, the missing operations and the minimal TOML diff; the policy
+  is a security control the user saves, never the agent.
 - ⚠ an anchor moved, a `requires_config` entry no longer resolves, or
   no `reconciled:` block exists anywhere (or one exists but never
   covered this skill) — report the same numbered-proposal shape
@@ -1025,6 +1034,46 @@ completion (see [Writing `verified_at`](#writing-verified_at) below).
   The local entry wins; name the collision and point at
   `/magpie-setup:setup reconcile`, which offers to drop the redundant local
   entry. Do not resolve it here.
+
+### 11a. Vetted-ops policy approval
+
+The write entry points (`vetted-op`, `vetted-op-tracker`, `vetted-op-git`)
+act only on a policy that is byte-for-byte a copy in
+`~/.config/apache-magpie/vetted-ops/`
+([why](../../../../tools/vetted-ops/README.md#configuration)).
+After a policy change merges, nobody has copied it there yet, so the
+first write is refused.
+The sandbox cannot read that directory, so ask the read dispatcher,
+which runs outside it, from the repository root:
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read approval-status
+```
+
+It prints `{"policy": …, "approved": …, "approved_dir": …}` and nothing
+else ([the subcommand](../../../../tools/vetted-ops/README.md#is-the-policy-approved)).
+
+- ✓ `policy` is `null` (no vetted-ops policy: not applicable), or
+  `approved` is `true`.
+- ⚠ `approved` is `false`: the policy changed since the user last
+  approved it, or was never approved.
+  Remediation is the user's, in their own terminal, after reviewing the
+  policy's diff since the last approval (the agent never writes that
+  directory):
+
+  ```text
+  mkdir -p <approved_dir> && cp '<policy>' <approved_dir>/<name>.toml
+  ```
+
+  `<name>` is the name the earlier approved copy has, `<project>.toml`
+  by convention, so the stale copy is replaced rather than kept beside it.
+  Quote `<policy>` as shown: the path is the checkout's, not a value to
+  trust.
+- `?` unchecked: `vetted-op-read` refuses `approval-status` as an
+  unknown operation (a vetted-ops copy older than the subcommand), the
+  call is denied, or it exits non-zero.
+  Say so; a refused symlinked policy (exit `3`) is reported with its
+  message.
 
 ### 12. Latest available plugin version
 
@@ -1226,7 +1275,12 @@ list, ordered most → least urgent:
   Step 6e (live fetch + `git pull --ff-only`).
 - ⚠ on check 11 (reconciliation sweep finding, or `unchecked`
   skills) → `/magpie-setup:setup reconcile` (outside the sandbox, if the
-  skills were left `unchecked`).
+  skills were left `unchecked`). A caller grant finding is the
+  minimal TOML diff for the user to save; the policy is never the
+  agent's to write.
+- ⚠ on check 11a (stale or missing approved copy) → the user reviews
+  the policy's diff and runs the `mkdir -p … && cp …` re-approval
+  command in their own terminal.
 - ⚠ on check 12 (installed plugin behind the marketplace clone) →
   `claude plugin marketplace update apache-magpie` then `claude
   plugin update <plugin>@apache-magpie` (or the client-appropriate
