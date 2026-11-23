@@ -57,3 +57,34 @@ export interface CommitCommandEvaluation {
  * Asynchronous file reader interface matching Claude Code $.fs.read.
  */
 export type FsFileReader = (path: string) => Promise<string | null>;
+
+/**
+ * Normalized session usage representation for the live token meter band.
+ * Matches Claude Code $.session.usage() context and cost payload.
+ */
+export interface SessionUsageData {
+  tokens: number;
+  window?: number;
+  percent?: number;
+  costUsd?: number;
+}
+
+export type TokenMeterMode = 'always' | 'threshold-only';
+
+export interface TokenMeterConfig {
+  enabled: boolean;
+  mode: TokenMeterMode;
+  warnPercent: number;     // default 70
+  criticalPercent: number; // default 85
+}
+
+export type TokenMeterColor = 'info' | 'warning' | 'error';
+
+export interface FormattedTokenMeter {
+  text: string;
+  color: TokenMeterColor;
+  percentage: number | null;
+  tokens: number;
+  window?: number;
+  costUsd?: number;
+}
