@@ -49,6 +49,12 @@ Implements the blocking checks 1-3 of apache/magpie issue #1173
    ``packaging=pom`` modules are exempt (no jar), classified jars
    (``-tests``, ``-shaded``, ...) are neither mains nor companions.
 
+8. **``META-INF/LICENSE`` and ``META-INF/NOTICE`` in the main jar** -
+   a main jar carrying neither, or only one of the two, makes the
+   report ``WARN``, never ``FAIL``. The ASF parent POM adds both, so a
+   jar missing one is worth a reviewer's look before the vote opens
+   (issue #2112).
+
 Informational observations (checks 5-7 of the same issue) are
 reported alongside and **never** affect ``status`` - they are
 signals for a human reviewer, not gates:
@@ -115,6 +121,14 @@ APACHE_LICENSE_URL_RE = re.compile(r"apache\.org/licenses/LICENSE-2\.0", re.IGNO
 # than a main artefact. Anything else (-tests, -shaded, -linux-x86_64,
 # ...) is neither a main nor a companion: it is reported as unmatched.
 COMPANION_CLASSIFIERS = ("sources", "javadoc")
+
+# The two ASF-required legal files a main jar carries at its root. The
+# `.txt` spelling is common enough that rejecting it would be a false WARN.
+LICENCE_NOTICE_FILES = {
+    "licence": ("meta-inf/license", "meta-inf/license.txt"),
+    "notice": ("meta-inf/notice", "meta-inf/notice.txt"),
+}
+LICENCE_NOTICE_LABELS = {"licence": "META-INF/LICENSE", "notice": "META-INF/NOTICE"}
 
 # A Maven version segment as it appears in filenames:
 # <artifactId>-<version>[-<classifier>].jar, where the version starts
@@ -726,6 +740,48 @@ def companion_content_signal(companion: Path, classifier: str) -> dict:
     }
 
 
+def licence_notice_check(jar: Path) -> dict:
+    """Check 8 - ``META-INF/LICENSE`` and ``META-INF/NOTICE`` in a main jar (WARN, never FAIL).
+
+    The ASF parent POM populates both through ``remote-resources``, so a
+    published main jar normally carries them at its root. One missing is
+    not a policy violation the tool can prove offline (a project may ship
+    its licence elsewhere), so the result is a warning a reviewer reads,
+    never a failed RC. ``META-INF/LICENSE.txt`` / ``META-INF/NOTICE.txt``
+    count: both spellings are common.
+    """
+    try:
+        with zipfile.ZipFile(jar) as archive:
+            names = [info.filename for info in archive.infolist() if not info.is_dir()]
+    except (zipfile.BadZipFile, OSError, NotImplementedError, UnicodeDecodeError, ValueError) as exc:
+        return {
+            "jar": jar.name,
+            "status": "SKIP",
+            "detail": f"not a readable zip archive, so {', '.join(LICENCE_NOTICE_LABELS.values())} could not be checked (the unreadable-jar observation reports it): {exc}",
+        }
+    folded = {name.replace("\\", "/").strip("/").casefold() for name in names}
+    present = {kind: any(candidate in folded for candidate in candidates) for kind, candidates in LICENCE_NOTICE_FILES.items()}
+    missing = [LICENCE_NOTICE_LABELS[kind] for kind, here in present.items() if not here]
+    if not missing:
+        detail = f"{' and '.join(LICENCE_NOTICE_LABELS.values())} present"
+    elif len(missing) == len(LICENCE_NOTICE_LABELS):
+        detail = (
+            f"no {' and no '.join(LICENCE_NOTICE_LABELS.values())} in the main jar; "
+            "the ASF parent POM adds both, so verify the jar was built as the release expects "
+            "(warning only, never a failure)"
+        )
+    else:
+        detail = (
+            f"{missing[0]} is absent from the main jar; the ASF parent POM adds both "
+            f"{' and '.join(LICENCE_NOTICE_LABELS.values())} (warning only, never a failure)"
+        )
+    return {
+        "jar": jar.name,
+        "status": "PASS" if not missing else "WARN",
+        "detail": detail,
+    }
+
+
 def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> dict:
     # rglob, not glob: a staging directory in Maven-repository layout
     # (org/apache/foo/foo-core/1.0.0/...) is a JVM artefact set too — a
@@ -840,7 +896,9 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         report["unmatched_jars"].append(jar.name)
 
     for main in main_jars:
-        report["jars"].append(check_companions(main, digests, report["findings"]))
+        entry = check_companions(main, digests, report["findings"])
+        entry["licence_notice"] = licence_notice_check(main)
+        report["jars"].append(entry)
 
     # --- informational observations (checks 5-7) ---
     # These are signals for a human reviewer, never gates: the
@@ -872,6 +930,9 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
     for jar_entry in report["jars"]:
         for comp in jar_entry["companions"]:
             statuses.append(comp["classification"])
+        licence_notice = jar_entry.get("licence_notice")
+        if isinstance(licence_notice, dict):
+            statuses.append(licence_notice["status"])
 
     if not statuses:
         if jars:
@@ -886,7 +947,7 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
             report["status"] = "SKIP"
     elif "FAIL" in statuses:
         report["status"] = "FAIL"
-    elif "INHERITED-UNVERIFIED" in statuses:
+    elif "INHERITED-UNVERIFIED" in statuses or "WARN" in statuses:
         report["status"] = "WARN"
     else:
         report["status"] = "PASS"

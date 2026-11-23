@@ -553,6 +553,83 @@ def test_step2_convenience_artefacts_block() -> None:
     assert body.index("Convenience artefacts") < body.index("How to verify this candidate")
 
 
+def test_step2_nexus_staging_repository_is_named() -> None:
+    out = render.step2(draft(), nexus_staging_repo="orgapacheairflow-1234", **urls("2.11.0-rc1"))
+    url = "https://repository.apache.org/content/repositories/orgapacheairflow-1234/"
+    assert out["nexus_staging_url"] == url
+    assert "The JVM artefacts are staged in the Nexus staging repository:" in out["body"]
+    assert f"  {url}" in out["body"]
+    assert out["body"].index("Nexus staging repository") < out["body"].index(
+        "The release tag to be voted upon"
+    )
+
+
+def test_step2_nexus_staging_url_accepts_a_full_url_and_the_config_value() -> None:
+    out = render.step2(
+        draft(
+            nexus_staging_repo="https://repository.apache.org/service/local/staging/repository/orgapacheairflow-42"
+        ),
+        **urls("2.11.0-rc1"),
+    )
+    assert (
+        out["nexus_staging_url"] == "https://repository.apache.org/content/repositories/orgapacheairflow-42/"
+    )
+
+
+def test_step2_nexus_staging_repo_accepts_maven_and_commons_shapes() -> None:
+    for repo in ("maven-2471", "orgapachecommons-1965"):
+        out = render.step2(draft(), nexus_staging_repo=repo, **urls("2.11.0-rc1"))
+        assert out["nexus_staging_url"] == f"{render.NEXUS_URL}/{repo}/"
+        from_url = render.step2(
+            draft(),
+            nexus_staging_repo=f"https://repository.apache.org/service/local/staging/repository/{repo}",
+            **urls("2.11.0-rc1"),
+        )
+        assert from_url["nexus_staging_url"] == f"{render.NEXUS_URL}/{repo}/"
+
+
+def test_step2_warns_when_the_nexus_id_comes_from_the_config() -> None:
+    d = draft(nexus_staging_repo="orgapacheairflow-1234")
+    config_only = render.step2(d, **urls("2.11.0-rc1"))
+    assert any(
+        "release-build.md" in warning and "previous RC" in warning for warning in config_only["warnings"]
+    )
+    from_issue = render.step2(d, nexus_staging_repo="orgapacheairflow-1234", **urls("2.11.0-rc1"))
+    assert not any("previous RC" in warning for warning in from_issue["warnings"])
+
+
+def test_step2_nexus_staging_repo_is_validated_never_spliced_raw() -> None:
+    for bad in ("snapshots", "../../etc/passwd", "orgapacheairflow", "orgApacheAirflow-1"):
+        with pytest.raises(render.RenderError, match="Nexus id shape"):
+            render.step2(draft(), nexus_staging_repo=bad, **urls("2.11.0-rc1"))
+
+
+def test_step2_canned_body_gets_the_nexus_staging_url() -> None:
+    canned = "Vote at <staging_url> and the jars at <nexus_staging_url>.\n"
+    out = render.step2(
+        draft(),
+        canned_body=canned,
+        nexus_staging_repo="orgapacheairflow-7",
+        **urls("2.11.0-rc1"),
+    )
+    assert "content/repositories/orgapacheairflow-7/" in out["body"]
+    assert "<nexus_staging_url>" not in out["body"]
+
+
+def test_step2_canned_body_without_the_nexus_placeholder_warns() -> None:
+    canned = "Vote at <staging_url>.\n"
+    out = render.step2(
+        draft(),
+        canned_body=canned,
+        nexus_staging_repo="orgapacheairflow-7",
+        **urls("2.11.0-rc1"),
+    )
+    assert "orgapacheairflow-7" not in out["body"]
+    assert any(
+        "<nexus_staging_url>" in warning and "orgapacheairflow-7" in warning for warning in out["warnings"]
+    )
+
+
 def test_step2_atr_backend_adds_the_candidate_page_and_the_command() -> None:
     d = draft(vote_backend="atr", backend="svnpubsub")
     with pytest.raises(render.RenderError, match="atr_candidate_url"):

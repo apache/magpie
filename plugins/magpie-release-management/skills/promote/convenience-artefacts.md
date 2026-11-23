@@ -37,3 +37,5 @@ The HOLD note names the command that withheld it.
 
 The source promotion is not held back by a convenience artefact;
 the source is the release, the artefact is a courtesy, and a courtesy that cannot be verified is withheld, not shipped.
+
+The repository-wide lifecycle next to this per-artefact publishing (close before the vote, promote after it passes, drop when the RC is withdrawn) is [`nexus-staging.md`](nexus-staging.md).

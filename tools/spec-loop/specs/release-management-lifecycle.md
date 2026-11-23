@@ -96,18 +96,21 @@ code lands.
   NOTICE/LICENSE, prohibited binaries, published-JVM-artefact
   compliance via `tools/maven-artifact-verify` — POM licence set (a POM
   carrying a DTD or entity declaration is refused unparsed, #2105),
-  podling disclaimer, companion jars, plus informational
+  podling disclaimer, companion jars, a WARN when a main jar carries no
+  `META-INF/LICENSE` or `META-INF/NOTICE` (#2112), plus informational
   reproducibility / namespace / companion-content observations —
   plus the Nexus staging repository behind them via the read-only
   `tools/asf-nexus` adapter (ASF-only); version consistency,
   Step 6);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
-  and planning-issue comment after a PASS pre-flight, never sending or
+  and planning-issue comment after a PASS pre-flight, naming the Nexus
+  staging-repository URL when the RC carries JVM artefacts, never sending or
   posting (Step 7); `release-vote-tally` (`mode: Triage`) classifies
   +1/0/-1 binding vs non-binding once the window closes and drafts the
   `[RESULT]` (Step 9); `release-promote` (`mode: Drafting`) emits the
   backend-shaped staging→release promotion command set for a vote-passed
-  release (Step 10); `release-archive-sweep` (`mode: Triage`) scans the
+  release (Step 10), with the release manager's close / promote / drop
+  guidance for the Nexus staging repository (#2112); `release-archive-sweep` (`mode: Triage`) scans the
   dist area and proposes the command set to move past-retention releases
   to the archive, read-only on the dist surface (Step 12); and
   `release-audit-report` (`mode: Triage`) assembles the per-release audit

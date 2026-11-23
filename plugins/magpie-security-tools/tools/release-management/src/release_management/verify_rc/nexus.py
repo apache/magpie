@@ -19,7 +19,7 @@
 The staging repository id is spliced into `curl` URLs the agent runs itself,
 and it can come from the planning issue body, so it is validated against the
 Nexus shape before any recipe is rendered: anything but
-`orgapache<project>-NNNN` (or the literal `snapshots`, which the rules then
+`orgapache<name>-NNNN` (or the literal `snapshots`, which the rules then
 flag) is a `SKIP` naming the bad value. Every recipe is a `GET`; nothing
 here closes, drops or promotes a repository, and nothing here runs one.
 """
@@ -172,7 +172,7 @@ def gate(
         )
     if not valid_id(repo):
         finding = (
-            f"nexus_staging_repo value {repo!r} does not match the Nexus id shape (orgapache<project>-NNNN) — "
+            f"nexus_staging_repo value {repo!r} does not match the Nexus id shape (orgapache<name>-NNNN) — "
             "no probe run; supply a valid staging repository id"
         )
         return _skip(f"malformed staging repository id {repo!r}", [finding]), None

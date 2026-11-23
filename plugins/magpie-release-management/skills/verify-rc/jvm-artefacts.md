@@ -28,6 +28,10 @@ and [Maven Central's publishing requirements](https://central.sonatype.org/publi
    A main jar declared by a staged POM but not staged locally is `ABSENT`: an observation, because the ASF workflow stages jars in Nexus (Step 6c, [`nexus-staging.md`](nexus-staging.md)) —
    except under `jvm_companion_location: staged`, where it is a `FAIL`.
 
+A main jar carrying no `META-INF/LICENSE` or no `META-INF/NOTICE` (or neither) is a `WARN`, never a `FAIL`
+(issue #2112): the ASF parent POM adds both, so the absence is worth a reviewer's look, but the tool cannot prove offline that the jar is non-compliant.
+The result is under `jars[].licence_notice` and surfaced in `licence_notice_findings`.
+
 The same run reports **informational observations** — checks 5–7 of the issue: the timestamp signal, the namespace and package/groupId correspondence, and companion content.
 They are signals for the reviewer and never change the step's verdict.
 They are worded "consistent / not consistent with a reproducible configuration", never "reproducible" (only Step 9 can assert that);
@@ -50,6 +54,7 @@ the output is this step's JSON, the recipe now carrying the companion `gpg --ver
 `status` is the tool report's `status`, except that an `ABSENT` jar becomes `FAIL` under `jvm_companion_location: staged`.
 `pom_findings` and `companion_findings` list only the checks that did not pass (`FAIL`, `INHERITED-UNVERIFIED`, `ABSENT`), one line each naming the artefact and what is wrong;
 an empty list means there is nothing to report.
+`licence_notice_findings` lists each main jar whose `META-INF/LICENSE` / `META-INF/NOTICE` check warned; an empty list means every staged main jar carried both.
 `observations` carries checks 5–7, one line each naming the jar; an empty list means the staged set carried none.
 A jar whose timestamps vary, whose groupId sits outside `org.apache.*`, or whose `-sources.jar` contains `.class` files still passes every blocking check.
 
@@ -62,6 +67,7 @@ Return ONLY valid JSON with this structure:
   "tool_report": "<the maven-artifact-verify JSON report verbatim>",
   "pom_findings": ["<one line per POM finding>"],
   "companion_findings": ["<one line per jar finding>"],
+  "licence_notice_findings": ["<one line per main jar missing META-INF/LICENSE or META-INF/NOTICE>"],
   "observations": ["<one line per informational observation>"],
   "paste_recipe": "<multi-line shell commands>"
 }
