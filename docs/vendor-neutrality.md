@@ -376,10 +376,11 @@ full write and mutation coverage tracked there),
 [Codeberg / Gitea / Forgejo](https://github.com/apache/magpie/issues/310),
 [Pagure](https://github.com/apache/magpie/issues/312) (Fedora /
 `pagure.io`),
-[Bitbucket](https://github.com/apache/magpie/issues/606) (initial
-[`tools/bitbucket`](../tools/bitbucket/) `partial-read-only` bridge;
-deeper Jira pairing, complete change-request coverage, and write
-coverage tracked there), and
+[Bitbucket](https://github.com/apache/magpie/issues/606)
+([`tools/bitbucket`](../tools/bitbucket/) `partial` bridge with
+read coverage and narrowly scoped Cloud/Data Center pull-request writes;
+deeper Jira pairing and complete change-request coverage remain tracked
+there), and
 [SourceHut](https://github.com/apache/magpie/issues/607) (email-patch
 review). Tracker-only surfaces are tracked the same way — e.g.
 [Bugzilla](https://github.com/apache/magpie/issues/302) — alongside the
