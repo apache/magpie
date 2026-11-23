@@ -189,3 +189,26 @@ close_reasons = ["completed", "not planned"]
     "tags",
     "repo-issue-comment",
 ]
+
+# setup-upstream-fix and setup-override-upstream publish a framework fix from a
+# session in this clone, so they act on this policy: worktree, stage, commit,
+# push to the operator's fork and open the pull request through vetted-op-git,
+# each confirmed. There is deliberately no [git] table here: checkouts, fork and
+# worktree roots are each maintainer's own, in
+# ~/.config/apache-magpie/vetted-ops/operator-git.toml under ["apache/magpie"].
+"setup-upstream-fix" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+]
+"setup-override-upstream" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+]

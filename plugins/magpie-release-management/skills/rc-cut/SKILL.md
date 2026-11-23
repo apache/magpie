@@ -18,9 +18,9 @@ when_to_use: |
   dist/dev". Run after the prep PR merged; skip if that RC tag exists.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
-surface_hash: sha256:60623e456e72bbf6
+surface_hash: sha256:70b271e91a4ee44a
 license: Apache-2.0
-measured_tokens: 6993
+measured_tokens: 7074
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -113,6 +113,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -156,9 +160,8 @@ The skill emits `gpg --detach-sign --armor <artefact>` commands per artefact.
 It does not pass `--passphrase`, does not read `$GPG_PASSPHRASE`, does not reference a key file, and does not invoke `gpg` itself.
 The RM's key agent handles passphrase prompting when they run the command.
 
-**Golden rule 3 — SHA-512 only by default; SHA-256 when configured;
-MD5 and SHA-1 never.**
-The digest set comes from `<project-config>/release-build.md` (`sha512` required, `sha256` optional).
+**Golden rule 3 — SHA-512 or SHA-256; MD5 and SHA-1 never.**
+The digest set comes from `<project-config>/release-build.md` (at least one of `sha512` and `sha256` is required; the other is optional).
 MD5 and SHA-1 are prohibited per
 [release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
 even if configured: Step 0's `release-config preflight` blocks on them and the render refuses them; surface the violation.
@@ -314,7 +317,7 @@ Return ONLY valid JSON with this structure:
   "rc_number": "<rcN>",
   "build_command": "<string>",
   "expected_artefacts": ["<artefact filename pattern>"],
-  "digest_set": ["sha512"] | ["sha512", "sha256"],
+  "digest_set": ["sha512"] | ["sha256"] | ["sha512", "sha256"],
   "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "vote_backend": "manual" | "atr",
   "staging_url": "<URL>",

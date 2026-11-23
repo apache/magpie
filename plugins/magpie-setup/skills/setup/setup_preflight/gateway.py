@@ -42,7 +42,7 @@ import re
 import stat
 from pathlib import Path
 
-from .layers import main_worktree
+from .layers import project_settings
 
 #: Where Claude Code reads per-machine policy: `managed-settings.json`, then
 #: every `*.json` drop-in in `managed-settings.d/`, merged alphabetically.
@@ -144,18 +144,7 @@ def managed_settings_files(dirs: tuple[Path, ...] | None = None) -> list[Path]:
     return found
 
 
-def _project_settings(root: Path) -> list[Path]:
-    """The project settings a session in `root` loads, highest precedence first.
-
-    In a linked worktree the main checkout's settings lead, as in the setup guide's
-    "Sandbox-state status line" walk (the order `sandbox-status-line.sh` reads).
-    """
-    checkouts = [*filter(None, [main_worktree(root)]), root]
-    return [
-        checkout / ".claude" / name
-        for checkout in checkouts
-        for name in ("settings.local.json", "settings.json")
-    ]
+_project_settings = project_settings
 
 
 def wired_sockets(root: Path) -> list[str]:

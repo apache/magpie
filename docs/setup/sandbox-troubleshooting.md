@@ -57,39 +57,44 @@
     - [Root cause](#root-cause-9)
     - [Fix](#fix-9)
     - [Notes](#notes-9)
-  - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
+  - [`pnpm install` fails with `EPERM` inside the sandbox](#pnpm-install-fails-with-eperm-inside-the-sandbox)
     - [Symptom](#symptom-10)
     - [Root cause](#root-cause-10)
     - [Fix](#fix-10)
     - [Notes](#notes-10)
-  - [`lefthook install` refuses with "Custom hooks paths are not supported by default"](#lefthook-install-refuses-with-custom-hooks-paths-are-not-supported-by-default)
+  - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
     - [Symptom](#symptom-11)
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
     - [Notes](#notes-11)
-  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
+  - [`lefthook install` refuses with "Custom hooks paths are not supported by default"](#lefthook-install-refuses-with-custom-hooks-paths-are-not-supported-by-default)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
     - [Notes](#notes-12)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
     - [Fix](#fix-13)
     - [Notes](#notes-13)
-  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-14)
     - [Root cause](#root-cause-14)
     - [Fix](#fix-14)
-  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Notes](#notes-14)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
     - [Symptom](#symptom-15)
     - [Root cause](#root-cause-15)
     - [Fix](#fix-15)
-  - [Writes to a `tools/vetted-ops` policy directory fail anywhere on disk](#writes-to-a-toolsvetted-ops-policy-directory-fail-anywhere-on-disk)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
     - [Symptom](#symptom-16)
     - [Root cause](#root-cause-16)
     - [Fix](#fix-16)
-    - [Notes](#notes-14)
+  - [Writes to a `tools/vetted-ops` policy directory fail anywhere on disk](#writes-to-a-toolsvetted-ops-policy-directory-fail-anywhere-on-disk)
+    - [Symptom](#symptom-17)
+    - [Root cause](#root-cause-17)
+    - [Fix](#fix-17)
+    - [Notes](#notes-15)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1208,6 +1213,89 @@ environments once; that is expected, not a failure.
   run outside the sandbox would again be writable from inside it.
 - **The hint hook recognises it.** `sandbox-error-hint.sh` matches a write
   failure under `share/uv/` and points here.
+
+---
+
+## `pnpm install` fails with `EPERM` inside the sandbox
+
+### Symptom
+
+A sandboxed `pnpm install` (directly, or from a git hook such as a UI lint step) fails before or during linking:
+
+```console
+EPERM: operation not permitted, mkdir '/Users/<you>/Library/pnpm/.tools/pnpm/10.28.1_tmp_...'
+```
+
+or, once pnpm's own directories are writable, inside the project:
+
+```console
+EPERM: operation not permitted, mkdir '<repo>/node_modules/.pnpm/iconv-lite@0.6.3/node_modules/iconv-lite_tmp_.../.idea/codeStyles'
+```
+
+or, with the settings below in place but the home not yet created:
+
+```console
+EPERM: operation not permitted, mkdir '/Users/<you>/.local/share/pnpm-sandbox/<project>/.tools/pnpm/10.28.1_tmp_...'
+```
+
+### Root cause
+
+Two separate refusals.
+pnpm downloads the pnpm version pinned in `package.json` into `PNPM_HOME/.tools`, and keeps its cache and content store beside it: under `~/Library/` on macOS, which the sandbox does not let it write.
+Then pnpm links packages into `node_modules/.pnpm` inside the project, and Claude Code refuses any `.idea/codeStyles` directory in the project tree, which some packages ship; the same path under `~/.cache` or `$TMPDIR` is allowed.
+That rule comes from the harness, not from the project's settings.
+
+### Fix
+
+Give sandboxed pnpm a home of its own for this project in the project's own `.claude/settings.json` ([details](secure-agent-setup.md#host-only-uv-state)). With `<project>` the repository's name:
+
+```json
+"env": {
+  "PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>",
+  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"
+},
+"sandbox": {
+  "filesystem": {
+    "allowRead": ["~/.local/share/pnpm-sandbox/<project>/"],
+    "allowWrite": ["~/.local/share/pnpm-sandbox/<project>/"]
+  }
+}
+```
+
+Then create the directory once, from a terminal outside the sandbox:
+
+```bash
+mkdir -p ~/.local/share/pnpm-sandbox/<project>
+```
+
+A grant takes effect only on a directory that exists, and a sandboxed command cannot create it: `~/.local/share` itself is not writable, so even `mkdir -p` inside the sandbox fails on the first missing level.
+
+`setup-isolated-setup-install` proposes both for a project with a tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`, and `setup-isolated-setup-update` reports either missing there; restart the session after changing the settings, since `env` and the sandbox grants are read at startup (creating the directory needs no restart).
+They stay out of the framework's shared settings on purpose: npm reads the same `npm_config_*` names and warns `Unknown env config` about each on every command, so a project without pnpm should not carry them.
+Do not grant writes to `~/Library/pnpm` or `~/Library/Caches/pnpm` instead: a pnpm run outside the sandbox would then execute what sandboxed commands wrote there.
+Do not put the home under `~/.cache/` either, nor grant `~/.local/share/pnpm-sandbox/` itself: the project's `node_modules/.pnpm` is linked from the home's store (hard links on Linux), the project's git hooks run that code outside the sandbox, and a home every project's sessions can write would let any of them plant it.
+
+That clears the first refusal. The `.idea/codeStyles` one is fixed in the project: override the package that ships it to a release without it, in the project's `package.json`, for example
+
+```json
+"pnpm": {
+  "overrides": {
+    "iconv-lite": "^0.7.0"
+  }
+}
+```
+
+(`iconv-lite` 0.6.3 ships `.idea/`; 0.7.0 and later do not, and 0.7.0 is a bug-fix release), or run `pnpm install` outside the sandbox.
+Do not move the virtual store out of the project to avoid it, with `npm_config_enable_global_virtual_store` or `npm_config_virtual_store_dir`: TypeScript resolves a package's types by walking up from its real path to the project's `node_modules`, so from a store anywhere else the project's own `@types/*` packages are out of reach, types collapse to `any`, and type-aware lint and `tsc` fail (an autofix can then rewrite correct code).
+
+### Notes
+
+- To find the package: `find node_modules/.pnpm -maxdepth 4 -name .idea` after an install outside the sandbox, and `pnpm why <package>` for what pulls it in.
+- The first sandboxed install after the switch downloads everything into the project's home once; that is expected. An install over a `node_modules` built with a different store asks to purge it and aborts without a terminal (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`); pass `--config.confirmModulesPurge=false` once.
+- If that old `node_modules` holds a package with `.idea/` (built outside the sandbox, or before the override), the sandboxed purge cannot delete it either and fails with `EPERM ... unlink '.../.idea/...'`, leaving `node_modules` half removed. Delete it once from a terminal outside the sandbox (`rm -rf node_modules`, and any in-project `.pnpm-store`) before the first sandboxed install.
+- Name the home after the repository (lower-case letters, digits, `.`, `_` and `-`), and spell it exactly as above (or its absolute form). pnpm 10.28 expands `~` in these two and nothing else: `${HOME}` in `PNPM_HOME` becomes a `${HOME}` directory inside the project. The git-hook dispatcher drops the home for hooks run outside the sandbox by its literal prefix, so `sandbox-lint` rejects any other spelling, including ones that normalise to the same path.
+- Leave `npm_config_store_dir`, `npm_config_state_dir` and `npm_config_virtual_store_dir` unset: pnpm keeps them inside `PNPM_HOME`, the only place the grant covers (`~` in `npm_config_state_dir` is not expanded either, and pnpm tolerates failing to write its update-check state there). `sandbox-lint` rejects them in any project.
+- On Linux the host pnpm cache is `~/.cache/pnpm`, which `Edit(~/.cache/pnpm/**)` keeps sandboxed commands out of.
 
 ---
 

@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 6881
+measured_tokens: 6976
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -113,6 +113,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -312,7 +316,7 @@ Return ONLY the tool's JSON (`step`, `status`, `results[]` with `file`, `sig_fil
 
 Verify the digests of every staged artefact with `commands.checksums`.
 Each artefact–digest pair is `PASS`, `MISMATCH` or `MISSING-DIGEST`.
-Only `sha512` is required: a missing `.sha512` is `MISSING-DIGEST` and `FAIL`s the step.
+The required digest is `sha512` whenever the Digest set lists it, otherwise the first digest in the set (a SHA-256-only project requires `.sha256`): a missing required digest is `MISSING-DIGEST` and `FAIL`s the step.
 Every other digest (`sha256`, …) is optional — checked when its file is staged, not listed when it is not — and a `MISMATCH` on one still `FAIL`s.
 md5 never fails alone: `md5` is no longer accepted per ASF infrastructure guidance,
 so a `.md5` file sets `deprecated_md5_present` and makes the step `WARN`, even when its digest mismatches.

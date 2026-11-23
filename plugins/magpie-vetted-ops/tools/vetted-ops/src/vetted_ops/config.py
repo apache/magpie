@@ -56,6 +56,9 @@ PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
 #: `Edit`-denied, so neither a sandboxed command nor the agent's file tools can
 #: put a policy there; a renamed directory or a symlink elsewhere cannot either.
 APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
+#: The operator's own ``[git]`` values (see `git_ops.operator_git_table`), kept
+#: beside the approved policies but never one of them.
+OPERATOR_GIT_FILE = "operator-git.toml"
 
 #: `values.<key>_patterns` adds full-match patterns to the enum list `<key>`.
 PATTERNS_SUFFIX = "_patterns"
@@ -102,7 +105,7 @@ def _approved(data: bytes) -> bool:
     except OSError:
         return False
     for name in names:
-        if not name.endswith(".toml"):
+        if not name.endswith(".toml") or name == OPERATOR_GIT_FILE:
             continue
         try:
             if read_regular_file(root / name) == data:
@@ -310,6 +313,14 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
 
 
 def _discover(base: Path) -> tuple[Path, bytes]:
+    found = _discover_optional(base)
+    if found is None:
+        raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in candidates(base)))
+    return found
+
+
+def _discover_optional(base: Path) -> tuple[Path, bytes] | None:
+    """The discovered policy and its bytes, ``None`` when there is none."""
     tried = candidates(base)
     committed, personal = tried[0], tried[1:]
     # A symlink on the committed path would redirect the read to a file the
@@ -327,7 +338,25 @@ def _discover(base: Path) -> tuple[Path, bytes]:
             continue
         if data is not None:
             return candidate, data
-    raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in tried))
+    return None
+
+
+def approval_status(cwd: Path | None = None) -> dict[str, object]:
+    """Whether the write entry points would act on the policy discovered from ``cwd``.
+
+    The same discovery and the same byte-for-byte comparison `load` applies with
+    ``approved_only``, without parsing the policy or acting on it. It reports
+    two paths and one boolean, never a file's content, so a sandboxed agent that
+    cannot read `approved_dir` learns only whether an approval is stale. It takes
+    no explicit path: discovery only, so it cannot be pointed at an arbitrary
+    file to learn whether it exists or matches an approved policy.
+    """
+    found = _discover_optional((cwd or Path.cwd()).resolve())
+    return {
+        "policy": str(found[0]) if found else None,
+        "approved": found is not None and _approved(found[1]),
+        "approved_dir": str(approved_dir()),
+    }
 
 
 def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bool = False) -> Config:

@@ -9,8 +9,8 @@ Read from `SKILL.md` § *The vetted-ops split and exclusion* when the adopter us
 Only `vetted-op-read` belongs there.
 The write dispatcher in an `allow` list grants the whole catalogue, because whoever runs an invocation chooses the caller name it passes.
 Report that as a must-fix, ahead of anything else in this section.
-`vetted-op-tracker` in `allow`, or an excluded write dispatcher with no matching `ask` rule, is the same must-fix.
-`vetted-op-tracker` and `vetted-op` each in `ask` and in `sandbox.excludedCommands` (both the `uv run --project` and `uvx --from` forms) is the intended wiring; a missing entry is drift, since without the exclusion their writes fail in the sandbox.
+`vetted-op-tracker` or `vetted-op-git` in `allow`, or an excluded write dispatcher with no matching `ask` rule, is the same must-fix.
+`vetted-op-tracker`, `vetted-op-git` and `vetted-op` each in `ask` and in `sandbox.excludedCommands` (both the `uv run --project` and `uvx --from` forms) is the intended wiring; a missing entry is drift, since without the exclusion their writes fail in the sandbox (for `vetted-op-git`, an SSH push gets no connection through the sandbox's proxy and a linked worktree's administrative directory is read-only there).
 
 **Second, `permissions.deny` still covers both surfaces**, each with an `Edit` rule:
 
@@ -45,5 +45,5 @@ Report as a must-fix:
 - a missing vetted-ops `Edit` deny rule (the second check), since those rules are what make the unprompted read safe.
 
 The reason is the background gatherer agents: they cannot surface a prompt, so each prompt is a silent denial and a bulk sync returns partial results.
-This covers `vetted-op-read` only; `vetted-op-tracker` and `vetted-op` stay as the first check says.
+This covers `vetted-op-read` only; `vetted-op-tracker`, `vetted-op-git` and `vetted-op` stay as the first check says.
 The remedy is `setup-isolated-setup-install` Step V.1; shape and rationale: [`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).

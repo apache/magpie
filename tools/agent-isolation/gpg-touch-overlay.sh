@@ -455,7 +455,12 @@ _register() {
 _owner_pid=""
 _watcher_pid=""
 _read_registration() {
-    local id=$1 reg="$OWNERS_DIR/$id"
+    # Two statements: in `local id=$1 reg="$OWNERS_DIR/$id"` every word is
+    # expanded before any assignment, so `reg` would name the *caller's*
+    # `$id`, and only matched while every caller happened to keep the same
+    # name for the same value.
+    local id=$1
+    local reg="$OWNERS_DIR/$id"
     _owner_pid=""
     _watcher_pid=""
     # Tested before the redirection, not around it: a `<` on a file that
@@ -688,6 +693,31 @@ disarm() {
     _cleanup_if_idle
 }
 
+# Whether the PreToolUse hook has armed a watcher for *this* agent session
+# and it is alive right now: owner and watcher both still running. The
+# wrapper uses it to tell a tool-call command, which the hook covers, from
+# a `!` command the user typed into the session, which no hook sees.
+# Claude Code exports the session id to both (CLAUDE_CODE_SESSION_ID), and
+# the hook registers under the same id, so another session's watcher never
+# counts. Without a session id in the environment, any live hook-armed
+# (`s-` or `h-`) watcher does -- never a wrapper's own `p-` one.
+_hook_watcher_alive() {
+    local session=${CLAUDE_CODE_SESSION_ID:-${CLAUDE_SESSION_ID:-}} reg id
+    if [[ -n $session ]]; then
+        _read_registration "$(_owner_id "$session")" || return 1
+        kill -0 "$_owner_pid" 2>/dev/null && kill -0 "$_watcher_pid" 2>/dev/null
+        return
+    fi
+    for reg in "$OWNERS_DIR"/*; do
+        [[ -e $reg ]] || continue
+        id=${reg##*/}
+        case $id in s-*|h-*) ;; *) continue ;; esac
+        _read_registration "$id" || continue
+        kill -0 "$_owner_pid" 2>/dev/null && kill -0 "$_watcher_pid" 2>/dev/null && return 0
+    done
+    return 1
+}
+
 # --------------------------------------------------------------- wrap ---
 
 # `wrap PROGRAM [ARGS...]` runs PROGRAM with a watcher alive for exactly as
@@ -744,13 +774,17 @@ wrap() {
         gpg|gpg2)   [[ " $* " == *" -bsau "* ]] && signer=1 || exec "$real" "$@" ;;
     esac
 
-    # Inside an agent session the hook is in charge: it armed a watcher
-    # outside the sandbox before this command started, and it will tear
-    # that one down. The wrapper stands aside there whatever it could
-    # see -- one watcher, one window, decided by the environment rather
-    # than by a race on the pid file. Claude Code marks its Bash with
-    # CLAUDECODE=1.
-    [[ -n ${CLAUDECODE:-} ]] && exec "$real" "$@"
+    # Inside an agent session the hook is usually in charge: it armed a
+    # watcher outside the sandbox before this command started, and it
+    # will tear that one down, so the wrapper stands aside -- one watcher,
+    # one window. But CLAUDECODE=1 is also set for commands the *user*
+    # runs in the session with the `!` prefix, and those are not tool
+    # calls: no PreToolUse hook fires, nothing is armed, and standing
+    # aside left the signature blocked on a touch with no window at all.
+    # So stand aside only when a hook-armed watcher is actually alive.
+    if [[ -n ${CLAUDECODE:-} ]] && _hook_watcher_alive; then
+        exec "$real" "$@"
+    fi
 
     # Nothing to watch for on a card that never asks for a touch.
     touch_may_be_needed || exec "$real" "$@"

@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 6241
+measured_tokens: 6588
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -121,6 +121,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -277,7 +281,7 @@ uv run --project <framework>/tools/release-config release-config load \
 
 Its `metadata` carries `version`, `rc_number`, `keys_url`, `vote_list`, `vote_window_hours`, `subject_template`, `vote_backend` (`manual` default, or `atr`), `atr_platform_url`,
 `verification_doc_url` and `reproducibility_doc_url` (rendered at `<version>-<rcN>`, so voters read the tree under vote), `verification_skill`, `signing_mode`,
-`convenience_artefacts` (empty for a source-only project) and the rendered `staging_url`.
+`convenience_artefacts` (empty for a source-only project), `nexus_staging_repo` (the JVM staging repository, when the project declares one) and the rendered `staging_url`.
 
 Read the rest from the planning issue body and the project files; never invent a value (Hard rules):
 
@@ -290,6 +294,7 @@ Read the rest from the planning issue body and the project files; never invent a
 | `repro_record` | the comment `release-rc-cut` posted (see [`reproducibility.md`](../../../../docs/release-management/reproducibility.md)); save it to a file | `--rc-comment`, or `--repository` / `--commit` / `--swhid` / `--epoch` / `--sha512` for a record kept elsewhere |
 | `canned_body` | `<project-config>/canned-responses.md` `[VOTE]` template block, if present | `--canned-body` |
 | `atr_candidate_url`, `atr_revision` | planning issue body (only when `vote_backend = atr`; the revision is optional and defaults to the latest) | `--atr-candidate-url`, `--atr-revision` |
+| `nexus_staging_repo` | a `nexus-staging-repo:` line or staging-repository URL on the planning issue for this RC, then (last resort) `release-build.md § JVM artefact checks` → `nexus_staging_repo`; the id changes with every RC, so a stored value may name the previous one (JVM artefacts only: the id is never guessed) | `--nexus-staging-repo` |
 
 When the planning issue has no reproducibility record, say so: the render leaves out the lines it lacks.
 Surface the loaded metadata to the RM for confirmation before Step 2.
@@ -306,13 +311,16 @@ uv run --project <framework>/tools/release-management release-management vote-dr
   --tag-url <tag_url> --changelog-url <changelog_url> [--staging-url <url>] [--svn-revision <rev>] \
   [--rc-comment <scratch>/rc-cut-comment.md] [--canned-body <scratch>/canned-vote.md] \
   [--expedited "<neutral reason>"] [--skip-verify-check "<reason>"] [--planning-issue <url>] \
-  [--atr-candidate-url <url>] [--atr-revision <rev>] [--project <project>] [--rm-name "<RM name>"]
+  [--atr-candidate-url <url>] [--atr-revision <rev>] [--nexus-staging-repo <id-or-url>] \
+  [--project <project>] [--rm-name "<RM name>"]
 ```
 
 It renders the subject from `vote_subject_template` and the body from the default template or, with `--canned-body`, from the project's (read [`canned-body.md`](canned-body.md)).
 Every body carries the *How to verify this candidate* section: the reproducibility-record lines the planning issue provides, the fixed *Agentic path* paragraph with `/<verification_skill> <version>-rcN`,
 the *Manual path* links, and the voter-obligation sentence.
-The conditional blocks follow the facts: the SVN revision under `svnpubsub`, the convenience artefacts when the project declares any, the ATR candidate page under `atr`,
+The conditional blocks follow the facts: the SVN revision under `svnpubsub`, the convenience artefacts when the project declares any,
+the Nexus staging-repository URL when the RC carries JVM artefacts (read it from the planning issue for this RC, or from `release-build.md` when the issue does not carry it, and confirm it names this RC; never guess it),
+the ATR candidate page under `atr`,
 the CI-signed paragraph under `signing_mode: ci-automated`, and the `[EXPEDITED]` / `[SKIP-VERIFY]` notices
 ([`overrides/expedited.md`](overrides/expedited.md), [`overrides/skip-verify.md`](overrides/skip-verify.md)).
 
@@ -413,6 +421,7 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight blocked — verify-rc not run | `release-verify-rc` was skipped, or reported on another RC | Run it, or pass `--skip-verify-check <reason>` |
 | Pre-flight blocked — expedited window | `vote_window_hours` < 72 and no `--expedited` | Pass `--expedited <reason>` or raise `vote_window_hours` |
 | Render refused — metadata missing | Planning issue lacks the staging URL, tag URL, changelog URL, SVN revision or ATR page | Provide the missing value in the planning issue body |
+| Render refused — Nexus staging repository | the staging id from `--nexus-staging-repo` or `release-build.md` is neither a `<name>-NNNN` id (such as `maven-2471` or `orgapachecommons-1965`) nor a URL carrying one | Read the id from the planning issue for this RC, or from `release-build.md § JVM artefact checks` when the issue does not carry it; never invent it |
 | Subject template renders incorrectly | `vote_subject_template` has unsubstituted placeholders | Check `<project-config>/release-management-config.md` |
 | `vote_verification_doc_url` unset | Config predates the *How to verify* section | Add the key (`release-management-config.md § Vote`); until then the body links the framework's `docs/release-management/reproducibility.md` and says the project page is missing |
 | Reproducibility record missing from the planning issue | `release-rc-cut` ran before the record was added, or the RM did not paste `repro-archive build`'s output back | Add the commit / `SOURCE_DATE_EPOCH` / sha512 to the planning issue; the body omits the lines rather than guessing |

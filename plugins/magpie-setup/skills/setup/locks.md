@@ -308,7 +308,8 @@ leaving the committed lock as the single store.
 That is the whole remedy.
 
 `declined.skills` is a list of skill names whose `requires_config`
-gaps the developer declined **permanently** in `reconcile`. Unlike
+gaps (and absent vetted-ops policy caller, for a skill installed but not
+run here) the developer declined **permanently** in `reconcile`. Unlike
 `acknowledged.skills` it carries no hash, so it survives every
 `surface_hash` move; `reconcile` skips those gaps without asking. A
 personal override file for the skill cancels the skip. It is always

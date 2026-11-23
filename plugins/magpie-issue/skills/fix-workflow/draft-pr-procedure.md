@@ -9,9 +9,13 @@ The skill:
 
 1. Shows the user the proposed PR title, body, and diff (one
    final review surface).
-2. On explicit confirmation, opens a **draft** PR from the user's
+2. On explicit confirmation, pushes the branch to the user's fork
+   with `git-push-branch <worktree> <branch> fork <branch> new`
+   (`--caller issue-fix-workflow`, per
+   [vetted-git-publish.md](vetted-git-publish.md), after the pre-push
+   checks pass in the sandbox), then opens a **draft** PR from the
    fork against `<upstream>:<default-branch>` with
-   `gh pr create --web --draft`, pre-filling `--title` and `--body`
+   `gh pr create --web --draft` (`git-pr-create` opens no drafts), pre-filling `--title` and `--body`
    (including the generative-AI disclosure block) so the human
    reviews the title, body, and disclosure in the browser before
    submitting — per

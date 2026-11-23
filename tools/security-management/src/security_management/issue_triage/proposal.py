@@ -81,6 +81,90 @@ def fix_public_reply(upstream: str, prs: Sequence[Mapping[str, Any]]) -> str:
     )
 
 
+# A quote mark, straight or curly; code spans are masked before scanning.
+_QUOTE_MARK = re.compile(r"[\"“”]")
+_CODE_SPAN = re.compile(r"(`+).*?\1", re.DOTALL)
+# What may join two quotes that cite the same source: `"A" and "B" ([model](…))`.
+_JOINER = re.compile(r"^[\s,;:]*(?:and|or)?[\s,;:]*$", re.IGNORECASE)
+# Shorter quoted spans are terms ("Connection String"), not sentences.
+_MIN_QUOTE = 20
+# What separates the fragments of a quote that leaves something out.
+_ELISION = re.compile(r"\s*(?:\[\s*(?:\.\.\.|…)\s*\]|…|\.\.\.)\s*")
+# How far after a quote its citation link may start and still be its own.
+_CITATION_REACH = 300
+
+
+def _normalise_prose(text: str) -> str:
+    """Prose as compared: no inline markup, plain quotes, single spaces."""
+    text = re.sub(r"[*`]", "", text)
+    # Curly quotes as escapes (left/right single, left/right double).
+    for curly, plain in (("\u2018", "'"), ("\u2019", "'"), ("\u201c", '"'), ("\u201d", '"')):
+        text = text.replace(curly, plain)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def check_model_quotes(summary: str, data: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    """Refuse a summary that presents as Security Model text anything the model does not say.
+
+    A quote counts as a model quote when a link to `model_url` follows it
+    within `_CITATION_REACH` characters, before the next quote starts. Every
+    such quote must appear verbatim in `model_file` (the copy of the model
+    the run fetched and cached, Step 2.5), up to inline markup, quote style
+    and whitespace; an elided quote (`[...]`, `…`) must match fragment by
+    fragment, in order. Returns (refusal or None, the quotes verified).
+    """
+    url = str(data.get("model_url") or "").strip().rstrip("/")
+    if not url or url not in summary:
+        return None, []
+    path = str(data.get("model_file") or "").strip()
+    if not path:
+        return (
+            "the summary cites the Security Model; pass `model_file`, the copy of the model this run "
+            "fetched (Step 2.5), so every quote can be checked against it",
+            [],
+        )
+    try:
+        with open(path, encoding="utf-8") as fh:
+            document = _normalise_prose(fh.read())
+    except OSError as exc:
+        return f"cannot read model_file {path!r}: {exc.strerror}", []
+    # Pair quote marks in order (open, close, open, close ...) on a copy with
+    # code spans blanked out, so `open(path, "a")` is not half a quote.
+    masked = _CODE_SPAN.sub(lambda m: " " * len(m.group(0)), summary)
+    marks = [m.start() for m in _QUOTE_MARK.finditer(masked)]
+    spans = [(marks[i], marks[i + 1] + 1) for i in range(0, len(marks) - 1, 2)]
+    # Quotes joined only by `and` / punctuation cite the same source: group them.
+    groups: list[list[tuple[int, int]]] = []
+    for span in spans:
+        if groups and _JOINER.match(summary[groups[-1][-1][1] : span[0]]):
+            groups[-1].append(span)
+        else:
+            groups.append([span])
+    cited: list[str] = []
+    for i, group in enumerate(groups):
+        end = group[-1][1]
+        limit = groups[i + 1][0][0] if i + 1 < len(groups) else len(summary)
+        if url not in summary[end : min(limit, end + _CITATION_REACH)]:
+            continue
+        cited.extend(summary[a + 1 : b - 1] for a, b in group if b - a - 2 >= _MIN_QUOTE)
+    for quote in cited:
+        position = 0
+        for fragment in _ELISION.split(quote):
+            wanted = _normalise_prose(fragment).strip(" .,;:")
+            if not wanted:
+                continue
+            found = document.find(wanted, position)
+            if found < 0:
+                return (
+                    f"Security Model quote not found verbatim in the model: {wanted!r}; "
+                    "quote the model's own words from model_file (never a quote copied from a tracker "
+                    "comment) or drop the quotation marks and paraphrase without presenting it as the model",
+                    [],
+                )
+            position = found + len(wanted)
+    return None, cited
+
+
 def _replace_outside_protected(text: str, pattern: re.Pattern[str], repl: str) -> tuple[str, int]:
     out: list[str] = []
     count = 0
@@ -145,6 +229,9 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
     question = one_line(data.get("question")).rstrip("?")
     if not summary or not question:
         return {"ok": False, "refused": "summary and question are required"}
+    quote_problem, verified_quotes = check_model_quotes(summary, data)
+    if quote_problem:
+        return {"ok": False, "refused": quote_problem}
     fix_shape = str(data.get("fix_shape") or "").strip()
     extra: list[str] = []
     if klass == "DEFENSE-IN-DEPTH" and DID_SENTENCE.lower() not in fix_shape.lower():
@@ -191,8 +278,11 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
     text = "\n".join(parts) + "\n"
     scrubbed = scrub(text, data.get("names") or {}, tracker)
     text = scrubbed["text"]
-    scratch = str(data.get("scratch") or "").rstrip("/")
-    path = f"{scratch}/triage-{number}.md"
+    # The comment is posted through the vetted `issue-comment` operation,
+    # which accepts a body file only from its workspace; `scratch` stays
+    # the fallback for callers that do not pass one.
+    workspace = str(data.get("workspace") or data.get("scratch") or "").rstrip("/")
+    path = f"{workspace}/triage-{number}.md"
     return {
         "ok": True,
         "text": text,
@@ -202,8 +292,12 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
         "replacements_made": scrubbed["replacements_made"],
         "linked_refs": scrubbed["linked_refs"],
         "unlinked_cves": _unlinked_cves(text),
+        "model_quotes_verified": verified_quotes,
         "file": path,
-        "command": f"gh issue comment {number} --repo {w(tracker)} --body-file {w(path)}",
+        "command": (
+            "uv run --project ~/.claude/magpie/vetted-ops vetted-op "
+            f"--caller security-issue-triage issue-comment {number} {w(path)}"
+        ),
     }
 
 

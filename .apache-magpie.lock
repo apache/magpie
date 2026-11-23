@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611180540
-  at:      2026-11-18
+  version: 0.9.0.dev202611221021
+  at:      2026-11-22
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -31,7 +31,7 @@ reconciled:
     identity-map:               sha256:78eccfcead182fca
     isolated-setup-doctor:      sha256:f8a5db3da24024cb
     isolated-setup-install:     sha256:cb0c81b693d9aa76
-    isolated-setup-update:      sha256:1f327e069312dad2
+    isolated-setup-update:      sha256:51ecb7683ea269cf
     isolated-setup-verify:      sha256:7e0d11345084066f
     issue-fix:                  sha256:550eabe3b9bb3689
     issue-import-from-scan:     sha256:7adfbe73f79606b1
@@ -64,7 +64,7 @@ reconciled:
     reviewer-routing:           sha256:159e840396b7a667
     self-review:                sha256:ea0a2e29bb2aa0e0
     sentiment:                  sha256:c325db1d99634a51
-    setup:                      sha256:80ed41e60eb0db69
+    setup:                      sha256:ab519be6d5dc816b
     shared-config-sync:         sha256:bbd7ee552b42915f
     shepherd:                   sha256:cd4c424406623b33
     skill-reconciler:           sha256:964dbda42cb402ce

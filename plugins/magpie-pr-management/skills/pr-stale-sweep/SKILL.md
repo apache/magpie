@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:086e859fb8751476
 license: Apache-2.0
-measured_tokens: 3766
+measured_tokens: 3836
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -109,6 +109,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination

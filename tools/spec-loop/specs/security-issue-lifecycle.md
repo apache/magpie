@@ -649,6 +649,12 @@ publication, with a human gate and an audit-log entry at every step.
   idempotent, escapes tracker text, and refuses a page it cannot parse. The
   reminder never fires for such a project. `magpie-vcs` gains `update` and
   `checkout` for it.
+  With `publish: pull-request` (Git), the operator instead commits on a new
+  branch, pushes it to their own fork and opens a pull request against the
+  site repository's base branch; the marker comment records the pull
+  request's URL, an open or merged one found by its branch is never opened
+  twice, and a later sync posts an `advisory-records-merged` comment with the
+  ticked checklist item once it merges (a closed one is a blocker).
 - **The CVE record is published only after the advisory ships (#1795).**
   Sync's `REVIEW → PUBLIC` move through `vulnogram-api-record-publish`
   runs only in the *advisory archived* combined apply, and the CLI refuses

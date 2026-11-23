@@ -279,11 +279,11 @@ def check_rc_cut(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
         if not build.digest_set:
             result.block("release-build.md declares no digest_set (§ Digest set is empty or still TODO)")
         else:
-            if "sha512" not in build.digest_set:
-                result.block(f"digest_set {build.digest_set} does not contain sha512")
             for weak in ("md5", "sha1"):
                 if weak in build.digest_set:
                     result.block(f"digest_set contains {weak}, which is not accepted")
+            if not {"sha256", "sha512"} & set(build.digest_set):
+                result.block(f"digest_set {build.digest_set} contains neither sha256 nor sha512")
     _require_keys(result, cfg, ("release_dist_backend", "release_dist_url_template"))
     if build.source_archive_method == "custom":
         archive_reviewed = True
@@ -702,6 +702,7 @@ def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[s
             "reproducibility_doc_url": _render(cfg.raw.get("reproducibility_doc_url"), version, rc),
             "verification_skill": cfg.get("vote_verification_skill"),
             "staging_url": _staging_url(cfg, version, rc),
+            "nexus_staging_repo": build.value("nexus_staging_repo"),
         }
     if skill == "announce-draft":
         clear = plus_one_hour(args.promote_timestamp) if args.promote_timestamp else None

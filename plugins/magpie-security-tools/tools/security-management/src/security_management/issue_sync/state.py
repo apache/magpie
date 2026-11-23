@@ -31,7 +31,9 @@
   `RESERVED` → wait, `REJECTED` → blocker, lookup error → retry), the
   security-pages checklist and reminder markers in team comments (author
   association `OWNER` / `COLLABORATOR`, or a login in `collaborators`), and
-  the advisory-records step, including the planner's exit code.
+  the advisory-records step, including the planner's exit code and, when
+  the records are published through a pull request, that pull request's
+  state.
 - `release_vote` (1h): an open `[VOTE]` thread on the dev list whose first
   version matches the fix-PR milestone, for a tracker in the `pr merged`
   window; a `[RESULT]` message closes a vote.
@@ -62,6 +64,9 @@ CHECKLIST_DONE = re.compile(
 )
 REMINDER = "<!-- apache-magpie: security-pages-reminder v1 -->"
 RECORDS = "<!-- apache-magpie: advisory-records v1 -->"
+RECORDS_MERGED = "<!-- apache-magpie: advisory-records-merged v1 -->"
+_PULL_URL = re.compile(r"https://[^\s<>()\[\]`]+/pull/\d+")
+PR_STATES = frozenset({"OPEN", "MERGED", "CLOSED", "NONE"})
 NOTIFIED = re.compile(r"CVE-published reporter notification drafted", re.IGNORECASE)
 _VERSION = re.compile(r"\b(\d+\.\d+(?:\.\d+)?)\b")
 _VOTE = re.compile(r"\[VOTE\]", re.IGNORECASE)
@@ -170,6 +175,78 @@ RECORD_EXITS = {
 }
 
 
+def _records_pull_request(
+    data: Mapping[str, Any], comments: list[str], state: str, out: dict[str, Any]
+) -> str | None:
+    """The advisory-records steps that come before the planner.
+
+    Sets ``out["advisory_records"]`` when the marker comments or the
+    pull-request lookup decide the step, leaves it unset when the planner
+    decides it, and returns a refusal for input it cannot act on.
+
+    In ``pull-request`` mode the `advisory-records v1` comment records the
+    pull request it opened; the record is live only once that pull request
+    merges, which a second marker comment (`advisory-records-merged v1`)
+    records. Before the first comment, a pull request sync opened earlier
+    without recording it (the comment failed, or another operator ran the
+    commands) is found by its branch, so a second one is never proposed;
+    the caller passes an open or merged one in preference to a closed one.
+    """
+    if any(t.lstrip().startswith(RECORDS_MERGED) for t in comments):
+        out["advisory_records"] = "done"
+        return None
+    marker = next((t for t in comments if t.lstrip().startswith(RECORDS)), None)
+    recorded = None
+    if marker is not None:
+        recorded = _PULL_URL.search(marker)
+        if recorded is None:
+            # Direct mode: the comment follows a successful commit (and push).
+            out["advisory_records"] = "done"
+            return None
+        out["records_pr_url"] = recorded.group(0)
+    elif state != "PUBLISHED" or one_line(data.get("advisory_records_publish")).lower() != "pull-request":
+        # Not public yet, or published directly: the planner decides.
+        return None
+    if data.get("records_pr_lookup_failed"):
+        out["advisory_records"] = "retry_pr_lookup"
+        out["note"] = "advisory records: pull-request lookup failed — try again next sync"
+        return None
+    raw = one_line(data.get("records_pr_state")).upper()
+    if not raw:
+        out["advisory_records"] = "check_pr" if recorded else "find_pr"
+        return None
+    if raw not in PR_STATES:
+        return f"records_pr_state {raw!r} is none of {', '.join(sorted(PR_STATES))}"
+    if raw == "NONE":
+        if recorded:
+            return f"records_pr_state NONE, but the advisory-records comment names {recorded.group(0)}"
+        return None
+    out["records_pr_state"] = raw
+    if not recorded:
+        url = one_line(data.get("records_pr_url"))
+        if not _PULL_URL.fullmatch(url):
+            return f"records_pr_url {url!r} is not a pull-request URL"
+        out["records_pr_url"] = url
+    if raw == "CLOSED" and not recorded:
+        # Only a closed one, and no status comment: the team removed the comment
+        # to try again (or the pull request was closed before it was recorded).
+        # The planner decides; the proposal names the closed one.
+        out["records_pr_closed_url"] = out.pop("records_pr_url")
+        del out["records_pr_state"]
+        return None
+    if raw == "CLOSED":
+        out["advisory_records"] = "pr_closed"
+        out["blockers"].append(
+            f"advisory records: {out['records_pr_url']} was closed without merging; "
+            "sync proposes nothing more for this CVE until the team decides how to record it"
+        )
+    elif not recorded:
+        out["advisory_records"] = "record_pr"
+    else:
+        out["advisory_records"] = "pr_open" if raw == "OPEN" else "pr_merged"
+    return None
+
+
 def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     # The state markers below are written in the team's comments, never in
     # the body or anyone else's comment: those carry report text, which must
@@ -201,8 +278,11 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     records = data.get("advisory_records_configured")
     if records:
         out["security_pages_reminder_pending"] = False
-        if any(t.lstrip().startswith(RECORDS) for t in comments):
-            out["advisory_records"] = "done"
+        refused = _records_pull_request(data, comments, state, out)
+        if refused:
+            return {"ok": False, "refused": refused}
+        if "advisory_records" in out:
+            pass  # decided by a marker comment or the pull-request lookup
         elif state != "PUBLISHED":
             out["advisory_records"] = "waiting_for_cve_org"
         elif data.get("planner_exit") is None:
@@ -217,6 +297,15 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
                 out["blockers"].append(
                     f"advisory records refused: {one_line(data.get('planner_reason')) or 'see the planner output'}"
                 )
+    elif data.get("security_pages_configured") is False:
+        # No security page to update and no records to write: the
+        # post-announcement step does not exist for this project, so
+        # there is nothing to remind anyone about. Only an explicit
+        # `false` counts; a caller that does not pass the flag keeps
+        # the reminder.
+        out["advisory_records"] = "not_configured"
+        out["security_pages"] = "not_configured"
+        out["security_pages_reminder_pending"] = False
     else:
         out["advisory_records"] = "not_configured"
         populated = bool(one_line(data.get("public_advisory_url")))

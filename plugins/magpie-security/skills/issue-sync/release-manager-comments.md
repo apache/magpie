@@ -151,10 +151,11 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
     repo's `<project-config>/canned-responses.md`.
   - `SECURITY_PAGES_URL` — the `security_pages_url` key from
     [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories).
-    When the key is unset, render the link text without the link:
-    `[security pages](SECURITY_PAGES_URL)` becomes plain
-    `security pages`. This is the one sanctioned deviation from the
-    verbatim template, and the proposal flags the missing key.
+    When the key is unset (empty or `TODO`), the project has no security page to update:
+    drop the whole security-pages block — the *"After the send — one website edit"* paragraph and its
+    `security-pages-checklist v1` item — so the hand-off asks the release manager for nothing that does not exist.
+    This is the one sanctioned deviation from the verbatim template;
+    the proposal notes it (*"no security page configured — checklist item omitted"*).
 
   **Apply mechanic** — see the *Release-manager hand-off comment* bullet in Step 4:
   a fresh `gh issue comment` (first hand-off) or a `gh api -X PATCH` on the existing comment's REST id (variant flip).

@@ -328,6 +328,19 @@ def test_an_unconfirmed_setup_is_unknown_not_absent(project: Path) -> None:
     assert facts["changed"] is True
 
 
+def test_an_unstamped_setup_with_sandbox_toggled_off_locally_is_still_in_use(
+    project: Path, isolated_home: Path
+) -> None:
+    _framework_tools(project)
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": false}}')
+    facts = upgrade.isolated_summary(project, TODAY, home=isolated_home)
+    assert facts["state"] == "in-use"
+    assert facts["attention"] is True
+
+
 def test_gather_prints_json(project: Path, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     listing = tmp_path / "listing.json"
     listing.write_text("[]")

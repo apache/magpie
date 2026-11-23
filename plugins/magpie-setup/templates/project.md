@@ -96,7 +96,7 @@ produces.
 | `upstream_contributing_docs_url` | TODO | |
 | `upstream_genai_disclosure_anchor` | TODO: URL + anchor for the project's Gen-AI disclosure guideline | |
 | `upstream_security_policy_url` | TODO: `https://github.com/<upstream>/security/policy` | |
-| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link. To have sync propose the edit itself, also configure [Advisory records](#advisory-records) |
+| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — sync then sends no reminder and the release-manager hand-off asks for no website edit; `/magpie-setup:setup config` offers to create the page. To have sync propose the edit itself, also configure [Advisory records](#advisory-records) |
 
 ## Mailing lists
 
@@ -560,7 +560,8 @@ ledger issue from all tracker classification. Closes handled by
 Optional, per-project — where the project records each published CVE in its own published security records
 (the site repository its security pages are built from),
 so that `security-issue-sync` can propose the change once cve.org shows the CVE published.
-Leave the block out and the step is skipped with a one-line note; the security-pages checklist reminder stays as it is.
+Leave the block out and the step is skipped with a one-line note; the security-pages checklist reminder stays as it is
+when `security_pages_url` is set, and there is no reminder at all when it is not.
 The deterministic part is `advisory-records` in
 [`tools/cve-tool-vulnogram/generate-cve-json/`](../../../tools/cve-tool-vulnogram/generate-cve-json/README.md#record-a-published-cve-in-the-projects-security-records--advisory-records);
 the step is described in [`docs/security/advisory-records.md`](../../../docs/security/advisory-records.md).
@@ -574,10 +575,22 @@ advisory_records:
   # Local working copy. A per-user path: `user.md → environment.advisory_records_clone` wins over this.
   working_copy: ~/code/<project>-site
   # Git only: the branch and remote the commit is pushed to.
+  # With publish: pull-request, `branch` is the base the pull request targets and `remote` is unused.
   branch: main
   remote: origin
   # One line; placeholder {cve_id}.
   commit_message: "Add {cve_id} to the security pages"
+  # direct       — commit on `branch` and push it (Git), or commit (Subversion). The default.
+  # pull-request — Git only: the operator commits on a new branch, pushes it to their own fork
+  #                and opens a pull request against `branch`; nothing is pushed to the site repository.
+  publish: direct
+  pull_request:
+    repo: <org>/<project>-site                  # owner/name; default: derived from a GitHub `repository` URL
+    branch: "advisory-records/{cve_id}"
+    title: "Add {cve_id} to the security pages" # default: commit_message
+    # Per user: user.md → environment.advisory_records_fork / advisory_records_fork_remote win over these.
+    # fork: <you>/<project>-site
+    fork_remote: fork
 
   # cve-json-file — one CVE 5.x JSON file per CVE, the record generate-cve-json emits
   #                 (e.g. Apache HTTP Server keeps these under content/security/json/).

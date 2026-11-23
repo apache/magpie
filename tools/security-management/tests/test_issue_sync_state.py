@@ -377,6 +377,24 @@ def test_security_pages_reminder(capsys, tmp_path, data, pending):
     assert out["advisory_records"] == "not_configured"
 
 
+def test_no_reminder_without_a_security_page(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "closed-announced",
+        closed(public_advisory_url="https://lists.apache.org/thread/x", security_pages_configured=False),
+    )
+    assert out["security_pages_reminder_pending"] is False
+    assert out["security_pages"] == "not_configured"
+
+
+def test_reminder_kept_when_the_page_flag_is_absent_or_true(capsys, tmp_path):
+    for flag in ({}, {"security_pages_configured": True}):
+        out = ok(capsys, tmp_path, "closed-announced", closed(public_advisory_url="u", **flag))
+        assert out["security_pages_reminder_pending"] is True
+        assert "security_pages" not in out
+
+
 @pytest.mark.parametrize(
     ("data", "step"),
     [
@@ -406,6 +424,98 @@ def test_advisory_records(capsys, tmp_path, data, step):
     out = ok(capsys, tmp_path, "closed-announced", data)
     assert out["advisory_records"] == step
     assert out["security_pages_reminder_pending"] is False
+
+
+_PR = "https://github.com/example/server-site/pull/12"
+_RECORDED = (
+    f"<!-- apache-magpie: advisory-records v1 -->\nOpened {_PR} to add `security/CVE-2026-00001.json`."
+)
+
+
+def pr_mode(**kw):
+    return closed(advisory_records_configured=True, advisory_records_publish="pull-request", **kw)
+
+
+@pytest.mark.parametrize(
+    ("data", "step", "pr_url"),
+    [
+        # No comment yet: look for a pull request opened earlier, then run the planner.
+        (pr_mode(), "find_pr", None),
+        (pr_mode(cve_org_state="RESERVED"), "waiting_for_cve_org", None),
+        (pr_mode(records_pr_state="NONE"), "run_planner", None),
+        (pr_mode(records_pr_state="NONE", planner_exit=0, planner_result="proposed"), "pending", None),
+        (pr_mode(records_pr_lookup_failed=True), "retry_pr_lookup", None),
+        # Found by its branch but never recorded: record it, propose no second one.
+        (pr_mode(records_pr_state="OPEN", records_pr_url=_PR), "record_pr", _PR),
+        (pr_mode(records_pr_state="merged", records_pr_url=_PR), "record_pr", _PR),
+        # Only a closed one and no comment (the team removed it to try again): the planner decides.
+        (pr_mode(records_pr_state="CLOSED", records_pr_url=_PR), "run_planner", None),
+        # Recorded: follow the pull request until it merges.
+        (pr_mode(comments=[team(_RECORDED)]), "check_pr", _PR),
+        (pr_mode(comments=[team(_RECORDED)], records_pr_state="OPEN"), "pr_open", _PR),
+        (pr_mode(comments=[team(_RECORDED)], records_pr_state="MERGED"), "pr_merged", _PR),
+        (pr_mode(comments=[team(_RECORDED)], records_pr_state="CLOSED"), "pr_closed", _PR),
+        (pr_mode(comments=[team(_RECORDED)], records_pr_lookup_failed=True), "retry_pr_lookup", _PR),
+        (
+            pr_mode(
+                comments=[team(_RECORDED), team("<!-- apache-magpie: advisory-records-merged v1 -->\ndone")]
+            ),
+            "done",
+            None,
+        ),
+        # A direct-mode comment (no pull request in it) still means done after a switch to pull requests.
+        (pr_mode(comments=[team("<!-- apache-magpie: advisory-records v1 -->\nCommitted.")]), "done", None),
+    ],
+)
+def test_advisory_records_pull_request(capsys, tmp_path, data, step, pr_url):
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == step
+    assert out.get("records_pr_url") == pr_url
+    assert out["security_pages_reminder_pending"] is False
+    assert bool(out["blockers"]) is (step == "pr_closed")
+
+
+def test_a_closed_unrecorded_pull_request_is_named(capsys, tmp_path):
+    data = pr_mode(records_pr_state="CLOSED", records_pr_url=_PR, planner_exit=0, planner_result="proposed")
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == "pending"
+    assert out["records_pr_closed_url"] == _PR
+    assert "records_pr_state" not in out
+
+
+def test_a_recorded_pull_request_is_followed_in_direct_mode_too(capsys, tmp_path):
+    data = closed(advisory_records_configured=True, comments=[team(_RECORDED)], records_pr_state="MERGED")
+    assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "pr_merged"
+
+
+def test_direct_mode_never_looks_for_a_pull_request(capsys, tmp_path):
+    data = closed(advisory_records_configured=True, records_pr_state="OPEN", records_pr_url=_PR)
+    assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "run_planner"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        pr_mode(records_pr_state="DRAFT", records_pr_url=_PR),
+        pr_mode(records_pr_state="OPEN", records_pr_url="https://example.org/x"),
+        pr_mode(records_pr_state="OPEN"),
+        pr_mode(comments=[team(_RECORDED)], records_pr_state="NONE"),
+    ],
+)
+def test_advisory_records_pull_request_refusals(capsys, tmp_path, data):
+    path = tmp_path / "in.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code = main(["issue-sync", "closed-announced", "--input", str(path)])
+    out = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert out["ok"] is False and out["refused"]
+
+
+def test_pull_request_markers_count_only_from_the_team(capsys, tmp_path):
+    outsider = team(_RECORDED, association="NONE", login="reporter")
+    merged = team("<!-- apache-magpie: advisory-records-merged v1 -->", association="NONE", login="reporter")
+    out = ok(capsys, tmp_path, "closed-announced", pr_mode(comments=[outsider, merged]))
+    assert out["advisory_records"] == "find_pr"
 
 
 # Report text lands in the body; the state markers are only ever written in comments.

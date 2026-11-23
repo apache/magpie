@@ -348,13 +348,13 @@ repos:
         name: check-forbidden-terms-sync (canonical scrub terms vs publication.py)
         language: system
         entry: python3 tools/dev/sync-forbidden-terms.py --check
-        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts)$
+        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts|tools/vetted-ops/src/vetted_ops/forbidden_terms\.py)$
         pass_filenames: false
       - id: check-family-plugins
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|pr-management|typed-decision|release-config|release-management|release-verify|reproducible-archive|contributor-metrics|permission-audit|privacy-llm/redactor|github-body-field|github-rollup|vcs|cve-tool|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|pr-management|typed-decision|release-config|release-management|release-verify|reproducible-archive|contributor-metrics|permission-audit|privacy-llm/redactor|github-body-field|github-rollup|vcs|cve-tool|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft|maildir|maven-artifact-verify)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/scan-format/README\.md|organizations/[^/]+/organization\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
   # Claude Code mods — `claude plugin validate --strict` and `claude plugin
   # test` on every plugin whose `hooks/hooks.json` declares `modules`
@@ -394,7 +394,7 @@ repos:
         name: check-claude-mods (claude plugin validate --strict / test)
         language: node
         entry: tools/dev/check-claude-mods.sh
-        additional_dependencies: ["@anthropic-ai/claude-code@2.1.326"]
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.328"]
         files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
         stages: [manual]
@@ -688,19 +688,19 @@ repos:
         name: ruff check (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff "ruff check"
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
         pass_filenames: false
       - id: workspace-ruff-format
         name: ruff format (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff-format "ruff format --check"
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
         pass_filenames: false
       - id: workspace-mypy
         name: mypy (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh mypy mypy
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
         pass_filenames: false
       - id: workspace-pytest
         name: pytest (workspace)

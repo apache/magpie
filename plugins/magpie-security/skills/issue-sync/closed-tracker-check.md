@@ -19,7 +19,7 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason}`
    and run `<sm> closed-announced`. `comments` are the 1a comments with their `author` and `authorAssociation`;
    `collaborators` is the tracker's collaborator list, for a backend whose comments carry no association.
    Only a comment by the team (`OWNER` / `COLLABORATOR`, or a login in `collaborators`) can carry the state markers below; pass the full collaborator list, since team members with access through a GitHub team show as `MEMBER`.
@@ -39,20 +39,37 @@ The same command scans the team's comments from the 1a fetch — no extra API ca
 and sets `security_pages_reminder_pending` only when the *Public advisory URL* is populated and neither exists
 (an unticked box in the hand-off comment is the pending state, not the satisfied one).
 Step 2b turns a pending flag into the *Security-pages reminder comment* proposal ([`signals-to-actions.md`](signals-to-actions.md)).
+Pass `security_pages_configured: false` when [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories) has no `security_pages_url` (unset, empty or still `TODO`):
+the project has no security page to update, so the flag stays `false`, the output carries `security_pages: not_configured`,
+and the observed state records *"security pages: not configured — no reminder"*. `/magpie-setup:setup config` offers to create the page.
 
 **Advisory records.** When [`<project-config>/project.md`](../../../../<project-config>/project.md#advisory-records) declares an `advisory_records` block,
 sync also records the CVE in the project's own security records — a site repository over Git or Subversion
 ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
 Without the block, record *"advisory records: not configured — skipped"* in the observed state and do nothing else.
 With it, `security_pages_reminder_pending` is always `false`: sync proposes the edit itself instead of reminding the release manager.
-`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists), `waiting_for_cve_org` (not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`, then:
+`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists), `waiting_for_cve_org` (not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`.
+With `advisory_records.publish: pull-request`, pass `advisory_records_publish: pull-request` too; the record then goes through a pull request,
+and the `advisory-records v1` comment names it, so `done` waits for an `advisory-records-merged v1` comment instead.
+`closed-announced` may first ask for that pull request's state, as two plain read-only commands (`<site repo>` is `pull_request.repo`, or the `owner/name` of a GitHub `repository` URL):
+
+- `check_pr` — the comment names `records_pr_url`: `gh pr view <records_pr_url> --json state,url`; pass its `state` as `records_pr_state`.
+- `find_pr` — no comment yet: `gh pr list --repo <site repo> --head <pull_request.branch with the CVE ID> --state all --json state,url`;
+  pass an `OPEN` or `MERGED` entry over a `CLOSED` one as `records_pr_state` and `records_pr_url`, or `records_pr_state: NONE` when the list is empty.
+- A failed lookup passes `records_pr_lookup_failed: true` (`retry_pr_lookup`: try again next sync, propose nothing).
+
+The answer is `pr_open` (observed state *"advisory records: <URL> open"*, nothing to propose), `pr_merged` (propose the merged comment),
+`pr_closed` (a blocker naming the pull request), `record_pr` (a pull request exists but no comment records it: propose that comment, never a second pull request),
+or the planner steps below, with `records_pr_closed_url` when only a closed pull request was found:
 
 3. Write the record to the session scratch directory:
    `uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --output <scratch>/<CVE-ID>.json`.
 4. Run the planner as a plain command, without `--apply`.
    Each `advisory_records` key maps to the flag of the same name (`layout`, `vcs`, `repository`, `branch`, `remote`, `commit_message`,
-   and the layout's `path`, `indent` → `--json-indent`, `keep_cna_private`, `format`, `release_line_parts`, `section_name`, `section_template`, `entry_template`, `fix_commit_template`, `section_parent`);
-   the working copy is `user.md → environment.advisory_records_clone`, else `advisory_records.working_copy`:
+   and the layout's `path`, `indent` → `--json-indent`, `keep_cna_private`, `format`, `release_line_parts`, `section_name`, `section_template`, `entry_template`, `fix_commit_template`, `section_parent`;
+   `publish`, and in pull-request mode `pull_request.repo` → `--pr-repo`, `.branch` → `--pr-branch`, `.title` → `--pr-title`, `.fork` → `--fork`, `.fork_remote` → `--fork-remote`);
+   the working copy is `user.md → environment.advisory_records_clone`, else `advisory_records.working_copy`,
+   and the fork and its remote are `user.md → environment.advisory_records_fork` / `advisory_records_fork_remote`, else the `pull_request` keys:
    ```bash
    uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json advisory-records --layout <layout> --working-copy <path> --path '<path template>' --record <scratch>/<CVE-ID>.json --cve-org-state PUBLISHED --date-published <datePublished> [--reported-date <date>] [layout flags]
    ```
@@ -60,7 +77,7 @@ With it, `security_pages_reminder_pending` is always `false`: sync proposes the 
    When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
    in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.
 5. Pass the planner's exit code (and `proposed` / `unchanged`, and a refusal's reason) back to `closed-announced`:
-   `pending` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands for Step 2b;
+   `pending` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands (and in pull-request mode its pull-request title and body) for Step 2b;
    `already_recorded`; `pending_checkout` → `advisory_records_pending: true` with the single `checkout` command;
    `refused` → a blocker when the page cannot be parsed or already holds the CVE under another release; `config_error` → show the user.
 

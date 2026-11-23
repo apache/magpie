@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:fix
 surface_hash: sha256:cdd7487f53514882
 license: Apache-2.0
-measured_tokens: 5536
+measured_tokens: 5745
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -115,6 +115,10 @@ denied credential or socket):
    the main checkout, rewrite history in a scratch clone), or a vetted
    operation that already covers it (`vetted-op-read`, `vetted-op`,
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
+   Publishing a change is covered end to end by `vetted-op-git`:
+   `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
    closed-shape vetted operation (fixed argv, validated parameters, destination
@@ -356,8 +360,10 @@ shapes:
   project chose one), resolved per
   [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md)
   and the [ASF Generative Tooling guidance](https://www.apache.org/legal/generative-tooling.html).
-  Add it with `git commit --trailer "<trailer>"`, not in the message
-  body. The trailer is the *contributor's* call on their own commit;
+  The commit runs through `git-commit` (below), which takes no
+  `--trailer`, so the trailer is the message file's own last
+  paragraph; on the fallback, add it with
+  `git commit --trailer "<trailer>"`. The trailer is the *contributor's* call on their own commit;
   the skill does not add it to anyone else's commit.
 - **Security language scrub** — before finalising the commit body,
   confirm no line references the security nature of the change
@@ -368,10 +374,15 @@ shapes:
   behaviour change neutrally instead.
 
 Show the commit message to the user; ask for confirmation before
-running `git commit`.
+committing.
+Stage the intended paths with `git-stage` and commit with `git-commit`
+(`--caller issue-fix-workflow`), after `prek run --files <paths>` passes,
+per [vetted-git-publish.md](vetted-git-publish.md); each call is still
+confirmed by the user, and that file says what to hand the user when no
+`[git]` values are configured for this project.
 
 **Signing pre-flight.** If `commit.gpgsign` is true, probe the
-gpg-agent cache before running `git commit` — a token-backed
+gpg-agent cache before committing — a token-backed
 signing key with a cold cache blocks on a pinentry prompt the
 agent cannot see, and the commit dies with
 `gpg: signing failed: Timeout` after a long stall. On a cold
@@ -410,7 +421,7 @@ the investigation.
 
 This step runs only if `--draft-pr` was passed AND the user explicitly confirms after the hand-back artefact.
 
-Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
+Procedure: [draft-pr-procedure.md](draft-pr-procedure.md) — show the proposed PR title, body, and diff; on explicit confirmation push the branch to the fork with `git-push-branch` ([vetted-git-publish.md](vetted-git-publish.md)) and open a **draft** PR with `gh pr create --web --draft` after the adversarial review ([pre-pr-adversarial-review.md](pre-pr-adversarial-review.md)); never post to `<issue-tracker>`, self-assign, or transition workflow state.
 
 ---
 

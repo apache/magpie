@@ -34,7 +34,9 @@ python3 <skill-dir>/scripts/model_pr.py open \
 `<skill-dir>` is the directory holding this skill's `SKILL.md`; `<framework>/skills/` does not exist on a marketplace install.
 
 Always run `--dry-run` first and show the diff. Without `--submit` the final step
-is `gh pr create --web`, so the human still submits from the browser.
+is `gh pr create --web`, so the human still submits from the browser. When `--workdir`
+points to an existing directory or when running a real run after `--dry-run` with
+the same `--workdir`, pass `--overwrite` to reuse it.
 
 `--license-header` picks what the created files carry: `spdx` (default),
 `apache-full` (the canonical boilerplate — some license checkers match only

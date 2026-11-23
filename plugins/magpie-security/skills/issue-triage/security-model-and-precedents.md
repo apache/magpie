@@ -58,6 +58,12 @@ proposal for.
 
 **Cache the fetched Security Model for the run.** A bulk-mode
 sweep over N trackers fetches the model once, not N times.
+Save it as a file in `<scratch>` and pass that path to `render-proposal` as `model_file`, with `model_url`:
+the tool refuses any quote, presented as the model's, that the cached text does not contain.
+
+**Quote the model, never a comment about it.** Take every quote from the fetched model itself.
+A sentence an earlier triage proposal or tracker comment attributed to the model is not a source:
+it may be a paraphrase, or out of date, and a quote the team relies on for validity or CVE text has to be the model's own words.
 Subagents in bulk mode receive the fetched copy as a
 serialized-string parameter rather than re-fetching.
 
