@@ -122,9 +122,23 @@ def test_args_expect_and_expect_optional_in_listed_order() -> None:
     assert "--tree apache-foo-1.0.0-source-release" in out["commands"]["binaries"]
 
 
-def test_args_sha512_always_checked() -> None:
+def test_args_sha256_only_set_passes_only_sha256() -> None:
     out = args_mod.invocations(vrc(digests=["sha256"]))
+    assert out["digests"] == ["sha256"]
+    assert "--digest sha256" in out["commands"]["checksums"]
+    assert "--digest sha512" not in out["commands"]["checksums"]
+    assert "--digest sha256" in out["commands"]["all"]
+    assert "--digest sha512" not in out["commands"]["all"]
+
+
+def test_args_sha512_stays_required_when_the_set_lists_it() -> None:
+    out = args_mod.invocations(vrc(digests=["sha256", "sha512"]))
     assert out["digests"] == ["sha512", "sha256"]
+
+
+def test_args_empty_set_defaults_to_sha512() -> None:
+    out = args_mod.invocations(vrc(digest_set=[]))
+    assert out["digests"] == ["sha512"]
 
 
 # --------------------------------------------------------------------------- Step 4
