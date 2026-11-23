@@ -1367,6 +1367,9 @@ wheels = [
 name = "pr-management"
 version = "0.1.0"
 source = { editable = "tools/pr-management" }
+dependencies = [
+    { name = "packaging" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1374,6 +1377,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "packaging", specifier = ">=26" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]
