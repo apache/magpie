@@ -1112,6 +1112,9 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     env = {
         **_wrap_env(tmp_path),
         "MAGPIE_GPG_TOUCH_DEBUG": "1",
+        # The handshake reads the watcher's xtrace for "+ saw_operation=1";
+        # pin the prefix so an exported PS4 cannot hide it.
+        "PS4": "+ ",
         # A stalled handshake must not draw a real window on the host.
         "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
         "PATH": f"{shim_dir}{os.pathsep}{os.environ['PATH']}",
