@@ -146,6 +146,11 @@ For each finding, record:
     def get_client():
         import boto3  # ← arrow at the offending line
         return boto3.client(...)
+  explanation: |
+    what is wrong here and why it matters, in the contributor's
+    terms. Render builds the comment's prose from `explanation`
+    and `suggestion` only, so the "why" goes under this key,
+    never under another name.
   severity: nit | minor | major | blocking
   dependency_evidence: |
     dependency-version compatibility findings only: list every
