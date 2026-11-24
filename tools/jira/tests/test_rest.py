@@ -59,10 +59,12 @@ def test_search_stops_at_the_page_budget():
 
 def test_search_advances_by_what_the_server_returned():
     keys = [{"key": f"FOO-{n}"} for n in range(150)]
+    seen = []
 
     def capped_opener(req):
         query = urllib.parse.parse_qs(urllib.parse.urlparse(req.full_url).query)
         start = int(query["startAt"][0])
+        seen.append(start)
         return io.BytesIO(json.dumps({"total": 150, "issues": keys[start : start + 50]}).encode())
 
     issues, total = JiraRest(BASE, token="", opener=capped_opener).search(
@@ -70,6 +72,8 @@ def test_search_advances_by_what_the_server_returned():
     )
     assert total == 150
     assert [i["key"] for i in issues] == [f"FOO-{n}" for n in range(150)]
+    # startAt advances 0 -> 50 -> 100, and the loop stops at the total, inside the 5-page budget.
+    assert seen == [0, 50, 100]
 
 
 def test_token_and_scheme_follow_the_bridge_conventions(monkeypatch):
