@@ -58,7 +58,7 @@ PACKAGE = "@anthropic-ai/claude-code"
 #: Exact X.Y.Z only: in an npm spec, a range would install its newest match.
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
-Runner = Callable[..., "subprocess.CompletedProcess[Any]"]
+Runner = Callable[..., subprocess.CompletedProcess[Any]]
 
 
 class FloorError(Exception):
