@@ -226,7 +226,9 @@ class JiraRest:
         for page in range(pages):
             params: dict[str, str | int] = {
                 "jql": jql,
-                "startAt": page * PAGE_SIZE,
+                # Jira caps maxResults at jira.search.views.default.max, so a page can
+                # hold fewer than PAGE_SIZE issues: continue from what has arrived.
+                "startAt": len(issues),
                 "maxResults": PAGE_SIZE,
                 "fields": fields,
             }
