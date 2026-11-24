@@ -40,6 +40,27 @@ declare module 'claude-code' {
         selectedKeptIssue: number | null;
         dismissedIssues: number[];
       } | null;
+      issueSweepProgressState: {
+        skill: 'issue-triage' | 'issue-stale-sweep' | 'issue-backlog-stats' | (string & {});
+        total: number;
+        evaluated: number;
+        remaining: number;
+        dispositions: {
+          labeled: number;
+          nudged: number;
+          closed: number;
+          duplicate: number;
+          other: number;
+        };
+        currentIssue: {
+          number: number;
+          title?: string;
+        } | null;
+        processedIssues: number[];
+        status: 'running' | 'paused' | 'completed';
+        updatedAt: string;
+        renderCount: number;
+      } | null;
     };
   }
 }

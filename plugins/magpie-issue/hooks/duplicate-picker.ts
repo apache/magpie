@@ -23,12 +23,121 @@ import type {
   DuplicateCandidatePayload,
   DuplicatePickerDecision,
   DuplicatePickerState,
+  IssueSweepProgressState,
 } from './types.js';
+import {
+  processIssueCommand,
+  renderIssueSweepProgressBandComponent,
+} from './issue-sweep-band.js';
 
 export const duplicatePickerState = atom(
   { plugin: 'magpie-issue', key: 'duplicatePickerState' },
   null as DuplicatePickerState | null
 );
+
+export const issueSweepProgressState = atom(
+  { plugin: 'magpie-issue', key: 'issueSweepProgressState' },
+  null as IssueSweepProgressState | null
+);
+
+/**
+ * Retrieves the current issueSweepProgressState from the session store.
+ */
+export async function getIssueSweepProgressState(
+  $: any
+): Promise<IssueSweepProgressState | null> {
+  try {
+    return (await read($, issueSweepProgressState)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sets the issueSweepProgressState in the session store and invalidates the UI.
+ */
+export async function setIssueSweepProgressState(
+  $: any,
+  state: IssueSweepProgressState | null
+): Promise<void> {
+  try {
+    await update($, issueSweepProgressState, () => state);
+    try {
+      $.ui.invalidate('ui.render');
+    } catch {
+      // Fail-open in non-interactive/headless contexts
+    }
+  } catch {
+    // Fail-open
+  }
+}
+
+/**
+ * Handles AbovePrompt rendering for the issue sweep progress band.
+ */
+export async function handleRenderAbovePrompt($: any, e: any, next: any): Promise<any> {
+  try {
+    const state = await getIssueSweepProgressState($);
+    if (!state) {
+      if (typeof next === 'function') return next(e);
+      return;
+    }
+
+    // Auto-dismiss completed sweep after 1 render cycle
+    if (state.status === 'completed') {
+      const renderCount = (state.renderCount || 0) + 1;
+      if (renderCount > 1) {
+        await setIssueSweepProgressState($, null);
+        if (typeof next === 'function') return next(e);
+        return;
+      }
+      await update($, issueSweepProgressState, (prev: any) =>
+        prev ? { ...prev, renderCount } : null
+      );
+    }
+
+    const { Box, Text } = $.ui.resolve(e);
+    if (Box && Text) {
+      return renderIssueSweepProgressBandComponent(state, { Box, Text });
+    }
+  } catch {
+    // Fail-open to next render handler on error
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
+
+/**
+ * Intercepts Bash tool calls to observe issue commands and update sweep metrics.
+ */
+export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+  if (e && typeof e.command === 'string') {
+    try {
+      const command = e.command;
+      const currentSweep = await getIssueSweepProgressState($);
+      let sweepToProcess = currentSweep;
+      if (currentSweep && (currentSweep.status === 'completed' || currentSweep.remaining === 0)) {
+        const isSweepFollowup = /\bgh\s+issue\s+(?:view|edit|close|comment|reopen)\b/i.test(command);
+        if (!isSweepFollowup) {
+          await setIssueSweepProgressState($, null);
+          sweepToProcess = null;
+        }
+      }
+      const updatedSweep = processIssueCommand(command, sweepToProcess);
+      if (updatedSweep !== undefined) {
+        await setIssueSweepProgressState($, updatedSweep);
+      }
+    } catch {
+      // Safe no-op on any error (fail-open)
+    }
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
 
 /**
  * Retrieves the current duplicatePickerState from the session store.
@@ -555,6 +664,11 @@ export function register(hooks: any): void {
     } catch {
       // Fail-open
     }
+    try {
+      await setIssueSweepProgressState($, null);
+    } catch {
+      // Fail-open
+    }
     if (typeof next === 'function') {
       return next(e);
     }
@@ -574,6 +688,9 @@ export function register(hooks: any): void {
       return next(e);
     }
   });
+
+  hooks('ui.render', { component: 'AbovePrompt' }, handleRenderAbovePrompt);
+  hooks('tool.call', { tool: 'Bash' }, handleBashToolCall);
 }
 
 export default register;
