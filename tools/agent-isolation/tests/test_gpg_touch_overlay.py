@@ -472,7 +472,7 @@ def test_a_cached_on_is_trusted_for_ten_minutes(tmp_path: Path) -> None:
 
 
 def test_wrap_runs_the_program_without_a_watcher_when_touch_is_off(
-    tmp_path: Path,
+    tmp_path: Path, process_named
 ) -> None:
     runtime = tmp_path / "rt"
     program = tmp_path / "ssh-keygen"
@@ -598,7 +598,8 @@ def process_named(tmp_path):
     it is to give a harmless process the name it looks for. Every pytest
     worker sees the same process table, so under `-n auto` one test's
     signer is another's signature in flight: the tests that start one take
-    turns.
+    turns. A test that runs a signer some other way requests this fixture
+    only to take its turn.
     """
     lock = open(
         Path(tempfile.gettempdir()) / f"magpie-gpg-touch-signers-{os.getuid()}.lock",
@@ -1048,7 +1049,9 @@ def test_another_sessions_hook_watcher_does_not_count(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("ssh-keygen") is None, reason="needs ssh-keygen")
-def test_wrap_passes_a_verify_call_straight_through(tmp_path: Path) -> None:
+def test_wrap_passes_a_verify_call_straight_through(
+    tmp_path: Path, process_named
+) -> None:
     """`git log --show-signature` runs the signing program once per commit.
 
     Those calls never reach the key, so they get no watcher and no
