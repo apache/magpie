@@ -117,8 +117,10 @@ def _validate_params(
         ):
             # A non-GitHub tracker's IDs are the backend's own (SEC-0012, FOOSEC-12).
             resolved[name] = ops_mod.tracker_id(raw)
-        elif name in {"number", "comment_id", "run_id"}:
+        elif name == "number":
             resolved[name] = ops_mod.number(raw)
+        elif name in {"comment_id", "run_id"}:
+            resolved[name] = ops_mod.database_id(raw)
         elif name in {"ref", "base", "head", "prefix"}:
             resolved[name] = ops_mod.ref(raw)
         elif name == "path":
