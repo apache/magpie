@@ -188,6 +188,9 @@ SAFE_LOCAL_KEY = re.compile(
     | diff\.(?:renames|algorithm|colormoved)
     | log\.(?:date|decorate|follow)
     | status\.(?:showuntrackedfiles|submodulesummary)
+    # Read by the `gh stack` extension (AGENTS.md recommends it for stacked pull
+    # requests), which writes it to the repository; git itself never reads it.
+    | gh-stack\.remote
     )$""",
     re.VERBOSE,
 )

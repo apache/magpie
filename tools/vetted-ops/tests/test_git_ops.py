@@ -476,6 +476,8 @@ def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")
     _git(repo, "config", "branch.topic.remote", "origin")
     _git(repo, "config", "user.name", "someone")
+    # Written by `gh stack link`, which AGENTS.md recommends; git never reads it.
+    _git(repo, "config", "gh-stack.remote", "upstream")
     _push(git, policy, repo, "topic", "fork", "topic", "new")
 
 
