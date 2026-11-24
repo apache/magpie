@@ -74,8 +74,38 @@ marker="$data/magpie-plugin-version"
 stored=""
 [ -f "$marker" ] && stored="$(cat "$marker" 2>/dev/null || true)"
 
+# The order of two Magpie versions, X.Y.Z or X.Y.Z.devN, as PEP 440 sorts
+# them (a dev build before its release): prints -1, 0 or 1, and fails when
+# either does not parse. Plain bash: this runs before any Python is chosen.
+version_cmp() {
+  local re='^([0-9]+)\.([0-9]+)\.([0-9]+)(\.dev([0-9]+))?$' i x y
+  local -a a b
+  [[ $1 =~ $re ]] || return 1
+  a=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]:+0}" "${BASH_REMATCH[5]}")
+  [[ $2 =~ $re ]] || return 1
+  b=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]:+0}" "${BASH_REMATCH[5]}")
+  for i in 0 1 2; do
+    x=$((10#${a[$i]})); y=$((10#${b[$i]}))
+    [ "$x" -lt "$y" ] && { echo -1; return 0; }
+    [ "$x" -gt "$y" ] && { echo 1; return 0; }
+  done
+  # Same release: a dev build comes before it, and dev builds by number.
+  if [ -z "${a[3]}" ] && [ -z "${b[3]}" ]; then echo 0; return 0; fi
+  [ -z "${a[3]}" ] && { echo 1; return 0; }
+  [ -z "${b[3]}" ] && { echo -1; return 0; }
+  x=$((10#${a[4]})); y=$((10#${b[4]}))
+  if [ "$x" -lt "$y" ]; then echo -1; elif [ "$x" -gt "$y" ]; then echo 1; else echo 0; fi
+}
+
+# The marker is one file per user, shared by every session. An older plugin
+# version starting after a newer one (two sessions, or a plugin cache that
+# still holds both) must neither announce an "update" backwards nor make the
+# newer sessions read the older version from the marker: it moves forward
+# only. A version that does not parse keeps the plain change rule.
 notice=""
-if [ "$current" != "$stored" ]; then
+order=""
+[ -n "$stored" ] && [ "$current" != "$stored" ] && order="$(version_cmp "$current" "$stored" || true)"
+if [ "$current" != "$stored" ] && [ "$order" != "-1" ]; then
   mkdir -p "$data" 2>/dev/null || true
   printf '%s' "$current" >"$marker" 2>/dev/null || true
 
