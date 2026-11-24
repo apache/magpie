@@ -48,6 +48,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-22 | `593c5e74` (fix/pnpm-sandbox-home-mkdir) | `opus[1m]` | 2 | `step-1-classify/case-9-whole-user-hooks-unreadable` failed 2 of 2 |  |
 | 2026-11-22 | `6f8fc287` (fix/pnpm-sandbox-home-mkdir) | `opus[1m]` | 5 | `step-1-classify/case-9-whole-user-hooks-unreadable` failed 1 of 2 |  |
 | 2026-11-22 | `e42e89ad` (fix/sandbox-pnpm-home) | `opus[1m]` | 1 | `step-1-classify/case-1-all-pass` failed 1 of 1; `step-1-classify/case-21-7a-inconclusive` failed 1 of 1; `step-2-recommend/case-6-roborev-findings` failed 1 of 1 |  |
 | 2026-11-22 | `c63c115a` (fix/sandbox-pnpm-home) | `opus[1m]` | 3 | `step-1-classify/case-4-version-drift` failed 1 of 2; `step-1-classify/case-6-injection-attempt` failed 1 of 2 |  |

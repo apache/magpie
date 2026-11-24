@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 6397
+measured_tokens: 6454
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -340,9 +340,12 @@ can write:
   propose adding to the project's own `.claude/settings.json`, with
   `<project>` the repository's name (lower-case letters, digits, `.`, `_`,
   `-`), spelled exactly as here: in `env`,
-  `"PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>"` and
-  `"npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"`,
-  spelled with a leading `~/` (pnpm expands nothing else); and
+  `"PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>"`,
+  `"npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"` and
+  `"npm_config_cache": "~/.local/share/pnpm-sandbox/<project>/npm-cache"`
+  (npm's own cache, for the commands pnpm hands to npm, which otherwise fail
+  on `~/.npm` with a misleading `sudo chown` hint), spelled with a leading
+  `~/` (pnpm expands nothing else); and
   `~/.local/share/pnpm-sandbox/<project>/` in `sandbox.filesystem.allowRead`
   and `allowWrite`. Also propose `mkdir -p ~/.local/share/pnpm-sandbox/<project>`
   for the user to run outside the sandbox: a grant takes effect only on a

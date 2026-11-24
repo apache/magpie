@@ -1252,7 +1252,8 @@ Give sandboxed pnpm a home of its own for this project in the project's own `.cl
 ```json
 "env": {
   "PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>",
-  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"
+  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache",
+  "npm_config_cache": "~/.local/share/pnpm-sandbox/<project>/npm-cache"
 },
 "sandbox": {
   "filesystem": {
@@ -1285,12 +1286,15 @@ That clears the first refusal. The `.idea/codeStyles` one is fixed in the projec
 }
 ```
 
-(`iconv-lite` 0.6.3 ships `.idea/`; 0.7.0 and later do not, and 0.7.0 is a bug-fix release), or run `pnpm install` outside the sandbox.
+(`iconv-lite` 0.6.3 ships `.idea/`; 0.7.0 and later do not, and 0.7.0 is a bug-fix release).
+Do not run `pnpm install` outside the sandbox instead: it would run every dependency's install scripts with your own permissions.
+A package with no release free of `.idea/` is a gap in this setup; report it with `setup-upstream-fix`.
 Do not move the virtual store out of the project to avoid it, with `npm_config_enable_global_virtual_store` or `npm_config_virtual_store_dir`: TypeScript resolves a package's types by walking up from its real path to the project's `node_modules`, so from a store anywhere else the project's own `@types/*` packages are out of reach, types collapse to `any`, and type-aware lint and `tsc` fail (an autofix can then rewrite correct code).
 
 ### Notes
 
-- To find the package: `find node_modules/.pnpm -maxdepth 4 -name .idea` after an install outside the sandbox, and `pnpm why <package>` for what pulls it in.
+- `npm_config_cache` is npm's own cache, which pnpm uses for the commands it hands to npm (`pnpm view`, for one). Without it they try the sandbox-denied `~/.npm` and fail with a misleading `EPERM ... Your cache folder contains root-owned files ... sudo chown -R`; do not run that `chown`, set the variable. It is a name npm knows, so unlike pnpm's own names it adds no `Unknown env config` warning.
+- To find the package: the `EPERM` path names it (`node_modules/.pnpm/<package>@<version>/...`), and `pnpm why <package>` shows what pulls it in.
 - The first sandboxed install after the switch downloads everything into the project's home once; that is expected. An install over a `node_modules` built with a different store asks to purge it and aborts without a terminal (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`); pass `--config.confirmModulesPurge=false` once.
 - If that old `node_modules` holds a package with `.idea/` (built outside the sandbox, or before the override), the sandboxed purge cannot delete it either and fails with `EPERM ... unlink '.../.idea/...'`, leaving `node_modules` half removed. Delete it once from a terminal outside the sandbox (`rm -rf node_modules`, and any in-project `.pnpm-store`) before the first sandboxed install.
 - Name the home after the repository (lower-case letters, digits, `.`, `_` and `-`), and spell it exactly as above (or its absolute form). pnpm 10.28 expands `~` in these two and nothing else: `${HOME}` in `PNPM_HOME` becomes a `${HOME}` directory inside the project. The git-hook dispatcher drops the home for hooks run outside the sandbox by its literal prefix, so `sandbox-lint` rejects any other spelling, including ones that normalise to the same path.
