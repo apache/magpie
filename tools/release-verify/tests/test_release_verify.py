@@ -297,6 +297,25 @@ def test_binaries_prohibited_and_accepted(tmp_path: Path, capsys: pytest.Capture
     assert "-path 'rc/assets/vendor/*.min.js'" in out["paste_recipe"]
 
 
+def test_binaries_doublestar_matches_nested_paths(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = tmp_path / "rc"
+    touch(tree / "gradle" / "wrapper" / "gradle-wrapper.jar")
+    touch(tree / "tools" / "a" / "fixture.bin")
+    out = run(
+        capsys,
+        "binaries",
+        "--tree",
+        str(tree),
+        "--accept",
+        "**/gradle-wrapper.jar",
+        "--prohibit",
+        "tools/**/fixture.bin",
+    )
+    assert out["prohibited_found"] == ["tools/a/fixture.bin"]
+    assert out["expected_binaries"] == ["gradle/wrapper/gradle-wrapper.jar"]
+    assert "-path 'rc/tools/*fixture.bin'" in out["paste_recipe"]
+
+
 def test_pyc_and_pycache_are_never_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     tree = tmp_path / "rc"
     touch(tree / "foo" / "__pycache__" / "core.cpython-312.pyc")

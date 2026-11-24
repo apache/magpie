@@ -134,7 +134,7 @@ def _translate_glob(pattern: str) -> str:
     pattern = pattern.strip().lstrip("/")
     if pattern.startswith("./"):
         pattern = pattern[2:]
-    return pattern.replace("**/", "").replace("**", "*")
+    return pattern.replace("**/", "*").replace("**", "*")
 
 
 def _glob_hits(rel: str, pattern: str) -> bool:
