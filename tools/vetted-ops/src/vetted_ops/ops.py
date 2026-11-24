@@ -50,9 +50,9 @@ from .safe_read import TamperedPath, read_regular_file, symlink_free
 # Parameter types
 # --------------------------------------------------------------------------
 
-#: Issue / PR / comment numbers. Bounded length so a parameter cannot smuggle a
-#: long payload even in a numeric-looking field.
-_NUMBER = re.compile(r"^[0-9]{1,10}$")
+#: Issue / PR numbers, and database ids (runs, comments); see `procedures`.
+_NUMBER = procedures.NUMBER
+_DATABASE_ID = procedures.DATABASE_ID
 
 #: A git ref or tag name. Deliberately narrow: no whitespace, no shell
 #: metacharacters, no leading dash.
@@ -113,6 +113,10 @@ def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
 
 def number(value: str) -> str:
     return _check(_NUMBER, value, "number")
+
+
+def database_id(value: str) -> str:
+    return _check(_DATABASE_ID, value, "id")
 
 
 def ref(value: str) -> str:

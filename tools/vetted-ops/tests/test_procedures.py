@@ -416,6 +416,15 @@ def test_fold_appends_then_deletes_in_that_order() -> None:
     assert latest.body == "Status: assessed\nmore"
 
 
+def test_fold_takes_an_eleven_digit_comment_id() -> None:
+    # REST comment ids share GitHub's site-wide counter, which is past ten digits.
+    big = "45349846088"
+    fake = FakeGh(comments=[rollup_comment(existing_rollup("Import"))], legacy=legacy_comment(id=int(big)))
+    procedures.rollup_fold(runner(fake), number="7", comment_id=big, action="Legacy status")
+    (_, _), (delete, _) = fake.writes
+    assert delete == ["gh", "api", f"repos/{TRACKER}/issues/comments/{big}", "-X", "DELETE"]
+
+
 def test_fold_does_not_delete_when_the_append_fails() -> None:
     fake = FakeGh(
         comments=[rollup_comment(existing_rollup("Import"))], legacy=legacy_comment(), fail_on="PATCH"
