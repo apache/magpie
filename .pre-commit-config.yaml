@@ -161,7 +161,7 @@ repos:
   # (broken anchors via MD051, dangling link references via MD053);
   # style choices the existing docs already settled stay off.
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.24.0
+    rev: v0.24.1
     hooks:
       - id: markdownlint-cli2
         name: markdownlint
@@ -200,7 +200,7 @@ repos:
   # .gitignore inside `.venv`, so a synced workspace stays out of the
   # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.52.0
+    rev: v1.52.2
     hooks:
       - id: typos
         name: typos
