@@ -75,13 +75,12 @@ def _no_real_window(monkeypatch):
     `os.environ` (the wrap and ownership tests, the commit signed through
     the wrapper), and a watcher draws its window with
     `gpg-touch-overlay.sh _overlay` unless MAGPIE_GPG_TOUCH_OVERLAY names a
-    stand-in. Any of them that sees a signature block past SHOW_DELAY, such
+    stand-in. Any watcher that sees a signature block past SHOW_DELAY, such
     as one stuck on an ssh agent that never answers or a fake signer on
     another xdist worker, would put the full-screen touch prompt over the
     developer's desktop, whether or not they own a security key. `true`
-    answers in its place: it exits 0, which the watcher reads as that
-    signature being dismissed. The tests about the window pass their own
-    stand-in.
+    runs in its place: it exits 0, which the watcher reads as the signature
+    being dismissed. The tests about the window pass their own stand-in.
     """
     monkeypatch.setenv("MAGPIE_GPG_TOUCH_OVERLAY", "true")
 
@@ -632,9 +631,9 @@ def process_named(tmp_path):
         lock.close()
 
 
-# The probe sees every process on the machine, so a test that needs it to
-# report nothing, or only the signers the test started, cannot run beside a
-# real signature or PIN prompt. Decided once, at collection.
+# The probe sees the whole machine, so a test that needs it to report
+# nothing, or only the signers the test started, cannot run beside a real
+# signature or PIN prompt. The check runs once, at collection.
 _needs_a_quiet_signer = pytest.mark.skipif(
     shutil.which("pgrep") is None
     or subprocess.run(["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"]).returncode
@@ -654,9 +653,9 @@ def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
 def test_signing_in_flight_matches_the_whole_process_name(process_named) -> None:
     """A name that only starts with `ssh-keygen` is not a signature.
 
-    The probe sees the whole machine, so a real signer anywhere would make
-    it report one regardless. The guard skips the test when one ran at
-    collection, and the check below when one is running now.
+    The probe sees the whole machine, so any real signer would make it
+    report one anyway. The guard skips the test if one ran at collection,
+    and the check below skips it if one is running now.
     """
     if _run("_signing_in_flight").returncode == 0:
         pytest.skip("a real signature is in flight on this machine")
@@ -1111,14 +1110,14 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     # The key file is the only key this signature may reach. With
     # SSH_AUTH_SOCK set, `ssh-keygen -Y sign` first asks that agent whether
     # it holds the key, and an agent that never answers (a launchd
-    # ssh-agent that keeps failing to start, say) blocks the signature for
-    # good, with the watcher reading the wait as a touch.
+    # ssh-agent that keeps failing to start, say) blocks the signature
+    # forever while the watcher reads the wait as a touch.
     env.pop("SSH_AUTH_SOCK", None)
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
-        # A session of its own and a deadline: a signature that blocks
-        # fails this test and takes the wrapper and the signer down with
-        # git, instead of hanging the suite and the pre-commit run around it.
+        # Run git in its own session with a deadline. If a signature blocks,
+        # the test fails and git, the wrapper and the signer are killed,
+        # instead of hanging the suite and the pre-commit run around it.
         proc = subprocess.Popen(
             ["git", *args],
             cwd=repo,
