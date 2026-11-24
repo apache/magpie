@@ -93,7 +93,7 @@ for a cherry-pick or to direct the author to split the PR correctly.
 
 ---
 
-The `[C]` body and the `[X]` commands come from `code-review slop-comment --pr <N> --issues <file> --out-dir <scratch>`: write one plain-English issue per fired signal to the issues file; the tool fills the template, the project name, the contributing link and the comment footer, and prints the exact `gh` commands. Run each only after the maintainer confirms it.
+The `[C]` body and the `[X]` commands come from `code-review slop-comment --saved-dir <workspace>/saved --pr <N> --issues <file> --out-dir <scratch>`: write one plain-English issue per fired signal to the issues file; the tool fills the template, the project name, the contributing link and the comment footer (picked from your role in the saved `permission.txt`), and prints the exact `gh` commands. Run each only after the maintainer confirms it.
 
 ## In the session summary
 
