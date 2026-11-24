@@ -310,9 +310,11 @@ def test_the_readme_callers_example_does_not_grant_unused_osv_operations(
 ) -> None:
     # Setup reconcile derives needed grants here, so an unused grant widens adopter policy.
     skill_dir = Path(__file__).resolve().parents[3] / skill_path
-    skill_text = "\n".join(
-        path.read_text(encoding="utf-8") for path in skill_dir.rglob("*") if path.is_file()
-    )
+    assert skill_dir.is_dir(), f"Skill directory missing: {skill_dir}"
+    text_suffixes = {".md", ".py", ".sh", ".json", ".toml", ".yaml", ".yml"}
+    text_files = [path for path in skill_dir.rglob("*") if path.is_file() and path.suffix in text_suffixes]
+    assert text_files, f"No text files found under {skill_dir}"
+    skill_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in text_files)
     unused = sorted(
         operation
         for operation in _readme_callers()[caller]
