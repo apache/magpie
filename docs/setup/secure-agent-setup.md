@@ -43,6 +43,7 @@
   - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
     - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
   - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
+  - [Multi-agent review comparison pane mod (Claude Code plugin / hook)](#multi-agent-review-comparison-pane-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2098,6 +2099,14 @@ Part 2 will add the `$.fs` IPC surface, which this section will then document.
   Adhering to the framework requirement that every agent-authored proposal requires human sign-off, an untouched state remains in `reviewing` status and never drops or closes candidate issues.
   Candidates are only marked for closure upon deliberate maintainer action via interactive buttons ("Keep Target" or "Set as Kept").
   Dismissed candidates provide a `Restore` button to undo accidental dismissals, and pressing a kept selection a second time clears the selection back to unselected.
+
+## Multi-agent review comparison pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pairing` plugin, the multi-agent review comparison pane mod ([`plugins/magpie-pairing/hooks/multi-agent-review-pane.ts`](../../plugins/magpie-pairing/hooks/multi-agent-review-pane.ts)) renders an interactive side pane comparing findings across three independent review axes (`Correctness`, `Security`, `Conventions`) during pre-flight self-reviews.
+
+- **Filesystem IPC and permission boundaries**: The mod reads candidate review payloads from `.magpie-pairing-review-<sha>.json` and stages curated decisions to `.magpie-pairing-decision-<sha>.json`. Filesystem access is strictly confined to these file patterns within the active workspace root; path traversals and references outside the workspace are rejected.
+- **Threat model and untrusted content boundaries**: External diff content and finding summaries are strictly sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides. Prompt-injection attempts detected by sub-agents are elevated to blocking security findings.
+- **State boundary and human sign-off**: Findings are curated via interactive buttons (`[Accept]`, `[Dismiss]`, `[Reset]`). Curated decisions are written locally with a SHA-256 payload digest and never perform external network or Git writes.
 
 ## Sandbox-error hint hook
 

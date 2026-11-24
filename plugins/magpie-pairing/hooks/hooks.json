@@ -1,0 +1,8 @@
+{
+  "$schema": "https://code.claude.com/schemas/hooks.json",
+  "description": "Apache Magpie — Claude Code mod for multi-agent review side-by-side comparison pane.",
+  "hooks": {},
+  "modules": [
+    "./multi-agent-review-pane.ts"
+  ]
+}
