@@ -1,6 +1,7 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
   "description": "Apache Magpie — Claude Code mod for interactive review findings in code-review and live triage sweep progress band.",
+  "hooks": {},
   "modules": [
     "./review-findings.ts"
   ]

@@ -172,9 +172,14 @@ The hooks manifest at `hooks/hooks.json` lists the mod modules to load:
 
 ```json
 {
+  "hooks": {},
   "modules": ["./register.ts"]
 }
 ```
+
+Keep the `hooks` object even when it is empty.
+Claude Code releases inside the framework's `claude-code` floor reject a `hooks/hooks.json` without one: `claude plugin validate` fails on the plugin, and `claude plugin list` reports it as failed to load.
+`check-family-plugins` fails on a file that leaves it out.
 
 The module (`hooks/register.ts`) exports a `register(on, options)` function that registers event listeners with the harness.
 It imports only its own files, by relative path, and `claude-code`.

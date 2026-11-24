@@ -844,3 +844,42 @@ def test_every_real_codex_plugin_exposes_parseable_hooks(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
     assert mod.check_codex_hook_files() == []
     assert mod.check_codex_family_hooks(mod.root_metadata()[0]) == []
+
+
+MOD_SCHEMA = "https://code.claude.com/schemas/hooks.json"
+
+
+def _claude_hook_file(tmp_path: Path, monkeypatch, content: dict) -> Path:
+    """A repo root with one plugin whose `hooks/hooks.json` holds `content`."""
+    monkeypatch.chdir(tmp_path)
+    hook_dir = tmp_path / "plugins" / "magpie-utilities" / "hooks"
+    hook_dir.mkdir(parents=True)
+    (hook_dir / "hooks.json").write_text(json.dumps(content), encoding="utf-8")
+    return Path("plugins/magpie-utilities/hooks/hooks.json")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"$schema": MOD_SCHEMA, "modules": ["./m.ts"]},
+        {"$schema": MOD_SCHEMA, "hooks": [], "modules": ["./m.ts"]},
+    ],
+    ids=["no-hooks-key", "hooks-not-an-object"],
+)
+def test_a_claude_hook_file_without_a_hooks_object_is_reported(tmp_path, monkeypatch, content):
+    # Claude Code 2.1.220, inside the floor, rejects such a file: `claude plugin
+    # validate` fails and `claude plugin list` reports the plugin as failed to load.
+    path = _claude_hook_file(tmp_path, monkeypatch, content)
+    errors = mod.check_claude_hook_files()
+    assert len(errors) == 1
+    assert errors[0].startswith(f"{path}: no 'hooks' object")
+
+
+def test_a_claude_hook_file_with_an_empty_hooks_object_passes(tmp_path, monkeypatch):
+    _claude_hook_file(tmp_path, monkeypatch, {"$schema": MOD_SCHEMA, "hooks": {}, "modules": ["./m.ts"]})
+    assert mod.check_claude_hook_files() == []
+
+
+def test_every_real_claude_hook_file_carries_a_hooks_object(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    assert mod.check_claude_hook_files() == []

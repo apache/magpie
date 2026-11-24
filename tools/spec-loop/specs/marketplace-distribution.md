@@ -102,6 +102,8 @@ upgrade check (`/bin/bash -p check-upgrade.sh`) for `magpie-setup`, an empty
 file for the other four (#1836, #1676, #1920, #2007).
 `tools/dev/check-family-plugins.py --fix` generates them and fails a Codex
 catalogue plugin whose Codex-visible hook file has any other top-level key.
+For Claude Code, every `plugins/*/hooks/hooks.json` carries a `hooks` object, an empty one in a mods-only file:
+Claude Code releases inside the `claude-code` floor reject a hooks file without it, so `claude plugin validate` fails on the plugin and `claude plugin list` reports it as failed to load, and `check-family-plugins.py` fails on a hooks file that leaves it out.
 
 `magpie-setup` also carries two non-skill payloads as real files inside its
 plugin root, because `setup config` installs them from the plugin on a
@@ -283,6 +285,7 @@ adopter-facing page.
    byte for byte and its hook wiring sits only in `hooks/hooks.json`
    (#1516); `magpie-setup`'s `hooks/hooks.json` declares `modules` and the
    `check-upgrade.sh` hook, with no inline `hooks` in its manifest (#1552).
+   Every `plugins/*/hooks/hooks.json` carries a `hooks` object, even an empty one.
 2. `--fix` regenerates every manifest from `pyproject.toml` and is idempotent —
    a second run is a no-op.
 3. A version bump is a one-line edit to `pyproject.toml` plus a regeneration.
