@@ -521,7 +521,15 @@ def open_dir(path: Path) -> int:
 #: monitor program, no automatic gc or maintenance (their hooks are commands),
 #: and only network transports (a local path would run that repository's
 #: receive-pack and hooks here). The same pins as the local tracker's git.
-PINNED_CONFIG = ("core.fsmonitor=false", "gc.auto=0", "maintenance.auto=false", "protocol.allow=never")
+PINNED_CONFIG = (
+    "core.fsmonitor=false",
+    "gc.auto=0",
+    "maintenance.auto=false",
+    "protocol.allow=never",
+    # The commit-graph file is in the agent-writable `.git` and git trusts the
+    # parents it lists: the graph checks must read the commit objects instead.
+    "core.commitGraph=false",
+)
 
 #: The first git that honours ``GIT_ATTR_SOURCE``.
 MIN_GIT_VERSION = (2, 42)
@@ -612,6 +620,12 @@ class Git:
         env = clean_env()
         # Overrides every protocol.* setting, the repository's included.
         env["GIT_ALLOW_PROTOCOL"] = ":".join(self.protocols)
+        # Replace refs live in the agent-writable `.git`: honoured, they would let
+        # the graph checks (ancestry, merges, commit counts) see a history other
+        # than the one a push sends. Grafts likewise: none is read (the file is
+        # also refused up front in `check_repository_config`, with a clearer message).
+        env["GIT_NO_REPLACE_OBJECTS"] = "1"
+        env["GIT_GRAFT_FILE"] = os.devnull
         if self.attr_source is not None:
             env["GIT_ATTR_SOURCE"] = self.attr_source
         return env
@@ -810,6 +824,12 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
         )
     if git_dir != worktree.git_dir:
         raise GitRefused(f"the git directory of {str(worktree.path)!r} changed since it was validated")
+    if os.path.lexists(worktree.checkout / ".git" / "info" / "grafts"):
+        raise GitRefused(
+            f"{str(worktree.checkout / '.git' / 'info' / 'grafts')!r} exists; grafts rewrite the history "
+            "git reports, so the checks here could pass on a history other than the one a push sends. "
+            "Remove the file (or convert it with `git replace --convert-graft-file`) and retry"
+        )
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)
     object_format = git.run(worktree.path, "rev-parse", "--show-object-format").strip()
@@ -918,6 +938,143 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     git.run(worktree.path, *args)
     was = "created" if not lease else f"was {lease}"
     return f"pushed {commit} to {repo} {remote_branch} ({was})"
+
+
+#: A pull request number, as GitHub assigns them.
+_PR_NUMBER = re.compile(r"^[1-9][0-9]{0,9}$")
+
+#: What `git-push-pr-head` reads about the pull request, as one JSON object.
+_PR_HEAD_JQ = (
+    "{state: .state, maintainer_can_modify: .maintainer_can_modify, base_repo: .base.repo.full_name, "
+    "head_repo: .head.repo.full_name, head_ref: .head.ref, head_sha: .head.sha}"
+)
+
+
+def _pull_request_head(git: Git, policy: GitPolicy, number: str) -> dict[str, object]:
+    """The head of upstream pull request ``number``, read from the forge, never from the caller."""
+    argv = [
+        "gh",
+        "api",
+        "--hostname",
+        policy.host,
+        f"repos/{policy.upstream_repo}/pulls/{number}",
+        "--jq",
+        _PR_HEAD_JQ,
+    ]
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        head = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused(f"pull request #{number}: the forge's answer is not JSON") from None
+    if not isinstance(head, dict):
+        raise GitRefused(f"pull request #{number}: the forge's answer is not an object")
+    return head
+
+
+#: Commits one `git-push-pr-head` may add on top of the pull request's head.
+MAX_FIXUP_COMMITS = 10
+
+
+def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Fast-forward an open upstream pull request's head branch to a local branch's commit.
+
+    The maintainer-fixup push, to a repository the policy does not name: the
+    contributor's fork. Three things keep that destination bounded. The caller
+    names it (``head_repo``, ``head_branch``), so the confirmation the user
+    approves shows where the commits go, and the forge must report that same
+    head for pull request ``number``: open, against the upstream repository,
+    still at ``expected``, with maintainer edits allowed (or, on the upstream
+    repository itself, an ``upstream_push`` branch). And only a fixup goes: at
+    most `MAX_FIXUP_COMMITS` commits on top of ``expected``, none of them a
+    merge, so no other local history can be carried along. The push is a
+    fast-forward under a lease on ``expected``, so it adds commits to the
+    contributor's branch and never rewrites or drops theirs.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    local = branch_name(git, worktree.path, p["branch"], "branch")
+    number = _param(p["number"], "number")
+    if not _PR_NUMBER.match(number):
+        raise GitRefused(f"number must be a pull request number, got {number!r}")
+    named_repo = _param(p["head_repo"], "head_repo")
+    if not _REPO.match(named_repo):
+        raise GitRefused(f"head_repo must be 'owner/name', got {named_repo!r}")
+    named_branch = branch_name(git, worktree.path, p["head_branch"], "head_branch")
+    expected = sha(p["expected"], "expected")
+    if not git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{local}"):
+        raise GitRefused(f"there is no local branch {local!r}")
+    commit = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{local}^{{commit}}").strip()
+    resolve_commit(git, worktree.path, expected, "expected")
+    if commit == expected:
+        raise GitRefused(f"{local!r} is still at the pull request's head {expected}; commit the fixup first")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", expected, commit):
+        raise GitRefused(
+            f"{local!r} does not build on the pull request's head {expected}; a fixup adds commits on top "
+            "of the contributor's and never rewrites them"
+        )
+    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}").strip()
+    if int(added) > MAX_FIXUP_COMMITS:
+        raise GitRefused(
+            f"{local!r} adds {added} commits on top of the pull request's head; a fixup adds at most "
+            f"{MAX_FIXUP_COMMITS}"
+        )
+    if git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").strip():
+        raise GitRefused(
+            f"{local!r} has a merge commit on top of the pull request's head; a fixup is plain commits, "
+            "so no other branch's history goes with it"
+        )
+
+    head = _pull_request_head(git, policy, number)
+    # GitHub repository names are case-insensitive; the forge answers in its own casing.
+    if str(head.get("base_repo") or "").casefold() != policy.upstream_repo.casefold():
+        raise GitRefused(f"pull request #{number} is not against {policy.upstream_repo}")
+    if head.get("state") != "open":
+        raise GitRefused(f"pull request #{number} is {head.get('state')!r}, not open")
+    if head.get("head_sha") != expected:
+        raise GitRefused(
+            f"pull request #{number}'s head is now {head.get('head_sha')}, not {expected}; "
+            "fetch it again and rebuild the fixup on it"
+        )
+    repo = head.get("head_repo")
+    if not isinstance(repo, str) or not _REPO.match(repo):
+        raise GitRefused(f"pull request #{number} has no head repository (was its fork deleted?)")
+    remote_branch = branch_name(git, worktree.path, str(head.get("head_ref") or ""), "the head branch")
+    if (repo.casefold(), remote_branch) != (named_repo.casefold(), named_branch):
+        raise GitRefused(
+            f"pull request #{number}'s head is {repo} {remote_branch}, not {named_repo} {named_branch}; "
+            "name the head the forge reports"
+        )
+    if is_protected(remote_branch, policy):
+        raise GitRefused(f"{remote_branch!r} is a protected branch; no operation pushes to it")
+    if repo.casefold() == policy.upstream_repo.casefold():
+        if not any(fnmatch.fnmatchcase(remote_branch, glob) for glob in policy.upstream_push):
+            raise GitRefused(
+                f"{remote_branch!r} matches no [git] upstream_push glob "
+                f"({', '.join(policy.upstream_push) or 'none declared'}), so it may not be pushed upstream"
+            )
+    elif head.get("maintainer_can_modify") is not True:
+        raise GitRefused(
+            f"the author of pull request #{number} does not allow edits from maintainers, "
+            f"so nothing may be pushed to {repo} {remote_branch}"
+        )
+
+    args = [
+        "push",
+        # The pre-push checks run in the sandbox before this call (see the module docstring).
+        "--no-verify",
+        "--no-follow-tags",
+        "--porcelain",
+        f"--force-with-lease=refs/heads/{remote_branch}:{expected}",
+        policy.push_url(repo),
+        f"{commit}:refs/heads/{remote_branch}",
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    return f"pushed {commit} to {repo} {remote_branch}, the head of #{number} (was {expected})"
 
 
 def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
@@ -1350,6 +1507,16 @@ OPS: dict[str, GitOp] = {
             "remote branch's current full SHA, or 'new'. No hook runs: run the pre-push checks "
             "in the sandbox first",
             push_branch,
+        ),
+        GitOp(
+            "git-push-pr-head",
+            ("worktree", "branch", "number", "head_repo", "head_branch", "expected"),
+            "fast-forward <head_branch> of <head_repo>, the head of upstream pull request <number>, "
+            "from <expected> (its full SHA) to local <branch>: refused unless the forge reports that "
+            "head, a fork allows maintainer edits, and <branch> adds at most "
+            f"{MAX_FIXUP_COMMITS} non-merge commits. No hook runs: run the pre-push checks in the "
+            "sandbox first",
+            push_pr_head,
         ),
         GitOp(
             "git-worktree-sync",

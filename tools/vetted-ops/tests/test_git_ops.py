@@ -1197,6 +1197,230 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
         _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")
 
 
+@dataclass
+class FakePr:
+    """`gh api repos/<upstream>/pulls/<N>`, answering with one pull request's head."""
+
+    head: dict[str, object]
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, json.dumps(self.head), "")
+
+
+def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
+    """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
+    _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
+    _git(repo, "checkout", "-q", "-b", "fixup")
+    head = _commit(repo, "contribution")
+    _git(repo, "push", "-q", policy.push_url("alice/project"), "HEAD:refs/heads/feature")
+    fixup = _commit(repo, "fixup")
+    answer: dict[str, object] = {
+        "state": "open",
+        "maintainer_can_modify": True,
+        "base_repo": "acme/project",
+        "head_repo": "alice/project",
+        "head_ref": "feature",
+        "head_sha": head,
+    }
+    answer.update(overrides)
+    return FakePr(answer), head, fixup
+
+
+def _push_head(
+    git: Git,
+    policy: GitPolicy,
+    repo: Path,
+    expected: str,
+    number: str = "42",
+    head_repo: str = "alice/project",
+    head_branch: str = "feature",
+) -> str:
+    return git_ops.push_pr_head(
+        git,
+        policy,
+        {
+            "worktree": str(repo),
+            "branch": "fixup",
+            "number": number,
+            "head_repo": head_repo,
+            "head_branch": head_branch,
+            "expected": expected,
+        },
+        False,
+    )
+
+
+def test_push_pr_head_fast_forwards_the_contributors_branch(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    fake, head, fixup = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    out = _push_head(git, policy, repo, head)
+    assert f"was {head}" in out and "alice/project feature" in out
+    assert _remote_head(policy, "alice/project", "feature") == fixup
+    assert fake.calls[0][4] == "repos/acme/project/pulls/42"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        pytest.param({"maintainer_can_modify": False}, "does not allow edits", id="edits-not-allowed"),
+        pytest.param({"state": "closed"}, "not open", id="closed"),
+        pytest.param({"head_sha": "0" * 40}, "head is now", id="head-moved"),
+        pytest.param({"base_repo": "other/project"}, "not against", id="other-base"),
+        pytest.param({"head_repo": None}, "no head repository", id="fork-deleted"),
+        pytest.param({"head_ref": "main"}, "protected", id="protected-head"),
+        pytest.param(
+            {"head_repo": "acme/project", "head_ref": "topic"}, "upstream_push", id="upstream-outside-globs"
+        ),
+    ],
+)
+def test_push_pr_head_refuses_what_the_forge_does_not_allow(
+    git: Git, policy: LocalPolicy, repo: Path, overrides: dict[str, object], message: str
+) -> None:
+    fake, head, _ = _contributor_pr(policy, repo, **overrides)
+    git.gh_runner = fake
+    # The caller names the head the forge reports, so each refusal is the one under test.
+    named_repo = overrides.get("head_repo") or "alice/project"
+    named_branch = overrides.get("head_ref") or "feature"
+    with pytest.raises(GitRefused, match=message):
+        _push_head(git, policy, repo, head, head_repo=str(named_repo), head_branch=str(named_branch))
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+@pytest.mark.parametrize(
+    ("head_repo", "head_branch"),
+    [("mallory/project", "feature"), ("alice/project", "other")],
+)
+def test_push_pr_head_refuses_a_head_other_than_the_one_named(
+    git: Git, policy: LocalPolicy, repo: Path, head_repo: str, head_branch: str
+) -> None:
+    """The confirmation shows the named head; the forge must agree with it."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    with pytest.raises(GitRefused, match="name the head the forge reports"):
+        _push_head(git, policy, repo, head, head_repo=head_repo, head_branch=head_branch)
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_refuses_a_merge_of_other_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Unpublished work merged into the fixup would go to the contributor's fork with it."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "-b", "private", "main")
+    _commit(repo, "unpublished")
+    _git(repo, "checkout", "-q", "fixup")
+    _git(repo, "merge", "-q", "--no-ff", "--no-edit", "private")
+    with pytest.raises(GitRefused, match="merge commit"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_sees_through_a_replace_ref(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A replace ref that hides the merge from the graph checks is not honoured."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "-b", "private", "main")
+    _commit(repo, "unpublished")
+    _git(repo, "checkout", "-q", "fixup")
+    _git(repo, "merge", "-q", "--no-ff", "--no-edit", "private")
+    merge = _git(repo, "rev-parse", "HEAD")
+    # The same tree as the merge, with the fixup as its only parent.
+    disguise = _git(repo, "commit-tree", f"{merge}^{{tree}}", "-p", f"{merge}^1", "-m", "fixup")
+    _git(repo, "replace", merge, disguise)
+    with pytest.raises(GitRefused, match="merge commit"):
+        _push_head(git, policy, repo, head)
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_the_graph_checks_never_read_agent_writable_graph_metadata(git: Git, repo: Path) -> None:
+    """The commit-graph, replace refs and grafts all live in `.git`; none of them is read."""
+    argv = git.argv(repo, "rev-list", "HEAD")
+    assert "core.commitGraph=false" in argv
+    env = git._env()
+    assert env["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert env["GIT_GRAFT_FILE"] == os.devnull
+
+
+def test_push_pr_head_accepts_the_forges_casing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """GitHub names are case-insensitive, and the forge answers in its canonical casing."""
+    fake, head, fixup = _contributor_pr(policy, repo, base_repo="Acme/Project")
+    git.gh_runner = fake
+    _push_head(git, policy, repo, head, head_repo="Alice/project")
+    assert _remote_head(policy, "alice/project", "feature") == fixup
+
+
+def test_a_repository_with_grafts_is_refused(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    (repo / ".git" / "info").mkdir(exist_ok=True)
+    (repo / ".git" / "info" / "grafts").write_text("")
+    _git(repo, "branch", "topic")
+    with pytest.raises(GitRefused, match="grafts"):
+        _push(git, policy, repo, "topic", "fork", "topic", "new")
+
+
+def test_push_pr_head_refuses_more_than_a_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    for n in range(git_ops.MAX_FIXUP_COMMITS):
+        _commit(repo, f"extra-{n}")
+    with pytest.raises(GitRefused, match="at most"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+
+
+def test_push_pr_head_never_rewrites_the_contributors_commits(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "reset", "-q", "--hard", "main")
+    _commit(repo, "replacement")
+    with pytest.raises(GitRefused, match="never rewrites"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_refuses_a_branch_with_no_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "reset", "-q", "--hard", head)
+    with pytest.raises(GitRefused, match="commit the fixup first"):
+        _push_head(git, policy, repo, head)
+
+
+def test_push_pr_head_to_an_upstream_head_inside_the_globs(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "checkout", "-q", "-b", "fixup")
+    head = _commit(repo, "contribution")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "HEAD:refs/heads/feature-x")
+    fixup = _commit(repo, "fixup")
+    git.gh_runner = FakePr(
+        {
+            "state": "open",
+            "maintainer_can_modify": False,
+            "base_repo": "acme/project",
+            "head_repo": "acme/project",
+            "head_ref": "feature-x",
+            "head_sha": head,
+        }
+    )
+    _push_head(git, policy, repo, head, head_repo="acme/project", head_branch="feature-x")
+    assert _remote_head(policy, "acme/project", "feature-x") == fixup
+
+
+@pytest.mark.parametrize(("number", "expected"), [("0", "a" * 40), ("42x", "a" * 40), ("42", "abc123")])
+def test_push_pr_head_validates_parameters(
+    git: Git, policy: LocalPolicy, repo: Path, number: str, expected: str
+) -> None:
+    _git(repo, "branch", "fixup")
+    git.gh_runner = FakePr({})
+    with pytest.raises(GitRefused):
+        _push_head(git, policy, repo, expected, number=number)
+
+
 def _draft_table(message: str) -> str:
     """The ["<upstream>"] table a refusal drafted, as TOML text."""
     # The last occurrence: the refusal's own prose names the table first.

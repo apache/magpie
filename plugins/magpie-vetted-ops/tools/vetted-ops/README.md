@@ -335,9 +335,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                # ran there (code-review disposition's secondary check, #2072).
                                "check-runs",
                                # FIXUP disposition: a worktree at the PR head, commit the fixups,
-                               # push a head branch on upstream.
+                               # fast-forward the PR's head branch.
                                "git-worktree-add", "git-worktree-remove",
-                               "git-stage", "git-commit", "git-push-branch"]
+                               "git-stage", "git-commit", "git-push-pr-head"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-merge-candidates" = ["viewer",
@@ -866,6 +866,7 @@ command, and every step is still confirmed by the user:
 | Operation | Parameters | What it does |
 |---|---|---|
 | `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
+| `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-rebase` | `worktree onto expected` | Rebases the clean topic branch checked out in `worktree` (never a protected one) onto `onto`, a full SHA on the upstream `pr_base`: the operation fetches `pr_base` itself, from the policy's URL, and checks `onto` against the commit that fetch returned, never against a remote-tracking ref a sandboxed fetch could also write. `expected` is the branch's current full SHA, so a branch that moved after the user approved the call is refused, and one that moves while the rebase starts is put back where it was. A branch with merge commits over `onto` is refused, since a rebase would flatten them. Signing follows the user's global git configuration; no recorded resolution (`rerere`), stash, editor or hook takes part. On a conflict it aborts, leaves the branch where it was, and names the conflicting paths: resolve them in the sandbox and commit with `git-commit`. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
