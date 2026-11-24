@@ -150,8 +150,7 @@ cat .claude/settings.local.json:
       ],
       "allowWrite": [
         "/home/carol/magpie",
-        "/home/carol/.cache",
-        "/home/carol/.local/share/uv"
+        "/home/carol/.cache"
       ]
     }
   }
