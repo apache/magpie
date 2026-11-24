@@ -297,6 +297,55 @@ def test_binaries_prohibited_and_accepted(tmp_path: Path, capsys: pytest.Capture
     assert "-path 'rc/assets/vendor/*.min.js'" in out["paste_recipe"]
 
 
+def test_binaries_doublestar_matches_nested_paths(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = tmp_path / "rc"
+    touch(tree / "gradle" / "wrapper" / "gradle-wrapper.jar")
+    touch(tree / "gradle-wrapper.jar")
+    touch(tree / "tools" / "a" / "fixture.bin")
+    touch(tree / "tools" / "fixture.bin")
+    # Same suffix, different name: `**/` must keep the `/` in front of the name.
+    touch(tree / "fake-gradle-wrapper.jar")
+    touch(tree / "gradle" / "untrusted_gradle-wrapper.jar")
+    touch(tree / "tools" / "not_fixture.bin")
+    touch(tree / "tools" / "a" / "other_fixture.bin")
+    out = run(
+        capsys,
+        "binaries",
+        "--tree",
+        str(tree),
+        "--accept",
+        "**/gradle-wrapper.jar",
+        "--prohibit",
+        "tools/**/fixture.bin",
+    )
+    # The look-alike jars are not accepted, so the baseline `*.jar` rule reports them;
+    # the look-alike .bin files are not prohibited.
+    assert out["expected_binaries"] == ["gradle-wrapper.jar", "gradle/wrapper/gradle-wrapper.jar"]
+    assert out["prohibited_found"] == [
+        "fake-gradle-wrapper.jar",
+        "gradle/untrusted_gradle-wrapper.jar",
+        "tools/a/fixture.bin",
+        "tools/fixture.bin",
+    ]
+    recipe = out["paste_recipe"]
+    assert "-path 'rc/tools/fixture.bin' -o -path 'rc/tools/*/fixture.bin'" in recipe
+    assert "'rc/tools/*fixture.bin'" not in recipe
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        ("**/gradle-wrapper.jar", ["gradle-wrapper.jar", "*/gradle-wrapper.jar"]),
+        ("tools/**/fixture.bin", ["tools/fixture.bin", "tools/*/fixture.bin"]),
+        ("./a/**/b/**/c", ["a/b/c", "a/b/*/c", "a/*/b/c", "a/*/b/*/c"]),
+        ("vendor/**", ["vendor/*"]),
+        ("assets/vendor/*.min.js", ["assets/vendor/*.min.js"]),
+    ],
+)
+def test_translate_glob_keeps_directory_boundaries(pattern: str, expected: list[str]) -> None:
+    assert rv._translate_glob(pattern) == expected
+
+
 def test_pyc_and_pycache_are_never_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     tree = tmp_path / "rc"
     touch(tree / "foo" / "__pycache__" / "core.cpython-312.pyc")
