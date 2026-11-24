@@ -313,8 +313,12 @@ committed version with drift detection.
   `step-15`) while the running Magpie version differs from the project's
   baseline: the personal stamp's `upgraded.version`, else its `version`, else
   the committed lock's `reconciled.version`. The running version comes from the
-  harness plugin listing, else the hook's `magpie-plugin-version` marker
-  (Claude Code plugin data directory, or `$XDG_STATE_HOME/magpie`). It is
+  plugin the calling skill was loaded from (`MAGPIE_SKILL_DIR`, set by the
+  pre-flight block, read from the manifest above it, and trusted only under a
+  known framework install; a variable so an older checker ignores it), else
+  the harness plugin listing, else the hook's `magpie-plugin-version` marker
+  (Claude Code plugin data directory, or `$XDG_STATE_HOME/magpie`), which is
+  shared by every session of the user. It is
   skipped on snapshot methods (the `step-2` drift finding covers them) and on
   `method: local`, and when either version is unknown. The skill asks
   "upgrade now?" on every run, with no suppression on a decline, until

@@ -355,3 +355,136 @@ def test_gather_prints_json(project: Path, capsys: pytest.CaptureFixture[str], t
         "project_findings",
         "shadowed",
     }
+
+
+def _plugin(home: Path, version: str, manifest: str = ".claude-plugin/plugin.json") -> Path:
+    """A skill directory inside an installed plugin of the given version; returns the skill dir."""
+    root = home / ".claude" / "plugins" / "cache" / "apache-magpie" / "magpie-setup" / version
+    (root / manifest).parent.mkdir(parents=True, exist_ok=True)
+    (root / manifest).write_text(json.dumps({"name": "magpie-setup", "version": version}), encoding="utf-8")
+    skill = root / "skills" / "upgrade"
+    skill.mkdir(parents=True)
+    return skill
+
+
+def test_the_skill_dir_wins_over_the_shared_marker(project: Path, isolated_home: Path) -> None:
+    """Another session on another version last wrote the marker; this session's own plugin decides."""
+    write_stamp(project, {"version": "0.9.0.dev202611221021"})
+    _marker(isolated_home, "0.9.0.dev202611220711")
+    skill = _plugin(isolated_home, "0.9.0.dev202611221021")
+    assert upgrade.findings(project, None, None, skill_dir=skill) == []
+    assert _codes(project) == ["upgrade-pending"]  # the marker alone still misreads
+
+
+def test_the_skill_dir_wins_over_the_plugin_listing(project: Path, isolated_home: Path) -> None:
+    write_stamp(project, {"version": "0.9.0"})
+    skill = _plugin(isolated_home, "0.9.0")
+    assert upgrade.findings(project, {"magpie-setup": "0.10.0"}, None, skill_dir=skill) == []
+
+
+@pytest.mark.parametrize(
+    "manifest", [".claude-plugin/plugin.json", ".codex-plugin/plugin.json", "plugin.json"]
+)
+def test_every_manifest_spelling_is_read(isolated_home: Path, manifest: str) -> None:
+    skill = _plugin(isolated_home, "0.9.3", manifest)
+    assert upgrade.own_version(skill) == "0.9.3"
+
+
+def test_a_skill_dir_inside_a_project_is_not_trusted(project: Path, isolated_home: Path) -> None:
+    """An opened project could carry any manifest: only an installed framework counts."""
+    planted = project / "skills" / "upgrade"
+    planted.mkdir(parents=True)
+    (project / "plugin.json").write_text(json.dumps({"version": "0.9.0"}), encoding="utf-8")
+    assert upgrade.own_version(planted) is None
+    write_stamp(project, {"version": "0.9.0"})
+    _marker(isolated_home, "0.10.0")
+    assert [f.code for f in upgrade.findings(project, None, None, skill_dir=planted)] == ["upgrade-pending"]
+
+
+def test_a_link_into_the_plugin_cache_from_a_project_is_not_trusted(
+    project: Path, isolated_home: Path
+) -> None:
+    cache = isolated_home / ".claude" / "plugins" / "cache" / "apache-magpie"
+    cache.mkdir(parents=True)
+    (project / "plugin.json").write_text(json.dumps({"version": "0.9.0"}), encoding="utf-8")
+    (project / "skills").mkdir()
+    (cache / "planted").symlink_to(project / "skills")
+    assert upgrade.own_version(cache / "planted") is None
+
+
+def test_a_skill_dir_without_a_manifest_falls_back(project: Path, isolated_home: Path) -> None:
+    bare = (
+        isolated_home
+        / ".claude"
+        / "plugins"
+        / "cache"
+        / "apache-magpie"
+        / "magpie-setup"
+        / "x"
+        / "skills"
+        / "upgrade"
+    )
+    bare.mkdir(parents=True)
+    assert upgrade.own_version(bare) is None
+    write_stamp(project, {"version": "0.9.0"})
+    _marker(isolated_home, "0.9.0")
+    assert upgrade.findings(project, None, None, skill_dir=bare) == []
+
+
+def test_a_garbage_manifest_version_is_ignored(isolated_home: Path) -> None:
+    skill = _plugin(isolated_home, "not-a-version")
+    assert upgrade.own_version(skill) is None
+
+
+def test_record_reads_the_skill_dir(project: Path, isolated_home: Path) -> None:
+    _marker(isolated_home, "0.8.0")
+    skill = _plugin(isolated_home, "0.9.1")
+    assert upgrade.record(project, skill_dir=skill)["version"] == "0.9.1"
+
+
+def test_the_preflight_cli_takes_the_skill_dir(
+    project: Path, isolated_home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_stamp(project, {"version": "0.9.0.dev202611221021"})
+    _marker(isolated_home, "0.9.0.dev202611220711")
+    skill = _plugin(isolated_home, "0.9.0.dev202611221021")
+    args = ["--skill", "x", "--project-root", str(project), "--plugin-list", str(_empty_listing(project))]
+    main([*args, "--skill-dir", str(skill), "--no-welcome", "--no-cache"])
+    assert "upgrade-pending" not in capsys.readouterr().out
+    main([*args, "--no-welcome", "--no-cache"])
+    assert "upgrade-pending" in capsys.readouterr().out
+
+
+def _empty_listing(project: Path) -> Path:
+    listing = project.parent / "listing.json"
+    listing.write_text("[]", encoding="utf-8")
+    return listing
+
+
+def test_the_preflight_cli_reads_the_skill_dir_from_the_environment(
+    project: Path, isolated_home: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_stamp(project, {"version": "0.9.0.dev202611221021"})
+    _marker(isolated_home, "0.9.0.dev202611220711")
+    skill = _plugin(isolated_home, "0.9.0.dev202611221021")
+    monkeypatch.setenv(upgrade.SKILL_DIR_ENV, str(skill))
+    args = ["--skill", "x", "--project-root", str(project), "--plugin-list", str(_empty_listing(project))]
+    main([*args, "--no-welcome", "--no-cache"])
+    assert "upgrade-pending" not in capsys.readouterr().out
+
+
+REPO = Path(__file__).resolve().parents[3]
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["tools/dev/preflight-block.md", "plugins/magpie-setup/skills/upgrade/SKILL.md"],
+)
+def test_skills_pass_the_skill_dir_only_through_the_environment(path: str) -> None:
+    """An installed checker older than the option would refuse an unknown flag and fail
+    every pre-flight; an unknown environment variable it simply ignores."""
+    text = (REPO / path).read_text(encoding="utf-8")
+    commands = [line for line in text.splitlines() if "python3 -P -m setup_preflight" in line]
+    assert commands
+    assert not any("--skill-dir" in line for line in commands)
+    assert f"{upgrade.SKILL_DIR_ENV}=" in text

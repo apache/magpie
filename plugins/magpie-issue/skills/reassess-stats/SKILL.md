@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:44c7826660a3ae71
 license: Apache-2.0
-measured_tokens: 3737
+measured_tokens: 3868
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -48,12 +48,21 @@ One command answers it and carries its own rules; there is nothing else to
 read.
 
 Run the checker with this skill's own frontmatter `name:` and
-`surface_hash:`, and one `--requires` for each `requires_config:` entry:
+`surface_hash:`, one `--requires` for each `requires_config:` entry, and the
+directory this skill was loaded from in `MAGPIE_SKILL_DIR` (the harness names
+it, e.g. Claude Code's "Base directory for this skill"; leave the variable
+out when you do not know it):
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  MAGPIE_SKILL_DIR="<this skill's directory>" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
+
+`MAGPIE_SKILL_DIR` tells the checker which Magpie version this session runs:
+the checker is one per-user copy, so it cannot tell on its own when sessions
+on different versions are open. It is a variable, not a flag, so a checker
+installed before it existed ignores it instead of failing.
 
 The path finds the checker `/magpie-setup:setup config` installed under your
 per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
