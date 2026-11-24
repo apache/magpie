@@ -394,7 +394,9 @@ See `docs/adapters/harnesses/goose.md`.
   project's own settings `env` (never the shared template, since npm
   warns about unknown `npm_config_*` names) sets `PNPM_HOME` to a
   per-project `~/.local/share/pnpm-sandbox/<project>` (spelled `~/`,
-  the only form pnpm expands) and `npm_config_cache_dir` inside it,
+  the only form pnpm expands), `npm_config_cache_dir` inside it and
+  `npm_config_cache` (npm's own cache, which the commands pnpm hands to
+  npm use instead of the sandbox-denied `~/.npm`) inside it too,
   and grants only that directory, which
   the operator creates once outside the sandbox (a grant on a missing
   directory does nothing, and `~/.local/share` is not writable). The

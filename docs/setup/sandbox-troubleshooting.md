@@ -1252,7 +1252,8 @@ Give sandboxed pnpm a home of its own for this project in the project's own `.cl
 ```json
 "env": {
   "PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>",
-  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"
+  "npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache",
+  "npm_config_cache": "~/.local/share/pnpm-sandbox/<project>/npm-cache"
 },
 "sandbox": {
   "filesystem": {
@@ -1292,6 +1293,7 @@ Do not move the virtual store out of the project to avoid it, with `npm_config_e
 
 ### Notes
 
+- `npm_config_cache` is npm's own cache, which pnpm uses for the commands it hands to npm (`pnpm view`, for one). Without it they try the sandbox-denied `~/.npm` and fail with a misleading `EPERM ... Your cache folder contains root-owned files ... sudo chown -R`; do not run that `chown`, set the variable. It is a name npm knows, so unlike pnpm's own names it adds no `Unknown env config` warning.
 - To find the package: the `EPERM` path names it (`node_modules/.pnpm/<package>@<version>/...`), and `pnpm why <package>` shows what pulls it in.
 - The first sandboxed install after the switch downloads everything into the project's home once; that is expected. An install over a `node_modules` built with a different store asks to purge it and aborts without a terminal (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`); pass `--config.confirmModulesPurge=false` once.
 - If that old `node_modules` holds a package with `.idea/` (built outside the sandbox, or before the override), the sandboxed purge cannot delete it either and fails with `EPERM ... unlink '.../.idea/...'`, leaving `node_modules` half removed. Delete it once from a terminal outside the sandbox (`rm -rf node_modules`, and any in-project `.pnpm-store`) before the first sandboxed install.

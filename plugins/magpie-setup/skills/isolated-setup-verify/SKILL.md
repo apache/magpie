@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:7e0d11345084066f
 license: Apache-2.0
-measured_tokens: 6287
+measured_tokens: 6340
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -278,8 +278,10 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
       in `allowWrite` and existing on disk (`test -d`; a grant on a missing
       directory does nothing, and the sandbox cannot create it), and `env.npm_config_cache_dir`
       exactly `<home>/cache`. Any missing is
-      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm`.
-      `env.npm_config_enable_global_virtual_store` = `"true"` is ⚠ (not a
+      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm`. A missing
+      `env.npm_config_cache` (`<home>/npm-cache`) is ⚠: commands pnpm hands
+      to npm (`pnpm view`) fail on `~/.npm` with a misleading `sudo chown`
+      hint. `env.npm_config_enable_global_virtual_store` = `"true"` is ⚠ (not a
       sandbox breach): a virtual store outside the project hides the
       project's own `@types/*` packages from TypeScript, so type-aware checks
       fail. A home spelled any other way
