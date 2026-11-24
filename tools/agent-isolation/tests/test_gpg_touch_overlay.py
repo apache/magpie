@@ -26,6 +26,7 @@ matcher is exercisable with no X display and nothing left running.
 from __future__ import annotations
 
 import ast
+import contextlib
 import fcntl
 import json
 import os
@@ -654,8 +655,11 @@ def test_signing_in_flight_matches_the_whole_process_name(process_named) -> None
     """A name that only starts with `ssh-keygen` is not a signature.
 
     The probe sees the whole machine, so a real signer anywhere would make
-    it report one regardless; the guard skips the test while one runs.
+    it report one regardless. The guard skips the test when one ran at
+    collection, and the check below when one is running now.
     """
+    if _run("_signing_in_flight").returncode == 0:
+        pytest.skip("a real signature is in flight on this machine")
     process_named("ssh-keygenx")
     assert _run("_signing_in_flight").returncode != 0
 
@@ -1127,9 +1131,11 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
         try:
             stdout, stderr = proc.communicate(timeout=60)
         except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.communicate()
-            pytest.fail(f"git {args[0]} was still running after 60 s")
+            # The group may have ended between the deadline and the kill.
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            _, stderr = proc.communicate()
+            pytest.fail(f"git {args[0]} was still running after 60 s\n{stderr}")
         return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
     assert git("init", "-q").returncode == 0
