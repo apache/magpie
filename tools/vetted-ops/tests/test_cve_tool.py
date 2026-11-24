@@ -296,3 +296,26 @@ def test_the_readme_callers_example_grants_the_cve_tool_operations(caller: str) 
     # grant the prose asks for but the example leaves out is refused everywhere.
     missing = sorted(CVE_TOOL_GRANTS[caller] - set(_readme_callers()[caller]))
     assert not missing, f"the README [callers] example does not grant {caller}: {missing}"
+
+
+@pytest.mark.parametrize(
+    ("caller", "skill_path"),
+    [
+        ("security-issue-triage", "plugins/magpie-security/skills/issue-triage"),
+        ("security-issue-deduplicate", "plugins/magpie-security/skills/issue-deduplicate"),
+    ],
+)
+def test_the_readme_callers_example_does_not_grant_unused_osv_operations(
+    caller: str, skill_path: str
+) -> None:
+    # Setup reconcile derives needed grants here, so an unused grant widens adopter policy.
+    skill_dir = Path(__file__).resolve().parents[3] / skill_path
+    skill_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in skill_dir.rglob("*") if path.is_file()
+    )
+    unused = sorted(
+        operation
+        for operation in _readme_callers()[caller]
+        if operation.startswith("osv-") and operation not in skill_text
+    )
+    assert not unused, f"the README [callers] example grants unused OSV operations to {caller}: {unused}"

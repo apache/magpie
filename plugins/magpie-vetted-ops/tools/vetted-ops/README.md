@@ -307,10 +307,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Do not duplicate TOML keys or grant every operation to every caller.
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
-                           "osv-get-vuln", "osv-query-package",
                            # Step 6: the confirmed triage-proposal comment.
                            "issue-comment"]
-"security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
+"security-issue-deduplicate" = ["rollup-append", "rollup-fold"]
 "dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",
