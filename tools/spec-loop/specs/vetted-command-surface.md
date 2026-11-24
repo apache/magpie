@@ -413,7 +413,13 @@ tree, hooks never run, `--no-verify`); validated directories held by
 descriptor and git given the validated git directory; and every `GIT_*`
 variable dropped with `HOME` taken from the password database.
 Git 2.42 or newer is required.
-The `pre-push` checks run in the sandbox first.
+The `pre-push` checks run in the sandbox first. The pre-commit checks are
+enforced: `vetted-op-checks`, the one vetted-ops command that runs inside the
+sandbox (no exclusion names it, and a test keeps it so), runs the worktree's
+hooks on the listed paths and records the content they passed in
+`<workspace>/checks/`; `git-commit` refuses a staged path missing from that
+record or staged with other content. The record is sandbox-writable, so it
+holds an agent to the checks the way CI does, not against a forgery.
 
 ## Codex native integration
 

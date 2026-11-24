@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 6238
+measured_tokens: 6258
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -133,7 +133,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
