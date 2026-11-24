@@ -37,6 +37,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -1076,9 +1077,9 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     """End to end: `gpg.ssh.program` names the symlink and git commits.
 
     A software key stands in for the hardware one, so the real
-    `ssh-keygen -Y sign` signs without a touch. A shim ahead of it on
-    PATH holds the signature for a moment — long enough for the watcher
-    to see it in flight, short of SHOW_DELAY so nothing is drawn.
+    `ssh-keygen -Y sign` signs without a touch.
+    A shim ahead of it on PATH waits until the watcher observes the
+    operation, rather than racing its startup against a fixed delay.
     """
     scripts = tmp_path / "scripts"
     scripts.mkdir()
@@ -1089,7 +1090,15 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     shim_dir.mkdir()
     real_ssh_keygen = shutil.which("ssh-keygen")
     shim = shim_dir / "ssh-keygen"
-    _executable(shim, f'#!/bin/sh\nsleep 1\nexec "{real_ssh_keygen}" "$@"\n')
+    release = tmp_path / "release-signer"
+    os.mkfifo(release)
+    _executable(
+        shim,
+        f'#!/bin/bash\nif ! IFS= read -r -t 45 observed < "{release}"; then\n'
+        'echo "timed out waiting for watcher observation" >&2\nexit 1\nfi\n'
+        '[ "$observed" = sign ] || exit 1\n'
+        f'exec "{real_ssh_keygen}" "$@"\n',
+    )
 
     key = tmp_path / "key"
     subprocess.run(
@@ -1099,9 +1108,12 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
 
     repo = tmp_path / "repo"
     repo.mkdir()
+    window, _shown = _fake_window(tmp_path, 0)
     env = {
         **_wrap_env(tmp_path),
         "MAGPIE_GPG_TOUCH_DEBUG": "1",
+        # A stalled handshake must not draw a real window on the host.
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
         "PATH": f"{shim_dir}{os.pathsep}{os.environ['PATH']}",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -1149,14 +1161,41 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     ]:
         assert git("config", key_name, value).returncode == 0
 
-    commit = git("commit", "-q", "--allow-empty", "-m", "signed through the wrapper")
-    assert commit.returncode == 0, commit.stderr
+    log = tmp_path / "magpie-gpg-touch" / "watcher.log"
+
+    def observed() -> bool:
+        return log.exists() and "+ saw_operation=1" in log.read_text()
+
+    # RDWR keeps the FIFO open without blocking before the shim starts.
+    # Its own descriptor, not git's stdin, carries the release: git still
+    # supplies the real commit payload to ssh-keygen for signing.
+    with (
+        os.fdopen(os.open(release, os.O_RDWR | os.O_NONBLOCK), "wb", buffering=0) as go,
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        pending = executor.submit(
+            git, "commit", "-q", "--allow-empty", "-m", "signed through the wrapper"
+        )
+        try:
+            assert _wait_for(lambda: observed() or pending.done(), timeout=30), (
+                "watcher did not observe signing within 30 seconds:\n"
+                + (log.read_text() if log.exists() else "no watcher log")
+            )
+            assert observed(), "git finished before the watcher observed signing:\n" + (
+                log.read_text() if log.exists() else "no watcher log"
+            )
+        finally:
+            # Also release on assertion failure so git can exit and the
+            # wrapper can tear down its watcher and registration normally.
+            go.write(b"sign\n")
+            commit = pending.result()
+        trace = log.read_text() if log.exists() else "no watcher log"
+    assert commit.returncode == 0, f"{commit.stderr}\n{trace}"
 
     shown = git("cat-file", "-p", "HEAD")
     assert "gpgsig " in shown.stdout, "the commit was not signed"
 
     assert _no_registrations(tmp_path)
-    log = tmp_path / "magpie-gpg-touch" / "watcher.log"
     assert log.exists(), "no watcher ran for the signature"
     assert "signing_in_flight" in log.read_text()
 
