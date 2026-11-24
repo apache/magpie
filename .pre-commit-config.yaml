@@ -416,7 +416,7 @@ repos:
   # `tools/agent-isolation/pinned-versions.toml`). The script reads that
   # version on every run, so unlike a pin in `additional_dependencies` it
   # follows the floor. No `--strict` (newer fields only warn at the floor)
-  # and no `claude plugin test` (the floor lacks it) which needs `node` and `npm`.
+  # and no `claude plugin test` (the floor lacks it). Needs `node` and `npm`.
   - repo: local
     hooks:
       - id: check-claude-floor
