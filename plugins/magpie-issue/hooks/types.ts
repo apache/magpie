@@ -65,3 +65,41 @@ export interface DuplicatePickerState {
   selectedKeptIssue: number | null;
   dismissedIssues: number[];
 }
+
+/**
+ * Disposition metrics tracked during an issue triage or sweep session.
+ */
+export interface IssueDispositionCounts {
+  labeled: number;
+  nudged: number;
+  closed: number;
+  duplicate: number;
+  other: number;
+}
+
+/**
+ * Reactive state stored in the Claude Code atom for the AbovePrompt issue sweep progress band.
+ */
+export interface IssueSweepProgressState {
+  skill: 'issue-triage' | 'issue-stale-sweep' | 'issue-backlog-stats' | (string & {});
+  total: number;
+  evaluated: number;
+  remaining: number;
+  dispositions: IssueDispositionCounts;
+  currentIssue: {
+    number: number;
+    title?: string;
+  } | null;
+  processedIssues: number[];
+  status: 'running' | 'paused' | 'completed';
+  updatedAt: string;
+  renderCount: number;
+}
+
+/**
+ * Result of parsing and validating an external/staged issue progress payload.
+ */
+export interface ParseIssuePayloadResult {
+  state: IssueSweepProgressState | null;
+  error?: string;
+}
