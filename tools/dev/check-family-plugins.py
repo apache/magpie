@@ -1291,9 +1291,8 @@ def check_claude_hook_files() -> list[str]:
     plugin validate` fails on the plugin and `claude plugin list` reports it as
     failed to load, although a session still loads its skills. Later releases
     accept the file with or without the key, so an empty `"hooks": {}` costs
-    nothing there. CI validates mods on its pinned, newer release, and
-    `check-claude-mods-local` skips a local Claude Code older than that pin, so
-    this check is the one place the gap shows.
+    nothing there. `check-claude-floor` catches this in CI; this check catches
+    it on every commit without downloading Claude Code.
     """
     errors: list[str] = []
     for path in sorted(PLUGINS.glob("*/hooks/hooks.json")):
