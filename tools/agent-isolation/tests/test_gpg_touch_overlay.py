@@ -1134,8 +1134,8 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
             # The group may have ended between the deadline and the kill.
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(proc.pid, signal.SIGKILL)
-            _, stderr = proc.communicate()
-            pytest.fail(f"git {args[0]} was still running after 60 s\n{stderr}")
+            stdout, stderr = proc.communicate()
+            pytest.fail(f"git {args[0]} was still running after 60 s\n{stdout}{stderr}")
         return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
     assert git("init", "-q").returncode == 0
