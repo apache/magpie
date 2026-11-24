@@ -636,12 +636,47 @@ def process_named(tmp_path):
 # The probe sees the whole machine, so a test that needs it to report
 # nothing, or only the signers the test started, cannot run beside a real
 # signature or PIN prompt. The check runs once, at collection.
+def _no_signer_in_flight() -> bool:
+    """Whether pgrep works and sees no signer or pinentry on this machine.
+
+    pgrep exits 1 for no match. 0 is a real signature or PIN prompt, and
+    2 or 3 is a pgrep that cannot list processes (a sandbox that denies
+    it): the watcher cannot see the test's own signers either, so the
+    test would fail rather than test anything.
+    """
+    if shutil.which("pgrep") is None:
+        return False
+    probe = subprocess.run(
+        ["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"],
+        capture_output=True,
+        check=False,
+    )
+    return probe.returncode == 1
+
+
 _needs_a_quiet_signer = pytest.mark.skipif(
-    shutil.which("pgrep") is None
-    or subprocess.run(["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"]).returncode
-    == 0,
-    reason="needs pgrep and no real signature or PIN prompt in flight",
+    not _no_signer_in_flight(),
+    reason="needs a working pgrep and no real signature or PIN prompt in flight",
 )
+
+
+@pytest.mark.parametrize(
+    ("status", "quiet"),
+    [
+        pytest.param(1, True, id="no-match"),
+        pytest.param(0, False, id="a-real-signer"),
+        pytest.param(3, False, id="cannot-list-processes"),
+    ],
+)
+def test_quiet_signer_check_needs_a_working_pgrep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: int, quiet: bool
+) -> None:
+    """A sandboxed pgrep (exit 3) skips the tests instead of failing them."""
+    pgrep = tmp_path / "pgrep"
+    pgrep.write_text(f"#!/bin/sh\nexit {status}\n")
+    pgrep.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    assert _no_signer_in_flight() is quiet
 
 
 @pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
