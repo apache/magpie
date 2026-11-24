@@ -20,6 +20,8 @@
 from __future__ import annotations
 
 import dataclasses
+import fnmatch
+import json
 import os
 import subprocess
 from collections.abc import Callable
@@ -28,9 +30,11 @@ from pathlib import Path
 
 import pytest
 
-from vetted_ops import git_ops
+from vetted_ops import checks, git_ops
 from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(autouse=True)
@@ -883,6 +887,11 @@ def _file(workspace: Path, name: str, text: str) -> str:
     return str(path)
 
 
+def _checked(wt: Path, paths_file: str) -> None:
+    """What `vetted-op-checks` does in the sandbox: run the checks, record the content."""
+    checks.record(wt, Path(paths_file))
+
+
 def test_stage_and_commit_a_listed_change(
     git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
 ) -> None:
@@ -890,6 +899,7 @@ def test_stage_and_commit_a_listed_change(
     (wt / "new.txt").write_text("new")
     (wt / "other.txt").write_text("not listed")
     paths = _file(workspace, "p", "new.txt\n")
+    _checked(wt, paths)
     out = git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
     assert "staged 1 path" in out
     assert _git(wt, "diff", "--cached", "--name-only") == "new.txt"
@@ -967,10 +977,154 @@ def test_commit_runs_no_hook(
     hook.chmod(0o755)
     (wt / "h.txt").write_text("h")
     paths = _file(workspace, "p", "h.txt")
+    _checked(wt, paths)
     git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
     message = _file(workspace, "m", "msg")
     git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
     assert not marker.exists()
+
+
+def _stage(git: Git, policy: GitPolicy, wt: Path, paths: str) -> None:
+    git_ops.stage_paths(git, policy, {"worktree": str(wt), "paths_file": paths}, False)
+
+
+def _commit_op(git: Git, policy: GitPolicy, wt: Path, workspace: Path) -> str:
+    message = _file(workspace, "m", "msg")
+    return git_ops.commit_staged(git, policy, {"worktree": str(wt), "message_file": message}, False)
+
+
+def test_commit_refuses_a_change_the_checks_never_saw(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    """No hook runs out here, so nothing is committed that the sandboxed checks did not pass."""
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    _stage(git, wpolicy, wt, _file(workspace, "p", "a.txt"))
+    with pytest.raises(GitRefused, match="no checks were recorded"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_refuses_content_changed_after_the_checks(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("checked")
+    paths = _file(workspace, "p", "a.txt")
+    _checked(wt, paths)
+    (wt / "a.txt").write_text("edited after the checks")
+    _stage(git, wpolicy, wt, paths)
+    with pytest.raises(GitRefused, match=r"did not pass these staged paths.*a\.txt"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_refuses_a_staged_path_the_checks_did_not_list(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    (wt / "b.txt").write_text("b")
+    _checked(wt, _file(workspace, "p", "a.txt"))
+    _stage(git, wpolicy, wt, _file(workspace, "q", "a.txt\nb.txt"))
+    with pytest.raises(GitRefused, match=r"b\.txt"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_accepts_a_checked_deletion(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    tracked = _git(wt, "ls-files").splitlines()[0]
+    (wt / tracked).unlink()
+    paths = _file(workspace, "p", tracked)
+    _checked(wt, paths)
+    _stage(git, wpolicy, wt, paths)
+    assert _commit_op(git, wpolicy, wt, workspace).startswith("committed ")
+
+
+def test_a_record_outside_the_policy_workspace_does_not_count(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "p").write_text("a.txt")
+    checks.record(wt, elsewhere / "p")
+    _stage(git, wpolicy, wt, _file(workspace, "p", "a.txt"))
+    with pytest.raises(GitRefused, match="no checks were recorded"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_a_record_reached_through_a_symlink_is_refused(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    paths = _file(workspace, "p", "a.txt")
+    real = checks.record(wt, Path(paths))
+    moved = tmp_path / "moved.json"
+    real.rename(moved)
+    real.symlink_to(moved)
+    _stage(git, wpolicy, wt, paths)
+    with pytest.raises(GitRefused, match="cannot be read"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def _fake_prek(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    ran = tmp_path / "prek-args"
+    prek = bin_dir / "prek"
+    prek.write_text(f'#!/bin/sh\necho "$@" > {ran}\nexit {exit_code}\n')
+    prek.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    return ran
+
+
+def test_the_checks_run_prek_on_the_listed_paths(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    record = json.loads(checks.record(wt, Path(_file(workspace, "p", "a.txt"))).read_text())
+    assert ran.read_text().split() == ["run", "--files", "a.txt"]
+    assert record["checks"] == "prek"
+
+
+def test_failing_checks_record_nothing(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    _fake_prek(tmp_path, monkeypatch, 1)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1
+    assert not checks.stamp_path(workspace, wt).exists()
+
+
+def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
+    """It runs the working tree's hooks; out of the sandbox it would be the very escape it prevents."""
+    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+    template = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.local.template.json"
+    excluded = [
+        *settings.get("sandbox", {}).get("excludedCommands", []),
+        *json.loads(template.read_text()).get("sandbox", {}).get("excludedCommands", []),
+    ]
+    command = f"uvx --from ~/.claude/magpie/vetted-ops {checks.PROG} /wt /ws/p"
+    assert not [p for p in excluded if fnmatch.fnmatchcase(command, p)]
 
 
 def test_fetch_writes_the_upstream_remote_tracking_ref(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
