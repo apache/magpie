@@ -51,6 +51,7 @@ from .delegation import findings as delegation_findings
 from .installed import _running_harness, read_installed
 from .lockfile import MalformedLock
 from .upgrade import findings as upgrade_findings
+from .upgrade import skill_dir_from
 
 
 def _delegation(root: Path, skill: str) -> list[Finding]:
@@ -81,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="one `requires_config:` entry; repeat for each",
     )
     parser.add_argument("--project-root", default=".", type=Path)
+    parser.add_argument(
+        "--skill-dir",
+        type=Path,
+        help="the directory this skill was loaded from; its plugin manifest gives the running "
+        "Magpie version, which no other session can overwrite",
+    )
     parser.add_argument(
         "--plugin-list",
         metavar="PATH",
@@ -131,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             project, cached = cached_project_findings(root, installed, harness=harness)
         findings = [
             *([] if args.no_welcome else welcome_findings(root, args.skill)),
-            *upgrade_findings(root, installed, harness),
+            *upgrade_findings(root, installed, harness, skill_dir=skill_dir_from(args.skill_dir)),
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
             *_delegation(root, args.skill),

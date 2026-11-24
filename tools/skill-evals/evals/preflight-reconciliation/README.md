@@ -83,3 +83,14 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   comparison belongs to `/magpie-setup verify` alone (the block's own
   step 10 says so), and a sandboxed session could not read it here
   anyway.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-24 | `520d3a07` (fix/preflight-session-version) | `opus[1m]` | 2 | pass |  |

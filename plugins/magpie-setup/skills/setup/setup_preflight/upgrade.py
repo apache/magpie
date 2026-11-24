@@ -54,7 +54,7 @@ from pathlib import Path
 
 from .core import LOCAL_METHOD, SNAPSHOT_METHODS, STAMP_NAME, Finding, configured_at_all, project_findings
 from .installed import read_installed
-from .layers import LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
+from .layers import FRAMEWORK_ROOTS, LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
 from .lockfile import MalformedLock, load
 from .version import InvalidVersion, compare
 
@@ -99,13 +99,75 @@ def _valid(text: object) -> str | None:
     return text.strip()
 
 
+#: A plugin's manifest, relative to the plugin root: every client's spelling.
+_MANIFESTS = (
+    Path(".claude-plugin") / "plugin.json",
+    Path(".codex-plugin") / "plugin.json",
+    Path("plugin.json"),
+)
+#: How far above a skill directory its plugin root may sit (`skills/<alias>/`).
+_MANIFEST_DEPTH = 4
+#: How a skill passes the directory it was loaded from.  A variable, not only
+#: a flag: a checker installed before this existed ignores an unknown
+#: variable, where it would refuse an unknown flag and fail every pre-flight.
+SKILL_DIR_ENV = "MAGPIE_SKILL_DIR"
+
+
+def skill_dir_from(given: Path | None, env: Mapping[str, str] | None = None) -> Path | None:
+    """The calling skill's directory: the flag when given, else `MAGPIE_SKILL_DIR`."""
+    if given is not None:
+        return given
+    value = (os.environ if env is None else env).get(SKILL_DIR_ENV, "").strip()
+    return Path(value) if value else None
+
+
+def own_version(skill_dir: Path | None, home: Path | None = None) -> str | None:
+    """The version of the plugin a skill was loaded from, read from its manifest.
+
+    This is the one version a session cannot share with another: the
+    pre-flight checker is a single per-user copy, and the hook's marker is
+    one file per user, but each session loads its skills from its own
+    plugin directory.  Only a directory under a known framework install
+    (the harness plugin caches, the materialised framework copy) counts: a
+    directory inside an opened project could carry any manifest.
+    """
+    if skill_dir is None:
+        return None
+    base = home or Path.home()
+    here = Path(os.path.realpath(skill_dir))
+    roots = [Path(os.path.realpath(base / relative)) for relative in FRAMEWORK_ROOTS]
+    if not any(here == root or root in here.parents for root in roots):
+        return None
+    for directory in [here, *here.parents][: _MANIFEST_DEPTH + 1]:
+        if directory in roots:
+            break
+        for manifest in _MANIFESTS:
+            try:
+                data = json.loads((directory / manifest).read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            found = _valid(data.get("version")) if isinstance(data, dict) else None
+            if found:
+                return found
+    return None
+
+
 def running_version(
     installed: dict[str, str] | None,
     harness: str | None,
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
+    skill_dir: Path | None = None,
 ) -> str | None:
-    """The Magpie version this session runs, or `None` when it cannot be told."""
+    """The Magpie version this session runs, or `None` when it cannot be told.
+
+    First the plugin the calling skill was loaded from (`skill_dir`, see
+    `own_version`), then the harness plugin listing, then the session hook's
+    marker, which is shared by every session of the user.
+    """
+    found = own_version(skill_dir, home)
+    if found:
+        return found
     if installed:
         listed = _valid(installed.get("magpie" if harness == "antigravity" else PLUGIN))
         if listed:
@@ -144,6 +206,7 @@ def findings(
     harness: str | None,
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
+    skill_dir: Path | None = None,
 ) -> list[Finding]:
     """One `upgrade-pending` finding while the two versions differ."""
     try:
@@ -155,7 +218,7 @@ def findings(
     last = baseline(root)
     if last is None:
         return []
-    now = running_version(installed, harness, env, home)
+    now = running_version(installed, harness, env, home, skill_dir)
     if now is None or compare(now, last) == 0:
         return []
     return [
@@ -174,13 +237,14 @@ def record(
     today: date | None = None,
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
+    skill_dir: Path | None = None,
 ) -> dict[str, object]:
     """Record that `setup-upgrade` finished here against `version`.
 
     Without `version`, the running version is read as the pre-flight reads
     it.  Merged into the personal layer's stamp, every other key intact.
     """
-    resolved = _valid(version) if version is not None else running_version(None, None, env, home)
+    resolved = _valid(version) if version is not None else running_version(None, None, env, home, skill_dir)
     if resolved is None:
         raise ValueError("the running Magpie version cannot be read; pass --version")
     stamp = _load_stamp(root)
@@ -331,6 +395,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project-root", default=".", type=Path)
     parser.add_argument("--version", help="record: the version upgraded to (default: the running one)")
     parser.add_argument(
+        "--skill-dir",
+        type=Path,
+        help="status, record: the calling skill's directory; its plugin manifest gives the running version",
+    )
+    parser.add_argument(
         "--plugin-list",
         help="gather: harness plugin listing JSON to use instead of running it ('-' for stdin)",
     )
@@ -344,9 +413,11 @@ def main(argv: list[str] | None = None) -> int:
         print(
             json.dumps(
                 {
-                    "running": running_version(None, None),
+                    "running": running_version(None, None, skill_dir=skill_dir_from(args.skill_dir)),
                     "baseline": baseline(root),
-                    "pending": [f.facts for f in findings(root, None, None)],
+                    "pending": [
+                        f.facts for f in findings(root, None, None, skill_dir=skill_dir_from(args.skill_dir))
+                    ],
                 },
                 indent=2,
                 sort_keys=True,
@@ -354,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     try:
-        block = record(root, args.version)
+        block = record(root, args.version, skill_dir=skill_dir_from(args.skill_dir))
     except ValueError as exc:
         print(f"setup_preflight.upgrade: {exc}", file=sys.stderr)
         return 2

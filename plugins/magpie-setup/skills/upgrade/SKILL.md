@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 8057
+measured_tokens: 8130
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -319,11 +319,13 @@ Then record this skill's own run, which stops every skill's pre-flight from aski
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  MAGPIE_SKILL_DIR="<this skill's base directory>" \
   python3 -P -m setup_preflight.upgrade record
 ```
 
 Record it after a `yes` or a partial approval, even with items still open: the plan showed them and the summary lists them.
 After a `no`, record nothing, so the next skill asks again.
+`MAGPIE_SKILL_DIR` makes it record the version this session runs, which no other session can overwrite; without it the version comes from the plugin listing or the shared marker. It is a variable, not a flag, so an older checker ignores it instead of failing.
 When the command cannot read the running version it exits 2; pass `--version <version>`, taken from the plugin's base-directory path.
 
 **Adopted project — the committed reconciliation stamp.**

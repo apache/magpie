@@ -45,6 +45,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-24 | `520d3a07` (fix/preflight-session-version) | `opus[1m]` | 2 | pass |  |
 | 2026-11-15 | `1087814b` (perf/upgrade-gather-reads) | `opus[1m]` | 2 | pass |  |
 | 2026-11-15 | `062c72ed` (perf/optimize-setup-upgrade) | `opus[1m]` | 1 | pass |  |
 | 2026-11-09 | `51e73a33` (upgrade-skill) | `opus[1m]` | 1 | pass |  |
