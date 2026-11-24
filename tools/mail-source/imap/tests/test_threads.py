@@ -20,7 +20,13 @@ from __future__ import annotations
 
 from conftest import build_message
 from imap_source.searching import Message, parse_message, thread_root_of
-from imap_source.threads import canonical_thread_id, draft_subject, normalise_message_id, summarise
+from imap_source.threads import (
+    canonical_thread_id,
+    decode_subject,
+    draft_subject,
+    normalise_message_id,
+    summarise,
+)
 
 ROOT = "<report-1@lists.example.org>"
 REPLY = "<reply-1a@example.org>"
@@ -93,3 +99,25 @@ def test_draft_subject_collapses_existing_reply_prefixes() -> None:
     assert draft_subject("Re: Re[2]: FWD: report") == "Re: report"
     assert draft_subject("report") == "Re: report"
     assert draft_subject("") == "Re: (no subject)"
+
+
+def _with_subject(subject_line: str) -> bytes:
+    return (
+        f"Message-ID: {ROOT}\r\nFrom: reporter@example.org\r\n{subject_line}\r\n"
+        "Date: Mon, 23 Nov 2026 12:00:00 +0000\r\n\r\nbody\r\n"
+    ).encode()
+
+
+def test_summarise_decodes_an_encoded_subject() -> None:
+    raw = _with_subject("Subject: =?utf-8?q?=5BSECURITY=5D_Z=C3=BCrich_RCE?=")
+    assert summarise(parse_message(raw)).subject == "[SECURITY] Z\u00fcrich RCE"
+
+
+def test_summarise_unfolds_a_folded_subject() -> None:
+    raw = _with_subject("Subject: [SECURITY] a long report subject\r\n that a client folded")
+    assert summarise(parse_message(raw)).subject == "[SECURITY] a long report subject that a client folded"
+
+
+def test_decode_subject_keeps_undecodable_text() -> None:
+    assert decode_subject("=?bogus-charset?q?x?=") == "=?bogus-charset?q?x?="
+    assert decode_subject(None) == ""

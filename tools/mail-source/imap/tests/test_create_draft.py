@@ -243,3 +243,17 @@ def test_create_draft_declines_when_server_refuses_append() -> None:
     box.append = refuse_append  # type: ignore[method-assign]
     with pytest.raises(CapabilityDeclined):
         create_draft(box, config, ROOT, body="x", to=["dev@example.org"], cc=[], from_address=None)
+
+
+def test_create_draft_replies_to_a_folded_subject() -> None:
+    """A client-folded root subject used to crash: the draft header got a CRLF."""
+    raw = (
+        f"Message-ID: {ROOT}\r\nFrom: reporter@example.org\r\n"
+        "Subject: [SECURITY] a long report subject\r\n that a client folded\r\n"
+        "Date: Mon, 21 Sep 2026 09:00:00 +0000\r\n\r\nbody\r\n"
+    ).encode()
+    box = FakeMailbox.seed(**{"INBOX": [raw], "Drafts": []})
+    result = create_draft(box, make_config(), ROOT, body="x", to=[], cc=[], from_address=None)
+    assert result["subject"] == "Re: [SECURITY] a long report subject that a client folded"
+    parsed = parse_message(box.folders["Drafts"][result["draft_uid"]])
+    assert parsed["Subject"] == "Re: [SECURITY] a long report subject that a client folded"
