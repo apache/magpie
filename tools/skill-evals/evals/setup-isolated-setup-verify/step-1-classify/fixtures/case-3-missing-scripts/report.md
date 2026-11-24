@@ -144,8 +144,7 @@ cat .claude/settings.local.json:
       ],
       "allowWrite": [
         "/home/bob/tracker",
-        "/home/bob/.cache",
-        "/home/bob/.local/share/uv"
+        "/home/bob/.cache"
       ]
     }
   }
