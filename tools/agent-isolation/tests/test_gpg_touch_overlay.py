@@ -26,6 +26,7 @@ matcher is exercisable with no X display and nothing left running.
 from __future__ import annotations
 
 import ast
+import contextlib
 import fcntl
 import json
 import os
@@ -64,6 +65,24 @@ def _terminal_not_agent(monkeypatch):
     set it explicitly.
     """
     monkeypatch.delenv("CLAUDECODE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_window(monkeypatch):
+    """Never raise the real overlay on the screen of whoever runs the suite.
+
+    Many tests start real watchers from an environment built on
+    `os.environ` (the wrap and ownership tests, the commit signed through
+    the wrapper), and a watcher draws its window with
+    `gpg-touch-overlay.sh _overlay` unless MAGPIE_GPG_TOUCH_OVERLAY names a
+    stand-in. Any watcher that sees a signature block past SHOW_DELAY, such
+    as one stuck on an ssh agent that never answers or a fake signer on
+    another xdist worker, would put the full-screen touch prompt over the
+    developer's desktop, whether or not they own a security key. `true`
+    runs in its place: it exits 0, which the watcher reads as the signature
+    being dismissed. The tests about the window pass their own stand-in.
+    """
+    monkeypatch.setenv("MAGPIE_GPG_TOUCH_OVERLAY", "true")
 
 
 _WARM_UP = "MAGPIE_TEST_WARM_UP"
@@ -612,6 +631,17 @@ def process_named(tmp_path):
         lock.close()
 
 
+# The probe sees the whole machine, so a test that needs it to report
+# nothing, or only the signers the test started, cannot run beside a real
+# signature or PIN prompt. The check runs once, at collection.
+_needs_a_quiet_signer = pytest.mark.skipif(
+    shutil.which("pgrep") is None
+    or subprocess.run(["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"]).returncode
+    == 0,
+    reason="needs pgrep and no real signature or PIN prompt in flight",
+)
+
+
 @pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
 def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
     """`gpg.format=ssh` signs through gpg-agent without ever running gpg."""
@@ -619,8 +649,16 @@ def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
     assert _run("_signing_in_flight").returncode == 0
 
 
-@pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
+@_needs_a_quiet_signer
 def test_signing_in_flight_matches_the_whole_process_name(process_named) -> None:
+    """A name that only starts with `ssh-keygen` is not a signature.
+
+    The probe sees the whole machine, so any real signer would make it
+    report one anyway. The guard skips the test if one ran at collection,
+    and the check below skips it if one is running now.
+    """
+    if _run("_signing_in_flight").returncode == 0:
+        pytest.skip("a real signature is in flight on this machine")
     process_named("ssh-keygenx")
     assert _run("_signing_in_flight").returncode != 0
 
@@ -1069,11 +1107,35 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
         "GIT_COMMITTER_NAME": "t",
         "GIT_COMMITTER_EMAIL": "t@example.invalid",
     }
+    # The key file is the only key this signature may reach. With
+    # SSH_AUTH_SOCK set, `ssh-keygen -Y sign` first asks that agent whether
+    # it holds the key, and an agent that never answers (a launchd
+    # ssh-agent that keeps failing to start, say) blocks the signature
+    # forever while the watcher reads the wait as a touch.
+    env.pop("SSH_AUTH_SOCK", None)
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *args], cwd=repo, capture_output=True, text=True, env=env
+        # Run git in its own session with a deadline. If a signature blocks,
+        # the test fails and git, the wrapper and the signer are killed,
+        # instead of hanging the suite and the pre-commit run around it.
+        proc = subprocess.Popen(
+            ["git", *args],
+            cwd=repo,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            start_new_session=True,
         )
+        try:
+            stdout, stderr = proc.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            # The group may have ended between the deadline and the kill.
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            stdout, stderr = proc.communicate()
+            pytest.fail(f"git {args[0]} was still running after 60 s\n{stdout}{stderr}")
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
     assert git("init", "-q").returncode == 0
     for key_name, value in [
@@ -1791,14 +1853,6 @@ def _wait_for(predicate, timeout: float) -> bool:
             return True
         time.sleep(0.1)
     return predicate()
-
-
-_needs_a_quiet_signer = pytest.mark.skipif(
-    shutil.which("pgrep") is None
-    or subprocess.run(["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"]).returncode
-    == 0,
-    reason="needs pgrep and no real signature or PIN prompt in flight",
-)
 
 
 @_needs_a_quiet_signer
