@@ -273,6 +273,7 @@ close_reasons = ["completed", "not planned"]
     "git-push-branch",
     "git-pr-create",
     "pr-add-label",
+    "git-delete-fork-branch",
 ]
 "setup-override-upstream" = [
     "git-fetch",
@@ -285,6 +286,7 @@ close_reasons = ["completed", "not planned"]
     "git-push-branch",
     "git-pr-create",
     "pr-add-label",
+    "git-delete-fork-branch",
 ]
 
 [git]

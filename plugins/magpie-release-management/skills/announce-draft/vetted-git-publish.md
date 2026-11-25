@@ -41,7 +41,7 @@ first; the operation reads exactly that file.
 | Push | `git-push-branch <worktree> <branch> fork <branch> <expected>`, after `prek run --hook-stage pre-push --from-ref <upstream_remote>/<base> --to-ref <branch>` passes in the sandbox; `<expected>` is `new` for a first push, else the remote branch's current full SHA, so a branch someone else moved is never overwritten |
 | Open the pull request | `git-pr-create <worktree> <branch> "<title>" <workspace>/<body-file>`: from the policy's fork against its `pr_base`, as a ready (not draft) pull request; show the user the exact title and body first |
 | Label it | `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller release-announce-draft pr-add-label <N> <label>`, once per label, from the sandbox: `<N>` is the number `git-pr-create` printed, and `<label>` one the policy's `[values] upstream_labels` lists by name; pick them from the repository's own taxonomy and show them with the title and body |
-| Clean up after merge | `git-worktree-remove <worktree>` (no local changes only) |
+| Clean up after merge | `git-worktree-remove <worktree>` (no local changes only), then `git-delete-fork-branch <checkout> <branch> <head-sha>` for the branch on your fork: refused unless the forge reports the pull request merged with that branch at `<head-sha>` as its head |
 
 **Fallback.** When no `[git]` values are configured for this project (the
 operation refuses with *"no [git] values for <repository>"*; point the user
