@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+
 from vetted_ops import checks, git_ops
 from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
