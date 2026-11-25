@@ -145,6 +145,40 @@ def test_live_mode_requires_repo_when_no_load(capsys: pytest.CaptureFixture[str]
     assert "required" in capsys.readouterr().err
 
 
+def test_replay_mode_requires_now(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    fixture = tmp_path / "resp.json"
+    fixture.write_text(json.dumps(CANNED_RESPONSE), encoding="utf-8")
+
+    rc = cli.main(["classify", "--load", str(fixture)])
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "--now" in captured.err
+    assert captured.out == ""
+
+
+def test_replay_mode_requires_now_before_reading_file(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    missing_fixture = tmp_path / "missing.json"
+
+    rc = cli.main(["classify", "--load", str(missing_fixture)])
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "--now" in captured.err
+    assert captured.out == ""
+
+
+def test_live_mode_does_not_require_now(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "fetch_state", lambda **_: CANNED_RESPONSE)
+
+    rc = cli.main(["classify", "--repo", "owner/repo", "--issues", "100,101,102"])
+
+    assert rc == 0
+    assert "Total trackers: 3" in capsys.readouterr().out
+
+
 def test_live_mode_rejects_empty_issues_list(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         cli.main(["classify", "--repo", "o/r", "--issues", ",,,"])
