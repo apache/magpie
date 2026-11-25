@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-
 from vetted_ops import checks, git_ops
 from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
@@ -1217,6 +1216,8 @@ class FakePr:
 def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
     """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
     _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
+    # Upstream's pr_base, which a push of an upstream merge fetches to check the merge against.
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
     _git(repo, "checkout", "-q", "-b", "fixup")
     head = _commit(repo, "contribution")
     _git(repo, "push", "-q", policy.push_url("alice/project"), "HEAD:refs/heads/feature")
@@ -2350,3 +2351,215 @@ def test_delete_fork_branch_dry_run_asks_and_changes_nothing(
     assert ":refs/heads/topic" in command and f"--force-with-lease=refs/heads/topic:{tip}" in command
     assert not fake.calls
     assert _fork_has(policy, "topic")
+
+
+# --- git-merge-upstream ----------------------------------------------------
+
+
+def _merge(
+    git: Git,
+    policy: GitPolicy,
+    worktree: Path,
+    onto: str,
+    expected: str,
+    dry_run: bool = False,
+    pr: str = "none",
+) -> str:
+    return git_ops.merge_upstream(
+        git, policy, {"worktree": str(worktree), "onto": onto, "expected": expected, "pr": pr}, dry_run
+    )
+
+
+def _upstream_moves_on(policy: LocalPolicy, repo: Path, back_to: str) -> str:
+    """A new commit on upstream main, published; checks `back_to` out again. Returns the new commit."""
+    _git(repo, "checkout", "-q", "main")
+    onto = _commit(repo, "upstream-new")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", back_to)
+    return onto
+
+
+def test_merge_into_a_pull_request_checks_only_the_maintainers_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """The contributor's commits are theirs and unsigned by the user; only the fixup on top must be."""
+    signing, signer = _signing_git(tmp_path)
+    fake, head, _ = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:] == [fixup, onto]
+    assert fake.calls[0][4] == "repos/acme/project/pulls/42"
+    # Without the pull request, the contributor's unsigned commit is one the merge would vouch for.
+    _git(repo, "reset", "-q", "--hard", fixup)
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {head}"):
+        _merge(signing, policy, repo, onto, fixup)
+
+
+def test_merge_into_a_pull_request_still_checks_an_unsigned_fixup(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, _ = _signing_git(tmp_path)
+    fake, _, fixup = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {fixup}"):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        pytest.param({"state": "closed"}, "not open", id="closed"),
+        pytest.param({"base_repo": "other/project"}, "not against", id="other-base"),
+        pytest.param({"head_sha": "0" * 40}, "does not build on", id="unknown-head"),
+        pytest.param({"head_sha": None}, "no head commit", id="no-head"),
+    ],
+)
+def test_merge_into_a_pull_request_refuses_what_the_forge_does_not_back(
+    policy: LocalPolicy, repo: Path, tmp_path: Path, overrides: dict[str, object], message: str
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    fake, _, _ = _contributor_pr(policy, repo, **overrides)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=message):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-parse", "HEAD") == fixup
+
+
+@pytest.mark.parametrize("pr", ["0", "#42", "-1", "all"])
+def test_merge_upstream_pr_must_be_a_number_or_none(
+    git: Git, policy: LocalPolicy, repo: Path, pr: str
+) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match=r"pull request number|may not"):
+        _merge(git, policy, repo, onto, tip, pr=pr)
+
+
+def test_merge_upstream_merges_the_upstream_commit_into_the_topic(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    message = _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", merged).split()[1:] == [tip, onto]
+    assert _git(repo, "log", "-1", "--format=%s") == "Merge acme/project main into topic"
+    assert (repo / "topic-file").exists() and (repo / "upstream-file").exists()
+    assert f"{tip} -> {merged}" in message
+
+
+def test_merge_upstream_keeps_the_branch_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Unlike a rebase, nothing on the branch is rewritten: the contributor's commits stay as they are."""
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    assert _git(repo, "merge-base", "--is-ancestor", tip, "HEAD") == ""
+
+
+def test_merge_upstream_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _merge(git, policy, repo, onto, tip)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {tip}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == tip
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "MERGE_HEAD").exists()
+
+
+def test_merge_upstream_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match="not the expected"):
+        _merge(git, policy, repo, onto, onto)
+    _git(repo, "checkout", "-q", "-b", "local-only", "main")
+    local = _commit(repo, "local")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", local)
+    _git(repo, "checkout", "-q", "topic")
+    with pytest.raises(GitRefused, match="is not on acme/project main"):
+        _merge(git, policy, repo, local, tip)
+    (repo / "topic-file").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _merge(git, policy, repo, onto, tip)
+    _git(repo, "checkout", "-q", "--", "topic-file")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _merge(git, policy, repo, onto, _git(repo, "rev-parse", "HEAD"))
+    assert _git(repo, "rev-parse", "topic") == tip
+
+
+def test_merge_upstream_of_a_branch_already_on_the_base_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert "nothing to merge" in _merge(git, policy, repo, onto, merged)
+    assert _git(repo, "rev-parse", "HEAD") == merged
+
+
+def test_merge_upstream_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _hook(repo, "pre-merge-commit", marker, exit_code=1)
+    _hook(repo, "post-merge", marker)
+    _merge(git, policy, repo, onto, tip)
+    assert not marker.exists()
+
+
+def test_merge_upstream_signs_and_vouches_only_for_signed_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    unsigned = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _merge(signing, policy, repo, onto, unsigned)
+    tip = _sign_tip(repo, signer)
+    _merge(signing, policy, repo, onto, tip)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_merge_upstream_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    command = _merge(git, policy, repo, onto, tip, dry_run=True)
+    assert "merge" in command and "rerere.enabled=false" in command and onto in command
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+def test_push_pr_head_takes_upstream_merged_into_the_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`git-merge-upstream` on a contributor's branch, then the fast-forward of their head."""
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "main")
+    for name in (f"upstream-{n}" for n in range(git_ops.MAX_FIXUP_COMMITS + 1)):
+        _commit(repo, name)
+    onto = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", "fixup")
+    fixup = _git(repo, "rev-parse", "HEAD")
+    _merge(git, policy, repo, onto, fixup)
+    merged = _git(repo, "rev-parse", "HEAD")
+    # More upstream commits than a fixup may add: they are upstream's, not the fixup's.
+    _push_head(git, policy, repo, head)
+    assert _remote_head(policy, "alice/project", "feature") == merged
+
+
+def test_merge_upstream_takes_back_a_merge_onto_a_branch_moved_as_it_started(
+    policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "merge" in argv and "--abort" not in argv and "--is-ancestor" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="taken back off"):
+        _merge(raced, policy, repo, onto, tip)
+    assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"

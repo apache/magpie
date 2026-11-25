@@ -1180,16 +1180,29 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             f"{local!r} does not build on the pull request's head {expected}; a fixup adds commits on top "
             "of the contributor's and never rewrites them"
         )
-    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}").strip()
+    # One kind of merge may go along: upstream's pr_base merged in
+    # (`git-merge-upstream`), its other parent on the pr_base fetched here.
+    # Upstream's own commits are then public history, not part of the fixup.
+    merges = git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").split()
+    upstream_tip = _fetch_base(git, worktree, policy) if merges else None
+    excluded = [f"^{upstream_tip}"] if upstream_tip else []
+    for merge in merges:
+        others = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merge).split()[2:]
+        if (
+            not upstream_tip
+            or len(others) != 1
+            or not git.ok(worktree.path, "merge-base", "--is-ancestor", others[0], upstream_tip)
+        ):
+            raise GitRefused(
+                f"{local!r} has a merge commit ({merge}) on top of the pull request's head that does not "
+                f"merge {policy.upstream_repo} {policy.pr_base}; a fixup is plain commits, or upstream "
+                "merged in, so no other branch's history goes with it"
+            )
+    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}", *excluded).strip()
     if int(added) > MAX_FIXUP_COMMITS:
         raise GitRefused(
             f"{local!r} adds {added} commits on top of the pull request's head; a fixup adds at most "
             f"{MAX_FIXUP_COMMITS}"
-        )
-    if git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").strip():
-        raise GitRefused(
-            f"{local!r} has a merge commit on top of the pull request's head; a fixup is plain commits, "
-            "so no other branch's history goes with it"
         )
 
     head = _pull_request_head(git, policy, number)
@@ -1276,6 +1289,17 @@ REBASE_CONFIG = (
 )
 
 
+#: Pinned on a merge, for the same reasons as `REBASE_CONFIG`: no recorded
+#: resolution, no stash, no editor, and no merge log built from commit text.
+MERGE_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "merge.autoStash=false",
+    "merge.log=false",
+    "core.editor=false",
+)
+
+
 #: Pinned on a cherry-pick, for the same reasons as `REBASE_CONFIG`.
 CHERRY_PICK_CONFIG = (
     "rerere.enabled=false",
@@ -1285,7 +1309,7 @@ CHERRY_PICK_CONFIG = (
 )
 
 
-def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
+def require_signed(git: Git, worktree: Worktree, revisions: str | Sequence[str], operation: str) -> None:
     """Refuse to re-sign a commit that does not already carry the user's good signature.
 
     An operation that replays commits (a rebase, a cherry-pick, a merge) signs
@@ -1301,7 +1325,8 @@ def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str)
     """
     if not git.signs_commits():
         return
-    output = git.run(worktree.path, "log", "--format=%H %G?", revisions)
+    spec = [revisions] if isinstance(revisions, str) else list(revisions)
+    output = git.run(worktree.path, "log", "--format=%H %G?", *spec)
     unsigned = [fields[0] for fields in (line.split() for line in output.splitlines()) if fields[1:] != ["G"]]
     if unsigned:
         shown = ", ".join(unsigned[:10]) + (" …" if len(unsigned) > 10 else "")
@@ -1511,6 +1536,119 @@ def cherry_pick(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
             f"approved {expected}; it was taken back off. Look at the branch again"
         )
     return f"replayed {commit} onto {branch} in {worktree.path}: {previous} -> {picked}"
+
+
+def merge_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Merge an upstream ``pr_base`` commit into a clean topic branch; on a conflict, abort and report it.
+
+    For a branch whose history must not be rewritten (a contributor's pull
+    request), where a rebase would. The merge commit is signed per the user's
+    configuration, so the same rule as for a rebase holds: when the user
+    signs, the commits the merge vouches for must already carry their
+    signature. On the user's own branch (``pr`` is ``none``) that is every
+    commit not on upstream. On a pull request's branch (``pr`` is its number)
+    the contributor's commits are theirs, already published, and never carry
+    the user's signature, so only the commits on top of the head the forge
+    reports for that pull request are checked. The message is fixed, the
+    other parent must be on the upstream ``pr_base`` fetched here, and a
+    conflict is never resolved out here.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    onto = sha(p["onto"], "onto")
+    expected = sha(p["expected"], "expected")
+    pr = _param(p["pr"], "pr")
+    if pr != "none" and not _PR_NUMBER.match(pr):
+        raise GitRefused(f"pr must be a pull request number, or 'none' for your own branch; got {pr!r}")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; upstream is merged into a topic branch only")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the merge was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    message = f"Merge {policy.upstream_repo} {policy.pr_base} into {branch}"
+    pins = [arg for pin in MERGE_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "merge",
+        "--no-ff",
+        "--no-edit",
+        "--no-autostash",
+        "--no-rerere-autoupdate",
+        "--no-verify",
+        "-m",
+        message,
+        "--end-of-options",
+        onto,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    base = _fetch_base(git, worktree, policy)
+    resolve_commit(git, worktree.path, onto, "onto")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", onto, base):
+        raise GitRefused(
+            f"onto {onto} is not on {policy.upstream_repo} {policy.pr_base} (fetched just now at {base}); "
+            f"merge a commit of {policy.pr_base}"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", onto, previous):
+        return f"{branch} in {worktree.path} already contains {onto}; nothing to merge"
+    # The commits the merge commit vouches for: the branch's own, not upstream's,
+    # and on a pull request's branch not the contributor's either.
+    vouched = [f"{onto}..{previous}"]
+    if pr != "none":
+        head = _pull_request_head(git, policy, pr)
+        if str(head.get("base_repo") or "").casefold() != policy.upstream_repo.casefold():
+            raise GitRefused(f"pull request #{pr} is not against {policy.upstream_repo}")
+        if head.get("state") != "open":
+            raise GitRefused(f"pull request #{pr} is {head.get('state')!r}, not open")
+        head_sha = head.get("head_sha")
+        if not isinstance(head_sha, str) or not _SHA.match(head_sha):
+            raise GitRefused(f"pull request #{pr}: the forge reports no head commit")
+        if not git.ok(worktree.path, "cat-file", "-e", f"{head_sha}^{{commit}}") or not git.ok(
+            worktree.path, "merge-base", "--is-ancestor", head_sha, previous
+        ):
+            raise GitRefused(
+                f"{branch!r} does not build on pull request #{pr}'s head {head_sha}; fetch the pull request "
+                "and build on its head"
+            )
+        vouched.append(f"^{head_sha}")
+    check_repository_config(git, worktree)
+    require_signed(git, worktree, vouched, "merge")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "merge", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the merge was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git merge --abort` failed too; {str(worktree.path)!r} is mid-merge"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Resolve the conflict in the "
+            "sandbox and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    merged = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    # A merge acts on whatever HEAD is when it starts. If the branch or its tip
+    # changed after the checks, take the merge back off and refuse.
+    parents = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merged).split()[1:]
+    now = git.run(worktree.path, "symbolic-ref", "--quiet", "HEAD").strip()
+    if parents != [expected, onto] or now != f"refs/heads/{branch}":
+        git.run(worktree.path, "reset", "--keep", parents[0])
+        raise GitRefused(
+            f"the merge landed on {now or 'a detached HEAD'} at {parents[0]}, not on {branch!r} at the approved "
+            f"{expected}; it was taken back off. Look at the branch again"
+        )
+    return f"merged {policy.upstream_repo} {policy.pr_base} {onto} into {branch} in {worktree.path}: {previous} -> {merged}"
 
 
 #: Tracked paths that steer an agent harness or this dispatcher: settings,
@@ -2215,6 +2353,16 @@ OPS: dict[str, GitOp] = {
             "the branch's current full SHA. Signs per the user's global git config, and when that signs, "
             "<commit> must already carry the user's signature; on a conflict, aborts and names the paths",
             cherry_pick,
+        ),
+        GitOp(
+            "git-merge-upstream",
+            ("worktree", "onto", "expected", "pr"),
+            "merge <onto>, a full SHA on the upstream pr_base (fetched by the operation), into the clean "
+            "topic branch checked out in <worktree>; <expected> is the branch's current full SHA, <pr> the "
+            "pull request whose branch it is ('none' for your own). A signed merge commit with a fixed "
+            "message; when you sign, only your commits (on top of the pull request's head) must carry "
+            "your signature. On a conflict, aborts and names the conflicting paths",
+            merge_upstream,
         ),
         GitOp(
             "git-switch",

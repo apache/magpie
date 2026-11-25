@@ -403,8 +403,15 @@ SHA; leased on that SHA), `git-push-pr-head` (a maintainer fixup:
 fast-forwards an open upstream pull request's head branch, named by the
 caller so the confirmation shows it and checked against what the forge
 reports, leased on the head the caller built on, at most ten non-merge
-commits on top; a contributor's fork only when its author allows maintainer
-edits),
+commits on top, apart from a merge of upstream's `pr_base` (fetched by the
+operation), whose upstream commits do not count; a contributor's fork only
+when its author allows maintainer edits), `git-merge-upstream` (a signed merge
+of a full SHA of the upstream `pr_base`, fetched by the operation, into a clean
+non-protected topic branch at the caller's expected SHA, with a fixed message;
+when the user signs, the commits it vouches for must carry their signature:
+on their own branch every commit not on upstream, on a pull request's branch
+only those on top of the head the forge reports; a conflict aborts and names
+the paths, and a merge onto a moved branch is taken back off),
 `git-switch` (a clean working tree to an existing local branch, only when
 the branch's own commits leave its files that steer the agent harness,
 plus the policy's `harness_paths`, as upstream's `pr_base` had them where

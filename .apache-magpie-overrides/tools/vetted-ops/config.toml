@@ -151,6 +151,7 @@ close_reasons = ["completed", "not planned"]
     "git-worktree-remove",
     "git-stage",
     "git-commit",
+    "git-merge-upstream",
     "git-push-pr-head",
 ]
 
@@ -267,6 +268,7 @@ close_reasons = ["completed", "not planned"]
     "git-worktree-add",
     "git-rebase",
     "git-cherry-pick",
+    "git-merge-upstream",
     "git-switch",
     "git-stage",
     "git-commit",
@@ -280,6 +282,7 @@ close_reasons = ["completed", "not planned"]
     "git-worktree-add",
     "git-rebase",
     "git-cherry-pick",
+    "git-merge-upstream",
     "git-switch",
     "git-stage",
     "git-commit",
