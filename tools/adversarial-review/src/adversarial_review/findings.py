@@ -30,9 +30,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 SEVERITIES = ("critical", "high", "medium", "low")
@@ -161,9 +162,15 @@ def parse_findings(text: str, reviewer: str) -> tuple[list[Finding], list[str]]:
     return findings, problems
 
 
+def _is_plain_relative(path: str) -> bool:
+    """True for `src/x.py`; false for `./`, `//`, `..`, a trailing `/` or an absolute path."""
+    pure = PurePosixPath(path)
+    return not pure.is_absolute() and ".." not in pure.parts and pure.as_posix() == path
+
+
 def normalize_path(finding: Finding, repo_dir: Path) -> Finding:
     """Report paths the same way whichever reviewer wrote them: repo-relative,
-    without `./` or a diff's `a/` / `b/` prefix."""
+    without `./` or a diff's `a/` / `b/` prefix, including for a deleted file."""
     path = finding.file.strip()
     root = repo_dir.resolve()
     if path.startswith("/"):
@@ -171,6 +178,12 @@ def normalize_path(finding: Finding, repo_dir: Path) -> Finding:
             path = str(Path(path).resolve().relative_to(root))
     while path.startswith("./"):
         path = path[2:]
-    if path[:2] in ("a/", "b/") and not (root / path).exists() and (root / path[2:]).exists():
-        path = path[2:]
+    if path[:2] in ("a/", "b/") and not (root / path).exists():
+        rest = path[2:]
+        if (root / rest).exists() or (
+            # A file the change deleted is missing under both spellings: drop the
+            # prefix unless `a`/`b` is a real entry, and only for a plain relative path.
+            not os.path.lexists(root / path[:1]) and _is_plain_relative(rest)
+        ):
+            path = rest
     return finding if path == finding.file else replace(finding, file=path)
