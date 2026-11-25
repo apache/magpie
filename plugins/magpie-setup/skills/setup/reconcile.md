@@ -256,6 +256,25 @@ committed one.
    Missing labels are findings even when all caller grants exist.
    Propose only the missing labels, preserving existing policy values.
 
+   For a caller that opens pull requests (it holds, or this check proposes,
+   `git-pr-create`) and labels them (`pr-add-label`, held or proposed),
+   discover the labels it would set; other callers that hold `pr-add-label`
+   (triage, which sets its own configured labels) are not part of this: list the `<upstream>` repository's labels
+   (`gh label list --repo <upstream> --limit 300 --json name`) and compare
+   them with `[values] upstream_labels`.
+   Propose, by name, the repository's labels that follow a taxonomy (a
+   `<dimension>:<value>` shape such as `family:tools` or `area:scheduler`),
+   grouped by prefix, plus any label the project's own docs require on every
+   pull request; leave other labels (`bug`, `help wanted`) out unless the
+   user asks for them.
+   Let the user pick the groups; never propose a pattern
+   (`upstream_labels_patterns`), which the policy loader refuses for labels
+   because a label reaches `gh` search qualifiers.
+   A taxonomy label already listed is nothing; one the repository has and
+   the policy lacks is a finding.
+   When the labels cannot be listed (no network, `gh` not authenticated),
+   report this part as unchecked.
+
    A missing caller, missing operation or missing label is a finding.
    Name the caller, what is missing, and the policy path.
    Show the exact minimal TOML diff: merge missing operations into the

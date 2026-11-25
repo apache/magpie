@@ -209,9 +209,9 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check five things.
 
-The four checks: [`vetted-ops-drift.md`](vetted-ops-drift.md).
+The five checks: [`vetted-ops-drift.md`](vetted-ops-drift.md).
 
 **The adversarial-review exclusion has the same must-fix.**
 A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
