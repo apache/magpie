@@ -183,3 +183,14 @@ many cve-tool-bookkeeping entries were silently dropped.
 | `case-1-mixed-import` | 2 issues created, 1 candidate skipped by user, 1 rejected with canned, 1 already-tracked dedup drop, 1 bookkeeping drop. | `issues_created` length 2; `drafts_waiting` length 3; `skipped` length 2; `cve_tool_bookkeeping_dropped=1` |
 | `case-2-all-imported` | 3 candidates all imported; candidates 1 and 2 were split from one thread and share that thread's receipt draft. | Shared draft listed once under candidate 1, not duplicated for candidate 2 |
 | `case-3-all-rejected` | 0 issues created; candidate 1 skipped, candidate 2 rejected with canned (draft created), candidate 3 already tracked; 2 bookkeeping drops. | `issues_created=[]`, `drafts_waiting` length 1, `skipped` length 3, `cve_tool_bookkeeping_dropped=2` |
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-25 | `3ee03b24` (fix/import-affected-versions-shape) | `claude-opus-5-5` | 2 | `step-4-extract-fields/case-5-mail-body-injection` failed 1 of 2 | Affected versions shape fix |
