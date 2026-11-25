@@ -39,7 +39,65 @@ upstream = "apache/magpie"
 [values]
 issue_states = ["open", "closed", "all"]
 pr_states = ["open", "closed", "merged", "all"]
-upstream_labels = ["ready for maintainer review"]
+# The label taxonomy (docs/labels-and-capabilities.md), listed by name: the
+# framework-fix callers label each pull request they open with pr-add-label,
+# one label per call, from the sandbox. Labels are never widened by a pattern
+# (they reach gh search qualifiers), so a new taxonomy label is added here.
+upstream_labels = [
+    "ready for maintainer review",
+    "capability:authoring",
+    "capability:fix",
+    "capability:intake",
+    "capability:platform",
+    "capability:reassess",
+    "capability:reconciliation",
+    "capability:resolve",
+    "capability:review",
+    "capability:stats",
+    "capability:triage",
+    "contract:body-field",
+    "contract:change-request",
+    "contract:chat",
+    "contract:cve-authority",
+    "contract:hook-manager",
+    "contract:mail-archive",
+    "contract:mail-create",
+    "contract:mail-source",
+    "contract:people",
+    "contract:project-metadata",
+    "contract:release-staging",
+    "contract:report-relay",
+    "contract:sbom-pipeline",
+    "contract:scan-format",
+    "contract:security-cross-ref",
+    "contract:security-tracker",
+    "contract:source-control",
+    "contract:tracker",
+    "contract:typed-decision",
+    "family:ci",
+    "family:contributor-growth",
+    "family:cross-family",
+    "family:dev",
+    "family:docs",
+    "family:issue",
+    "family:mentoring",
+    "family:pairing",
+    "family:pr-management",
+    "family:release-management",
+    "family:repo-health",
+    "family:security",
+    "family:setup",
+    "family:tools",
+    "family:utilities",
+    "substrate:action-guard",
+    "substrate:analytics",
+    "substrate:framework-dev",
+    "substrate:privacy",
+    "substrate:release",
+    "substrate:review",
+    "substrate:sandbox",
+    "substrate:setup",
+]
 close_reasons = ["completed", "not planned"]
 
 [callers]
@@ -213,6 +271,7 @@ close_reasons = ["completed", "not planned"]
     "git-commit",
     "git-push-branch",
     "git-pr-create",
+    "pr-add-label",
 ]
 "setup-override-upstream" = [
     "git-fetch",
@@ -223,6 +282,7 @@ close_reasons = ["completed", "not planned"]
     "git-commit",
     "git-push-branch",
     "git-pr-create",
+    "pr-add-label",
 ]
 
 [git]

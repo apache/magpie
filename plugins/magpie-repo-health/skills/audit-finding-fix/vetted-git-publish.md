@@ -39,6 +39,7 @@ first; the operation reads exactly that file.
 | Commit | `git-commit <worktree> <workspace>/<message-file>`: refused unless the check passed every staged path with the content it is staged with; the operation takes no `--trailer`, so the attribution trailer is the message file's last paragraph |
 | Push | `git-push-branch <worktree> <branch> fork <branch> <expected>`, after `prek run --hook-stage pre-push --from-ref <upstream_remote>/<base> --to-ref <branch>` passes in the sandbox; `<expected>` is `new` for a first push, else the remote branch's current full SHA, so a branch someone else moved is never overwritten |
 | Open the pull request | `git-pr-create <worktree> <branch> "<title>" <workspace>/<body-file>`: from the policy's fork against its `pr_base`, as a ready (not draft) pull request; show the user the exact title and body first |
+| Label it | `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller audit-finding-fix pr-add-label <N> <label>`, once per label, from the sandbox: `<N>` is the number `git-pr-create` printed, and `<label>` one the policy's `[values] upstream_labels` lists by name; pick them from the repository's own taxonomy and show them with the title and body |
 | Clean up after merge | `git-worktree-remove <worktree>` (no local changes only) |
 
 **Fallback.** When no `[git]` values are configured for this project (the

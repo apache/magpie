@@ -25,7 +25,10 @@ loading the merged policy catches it.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+import pytest
 
 from vetted_ops import cli, config, git_ops
 from vetted_ops import ops as ops_mod
@@ -46,6 +49,39 @@ def test_every_granted_operation_exists() -> None:
     policy = config.load(COMMITTED)
     unknown = {caller: sorted(ops - known) for caller, ops in policy.callers.items() if ops - known}
     assert unknown == {}
+
+
+LABELS_DOC = Path(__file__).resolve().parents[3] / "docs" / "labels-and-capabilities.md"
+
+
+def _upstream_label(value: str) -> str:
+    policy = config.load(COMMITTED)
+    key = ops_mod.OPS["pr-add-label"].enums["label"]
+    return ops_mod.enum(policy.enum_values(key), policy.enum_patterns(key))(value)
+
+
+def test_every_taxonomy_label_can_be_set_from_the_sandbox() -> None:
+    """The framework-fix callers label their pull requests with `pr-add-label`, one dimension each.
+
+    Labels are listed by name in the policy (a pattern may not widen them), so
+    a label added to the taxonomy doc without a policy entry fails here.
+    """
+    named = set(
+        re.findall(r"`((?:family|capability|contract|substrate):[a-z0-9-]+)`", LABELS_DOC.read_text())
+    )
+    assert {"family:tools", "capability:fix", "contract:source-control"} <= named
+    for label in sorted(named):
+        assert _upstream_label(label) == label
+    for caller in ("setup-upstream-fix", "setup-override-upstream"):
+        assert "pr-add-label" in config.load(COMMITTED).callers[caller]
+
+
+@pytest.mark.parametrize(
+    "value", ["family:not-a-label", "family:Tools", "family:tools,security", "other:thing"]
+)
+def test_an_unlisted_label_is_refused(value: str) -> None:
+    with pytest.raises(ops_mod.ParamError):
+        _upstream_label(value)
 
 
 SETTINGS = Path(__file__).resolve().parents[3] / ".claude" / "settings.json"
