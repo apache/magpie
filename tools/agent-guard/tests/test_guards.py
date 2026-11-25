@@ -1903,3 +1903,42 @@ def test_codex_refuses_what_claude_would_ask_about(monkeypatch, capsys, tmp_path
     payload = json.loads(capsys.readouterr().out)
     assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
     assert "MAGPIE_ALLOW_VETTED_PATH=1" in payload["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_guard_reason_refuses_a_checkout_launch_for_harnesses_that_cannot_ask(monkeypatch, tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    reason = agent_guard.guard_reason(READ)
+    assert reason and "vetted-ops-source" in reason and "MAGPIE_ALLOW_VETTED_PATH=1" in reason
+    assert agent_guard.guard_reason("git status") is None
+
+
+def test_opencode_refuses_a_checkout_launch(monkeypatch, capsys, tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps({"command": READ})))
+    assert agent_guard.opencode_main() == agent_guard.DENY_EXIT
+    assert "vetted-ops-source" in capsys.readouterr().out
+
+
+def test_copilot_refuses_a_checkout_launch_it_would_otherwise_allow(monkeypatch, capsys, tmp_path):
+    """Copilot's read-only allowlist lets vetted-op-read through without a prompt; not from a checkout."""
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "bash", "tool_input": {"command": READ}}
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
+    assert agent_guard.cli(["--copilot"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["permissionDecision"] == "deny"
+
+
+def test_copilot_still_allows_a_plugin_launch(monkeypatch, capsys, tmp_path):
+    plugin = (
+        tmp_path / "home" / ".claude" / "plugins" / "cache" / "apache-magpie" / "magpie-vetted-ops" / "1.0"
+    )
+    home = _magpie_home(tmp_path, plugin / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "bash", "tool_input": {"command": READ}}
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
+    assert agent_guard.cli(["--copilot"]) == 0
+    assert json.loads(capsys.readouterr().out)["permissionDecision"] == "allow"
