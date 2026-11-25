@@ -24,6 +24,7 @@ import fnmatch
 import json
 import os
 import shutil
+import stat
 import subprocess
 import zlib
 from collections.abc import Callable
@@ -1553,6 +1554,8 @@ def test_switch_puts_back_a_harness_file_that_changed_during_the_checkout(
     out = _switch(git, policy, repo, "topic")
     assert "put back the verified content of .claude/settings.json" in out
     assert (repo / ".claude" / "settings.json").read_text() == '{"v": "upstream"}'
+    # Put back owner-only: nobody else needs to read the harness's settings.
+    assert stat.S_IMODE((repo / ".claude" / "settings.json").stat().st_mode) == 0o600
 
 
 def test_switch_fails_closed_on_a_harness_directory_turned_into_a_symlink(

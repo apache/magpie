@@ -1502,10 +1502,12 @@ def _restore_written(
             if mode == "120000":
                 os.symlink(content, temp, dir_fd=dir_fd)
             else:
+                # Owner-only: git tracks only the executable bit, and these files
+                # (settings, hooks, the policy) are nobody else's to read.
                 fd = os.open(
                     temp,
                     os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                    0o755 if mode == "100755" else 0o644,
+                    0o700 if mode == "100755" else 0o600,
                     dir_fd=dir_fd,
                 )
                 with os.fdopen(fd, "wb") as handle:
