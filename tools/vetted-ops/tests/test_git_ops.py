@@ -674,6 +674,11 @@ def test_git_policy_defaults_and_protected_branches(tmp_path: Path) -> None:
         pytest.param({"checkouts": ["relative"]}, id="relative-checkout"),
         pytest.param({"checkouts": ["/"], "fork": "not a repo"}, id="bad-fork"),
         pytest.param({"checkouts": ["/"], "transport": "ftp"}, id="bad-transport"),
+        # `$` also matches before a final newline; each value must match whole.
+        pytest.param({"checkouts": ["/"], "fork": "me/project\n"}, id="fork-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "host": "github.com\n"}, id="host-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "upstream_remote": "upstream\n"}, id="remote-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "pr_base": "main\n"}, id="pr-base-trailing-newline"),
     ],
 )
 def test_git_policy_refuses_malformed_tables(table: object) -> None:

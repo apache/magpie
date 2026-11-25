@@ -189,6 +189,13 @@ def test_runner_refuses_writes_that_read_local_files_or_leave_the_tracker(argv: 
     assert fake.calls == []
 
 
+def test_rest_id_refuses_a_node_id_with_a_trailing_newline() -> None:
+    fake = FakeGh()
+    with pytest.raises(procedures.ProcedureRefused, match="usable node id"):
+        procedures._rest_id(runner(fake), {"id": "IC_kwDOnode\n", "url": ""})
+    assert fake.calls == []
+
+
 def test_a_read_only_runner_cannot_write() -> None:
     fake = FakeGh()
     with pytest.raises(procedures.RunnerRefused, match="read-only"):

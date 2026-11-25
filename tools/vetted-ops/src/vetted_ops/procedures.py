@@ -340,7 +340,7 @@ def _rest_id(r: Runner, comment: dict[str, object]) -> str:
     if match:
         return match.group(1)
     node_id = str(comment.get("id") or "")
-    if not _NODE_ID.match(node_id):
+    if not _NODE_ID.fullmatch(node_id):
         raise ProcedureRefused(f"rollup comment has neither a URL id nor a usable node id: {node_id!r}")
     out = r.read(
         [
