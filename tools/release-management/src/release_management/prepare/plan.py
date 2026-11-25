@@ -182,8 +182,13 @@ def query(
     *, upstream: str, base: str, previous_tag: str | None, tag_date: str | None = None, limit: int = 500
 ) -> dict[str, Any]:
     """1a: the read that dates the previous tag, then the merged-PR query with that date."""
-    if tag_date is not None and not ISO_DATE.match(tag_date.strip()):
-        raise RenderError(f"--tag-date {tag_date!r} is not an ISO-8601 date or time")
+    if tag_date is not None:
+        if not ISO_DATE.match(tag_date.strip()):
+            raise RenderError(f"--tag-date {tag_date!r} is not an ISO-8601 date or time")
+        try:
+            datetime.fromisoformat(tag_date.strip())
+        except ValueError:
+            raise RenderError(f"--tag-date {tag_date!r} is not an ISO-8601 date or time") from None
     date = tag_date.strip() if tag_date else "<previous-tag-date>"
     date_command = (
         f"gh api repos/{w(upstream)}/commits/{w(previous_tag)} --jq .commit.committer.date"
