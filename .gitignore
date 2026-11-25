@@ -125,3 +125,7 @@ docs/superpowers/
 # spec-loop single-flight lock (tools/spec-loop/loop.sh): runtime state, never committed.
 tools/spec-loop/.lock
 tools/spec-loop/.lock.*
+
+# Local security triage queue pane staging files (may carry embargoed advisory titles).
+.magpie-security-triage-queue.json
+.magpie-security-triage-action.json

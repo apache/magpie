@@ -59,6 +59,7 @@ publication, with a human gate and an audit-log entry at every step.
   third-party disclosure platform) by applying preamble-detect,
   credit-extract, and routing rules declared in
   `tools/forwarder-relay/`; never mutates tracker state on its own.
+- **Local security triage queue pane (additive, Claude Code):** `plugins/magpie-security/hooks/security-triage-queue-pane.ts` provides a local-only `/magpie-security-queue` command (`$.fs.read` + `$.ui.open`) and interactive `Pane` UI with `[Sync]`, `[Allocate CVE]`, and `[Triage]` launcher buttons that stage commands to `.magpie-security-triage-action.json` under strict workspace confinement (Part 1; skill-side emission of `.magpie-security-triage-queue.json` is deferred to Part 2). On other harnesses or when the mod is absent, security triage skills continue normally.
 - Skill files live at `plugins/magpie-security/skills/<alias>/SKILL.md`
   (alias drops the `security-` prefix, e.g. `issue-import`), reached
   from `skills/security-<name>` symlinks.
