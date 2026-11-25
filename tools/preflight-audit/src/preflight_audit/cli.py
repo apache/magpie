@@ -133,7 +133,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         numbers = _parse_issue_list(args.issues)
         response = fetch_state(owner=owner, name=name, numbers=numbers)
 
-    now = datetime.fromisoformat(args.now.replace("Z", "+00:00")) if args.now else datetime.now(UTC)
+    now = args.now or datetime.now(UTC)
     extra_bots = frozenset(b.strip() for b in (args.bot_logins or "").split(",") if b.strip())
     items = classify_response(response, now=now, extra_bot_logins=extra_bots)
 
@@ -143,6 +143,17 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         sys.stdout.write(_format_human(items))
     sys.stdout.write("\n")
     return 0
+
+
+def _parse_now(value: str) -> datetime:
+    """An ISO-8601 timestamp with a timezone; the tracker's timestamps all carry one."""
+    try:
+        now = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an ISO-8601 timestamp: {value!r}") from None
+    if now.tzinfo is None:
+        raise argparse.ArgumentTypeError(f"needs a timezone, such as Z or +00:00: {value!r}")
+    return now
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -165,6 +176,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_cls.add_argument(
         "--now",
+        type=_parse_now,
         help=(
             "ISO-8601 timestamp to use as 'now' (required with --load; defaults to real time in live mode)"
         ),
