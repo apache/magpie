@@ -894,8 +894,16 @@ missing from it or staged with other content. The record is in a
 sandbox-writable directory, so it keeps an agent honest the way CI does; it
 is not a proof against one set on forging it.
 
+It starts from `~/.cache/apache-magpie/vetted-ops/current`, a copy of this package the
+plugin's session hook keeps for each installed version (`hooks/link-stable-path.sh`):
+the sandbox cannot read `~/.claude/magpie/` or the plugin cache behind it. The copy is
+sandbox-writable, which grants nothing to a command that runs sandboxed; every command
+that runs outside the sandbox keeps starting from `~/.claude/magpie/`, which the agent
+cannot edit. In a framework checkout, `uv run --project tools/vetted-ops vetted-op-checks …`
+does the same.
+
 ```bash
-uvx --from ~/.claude/magpie/vetted-ops vetted-op-checks ~/code/project/.worktrees/fix-thing \
+uvx --from ~/.cache/apache-magpie/vetted-ops/current vetted-op-checks ~/code/project/.worktrees/fix-thing \
   ~/.cache/apache-magpie/vetted-ops-workspace/fix-thing-paths
 ```
 
