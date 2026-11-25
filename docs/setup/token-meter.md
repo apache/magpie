@@ -83,7 +83,7 @@ warn_percent = 70
 critical_percent = 85
 ```
 
-The configuration is cached in memory with a 10-second TTL keyed by the resolved file path to avoid filesystem overhead on hot render cycles.
+The configuration is cached in memory with a 10-second TTL keyed by the session root to avoid filesystem overhead on hot render cycles.
 
 ## Vendor neutrality & fallback
 

@@ -205,14 +205,12 @@ mode = "threshold-only" # real comment
       assertStrictEqual(parsed.mode, 'threshold-only');
     });
 
-    test('rejects configuration where warn_percent >= critical_percent', () => {
+    test('parses partial warn_percent without discarding until merge validation', () => {
       const toml = `
 warn_percent = 90
-critical_percent = 80
 `;
       const parsed = parseTokenMeterToml(toml);
-      // Both discarded to fall back to default thresholds
-      assertStrictEqual(parsed.warnPercent, undefined);
+      assertStrictEqual(parsed.warnPercent, 90);
       assertStrictEqual(parsed.criticalPercent, undefined);
     });
 
@@ -260,7 +258,12 @@ critical_percent = -10
       resetConfigCache();
       const readPaths: string[] = [];
       const mockReadFile = async (path: string) => {
-        readPaths.push(path);
+        if (path.endsWith('token-meter.toml')) {
+          readPaths.push(path);
+        }
+        if (path.endsWith('.apache-magpie.lock')) {
+          return 'version = 1\n';
+        }
         if (path.includes('.apache-magpie-local')) {
           return 'warn_percent = 60\ncritical_percent = 80';
         }
@@ -286,8 +289,12 @@ critical_percent = -10
       let readCount = 0;
       const mockReadFile = async (path: string) => {
         readCount++;
-        if (path.startsWith('/work/repo1')) return 'warn_percent = 60';
-        if (path.startsWith('/work/repo2')) return 'warn_percent = 80';
+        if (path === '/work/repo1/.apache-magpie-overrides/token-meter.toml') {
+          return 'warn_percent = 60';
+        }
+        if (path === '/work/repo2/.apache-magpie-overrides/token-meter.toml') {
+          return 'warn_percent = 80';
+        }
         return null;
       };
 
@@ -297,16 +304,16 @@ critical_percent = -10
         now: 1000,
       });
       assertStrictEqual(cfg1.warnPercent, 60);
-      assertStrictEqual(readCount, 1);
+      const readsAfterFirst = readCount;
 
-      // Same root within TTL reuses cache
+      // Same root within TTL reuses cache without extra reads
       const cfg1Cached = await resolveTokenMeterConfig({
         cwd: '/work/repo1',
         readFile: mockReadFile,
         now: 5000,
       });
       assertStrictEqual(cfg1Cached.warnPercent, 60);
-      assertStrictEqual(readCount, 1);
+      assertStrictEqual(readCount, readsAfterFirst);
 
       // Different root invalidates/re-reads
       const cfg2 = await resolveTokenMeterConfig({
@@ -315,7 +322,74 @@ critical_percent = -10
         now: 5000,
       });
       assertStrictEqual(cfg2.warnPercent, 80);
-      assert(readCount > 1);
+      assert(readCount > readsAfterFirst);
+    });
+
+    test('rejects warn_percent >= critical_percent after merging with defaults', async () => {
+      resetConfigCache();
+      const cfgOnlyWarn = await resolveTokenMeterConfig({
+        cwd: '/work/only-warn',
+        readFile: async (p) =>
+          p.endsWith('token-meter.toml') ? 'warn_percent = 90' : null,
+      });
+      assertStrictEqual(cfgOnlyWarn.warnPercent, 70);
+      assertStrictEqual(cfgOnlyWarn.criticalPercent, 85);
+
+      resetConfigCache();
+      const cfgOnlyCrit = await resolveTokenMeterConfig({
+        cwd: '/work/only-crit',
+        readFile: async (p) =>
+          p.endsWith('token-meter.toml') ? 'critical_percent = 60' : null,
+      });
+      assertStrictEqual(cfgOnlyCrit.warnPercent, 70);
+      assertStrictEqual(cfgOnlyCrit.criticalPercent, 85);
+
+      resetConfigCache();
+      const cfgBoth = await resolveTokenMeterConfig({
+        cwd: '/work/both',
+        readFile: async (p) =>
+          p.endsWith('token-meter.toml') ? 'warn_percent = 90\ncritical_percent = 80' : null,
+      });
+      assertStrictEqual(cfgBoth.warnPercent, 70);
+      assertStrictEqual(cfgBoth.criticalPercent, 85);
+    });
+
+    test('unadopted repo reads git-common-dir before legacy .apache-magpie-local and follows linked worktree', async () => {
+      resetConfigCache();
+      const files: Record<string, string> = {
+        '/work/wt1/.git': 'gitdir: /work/main/.git/worktrees/wt1\n',
+        '/work/main/.git/worktrees/wt1/commondir': '../..\n',
+        '/work/main/.git/apache-magpie/token-meter.toml': 'warn_percent = 55',
+        '/work/wt1/.apache-magpie-local/token-meter.toml': 'warn_percent = 65',
+      };
+      const readOrder: string[] = [];
+      const cfg = await resolveTokenMeterConfig({
+        cwd: '/work/wt1',
+        readFile: async (p) => {
+          readOrder.push(p);
+          return files[p] ?? null;
+        },
+      });
+      assertStrictEqual(cfg.warnPercent, 55);
+      const commonIdx = readOrder.indexOf('/work/main/.git/apache-magpie/token-meter.toml');
+      const legacyIdx = readOrder.indexOf('/work/wt1/.apache-magpie-local/token-meter.toml');
+      assert(commonIdx !== -1 && (legacyIdx === -1 || commonIdx < legacyIdx));
+    });
+
+    test('adopted linked worktree falls back to main checkout .apache-magpie-local', async () => {
+      resetConfigCache();
+      const files: Record<string, string> = {
+        '/work/wt1/.apache-magpie.lock': 'version = 1\n',
+        '/work/wt1/.git': 'gitdir: /work/main/.git/worktrees/wt1\n',
+        '/work/main/.git/worktrees/wt1/commondir': '../..\n',
+        '/work/main/.apache-magpie-local/token-meter.toml': 'warn_percent = 62',
+        '/work/wt1/.apache-magpie-overrides/token-meter.toml': 'warn_percent = 75',
+      };
+      const cfg = await resolveTokenMeterConfig({
+        cwd: '/work/wt1',
+        readFile: async (p) => files[p] ?? null,
+      });
+      assertStrictEqual(cfg.warnPercent, 62);
     });
   });
 

@@ -37,7 +37,6 @@ export const DEFAULT_CONFIG: TokenMeterConfig = {
 };
 
 let cachedConfig: TokenMeterConfig | null = null;
-let cachedConfigPath: string | null = null;
 let cachedCwd: string | null = null;
 let cachedConfigTimestamp = 0;
 
@@ -46,7 +45,6 @@ let cachedConfigTimestamp = 0;
  */
 export function resetConfigCache(): void {
   cachedConfig = null;
-  cachedConfigPath = null;
   cachedCwd = null;
   cachedConfigTimestamp = 0;
 }
@@ -184,7 +182,8 @@ function stripTomlComment(line: string): string {
 
 /**
  * Lightweight, zero-dependency parser for token-meter.toml configuration.
- * Strips comments outside quotes and validates that warnPercent < criticalPercent.
+ * Strips comments outside quotes. Threshold ordering (warnPercent < criticalPercent)
+ * is validated after merging with defaults in resolveTokenMeterConfig.
  */
 export function parseTokenMeterToml(content: string): Partial<TokenMeterConfig> {
   const result: Partial<TokenMeterConfig> = {};
@@ -222,21 +221,69 @@ export function parseTokenMeterToml(content: string): Partial<TokenMeterConfig> 
     }
   }
 
-  // Fall back to defaults if warnPercent >= criticalPercent
-  if (result.warnPercent !== undefined && result.criticalPercent !== undefined) {
-    if (result.warnPercent >= result.criticalPercent) {
-      delete result.warnPercent;
-      delete result.criticalPercent;
+  return result;
+}
+
+/**
+ * Normalizes and resolves a relative path against a base directory without Node built-ins.
+ */
+function resolveRelativePath(baseDir: string, targetPath: string): string {
+  const normTarget = targetPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (normTarget.startsWith('/') || /^[A-Za-z]:\//.test(normTarget)) {
+    return normTarget;
+  }
+  const normBase = baseDir.replace(/\\/g, '/').replace(/\/+$/, '');
+  const parts = normBase ? normBase.split('/') : [];
+  for (const seg of normTarget.split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') {
+      if (parts.length > 1 || (parts.length === 1 && parts[0] !== '' && !/^[A-Za-z]:$/.test(parts[0]))) {
+        parts.pop();
+      }
+    } else {
+      parts.push(seg);
     }
   }
+  return parts.join('/') || '/';
+}
 
-  return result;
+/**
+ * Returns the parent directory of a normalized forward-slash path.
+ */
+function parentDir(normPath: string): string {
+  const idx = normPath.lastIndexOf('/');
+  if (idx <= 0) return idx === 0 ? '/' : '.';
+  return normPath.slice(0, idx);
+}
+
+/**
+ * Resolves `<git-common-dir>` and (for linked worktrees) the main checkout root.
+ */
+async function resolveGitDirs(
+  normCwd: string,
+  safeRead: (path: string) => Promise<string | null>
+): Promise<{ gitCommonDir: string; mainCheckout: string | null }> {
+  const dotGitPath = `${normCwd}/.git`;
+  const dotGitContent = await safeRead(dotGitPath);
+  if (dotGitContent) {
+    const match = dotGitContent.match(/^gitdir:\s*(.+)$/m);
+    if (match) {
+      const gitDir = resolveRelativePath(normCwd, match[1].trim());
+      const commonDirContent = await safeRead(`${gitDir}/commondir`);
+      const gitCommonDir = commonDirContent?.trim()
+        ? resolveRelativePath(gitDir, commonDirContent.trim())
+        : gitDir;
+      const mainCheckout = gitCommonDir.endsWith('/.git') ? parentDir(gitCommonDir) : null;
+      return { gitCommonDir, mainCheckout };
+    }
+  }
+  return { gitCommonDir: dotGitPath, mainCheckout: null };
 }
 
 /**
  * Resolves token meter configuration by checking personal layer first,
  * falling back to .apache-magpie-overrides/, and then defaults.
- * Cache is keyed by resolved config path.
+ * Cache is keyed by the session root (cwd).
  */
 export async function resolveTokenMeterConfig(options?: {
   envValue?: string;
@@ -262,43 +309,65 @@ export async function resolveTokenMeterConfig(options?: {
     return cachedConfig;
   }
 
-  // Precedence per AGENTS.md § Configuration resolution order:
-  // 1. Personal layer (adopted): <workspace>/.apache-magpie-local/token-meter.toml
-  // 2. Personal layer (unadopted): <workspace>/.git/apache-magpie/token-meter.toml
-  // 3. Project layer: <workspace>/.apache-magpie-overrides/token-meter.toml
-  const candidatePaths = [
-    `${normCwd}/.apache-magpie-local/token-meter.toml`,
-    `${normCwd}/.git/apache-magpie/token-meter.toml`,
-    `${normCwd}/.apache-magpie-overrides/token-meter.toml`,
-  ];
-
-  let resolvedPath: string | null = null;
   let fileConfig: Partial<TokenMeterConfig> = {};
 
   if (options?.readFile) {
-    for (const p of candidatePaths) {
+    const safeRead = async (p: string): Promise<string | null> => {
       try {
-        const content = await options.readFile(p);
-        if (content) {
-          resolvedPath = p;
-          fileConfig = parseTokenMeterToml(content);
-          break;
-        }
+        return await options.readFile!(p);
       } catch {
-        // Try next candidate
+        return null;
+      }
+    };
+
+    const [{ gitCommonDir, mainCheckout }, lockContent] = await Promise.all([
+      resolveGitDirs(normCwd, safeRead),
+      safeRead(`${normCwd}/.apache-magpie.lock`),
+    ]);
+
+    const isAdopted = lockContent !== null;
+    const candidatePaths: string[] = [];
+
+    if (isAdopted) {
+      // Adopted repo: in-tree .apache-magpie-local -> main checkout's .apache-magpie-local (linked worktree) -> .apache-magpie-overrides
+      candidatePaths.push(`${normCwd}/.apache-magpie-local/token-meter.toml`);
+      if (mainCheckout && mainCheckout !== normCwd) {
+        candidatePaths.push(`${mainCheckout}/.apache-magpie-local/token-meter.toml`);
+      }
+      candidatePaths.push(`${normCwd}/.apache-magpie-overrides/token-meter.toml`);
+    } else {
+      // Unadopted repo: <git-common-dir>/apache-magpie -> legacy in-tree .apache-magpie-local -> .apache-magpie-overrides
+      candidatePaths.push(
+        `${gitCommonDir}/apache-magpie/token-meter.toml`,
+        `${normCwd}/.apache-magpie-local/token-meter.toml`,
+        `${normCwd}/.apache-magpie-overrides/token-meter.toml`
+      );
+    }
+
+    for (const p of candidatePaths) {
+      const content = await safeRead(p);
+      if (content) {
+        fileConfig = parseTokenMeterToml(content);
+        break;
       }
     }
+  }
+
+  let warnPercent = fileConfig.warnPercent ?? DEFAULT_CONFIG.warnPercent;
+  let criticalPercent = fileConfig.criticalPercent ?? DEFAULT_CONFIG.criticalPercent;
+  if (warnPercent >= criticalPercent) {
+    warnPercent = DEFAULT_WARN_PERCENT;
+    criticalPercent = DEFAULT_CRITICAL_PERCENT;
   }
 
   const config: TokenMeterConfig = {
     enabled: fileConfig.enabled ?? DEFAULT_CONFIG.enabled,
     mode: fileConfig.mode ?? DEFAULT_CONFIG.mode,
-    warnPercent: fileConfig.warnPercent ?? DEFAULT_CONFIG.warnPercent,
-    criticalPercent: fileConfig.criticalPercent ?? DEFAULT_CONFIG.criticalPercent,
+    warnPercent,
+    criticalPercent,
   };
 
   cachedConfig = config;
-  cachedConfigPath = resolvedPath;
   cachedCwd = normCwd;
   cachedConfigTimestamp = now;
   return config;
