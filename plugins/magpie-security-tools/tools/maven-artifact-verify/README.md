@@ -74,7 +74,8 @@ blocking.
    description is judged the same way as a local one.
 3. **Companion jars** — for every main jar, both `-sources.jar` and
    `-javadoc.jar` exist and each carries its own `.asc` signature and
-   checksum files (the digest set is configurable, default `sha512`).
+   checksum files (the digest set is configurable, default `sha512`, and
+   must name at least one type).
    Checksum files are verified against the companion jar's actual
    bytes (`hashlib`, still offline); `.asc` signatures are checked
    for presence only — offline signature verification needs GPG and
