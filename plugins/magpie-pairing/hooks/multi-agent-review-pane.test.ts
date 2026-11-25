@@ -635,7 +635,7 @@ describe('multi-agent-review-pane mod', () => {
       assert(state !== null);
       assert.strictEqual(state.headSha, 'sha-ipc');
       assert.strictEqual(state.findings.length, 1);
-      assert.strictEqual(state.findings[0].id, 'c-10');
+      assert.strictEqual(state.findings[0]?.id, 'c-10');
       assert.strictEqual(state.payloadPath, reviewPath);
       assert.strictEqual(state.payloadHash, computePayloadHash(rawContent));
 
@@ -743,34 +743,34 @@ describe('multi-agent-review-pane mod', () => {
       await setMultiAgentReviewState(engine, initialState);
 
       // 1. Accept finding p-1
-      await handleUiPress(engine, { element: 'accept-p-1' });
+      await handleUiPress(engine, { element: 'accept-p-1' }, () => {});
       let state = await getMultiAgentReviewState(engine);
-      assert.strictEqual(state?.findings[0].status, 'accepted');
+      assert.strictEqual(state?.findings[0]?.status, 'accepted');
       assert(engine._files.has(decisionPath));
       let decision = JSON.parse(engine._files.get(decisionPath));
       assert(decision.accepted_ids.includes('p-1'));
 
       // 2. Dismiss finding p-2
-      await handleUiPress(engine, { element: 'dismiss-p-2' });
+      await handleUiPress(engine, { element: 'dismiss-p-2' }, () => {});
       state = await getMultiAgentReviewState(engine);
-      assert.strictEqual(state?.findings[1].status, 'dismissed');
+      assert.strictEqual(state?.findings[1]?.status, 'dismissed');
       decision = JSON.parse(engine._files.get(decisionPath));
       assert(decision.dismissed_ids.includes('p-2'));
 
       // 3. Restore finding p-1
-      await handleUiPress(engine, { element: 'restore-p-1' });
+      await handleUiPress(engine, { element: 'restore-p-1' }, () => {});
       state = await getMultiAgentReviewState(engine);
-      assert.strictEqual(state?.findings[0].status, 'pending');
+      assert.strictEqual(state?.findings[0]?.status, 'pending');
 
       // 4. Filter tab navigation
-      await handleUiPress(engine, { element: 'filter-correctness' });
+      await handleUiPress(engine, { element: 'filter-correctness' }, () => {});
       state = await getMultiAgentReviewState(engine);
       assert.strictEqual(state?.activeFilter, 'correctness');
     });
 
     test('handleUiPress ignores unknown elements or null state safely', async () => {
       const engine = createMockEngine();
-      await handleUiPress(engine, { element: 'unknown-btn' });
+      await handleUiPress(engine, { element: 'unknown-btn' }, () => {});
       assert.strictEqual(await getMultiAgentReviewState(engine), null);
     });
   });

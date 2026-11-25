@@ -876,7 +876,7 @@ export function renderMultiAgentReviewPane(
 /**
  * Pane render handler for Claude Code mod (Fail-Open).
  */
-export async function handleRenderPane($: any, e: any, next: any): Promise<any> {
+export async function handleRenderPane($: any, e: any, next?: any): Promise<any> {
   try {
     const state = await getMultiAgentReviewState($);
     if (!state) {
@@ -900,7 +900,7 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
 /**
  * Handles UI button presses dispatched by Claude Code's ui.press lifecycle hook.
  */
-export async function handleUiPress($: any, e: any, next: any): Promise<any> {
+export async function handleUiPress($: any, e: any, next?: any): Promise<any> {
   if (!e || typeof e.element !== 'string') {
     if (typeof next === 'function') return next(e);
     return;
@@ -1002,7 +1002,7 @@ export async function handleUiPress($: any, e: any, next: any): Promise<any> {
  * Observes Bash tool calls to clear the review pane on subsequent git modifications
  * or hydrate candidate review payloads.
  */
-export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+export async function handleBashToolCall($: any, e: any, next?: any): Promise<any> {
   if (e && typeof e.command === 'string') {
     try {
       const command = e.command;
