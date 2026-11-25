@@ -158,6 +158,7 @@ def existing_rollup(*actions: str, marker: str = MARKER) -> str:
         ["gh", "api", "repos/acme/tracker/issues/1", "repos/acme/product/issues/1"],
         ["gh", "issue", "view", "1", "--repo", "acme/product", "--json", "body"],
         ["gh", "issue", "view", "1", "--json", "body"],
+        ["gh", "issue", "view", "1\n", "--repo", "acme/tracker", "--json", "body"],
         ["gh", "issue", "view", "1", "--repo", "acme/tracker", "--repo", "acme/product"],
         ["gh", "issue", "close", "1", "--repo", "acme/tracker"],
         ["gh", "pr", "view", "1", "--repo", "acme/tracker"],
