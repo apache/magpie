@@ -80,6 +80,13 @@ and bodies come only from the workspace, so they reach less than the bare `gh *`
 **All three stay in `ask`, never `allow`**, so each write keeps its confirmation;
 `sandbox-lint` fails an exclusion that has lost its `ask`.
 
+Before the user approves the policy, propose the grants the installed skills use.
+Run the caller-grant comparison of [`setup reconcile` check 3a](../setup/reconcile.md#the-sweep): every installed
+skill whose caller the README's `[callers]` example names gets the operations listed there, among them the
+`git-*` publishing steps and `pr-add-label`, and a caller that opens and labels pull requests gets the repository's
+taxonomy labels, discovered with `gh label list`, proposed by name in `[values] upstream_labels`.
+Show each proposal as a TOML diff; the policy is `Edit`-denied to the agent, so the user applies it.
+
 Outside the sandbox, the write dispatchers act only on a policy the user approved:
 a byte-for-byte copy in `~/.config/apache-magpie/vetted-ops/`, which the agent cannot write.
 Ask the user to review the project's policy and approve it **in their own terminal** (a `!` command runs sandboxed and cannot write there),

@@ -1,0 +1,12 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "setup-upstream-fix",
+      "override_file": null,
+      "detail": "Caller grants are complete, but the caller labels its pull requests (pr-add-label) and upstream_labels lists none of the repository's taxonomy labels. Propose area:api, area:cli, kind:feature and kind:fix by name in [values] upstream_labels, grouped by prefix for the user to pick; not bug or help wanted, and no upstream_labels_patterns. Do not stamp clean."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}
