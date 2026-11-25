@@ -55,6 +55,7 @@ their ``result`` stays null and the agent applies the configured rule.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from email.utils import getaddresses
 from typing import Any
 
@@ -301,6 +302,18 @@ def pr_review_votes(
     return votes, reviewers
 
 
+def _date_runs_backwards(before: Any, after: Any) -> bool:
+    before_text, after_text = str(before), str(after)
+    try:
+        before_date = datetime.fromisoformat(before_text)
+        after_date = datetime.fromisoformat(after_text)
+    except ValueError:
+        return after_text < before_text
+    if (before_date.tzinfo is None) != (after_date.tzinfo is None):
+        return after_text < before_text
+    return after_date < before_date
+
+
 def tally(
     votes: list[dict[str, Any]],
     roster: list[dict[str, str]],
@@ -354,7 +367,7 @@ def tally(
         if previous is not None:
             superseded.append(_superseded(previous[1], candidate))
             before, after = previous[1]["date"], candidate["date"]
-            if before and after and str(after) < str(before):
+            if before and after and _date_runs_backwards(before, after):
                 mismatches.append(
                     {
                         "identity": identity,
