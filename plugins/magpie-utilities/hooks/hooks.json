@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
-  "description": "Apache Magpie — Claude Code mods for zero-token skill discovery and ASF commit attribution.",
+  "description": "Apache Magpie — Claude Code mods for zero-token skill discovery, ASF commit attribution, and live token-cost meter band.",
   "hooks": {},
   "modules": [
     "./skills-command.ts"
