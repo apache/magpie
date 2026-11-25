@@ -1026,6 +1026,86 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"pushed {commit} to {repo} {remote_branch} ({was})"
 
 
+#: The merged pull requests `git-delete-fork-branch` reads, as a JSON list.
+_MERGED_PRS_JQ = (
+    "[.[] | select(.merged_at != null) | {number: .number, head_repo: .head.repo.full_name, "
+    "head_ref: .head.ref, head_sha: .head.sha}]"
+)
+
+
+def delete_fork_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Delete a branch on the user's fork once the pull request it headed has merged.
+
+    The cleanup after a merge. Only the policy's fork, never a protected
+    branch, and only a branch the forge reports as the head of a merged pull
+    request against the upstream repository, at exactly ``expected``: a squash
+    or rebase merge leaves no trace of the branch in the base's history, so the
+    forge's word is the check. The deletion is leased on ``expected``, so a
+    branch pushed to since the merge is never removed.
+    """
+    if policy.fork_repo is None:
+        raise GitRefused("the policy names no [git] fork, so no branch can be deleted from one")
+    worktree = resolve_worktree(git, p["checkout"], policy, "checkout")
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; it is never deleted")
+    expected = sha(p["expected"], "expected")
+    fork_owner = policy.fork_repo.split("/", 1)[0]
+    args = [
+        "push",
+        "--no-verify",
+        "--porcelain",
+        f"--force-with-lease=refs/heads/{branch}:{expected}",
+        policy.push_url(policy.fork_repo),
+        f":refs/heads/{branch}",
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    argv = [
+        "gh",
+        "api",
+        "--hostname",
+        policy.host,
+        "--method",
+        "GET",
+        f"repos/{policy.upstream_repo}/pulls",
+        "-f",
+        f"head={fork_owner}:{branch}",
+        "-f",
+        "state=closed",
+        "-f",
+        "per_page=100",
+        "--jq",
+        _MERGED_PRS_JQ,
+    ]
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        merged = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused("the forge's answer about merged pull requests is not JSON") from None
+    matching = [
+        pr
+        for pr in (merged if isinstance(merged, list) else [])
+        if isinstance(pr, dict)
+        and str(pr.get("head_repo") or "").casefold() == policy.fork_repo.casefold()
+        and pr.get("head_ref") == branch
+        and pr.get("head_sha") == expected
+    ]
+    if not matching:
+        raise GitRefused(
+            f"no merged pull request against {policy.upstream_repo} had {policy.fork_repo} {branch} at "
+            f"{expected} as its head; only a merged pull request's branch is deleted, at the commit that merged"
+        )
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    return (
+        f"deleted {policy.fork_repo} {branch} (was {expected}, head of merged #{matching[0].get('number')})"
+    )
+
+
 #: A pull request number, as GitHub assigns them.
 _PR_NUMBER = re.compile(r"^[1-9][0-9]{0,9}$")
 
@@ -2096,6 +2176,13 @@ OPS: dict[str, GitOp] = {
             "remote branch's current full SHA, or 'new'. No hook runs: run the pre-push checks "
             "in the sandbox first",
             push_branch,
+        ),
+        GitOp(
+            "git-delete-fork-branch",
+            ("checkout", "branch", "expected"),
+            "delete <branch> on the policy's fork once the forge reports it as the head of a merged pull "
+            "request against upstream at exactly <expected>; never a protected branch, leased on <expected>",
+            delete_fork_branch,
         ),
         GitOp(
             "git-push-pr-head",

@@ -2228,3 +2228,125 @@ def test_cherry_pick_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo
     command = _pick(git, policy, repo, tip, onto, dry_run=True)
     assert "cherry-pick" in command and "rerere.enabled=false" in command and tip in command
     assert _git(repo, "rev-parse", "HEAD") == onto
+
+
+# --- git-delete-fork-branch ------------------------------------------------
+
+
+@dataclass
+class FakeMerged:
+    """`gh api repos/<upstream>/pulls?head=…&state=closed`, answering with merged pull requests."""
+
+    prs: list[dict[str, object]]
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, json.dumps(self.prs), "")
+
+
+def _merged_fork_branch(policy: LocalPolicy, repo: Path) -> str:
+    """A topic branch pushed to the fork, as the head of a pull request that has since merged."""
+    _git(repo, "checkout", "-q", "-b", "topic")
+    tip = _commit(repo, "topic-file")
+    _git(repo, "push", "-q", policy.push_url("me/project"), "topic:refs/heads/topic")
+    _git(repo, "checkout", "-q", "main")
+    return tip
+
+
+def _delete(
+    git: Git, policy: GitPolicy, repo: Path, branch: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.delete_fork_branch(
+        git, policy, {"checkout": str(repo), "branch": branch, "expected": expected}, dry_run
+    )
+
+
+def _fork_has(policy: LocalPolicy, branch: str) -> bool:
+    out = _git(
+        Path(policy.push_url("me/project")), "for-each-ref", "--format=%(refname)", f"refs/heads/{branch}"
+    )
+    return bool(out)
+
+
+def test_delete_fork_branch_removes_a_merged_pull_requests_branch(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    fake = FakeMerged([{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": tip}])
+    git.gh_runner = fake
+    out = _delete(git, policy, repo, "topic", tip)
+    assert "head of merged #7" in out
+    assert not _fork_has(policy, "topic")
+    assert "head=me:topic" in fake.calls[0]
+    assert "repos/acme/project/pulls" in fake.calls[0]
+
+
+@pytest.mark.parametrize(
+    "prs",
+    [
+        pytest.param([], id="no-merged-pr"),
+        pytest.param(
+            [{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": "0" * 40}],
+            id="other-head",
+        ),
+        pytest.param(
+            [{"number": 7, "head_repo": "eve/project", "head_ref": "topic", "head_sha": None}],
+            id="other-fork",
+        ),
+        pytest.param(
+            [{"number": 7, "head_repo": "me/project", "head_ref": "other", "head_sha": None}],
+            id="other-branch",
+        ),
+    ],
+)
+def test_delete_fork_branch_refuses_a_branch_no_merged_pull_request_headed(
+    git: Git, policy: LocalPolicy, repo: Path, prs: list[dict[str, object]]
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    for pr in prs:
+        if pr["head_sha"] is None:
+            pr["head_sha"] = tip
+    git.gh_runner = FakeMerged(prs)
+    with pytest.raises(GitRefused, match="only a merged pull request's branch is deleted"):
+        _delete(git, policy, repo, "topic", tip)
+    assert _fork_has(policy, "topic")
+
+
+def test_delete_fork_branch_keeps_a_branch_pushed_to_since_the_merge(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    _git(repo, "checkout", "-q", "topic")
+    later = _commit(repo, "later")
+    _git(repo, "push", "-q", policy.push_url("me/project"), "topic:refs/heads/topic")
+    git.gh_runner = FakeMerged(
+        [{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": tip}]
+    )
+    with pytest.raises(git_ops.GitFailed):
+        _delete(git, policy, repo, "topic", tip)
+    assert _remote_head(policy, "me/project", "topic") == later
+
+
+def test_delete_fork_branch_refuses_a_protected_branch_and_a_missing_fork(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _git(repo, "rev-parse", "HEAD")
+    git.gh_runner = FakeMerged([])
+    with pytest.raises(GitRefused, match="protected"):
+        _delete(git, policy, repo, "main", tip)
+    with pytest.raises(GitRefused, match="names no \\[git\\] fork"):
+        _delete(git, dataclasses.replace(policy, fork_repo=None), repo, "topic", tip)
+    assert not git.gh_runner.calls
+
+
+def test_delete_fork_branch_dry_run_asks_and_changes_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    fake = FakeMerged([])
+    git.gh_runner = fake
+    command = _delete(git, policy, repo, "topic", tip, dry_run=True)
+    assert ":refs/heads/topic" in command and f"--force-with-lease=refs/heads/topic:{tip}" in command
+    assert not fake.calls
+    assert _fork_has(policy, "topic")

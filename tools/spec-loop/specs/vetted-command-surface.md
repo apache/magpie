@@ -396,7 +396,10 @@ like `vetted-op`.
 Operations are closed shapes: `git-push-branch` (a leased push, `--force-with-lease`
 on the caller's expected SHA or `new`, to the policy's `fork` or to an
 `upstream_push`-matching branch of upstream, protected branches always
-refused, an emptied rebase refused), `git-push-pr-head` (a maintainer fixup:
+refused, an emptied rebase refused), `git-delete-fork-branch` (a branch on the
+policy's fork only, never a protected one, and only once the forge reports a
+merged pull request against upstream headed by it at the caller's expected
+SHA; leased on that SHA), `git-push-pr-head` (a maintainer fixup:
 fast-forwards an open upstream pull request's head branch, named by the
 caller so the confirmation shows it and checked against what the forge
 reports, leased on the head the caller built on, at most ten non-merge
