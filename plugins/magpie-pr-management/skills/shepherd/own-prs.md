@@ -49,7 +49,8 @@ Conflicts in generated content (token stamps, regenerated blocks, rendered table
 Any other conflict: stop and show it to the maintainer.
 
 After the rebase, run [the pre-push gate](#the-pre-push-gate) and propose the push with its lease, `git-push-branch <worktree> <local-branch> <target> <head-branch> <sha-you-last-pushed>`, as in [`fix-failure`](#fix-failure-and-fix-comment) step 5.
-A rebase in a linked worktree the session did not create runs in a scratch clone, and `git-worktree-sync` then moves the worktree to the rebased commit.
+With `[git]` values configured, the rebase itself is `git-rebase <worktree> <onto-sha> <expected-sha>`: it re-signs the replayed commits per the maintainer's global git configuration, which the sandbox cannot reach, and on a conflict it aborts and names the conflicting paths, to resolve in the sandbox as above.
+Without them, a rebase in a linked worktree the session did not create runs in a scratch clone, and `git-worktree-sync` then moves the worktree to the rebased commit.
 
 ## `enable-auto-merge`
 

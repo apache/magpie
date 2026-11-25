@@ -660,6 +660,22 @@ def is_protected(branch: str, policy: GitPolicy) -> bool:
     return any(fnmatch.fnmatchcase(branch, glob) for glob in policy.protected)
 
 
+def current_branch(git: Git, worktree: Worktree) -> str:
+    """The branch checked out in ``worktree``, its exact name without ``refs/heads/``.
+
+    Never ``symbolic-ref --short``: with a tag of the same name it answers
+    ``heads/main``, which no protected-branch glob matches.
+    """
+    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
+        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out a branch first")
+    ref = git.run(worktree.path, "symbolic-ref", "HEAD").strip()
+    if not ref.startswith("refs/heads/"):
+        raise GitRefused(f"HEAD of {str(worktree.path)!r} points at {ref!r}, not a local branch")
+    # Validated like a branch parameter: a ref named `refs/heads/-x` is valid
+    # git, and the name may reach a command line (`git-rebase` passes it).
+    return branch_name(git, worktree.path, ref.removeprefix("refs/heads/"), "the checked-out branch")
+
+
 def _absolute(raw: str, name: str) -> Path:
     expanded = _expand_home(_param(raw, name))
     if not expanded.is_absolute():
@@ -911,9 +927,7 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
         raise GitRefused("worktree-sync moves linked worktrees only; this is the main checkout")
     check_repository_config(git, worktree)
     commit = resolve_commit(git, worktree.path, sha(p["commit"], "commit"), "commit")
-    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
-        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out its branch first")
-    branch = git.run(worktree.path, "symbolic-ref", "--short", "HEAD").strip()
+    branch = current_branch(git, worktree)
     if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
         raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
     previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
@@ -923,6 +937,140 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     check_repository_config(git, worktree)
     git.run(worktree.path, *args)
     return f"moved {branch} in {worktree.path} from {previous} to {commit}"
+
+
+#: Pinned on a rebase on top of `PINNED_CONFIG`: no recorded conflict
+#: resolution is replayed (`rerere` would write content no check passed), no
+#: stash is made or popped, no other branch is moved, and no editor is started.
+REBASE_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "rebase.autoStash=false",
+    "rebase.autoSquash=false",
+    "rebase.updateRefs=false",
+    "core.editor=false",
+    "sequence.editor=false",
+)
+
+
+def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
+    """Fetch the policy's ``pr_base`` from the upstream URL and return the commit it fetched.
+
+    The commit comes from this fetch's own output, not from the remote-tracking
+    ref afterwards: that ref is in the repository, which a sandboxed `git fetch`
+    from a URL the repository configures can also write.
+    """
+    ref = f"refs/remotes/{policy.upstream_remote}/{policy.pr_base}"
+    output = git.run(
+        worktree.path,
+        "fetch",
+        "--porcelain",
+        # Without it an up-to-date ref is left out of the porcelain output.
+        "--verbose",
+        "--no-tags",
+        "--no-recurse-submodules",
+        "--no-write-fetch-head",
+        policy.push_url(policy.upstream_repo),
+        f"+refs/heads/{policy.pr_base}:{ref}",
+    )
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[3] == ref and _SHA.match(fields[2]):
+            return fields[2]
+    raise GitRefused(f"fetching {policy.upstream_repo} {policy.pr_base} reported no commit for {ref}")
+
+
+def rebase_onto(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Rebase a clean topic branch onto an upstream commit; on a conflict, abort and report it.
+
+    The rebase re-creates each commit, so it signs them per the user's global
+    configuration, which the sandbox cannot reach. Nothing in it is decided by
+    hand: git replays each commit already on the branch onto a commit of the
+    upstream ``pr_base`` (fetched here, from the policy's URL), merging the
+    two sides only where that needs no decision. A conflict is never resolved
+    out here; the rebase is aborted, the branch is left where it was, and the
+    conflicting paths are named, to be resolved in the sandbox and committed
+    through `git-commit`.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    onto = sha(p["onto"], "onto")
+    expected = sha(p["expected"], "expected")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; only a topic branch is rebased")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the rebase was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    pins = [arg for pin in REBASE_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "rebase",
+        "--no-autosquash",
+        "--no-autostash",
+        "--no-update-refs",
+        "--no-rerere-autoupdate",
+        "--empty=drop",
+        "--end-of-options",
+        onto,
+        # Named, so the rebase acts on this branch even if HEAD is switched in between.
+        branch,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    base = _fetch_base(git, worktree, policy)
+    resolve_commit(git, worktree.path, onto, "onto")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", onto, base):
+        raise GitRefused(
+            f"onto {onto} is not on {policy.upstream_repo} {policy.pr_base} (fetched just now at {base}); "
+            f"rebase onto a commit of {policy.pr_base}"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", onto, previous):
+        return f"{branch} in {worktree.path} already contains {onto}; nothing to rebase"
+    if git.run(worktree.path, "rev-list", "--count", f"{onto}..{previous}").strip() == "0":
+        raise GitRefused(f"{branch!r} has no commits over {onto}; a rebase would leave it empty")
+    if git.run(worktree.path, "rev-list", "--merges", "--count", f"{onto}..{previous}").strip() != "0":
+        raise GitRefused(
+            f"{branch!r} has merge commits over {onto}; a rebase would flatten them and could drop what "
+            "they resolved. Rebase it in the sandbox instead"
+        )
+    check_repository_config(git, worktree)
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "rebase", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the rebase was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git rebase --abort` failed too; {str(worktree.path)!r} is mid-rebase"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Resolve the conflict in the "
+            "sandbox and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    rebased = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{branch}").strip()
+    # The checks above saw `expected`; the rebase replayed whatever the branch
+    # held when it started. If something moved it in between, put back what the
+    # rebase started from and refuse: those commits were never approved.
+    started = git.run(worktree.path, "rev-parse", "--verify", "ORIG_HEAD").strip()
+    if started != expected:
+        git.run(worktree.path, "reset", "--keep", started)
+        raise GitRefused(
+            f"{branch!r} moved to {started} while the rebase was starting, not the approved {expected}; "
+            f"it is back at {started}, unrebased. Look at it again"
+        )
+    count = git.run(worktree.path, "rev-list", "--count", f"{onto}..{rebased}").strip()
+    return f"rebased {branch} in {worktree.path} onto {onto}: {previous} -> {rebased} ({count} commits)"
 
 
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
@@ -1091,9 +1239,7 @@ def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
         raise GitRefused("the commit message is empty")
     if len(message) > MAX_COMMIT_MESSAGE:
         raise GitRefused(f"the commit message is longer than {MAX_COMMIT_MESSAGE} characters")
-    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
-        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out a branch first")
-    branch = git.run(worktree.path, "symbolic-ref", "--short", "HEAD").strip()
+    branch = current_branch(git, worktree)
     if is_protected(branch, policy):
         raise GitRefused(f"{branch!r} is a protected branch; commit on a topic branch")
     if git.ok(worktree.path, "diff", "--cached", "--quiet"):
@@ -1210,6 +1356,14 @@ OPS: dict[str, GitOp] = {
             ("worktree", "commit"),
             "move a clean linked worktree's branch to <commit> (reset --keep)",
             worktree_sync,
+        ),
+        GitOp(
+            "git-rebase",
+            ("worktree", "onto", "expected"),
+            "rebase the clean topic branch checked out in <worktree> onto <onto>, a full SHA on a "
+            "branch git-fetch brought in; <expected> is the branch's current full SHA. Re-signs per "
+            "the user's global git config; on a conflict, aborts and names the conflicting paths",
+            rebase_onto,
         ),
         GitOp(
             "git-worktree-add",

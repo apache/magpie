@@ -1227,3 +1227,226 @@ def test_missing_checkouts_refusal_drafts_the_operator_table(
         git_ops.git_policy(_config({"upstream_push": ["ci-*"]}))
     assert "checkouts must name at least one main checkout" in str(caught.value)
     assert '["acme/project"]' in str(caught.value)
+
+
+# --- git-rebase ------------------------------------------------------------
+
+
+def _diverged(repo: Path, conflict: bool = False) -> tuple[str, str]:
+    """A topic branch with one commit, checked out, and upstream main one commit ahead.
+
+    Returns (the topic tip, the upstream commit to rebase onto).
+    """
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    base = _git(repo, "rev-parse", "HEAD")
+    if conflict:
+        (repo / "one").write_text("upstream")
+        _git(repo, "commit", "-qam", "upstream edits one")
+    else:
+        _commit(repo, "upstream-file")
+    onto = _git(repo, "rev-parse", "HEAD")
+    # The operation fetches the base itself, from the policy's upstream URL.
+    _git(repo, "push", "-q", str(repo.parent / "remotes" / "acme__project.git"), f"{onto}:refs/heads/main")
+    _git(repo, "checkout", "-q", "-b", "topic", base)
+    if conflict:
+        (repo / "one").write_text("topic")
+        _git(repo, "commit", "-qam", "topic edits one")
+    else:
+        _commit(repo, "topic-file")
+    return _git(repo, "rev-parse", "HEAD"), onto
+
+
+def _rebase(
+    git: Git, policy: GitPolicy, worktree: Path, onto: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.rebase_onto(
+        git, policy, {"worktree": str(worktree), "onto": onto, "expected": expected}, dry_run
+    )
+
+
+def test_rebase_replays_the_topic_onto_the_upstream_commit(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    message = _rebase(git, policy, repo, onto, tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+    assert _git(repo, "log", "-1", "--format=%s") == "topic-file"
+    assert (repo / "topic-file").exists() and (repo / "upstream-file").exists()
+    assert f"{tip} -> {rebased} (1 commits)" in message
+
+
+def test_rebase_works_in_a_linked_worktree(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    path = policy.worktree_roots[0] / "wt"
+    _git(repo, "worktree", "add", "-q", str(path), "topic")
+    _rebase(git, policy, path, onto, tip)
+    assert _git(path, "rev-parse", "HEAD^") == onto
+
+
+def test_rebase_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _rebase(git, policy, repo, onto, tip)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {tip}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == tip
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "rebase-merge").exists()
+
+
+def test_rebase_refuses_a_branch_that_moved(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _commit(repo, "later")
+    with pytest.raises(GitRefused, match="not the expected"):
+        _rebase(git, policy, repo, onto, tip)
+
+
+def test_rebase_refuses_a_base_upstream_does_not_have(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Even one a sandboxed fetch planted under the upstream remote-tracking namespace."""
+    tip, _ = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "local-only", "main")
+    local = _commit(repo, "local")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", local)
+    _git(repo, "update-ref", "refs/remotes/upstream/planted", local)
+    _git(repo, "checkout", "-q", "topic")
+    with pytest.raises(GitRefused, match="is not on acme/project main"):
+        _rebase(git, policy, repo, local, tip)
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+def test_rebase_refuses_main_hidden_behind_a_tag_of_the_same_name(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """`symbolic-ref --short` answers `heads/main` here, which no protected glob matches."""
+    _, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "tag", "main")
+    with pytest.raises(GitRefused, match="'main' is a protected branch"):
+        _rebase(git, policy, repo, onto, onto)
+
+
+def test_commit_refuses_main_hidden_behind_a_tag_of_the_same_name(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    _git(repo, "tag", "main")
+    (repo / "one").write_text("changed")
+    _git(repo, "add", "one")
+    with pytest.raises(GitRefused, match="'main' is a protected branch"):
+        git_ops.commit_staged(
+            git, wpolicy, {"worktree": str(repo), "message_file": _file(workspace, "m", "msg")}, False
+        )
+
+
+def test_rebase_refuses_a_branch_with_merge_commits(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "side", tip)
+    _commit(repo, "side-file")
+    _git(repo, "checkout", "-q", "topic")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+    merged = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(GitRefused, match="merge commits"):
+        _rebase(git, policy, repo, onto, merged)
+    assert _git(repo, "rev-parse", "HEAD") == merged
+
+
+def test_rebase_puts_back_a_branch_moved_as_it_started(policy: LocalPolicy, repo: Path) -> None:
+    """A commit landing between the checks and the rebase is never replayed under the approval."""
+    tip, onto = _diverged(repo)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "rebase" in argv and "--abort" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="moved to"):
+        _rebase(raced, policy, repo, onto, tip)
+    moved = _git(repo, "rev-parse", "HEAD")
+    assert moved != tip
+    assert _git(repo, "rev-parse", "HEAD^") == tip
+
+
+def test_rebase_refuses_a_protected_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _rebase(git, policy, repo, onto, onto)
+
+
+def test_rebase_refuses_local_changes(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    (repo / "topic-file").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _rebase(git, policy, repo, onto, tip)
+
+
+def test_rebase_of_a_branch_already_on_the_base_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _rebase(git, policy, repo, onto, tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert "nothing to rebase" in _rebase(git, policy, repo, onto, rebased)
+    assert _git(repo, "rev-parse", "HEAD") == rebased
+
+
+def test_rebase_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _hook(repo, "pre-rebase", marker, exit_code=1)
+    _hook(repo, "post-rewrite", marker)
+    _rebase(git, policy, repo, onto, tip)
+    assert not marker.exists()
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+
+
+def test_rebase_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    command = _rebase(git, policy, repo, onto, tip, dry_run=True)
+    assert "rebase" in command and "rerere.enabled=false" in command and onto in command
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("onto", "abc123", "full lowercase commit SHA"),
+        ("expected", "--exec=sh", "may not"),
+        ("worktree", "relative/path", "absolute"),
+    ],
+)
+def test_rebase_validates_parameters(
+    git: Git, policy: LocalPolicy, repo: Path, field: str, value: str, message: str
+) -> None:
+    tip, onto = _diverged(repo)
+    params = {"worktree": str(repo), "onto": onto, "expected": tip, field: value}
+    with pytest.raises(GitRefused, match=message):
+        git_ops.rebase_onto(git, policy, params, False)
+
+
+def test_rebase_signs_per_the_users_global_config(policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    """Re-signing the replayed commits is what the sandbox cannot do; the global config decides it."""
+    signer = tmp_path / "fake-gpg"
+    signer.write_text(
+        "#!/bin/sh\ncat >/dev/null\nprintf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 X\\n' >&2\n"
+        "printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nfake\\n-----END PGP SIGNATURE-----\\n'\n"
+    )
+    signer.chmod(0o755)
+    global_config = tmp_path / "global.gitconfig"
+    global_config.write_text(f"[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = {signer}\n")
+    tip, onto = _diverged(repo)
+    signing = Git(runner=_runner(str(global_config)), protocols=("https", "ssh", "file"))
+    _rebase(signing, policy, repo, onto, tip)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+    assert "fake" not in _git(repo, "cat-file", "commit", tip)
+
+
+def test_rebase_refuses_a_branch_named_like_an_option(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`refs/heads/-x` is a valid ref; its name must never reach the rebase command line."""
+    tip, onto = _diverged(repo)
+    _git(repo, "update-ref", "refs/heads/--exec=touch-pwned", tip)
+    _git(repo, "symbolic-ref", "HEAD", "refs/heads/--exec=touch-pwned")
+    with pytest.raises(GitRefused, match="may not be empty, start with"):
+        _rebase(git, policy, repo, onto, tip)

@@ -397,8 +397,14 @@ Operations are closed shapes: `git-push-branch` (a leased push, `--force-with-le
 on the caller's expected SHA or `new`, to the policy's `fork` or to an
 `upstream_push`-matching branch of upstream, protected branches always
 refused, an emptied rebase refused), `git-worktree-sync` (`reset --keep` of a
-clean linked worktree), `git-worktree-add` and `git-worktree-remove` (never
-`--force`).
+clean linked worktree), `git-rebase` (a clean, non-protected topic branch with no
+merge commits onto a full SHA of the upstream `pr_base`, which the operation
+fetches itself from the policy URL and checks against that fetch's own result;
+refused unless the branch is at the caller's expected SHA, and put back if it
+moves while the rebase starts; re-signs per the global config, with `rerere`,
+autostash, `updateRefs`, editors and hooks pinned off; a conflict aborts and
+names the paths), `git-worktree-add` and `git-worktree-remove`
+(never `--force`).
 `[git]` values bound them: the project's (`upstream_push`, `protected`,
 `pr_base`, `host`) from the policy's `[git]` table, and each operator's
 (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, more
