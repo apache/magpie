@@ -1610,7 +1610,13 @@ def test_switch_refuses_a_forged_upstream_history(git: Git, policy: LocalPolicy,
     forged = f"tree {tree}\nparent {topic}\nauthor t <t@example.org> 0 +0000\ncommitter t <t@example.org> 0 +0000\n\nx\n"
     # The upstream commit, as the repository now holds it: a child of the agent's branch.
     _forge_loose_object(repo, base, "commit", forged.encode())
-    assert _git(repo, "merge-base", "topic", base) == topic  # git itself is fooled
+    try:
+        fork = _git(repo, "merge-base", "topic", base)
+    except subprocess.CalledProcessError as refused:
+        # Depending on the release, git re-hashes the commit and refuses it, or trusts it.
+        assert "hash mismatch" in refused.stderr
+    else:
+        assert fork == topic  # git itself is fooled
     with pytest.raises(GitRefused, match="tampered with"):
         _switch(git, policy, repo, "topic")
     assert not (repo / ".claude" / "settings.json").exists()
