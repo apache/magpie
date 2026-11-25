@@ -449,6 +449,19 @@ hooks on the listed paths and records the content they passed in
 record or staged with other content. The record is sandbox-writable, so it
 holds an agent to the checks the way CI does, not against a forgery.
 
+Every install method provides the stable path the dispatchers start from,
+`~/.claude/magpie/vetted-ops`. A marketplace install links it into the
+plugin cache (the plugin's session hook keeps it current). A pinned snapshot
+gets a real copy of `<snapshot-dir>/tools/vetted-ops`, made by `setup` and
+refreshed by `setup update`, both as lines the user runs. A framework
+checkout links it into the main checkout's own `tools/`, so a vetted-ops
+change is what the next call runs; that code is the agent's to edit, so
+agent-guard's `vetted-ops-source` check answers `ask` for every launch through
+such a link, `vetted-op-read` included. The plugin's hook moves only a link
+into its own cache, never a copy or a checkout link, and
+`vetted-op-read source` reports which of the three is in use (`setup verify`
+check 11b).
+
 ## Codex native integration
 
 The Codex marketplace advertises the self-contained vetted-ops substrate plugin.

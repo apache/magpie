@@ -2959,12 +2959,58 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
     return guard_chained_exclusion(segments)
 
 
+def vetted_ops_ask(command: str, home: str | None = None) -> str | None:
+    """A reason to confirm a vetted-ops launch whose code the agent could have edited, or None.
+
+    The dispatchers run outside the sandbox from ``~/.claude/magpie/<tool>``.
+    The plugin cache and a pinned snapshot's copy both sit under ``~/.claude/``,
+    which the sandbox cannot write. A framework checkout links that path into its
+    own ``tools/`` instead, so its code is the agent's to edit: every launch
+    through such a link must be confirmed, even `vetted-op-read`, which the
+    permission rules otherwise allow without asking. `vetted-op-checks` runs
+    inside the sandbox and is never asked about.
+    """
+    root = Path(home or os.path.expanduser("~"))
+    protected = os.path.realpath(root / ".claude")
+    # The absolute spellings of the stable path the guards let through: the
+    # expanded home form, and the roots Codex's own rewrite hook substitutes.
+    absolute_roots = {str(root / ".claude" / "magpie")} | {
+        str(Path(r).parent) for r in (_codex_stable_roots() if home is None else set())
+    }
+    for seg in split_segments(command):
+        launch = _vetted_launch(seg.argv)
+        if launch is None:
+            continue
+        _option, base, entry = launch
+        base = base.rstrip("/")
+        if base.startswith(VETTED_STABLE_BASE):
+            path = root / ".claude" / "magpie" / base[len(VETTED_STABLE_BASE) :]
+        elif base.startswith("/") and any(base == r or base.startswith(f"{r}/") for r in absolute_roots):
+            path = Path(base)
+        else:
+            continue  # any other spelling is guard_vetted_ops_spelling's to refuse
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            continue
+        resolved = os.path.realpath(path)
+        if os.path.commonpath([resolved, protected]) != protected:
+            return (
+                f"agent-guard[vetted-ops-source]: `{entry}` would run outside the sandbox from "
+                f"{resolved}, a framework checkout the agent can edit. Confirm only if that code "
+                "is what you expect to run."
+            )
+    return None
+
+
 def _emit_deny(reason: str) -> None:
+    _emit_decision("deny", reason)
+
+
+def _emit_decision(decision: str, reason: str) -> None:
     json.dump(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
+                "permissionDecision": decision,
                 "permissionDecisionReason": reason,
             }
         },
@@ -2985,6 +3031,17 @@ def _claude_event(event: object, harness: str | None = None) -> int:
     reason = dispatch(command, cwd if isinstance(cwd, str) else None, harness)
     if reason:
         _emit_deny(reason)
+        return ALLOW_EXIT
+    ask = vetted_ops_ask(command)
+    if ask:
+        if harness == "codex":
+            # Codex does not honour `ask` from a hook: refuse, with the override named.
+            _emit_deny(
+                ask.replace("Confirm only if", "Codex cannot ask, so it is refused; run it only if")
+                + " Override: MAGPIE_ALLOW_VETTED_PATH=1."
+            )
+        else:
+            _emit_decision("ask", ask)
     return ALLOW_EXIT
 
 
