@@ -79,6 +79,9 @@ _FIELD_RE = re.compile(r"^(\w+)\s*:\s*(.+)$", re.MULTILINE)
 # Specs may open with leading HTML comments (e.g. the SPDX licence header)
 # before the `---` frontmatter block; strip them so the delimiter can start.
 _LEADING_COMMENTS_RE = re.compile(r"^\s*(?:<!--.*?-->\s*)+", re.DOTALL)
+# A YAML comment starts at a `#` that opens the value or follows a space or tab;
+# a `#` inside a word (`C# tooling`) is part of the value.
+_INLINE_COMMENT_RE = re.compile(r"(?:^|[ \t])#.*$")
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -87,6 +90,8 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     Block scalars (``>``, ``|``) and multi-line values are omitted —
     only single-line key: value pairs are captured, which is all that
     spec frontmatter uses for the index fields (title, status, kind, mode).
+    A trailing ``# comment`` is dropped from unquoted values, as YAML does,
+    so the commented template in the spec-loop README parses cleanly.
     """
     m = _FM_RE.match(_LEADING_COMMENTS_RE.sub("", text, count=1))
     if not m:
@@ -94,7 +99,10 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     block = m.group(1)
     result: dict[str, str] = {}
     for key, val in _FIELD_RE.findall(block):
-        result[key] = val.strip()
+        val = val.strip()
+        if not val.startswith(('"', "'")):
+            val = _INLINE_COMMENT_RE.sub("", val).strip()
+        result[key] = val
     return result
 
 

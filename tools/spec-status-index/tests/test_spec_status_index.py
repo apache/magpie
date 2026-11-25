@@ -84,6 +84,34 @@ class TestParseFrontmatter:
         assert fm["status"] == "experimental"
         assert fm["title"] == "Commented Spec"
 
+    def test_strips_comments_from_readme_template(self) -> None:
+        text = """---
+title: <functional area>
+status: experimental   # stable | experimental | proposed | off
+kind: feature          # feature | fix | docs | chore
+mode: Triage           # Triage | Mentoring | Drafting | Pairing | infra
+source: <MISSION.md clause / code paths this area is grounded in>
+acceptance:
+  - <verifiable criterion>
+---
+"""
+        fm = parse_frontmatter(text)
+        assert fm["status"] == "experimental"
+        assert fm["kind"] == "feature"
+        assert fm["mode"] == "Triage"
+
+    def test_inline_comment_boundaries_and_quoted_guard(self) -> None:
+        text = '---\nmode: Triage\t# modes\ntitle: C# tooling\nsummary: "a # b"\n---\n'
+        fm = parse_frontmatter(text)
+        assert fm["mode"] == "Triage"
+        assert fm["title"] == "C# tooling"
+        assert fm["summary"] == '"a # b"'
+
+    def test_hash_after_non_breaking_space_is_kept(self) -> None:
+        # YAML separates a comment only with a space or tab.
+        fm = parse_frontmatter("---\ntitle: a\u00a0#b\n---\n")
+        assert fm["title"] == "a\u00a0#b"
+
 
 # ---------------------------------------------------------------------------
 # load_specs (uses a temp directory with synthetic spec files)
@@ -123,6 +151,28 @@ class TestLoadSpecs:
         entries = load_specs(tmp_path)
         assert len(entries) == 1
         assert entries[0].title == "Good Spec"
+
+    def test_status_containing_only_comment_is_excluded(self, tmp_path: Path) -> None:
+        (tmp_path / "comment-status.md").write_text("---\ntitle: No Status\nstatus: # todo\n---\n")
+        assert load_specs(tmp_path) == []
+
+    def test_readme_template_status_is_ready(self, tmp_path: Path) -> None:
+        (tmp_path / "new-area.md").write_text(
+            """---
+title: New area
+status: experimental   # stable | experimental | proposed | off
+kind: feature          # feature | fix | docs | chore
+mode: Triage           # Triage | Mentoring | Drafting | Pairing | infra
+source: MISSION.md
+acceptance:
+  - something verifiable
+---
+"""
+        )
+        entries = load_specs(tmp_path)
+        ready = [entry for entry in entries if entry.status in READY_STATUSES]
+        assert len(ready) == 1
+        assert ready[0].status == "experimental"
 
     def test_entries_sorted_by_status_then_title(self, tmp_path: Path) -> None:
         _write_spec(tmp_path, "c.md", "Charlie", "stable")
