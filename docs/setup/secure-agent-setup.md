@@ -453,6 +453,9 @@ a sandbox flag, a prompt-injection mitigation the skills assume):
    floor, so adopters understand why their below-floor runtime is
    being rejected.
 
+CI's `check-claude-floor` hook ([`tools/dev/check-claude-floor.py`](../../tools/dev/check-claude-floor.py)) validates the marketplace and every plugin with the release that `min_version` names.
+It reads `min_version` on every run, so the pull request that raises the floor also checks that the new floor release loads them.
+
 Because the floor is a hard failure, raising it is a breaking change
 for adopters still on an older runtime — they must upgrade to
 `@latest` (which they should be doing anyway) before the setup will

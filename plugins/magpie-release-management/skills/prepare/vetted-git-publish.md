@@ -34,7 +34,8 @@ first; the operation reads exactly that file.
 | Branch in a new worktree | `git-worktree-add <checkout> <path> <branch> <start-sha>`: `<path>` sits directly inside a `[git] worktree_roots` directory, `<start-sha>` is the full SHA of `<upstream_remote>/<base>` (`git rev-parse` in the sandbox) |
 | Move an existing worktree | `git-worktree-sync <worktree> <commit-sha>` (clean worktree only) |
 | Stage | `git-stage <worktree> <workspace>/<paths-file>`: the intended relative paths, one per line, never everything |
-| Commit | `git-commit <worktree> <workspace>/<message-file>`, after `prek run --files <paths>` passes in the sandbox; the operation takes no `--trailer`, so the attribution trailer is the message file's last paragraph |
+| Check | `uvx --from ~/.claude/magpie/vetted-ops vetted-op-checks <worktree> <workspace>/<paths-file>`, inside the sandbox (it is never excluded from it): runs the hooks on those paths and records the content they passed; fix what it reports and run it again |
+| Commit | `git-commit <worktree> <workspace>/<message-file>`: refused unless the check passed every staged path with the content it is staged with; the operation takes no `--trailer`, so the attribution trailer is the message file's last paragraph |
 | Push | `git-push-branch <worktree> <branch> fork <branch> <expected>`, after `prek run --hook-stage pre-push --from-ref <upstream_remote>/<base> --to-ref <branch>` passes in the sandbox; `<expected>` is `new` for a first push, else the remote branch's current full SHA, so a branch someone else moved is never overwritten |
 | Open the pull request | `git-pr-create <worktree> <branch> "<title>" <workspace>/<body-file>`: from the policy's fork against its `pr_base`, as a ready (not draft) pull request; show the user the exact title and body first |
 | Clean up after merge | `git-worktree-remove <worktree>` (no local changes only) |

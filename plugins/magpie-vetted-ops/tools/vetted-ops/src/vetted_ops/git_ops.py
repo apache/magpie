@@ -94,6 +94,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import fnmatch
+import json
 import os
 import re
 import stat
@@ -1038,6 +1039,49 @@ def stage_paths(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"staged {len(paths)} path(s) in {worktree.path}"
 
 
+def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
+    """Refuse a staged change whose content the sandboxed checks did not pass.
+
+    `vetted-op-checks` records, per path, the content it checked; every staged
+    path must be in that record with the same content. The record sits in the
+    workspace, which sandboxed commands can write, so this keeps an agent
+    honest the way CI does; it is not a proof against one forging it.
+    """
+    from .checks import DELETED, stamp_path
+    from .checks import PROG as CHECKS
+
+    assert policy.workspace is not None  # the message file was read from it
+    hint = f"run `{CHECKS} {worktree.path} <workspace>/<paths_file>` in the sandbox, then stage again"
+    path = stamp_path(policy.workspace, worktree.path)
+    try:
+        data = read_regular_file(path)
+    except (OSError, TamperedPath) as exc:
+        raise GitRefused(f"the checks record {str(path)!r} cannot be read ({exc}): {hint}") from None
+    if data is None:
+        raise GitRefused(f"no checks were recorded for {str(worktree.path)!r}: {hint}")
+    try:
+        record = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise GitRefused(f"the checks record {str(path)!r} is not valid JSON: {hint}") from None
+    files = record.get("files") if isinstance(record, dict) else None
+    if not isinstance(files, dict):
+        raise GitRefused(f"the checks record {str(path)!r} lists no files: {hint}")
+    staged = [
+        p
+        for p in git.run(worktree.path, "diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
+        if p
+    ]
+    unchecked = []
+    for staged_path in staged:
+        entry = git.run(worktree.path, "--literal-pathspecs", "ls-files", "--stage", "-z", "--", staged_path)
+        blob = entry.split()[1] if entry.strip("\0").strip() else DELETED
+        if files.get(staged_path) != blob:
+            unchecked.append(staged_path)
+    if unchecked:
+        shown = ", ".join(unchecked[:10]) + (" …" if len(unchecked) > 10 else "")
+        raise GitRefused(f"the checks did not pass these staged paths as they are now: {shown}; {hint}")
+
+
 def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Commit what is staged, with a message from a workspace file, signed per the user's own config."""
     worktree = resolve_worktree(git, p["worktree"], policy)
@@ -1054,10 +1098,12 @@ def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
         raise GitRefused(f"{branch!r} is a protected branch; commit on a topic branch")
     if git.ok(worktree.path, "diff", "--cached", "--quiet"):
         raise GitRefused("nothing is staged; stage the change first (git-stage)")
+    _require_checked(git, policy, worktree)
     # No hook runs (`core.hooksPath=/dev/null`, `--no-verify`): the pre-commit
-    # checks are working-tree code, so they run in the sandbox before this call
-    # (for prek: `prek run --files <paths>`). Signing follows the user's global
-    # git configuration, which is theirs; the repository's cannot change it.
+    # checks are working-tree code, so `vetted-op-checks` runs them in the
+    # sandbox before this call, and `_require_checked` refuses a staged change
+    # they did not pass. Signing follows the user's global git configuration,
+    # which is theirs; the repository's cannot change it.
     args = ["commit", "--no-verify", "--cleanup=strip", "-m", message]
     if dry_run:
         return " ".join(git.argv(worktree.path, *args[:-1], "<message from message_file>"))
@@ -1188,8 +1234,8 @@ OPS: dict[str, GitOp] = {
             "git-commit",
             ("worktree", "message_file"),
             "commit what is staged on the current (non-protected) branch, message from <message_file> "
-            "(a workspace file), signed per the user's global git config. No hook runs: run the "
-            "pre-commit checks in the sandbox first",
+            "(a workspace file), signed per the user's global git config. No hook runs out here: "
+            "refused unless `vetted-op-checks` passed every staged path, as it is now, in the sandbox",
             commit_staged,
         ),
         GitOp(

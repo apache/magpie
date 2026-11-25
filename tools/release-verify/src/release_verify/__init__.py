@@ -129,19 +129,33 @@ def _rel(path: Path, top: Path) -> str:
     return path.relative_to(top).as_posix()
 
 
-def _translate_glob(pattern: str) -> str:
-    """`**/` and `**` collapse to `*`; `fnmatch` and `find -path` let `*` cross `/`."""
+def _translate_glob(pattern: str) -> list[str]:
+    """Translate a `**` glob into the `fnmatch` / `find -path` patterns it stands for.
+
+    `**/` is zero or more directories, so each one becomes two alternatives:
+    nothing, or `*/` (`fnmatch` and `find -path` let `*` cross `/`). The `/`
+    in front of the next segment stays, so `**/gradle-wrapper.jar` does not
+    match `fake-gradle-wrapper.jar`. Any other `**` collapses to `*`.
+    """
     pattern = pattern.strip().lstrip("/")
     if pattern.startswith("./"):
         pattern = pattern[2:]
-    return pattern.replace("**/", "").replace("**", "*")
+    return list(dict.fromkeys(_expand_doublestar(pattern)))
+
+
+def _expand_doublestar(pattern: str) -> list[str]:
+    head, sep, tail = pattern.partition("**/")
+    head = head.replace("**", "*")
+    if not sep:
+        return [head]
+    return [head + mid + rest for mid in ("", "*/") for rest in _expand_doublestar(tail)]
 
 
 def _glob_hits(rel: str, pattern: str) -> bool:
     """`find -name` semantics for a bare glob, `find -path` for one with a `/`."""
     if "/" not in pattern.strip().lstrip("/"):
         return fnmatch.fnmatchcase(rel.rsplit("/", 1)[-1], pattern.strip())
-    return fnmatch.fnmatchcase(rel, _translate_glob(pattern))
+    return any(fnmatch.fnmatchcase(rel, p) for p in _translate_glob(pattern))
 
 
 def _shq(value: str) -> str:
@@ -622,7 +636,10 @@ def binary_find_recipe(dirname: str, extra: Sequence[str]) -> str:
         g = glob.strip()
         if g in BASELINE_FILE_GLOBS or not g:
             continue
-        preds.append(f"-path {_shq(dirname + '/' + _translate_glob(g))}" if "/" in g.lstrip("/") else f"-name {_shq(g)}")
+        if "/" in g.lstrip("/"):
+            preds += [f"-path {_shq(dirname + '/' + p)}" for p in _translate_glob(g)]
+        else:
+            preds.append(f"-name {_shq(g)}")
     return f"find {_shq(dirname)} \\( -type f \\( " + " -o ".join(preds) + " \\) -o -type d -name '__pycache__' \\) -print"
 
 

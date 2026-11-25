@@ -12,7 +12,8 @@ source: >
   tools/sandbox-lint/, tools/dashboard-generator/, tools/probe-templates/,
   tools/pilot-report-validator/, tools/vendor-neutrality-score/,
   tools/preflight-audit/, tools/spec-inventory/,
-  tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py,
+  tools/dev/check-claude-mods.sh, tools/dev/check-claude-floor.py,
+  tools/dev/bump-hook-npm-pins.py,
   tools/dev/refresh-reconciled-stamp.py,
   tools/dev/ci-pytest-batches.py, and
   the write-skill / list-skills utility skills.
@@ -288,6 +289,16 @@ trustworthy as it grows.
   Its `check-claude-mods-local` twin runs on ordinary commits with the
   contributor's own Claude Code and skips when it is absent or older than
   the pin; CI skips the twin.
+  `check-claude-floor` (#2248), also a `manual`-stage hook with its own
+  CI step, runs `claude plugin validate` without `--strict` on the
+  marketplace and every plugin it lists, using the release that
+  `min_version` in `tools/agent-isolation/pinned-versions.toml` names.
+  It reads the floor on every run and installs that release with npm
+  into a throwaway directory, so it follows the floor where a pin
+  would not. The mods' tests stay on the pin, since the floor has no
+  `claude plugin test`. Its CI step keeps the PR scoping: a published
+  release never changes, so only a file in its filter can change its
+  result.
   `bump-hook-npm-pins.yml` (`tools/dev/bump-hook-npm-pins.py`) moves the
   npm pins in hooks' `additional_dependencies`, which Dependabot never
   touches, in one draft PR, with a 7-day cooldown and 12 hours for
@@ -454,6 +465,11 @@ trustworthy as it grows.
     lands one concern per PR, and closes no issue on a commit message
     alone or without the maintainer's confirmation; its classification of
     open issues is covered by `tools/skill-evals/evals/pre-release-sweep/`.
+17. `check-claude-floor` fails when `claude plugin validate`, from the
+    release that `min_version` names and without `--strict`, rejects the
+    marketplace or any plugin it lists. CI runs it on every push to `main`
+    and on each pull request that changes a plugin, the marketplace or the
+    floor (#2248).
 
 ## Validation
 
@@ -462,7 +478,7 @@ uv run --project tools/skill-and-tool-validator --group dev pytest
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals --group dev pytest tools/skill-evals/tests
 uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/tests
-uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tools/dev/tests/test_ci_tests_gate.py
+uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tools/dev/tests/test_ci_tests_gate.py tools/dev/tests/test_check_claude_floor.py
 ```
 
 ## Known gaps

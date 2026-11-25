@@ -764,6 +764,77 @@ def test_slop_comment_builds_quoted_commands(
     assert "Apache Product" in Path(out["body_file"]).read_text()
 
 
+def _slop_body(capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path, *extra: str) -> str:
+    issues = tmp_path / "issues.txt"
+    issues.write_text("The PR adds an unrelated vendored directory.\n")
+    out = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "slop-comment",
+        "--pr",
+        "9",
+        "--issues",
+        str(issues),
+        "--out-dir",
+        str(tmp_path / "o"),
+        *extra,
+    )
+    return Path(out["body_file"]).read_text()
+
+
+MAINTAINER_FOOTER = "confirmed by an Apache Product maintainer"
+NEUTRAL_FOOTER = "does not have confirmed Apache Product maintainer"
+
+
+def test_slop_comment_takes_the_role_from_the_saved_permission(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
+) -> None:
+    saved = tmp_path / "saved-perm"
+    saved.mkdir()
+    (saved / "permission.txt").write_text("write\n")
+    body = _slop_body(capsys, project, tmp_path, "--saved-dir", str(saved))
+    assert MAINTAINER_FOOTER in " ".join(body.replace(">", " ").split())
+
+
+def test_slop_comment_falls_back_to_the_saved_pr_read(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
+) -> None:
+    saved = tmp_path / "saved-pr"
+    saved.mkdir()
+    full = node(9, files=["scheduler/job.py"])
+    (saved / "cr-pr-9.json").write_text(
+        json.dumps({"data": {"repository": {"viewerPermission": "ADMIN", "pullRequest": full}}})
+    )
+    body = _slop_body(capsys, project, tmp_path, "--saved-dir", str(saved))
+    assert MAINTAINER_FOOTER in " ".join(body.replace(">", " ").split())
+
+
+def test_slop_comment_without_a_role_stays_role_neutral(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
+) -> None:
+    body = _slop_body(capsys, project, tmp_path)
+    assert NEUTRAL_FOOTER in " ".join(body.replace(">", " ").split())
+
+
+def test_permission_flag_accepts_a_role_in_any_case(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path
+) -> None:
+    body = _slop_body(capsys, project, tmp_path, "--permission", "Maintain")
+    assert MAINTAINER_FOOTER in " ".join(body.replace(">", " ").split())
+
+
+@pytest.mark.parametrize("value", ["saved/permission.txt", "maintainer", ""])
+def test_permission_flag_refuses_anything_but_a_role(
+    capsys: pytest.CaptureFixture[str], project: Path, tmp_path: Path, value: str
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        _slop_body(capsys, project, tmp_path, "--permission", value)
+    assert exc.value.code == 2
+    assert "is not one of admin, maintain, write, triage, read" in capsys.readouterr().err
+
+
 def _with_threads(saved: Path, *threads: dict[str, Any]) -> None:
     full = node(7, files=["scheduler/job.py"], threads=list(threads))
     (saved / "cr-pr-7.json").write_text(

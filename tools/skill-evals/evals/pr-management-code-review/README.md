@@ -44,3 +44,14 @@ uv run --project tools/skill-evals skill-eval \
 uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/pr-management-code-review/review-risk-classify/fixtures/
 ```
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-24 | `2e211c92` (fix/code-review-finding-explanation) | `opus[1m]` | 1 | pass |  |
