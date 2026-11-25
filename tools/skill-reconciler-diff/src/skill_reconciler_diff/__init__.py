@@ -86,16 +86,16 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     picking up phantom headings/steps in the code-block-heavy SKILL.md files.
     """
     spans: list[tuple[int, int]] = []
-    fence: str | None = None
+    fence: str | None = None  # opening run, e.g. "````"; a closer needs the same char and at least its length
     start = 0
     pos = 0
     for line in text.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if fence is None:
             if m:
-                fence = m.group(1)[0]
+                fence = m.group(1)
                 start = pos
-        elif m and m.group(1)[0] == fence:
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
             spans.append((start, pos + len(line)))
             fence = None
         pos += len(line)
@@ -133,22 +133,32 @@ def _parse_headings(text: str) -> list[tuple[int, str]]:
 # Step inventory extraction
 # ---------------------------------------------------------------------------
 
+# Start of any ATX heading (bare ``#`` included), for where a step section ends.
+_SECTION_START_RE = re.compile(r"^(#{1,6})(?:[ \t]|$)", re.MULTILINE)
+
 _STEP_HEADING_RE = re.compile(r"^#{1,3}\s+Step\s+(\S+)[^\n]*$", re.MULTILINE | re.IGNORECASE)
 
 
 def _parse_steps(text: str) -> dict[str, str]:
     """Extract ``## Step N`` sections as {step_label: body_text}.
 
+    A step body runs to the next heading of the same or a higher level.
     Step headings inside fenced code blocks are ignored; bodies are still
     sliced from the original text, so a step body keeps any code it contains.
     """
     spans = _fenced_spans(text)
     steps: dict[str, str] = {}
     matches = [m for m in _STEP_HEADING_RE.finditer(text) if not _in_spans(m.start(), spans)]
+    headings = [m for m in _SECTION_START_RE.finditer(text) if not _in_spans(m.start(), spans)]
     for i, m in enumerate(matches):
         label = m.group(1).rstrip("—: ")
         start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        level = len(m.group(0)) - len(m.group(0).lstrip("#"))
+        end = next(
+            (h.start() for h in headings if h.start() > m.start() and len(h.group(1)) <= level), len(text)
+        )
+        if i + 1 < len(matches):
+            end = min(end, matches[i + 1].start())
         steps[label] = text[start:end].strip()
     return steps
 
