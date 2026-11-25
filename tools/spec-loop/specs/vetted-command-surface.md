@@ -417,7 +417,12 @@ moves while the rebase starts; re-signs per the global config, and when that
 signs commits, refuses any replayed commit without the user's good signature,
 so a commit the agent made unsigned in the sandbox is never signed; with `rerere`,
 autostash, `updateRefs`, editors and hooks pinned off; a conflict aborts and
-names the paths), `git-worktree-add` and `git-worktree-remove`
+names the paths), `git-cherry-pick` (one plain commit onto a clean
+non-protected topic branch at the caller's expected SHA, to finish a
+conflicting rebase commit by commit; when the user signs, the commit must
+already carry their signature; a conflict aborts and names the paths, and a
+pick onto a moved branch is taken back off), `git-worktree-add` and
+`git-worktree-remove`
 (never `--force`).
 `[git]` values bound them: the project's (`upstream_push`, `protected`,
 `pr_base`, `host`) from the policy's `[git]` table, and each operator's

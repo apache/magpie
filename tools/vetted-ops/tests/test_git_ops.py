@@ -2111,3 +2111,120 @@ def test_rebase_refuses_a_branch_named_like_an_option(git: Git, policy: LocalPol
     _git(repo, "symbolic-ref", "HEAD", "refs/heads/--exec=touch-pwned")
     with pytest.raises(GitRefused, match="may not be empty, start with"):
         _rebase(git, policy, repo, onto, tip)
+
+
+# --- git-cherry-pick -------------------------------------------------------
+
+
+def _pick(
+    git: Git, policy: GitPolicy, worktree: Path, commit: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.cherry_pick(
+        git, policy, {"worktree": str(worktree), "commit": commit, "expected": expected}, dry_run
+    )
+
+
+def _redo_branch(repo: Path, onto: str) -> str:
+    """A fresh topic branch on the upstream commit, to replay a conflicting rebase onto."""
+    _git(repo, "checkout", "-q", "-b", "redo", onto)
+    return onto
+
+
+def test_cherry_pick_replays_one_commit_onto_the_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    message = _pick(git, policy, repo, tip, onto)
+    picked = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+    assert _git(repo, "log", "-1", "--format=%s") == "topic-file"
+    assert f"{onto} -> {picked}" in message
+
+
+def test_cherry_pick_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    _redo_branch(repo, onto)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _pick(git, policy, repo, tip, onto)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {onto}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == onto
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "CHERRY_PICK_HEAD").exists()
+
+
+def test_cherry_pick_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "side", tip)
+    _commit(repo, "side-file")
+    _git(repo, "checkout", "-q", "topic")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+    merge = _git(repo, "rev-parse", "HEAD")
+    _redo_branch(repo, onto)
+    with pytest.raises(GitRefused, match="a merge commit"):
+        _pick(git, policy, repo, merge, onto)
+    with pytest.raises(GitRefused, match="not the expected"):
+        _pick(git, policy, repo, tip, tip)
+    (repo / "one").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _pick(git, policy, repo, tip, onto)
+    _git(repo, "checkout", "-q", "--", "one")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _pick(git, policy, repo, tip, _git(repo, "rev-parse", "HEAD"))
+    assert _git(repo, "rev-parse", "redo") == onto
+
+
+def test_cherry_pick_of_a_commit_already_on_the_branch_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, _ = _diverged(repo)
+    assert "nothing to replay" in _pick(git, policy, repo, tip, tip)
+
+
+def test_cherry_pick_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    _hook(repo, "pre-commit", marker, exit_code=1)
+    _hook(repo, "post-commit", marker)
+    _pick(git, policy, repo, tip, onto)
+    assert not marker.exists()
+
+
+def test_cherry_pick_replays_only_the_users_signed_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    unsigned, onto = _diverged(repo)
+    signed = _sign_tip(repo, signer)
+    _redo_branch(repo, onto)
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _pick(signing, policy, repo, unsigned, onto)
+    _pick(signing, policy, repo, signed, onto)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_cherry_pick_takes_back_a_pick_onto_a_branch_moved_as_it_started(
+    policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "cherry-pick" in argv and "--abort" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="taken back off"):
+        _pick(raced, policy, repo, tip, onto)
+    assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"
+
+
+def test_cherry_pick_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    command = _pick(git, policy, repo, tip, onto, dry_run=True)
+    assert "cherry-pick" in command and "rerere.enabled=false" in command and tip in command
+    assert _git(repo, "rev-parse", "HEAD") == onto

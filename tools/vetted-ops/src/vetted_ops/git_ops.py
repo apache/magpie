@@ -1196,6 +1196,15 @@ REBASE_CONFIG = (
 )
 
 
+#: Pinned on a cherry-pick, for the same reasons as `REBASE_CONFIG`.
+CHERRY_PICK_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "core.editor=false",
+    "sequence.editor=false",
+)
+
+
 def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
     """Refuse to re-sign a commit that does not already carry the user's good signature.
 
@@ -1344,6 +1353,84 @@ def rebase_onto(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
         )
     count = git.run(worktree.path, "rev-list", "--count", f"{onto}..{rebased}").strip()
     return f"rebased {branch} in {worktree.path} onto {onto}: {previous} -> {rebased} ({count} commits)"
+
+
+def cherry_pick(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Replay one commit onto a clean topic branch; on a conflict, abort and report it.
+
+    The way to finish a rebase that conflicted: start a branch on the upstream
+    base, then replay the commits one at a time, resolving the one that
+    conflicts in the sandbox and committing it through `git-commit`. The new
+    commit is signed per the user's configuration, so when the user signs,
+    the commit replayed must already carry their good signature: one of their
+    own, never one the agent made unsigned in the sandbox. A merge commit is
+    refused, since a pick of it needs a decision about its parents.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    commit = sha(p["commit"], "commit")
+    expected = sha(p["expected"], "expected")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; commits are replayed onto a topic branch only")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the cherry-pick was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    resolve_commit(git, worktree.path, commit, "commit")
+    parents = git.run(worktree.path, "rev-list", "--parents", "-n", "1", commit).split()[1:]
+    if len(parents) != 1:
+        raise GitRefused(
+            f"{commit} is {'a merge' if parents else 'a root'} commit; only a plain commit is replayed"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", commit, previous):
+        return f"{branch} in {worktree.path} already contains {commit}; nothing to replay"
+    pins = [arg for pin in CHERRY_PICK_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "cherry-pick",
+        "--no-edit",
+        "--no-rerere-autoupdate",
+        "--allow-empty",
+        "--end-of-options",
+        commit,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    require_signed(git, worktree, f"{commit}^!", "cherry-pick")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "cherry-pick", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the cherry-pick was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git cherry-pick --abort` failed too; {str(worktree.path)!r} is mid-cherry-pick"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Make the change in the sandbox "
+            "and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    picked = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    landed = git.run(worktree.path, "rev-list", "--parents", "-n", "1", picked).split()[1:]
+    now = git.run(worktree.path, "symbolic-ref", "--quiet", "HEAD").strip()
+    if landed != [expected] or now != f"refs/heads/{branch}":
+        git.run(worktree.path, "reset", "--keep", landed[0])
+        raise GitRefused(
+            f"the cherry-pick landed on {now or 'a detached HEAD'} at {landed[0]}, not on {branch!r} at the "
+            f"approved {expected}; it was taken back off. Look at the branch again"
+        )
+    return f"replayed {commit} onto {branch} in {worktree.path}: {previous} -> {picked}"
 
 
 #: Tracked paths that steer an agent harness or this dispatcher: settings,
@@ -2033,6 +2120,14 @@ OPS: dict[str, GitOp] = {
             "branch git-fetch brought in; <expected> is the branch's current full SHA. Re-signs per "
             "the user's global git config; on a conflict, aborts and names the conflicting paths",
             rebase_onto,
+        ),
+        GitOp(
+            "git-cherry-pick",
+            ("worktree", "commit", "expected"),
+            "replay one plain <commit> onto the clean topic branch checked out in <worktree>; <expected> is "
+            "the branch's current full SHA. Signs per the user's global git config, and when that signs, "
+            "<commit> must already carry the user's signature; on a conflict, aborts and names the paths",
+            cherry_pick,
         ),
         GitOp(
             "git-switch",
