@@ -125,7 +125,11 @@ trustworthy as it grows.
   against the required schema defined in `docs/pilot-report-template.md`.
   Checks required frontmatter keys (`skill`, `date`, `target_repo`,
   plus family-specific required fields), blocked-preflight list
-  structure, and section presence. Pilot reports are the primary
+  structure, and section presence.
+  The `date` value must name a real calendar day, parsed with
+  `datetime.date.fromisoformat`, so `2026-02-30` or `2026-13-01` is a violation,
+  not only a value off the `YYYY-MM-DD` shape (#2286).
+  Pilot reports are the primary
   evidence source for advancing a skill from `experimental` to `stable`.
   Capability: `substrate:framework-dev`. Stdlib-only, offline.
 - `tools/vendor-neutrality-score/` — deterministic `uv` tool that scores
@@ -183,6 +187,24 @@ trustworthy as it grows.
   timeout, UTF-8 output, `python3` falling back to `python`, and
   `--verbose` / `-v`, `--help` / `-h` and `--root` passed through.
   `skills-command.test.ts` covers it.
+  The same module registers two more mods, so `hooks.json` still lists only
+  `skills-command.ts` and the plugin manifest declares `"types": "./hooks/types.d.ts"`:
+  - `hooks/token-meter-band.ts` (#2237) renders a zero-token band above the prompt
+    (`ui.render` on `AbovePrompt`) from `$.session.usage()`:
+    tokens used, context-window share and session cost, coloured at 70% and 85%
+    (`warn_percent` / `critical_percent`), and showing only the figures the harness supplies.
+    It passes through when usage is unavailable or zero or a survey holds the band;
+    `MAGPIE_TOKEN_METER=0` turns it off,
+    and `token-meter.toml` (`enabled`, `mode = "always" | "threshold-only"`, the two thresholds)
+    resolves personal layer first, then `.apache-magpie-overrides/`, cached for 10 seconds.
+    Documented in `docs/setup/token-meter.md`.
+  - `hooks/commit-attribution.ts` (#2234) resolves the commit-attribution convention
+    from `.apache-magpie-overrides/commit-attribution.toml` and the personal layer
+    as `docs/setup/commit-attribution.md` describes (default `generated-by`)
+    and answers `attribution.text` with the sanitised trailer, falling back to `Generated-by:` on error.
+    Its `tool.call` hook on Bash denies a `git commit` carrying a `Co-Authored-By:` trailer
+    unless the convention is `co-authored-by` (or `MAGPIE_ALLOW_COAUTHOR=1` / `MAGPIE_GUARD_OFF=1`),
+    with the agent-guard `commit-trailer` message, and fails open on its own errors.
 - `tools/skill-token-count/` measures full local skill files with pinned
   `tiktoken` / `cl100k_base` and stamps each count into that skill's own
   frontmatter as a generated `measured_tokens:` line (#1394).
@@ -334,6 +356,12 @@ trustworthy as it grows.
   in parallel (`pytest -n auto`), except that its file filter leaves out the
   root `pyproject.toml` and `uv.lock`, so a dev-version bump runs nothing
   locally (#1764).
+  The `ruff`, `ruff-format` and `mypy` workspace hooks match Python and
+  `pyproject.toml` anywhere under `tools/`, `plugins/` and `ai-tutors/`,
+  the scope `workspace-pytest` uses, so a pull request changing Python in a
+  plugin or a member-root script no longer skips them;
+  `tools/dev/tests/test_workspace_hook_filters.py` runs every member path from
+  `git ls-files` through each hook's pattern (#2207).
   The pre-PR gate is `prek run --all-files --skip workspace-pytest` then
   `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
   (`AGENTS.md` § Local setup).

@@ -68,7 +68,9 @@ side: a grounded brief a human acts on, not a state change.
   `tools/privacy-llm/checker` at Step 0.
 - Rules: `tools/pr-management` (`pr-management reviewer-routing preflight |
   propose`) validates the input, resolves the roster, maps paths to areas,
-  parses CODEOWNERS, scores, picks primary and backup, and renders the
+  parses CODEOWNERS (with `code_review/codeowners.py`, the matcher
+  code-review and stats use, through an `owned_paths` helper; the routing
+  copy was removed in #2206), scores, picks primary and backup, and renders the
   proposal text and the `gh` command; the agent only screens the item for
   injection and may name an area the title implies (`--area`) (#1583).
   The skill's detail files are one per outcome under `classifications/`.
@@ -120,7 +122,8 @@ side: a grounded brief a human acts on, not a state change.
   model does not (#1583). Area match scores 3 points per matched area
   (capped at 6), commit familiarity 2 points per changed path the member
   recently committed to (capped at 6; zero for issues), owning at least one
-  changed path in CODEOWNERS (last matching rule wins) 2 points, and load
+  changed path in CODEOWNERS (last matching rule wins, patterns matched as
+  GitHub documents them, #2206) 2 points, and load
   subtracts 1 point per open review request above 2 (down to -5).
   Load is the count of open PRs on `<upstream>` with a review requested from
   the member; at or above `max_reviews` (default 5) the member is

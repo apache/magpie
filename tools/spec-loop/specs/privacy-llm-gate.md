@@ -110,6 +110,15 @@ artefact for leakage before emission.
   `claude`) receive only the diff and the public PR text, so `models.md`
   excludes them from the active stack
   ([adversarial review](adversarial-review.md)).
+- **A third-party agent harness is opt-in like any other endpoint.**
+  Grok as the harness running skills sends `<private-list>` content to an
+  xAI endpoint (`api.x.ai`, `us.api.x.ai` or the `cli-chat-proxy.grok.com`
+  session proxy), none of them default-approved (#2140).
+  Because the gate reads the declared configuration rather than detecting the
+  running harness, the adopter declares it in both the configured stack and
+  the opt-in approvals of `<project-config>/privacy-llm.md`, with a
+  data-residency link and PMC sign-off; `docs/setup/privacy-llm.md` carries
+  the recipe (Variant 7).
 - **Redact before read; reveal locally.** Skills operate on hashed
   identifiers; the reverse map never goes to an LLM and is never committed.
 - **Reporter credit is preserved** (CVE `credits[]`) only after the
