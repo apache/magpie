@@ -1,7 +1,7 @@
 {
   "title": "Webserver: session cookie missing Secure flag",
-  "affected_versions": "2.9.0, 2.9.3",
+  "affected_versions": "<= 2.9.3",
   "reporter_credited_as": "Maria Kovacs",
   "severity": "Unknown",
-  "rationale": "Title: stripped the '[SECURITY]' prefix from the subject and kept the descriptive remainder. Affected versions: reporter explicitly named 2.9.0 and 2.9.3; they disclaimed knowledge of 2.10.x, so that range is not included. Reporter credited as: display name from the From: header ('Maria Kovacs'). Severity: set to Unknown regardless of the reporter's CVSS estimate — the team scores independently."
+  "rationale": "Title: stripped the '[SECURITY]' prefix from the subject and kept the descriptive remainder. Affected versions: reporter explicitly named 2.9.0 and 2.9.3 as tested and disclaimed knowledge of 2.10.x, so the highest tested version becomes the inclusive upper bound '<= 2.9.3', the shape generate-cve-json accepts; the two named versions stay in the verbatim description. Reporter credited as: display name from the From: header ('Maria Kovacs'). Severity: set to Unknown regardless of the reporter's CVSS estimate — the team scores independently."
 }

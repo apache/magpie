@@ -122,8 +122,11 @@ Key rules under test:
 
 - **Title**: strip `Re:`, `Fwd:`, `[SECURITY]`, and CVSS annotations from the
   subject line; keep the descriptive component:description part.
-- **Affected versions**: extract explicit version strings; use `_No response_`
-  if none given — do not infer from vague phrases like "latest Docker Hub image".
+- **Affected versions**: extract explicit version strings in a shape
+  `generate-cve-json` parses (a range such as `<= 2.9.3`, or a single bare
+  version); when several versions are named, record the supported range rather
+  than a comma-separated list of bare numbers; use `_No response_` if none given,
+  and do not infer from vague phrases like "latest Docker Hub image".
 - **Reporter credited as**: use the `From:` display name for plain Reports; for
   ASF-security-relay emails, use the `Credit:` line from the forwarded body
   instead — never credit `security@apache.org`.
@@ -132,7 +135,7 @@ Key rules under test:
 
 | Case | Scenario | What it tests |
 |------|----------|---------------|
-| `case-1-basic-extraction` | `[SECURITY]` prefix in subject, two versions named, reporter CVSS in body. | Basic prefix stripping; severity stays Unknown despite in-body CVSS. |
+| `case-1-basic-extraction` | `[SECURITY]` prefix in subject, two tested versions named, a later line ruled out, reporter CVSS in body. | Basic prefix stripping; the two named versions become the inclusive upper bound `<= 2.9.3`; severity stays Unknown despite in-body CVSS. |
 | `case-2-asf-relay-credit` | ASF relay with a `Credit:` line naming the real researcher. | Credit: line overrides From: header for reporter attribution. |
 | `case-3-no-version` | Reporter says they didn't note the version; "latest Docker Hub image" in the body. | Vague phrasing must not be converted to a version; use `_No response_`. Multiple subject prefixes (Re: Fwd: [SECURITY]) all stripped. |
 | `case-4-severity-not-copied` | CVSS 9.8 CRITICAL in both subject and body. | Severity must remain Unknown even when the reporter supplies a high-confidence score. |
