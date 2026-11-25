@@ -303,14 +303,22 @@ committed version with drift detection.
   `dangerouslyDisableSandbox: true` is needed), and applies only the approved
   items, one Bash call each.
   Trigger: the session-start hook prints `Apache Magpie updated (<old> -> <new>)`
-  on any change of the installed version string, once per version through its
-  `magpie-plugin-version` marker.
+  when the installed version moves forward, once per version through its
+  `magpie-plugin-version` marker. The marker is one per user and shared by
+  every session, so it only moves forward (PEP 440 order, a dev build before
+  its release): an older version starting after a newer one neither
+  announces nor rewinds it; a version that does not parse falls back to
+  any change.
   Every skill's pre-flight also raises `upgrade-pending` (rules section
   `step-15`) while the running Magpie version differs from the project's
   baseline: the personal stamp's `upgraded.version`, else its `version`, else
   the committed lock's `reconciled.version`. The running version comes from the
-  harness plugin listing, else the hook's `magpie-plugin-version` marker
-  (Claude Code plugin data directory, or `$XDG_STATE_HOME/magpie`). It is
+  plugin the calling skill was loaded from (`MAGPIE_SKILL_DIR`, set by the
+  pre-flight block, read from the manifest above it, and trusted only under a
+  known framework install; a variable so an older checker ignores it), else
+  the harness plugin listing, else the hook's `magpie-plugin-version` marker
+  (Claude Code plugin data directory, or `$XDG_STATE_HOME/magpie`), which is
+  shared by every session of the user. It is
   skipped on snapshot methods (the `step-2` drift finding covers them) and on
   `method: local`, and when either version is unknown. The skill asks
   "upgrade now?" on every run, with no suppression on a decline, until
@@ -414,8 +422,8 @@ committed version with drift detection.
 - **The session-start command hook runs only code the sandbox cannot
   rewrite** (#1791, #1794).
   `check-upgrade.sh` prints `Apache Magpie updated (<old> -> <new>)` (or a
-  first-activation line) naming `/magpie-setup:upgrade` on any change
-  of the installed version string, once per version.
+  first-activation line) naming `/magpie-setup:upgrade` when the
+  installed version moves forward, once per version.
   It runs outside the sandbox, so nothing the session environment sets may
   choose what runs: `hooks.json` wires it as `/bin/bash -p <path>` (the
   shebang says the same), it sets a fixed system `PATH`, and it runs

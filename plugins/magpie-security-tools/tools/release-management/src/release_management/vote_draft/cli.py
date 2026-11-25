@@ -77,6 +77,10 @@ def add_parsers(sub: Any) -> None:
     render_p.add_argument("--skip-verify-check", help="Step 2: the --skip-verify-check reason")
     render_p.add_argument("--atr-candidate-url", help="Step 2 (atr): the candidate's ATR page")
     render_p.add_argument("--atr-revision", help="Step 2 (atr): a specific uploaded revision")
+    render_p.add_argument(
+        "--nexus-staging-repo",
+        help="Step 2 (JVM): the Nexus staging repository id or URL from the planning issue",
+    )
     render_p.add_argument("--planning-issue", help="Step 2 (ci-automated): the planning issue URL")
     render_p.add_argument("--project", help="Step 2 (atr): the <project> slug")
     render_p.add_argument("--rm-name", default="<RM name>")
@@ -121,6 +125,7 @@ def dispatch(args: argparse.Namespace) -> int:
                 skip_verify=args.skip_verify_check,
                 atr_candidate_url=args.atr_candidate_url,
                 atr_revision=args.atr_revision,
+                nexus_staging_repo=args.nexus_staging_repo,
                 planning_issue=args.planning_issue,
                 project=args.project,
                 rm_name=args.rm_name,

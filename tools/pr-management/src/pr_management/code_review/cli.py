@@ -124,6 +124,28 @@ def _file(saved: Path, name: str) -> Path | None:
     return path if path.is_file() else None
 
 
+PERMISSIONS = ("admin", "maintain", "write", "triage", "read")
+
+
+def _permission_arg(value: str) -> str:
+    """`--permission`: a repository role, so a stray value cannot silently pick the wrong footer."""
+    role = value.strip().lower()
+    if role not in PERMISSIONS:
+        raise argparse.ArgumentTypeError(f"{value!r} is not one of {', '.join(PERMISSIONS)}")
+    return role
+
+
+def _permission(args: argparse.Namespace, pr: data.PR | None) -> str | None:
+    """The viewer's role: `--permission`, else the saved `permission.txt`, else the saved PR read's."""
+    if args.permission:
+        return str(args.permission)
+    saved: Path | None = getattr(args, "saved_dir", None)
+    lines = data.load_lines(_file(saved, "permission.txt")) if saved else []
+    if lines:
+        return lines[0].lower()
+    return ((pr.viewer_permission if pr else None) or "").lower() or None
+
+
 def _codeowners(saved: Path) -> tuple[list[codeowners.Rule], str | None]:
     for op in CODEOWNERS_OPS:
         text = data.decode_content(_file(saved, f"{op}.json"))
@@ -486,9 +508,7 @@ def _decide(
     """The Step 6 gate decision; `render --auto-merge` re-runs it so the two cannot disagree."""
     if pr.viewer and pr.viewer.lower() != viewer.lower():
         raise SystemExit(f"pr-management: --viewer {viewer!r} is not the saved read's viewer")
-    saved_permission = data.load_lines(_file(args.saved_dir, "permission.txt"))
-    permission = args.permission or (saved_permission[0] if saved_permission else None)
-    permission = permission or (pr.viewer_permission or "").lower() or None
+    permission = _permission(args, pr)
     outdated = {t["id"]: t for t in data.outdated_threads(pr)}
     for thread_id in args.addressed_thread:
         if thread_id not in outdated:
@@ -646,7 +666,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     allow = mentions.allowed(cfg)
     inline = review_body.inline_comments(findings, picked["keep"], files, allow)
     kept = [k for k in picked["keep"] if k not in {u["index"] for u in inline["unanchorable"]}]
-    variant = disposition.footer_variant(args.disposition, args.permission or pr.viewer_permission)
+    variant = disposition.footer_variant(args.disposition, _permission(args, pr))
     project = cfg.project_name or (cfg.upstream_repo or "the project").split("/")[-1].capitalize()
     footer_text = review_body.footer(variant, project, cfg.contributing_docs_url)
     suggested = (
@@ -788,10 +808,12 @@ def _slop_comment(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any
     text = review_body.template("slop-warning").replace("<PROJECT>", project)
     text = text.replace("<issues>", "\n".join(i if i.startswith("- ") else f"- {i}" for i in issues))
     text = text.replace("<upstream_contributing_docs_url>", cfg.contributing_docs_url or "CONTRIBUTING.md")
+    pr_path = _file(args.saved_dir, f"cr-pr-{args.pr}.json") if args.saved_dir else None
+    pr = data.load_pr(pr_path) if pr_path else None
     text = text.replace(
         "<footer>",
         review_body.footer(
-            disposition.footer_variant("COMMENT", args.permission), project, cfg.contributing_docs_url
+            disposition.footer_variant("COMMENT", _permission(args, pr)), project, cfg.contributing_docs_url
         ),
     )
     text = review_body.escape_handles(text, mentions.allowed(cfg))
@@ -858,7 +880,7 @@ def add_parsers(sub: Any) -> None:
     dis.add_argument("--pr", type=int, required=True)
     dis.add_argument("--viewer", required=True)
     dis.add_argument("--findings", default=None, help="the findings JSON (Step 4 shape)")
-    dis.add_argument("--permission", default=None)
+    dis.add_argument("--permission", type=_permission_arg, default=None)
     dis.add_argument("--unanswered-question", action="store_true")
     dis.add_argument("--ci-diff-caused", action="store_true")
     dis.add_argument(
@@ -899,7 +921,7 @@ def add_parsers(sub: Any) -> None:
     ren.add_argument("--inline", choices=("on", "off"), default="on")
     ren.add_argument("--reviewers", default=None, help="the reviewers command's output")
     ren.add_argument("--security-note", default=None)
-    ren.add_argument("--permission", default=None)
+    ren.add_argument("--permission", type=_permission_arg, default=None)
     ren.add_argument(
         "--auto-merge",
         action="store_true",
@@ -953,7 +975,13 @@ def add_parsers(sub: Any) -> None:
     slc.add_argument("--pr", type=int, required=True)
     slc.add_argument("--issues", required=True, help="one plain-English issue per line")
     slc.add_argument("--out-dir", type=Path, required=True)
-    slc.add_argument("--permission", default=None)
+    slc.add_argument("--permission", type=_permission_arg, default=None)
+    slc.add_argument(
+        "--saved-dir",
+        type=Path,
+        default=None,
+        help="the saved reads: the viewer's role comes from permission.txt or the PR read when --permission is absent",
+    )
 
     ses = commands.add_parser("session", help="the session ledger and the Step 3 summary")
     ses_sub = ses.add_subparsers(dest="session_command", required=True)

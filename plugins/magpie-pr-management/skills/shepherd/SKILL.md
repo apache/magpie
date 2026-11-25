@@ -13,7 +13,7 @@ when_to_use: |
   end-of-day sweep of their open PRs.
 surface_hash: sha256:cd4c424406623b33
 license: Apache-2.0
-measured_tokens: 3683
+measured_tokens: 3895
 family: pr-management
 mode: Drafting
 capability:
@@ -46,12 +46,21 @@ One command answers it and carries its own rules; there is nothing else to
 read.
 
 Run the checker with this skill's own frontmatter `name:` and
-`surface_hash:`, and one `--requires` for each `requires_config:` entry:
+`surface_hash:`, one `--requires` for each `requires_config:` entry, and the
+directory this skill was loaded from in `MAGPIE_SKILL_DIR` (the harness names
+it, e.g. Claude Code's "Base directory for this skill"; leave the variable
+out when you do not know it):
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  MAGPIE_SKILL_DIR="<this skill's directory>" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
+
+`MAGPIE_SKILL_DIR` tells the checker which Magpie version this session runs:
+the checker is one per-user copy, so it cannot tell on its own when sessions
+on different versions are open. It is a variable, not a flag, so a checker
+installed before it existed ignores it instead of failing.
 
 The path finds the checker `/magpie-setup:setup config` installed under your
 per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
@@ -111,7 +120,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
@@ -232,10 +242,10 @@ Do not poll: GitHub notifies the maintainer, and re-running this skill re-reads 
 
 - **Propose before applying.** Push, force-push, rerun, comment, review, auto-merge: each is shown and confirmed first. A drafted message is shown in full before it is posted ([`pr-management-code-review`](../code-review/SKILL.md) Golden rule 2).
 - **Never merge.** A direct merge is Agentic Autonomous, which the framework keeps off ([`why-not-merge.md`](../merge-candidates/why-not-merge.md)); print the `gh pr merge` command for the maintainer instead. Auto-merge on a reviewed head is the one exception, because GitHub still waits for the required checks and approvals.
-- **Force-push only with a lease** on the SHA you last pushed: `--force-with-lease=<branch>:<sha>`.
+- **Force-push only with a lease** on the SHA you last pushed: `git-push-branch`'s `<expected>` parameter ([vetted-git-publish.md](vetted-git-publish.md)), or `--force-with-lease=<branch>:<sha>` on a command handed to the user.
 - **Push to someone else's branch only when the maintainer asks**, `maintainerCanModify` is true, and a review comment explaining the commit follows.
 - **Run the whole-tree gate before every push.** A PR's CI checks only its own diff; <default-branch>'s run checks everything ([`own-prs.md`](own-prs.md#the-pre-push-gate)).
-- **Never bypass a hook** (`--no-verify`), and never reword around a guard that blocks a public text — fix the text.
+- **Never bypass a hook** (`--no-verify`), and never reword around a guard that blocks a public text — fix the text. The vetted commit and push run no hooks by design; the gate run in the sandbox before them is what stands in for the hooks.
 
 ---
 

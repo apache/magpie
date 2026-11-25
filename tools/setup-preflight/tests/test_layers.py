@@ -26,6 +26,7 @@ magpie-setup status).  Change them together.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -420,12 +421,17 @@ def _documented_pythonpath() -> str:
 
 
 def _block_command() -> str:
-    """The block's command line, `PYTHONPATH=… \\` joined with the `python3 …` line."""
+    """The block's command line: `PYTHONPATH=… \\` and every continuation line after it."""
     text = PREFLIGHT_BLOCK.read_text(encoding="utf-8")
     lines = text.splitlines()
     for index, line in enumerate(lines):
         if line.startswith("PYTHONPATH="):
-            return line.rstrip("\\").rstrip() + " " + lines[index + 1].strip()
+            parts = []
+            for part in lines[index:]:
+                parts.append(part.rstrip("\\").strip())
+                if not part.rstrip().endswith("\\"):
+                    break
+            return " ".join(parts)
     raise AssertionError("the pre-flight block names no PYTHONPATH")
 
 
@@ -458,7 +464,10 @@ def _run_block(root: Path, tmp_path: Path, module: str) -> subprocess.CompletedP
         # Never let `git` find a repository above the test project.
         "GIT_CEILING_DIRECTORIES": str(tmp_path),
     }
-    command = _block_command()
+    # The skill directory the agent fills in: any path will do for finding the checker.
+    command = re.sub(
+        r'MAGPIE_SKILL_DIR="<[^>]*>"', 'MAGPIE_SKILL_DIR="/nonexistent skill dir"', _block_command()
+    )
     head = command.split(" --skill", 1)[0]
     assert head.endswith("python3 -P -m setup_preflight"), head
     script = head.removesuffix("setup_preflight") + module

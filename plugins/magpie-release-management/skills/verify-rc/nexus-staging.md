@@ -25,6 +25,8 @@ promotes a staging repository — a promotion is irreversible (promoted
 artefacts sync to Maven Central, where they are immutable), and any
 voter, including one with no karma on the target repository, must be
 able to run this step.
+The transitions themselves belong to the release manager at promotion time;
+`release-promote` describes when each one applies ([`nexus-staging.md`](../promote/nexus-staging.md)).
 
 **Credentials and the sandbox.** The authenticated staging-API reads
 need ASF Nexus credentials stored as a netrc-format file at
@@ -54,7 +56,7 @@ no `.jar` / `.pom` in the Step 1 listing (JVM-only — a Python or Rust ASF proj
 `jvm_artefact_checks: off`; 🪶 an `organization` other than `ASF` (`repository.apache.org` is ASF infrastructure);
 no staging repository id (the `nexus_staging_repo` key of `release-build.md § JVM artefact checks`, then a `nexus-staging-repo:` or staging-repository URL line on the planning issue —
 Nexus assigns the id at deploy time, so an unresolvable id is a `SKIP` naming where to supply it, never a guess);
-or an id that does not match the Nexus shape `orgapache<project>-NNNN` (digits and lowercase only).
+or an id that does not match the Nexus shape `orgapache<name>-NNNN` (digits and lowercase only).
 That last gate protects the URLs: the planning issue body is content the step reads, and the id is spliced into the `curl` URLs you run,
 so a malformed value is a `SKIP` recording the rejected value in `nexus_findings`, never a probe; the literal `snapshots` passes and is then a finding.
 

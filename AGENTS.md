@@ -603,9 +603,15 @@ to a home-dir path and update the tool to read from there.
   `git commit -F <file> --trailer "Generated-by: <agent name and version>"`.
   git then places it in the trailer block, and it stays on the command line
   where the guard and other hooks can see it.
-- **Always open PRs with `gh pr create --web`** so the human reviewer can check the title,
-  body, and the generative-AI disclosure in the browser before submission. Pre-fill `--title`
-  and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
+  The one exception is `vetted-op-git git-commit`, which takes no `--trailer`:
+  there the trailer is the message file's own last paragraph.
+- **The human reviews every PR's title, body and generative-AI disclosure before it is opened.**
+  Where the project's vetted-ops policy configures `[git]` values, stage, commit, push and open the PR with
+  `vetted-op-git` (`git-stage`, `git-commit`, `git-push-branch`, `git-pr-create`; see
+  [vetted-ops → Git operations the sandbox blocks](tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)):
+  show the exact title and body first, and the user's confirmation of the `git-pr-create` call is the submission.
+  Otherwise, and for a draft or a base other than the policy's `pr_base`, open it with `gh pr create --web`,
+  pre-filling `--title` and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
 - **Open a GitHub page for the human with `gh browse`, never `open <url>`.** The sandbox blocks
   macOS `open` (Launch Services and Apple Events: error `-10822`), while `gh` runs outside it
   (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow` — both from your reconciled
@@ -1157,7 +1163,7 @@ for its full contract):
 - [`security-issue-deduplicate`](skills/security-issue-deduplicate/SKILL.md) — merges two trackers describing the same root cause, concatenates the reporters' credits, regenerates the CVE JSON, and closes the dropped tracker `duplicate`; refuses to operate across scope labels.
 - [`security-issue-sync`](skills/security-issue-sync/SKILL.md) — reconciles an issue with its GitHub discussion, mail thread, and fixing PRs; proposes label / milestone / field / draft-email updates and refreshes the CVE JSON attachment at the end of every run.
 - [`security-cve-allocate`](skills/security-cve-allocate/SKILL.md) — walks the user through the PMC-gated CVE-allocation form (or reshapes it into a relay message for a non-PMC user), normalises the title, updates the tracker in one pass, and hands off to `security-issue-sync`.
-- [`security-issue-fix`](skills/security-issue-fix/SKILL.md) — runs `security-issue-sync`, then (when the fix is clear and small) writes the change in the local `<upstream>` clone, runs checks, and opens a scrubbed public PR via `gh pr create --web`; every public surface is scrubbed for CVE / tracker-slug / `vulnerability` / `security fix` leakage.
+- [`security-issue-fix`](skills/security-issue-fix/SKILL.md) — runs `security-issue-sync`, then (when the fix is clear and small) writes the change in the local `<upstream>` clone, runs checks, and opens a scrubbed public PR (through `vetted-op-git` where configured, else `gh pr create --web`); every public surface is scrubbed for CVE / tracker-slug / `vulnerability` / `security fix` leakage.
 
 These skills build the CVE record with the [`generate-cve-json`](tools/cve-tool-vulnogram/generate-cve-json/README.md) tool,
 a deterministic `uv run` script (not a skill) that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue,

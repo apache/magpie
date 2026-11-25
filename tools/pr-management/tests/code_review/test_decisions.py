@@ -459,6 +459,81 @@ def test_numeric_dependency_specifier(specifier: str, candidate: str, expected: 
     assert clause.admits(candidate) is expected
 
 
+@pytest.mark.parametrize(
+    ("specifier", "available_versions", "satisfying"),
+    [
+        (">=1.5", ["1.4.0", "1.5rc1"], []),
+        (">=1.5", ["1.4.0", "1.5.0.dev1"], []),
+        ("<=1.4.0", ["1.4.0", "1.4.0.post1"], ["1.4.0"]),
+        (">=1.5", ["1.4.0", "1.5.0"], ["1.5.0"]),
+    ],
+)
+def test_pep440_suffix_precedence(
+    specifier: str, available_versions: list[str], satisfying: list[str]
+) -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": specifier}],
+            "available_versions": available_versions,
+            "exhaustive": True,
+        }
+    )
+    assert result["environments"]["*"]["satisfying"] == satisfying
+    assert result["classification"] == ("broken" if not satisfying else "compatible")
+
+
+def test_pep440_orders_pre_dev_and_post_releases() -> None:
+    ordered = ["1.5.dev1", "1.5a1", "1.5b1", "1.5rc1", "1.5", "1.5.post1"]
+    assert sorted(ordered, key=deps.version) == ordered
+
+
+def test_versions_outside_pep440_never_make_the_ledger_broken() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=6.4"}],
+            "available_versions": ["6.4.4.Final", "6.5.2.Final"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "unknown"
+    assert result["evidence"] == {"unparsed_versions": ["6.4.4.Final", "6.5.2.Final"]}
+    assert result["runtime_finding_allowed"] is False
+
+
+def test_an_unparsed_version_keeps_the_parsed_matches_visible() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=1.0"}],
+            "available_versions": ["1.2.0-SNAPSHOT", "1.1.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "unknown"
+    assert result["environments"]["*"]["satisfying"] == ["1.1.0"]
+    assert result["evidence"] == {"unparsed_versions": ["1.2.0-SNAPSHOT"]}
+
+
+def test_a_concrete_failing_resolution_stays_broken_beside_an_unparsed_version() -> None:
+    result = deps.classify(
+        {
+            "package": "libfoo",
+            "paths": [{"via": "app", "specifier": ">=1.0"}],
+            "available_versions": ["1.2.0-SNAPSHOT", "1.1.0"],
+            "lacking_api": ["1.1.0"],
+        }
+    )
+    assert result["classification"] == "broken"
+    assert result["evidence"] == {"failing_resolution": {"*": ["1.1.0"]}}
+
+
+def test_an_unsupported_specifier_clause_is_refused() -> None:
+    with pytest.raises(ValueError):
+        deps.clauses("~>1.0")
+
+
 @pytest.mark.parametrize("specifier", ["~=1.4.post1", "~=1.4.dev0"])
 def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) -> None:
     result = deps.classify(
@@ -487,7 +562,7 @@ def test_suffix_does_not_narrow_compatible_release_intersection(specifier: str) 
         ("~=1.4.0.0", "1.4+build.2", True),
     ],
 )
-def test_release_prefix_ignores_suffixes(specifier: str, candidate: str, expected: bool) -> None:
+def test_compatible_release_uses_the_release_segment(specifier: str, candidate: str, expected: bool) -> None:
     (clause,) = deps.clauses(specifier)
     assert clause.admits(candidate) is expected
 
@@ -660,6 +735,24 @@ def test_markers_split_environments() -> None:
             "exhaustive": True,
         }
     )
+    assert result["evidence"] == {"uninstallable_in": ["py39"]}
+
+
+def test_an_uninstallable_environment_is_named_beside_a_failing_resolution() -> None:
+    result = deps.classify(
+        {
+            "package": "x",
+            "environments": ["py39", "py312"],
+            "paths": [
+                {"via": "p", "specifier": ">=1.0"},
+                {"via": "q", "specifier": "<1.0", "environments": ["py39"]},
+            ],
+            "available_versions": ["0.9", "1.0", "1.1"],
+            "lacking_api": ["1.0"],
+            "exhaustive": True,
+        }
+    )
+    assert result["classification"] == "broken"
     assert result["evidence"] == {"uninstallable_in": ["py39"]}
 
 

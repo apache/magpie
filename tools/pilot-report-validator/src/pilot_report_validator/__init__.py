@@ -44,6 +44,7 @@ Run from repo root::
 from __future__ import annotations
 
 import argparse
+import datetime
 import re
 import sys
 from pathlib import Path
@@ -178,6 +179,17 @@ def extract_section_headings(text: str) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+def _is_iso_date(value: str) -> bool:
+    """True for a ``YYYY-MM-DD`` value that names a real calendar day."""
+    if not _ISO_DATE_RE.match(value):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 def validate_frontmatter(path: Path, text: str) -> list[Violation]:
     fm = parse_frontmatter(text)
     if fm is None:
@@ -210,7 +222,7 @@ def validate_frontmatter(path: Path, text: str) -> list[Violation]:
             )
 
     # Date value must be a real ISO 8601 date (also catches the 'YYYY-MM-DD' placeholder).
-    if fm.get("date") and not _ISO_DATE_RE.match(fm["date"]):
+    if fm.get("date") and not _is_iso_date(fm["date"]):
         violations.append(
             Violation(path, 1, f"invalid date '{fm['date']}' — must be ISO 8601 format YYYY-MM-DD")
         )

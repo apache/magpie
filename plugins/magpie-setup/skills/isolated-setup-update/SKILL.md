@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:51ecb7683ea269cf
 license: Apache-2.0
-measured_tokens: 6038
+measured_tokens: 6128
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -41,7 +41,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
@@ -187,7 +188,7 @@ Walk each:
      Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
    - **`~/.local/share/uv` writable, or no host-only uv cache.**
      Earlier defaults put `~/.local/share/uv/` in `allowWrite`, where the interpreters and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run` commands run outside the sandbox live; and `uvx` ran from the shared, sandbox-writable `~/.cache/uv`.
-     Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` / `Edit(~/.cache/prek/**)` deny, an `env.PREK_HOME` that is missing or overlaps `~/.cache/prek`, a missing `Edit(~/.cache/pnpm/**)` deny, a grant covering `~/.local/share/pnpm-sandbox/` itself, an `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, or, in a project that uses pnpm, an `env.PNPM_HOME` that is missing, not exactly `~/.local/share/pnpm-sandbox/<project>` or not in `allowWrite`, an `npm_config_cache_dir` other than `<home>/cache`, or a missing `npm_config_enable_global_virtual_store`, as a **must-fix**; the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
+     Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` / `Edit(~/.cache/prek/**)` deny, an `env.PREK_HOME` that is missing or overlaps `~/.cache/prek`, a missing `Edit(~/.cache/pnpm/**)` deny, a grant covering `~/.local/share/pnpm-sandbox/` itself, an `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, or, in a project that uses pnpm, an `env.PNPM_HOME` that is missing, not exactly `~/.local/share/pnpm-sandbox/<project>`, not in `allowWrite` or not yet created on disk, or an `npm_config_cache_dir` other than `<home>/cache`, as a **must-fix**; report a missing `npm_config_cache` (`<home>/npm-cache`) as drift, to add (commands pnpm hands to npm otherwise fail on `~/.npm`), and an `npm_config_enable_global_virtual_store` = `true` as drift, to remove (a virtual store outside the project hides its `@types/*` packages from TypeScript); the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
    - **A container-gateway hook registered for another machine.**
      The `SessionStart` / `SessionEnd` / `PreToolUse` hooks run `container-gateway-hook.sh` by its absolute path, which differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`).
      Report a registered path that does not exist on this machine as a **must-fix** (the gateway never starts), one registered only in `~/.claude/settings.local.json` as a **must-fix** too (Claude Code does not load that file, so the hook never runs), and one in a `~/.claude/settings.json` that links into a synced config repo as drift; the remedy is the setup guide's [Fixing your other machines](../../../../docs/setup/secure-agent-setup.md#container-gateway): move the entries into each machine's managed-settings drop-in `managed-settings.d/50-magpie-container-gateway.json`, which runs the root-owned dispatcher `<managed-settings dir>/magpie/container-gateway-dispatch`. Report a `~/.claude/scripts/container-gateway-hook.sh` that is a symlink while the dispatcher is registered as a **must-fix** (the dispatcher refuses links, so the gateway never starts; the remedy is a plain copy, `rm` the link first). Report an installed dispatcher that differs from `tools/agent-isolation/container-gateway-dispatch.sh` as drift (re-run the guide's `install` line), and one that is not root-owned, or is writable by anyone but root, as a **must-fix**.

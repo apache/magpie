@@ -159,6 +159,19 @@ def _companion_findings(report: dict[str, Any], location: str) -> tuple[list[str
     return out, absent_fails
 
 
+def _licence_notice_findings(report: dict[str, Any]) -> list[str]:
+    """Check 8 warnings: a main jar missing ``META-INF/LICENSE`` / ``META-INF/NOTICE``."""
+    out: list[str] = []
+    for jar in report.get("jars") or []:
+        check = jar.get("licence_notice")
+        if not isinstance(check, dict) or check.get("status") in (None, "PASS", "SKIP"):
+            continue
+        name = check.get("jar") or jar.get("jar")
+        detail = check.get("detail") or check.get("status")
+        out.append(f"{name}: {detail}")
+    return out
+
+
 def _observations(report: dict[str, Any]) -> list[str]:
     obs = report.get("observations") or {}
     out: list[str] = []
@@ -199,6 +212,7 @@ def jvm(
         "tool_report": None,
         "pom_findings": [],
         "companion_findings": [],
+        "licence_notice_findings": [],
         "observations": [],
         "paste_recipe": "",
     }
@@ -245,6 +259,7 @@ def jvm(
         "tool_report": report_text.strip(),
         "pom_findings": _pom_findings(report),
         "companion_findings": companions,
+        "licence_notice_findings": _licence_notice_findings(report),
         "observations": _observations(report),
         "paste_recipe": recipe(
             v, staged, is_podling=is_podling, companions=_signed_companions(report, staged)

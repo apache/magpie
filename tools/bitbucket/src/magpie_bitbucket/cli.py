@@ -29,20 +29,50 @@ from magpie_bitbucket import cloud, datacenter, normalize
 from magpie_bitbucket.client import BitbucketConfig, BitbucketError, load_config
 
 
-def _read_body_file(value: str) -> str:
+def _read_body_file(
+    value: str,
+    *,
+    empty_message: str = "Comment body file must not be empty",
+) -> str:
     """Read a confirmed write body from disk."""
     path = Path(value)
     try:
         body = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise BitbucketError(f"Body file not found: {path}") from exc
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise BitbucketError(f"Failed to read body file {path}: {exc}") from exc
 
     if not body.strip():
-        raise BitbucketError("Comment body file must not be empty")
+        raise BitbucketError(empty_message)
 
     return body
+
+
+def _validate_pull_request_create(
+    source: str,
+    target: str,
+    title: str,
+) -> tuple[str, str, str]:
+    """Validate same-repository pull-request creation arguments."""
+    source = source.strip()
+    target = target.strip()
+    title = title.strip()
+
+    if not source:
+        raise BitbucketError("Pull request source branch must not be empty")
+    if not target:
+        raise BitbucketError("Pull request target branch must not be empty")
+    if not title:
+        raise BitbucketError("Pull request title must not be empty")
+    if source == target:
+        raise BitbucketError("Pull request source and target branches must be different")
+
+    for label, branch in (("source", source), ("target", target)):
+        if branch.startswith("refs/"):
+            raise BitbucketError(f"Pull request {label} must be a short branch name, not a full ref")
+
+    return source, target, title
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -117,6 +147,30 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="Interact with Bitbucket pull requests.")
     pr_subparsers = pr_parser.add_subparsers(dest="pr_action", required=True)
     pr_subparsers.add_parser("list-open", help="List open pull requests.")
+
+    pr_create = pr_subparsers.add_parser(
+        "create",
+        help="Create a pull request after caller-side confirmation.",
+    )
+    pr_create.add_argument(
+        "--source",
+        required=True,
+        help="Source branch in the configured repository.",
+    )
+    pr_create.add_argument(
+        "--target",
+        required=True,
+        help="Target branch in the configured repository.",
+    )
+    pr_create.add_argument(
+        "--title",
+        required=True,
+        help="Pull request title.",
+    )
+    pr_create.add_argument(
+        "--body-file",
+        help="Optional path to the confirmed pull request description.",
+    )
 
     pr_get = pr_subparsers.add_parser("get", help="Fetch one pull request.")
     pr_get.add_argument("pull_request_id", help="Pull request ID to fetch.")
@@ -331,6 +385,29 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "list-open":
         raw = backend.list_open_pull_requests(config)
         return normalize.pull_request_list(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "create":
+        source, target, title = _validate_pull_request_create(
+            args.source,
+            args.target,
+            args.title,
+        )
+        description = (
+            _read_body_file(
+                args.body_file,
+                empty_message="Pull request body file must not be empty",
+            )
+            if args.body_file is not None
+            else None
+        )
+        raw = backend.create_pull_request(
+            config,
+            source,
+            target,
+            title,
+            description,
+        )
+        return normalize.created_pull_request(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "get":
         raw = backend.get_pull_request(config, args.pull_request_id)

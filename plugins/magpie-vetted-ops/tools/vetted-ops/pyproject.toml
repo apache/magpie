@@ -33,6 +33,7 @@ vetted-op = "vetted_ops:main"
 vetted-op-read = "vetted_ops:main_read"
 vetted-op-tracker = "vetted_ops:main_tracker"
 vetted-op-git = "vetted_ops.git_ops:main"
+vetted-op-checks = "vetted_ops.checks:main"
 vetted-ops-codex-rules = "vetted_ops.codex:main"
 
 [tool.hatch.build.targets.wheel]

@@ -396,9 +396,34 @@ like `vetted-op`.
 Operations are closed shapes: `git-push-branch` (a leased push, `--force-with-lease`
 on the caller's expected SHA or `new`, to the policy's `fork` or to an
 `upstream_push`-matching branch of upstream, protected branches always
-refused, an emptied rebase refused), `git-worktree-sync` (`reset --keep` of a
-clean linked worktree), `git-worktree-add` and `git-worktree-remove` (never
-`--force`).
+refused, an emptied rebase refused), `git-push-pr-head` (a maintainer fixup:
+fast-forwards an open upstream pull request's head branch, named by the
+caller so the confirmation shows it and checked against what the forge
+reports, leased on the head the caller built on, at most ten non-merge
+commits on top; a contributor's fork only when its author allows maintainer
+edits),
+`git-switch` (a clean working tree to an existing local branch, only when
+the branch's own commits leave its files that steer the agent harness,
+plus the policy's `harness_paths`, as upstream's `pr_base` had them where
+the branch left it: that commit asked of the policy's URL during the
+call, both trees walked through objects re-hashed against their names,
+and every harness file written hashed again after the checkout),
+`git-worktree-sync` (`reset --keep` of a
+clean linked worktree), `git-rebase` (a clean, non-protected topic branch with no
+merge commits onto a full SHA of the upstream `pr_base`, which the operation
+fetches itself from the policy URL and checks against that fetch's own result;
+refused unless the branch is at the caller's expected SHA, and put back if it
+moves while the rebase starts; re-signs per the global config, and when that
+signs commits, refuses any replayed commit without the user's good signature,
+so a commit the agent made unsigned in the sandbox is never signed; with `rerere`,
+autostash, `updateRefs`, editors and hooks pinned off; a conflict aborts and
+names the paths), `git-cherry-pick` (one plain commit onto a clean
+non-protected topic branch at the caller's expected SHA, to finish a
+conflicting rebase commit by commit; when the user signs, the commit must
+already carry their signature; a conflict aborts and names the paths, and a
+pick onto a moved branch is taken back off), `git-worktree-add` and
+`git-worktree-remove`
+(never `--force`).
 `[git]` values bound them: the project's (`upstream_push`, `protected`,
 `pr_base`, `host`) from the policy's `[git]` table, and each operator's
 (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, more
@@ -413,7 +438,16 @@ tree, hooks never run, `--no-verify`); validated directories held by
 descriptor and git given the validated git directory; and every `GIT_*`
 variable dropped with `HOME` taken from the password database.
 Git 2.42 or newer is required.
-The `pre-push` checks run in the sandbox first.
+The `pre-push` checks run in the sandbox first. The pre-commit checks are
+enforced: `vetted-op-checks`, the one vetted-ops command that runs inside the
+sandbox (no exclusion names it, and a test keeps it so), starts from the
+readable per-version copy the plugin's session hook keeps at
+`~/.cache/apache-magpie/vetted-ops/current` (the sandbox cannot read
+`~/.claude/magpie/`), runs the worktree's
+hooks on the listed paths and records the content they passed in
+`<workspace>/checks/`; `git-commit` refuses a staged path missing from that
+record or staged with other content. The record is sandbox-writable, so it
+holds an agent to the checks the way CI does, not against a forgery.
 
 ## Codex native integration
 

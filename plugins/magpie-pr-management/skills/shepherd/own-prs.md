@@ -35,19 +35,22 @@ A second timeout on the same PR, or timeouts across several PRs on the same day,
    - *unnecessary lambda* — check whether the lambda is there for late binding (a test patching the module-level name) before replacing it, and keep that patch working;
    - *empty except* — say in a comment why the exception is ignored, or stop ignoring it.
    After moving code, update every test that patches a path through the old module.
-4. Run [the pre-push gate](#the-pre-push-gate), then commit with the message in a file and the project's attribution trailer (`git commit -F <file> --trailer …`).
-   When a hook rewrites files (a generated copy, a formatter), stage what it changed and commit again.
-5. Propose the push to the PR's head branch.
+4. Run [the pre-push gate](#the-pre-push-gate), then stage the changed paths with `git-stage` and commit with `git-commit`, the message in a `<workspace>` file ending with the project's attribution trailer as its own last paragraph.
+   Both are vetted operations ([vetted-git-publish.md](vetted-git-publish.md), `--caller pr-management-shepherd`), confirmed by the user; they run no hooks, so when the gate rewrites files (a generated copy, a formatter), stage what it changed before committing.
+5. Propose the push to the PR's head branch: `git-push-branch <worktree> <local-branch> <target> <head-branch> <sha-you-last-pushed>`, where `<target>` is `fork` for a head in the policy's fork, or `upstream` for a head branch on `<upstream>` that the policy's `upstream_push` allows.
+   A head anywhere else, or a project with no `[git]` values configured, gets the `git push` command for the user to run.
 
 ## `rebase`
 
-Fetch <default-branch> into a full ref name that cannot clash with a local branch — `git fetch <upstream-url> <default-branch>:refs/remotes/<name>/<default-branch>` — and rebase onto `refs/remotes/<name>/<default-branch>`.
+Fetch <default-branch> into a full ref name that cannot clash with a local branch — `git-fetch <checkout> <default-branch>`, which writes `refs/remotes/<upstream_remote>/<default-branch>` (or, as a plain read, `git fetch <upstream-url> <default-branch>:refs/remotes/<name>/<default-branch>`) — and rebase onto that full ref name.
 A short name that matches a local branch makes git warn *"refname is ambiguous"* and rebase onto the wrong commit.
 
 Conflicts in generated content (token stamps, regenerated blocks, rendered tables) are resolved by regenerating it, never by picking a side by hand.
 Any other conflict: stop and show it to the maintainer.
 
-After the rebase, run [the pre-push gate](#the-pre-push-gate) and propose `git push --force-with-lease=<head-branch>:<sha-you-last-pushed> <head-repo-url> <local-branch>:<head-branch>`.
+After the rebase, run [the pre-push gate](#the-pre-push-gate) and propose the push with its lease, `git-push-branch <worktree> <local-branch> <target> <head-branch> <sha-you-last-pushed>`, as in [`fix-failure`](#fix-failure-and-fix-comment) step 5.
+With `[git]` values configured, the rebase itself is `git-rebase <worktree> <onto-sha> <expected-sha>`: it re-signs the replayed commits per the maintainer's global git configuration, which the sandbox cannot reach, and on a conflict it aborts and names the conflicting paths, to resolve in the sandbox as above.
+Without them, a rebase in a linked worktree the session did not create runs in a scratch clone, and `git-worktree-sync` then moves the worktree to the rebased commit.
 
 ## `enable-auto-merge`
 

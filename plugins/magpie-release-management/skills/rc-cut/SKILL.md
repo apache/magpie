@@ -18,9 +18,9 @@ when_to_use: |
   dist/dev". Run after the prep PR merged; skip if that RC tag exists.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
-surface_hash: sha256:60623e456e72bbf6
+surface_hash: sha256:70b271e91a4ee44a
 license: Apache-2.0
-measured_tokens: 7063
+measured_tokens: 7225
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -50,12 +50,21 @@ One command answers it and carries its own rules; there is nothing else to
 read.
 
 Run the checker with this skill's own frontmatter `name:` and
-`surface_hash:`, and one `--requires` for each `requires_config:` entry:
+`surface_hash:`, one `--requires` for each `requires_config:` entry, and the
+directory this skill was loaded from in `MAGPIE_SKILL_DIR` (the harness names
+it, e.g. Claude Code's "Base directory for this skill"; leave the variable
+out when you do not know it):
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  MAGPIE_SKILL_DIR="<this skill's directory>" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
+
+`MAGPIE_SKILL_DIR` tells the checker which Magpie version this session runs:
+the checker is one per-user copy, so it cannot tell on its own when sessions
+on different versions are open. It is a variable, not a flag, so a checker
+installed before it existed ignores it instead of failing.
 
 The path finds the checker `/magpie-setup:setup config` installed under your
 per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
@@ -115,7 +124,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
@@ -160,9 +170,8 @@ The skill emits `gpg --detach-sign --armor <artefact>` commands per artefact.
 It does not pass `--passphrase`, does not read `$GPG_PASSPHRASE`, does not reference a key file, and does not invoke `gpg` itself.
 The RM's key agent handles passphrase prompting when they run the command.
 
-**Golden rule 3 — SHA-512 only by default; SHA-256 when configured;
-MD5 and SHA-1 never.**
-The digest set comes from `<project-config>/release-build.md` (`sha512` required, `sha256` optional).
+**Golden rule 3 — SHA-512 or SHA-256; MD5 and SHA-1 never.**
+The digest set comes from `<project-config>/release-build.md` (at least one of `sha512` and `sha256` is required; the other is optional).
 MD5 and SHA-1 are prohibited per
 [release-distribution § sigs-and-sums](https://infra.apache.org/release-distribution.html#sigs-and-sums),
 even if configured: Step 0's `release-config preflight` blocks on them and the render refuses them; surface the violation.
@@ -318,7 +327,7 @@ Return ONLY valid JSON with this structure:
   "rc_number": "<rcN>",
   "build_command": "<string>",
   "expected_artefacts": ["<artefact filename pattern>"],
-  "digest_set": ["sha512"] | ["sha512", "sha256"],
+  "digest_set": ["sha512"] | ["sha256"] | ["sha512", "sha256"],
   "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "vote_backend": "manual" | "atr",
   "staging_url": "<URL>",

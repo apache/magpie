@@ -62,7 +62,7 @@ builds binaries under `SOURCE_DATE_EPOCH`, builds twice and compares, checksums 
 It contains **no key material and no signing step**; the signing mechanism is what Infra agrees on the ticket
 (the render refuses one that would carry either). Surface each `warnings` entry.
 Pin every action to a commit SHA (`unpinned_actions` lists them).
-Open as a draft PR via `gh pr create --web` after RM confirmation.
+Open as a draft PR after RM confirmation: commit and push the branch with the vetted operations in [vetted-git-publish.md](vetted-git-publish.md) (`--caller release-prepare`; `git-worktree-add`, `git-stage`, `git-commit`, `git-push-branch … fork <branch> new`), then `gh pr create --web --draft`, since `git-pr-create` opens no drafts.
 
 <!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review — generated from tools/dev/blocks/pre-pr-adversarial-review.md -->
 

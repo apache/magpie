@@ -39,15 +39,74 @@ upstream = "apache/magpie"
 [values]
 issue_states = ["open", "closed", "all"]
 pr_states = ["open", "closed", "merged", "all"]
-upstream_labels = ["ready for maintainer review"]
+# The label taxonomy (docs/labels-and-capabilities.md), listed by name: the
+# framework-fix callers label each pull request they open with pr-add-label,
+# one label per call, from the sandbox. Labels are never widened by a pattern
+# (they reach gh search qualifiers), so a new taxonomy label is added here.
+upstream_labels = [
+    "ready for maintainer review",
+    "capability:authoring",
+    "capability:fix",
+    "capability:intake",
+    "capability:platform",
+    "capability:reassess",
+    "capability:reconciliation",
+    "capability:resolve",
+    "capability:review",
+    "capability:stats",
+    "capability:triage",
+    "contract:body-field",
+    "contract:change-request",
+    "contract:chat",
+    "contract:cve-authority",
+    "contract:hook-manager",
+    "contract:mail-archive",
+    "contract:mail-create",
+    "contract:mail-source",
+    "contract:people",
+    "contract:project-metadata",
+    "contract:release-staging",
+    "contract:report-relay",
+    "contract:sbom-pipeline",
+    "contract:scan-format",
+    "contract:security-cross-ref",
+    "contract:security-tracker",
+    "contract:source-control",
+    "contract:tracker",
+    "contract:typed-decision",
+    "family:ci",
+    "family:contributor-growth",
+    "family:cross-family",
+    "family:dev",
+    "family:docs",
+    "family:issue",
+    "family:mentoring",
+    "family:pairing",
+    "family:pr-management",
+    "family:release-management",
+    "family:repo-health",
+    "family:security",
+    "family:setup",
+    "family:tools",
+    "family:utilities",
+    "substrate:action-guard",
+    "substrate:analytics",
+    "substrate:framework-dev",
+    "substrate:privacy",
+    "substrate:release",
+    "substrate:review",
+    "substrate:sandbox",
+    "substrate:setup",
+]
 close_reasons = ["completed", "not planned"]
 
 [callers]
-# Read-only by construction: every operation below has writes=False, so this
-# caller runs entirely through `vetted-op-read`, which refuses writes before it
+# The reads run through `vetted-op-read`, which refuses writes before it
 # consults this file at all. The three review *submissions*
 # (pr-review-approve / -request-changes / -comment) are deliberately absent —
-# posting a review stays a confirmed action through `vetted-op`.
+# posting a review stays a confirmed action through `vetted-op`. The git
+# operations at the end are the FIXUP disposition's, run through
+# `vetted-op-git` and confirmed one by one.
 "pr-management-code-review" = [
     "viewer",
     "upstream-permission",
@@ -86,6 +145,13 @@ close_reasons = ["completed", "not planned"]
     # The workflow runs held at the head commit, which `code-review runs` reads
     # before it proposes releasing them.
     "runs-at-head",
+    # FIXUP disposition (classifications/disposition-fixup.md): a worktree at
+    # the PR head, commit the fixups, fast-forward the PR's head branch.
+    "git-worktree-add",
+    "git-worktree-remove",
+    "git-stage",
+    "git-commit",
+    "git-push-pr-head",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,
@@ -188,4 +254,44 @@ close_reasons = ["completed", "not planned"]
 "release-rc-cut" = [
     "tags",
     "repo-issue-comment",
+]
+
+# setup-upstream-fix and setup-override-upstream publish a framework fix from a
+# session in this clone, so they act on this policy: worktree, stage, commit,
+# push to the operator's fork and open the pull request through vetted-op-git,
+# each confirmed. The [git] table below holds project-wide values only:
+# checkouts, fork and worktree roots are each maintainer's own, in
+# ~/.config/apache-magpie/vetted-ops/operator-git.toml under ["apache/magpie"].
+"setup-upstream-fix" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+]
+"setup-override-upstream" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+]
+
+[git]
+# Files beyond vetted-op-git's own HARNESS_PATHS that steer the agent outside
+# the sandbox, so git-switch writes only upstream's version of them. Keep in
+# step with the Edit() denies in .claude/settings.json (a test checks).
+harness_paths = [
+    "tools/agent-isolation/claude-settings.local.template.json",
+    "plugins/magpie-setup/skills/setup/family-mcp-allows.json",
 ]

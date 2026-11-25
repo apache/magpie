@@ -1,6 +1,7 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
   "description": "Apache Magpie — Claude Code mods for release verification checklist and live vote-tally band.",
+  "hooks": {},
   "modules": [
     "./verify-rc-pane.ts"
   ]

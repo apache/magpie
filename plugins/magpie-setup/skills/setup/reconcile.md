@@ -155,8 +155,9 @@ committed one.
    `reconciled.json` may carry `declined.skills`, a list of skill names
    whose `requires_config` gaps the developer declined permanently
    (Step 2). For a skill on that list, do not propose its
-   `requires_config` gaps: leave it out of every stamp and report it on
-   one *auto-skipped* line. The skip covers those gaps only — anchors
+   `requires_config` gaps, nor a policy caller it lacks altogether
+   (check 3a): leave it out of every stamp and report it on
+   one *auto-skipped* line. The skip covers those findings only — anchors
    of any override for the skill, committed or personal, are still
    resolved (check 2) and proposed as usual. Refresh
    `acknowledged.skills["<skill>"]` to its current `surface_hash` only
@@ -199,14 +200,49 @@ committed one.
    name>` requires `<file>`, which is not configured"* — propose
    `/magpie-setup:setup config <skill>` for it.
 
-3a. **Import and triage caller policy grants.** When an existing vetted-ops policy
-   is present and a security issue-import skill or `security-issue-triage` is in scope (step 1),
-   read its `[callers]` table. Compare the applicable caller against
-   the minimum permissions used by the skill (for triage, the `issue-comment`
-   its Step 6 posts the proposal with):
+3a. **Caller policy grants.** When an existing vetted-ops policy is present
+   (the committed `.apache-magpie-overrides/tools/vetted-ops/config.toml`,
+   else the personal layer's `tools/vetted-ops/config.toml`), read its
+   `[callers]` table and compare it with the canonical
+   [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration)
+   of the framework version this run checks against.
+   That example is the only source of required operations: do not use a
+   second hard-coded mapping, and never propose an operation it does not
+   list for that caller.
 
-   Derive required operations from the canonical [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including backend-specific operations where applicable. Do not use a second hard-coded mapping.
+   A caller is named after its skill: the skill's override name (the name
+   `setup_preflight.delegation.override_name()` gives, such as
+   `security-issue-sync` for `issue-sync` and `pr-management-shepherd` for
+   `shepherd`), which is what the skill passes as `--caller`.
+   The callers checked are:
 
+   - **every caller the policy declares** that the README example also
+     names: a missing operation is one the example grants that caller and
+     the policy does not (for example the `git-*` operations added when
+     skills began publishing through `vetted-op-git`);
+   - **every skill installed here** (the installed families' skills, the
+     default `<skills>` of [`setup config`](config.md#inputs)) whose caller
+     name the README example names but the policy does not declare at all:
+     the finding proposes the caller with the example's operations.
+     A skill on `declined.skills` (sweep step 1a) is skipped for this
+     absent-caller case only.
+     When the installed set cannot be read here, check the declared callers
+     and report the rest as `unchecked`, not clean.
+
+   Honour the conditions the example's comments state: a caller limited to
+   a policy whose `[repos] upstream` is a particular repository is checked
+   only in such a policy, and the per-backend import additions apply only
+   for the configured tracker backend (Jira, local files).
+   A caller the policy declares that the example does not name (a
+   project's own skill) is not compared at all.
+   Never propose removing or narrowing a grant, and report an operation
+   the policy grants beyond the example as nothing.
+
+   For the import and triage callers, the example's grants are the minimum
+   permissions the skill uses (for triage, the `issue-comment` its Step 6
+   posts the proposal with; `security-issue-import` includes
+   `body-field-get` / `body-field-set` for fold-in credits, the from-md and
+   from-pr importers do not).
    For GitHub security imports using `issue-create-labeled`, also
    validate the policy's `[values] labels` allowlist against the
    labels required by each configured workflow:
@@ -217,32 +253,36 @@ committed one.
 
    Resolve project-specific label names from the adopter's current
    configuration. Do not assume every project uses the same names.
-
    Missing labels are findings even when all caller grants exist.
    Propose only the missing labels, preserving existing policy values.
-   Never automatically modify or weaken the approved security policy.
 
-   If the required label values or the policy cannot be verified,
-   report the check as unchecked, not clean. Declined, unapplied, or
-   unverified changes prevent a clean reconciliation stamp.
+   A missing caller, missing operation or missing label is a finding.
+   Name the caller, what is missing, and the policy path.
+   Show the exact minimal TOML diff: merge missing operations into the
+   caller's existing array rather than creating a duplicate key, add an
+   absent caller as one new key, and preserve comments, unrelated callers
+   and existing permissions.
 
-   A missing caller or missing required operation is a finding. Name the
-   caller, the missing operations, and the existing policy path. Propose
-   adding only those grants, exactly as the README example lists them for
-   that caller (`security-issue-import` includes `body-field-get` /
-   `body-field-set` for fold-in credits; the from-md and from-pr importers
-   do not). When a caller already exists, merge
-   missing operations into its existing TOML array rather than creating
-   a duplicate key. Preserve comments, unrelated callers and existing
-   permissions.
+   This is a security-control change, not an automatic repair: the policy
+   is `Edit`-denied to the agent, so nothing here writes it.
+   The user reviews the diff and saves it; after the change the approved
+   copy in `~/.config/apache-magpie/vetted-ops/` is stale until the user
+   copies the policy there again (see
+   [`verify` check 11a](verify.md#11a-vetted-ops-policy-approval)).
+   A declined, unapplied, or unverified change leaves the finding open
+   and prevents a clean reconciliation stamp.
+   If the policy does not exist, mark this check not applicable:
+   do not create a vetted-ops policy during reconciliation.
+   If the policy, the README example or the required label values cannot
+   be read or parsed, report the check as unchecked, not clean.
+   An operator's own `[git]` table is not part of this check: a missing
+   one is reported by `vetted-op-git`'s own refusal.
 
-   This is a security-control change, not an automatic repair. Show the
-   exact proposed diff and obtain item-by-item confirmation before
-   writing anything. A declined change leaves the policy unchanged and
-   the finding unresolved; do not report or stamp that configuration
-   as clean. If the policy does not exist, mark this check not applicable:
-   do not create a vetted-ops policy during reconciliation. If the
-   policy cannot be read or parsed, report it as unchecked, not clean.
+3b. **Your git values for publishing (secure setup only).** When the isolated setup is in use and a publishing skill is in
+   scope, check that `~/.config/apache-magpie/vetted-ops/operator-git.toml` has a table for the project's `upstream_repo`.
+   That directory is sandbox-denied, so when it cannot be read, report the check as unchecked and show the draft from
+   [`config.md` Step 3a.3](config.md#step-3a3--your-git-values-for-publishing-secure-setup-only) as the line to run; never
+   write the file. Without the secure setup this check does not apply.
 
 4. **Sandboxed sessions cover what they can reach.** Resolving a
    skill's anchors (check 2) needs that skill's `SKILL.md` **and its
@@ -277,7 +317,7 @@ committed one.
 ## Step 1 — Present the findings
 
 List every finding from checks 2–3a as a numbered proposal, one item per
-override, `requires_config` gap, or missing import caller grant or required label:
+override, `requires_config` gap, or missing caller grant or required label:
 
 ```text
 1. .apache-magpie-overrides/security-issue-triage.md anchors to
@@ -303,7 +343,7 @@ maintainer's judgement call, not pattern-matching. A `requires_config`
 gap can be closed mechanically by chaining into
 `/magpie-setup:setup config <skill>`; offer it per item.
 
-For an import caller policy finding (check 3a), show the minimum-grant
+For a caller policy finding (check 3a), show the minimal
 TOML diff before asking. After confirmation, hand off to setup config
 or let the user save the drafted policy; do not directly write the
 security-control file from reconcile. A refusal does
@@ -323,7 +363,7 @@ proposal correctly returns on the next run instead of being silently
 suppressed by a write that never happened.
 
 - **Confirmed and applied** — verify the resulting configuration
-  before writing the skill's clean stamp. For import caller policy
+  before writing the skill's clean stamp. For caller policy
   findings, re-read and parse the saved vetted-ops policy and confirm
   that every required operation for the selected backend is present and all applicable GitHub import labels are policy-approved.
   User confirmation of a draft alone is not proof of application.
@@ -338,7 +378,8 @@ suppressed by a write that never happened.
   same finding on this skill's next invocation; the skill's entry is
   **not** added to the stamp's `skills:` map, because it is not
   actually reconciled — only shown and set aside.
-  For a `requires_config` gap, also offer **decline permanently**: on
+  For a `requires_config` gap, or a policy caller an installed skill
+  lacks altogether (check 3a), also offer **decline permanently**: on
   yes, add the skill's name to `declined.skills` in the personal
   layer's `reconciled.json`, so later sweeps skip it (sweep step 1a)
   instead of asking again every time its `surface_hash` moves. Never

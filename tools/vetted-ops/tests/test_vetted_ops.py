@@ -442,6 +442,37 @@ ecosystems = ["PyPI"]
 def test_hostile_numbers_are_refused(policy: config.Config, hostile: str) -> None:
     with pytest.raises(ops.ParamError):
         ops.number(hostile)
+    with pytest.raises(ops.ParamError):
+        ops.database_id(hostile)
+
+
+# GitHub's database ids (runs, jobs, comments) share one counter across the
+# site and passed ten digits; an issue or PR number counts per repository.
+RUN_ID = "45349846088"
+
+
+@pytest.mark.parametrize("op_name", ["workflow-approve", "run-rerun", "run-rerun-failed", "run-view"])
+def test_run_operations_take_an_eleven_digit_run_id(policy: config.Config, op_name: str) -> None:
+    op = ops.resolve(op_name)
+    params, _ = cli._validate_params(op, [RUN_ID], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert any(RUN_ID in a for a in argv)
+
+
+def test_comment_ids_take_an_eleven_digit_id() -> None:
+    assert ops.database_id("3456789012345") == "3456789012345"
+
+
+@pytest.mark.parametrize("too_long", ["1" * 20, "9" * 25])
+def test_database_ids_stay_bounded(too_long: str) -> None:
+    with pytest.raises(ops.ParamError, match="invalid id"):
+        ops.database_id(too_long)
+
+
+def test_issue_numbers_keep_their_bound() -> None:
+    with pytest.raises(ops.ParamError, match="invalid number"):
+        ops.number(RUN_ID)
 
 
 def test_parameters_may_not_start_with_a_dash(policy: config.Config) -> None:

@@ -23,9 +23,9 @@ when_to_use: |
   same session — only that the planning issue carries `vote-passed`.
 argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
-surface_hash: sha256:ecfb43e47fa5905e
+surface_hash: sha256:ab771c43c0ecf0d6
 license: Apache-2.0
-measured_tokens: 6528
+measured_tokens: 6969
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -55,12 +55,21 @@ One command answers it and carries its own rules; there is nothing else to
 read.
 
 Run the checker with this skill's own frontmatter `name:` and
-`surface_hash:`, and one `--requires` for each `requires_config:` entry:
+`surface_hash:`, one `--requires` for each `requires_config:` entry, and the
+directory this skill was loaded from in `MAGPIE_SKILL_DIR` (the harness names
+it, e.g. Claude Code's "Base directory for this skill"; leave the variable
+out when you do not know it):
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  MAGPIE_SKILL_DIR="<this skill's directory>" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
+
+`MAGPIE_SKILL_DIR` tells the checker which Magpie version this session runs:
+the checker is one per-user copy, so it cannot tell on its own when sessions
+on different versions are open. It is a variable, not a flag, so a checker
+installed before it existed ignores it instead of failing.
 
 The path finds the checker `/magpie-setup:setup config` installed under your
 per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
@@ -120,7 +129,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
@@ -387,6 +397,17 @@ Return ONLY valid JSON with this structure (the render's fields, without `ok` an
 
 ---
 
+## Step 2b — The Nexus side (JVM artefacts)
+
+When the release publishes Maven artefacts, the same release event has a second half at `repository.apache.org`:
+the staging repository has to be `closed` before the vote (Step 6c of `release-verify-rc` checks that it is), promoted after `vote-passed`, or dropped when the RC is withdrawn or the vote failed.
+Read [`nexus-staging.md`](nexus-staging.md) for when each transition applies.
+
+This skill emits no close, drop or promote command and never runs one: the release manager performs the transition in their own terminal or in the Nexus UI, under their own ASF credentials.
+When the project already declares the promotion as a convenience artefact's `publish_command`, Step 2's block carries it verbatim; otherwise give the RM the UI action or the project's own staging-plugin goal and wait for them to report the result.
+
+---
+
 ## Step 3 — Hand-back artefact
 
 The AI-driven part ends with a hand-back artefact containing:
@@ -394,6 +415,7 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Release identifier** — `<product-name> <version>` (from `<version>-rc<N>`).
 - **Staging → release mapping** — the staging URL and target URL, side by side.
 - **Backend-shaped promotion command set** — the paste-ready block from Step 2.
+- **Nexus lifecycle note** (JVM artefacts only) — which of close, promote or drop still applies, and that the RM performs it ([`nexus-staging.md`](nexus-staging.md)).
 - **PMC membership note** — either "RM is on PMC roster, proceed" or the full hand-off note.
 - **Proposed label** — `promoted`; reminder to the RM to apply it to the planning issue after the promotion command confirms success.
 - **Mirror and announce timing note** — always present (see the mirror note in Step 2).
@@ -411,6 +433,7 @@ The AI-driven part ends with a hand-back artefact containing:
 - **Never proceed when the target URL already contains content** without surfacing the conflict and handing off to the RM + ASF Infra — Golden rule 4.
 - **Never omit the mirror / announce timing note**, regardless of backend — Golden rule 6.
 - **Never apply the `promoted` label**; the hand-back proposes it and the RM applies it — Golden rule 7.
+- **Never close, drop or promote a Nexus staging repository**, and never emit a transition command the project's configuration does not already declare; the RM runs it ([`nexus-staging.md`](nexus-staging.md)).
 
 ---
 

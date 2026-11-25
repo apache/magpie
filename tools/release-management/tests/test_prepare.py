@@ -339,6 +339,45 @@ def test_step_1_query_dates_the_previous_tag() -> None:
         plan.query(upstream="apache/airflow", base="main", previous_tag="2.10.3", tag_date="$(rm -rf /)")
 
 
+@pytest.mark.parametrize(
+    "tag_date",
+    [
+        "2026-02-30",
+        "2026-13-01",
+        "2026-04-31",
+        "2025-02-29",
+        "2026-04-30T25:00:00Z",
+        "2026-04-30T12:61Z",
+        "2026-04-30T12:00:60Z",
+        "2026-04-30T12:00:00+99:00",
+        "2026-04-30T12:00:00+2400",
+        "20260430",
+        "2026-W18-4",
+    ],
+)
+def test_step_1_query_refuses_non_iso_dates(tag_date: str) -> None:
+    with pytest.raises(plan.RenderError):
+        plan.query(upstream="apache/airflow", base="main", previous_tag="2.10.3", tag_date=tag_date)
+
+
+@pytest.mark.parametrize(
+    "tag_date",
+    [
+        "2026-04-30",
+        "2024-02-29",
+        "2026-04-30T12:00",
+        "2026-04-30T12:00:00",
+        "2026-04-30T12:00:00Z",
+        "2026-04-30T12:00:00+05:30",
+        "2026-04-30T12:00:00-0800",
+    ],
+)
+def test_step_1_query_accepts_iso_dates(tag_date: str) -> None:
+    out = plan.query(upstream="apache/airflow", base="main", previous_tag="2.10.3", tag_date=tag_date)
+    assert out["ready"] is True
+    assert tag_date in out["pr_list_command"]
+
+
 # --------------------------------------------------------------------------- Step 2
 
 PREP_KEYS = (

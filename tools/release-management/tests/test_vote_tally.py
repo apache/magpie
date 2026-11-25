@@ -461,6 +461,24 @@ class LatestVoteTest(unittest.TestCase):
 
 
 @pytest.mark.parametrize(
+    ("before", "after", "expected_later_dates"),
+    [
+        ("2026-06-11T09:00:00Z", "2026-06-11T10:30:00+02:00", ["2026-06-11T10:30:00+02:00"]),
+        ("2026-06-11T09:00:00+02:00", "2026-06-11T08:00:00Z", []),
+        ("2026-06-11T09:00:00Z", "2026-06-11T08:00:00", ["2026-06-11T08:00:00"]),
+        ("2026/06/11 09:00", "2026/06/11 08:00", ["2026/06/11 08:00"]),
+    ],
+)
+def test_superseded_vote_dates_compare_as_instants(before, after, expected_later_dates) -> None:
+    votes = [vote("alice@apache.org", "+1"), vote("alice@apache.org", "-1")]
+    votes[0]["date"], votes[1]["date"] = before, after
+
+    out = tally.tally(votes, tally.parse_roster(ROSTER), {}, False, "dev-list-vote")
+
+    assert [mismatch["later_date"] for mismatch in out["date_order_mismatches"]] == expected_later_dates
+
+
+@pytest.mark.parametrize(
     ("mechanism", "min_approvals", "result", "label"),
     [
         ("dev-list-vote", None, "PASSED", "vote-passed"),

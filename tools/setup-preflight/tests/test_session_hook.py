@@ -57,6 +57,51 @@ def test_a_version_change_suggests_upgrade(project: Path, tmp_path: Path) -> Non
     assert "/magpie-setup update" not in out
 
 
+@pytest.mark.parametrize("newer", ["999.0.0", "999.0.0.dev1"])
+def test_an_older_session_neither_announces_nor_rewinds_the_marker(
+    project: Path, tmp_path: Path, newer: str
+) -> None:
+    """Another session on a newer version wrote the shared marker; this older one starts after it."""
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text(newer)
+    out = run_hook(project, data).stdout
+    assert "Apache Magpie updated" not in out
+    assert (data / "magpie-plugin-version").read_text() == newer
+
+
+def test_a_dev_build_is_older_than_its_release(project: Path, tmp_path: Path) -> None:
+    current = _plugin_version()
+    if ".dev" not in current:
+        pytest.skip("the plugin is not a dev build")
+    release = current.split(".dev")[0]
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text(release)
+    assert "Apache Magpie updated" not in run_hook(project, data).stdout
+    assert (data / "magpie-plugin-version").read_text() == release
+
+
+def test_an_earlier_dev_build_is_announced(project: Path, tmp_path: Path) -> None:
+    current = _plugin_version()
+    if ".dev" not in current:
+        pytest.skip("the plugin is not a dev build")
+    earlier = current.split(".dev")[0] + ".dev1"
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text(earlier)
+    assert f"Apache Magpie updated ({earlier} -> {current})" in run_hook(project, data).stdout
+    assert (data / "magpie-plugin-version").read_text() == current
+
+
+def test_an_unparsable_marker_keeps_the_plain_change_rule(project: Path, tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text("not-a-version")
+    assert "Apache Magpie updated (not-a-version ->" in run_hook(project, data).stdout
+    assert (data / "magpie-plugin-version").read_text() == _plugin_version()
+
+
 def test_an_unchanged_version_is_silent_about_upgrades(project: Path, tmp_path: Path) -> None:
     data = tmp_path / "data"
     data.mkdir()

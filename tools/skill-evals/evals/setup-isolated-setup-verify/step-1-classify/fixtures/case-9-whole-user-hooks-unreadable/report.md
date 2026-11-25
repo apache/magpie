@@ -159,8 +159,7 @@ cat .claude/settings.local.json:
       ],
       "allowWrite": [
         "/home/alice/myrepo",
-        "/home/alice/.cache",
-        "/home/alice/.local/share/uv"
+        "/home/alice/.cache"
       ]
     }
   }

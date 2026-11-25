@@ -27,10 +27,10 @@ The model must return ONLY valid JSON matching this schema:
 
 Grading rules:
 - `status` must be `"FAIL"` if any non-md5 `classification` is `"MISMATCH"`
-  or the required sha512 is `MISSING-DIGEST`.
+  or the required digest (the first in the Digest set) is `MISSING-DIGEST`.
 - `status` must be `"WARN"` if the only anomaly is a deprecated `md5` file
   being present, matching or mismatched (md5 never fails alone).
-- `status` must be `"PASS"` if sha512 and every staged optional digest match
+- `status` must be `"PASS"` if the required digest and every staged optional digest match
   and no anomalies.
 - `deprecated_md5_present` must be `true` when a `.md5` file appears in
   the staging directory; `false` otherwise.

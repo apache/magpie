@@ -383,6 +383,8 @@ Look first, then ask once (in the Step 3 batch when it runs):
 - **Ask:** *"Does the project already publish a page listing its security advisories?"*
   - **Yes** — record its URL as `security_pages_url`. Then offer [Advisory records](../../templates/project.md#advisory-records):
     with it, sync proposes the page change for each published CVE itself instead of reminding the release manager.
+    When the site repository takes changes only through pull requests, set `publish: pull-request`,
+    and record each operator's fork in their `user.md` (`environment.advisory_records_fork`).
   - **No** — propose creating one, and say why (the policy step above, and one place users can check what affects them).
     Offer the `cve-json-file` layout of [`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md):
     one CVE JSON record per file in the site repository, from which the site renders the list, so each new CVE is a one-file change.
@@ -392,6 +394,30 @@ Look first, then ask once (in the Step 3 batch when it runs):
 
 Whatever the answer, say what it means for sync: with no `security_pages_url`, sync sends no security-pages reminder
 and the release-manager hand-off asks for no website edit; with one, both appear after each advisory.
+
+## Step 3a.3 — Your git values for publishing (secure setup only)
+
+Run this only when the isolated setup is in use on this machine
+(`python3 -P -m setup_preflight.isolated configured` prints `{"configured": true}`, with the same `PYTHONPATH` as pre-flight),
+and some installed skill publishes changes (opens a pull request, pushes a branch).
+Without the secure setup, plain `git` and `gh` work and there is nothing to configure: skip this step silently.
+
+Under the secure setup, publishing goes through `vetted-op-git`, which needs this operator's own values for the project's
+upstream repository: where their checkouts, worktrees and fork are. They live in one file only the operator writes,
+`~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository (`["<upstream_repo>"]`),
+never in the committed policy ([`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
+The project-wide `[git]` keys and the publishing skills' grants stay in the shared policy, which this step does not check.
+
+- **Already configured** (that file has a table for `upstream_repo`): say so in one line.
+- **Missing**: propose it. Draft the table with what the repository shows — the main checkout for `checkouts`,
+  the remote name that points at `upstream_repo` for `upstream_remote`, `<fork owner>/<repo>` from a remote pointing at a fork
+  (or ask for the login), and an absolute, symlink-free directory for `worktree_roots` — using only the keys that file accepts
+  (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, `protected`).
+  Show it, with the line that appends it to the file, for the user to run in their own terminal:
+  the sandbox denies that directory by design, and setup never writes it.
+  `vetted-op-git` prints the same draft whenever it refuses for missing values.
+
+A declined proposal is not a failure; record it like any other declined configuration.
 
 ### Personal tool configs, for a project that has not adopted Magpie
 

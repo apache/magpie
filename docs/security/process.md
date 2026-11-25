@@ -278,8 +278,9 @@ A security team member self-assigns and implements the fix.
 Optional automation:
 [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
 proposes an implementation plan, writes the change in your local
-`<upstream>` clone, runs local tests, and opens a public PR via
-`gh pr create --web` with a scrubbed title + body. Every public
+`<upstream>` clone, runs local tests, and opens a public PR (through
+`vetted-op-git`, or `gh pr create --web` where that is not configured)
+with a scrubbed title + body. Every public
 surface (commit message, branch name, PR title, PR body, newsfragment)
 is grep-checked for `CVE-`, the `<tracker>` slug, *"vulnerability"*,
 *"security fix"*, and similar leakage before being written or pushed.
@@ -426,7 +427,8 @@ hand-off comment, all of it single clicks in the CVE tool —
    blocking the close-out.
    A project that configures `advisory_records` gets the edit proposed instead:
    once cve.org shows the CVE published, sync proposes the change to the site repository
-   (a CVE JSON file, or an entry in a per-release-line page) and the Git or Subversion commands that publish it —
+   (a CVE JSON file, or an entry in a per-release-line page) and the Git or Subversion commands that publish it,
+   either directly or as a pull request from the sync operator's fork —
    see [`advisory-records.md`](advisory-records.md).
 
 The severity score follows the

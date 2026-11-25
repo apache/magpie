@@ -568,11 +568,35 @@ def test_file_copy_passes_and_reports_drift(tree, monkeypatch):
     ],
 )
 def test_source_changes_trigger_packaging_hook(path):
+    assert re.match(_packaging_hook_files_pattern(), path), f"packaging check would skip {path}"
+
+
+def _packaging_hook_files_pattern() -> str:
     config = (REPO_ROOT / ".pre-commit-config.yaml").read_text()
     block = config.split("- id: check-family-plugins\n", 1)[1].split("pass_filenames:", 1)[0]
     match = re.search(r"files: (.+)", block)
     assert match is not None
-    assert re.match(match.group(1), path), f"packaging check would skip {path}"
+    return match.group(1)
+
+
+def test_every_copied_file_triggers_packaging_hook():
+    # A source the plugins copy, but the hook pattern misses, goes stale in its
+    # plugin copy whenever a commit touches only that file (#2166). Walk every
+    # copy the way check_substrate does, so a new copy cannot drift from the hook.
+    pattern = _packaging_hook_files_pattern()
+    missed = set()
+    for spec in mod.SUBSTRATE_PLUGINS.values():
+        for src_rel in spec.get("copies", {}).values():
+            src = REPO_ROOT / src_rel
+            if src.is_file():
+                files = [src]
+            else:
+                files = [p for p in src.rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+            for path in files:
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                if not re.match(pattern, rel):
+                    missed.add(rel)
+    assert not missed, f"packaging check would skip {sorted(missed)}"
 
 
 # --- the packaged pyproject of a copied tool -------------------------------------
@@ -820,3 +844,42 @@ def test_every_real_codex_plugin_exposes_parseable_hooks(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
     assert mod.check_codex_hook_files() == []
     assert mod.check_codex_family_hooks(mod.root_metadata()[0]) == []
+
+
+MOD_SCHEMA = "https://code.claude.com/schemas/hooks.json"
+
+
+def _claude_hook_file(tmp_path: Path, monkeypatch, content: dict) -> Path:
+    """A repo root with one plugin whose `hooks/hooks.json` holds `content`."""
+    monkeypatch.chdir(tmp_path)
+    hook_dir = tmp_path / "plugins" / "magpie-utilities" / "hooks"
+    hook_dir.mkdir(parents=True)
+    (hook_dir / "hooks.json").write_text(json.dumps(content), encoding="utf-8")
+    return Path("plugins/magpie-utilities/hooks/hooks.json")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"$schema": MOD_SCHEMA, "modules": ["./m.ts"]},
+        {"$schema": MOD_SCHEMA, "hooks": [], "modules": ["./m.ts"]},
+    ],
+    ids=["no-hooks-key", "hooks-not-an-object"],
+)
+def test_a_claude_hook_file_without_a_hooks_object_is_reported(tmp_path, monkeypatch, content):
+    # Claude Code 2.1.220, inside the floor, rejects such a file: `claude plugin
+    # validate` fails and `claude plugin list` reports the plugin as failed to load.
+    path = _claude_hook_file(tmp_path, monkeypatch, content)
+    errors = mod.check_claude_hook_files()
+    assert len(errors) == 1
+    assert errors[0].startswith(f"{path}: no 'hooks' object")
+
+
+def test_a_claude_hook_file_with_an_empty_hooks_object_passes(tmp_path, monkeypatch):
+    _claude_hook_file(tmp_path, monkeypatch, {"$schema": MOD_SCHEMA, "hooks": {}, "modules": ["./m.ts"]})
+    assert mod.check_claude_hook_files() == []
+
+
+def test_every_real_claude_hook_file_carries_a_hooks_object(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    assert mod.check_claude_hook_files() == []

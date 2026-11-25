@@ -63,8 +63,9 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
 * **What is re-checked cannot change in between.** The configuration check
   runs again right before the command that acts, and the keys that could start
   a program in that window are pinned on the command line (`PINNED_CONFIG`,
-  ``core.sshCommand`` set to the user's global value, hooks off where they are
-  not wanted). Attributes come from the empty tree, so no ``.gitattributes``
+  ``core.sshCommand`` set to the user's global value, the signing and
+  verification settings (`SIGNING_KEYS`) set to the user's own, hooks off where
+  they are not wanted). Attributes come from the empty tree, so no ``.gitattributes``
   can switch on a filter. ``GIT_ALLOW_PROTOCOL`` limits transports whatever
   the configuration says. Validated directories are opened without following
   a symlink and git runs inside them by descriptor, so a directory swapped for
@@ -94,6 +95,8 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import fnmatch
+import hashlib
+import json
 import os
 import re
 import stat
@@ -115,6 +118,7 @@ from .config import (
     describe,
     load,
 )
+from .layers import main_worktree
 from .safe_read import TamperedPath, read_regular_file
 
 EXIT_OK = 0
@@ -187,6 +191,9 @@ SAFE_LOCAL_KEY = re.compile(
     | diff\.(?:renames|algorithm|colormoved)
     | log\.(?:date|decorate|follow)
     | status\.(?:showuntrackedfiles|submodulesummary)
+    # Read by the `gh stack` extension (AGENTS.md recommends it for stacked pull
+    # requests), which writes it to the repository; git itself never reads it.
+    | gh-stack\.remote
     )$""",
     re.VERBOSE,
 )
@@ -232,6 +239,8 @@ class GitPolicy:
     upstream_remote: str = "upstream"
     #: The upstream branch a pull request opened by `git-pr-create` targets.
     pr_base: str = "main"
+    #: Paths `git-switch` treats as steering the harness, beyond `HARNESS_PATHS`.
+    harness_paths: tuple[str, ...] = ()
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
@@ -304,6 +313,35 @@ def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
     return table
 
 
+def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
+    """A ready-to-save ``["<upstream>"]`` table for the operator file, for a refusal to show.
+
+    Filled from what is known without running anything: the main checkout of
+    the working directory and the upstream's repository name. The fork stays a
+    placeholder, since it is the operator's, not the repository's. Only keys in
+    `OPERATOR_KEYS` appear, so the draft is always one the file accepts.
+    """
+    here = (base or Path.cwd()).resolve()
+    checkout = main_worktree(here) or here
+    name = upstream_repo.split("/", 1)[-1] if "/" in upstream_repo else checkout.name
+    roots = Path(os.path.realpath(checkout.parent)) / f"{checkout.name}-worktrees"
+    path = operator_git_path()
+    return "\n".join(
+        [
+            "",
+            f"Add your own values: append this table to {path}",
+            "(create the worktree_roots directory first; no symlink may be on its path),",
+            "with your fork filled in. Only you can write that file:",
+            "",
+            f'["{upstream_repo}"]',
+            f'checkouts = ["{checkout}"]',
+            f'fork = "<your-github-login>/{name}"',
+            f'worktree_roots = ["{roots}"]',
+            'upstream_remote = "upstream"',
+        ]
+    )
+
+
 def _git_table(config: Config) -> dict[str, object]:
     """The shared policy's ``[git]`` table with the operator's own values over it."""
     project = config.git
@@ -314,6 +352,7 @@ def _git_table(config: Config) -> dict[str, object]:
         raise ConfigError(
             f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
             f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
+            + operator_git_draft(config.upstream_repo)
         )
     merged = dict(project or {})
     if operator is not None:
@@ -342,6 +381,7 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("host", policy.host),
         ("upstream_push", list(policy.upstream_push)),
         ("pr_base", policy.pr_base),
+        ("harness_paths", list(policy.harness_paths)),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -374,7 +414,9 @@ def git_policy(config: Config) -> GitPolicy:
     table = _git_table(config)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
-        raise ConfigError("[git] checkouts must name at least one main checkout")
+        raise ConfigError(
+            "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
+        )
     fork = table.get("fork")
     if fork is not None and (not isinstance(fork, str) or not _REPO.match(fork)):
         raise ConfigError(f"[git] fork must be an 'owner/name' string, got {fork!r}")
@@ -405,6 +447,7 @@ def git_policy(config: Config) -> GitPolicy:
         workspace=config.workspace,
         upstream_remote=upstream_remote,
         pr_base=pr_base,
+        harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
     )
 
 
@@ -484,7 +527,30 @@ def open_dir(path: Path) -> int:
 #: monitor program, no automatic gc or maintenance (their hooks are commands),
 #: and only network transports (a local path would run that repository's
 #: receive-pack and hooks here). The same pins as the local tracker's git.
-PINNED_CONFIG = ("core.fsmonitor=false", "gc.auto=0", "maintenance.auto=false", "protocol.allow=never")
+PINNED_CONFIG = (
+    "core.fsmonitor=false",
+    "gc.auto=0",
+    "maintenance.auto=false",
+    "protocol.allow=never",
+    # The commit-graph file is in the agent-writable `.git` and git trusts the
+    # parents it lists: the graph checks must read the commit objects instead.
+    "core.commitGraph=false",
+)
+
+#: The settings that pick the program that signs or verifies a commit, the key
+#: it signs with, and whom a signature is trusted from (see `Git.signing_pins`).
+SIGNING_KEYS = (
+    "gpg.format",
+    "gpg.program",
+    "gpg.openpgp.program",
+    "gpg.ssh.program",
+    "gpg.x509.program",
+    "gpg.ssh.allowedSignersFile",
+    "gpg.ssh.defaultKeyCommand",
+    "gpg.ssh.revocationFile",
+    "gpg.minTrustLevel",
+    "user.signingKey",
+)
 
 #: The first git that honours ``GIT_ATTR_SOURCE``.
 MIN_GIT_VERSION = (2, 42)
@@ -509,8 +575,12 @@ class Git:
     #: The user's global ``core.sshCommand`` (or plain ``ssh``), pinned on every
     #: call so the repository's configuration cannot replace it.
     _ssh_command: str | None = field(default=None, repr=False)
+    #: The user's signing and verification settings, pinned on every call (see `signing_pins`).
+    _signing_pins: list[str] | None = field(default=None, repr=False)
     #: Set once the object format is known (see `check_repository_config`).
     attr_source: str | None = None
+    #: The repository's object format (`sha1` or `sha256`), set with `attr_source`.
+    object_format: str = "sha1"
     #: Validated directories, open (see `open_dir`); git runs in these, never at the name.
     anchors: dict[Path, int] = field(default_factory=dict)
     #: Validated working tree -> its git directory. Git gets these explicitly
@@ -556,6 +626,48 @@ class Git:
             self._ssh_command = value if value and "\n" not in value else "ssh"
         return self._ssh_command
 
+    def signs_commits(self) -> bool:
+        """Whether the user's own configuration signs commits (``commit.gpgsign``)."""
+        argv = ["git", "-C", "/", "config", "--bool", "--get", "commit.gpgsign"]
+        found = self.runner(argv, clean_env(), None)
+        return found.returncode == 0 and found.stdout.strip() == "true"
+
+    def _user_config(self, key: str) -> str | None:
+        """``key`` from the user's own (system and global) configuration, never a repository's."""
+        found = self.runner(["git", "-C", "/", "config", "--get", key], clean_env(), None)
+        value = found.stdout.strip() if found.returncode == 0 else ""
+        return value if value and "\n" not in value else None
+
+    def signing_pins(self) -> list[str]:
+        """The signing and verification settings, pinned to the user's own values on every call.
+
+        Signing a commit and checking a signature (``%G?``) start a program and
+        read a list of trusted signers. The repository-config check refuses a
+        repository that sets any of these, but it cannot cover the moment
+        between that check and the command, so the command carries the user's
+        values itself: a key the repository gains in between cannot name
+        another program or another allowed-signers file. A key the user leaves
+        unset is pinned to git's default, so the repository cannot set it
+        either; an unset allowed-signers file is pinned to an empty one.
+        """
+        if self._signing_pins is None:
+            values = {key: self._user_config(key) for key in SIGNING_KEYS}
+            program = values["gpg.program"] or "gpg"
+            defaults = {
+                "gpg.format": "openpgp",
+                "gpg.program": program,
+                "gpg.openpgp.program": program,
+                "gpg.ssh.program": "ssh-keygen",
+                "gpg.x509.program": "gpgsm",
+                "gpg.ssh.allowedSignersFile": os.devnull,
+            }
+            self._signing_pins = [
+                f"{key}={values[key] or defaults[key]}"
+                for key in SIGNING_KEYS
+                if values[key] is not None or key in defaults
+            ]
+        return self._signing_pins
+
     def argv(self, directory: Path, *args: str, hooks: bool = False) -> list[str]:
         """A git command in ``directory``, with hooks switched off unless ``hooks``.
 
@@ -564,6 +676,7 @@ class Git:
         """
         pins = [*PINNED_CONFIG, *(f"protocol.{p}.allow=always" for p in self.protocols)]
         pins.append(f"core.sshCommand={self.ssh_command()}")
+        pins.extend(self.signing_pins())
         if not hooks:
             pins.append("core.hooksPath=/dev/null")
         where = [] if directory in self.anchors else ["-C", str(directory)]
@@ -575,6 +688,12 @@ class Git:
         env = clean_env()
         # Overrides every protocol.* setting, the repository's included.
         env["GIT_ALLOW_PROTOCOL"] = ":".join(self.protocols)
+        # Replace refs live in the agent-writable `.git`: honoured, they would let
+        # the graph checks (ancestry, merges, commit counts) see a history other
+        # than the one a push sends. Grafts likewise: none is read (the file is
+        # also refused up front in `check_repository_config`, with a clearer message).
+        env["GIT_NO_REPLACE_OBJECTS"] = "1"
+        env["GIT_GRAFT_FILE"] = os.devnull
         if self.attr_source is not None:
             env["GIT_ATTR_SOURCE"] = self.attr_source
         return env
@@ -589,6 +708,23 @@ class Git:
         argv, completed = self._call(directory, *args, hooks=hooks)
         if completed.returncode != 0:
             raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+        return completed.stdout
+
+    def run_bytes(self, directory: Path, *args: str, stdin: str = "") -> bytes:
+        """Like `run`, for output that is not text (object contents), with ``stdin`` fed to git."""
+        argv = self.argv(directory, *args)
+        cwd_fd = self.anchors.get(directory)
+        completed = subprocess.run(
+            argv,
+            check=False,
+            capture_output=True,
+            input=stdin.encode(),
+            env=self._env(),
+            pass_fds=(cwd_fd,) if cwd_fd is not None else (),
+            preexec_fn=(lambda: os.fchdir(cwd_fd)) if cwd_fd is not None else None,
+        )
+        if completed.returncode != 0:
+            raise GitFailed(argv, completed.returncode, completed.stderr.decode("utf-8", "replace"))
         return completed.stdout
 
     def ok(self, directory: Path, *args: str) -> bool:
@@ -621,6 +757,22 @@ def branch_name(git: Git, directory: Path, raw: str, name: str) -> str:
 
 def is_protected(branch: str, policy: GitPolicy) -> bool:
     return any(fnmatch.fnmatchcase(branch, glob) for glob in policy.protected)
+
+
+def current_branch(git: Git, worktree: Worktree) -> str:
+    """The branch checked out in ``worktree``, its exact name without ``refs/heads/``.
+
+    Never ``symbolic-ref --short``: with a tag of the same name it answers
+    ``heads/main``, which no protected-branch glob matches.
+    """
+    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
+        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out a branch first")
+    ref = git.run(worktree.path, "symbolic-ref", "HEAD").strip()
+    if not ref.startswith("refs/heads/"):
+        raise GitRefused(f"HEAD of {str(worktree.path)!r} points at {ref!r}, not a local branch")
+    # Validated like a branch parameter: a ref named `refs/heads/-x` is valid
+    # git, and the name may reach a command line (`git-rebase` passes it).
+    return branch_name(git, worktree.path, ref.removeprefix("refs/heads/"), "the checked-out branch")
 
 
 def _absolute(raw: str, name: str) -> Path:
@@ -757,12 +909,19 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
         )
     if git_dir != worktree.git_dir:
         raise GitRefused(f"the git directory of {str(worktree.path)!r} changed since it was validated")
+    if os.path.lexists(worktree.checkout / ".git" / "info" / "grafts"):
+        raise GitRefused(
+            f"{str(worktree.checkout / '.git' / 'info' / 'grafts')!r} exists; grafts rewrite the history "
+            "git reports, so the checks here could pass on a history other than the one a push sends. "
+            "Remove the file (or convert it with `git replace --convert-graft-file`) and retry"
+        )
     for directory in dict.fromkeys((worktree.path, worktree.checkout)):
         _check_config_in(git, directory)
     object_format = git.run(worktree.path, "rev-parse", "--show-object-format").strip()
     if object_format not in EMPTY_TREE:
         raise GitRefused(f"unsupported object format {object_format!r}")
     git.attr_source = EMPTY_TREE[object_format]
+    git.object_format = object_format
 
 
 def _check_config_in(git: Git, directory: Path) -> None:
@@ -867,6 +1026,143 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"pushed {commit} to {repo} {remote_branch} ({was})"
 
 
+#: A pull request number, as GitHub assigns them.
+_PR_NUMBER = re.compile(r"^[1-9][0-9]{0,9}$")
+
+#: What `git-push-pr-head` reads about the pull request, as one JSON object.
+_PR_HEAD_JQ = (
+    "{state: .state, maintainer_can_modify: .maintainer_can_modify, base_repo: .base.repo.full_name, "
+    "head_repo: .head.repo.full_name, head_ref: .head.ref, head_sha: .head.sha}"
+)
+
+
+def _pull_request_head(git: Git, policy: GitPolicy, number: str) -> dict[str, object]:
+    """The head of upstream pull request ``number``, read from the forge, never from the caller."""
+    argv = [
+        "gh",
+        "api",
+        "--hostname",
+        policy.host,
+        f"repos/{policy.upstream_repo}/pulls/{number}",
+        "--jq",
+        _PR_HEAD_JQ,
+    ]
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        head = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused(f"pull request #{number}: the forge's answer is not JSON") from None
+    if not isinstance(head, dict):
+        raise GitRefused(f"pull request #{number}: the forge's answer is not an object")
+    return head
+
+
+#: Commits one `git-push-pr-head` may add on top of the pull request's head.
+MAX_FIXUP_COMMITS = 10
+
+
+def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Fast-forward an open upstream pull request's head branch to a local branch's commit.
+
+    The maintainer-fixup push, to a repository the policy does not name: the
+    contributor's fork. Three things keep that destination bounded. The caller
+    names it (``head_repo``, ``head_branch``), so the confirmation the user
+    approves shows where the commits go, and the forge must report that same
+    head for pull request ``number``: open, against the upstream repository,
+    still at ``expected``, with maintainer edits allowed (or, on the upstream
+    repository itself, an ``upstream_push`` branch). And only a fixup goes: at
+    most `MAX_FIXUP_COMMITS` commits on top of ``expected``, none of them a
+    merge, so no other local history can be carried along. The push is a
+    fast-forward under a lease on ``expected``, so it adds commits to the
+    contributor's branch and never rewrites or drops theirs.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    local = branch_name(git, worktree.path, p["branch"], "branch")
+    number = _param(p["number"], "number")
+    if not _PR_NUMBER.match(number):
+        raise GitRefused(f"number must be a pull request number, got {number!r}")
+    named_repo = _param(p["head_repo"], "head_repo")
+    if not _REPO.match(named_repo):
+        raise GitRefused(f"head_repo must be 'owner/name', got {named_repo!r}")
+    named_branch = branch_name(git, worktree.path, p["head_branch"], "head_branch")
+    expected = sha(p["expected"], "expected")
+    if not git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{local}"):
+        raise GitRefused(f"there is no local branch {local!r}")
+    commit = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{local}^{{commit}}").strip()
+    resolve_commit(git, worktree.path, expected, "expected")
+    if commit == expected:
+        raise GitRefused(f"{local!r} is still at the pull request's head {expected}; commit the fixup first")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", expected, commit):
+        raise GitRefused(
+            f"{local!r} does not build on the pull request's head {expected}; a fixup adds commits on top "
+            "of the contributor's and never rewrites them"
+        )
+    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}").strip()
+    if int(added) > MAX_FIXUP_COMMITS:
+        raise GitRefused(
+            f"{local!r} adds {added} commits on top of the pull request's head; a fixup adds at most "
+            f"{MAX_FIXUP_COMMITS}"
+        )
+    if git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").strip():
+        raise GitRefused(
+            f"{local!r} has a merge commit on top of the pull request's head; a fixup is plain commits, "
+            "so no other branch's history goes with it"
+        )
+
+    head = _pull_request_head(git, policy, number)
+    # GitHub repository names are case-insensitive; the forge answers in its own casing.
+    if str(head.get("base_repo") or "").casefold() != policy.upstream_repo.casefold():
+        raise GitRefused(f"pull request #{number} is not against {policy.upstream_repo}")
+    if head.get("state") != "open":
+        raise GitRefused(f"pull request #{number} is {head.get('state')!r}, not open")
+    if head.get("head_sha") != expected:
+        raise GitRefused(
+            f"pull request #{number}'s head is now {head.get('head_sha')}, not {expected}; "
+            "fetch it again and rebuild the fixup on it"
+        )
+    repo = head.get("head_repo")
+    if not isinstance(repo, str) or not _REPO.match(repo):
+        raise GitRefused(f"pull request #{number} has no head repository (was its fork deleted?)")
+    remote_branch = branch_name(git, worktree.path, str(head.get("head_ref") or ""), "the head branch")
+    if (repo.casefold(), remote_branch) != (named_repo.casefold(), named_branch):
+        raise GitRefused(
+            f"pull request #{number}'s head is {repo} {remote_branch}, not {named_repo} {named_branch}; "
+            "name the head the forge reports"
+        )
+    if is_protected(remote_branch, policy):
+        raise GitRefused(f"{remote_branch!r} is a protected branch; no operation pushes to it")
+    if repo.casefold() == policy.upstream_repo.casefold():
+        if not any(fnmatch.fnmatchcase(remote_branch, glob) for glob in policy.upstream_push):
+            raise GitRefused(
+                f"{remote_branch!r} matches no [git] upstream_push glob "
+                f"({', '.join(policy.upstream_push) or 'none declared'}), so it may not be pushed upstream"
+            )
+    elif head.get("maintainer_can_modify") is not True:
+        raise GitRefused(
+            f"the author of pull request #{number} does not allow edits from maintainers, "
+            f"so nothing may be pushed to {repo} {remote_branch}"
+        )
+
+    args = [
+        "push",
+        # The pre-push checks run in the sandbox before this call (see the module docstring).
+        "--no-verify",
+        "--no-follow-tags",
+        "--porcelain",
+        f"--force-with-lease=refs/heads/{remote_branch}:{expected}",
+        policy.push_url(repo),
+        f"{commit}:refs/heads/{remote_branch}",
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    return f"pushed {commit} to {repo} {remote_branch}, the head of #{number} (was {expected})"
+
+
 def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Move a clean linked worktree's branch to a commit (``reset --keep``)."""
     worktree = resolve_worktree(git, p["worktree"], policy)
@@ -874,9 +1170,7 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
         raise GitRefused("worktree-sync moves linked worktrees only; this is the main checkout")
     check_repository_config(git, worktree)
     commit = resolve_commit(git, worktree.path, sha(p["commit"], "commit"), "commit")
-    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
-        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out its branch first")
-    branch = git.run(worktree.path, "symbolic-ref", "--short", "HEAD").strip()
+    branch = current_branch(git, worktree)
     if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
         raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
     previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
@@ -886,6 +1180,643 @@ def worktree_sync(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     check_repository_config(git, worktree)
     git.run(worktree.path, *args)
     return f"moved {branch} in {worktree.path} from {previous} to {commit}"
+
+
+#: Pinned on a rebase on top of `PINNED_CONFIG`: no recorded conflict
+#: resolution is replayed (`rerere` would write content no check passed), no
+#: stash is made or popped, no other branch is moved, and no editor is started.
+REBASE_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "rebase.autoStash=false",
+    "rebase.autoSquash=false",
+    "rebase.updateRefs=false",
+    "core.editor=false",
+    "sequence.editor=false",
+)
+
+
+#: Pinned on a cherry-pick, for the same reasons as `REBASE_CONFIG`.
+CHERRY_PICK_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "core.editor=false",
+    "sequence.editor=false",
+)
+
+
+def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
+    """Refuse to re-sign a commit that does not already carry the user's good signature.
+
+    An operation that replays commits (a rebase, a cherry-pick, a merge) signs
+    what it writes with the user's key, outside the sandbox. Inside it, the
+    agent can make commits of its own, unsigned and with content the sandboxed
+    checks never saw; replaying those here would put the user's signature on
+    them. So when the user signs commits, every replayed commit must already
+    verify (``%G?`` is ``G``) against their global configuration: one made
+    through `git-commit`, or one they signed themselves. Verifying runs here,
+    outside the sandbox, because the allowed-signers file and keyring are
+    out of its reach. When the user does not sign, nothing is signed here
+    either, and there is no signature to protect.
+    """
+    if not git.signs_commits():
+        return
+    output = git.run(worktree.path, "log", "--format=%H %G?", revisions)
+    unsigned = [fields[0] for fields in (line.split() for line in output.splitlines()) if fields[1:] != ["G"]]
+    if unsigned:
+        shown = ", ".join(unsigned[:10]) + (" …" if len(unsigned) > 10 else "")
+        raise GitRefused(
+            f"the {operation} would sign commits that carry no good signature of yours: {shown}. Commit through "
+            "git-commit, or sign those commits yourself, and retry. Signatures are checked against your global "
+            "gpg configuration (for ssh signing, gpg.ssh.allowedSignersFile)"
+        )
+
+
+def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
+    """Fetch the policy's ``pr_base`` from the upstream URL and return the commit it fetched.
+
+    The commit comes from this fetch's own output, not from the remote-tracking
+    ref afterwards: that ref is in the repository, which a sandboxed `git fetch`
+    from a URL the repository configures can also write.
+    """
+    ref = f"refs/remotes/{policy.upstream_remote}/{policy.pr_base}"
+    output = git.run(
+        worktree.path,
+        "fetch",
+        "--porcelain",
+        # Without it an up-to-date ref is left out of the porcelain output.
+        "--verbose",
+        "--no-tags",
+        "--no-recurse-submodules",
+        "--no-write-fetch-head",
+        policy.push_url(policy.upstream_repo),
+        f"+refs/heads/{policy.pr_base}:{ref}",
+    )
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[3] == ref and _SHA.match(fields[2]):
+            return fields[2]
+    raise GitRefused(f"fetching {policy.upstream_repo} {policy.pr_base} reported no commit for {ref}")
+
+
+def rebase_onto(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Rebase a clean topic branch onto an upstream commit; on a conflict, abort and report it.
+
+    The rebase re-creates each commit, so it signs them per the user's global
+    configuration, which the sandbox cannot reach. Nothing in it is decided by
+    hand: git replays each commit already on the branch onto a commit of the
+    upstream ``pr_base`` (fetched here, from the policy's URL), merging the
+    two sides only where that needs no decision. A conflict is never resolved
+    out here; the rebase is aborted, the branch is left where it was, and the
+    conflicting paths are named, to be resolved in the sandbox and committed
+    through `git-commit`.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    onto = sha(p["onto"], "onto")
+    expected = sha(p["expected"], "expected")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; only a topic branch is rebased")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the rebase was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    pins = [arg for pin in REBASE_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "rebase",
+        "--no-autosquash",
+        "--no-autostash",
+        "--no-update-refs",
+        "--no-rerere-autoupdate",
+        "--empty=drop",
+        "--end-of-options",
+        onto,
+        # Named, so the rebase acts on this branch even if HEAD is switched in between.
+        branch,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    base = _fetch_base(git, worktree, policy)
+    resolve_commit(git, worktree.path, onto, "onto")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", onto, base):
+        raise GitRefused(
+            f"onto {onto} is not on {policy.upstream_repo} {policy.pr_base} (fetched just now at {base}); "
+            f"rebase onto a commit of {policy.pr_base}"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", onto, previous):
+        return f"{branch} in {worktree.path} already contains {onto}; nothing to rebase"
+    if git.run(worktree.path, "rev-list", "--count", f"{onto}..{previous}").strip() == "0":
+        raise GitRefused(f"{branch!r} has no commits over {onto}; a rebase would leave it empty")
+    if git.run(worktree.path, "rev-list", "--merges", "--count", f"{onto}..{previous}").strip() != "0":
+        raise GitRefused(
+            f"{branch!r} has merge commits over {onto}; a rebase would flatten them and could drop what "
+            "they resolved. Rebase it in the sandbox instead"
+        )
+    check_repository_config(git, worktree)
+    # After the last configuration check; verifying runs with the user's own
+    # signing settings pinned (`Git.signing_pins`).
+    require_signed(git, worktree, f"{onto}..{previous}", "rebase")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "rebase", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the rebase was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git rebase --abort` failed too; {str(worktree.path)!r} is mid-rebase"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Resolve the conflict in the "
+            "sandbox and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    rebased = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{branch}").strip()
+    # The checks above saw `expected`; the rebase replayed whatever the branch
+    # held when it started. If something moved it in between, put back what the
+    # rebase started from and refuse: those commits were never approved.
+    started = git.run(worktree.path, "rev-parse", "--verify", "ORIG_HEAD").strip()
+    if started != expected:
+        git.run(worktree.path, "reset", "--keep", started)
+        raise GitRefused(
+            f"{branch!r} moved to {started} while the rebase was starting, not the approved {expected}; "
+            f"it is back at {started}, unrebased. Look at it again"
+        )
+    count = git.run(worktree.path, "rev-list", "--count", f"{onto}..{rebased}").strip()
+    return f"rebased {branch} in {worktree.path} onto {onto}: {previous} -> {rebased} ({count} commits)"
+
+
+def cherry_pick(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Replay one commit onto a clean topic branch; on a conflict, abort and report it.
+
+    The way to finish a rebase that conflicted: start a branch on the upstream
+    base, then replay the commits one at a time, resolving the one that
+    conflicts in the sandbox and committing it through `git-commit`. The new
+    commit is signed per the user's configuration, so when the user signs,
+    the commit replayed must already carry their good signature: one of their
+    own, never one the agent made unsigned in the sandbox. A merge commit is
+    refused, since a pick of it needs a decision about its parents.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    commit = sha(p["commit"], "commit")
+    expected = sha(p["expected"], "expected")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; commits are replayed onto a topic branch only")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the cherry-pick was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    resolve_commit(git, worktree.path, commit, "commit")
+    parents = git.run(worktree.path, "rev-list", "--parents", "-n", "1", commit).split()[1:]
+    if len(parents) != 1:
+        raise GitRefused(
+            f"{commit} is {'a merge' if parents else 'a root'} commit; only a plain commit is replayed"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", commit, previous):
+        return f"{branch} in {worktree.path} already contains {commit}; nothing to replay"
+    pins = [arg for pin in CHERRY_PICK_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "cherry-pick",
+        "--no-edit",
+        "--no-rerere-autoupdate",
+        "--allow-empty",
+        "--end-of-options",
+        commit,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    require_signed(git, worktree, f"{commit}^!", "cherry-pick")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "cherry-pick", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the cherry-pick was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git cherry-pick --abort` failed too; {str(worktree.path)!r} is mid-cherry-pick"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Make the change in the sandbox "
+            "and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    picked = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    landed = git.run(worktree.path, "rev-list", "--parents", "-n", "1", picked).split()[1:]
+    now = git.run(worktree.path, "symbolic-ref", "--quiet", "HEAD").strip()
+    if landed != [expected] or now != f"refs/heads/{branch}":
+        git.run(worktree.path, "reset", "--keep", landed[0])
+        raise GitRefused(
+            f"the cherry-pick landed on {now or 'a detached HEAD'} at {landed[0]}, not on {branch!r} at the "
+            f"approved {expected}; it was taken back off. Look at the branch again"
+        )
+    return f"replayed {commit} onto {branch} in {worktree.path}: {previous} -> {picked}"
+
+
+#: Tracked paths that steer an agent harness or this dispatcher: settings,
+#: hooks, skills, agents, MCP servers, plugin manifests and the vetted-ops
+#: policy. Harnesses keep them read-only in the sandbox because what they say
+#: runs outside it, which is also why a branch switch inside the sandbox fails
+#: half-way. `git-switch` writes them, so it only ever writes a version that
+#: came from upstream. A project adds its own with `[git] harness_paths`.
+HARNESS_PATHS = (
+    ".claude",
+    ".agents",
+    ".codex",
+    ".gemini",
+    ".github/skills",
+    ".mcp.json",
+    ".claude-plugin",
+    ".apache-magpie-overrides/tools/vetted-ops",
+    ".apache-magpie-local/tools/vetted-ops",
+    # A Subversion working copy's personal layer; a tree can carry `.svn` as plain files.
+    ".svn/apache-magpie/tools/vetted-ops",
+)
+
+
+def _path_key(path: str) -> str:
+    """``path`` as a case-insensitive, normalising file system sees it.
+
+    On such a file system (macOS by default) a tracked `.Claude/settings.json`
+    is written to `.claude/settings.json`, and HFS+ also drops Unicode format
+    characters, so a byte-exact comparison would miss both.
+    """
+    composed = unicodedata.normalize("NFC", path)
+    return "".join(c for c in composed if unicodedata.category(c) != "Cf").casefold()
+
+
+def is_harness_path(path: str, extra: Sequence[str] = ()) -> bool:
+    """Whether ``path`` is, is inside, or stands in for a directory of a harness path, at any depth.
+
+    Any depth, because harnesses also read nested `.claude/` directories. And
+    an ancestor counts (a tracked `.github` or `.apache-magpie-overrides/tools`
+    entry), because a symlink there would redirect every harness path below it.
+    ``extra`` are the policy's `harness_paths`.
+    """
+    keys = [_path_key(h) for h in (*HARNESS_PATHS, *extra)]
+    parts = _path_key(path).split("/")
+    for start in range(len(parts)):
+        tail = "/".join(parts[start:])
+        if any(tail == h or tail.startswith(f"{h}/") or h.startswith(f"{tail}/") for h in keys):
+            return True
+    return False
+
+
+def _upstream_base(git: Git, policy: GitPolicy, worktree: Worktree, fetch: bool = True) -> str | None:
+    """The upstream ``pr_base`` commit, asked of the policy's URL now, with its objects present.
+
+    Never a local ref: `refs/remotes/...` lives in the agent-writable `.git`,
+    so a ref there could name a commit of the agent's own as "upstream". The
+    objects behind the answer are then read through `_VerifiedObjects`, so a
+    forged object stored under that name is caught too. Without ``fetch`` (a
+    dry run) a commit not yet in the repository is None.
+    """
+    url = policy.push_url(policy.upstream_repo)
+    ref = f"refs/heads/{policy.pr_base}"
+    # The URL is built from the policy and starts with a scheme or `git@`, never `-`.
+    lines = git.run(worktree.path, "ls-remote", url, ref).splitlines()
+    found = [line.split("\t", 1)[0] for line in lines if line.endswith(f"\t{ref}")]
+    if len(found) != 1 or not _SHA.match(found[0]):
+        raise GitRefused(f"{policy.upstream_repo} has no branch {policy.pr_base!r} to check against")
+    base = found[0]
+    if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
+        if not fetch:
+            return None
+        git.run(
+            worktree.path, "fetch", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", url, ref
+        )
+    if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
+        raise GitRefused(
+            f"upstream {policy.pr_base} ({base}) is missing or damaged in the repository even after fetching "
+            "it: it moved meanwhile (retry), or the object store has been tampered with"
+        )
+    return base
+
+
+#: Tree entry modes `git-switch` writes as files: regular, executable, symlink.
+_FILE_MODES = ("100644", "100755", "120000")
+#: Every mode a well-formed tree uses; `git fsck` flags any other spelling.
+_TREE_MODES = ("40000", *_FILE_MODES, "160000")
+#: Commits read to confirm the fork point is upstream's, at most.
+MAX_ANCESTRY = 200_000
+
+
+class _VerifiedObjects:
+    """Objects read from the repository and re-hashed before they are believed.
+
+    The object store is in the agent-writable `.git`, and git does not re-hash
+    what it reads, so a loose object holding other content under a name would
+    be taken as genuine. Every object here is hashed again and must match the
+    name it was asked for, so a walk that starts from a commit name obtained
+    from the forge reads only content the forge's history really holds.
+    """
+
+    def __init__(self, git: Git, directory: Path) -> None:
+        self.git = git
+        self.directory = directory
+        self.cache: dict[str, tuple[str, bytes]] = {}
+
+    def read(self, oids: Sequence[str]) -> None:
+        wanted = [oid for oid in dict.fromkeys(oids) if oid not in self.cache]
+        if not wanted:
+            return
+        output = self.git.run_bytes(
+            self.directory, "cat-file", "--batch", stdin="".join(f"{o}\n" for o in wanted)
+        )
+        at = 0
+        for oid in wanted:
+            end = output.index(b"\n", at)
+            header = output[at:end].decode("ascii", "replace").split()
+            if len(header) != 3 or header[0] != oid:
+                raise GitRefused(f"object {oid} is missing from the repository")
+            kind, size = header[1], int(header[2])
+            body = output[end + 1 : end + 1 + size]
+            at = end + 1 + size + 1
+            digest = hashlib.new(self.git.object_format, f"{kind} {size}\0".encode() + body).hexdigest()
+            if digest != oid:
+                raise GitRefused(
+                    f"object {oid} in the repository holds other content (it hashes to {digest}); "
+                    "the object store has been tampered with"
+                )
+            self.cache[oid] = (kind, body)
+
+    def get(self, oid: str, kind: str) -> bytes:
+        self.read([oid])
+        found, body = self.cache[oid]
+        if found != kind:
+            raise GitRefused(f"object {oid} is a {found}, not a {kind}")
+        return body
+
+    def _commit_lines(self, oid: str) -> list[list[str]]:
+        head = self.get(oid, "commit").split(b"\n\n", 1)[0].decode("utf-8", "replace")
+        return [line.split(" ", 1) for line in head.split("\n") if " " in line]
+
+    def parents(self, oid: str) -> list[str]:
+        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.match(value)]
+
+    def is_ancestor(self, ancestor: str, of: str, hint: Sequence[str] = ()) -> bool:
+        """Whether ``ancestor`` is reachable from ``of`` through verified parent links.
+
+        ``hint`` (commits git lists in between) is only read ahead in one batch;
+        nothing in it is believed until a verified parent link reaches it.
+        """
+        self.read([of, *hint])
+        seen = {of}
+        frontier = [of]
+        while frontier:
+            if ancestor in seen:
+                return True
+            if len(seen) > MAX_ANCESTRY:
+                raise GitRefused(f"{of} is more than {MAX_ANCESTRY} commits from {ancestor}; switch by hand")
+            self.read(frontier)
+            nxt = [p for oid in frontier for p in self.parents(oid) if p not in seen]
+            seen.update(nxt)
+            frontier = list(dict.fromkeys(nxt))
+        return ancestor in seen
+
+    def harness_entries(self, commit: str, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
+        """Every harness path in ``commit``'s tree, as ``{path: (mode, oid)}``, walked through verified trees."""
+        trees = [value for key, value in self._commit_lines(commit) if key == "tree"]
+        if len(trees) != 1 or not _SHA.match(trees[0]):
+            raise GitRefused(f"commit {commit} has no single tree line")
+        width = 32 if self.git.object_format == "sha256" else 20
+        entries: dict[str, tuple[str, str]] = {}
+        level = [("", trees[0])]
+        while level:
+            self.read([oid for _, oid in level])
+            below: list[tuple[str, str]] = []
+            for prefix, oid in level:
+                raw = self.get(oid, "tree")
+                at = 0
+                while at < len(raw):
+                    space = raw.index(b" ", at)
+                    nul = raw.index(b"\0", space)
+                    mode = raw[at:space].decode("ascii", "replace")
+                    name = raw[space + 1 : nul].decode("utf-8", "surrogateescape")
+                    child = raw[nul + 1 : nul + 1 + width].hex()
+                    at = nul + 1 + width
+                    # Git's own walker accepts other spellings of a mode (`040000`); refusing
+                    # them keeps this walk and the checkout reading the same tree.
+                    if mode not in _TREE_MODES or name in ("", ".", "..") or "/" in name:
+                        raise GitRefused(f"tree {oid} has a malformed entry {mode} {name!r}")
+                    path = f"{prefix}{name}"
+                    if mode == "40000":
+                        below.append((f"{path}/", child))
+                    elif is_harness_path(path, extra):
+                        entries[path] = (mode, child)
+            level = below
+        return entries
+
+
+def _plain_directories(root: Path, parts: Sequence[str]) -> bool:
+    """Whether every directory on ``parts`` under ``root`` exists; a symlink on the way fails closed."""
+    here = root
+    for part in parts:
+        here = here / part
+        try:
+            st = os.lstat(here)
+        except FileNotFoundError:
+            return False
+        if not stat.S_ISDIR(st.st_mode):
+            raise GitRefused(f"{str(here.relative_to(root))!r} is not a plain directory")
+    return True
+
+
+def _restore_written(
+    worktree: Worktree, entries: dict[str, tuple[str, str]], objects: _VerifiedObjects
+) -> list[str]:
+    """Re-hash each harness file the switch wrote, and put back verified content where it differs.
+
+    Git read those files from the same object store, and something could have
+    changed an object between the walk and the checkout; this is the check that
+    what is on disk is what was verified. A missing file whose directory exists
+    is written too; a missing directory is a sparse checkout and is left alone.
+    """
+    restored = []
+    for path, (mode, oid) in sorted(entries.items()):
+        if mode not in _FILE_MODES:
+            continue
+        content = objects.get(oid, "blob")
+        parts = Path(path).parts
+        if not _plain_directories(worktree.path, parts[:-1]):
+            continue  # not written: a sparse checkout
+        dir_fd = open_dir((worktree.path / path).parent)
+        name = parts[-1]
+        try:
+            try:
+                st: os.stat_result | None = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                st = None
+            ok = False
+            if st is not None and mode == "120000":
+                ok = stat.S_ISLNK(st.st_mode) and os.readlink(name, dir_fd=dir_fd).encode() == content
+            elif st is not None and stat.S_ISREG(st.st_mode):
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+                with os.fdopen(fd, "rb") as handle:
+                    ok = stat.S_ISREG(os.fstat(handle.fileno()).st_mode) and handle.read() == content
+            if ok:
+                continue
+            temp = f".{name}.vetted-op-git-{os.urandom(8).hex()}"
+            if mode == "120000":
+                os.symlink(content, temp, dir_fd=dir_fd)
+            else:
+                # Owner-only: git tracks only the executable bit, and these files
+                # (settings, hooks, the policy) are nobody else's to read.
+                fd = os.open(
+                    temp,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o700 if mode == "100755" else 0o600,
+                    dir_fd=dir_fd,
+                )
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(content)
+            os.replace(temp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+            restored.append(path)
+        finally:
+            os.close(dir_fd)
+    return restored
+
+
+def _index_harness_entries(git: Git, worktree: Worktree, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
+    """The harness entries of the index the checkout just wrote, as ``{path: (mode, oid)}``."""
+    entries = {}
+    for record in git.run(worktree.path, "ls-files", "--stage", "-z").split("\0"):
+        if not record:
+            continue
+        info, _, path = record.partition("\t")
+        mode, oid, _stage = info.split(" ")
+        if is_harness_path(path, extra):
+            entries[path] = (mode, oid)
+    return entries
+
+
+def _checked_out_elsewhere(git: Git, worktree: Worktree, branch: str) -> str | None:
+    """The other working tree that has ``branch`` checked out, if any."""
+    current = None
+    for line in git.run(worktree.path, "worktree", "list", "--porcelain").splitlines():
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :]
+        elif (
+            line == f"branch refs/heads/{branch}"
+            and current is not None
+            and os.path.realpath(current) != str(worktree.path)
+        ):
+            return current
+    return None
+
+
+def switch_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Switch a clean working tree to an existing local branch.
+
+    Inside the sandbox a switch fails half-way: the harness keeps its files
+    (`HARNESS_PATHS`, plus the policy's `harness_paths`) read-only, so git
+    updates everything else, leaves those behind and reports them as local
+    changes. Out here it can write them, and that is the risk: a branch whose
+    own commits change `.claude/settings.json` or a hook would be installed by
+    a confirmation that shows only a branch name. So the branch's harness
+    files must be upstream's from where the branch left it: any branch that
+    did not change them itself switches, however old.
+
+    - The upstream commit is asked of the policy's URL during this call, so a
+      local ref the agent moved cannot stand in for it.
+    - The fork point must be reached from it through verified parent links,
+      and both trees are walked through `_VerifiedObjects`, so a forged
+      object or a forged history in the agent-writable `.git` is refused.
+    - After the checkout, the index's harness entries must be the verified
+      ones, and every harness file on disk is hashed again; any that differs
+      is replaced with the verified content.
+
+    The files written are those of the commit checked here, whatever the
+    branch name points at later.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if not git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        raise GitRefused(f"there is no local branch {branch!r}; git-switch never creates one")
+    elsewhere = _checked_out_elsewhere(git, worktree, branch)
+    if elsewhere:
+        raise GitRefused(
+            f"{branch!r} is checked out in {elsewhere}; a branch is checked out in one place only"
+        )
+    target = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}").strip()
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    args = ["switch", "--detach", "--no-recurse-submodules", target]
+    base = _upstream_base(git, policy, worktree, fetch=not dry_run)
+    if base is None:
+        return " ".join(git.argv(worktree.path, *args)) + f"  # after fetching {policy.pr_base}"
+    merge_base = git._call(worktree.path, "merge-base", target, base)[1]
+    if merge_base.returncode != 0:
+        raise GitRefused(f"{branch!r} shares no history with upstream {policy.pr_base}")
+    fork_point = merge_base.stdout.strip()
+    objects = _VerifiedObjects(git, worktree.path)
+    between = git.run(worktree.path, "rev-list", f"{base}", f"^{fork_point}").split()
+    if not objects.is_ancestor(fork_point, base, between):
+        raise GitRefused(
+            f"{fork_point}, where git says {branch!r} left {policy.pr_base}, is not in upstream's history; "
+            "the repository's history has been tampered with"
+        )
+    expected = objects.harness_entries(fork_point, policy.harness_paths)
+    found = objects.harness_entries(target, policy.harness_paths)
+    own = sorted(path for path in expected.keys() | found.keys() if expected.get(path) != found.get(path))
+    if own:
+        shown = ", ".join(own[:10]) + (" …" if len(own) > 10 else "")
+        raise GitRefused(
+            f"{branch!r} changes {shown} in its own commits; those files steer the agent harness "
+            "outside the sandbox, so only you may switch to it"
+        )
+    # Read now, so the restore below needs nothing from the store after the checkout.
+    objects.read([oid for mode, oid in found.values() if mode in _FILE_MODES])
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    previous = git.run(worktree.path, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    git.run(worktree.path, *args)
+    try:
+        written = _index_harness_entries(git, worktree, policy.harness_paths)
+        if written != found:
+            extra_paths = sorted(set(written) - set(found))
+            raise GitRefused(
+                "the checkout wrote harness entries other than the verified ones"
+                + (f" ({', '.join(extra_paths[:10])})" if extra_paths else "")
+            )
+        restored = _restore_written(worktree, found, objects)
+    except (GitRefused, OSError) as exc:
+        raise GitRefused(
+            f"checked out {target} in {worktree.path} with a detached HEAD, but its harness files could not "
+            f"be verified ({exc}); check them by hand before running anything there"
+        ) from None
+    note = f"; put back the verified content of {', '.join(restored)}" if restored else ""
+    git.run(worktree.path, "symbolic-ref", "HEAD", f"refs/heads/{branch}")
+    # Attached only to the commit that was checked: a branch moved meanwhile leaves HEAD detached there.
+    if git.run(worktree.path, "rev-parse", "--verify", "HEAD^{commit}").strip() != target:
+        git.run(worktree.path, "update-ref", "--no-deref", "HEAD", target)
+        return (
+            f"checked out {target} in {worktree.path} (from {previous}) with a detached HEAD: "
+            f"{branch} moved during the switch, so it was not attached{note}"
+        )
+    return f"switched {worktree.path} from {previous} to {branch} at {target}{note}"
 
 
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
@@ -1002,6 +1933,49 @@ def stage_paths(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"staged {len(paths)} path(s) in {worktree.path}"
 
 
+def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
+    """Refuse a staged change whose content the sandboxed checks did not pass.
+
+    `vetted-op-checks` records, per path, the content it checked; every staged
+    path must be in that record with the same content. The record sits in the
+    workspace, which sandboxed commands can write, so this keeps an agent
+    honest the way CI does; it is not a proof against one forging it.
+    """
+    from .checks import DELETED, stamp_path
+    from .checks import PROG as CHECKS
+
+    assert policy.workspace is not None  # the message file was read from it
+    hint = f"run `{CHECKS} {worktree.path} <workspace>/<paths_file>` in the sandbox, then stage again"
+    path = stamp_path(policy.workspace, worktree.path)
+    try:
+        data = read_regular_file(path)
+    except (OSError, TamperedPath) as exc:
+        raise GitRefused(f"the checks record {str(path)!r} cannot be read ({exc}): {hint}") from None
+    if data is None:
+        raise GitRefused(f"no checks were recorded for {str(worktree.path)!r}: {hint}")
+    try:
+        record = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise GitRefused(f"the checks record {str(path)!r} is not valid JSON: {hint}") from None
+    files = record.get("files") if isinstance(record, dict) else None
+    if not isinstance(files, dict):
+        raise GitRefused(f"the checks record {str(path)!r} lists no files: {hint}")
+    staged = [
+        p
+        for p in git.run(worktree.path, "diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
+        if p
+    ]
+    unchecked = []
+    for staged_path in staged:
+        entry = git.run(worktree.path, "--literal-pathspecs", "ls-files", "--stage", "-z", "--", staged_path)
+        blob = entry.split()[1] if entry.strip("\0").strip() else DELETED
+        if files.get(staged_path) != blob:
+            unchecked.append(staged_path)
+    if unchecked:
+        shown = ", ".join(unchecked[:10]) + (" …" if len(unchecked) > 10 else "")
+        raise GitRefused(f"the checks did not pass these staged paths as they are now: {shown}; {hint}")
+
+
 def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Commit what is staged, with a message from a workspace file, signed per the user's own config."""
     worktree = resolve_worktree(git, p["worktree"], policy)
@@ -1011,17 +1985,17 @@ def commit_staged(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
         raise GitRefused("the commit message is empty")
     if len(message) > MAX_COMMIT_MESSAGE:
         raise GitRefused(f"the commit message is longer than {MAX_COMMIT_MESSAGE} characters")
-    if not git.ok(worktree.path, "symbolic-ref", "--quiet", "HEAD"):
-        raise GitRefused(f"{str(worktree.path)!r} has a detached HEAD; check out a branch first")
-    branch = git.run(worktree.path, "symbolic-ref", "--short", "HEAD").strip()
+    branch = current_branch(git, worktree)
     if is_protected(branch, policy):
         raise GitRefused(f"{branch!r} is a protected branch; commit on a topic branch")
     if git.ok(worktree.path, "diff", "--cached", "--quiet"):
         raise GitRefused("nothing is staged; stage the change first (git-stage)")
+    _require_checked(git, policy, worktree)
     # No hook runs (`core.hooksPath=/dev/null`, `--no-verify`): the pre-commit
-    # checks are working-tree code, so they run in the sandbox before this call
-    # (for prek: `prek run --files <paths>`). Signing follows the user's global
-    # git configuration, which is theirs; the repository's cannot change it.
+    # checks are working-tree code, so `vetted-op-checks` runs them in the
+    # sandbox before this call, and `_require_checked` refuses a staged change
+    # they did not pass. Signing follows the user's global git configuration,
+    # which is theirs; the repository's cannot change it.
     args = ["commit", "--no-verify", "--cleanup=strip", "-m", message]
     if dry_run:
         return " ".join(git.argv(worktree.path, *args[:-1], "<message from message_file>"))
@@ -1124,10 +2098,43 @@ OPS: dict[str, GitOp] = {
             push_branch,
         ),
         GitOp(
+            "git-push-pr-head",
+            ("worktree", "branch", "number", "head_repo", "head_branch", "expected"),
+            "fast-forward <head_branch> of <head_repo>, the head of upstream pull request <number>, "
+            "from <expected> (its full SHA) to local <branch>: refused unless the forge reports that "
+            "head, a fork allows maintainer edits, and <branch> adds at most "
+            f"{MAX_FIXUP_COMMITS} non-merge commits. No hook runs: run the pre-push checks in the "
+            "sandbox first",
+            push_pr_head,
+        ),
+        GitOp(
             "git-worktree-sync",
             ("worktree", "commit"),
             "move a clean linked worktree's branch to <commit> (reset --keep)",
             worktree_sync,
+        ),
+        GitOp(
+            "git-rebase",
+            ("worktree", "onto", "expected"),
+            "rebase the clean topic branch checked out in <worktree> onto <onto>, a full SHA on a "
+            "branch git-fetch brought in; <expected> is the branch's current full SHA. Re-signs per "
+            "the user's global git config; on a conflict, aborts and names the conflicting paths",
+            rebase_onto,
+        ),
+        GitOp(
+            "git-cherry-pick",
+            ("worktree", "commit", "expected"),
+            "replay one plain <commit> onto the clean topic branch checked out in <worktree>; <expected> is "
+            "the branch's current full SHA. Signs per the user's global git config, and when that signs, "
+            "<commit> must already carry the user's signature; on a conflict, aborts and names the paths",
+            cherry_pick,
+        ),
+        GitOp(
+            "git-switch",
+            ("worktree", "branch"),
+            "switch a clean working tree to an existing local <branch>; refused when the branch's own "
+            "commits change a file that steers the agent harness (.claude/, hooks, skills, the policy)",
+            switch_branch,
         ),
         GitOp(
             "git-worktree-add",
@@ -1152,8 +2159,8 @@ OPS: dict[str, GitOp] = {
             "git-commit",
             ("worktree", "message_file"),
             "commit what is staged on the current (non-protected) branch, message from <message_file> "
-            "(a workspace file), signed per the user's global git config. No hook runs: run the "
-            "pre-commit checks in the sandbox first",
+            "(a workspace file), signed per the user's global git config. No hook runs out here: "
+            "refused unless `vetted-op-checks` passed every staged path, as it is now, in the sandbox",
             commit_staged,
         ),
         GitOp(

@@ -10,11 +10,23 @@ A `major` or `blocking` finding is never fixed up — it goes back to the author
 Instead of asking the contributor for another round over small, mechanical points, the maintainer applies them and approves.
 
 1. **Check out the PR head** on a local branch.
+   Fetch it in the sandbox, from the main checkout, over HTTPS: `git fetch https://github.com/<upstream>.git +pull/<N>/head:refs/remotes/<upstream_remote>/pr-<N>` (`git-fetch` fetches upstream branches only, and a fork's head is not one).
+   Then create the worktree with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller pr-management-code-review git-worktree-add <checkout> <path> <local-branch> <head-sha>`, confirmed by the maintainer.
+   When no `[git]` values are configured for this project, every `vetted-op-git` step refuses: hand the maintainer each git command instead, starting with `git worktree add -b <local-branch> <path> <head-sha>`.
 2. **Apply exactly the `fixup.changes`**, nothing else. No drive-by edits, no behaviour beyond what each finding names.
-3. **Run the checks** for what was touched: the affected tool's tests and `prek run --files <touched files>`.
+3. **Run the checks** for what was touched: the affected tool's tests, then `uvx --from ~/.cache/apache-magpie/vetted-ops/current vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox, which runs the hooks on those paths and records what passed.
+   `git-commit` refuses a staged path this record does not hold as it is staged, so never skip it.
    If a fixup turns out bigger than its one-line description, or a check fails, abandon it and fall back to `COMMENT` with the findings.
+   To abandon it, discard the edits in the sandbox (`git -C <worktree> restore .`), then remove the worktree with `… git-worktree-remove <worktree>`, which refuses a worktree with changes.
 4. **Show the diff and the commit message; confirm.** The message lists each change; add the project's attribution trailer per [`AGENTS.md`](../../../../../AGENTS.md#commit-and-pr-conventions).
-5. **Push to the PR head on confirmation**: the head repository and branch come from `gh pr view <N> --json headRepository,headRepositoryOwner,headRefName`. Pushing to a contributor's branch is visible to everyone watching the PR.
+   Stage and commit with the vetted operations, each confirmed by the maintainer: `… git-stage <worktree> <workspace>/<paths-file>` with the same paths file the checks ran on, then `… git-commit <worktree> <workspace>/<message-file>`, the trailer as the message file's last paragraph ([vetted-ops → Git operations the sandbox blocks](../../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
+   When no `[git]` values are configured for this project, hand the maintainer the `git commit` command instead.
+   Once the fixup is pushed, remove the worktree with `… git-worktree-remove <worktree>`.
+5. **Push to the PR head on confirmation**, after the pre-push checks pass in the sandbox: `… git-push-pr-head <worktree> <local-branch> <N> <head-repo> <head-branch> <head-sha>`, where `<head-repo>` and `<head-branch>` are the PR's head (`gh pr view <N> --json headRepository,headRepositoryOwner,headRefName`) and `<head-sha>` the commit the fixup was built on. Pushing to a contributor's branch is visible to everyone watching the PR, and the confirmation shows where it goes.
+   The operation refuses unless the forge reports that same head, the PR is open, its head is still `<head-sha>`, the fixup adds at most ten plain (non-merge) commits on top of it, and the author allows edits from maintainers (or the head is an `upstream_push` branch of `<upstream>`).
+   On a head that moved, fetch it again and rebuild the fixup.
+   On any other refusal (edits not allowed, a protected head branch, an upstream head outside `upstream_push`), fall back to `COMMENT` with the findings, then remove the worktree as in step 3.
+   When no `[git]` values are configured, hand the maintainer `git push --force-with-lease=refs/heads/<head-branch>:<head-sha> <head-repo-url> <local-branch>:<head-branch>` instead.
 6. **Wait for CI on the new head** before approving (Golden rule 8), then re-run `guard` with the pushed SHA.
    On the `FIXUP+APPROVE+AUTO-MERGE` path there is no wait for CI, but the review state is re-read: save `gql-cr-pr <N>` again, confirm its head is the fixup commit you pushed, and re-run `disposition` (with no findings left) so a failing or never-started run on the new head is caught and `render` pins the merge to the fixup SHA.
    Then approve the fixup head, re-save `gql-cr-pr`, release the workflow runs the push left held there (`release-runs --head <fixup sha>` — [`disposition-auto-merge.md`](disposition-auto-merge.md) step 3), and enable auto-merge straight away; GitHub holds the merge until the new head's required checks pass.

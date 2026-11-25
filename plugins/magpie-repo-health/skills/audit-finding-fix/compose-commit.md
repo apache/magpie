@@ -15,16 +15,22 @@ Write the commit message per the project's convention:
   rules addressed, and a one-sentence summary of the fix strategy.
   No security language.
 - **Trailer** — the trailer the repository's commit-attribution convention names, resolved per [`commit-attribution.md`](../../../../docs/setup/commit-attribution.md) (`Generated-by: <tool-name>` by default),
-  added with `git commit --trailer "<trailer>"` per the
+  as the message file's own last paragraph, since `git-commit` takes no
+  `--trailer` (on the fallback, `git commit --trailer "<trailer>"`), per the
   [`AGENTS.md` → *Commit and PR conventions*](../../../../AGENTS.md#commit-and-pr-conventions).
   The trailer is the contributor's call on their own commit; the
   skill does not add it to anyone else's commit.
 
 Show the commit message to the user; ask for confirmation before
-running `git commit`.
+committing.
+Stage the intended paths with `git-stage` and commit with `git-commit`
+(`--caller audit-finding-fix`), after `prek run --files <paths>` passes,
+per [vetted-git-publish.md](vetted-git-publish.md); each call is still
+confirmed by the user, and that file says what to hand the user when no
+`[git]` values are configured for this project.
 
 **Signing pre-flight.** If `commit.gpgsign` is true, probe the
-gpg-agent cache before running `git commit` — a token-backed
+gpg-agent cache before committing — a token-backed
 signing key with a cold cache blocks on a pinentry prompt the
 agent cannot see, and the commit dies with
 `gpg: signing failed: Timeout` after a long stall. On a cold

@@ -336,6 +336,19 @@ jobs:
       - name: Run prek (Claude Code mods — whole repo, both events)
         if: ${{ !cancelled() }}
         run: prek run check-claude-mods --hook-stage manual --color=always --all-files
+      # `check-claude-floor` (manual stage, so it runs only here). Scoped like
+      # `Run prek`, not whole-repo like the mods step: the floor release never
+      # changes, so only files in the hook's filter, which include
+      # `pinned-versions.toml`, can change the result.
+      - name: Run prek (Claude Code floor — the PR's diff, or the whole repo on main)
+        if: ${{ !cancelled() }}
+        env:
+          PREK_SCOPE: >-
+            ${{ github.event_name == 'pull_request'
+            && format('--from-ref {0} --to-ref HEAD',
+            github.event.pull_request.base.sha)
+            || '--all-files' }}
+        run: prek run check-claude-floor --hook-stage manual --color=always $PREK_SCOPE
       # Last, so the cache's post step saves only what this config uses
       # (see "Cache prek hook environments" above).
       - name: Prune unused prek hook environments

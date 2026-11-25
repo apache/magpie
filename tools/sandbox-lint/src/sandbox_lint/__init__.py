@@ -269,18 +269,20 @@ REQUIRED_PERMISSIONS_DENY |= {f"Edit({h[2]}/**)" for h in HOOK_MANAGER_HOMES}
 # macOS, which the sandbox does not let it write, and ~/.cache/pnpm (cache) on
 # Linux, which the ~/.cache grant would make sandbox-writable for a host pnpm
 # to read. A project that uses pnpm gives sandboxed runs a home of their own
-# through env (docs/setup/secure-agent-setup.md#host-only-uv-state), and turns
-# on the global virtual store so node_modules/.pnpm, where Claude Code refuses
-# some package paths (`.idea/codeStyles`), stays out of the project.
+# through env (docs/setup/secure-agent-setup.md#host-only-uv-state). The
+# virtual store stays in the project (node_modules/.pnpm): TypeScript resolves
+# a package's types by walking up from its real path to the project's
+# node_modules, so a virtual store anywhere else (pnpm's global one included)
+# loses the project's own @types packages.
 #
 # That home is per project, ~/.local/share/pnpm-sandbox/<project> (the
 # repository's name), committed in the project's own settings, and only those
 # settings grant writes to it. Two projects share a home only if someone names
-# them alike; the lint cannot see other projects' settings. With the global virtual store, the
-# project's node_modules are symlinks into PNPM_HOME/store, and the project's
-# git hooks run that code outside the sandbox (a commit from a terminal); a
-# home under the shared ~/.cache grant would let a sandboxed session in any
-# project plant code there. The cache lives inside the home too.
+# them alike; the lint cannot see other projects' settings. The project's
+# node_modules/.pnpm is linked from PNPM_HOME/store (hard links on Linux), and
+# the project's git hooks run that code outside the sandbox (a commit from a
+# terminal); a home under the shared ~/.cache grant would let a sandboxed
+# session in any project plant code there. The cache lives inside the home too.
 #
 # pnpm (10.28) expands a leading `~` in PNPM_HOME and npm_config_cache_dir and
 # nothing else (`${HOME}` in PNPM_HOME becomes a directory in the project), so
@@ -293,7 +295,6 @@ PNPM_SANDBOX_ROOT = "~/.local/share/pnpm-sandbox"
 PNPM_SANDBOX_HOME = f"{PNPM_SANDBOX_ROOT}/<project>"
 PNPM_HOME_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
 PNPM_FILES = ("pnpm-lock.yaml", "pnpm-workspace.yaml")
-PNPM_GLOBAL_VIRTUAL_STORE = "npm_config_enable_global_virtual_store"
 # pnpm keeps its store and state inside PNPM_HOME by default; one moved
 # elsewhere (a shared ~/.cache path, say) is outside the per-project grant, and
 # the git-hook dispatcher would not recognise it. npm reads npm_config_* names
@@ -448,12 +449,6 @@ def _pnpm_home_errors(env: dict[str, Any], writable: tuple[str, ...]) -> list[st
     cache = env.get("npm_config_cache_dir")
     if cache != f"{home}/cache":
         errors.append(f"env.npm_config_cache_dir: {cache!r} must be exactly {home}/cache, inside PNPM_HOME")
-    flag = env.get(PNPM_GLOBAL_VIRTUAL_STORE)
-    if flag != "true":
-        errors.append(
-            f'env.{PNPM_GLOBAL_VIRTUAL_STORE}: must be "true" so node_modules/.pnpm stays '
-            "out of the project, where the sandbox refuses some package paths (.idea/codeStyles)"
-        )
     return errors
 
 
@@ -900,7 +895,7 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
             )
 
     # Sandboxed pnpm gets a home of its own for this project, holding its
-    # tools, cache and store, and the global virtual store: only for a project
+    # tools, cache and content store: only for a project
     # that uses pnpm (a lockfile or workspace file, or a git hook that runs
     # it). With no project to inspect nothing is required: the shared baseline
     # leaves the env out, since npm warns about the npm_config_* names

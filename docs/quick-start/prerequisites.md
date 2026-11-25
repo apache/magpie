@@ -224,7 +224,8 @@ JIRA), `contract:change-request` (GitHub PRs, JIRA patches, or dev@
   (`gh auth status`) on the shell the agent runs in, with collaborator
   access (any level) on `<tracker>`. `security-issue-fix` additionally
   needs a fork of `<upstream>` on your GitHub account (it pushes a branch
-  there, then opens the PR via `gh pr create --web`). Claude Code also
+  there, then opens the PR, through `vetted-op-git` when the project's
+  vetted-ops policy configures `[git]` values, else via `gh pr create --web`). Claude Code also
   ships a GitHub MCP; `gh` covers the rest and is what OpenCode uses.
 - **Optional: [`github/gh-stack`](https://gh.io/stacks), for maintainers with write access.** When a change goes up as a series of dependent PRs and you can push to the upstream repository, the agent suggests this `gh` extension, pushes the stack's branches to the upstream repository (a stacked PR's base must be a branch there, not in your fork), and links the PRs into a native GitHub stack with `gh stack link`. Without write access it opens the PRs from your fork instead, each noting the PR it depends on. Install the extension yourself with `gh extension install github/gh-stack`; the secure setup does not let the agent install extensions.
 - **JIRA / SVN-first projects.** No `gh` is required. The tracker is JIRA,
@@ -263,8 +264,8 @@ they do not try to automate those clicks.
 ### 6. Local `<upstream>` clone (only for `security-issue-fix`)
 
 The fix skill writes the change in your local clone, runs local
-checks and tests, pushes a branch to your fork, and opens a PR via
-`gh pr create --web`. You need:
+checks and tests, pushes a branch to your fork, and opens a PR, through
+`vetted-op-git` where configured, else via `gh pr create --web`. You need:
 
 - a clean clone of `<upstream>` reachable from the agent's working
   directory — the path comes from `.apache-magpie-overrides/user.md →
@@ -272,8 +273,9 @@ checks and tests, pushes a branch to your fork, and opens a PR via
   you run the skill;
 - the adopting project's dev toolchain installed per
   [`<project-config>/fix-workflow.md → Toolchain`](<project-config>/fix-workflow.md#toolchain);
-- a remote named for your GitHub fork that `gh pr create` can push
-  to.
+- a GitHub fork of `<upstream>` (named in the policy's `[git] fork`
+  for `vetted-op-git`, or a remote named for it on the
+  `gh pr create --web` fallback).
 
 ### 7. `uv` (for `generate-cve-json`)
 

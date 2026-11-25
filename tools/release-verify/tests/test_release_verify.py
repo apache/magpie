@@ -103,6 +103,20 @@ def test_inventory_optional_present_is_found(staging: Path, capsys: pytest.Captu
     assert out["found"] == [SRC, BIN] and out["missing_optional"] == []
 
 
+def test_inventory_sha256_only_digest_set(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    (staging / f"{BIN}.sha512").unlink()
+    out = run(capsys, "inventory", "--dir", str(staging), "--expect", PATTERNS[0], "--expect", PATTERNS[1], "--digest", "sha256")
+    assert out["status"] == "PASS"
+    assert out["unexpected"] == []
+
+
+def test_inventory_digest_outside_the_set_is_unexpected(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "inventory", "--dir", str(staging), "--expect", PATTERNS[0], "--expect", PATTERNS[1], "--digest", "sha256")
+    assert out["status"] == "WARN"
+    assert out["unexpected"] == [f"{BIN}.sha512", f"{SRC}.sha512"]
+
+
 def test_inventory_unexpected_is_warn(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (staging / "notes.txt").write_text("x")
     (staging / f"{SRC}.md5").write_text("x")
@@ -138,9 +152,24 @@ def test_checksums_mismatch_is_fail(staging: Path, capsys: pytest.CaptureFixture
     assert bin_result["digests"] == [{"type": "sha512", "classification": "MISMATCH"}, {"type": "sha256", "classification": "PASS"}]
 
 
-def test_checksums_missing_sha512_is_fail(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_checksums_sha256_only_digest_set_passes(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (staging / f"{SRC}.sha512").unlink()
     out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0], "--digest", "sha256")
+    assert out["status"] == "PASS"
+    assert out["results"][0]["digests"] == [{"type": "sha256", "classification": "PASS"}]
+
+
+def test_checksums_missing_required_sha256_is_fail(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    (staging / f"{SRC}.sha256").unlink()
+    out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0], "--digest", "sha256")
+    assert out["status"] == "FAIL"
+    assert out["results"][0]["digests"] == [{"type": "sha256", "classification": "MISSING-DIGEST"}]
+
+
+def test_checksums_default_requires_sha512(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (staging / f"{SRC}.sha512").unlink()
+    out = run(capsys, "checksums", "--dir", str(staging), "--expect", PATTERNS[0])
     assert out["status"] == "FAIL"
     assert out["results"][0]["digests"][0] == {"type": "sha512", "classification": "MISSING-DIGEST"}
 
@@ -266,6 +295,55 @@ def test_binaries_prohibited_and_accepted(tmp_path: Path, capsys: pytest.Capture
     assert out["prohibited_found"] == ["assets/vendor/x/app.min.js", "vendor/lib.jar"]
     assert out["expected_binaries"] == ["third-party/native.so"]
     assert "-path 'rc/assets/vendor/*.min.js'" in out["paste_recipe"]
+
+
+def test_binaries_doublestar_matches_nested_paths(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = tmp_path / "rc"
+    touch(tree / "gradle" / "wrapper" / "gradle-wrapper.jar")
+    touch(tree / "gradle-wrapper.jar")
+    touch(tree / "tools" / "a" / "fixture.bin")
+    touch(tree / "tools" / "fixture.bin")
+    # Same suffix, different name: `**/` must keep the `/` in front of the name.
+    touch(tree / "fake-gradle-wrapper.jar")
+    touch(tree / "gradle" / "untrusted_gradle-wrapper.jar")
+    touch(tree / "tools" / "not_fixture.bin")
+    touch(tree / "tools" / "a" / "other_fixture.bin")
+    out = run(
+        capsys,
+        "binaries",
+        "--tree",
+        str(tree),
+        "--accept",
+        "**/gradle-wrapper.jar",
+        "--prohibit",
+        "tools/**/fixture.bin",
+    )
+    # The look-alike jars are not accepted, so the baseline `*.jar` rule reports them;
+    # the look-alike .bin files are not prohibited.
+    assert out["expected_binaries"] == ["gradle-wrapper.jar", "gradle/wrapper/gradle-wrapper.jar"]
+    assert out["prohibited_found"] == [
+        "fake-gradle-wrapper.jar",
+        "gradle/untrusted_gradle-wrapper.jar",
+        "tools/a/fixture.bin",
+        "tools/fixture.bin",
+    ]
+    recipe = out["paste_recipe"]
+    assert "-path 'rc/tools/fixture.bin' -o -path 'rc/tools/*/fixture.bin'" in recipe
+    assert "'rc/tools/*fixture.bin'" not in recipe
+
+
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        ("**/gradle-wrapper.jar", ["gradle-wrapper.jar", "*/gradle-wrapper.jar"]),
+        ("tools/**/fixture.bin", ["tools/fixture.bin", "tools/*/fixture.bin"]),
+        ("./a/**/b/**/c", ["a/b/c", "a/b/*/c", "a/*/b/c", "a/*/b/*/c"]),
+        ("vendor/**", ["vendor/*"]),
+        ("assets/vendor/*.min.js", ["assets/vendor/*.min.js"]),
+    ],
+)
+def test_translate_glob_keeps_directory_boundaries(pattern: str, expected: list[str]) -> None:
+    assert rv._translate_glob(pattern) == expected
 
 
 def test_pyc_and_pycache_are_never_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -17,6 +17,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { register as registerCommitAttribution } from './commit-attribution.js';
+import { handleRenderAbovePrompt } from './token-meter-band.js';
+
 export interface ProcessRunResult {
   exitCode: number;
   stdout: string;
@@ -191,6 +194,13 @@ export function register(on: any): void {
       };
     }
   });
+
+  // 3. Register commit-attribution hooks (attribution.text, tool.call Bash guard)
+  registerCommitAttribution(on);
+
+  // 4. Hook ui.render (AbovePrompt) for live token-cost & context meter band
+  on('ui.render', { component: 'AbovePrompt' }, handleRenderAbovePrompt);
 }
 
+export { handleRenderAbovePrompt };
 export default register;

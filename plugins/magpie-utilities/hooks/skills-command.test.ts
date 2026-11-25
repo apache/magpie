@@ -384,5 +384,36 @@ describe('magpie-skills mod command (Pilot 3)', () => {
       assert(receivedArgv.includes('--verbose'), 'Expected argv to include --verbose');
       assert(receivedArgv.includes('--root'), 'Expected argv to include --root');
     });
+
+    test('ui.render mounts AbovePrompt live token meter banner when usage is active', async ($: any, on: any) => {
+      on('command.register', () => ({ value: undefined }));
+      on('session.start', () => ({ cwd: '/test/workspace' }));
+      on('session.root', () => ({ value: '/test/workspace' }));
+      on('session.usage', () => ({
+        value: {
+          startedAt: Date.now(),
+          context: {
+            tokens: 38_400,
+            window: 200_000,
+            percent: 19.2,
+          },
+          cost: { usd: 0.14 },
+        },
+      }));
+      on('ui.render', () => ({ type: 'Box', children: [] }));
+
+      await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/test/workspace' });
+
+      for (const surface of ['terminal', 'desktop'] as const) {
+        const ui = await $.ui.mount({
+          plugin: 'magpie-utilities',
+          surface,
+          component: 'AbovePrompt',
+          props: {},
+        });
+        const found = await ui.find({ type: 'Text', text: /Context Meter/ });
+        assert(found, `Expected context meter banner rendered on ${surface}`);
+      }
+    });
   });
 });

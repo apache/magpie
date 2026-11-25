@@ -1482,6 +1482,15 @@ setup; the skills skip any block that is missing or marked `TODO`.
   omitted, the skill uses the first non-`origin` remote that looks
   like a fork. Explicitly setting this avoids ambiguity when you
   have multiple remotes.
+- `advisory_records_clone: TODO` — only when the project configures
+  `advisory_records`: your working copy of the project's site
+  repository; wins over `advisory_records.working_copy`.
+- `advisory_records_fork: TODO` — only with `advisory_records.publish:
+  pull-request`: your fork of the site repository, as `owner/name`.
+  `security-issue-sync` pushes the record's branch there and opens the
+  pull request from it.
+- `advisory_records_fork_remote: TODO` — the remote of your site
+  working copy that points at that fork (default `fork`).
 
 ## `tools`
 

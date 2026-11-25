@@ -219,15 +219,28 @@ class TestValidateFrontmatter:
         violations = [v.message for v in validate_frontmatter(p, text)]
         assert any("placeholder" in m and "skill" in m for m in violations), violations
 
-    @pytest.mark.parametrize("bad_date", ["YYYY-MM-DD", "2026/06/29", "29-06-2026", "not-a-date"])
+    @pytest.mark.parametrize(
+        "bad_date", ["YYYY-MM-DD", "2026/06/29", "29-06-2026", "not-a-date", "20260629", "2026-W26-1"]
+    )
     def test_non_iso_date_flagged(self, tmp_path: Path, bad_date: str) -> None:
         text = _make_report(date=bad_date)
         p = tmp_path / "report.md"
         violations = [v.message for v in validate_frontmatter(p, text)]
         assert any("must be ISO 8601" in m for m in violations), violations
 
-    def test_iso_date_passes(self, tmp_path: Path) -> None:
-        text = _make_report(date="2026-06-29")
+    @pytest.mark.parametrize(
+        "bad_date",
+        ["2026-02-30", "2026-13-01", "2026-06-31", "2026-00-10", "2026-01-00", "2025-02-29"],
+    )
+    def test_impossible_calendar_date_flagged(self, tmp_path: Path, bad_date: str) -> None:
+        text = _make_report(date=bad_date)
+        p = tmp_path / "report.md"
+        violations = [v.message for v in validate_frontmatter(p, text)]
+        assert any("must be ISO 8601" in m for m in violations), violations
+
+    @pytest.mark.parametrize("valid_date", ["2026-06-29", "2024-02-29"])
+    def test_iso_date_passes(self, tmp_path: Path, valid_date: str) -> None:
+        text = _make_report(date=valid_date)
         p = tmp_path / "report.md"
         date_violations = [v.message for v in validate_frontmatter(p, text) if "date" in v.message]
         assert date_violations == []

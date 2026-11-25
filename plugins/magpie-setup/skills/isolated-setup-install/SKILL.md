@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 6254
+measured_tokens: 6474
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -42,7 +42,8 @@ denied credential or socket):
    `vetted-op-tracker`, `vetted-op-git`), launched with the literal `~` path.
    Publishing a change is covered end to end by `vetted-op-git`:
    `git-worktree-add`, `git-fetch`, `git-stage`, `git-commit`,
-   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first,
+   `git-push-branch`, `git-pr-create`. Run the checks in the sandbox first
+   with `vetted-op-checks` (`git-commit` refuses what they did not pass),
    and never hand those steps to the user as commands to paste.
 3. If none exists, do the rest of the work, give the user the one command to
    run this time, and propose `/magpie-setup:upstream-fix` for it: a
@@ -342,16 +343,27 @@ can write:
   `-`), spelled exactly as here: in `env`,
   `"PNPM_HOME": "~/.local/share/pnpm-sandbox/<project>"`,
   `"npm_config_cache_dir": "~/.local/share/pnpm-sandbox/<project>/cache"` and
-  `"npm_config_enable_global_virtual_store": "true"`, spelled with a leading
+  `"npm_config_cache": "~/.local/share/pnpm-sandbox/<project>/npm-cache"`
+  (npm's own cache, for the commands pnpm hands to npm, which otherwise fail
+  on `~/.npm` with a misleading `sudo chown` hint), spelled with a leading
   `~/` (pnpm expands nothing else); and
   `~/.local/share/pnpm-sandbox/<project>/` in `sandbox.filesystem.allowRead`
-  and `allowWrite`. Without them a sandboxed `pnpm install` fails on
-  `~/Library/pnpm` or on a `.idea/codeStyles` path in the project. Never put
+  and `allowWrite`. Also propose `mkdir -p ~/.local/share/pnpm-sandbox/<project>`
+  for the user to run outside the sandbox: a grant takes effect only on a
+  directory that exists, and a sandboxed command cannot create it, since
+  `~/.local/share` is not writable. Without them a sandboxed `pnpm install` fails on
+  `~/Library/pnpm`. Never put
   the home under `~/.cache/` or grant `~/.local/share/pnpm-sandbox/` itself:
   the project's hooks run the packages in it outside the sandbox, so only this
   project's sessions may write it. Never set `npm_config_store_dir`,
   `npm_config_state_dir` or `npm_config_virtual_store_dir`: pnpm keeps them
-  in the home. Never add the env where pnpm is not used:
+  in the home. Never turn on `npm_config_enable_global_virtual_store`: a
+  virtual store outside the project hides the project's own `@types/*`
+  packages from TypeScript. A dependency that ships `.idea/codeStyles`
+  (`iconv-lite` 0.6.3) still fails a sandboxed install inside the project;
+  point the user at the project-side override in
+  [the troubleshooting entry](../../../../docs/setup/sandbox-troubleshooting.md#pnpm-install-fails-with-eperm-inside-the-sandbox).
+  Never add the env where pnpm is not used:
   npm reads the same `npm_config_*` names and warns about each on every
   command.
 

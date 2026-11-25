@@ -1677,11 +1677,13 @@ describe('magpie-release-management verify-rc checklist mod (PR-1)', () => {
 
       test('handleBashToolCall passively updates voteTallyState on vote-tally commands', async () => {
         const $ = createMockEngine();
+        // Opened an hour ago, so the 72-hour window is still open whenever the test runs.
+        const voteOpened = new Date(Date.now() - 3600 * 1000).toISOString();
 
         // 1. Preflight command
         await handleBashToolCall(
           $,
-          { command: 'uv run release-config preflight --skill vote-tally 3.0.0-rc1 --vote-opened 2026-11-20T10:00:00Z' },
+          { command: `uv run release-config preflight --skill vote-tally 3.0.0-rc1 --vote-opened ${voteOpened}` },
           async () => ({ stdout: '{"ok": true}' })
         );
         let voteState = must(await getVoteTallyState($), 'voteTallyState after preflight');

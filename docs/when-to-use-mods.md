@@ -172,9 +172,14 @@ The hooks manifest at `hooks/hooks.json` lists the mod modules to load:
 
 ```json
 {
+  "hooks": {},
   "modules": ["./register.ts"]
 }
 ```
+
+Keep the `hooks` object even when it is empty.
+Claude Code releases inside the framework's `claude-code` floor reject a `hooks/hooks.json` without one: `claude plugin validate` fails on the plugin, and `claude plugin list` reports it as failed to load.
+`check-family-plugins` fails on a file that leaves it out.
 
 The module (`hooks/register.ts`) exports a `register(on, options)` function that registers event listeners with the harness.
 It imports only its own files, by relative path, and `claude-code`.
@@ -191,6 +196,11 @@ Every mod must include unit tests and pass strict validation before landing:
    The hook is in the `manual` stage, so ordinary commits skip it; run it before pushing a mod with `prek run check-claude-mods --hook-stage manual --all-files`.
    The pin is bumped three times a week, with a 12-hour cooldown, by [`bump-hook-npm-pins.yml`](../.github/workflows/bump-hook-npm-pins.yml).
    Claude Code is a dev-only tool here: CI runs it to check the mods, it is not a dependency of anything Magpie ships, and nothing from it goes into a release or a plugin.
+4. **Floor Validation**: the `check-claude-floor` prek hook ([`tools/dev/check-claude-floor.py`](../tools/dev/check-claude-floor.py)) runs `claude plugin validate` on the marketplace and every plugin, mods included, with the oldest Claude Code release the framework supports (`min_version` in [`tools/agent-isolation/pinned-versions.toml`](../tools/agent-isolation/pinned-versions.toml)).
+   It skips `--strict`, because a field newer than the floor only warns there and is ignored at load.
+   It also skips `claude plugin test`, which the floor release does not have, so the mods are tested only on the pin.
+   CI runs it on every push to `main` and on each pull request that changes a plugin, the marketplace or the floor.
+   It is in the `manual` stage too and needs `node` and `npm`; run it with `prek run check-claude-floor --hook-stage manual --all-files`.
 
 ## See also
 

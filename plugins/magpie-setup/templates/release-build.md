@@ -211,10 +211,11 @@ signature regime.
 ## Digest set
 
 TODO: list which digests the project publishes alongside each
-artefact. ASF baseline is `sha512`, the only digest
-`release-verify-rc` Step 3 requires; many projects also publish
-`sha256` for older downstream tools, which Step 3 checks whenever it
-is staged (a mismatch fails the RC). `md5` is no longer accepted per
+artefact. ASF policy accepts `sha256` and/or `sha512`. When the set
+lists `sha512`, Step 3 requires it; otherwise `sha256` is the
+required digest. Many projects publish `sha512`, plus `sha256` for
+older downstream tools, which Step 3 checks whenever it is staged (a
+mismatch fails the RC). `md5` is no longer accepted per
 ASF infrastructure guidance: a staged `.md5` is a warning, never a
 failure on its own.
 
@@ -222,6 +223,8 @@ Example shape:
 
 > - `sha512`, required.
 > - `sha256`, published for downstream-tool compatibility.
+
+For a SHA-256-only release, list only `sha256`.
 
 ## JVM artefact checks
 
@@ -243,7 +246,7 @@ skip cleanly and nothing here needs to be configured.
 | `jvm_artefact_checks` | `on` | `on` (default) — run Step 6b whenever the staged set contains jars or POMs; `off` — skip (e.g. the project stages jars only through a platform checked elsewhere) |
 | `jvm_companion_location` | *(unset)* | `staged` — the companion `.pom` / `-sources.jar` / `-javadoc.jar` set is staged with the RC and must be present, each companion signed and checksummed; `nexus-staging` — the jars publish through the Nexus staging repository only, so a locally absent jar is an observation, not a failure; *(unset)* — same as `nexus-staging` |
 | `jvm_digest_set` | *(unset)* | digests each companion must carry; unset means the § Digest set above applies as-is |
-| `nexus_staging_repo` | *(unset)* | the ASF Nexus staging repository holding this RC's Maven artefacts — the id (`orgapache<project>-NNNN`, assigned by Nexus at deploy time and not predictable; read it from the planning issue or the deploy log) or the full `content/repositories/<id>` URL; Step 6c verifies it is `closed`, that its coordinates and version match this RC, and that every artefact carries its `.asc` and complete companion set; *(unset)* — Step 6c skips cleanly (non-ASF adopters, and ASF releases without Maven artefacts, leave it unset) |
+| `nexus_staging_repo` | *(unset)* | the ASF Nexus staging repository holding this RC's Maven artefacts — the id (`orgapache<name>-NNNN`, assigned by Nexus at deploy time and not predictable; read it from the planning issue or the deploy log) or the full `content/repositories/<id>` URL; Step 6c verifies it is `closed`, that its coordinates and version match this RC, and that every artefact carries its `.asc` and complete companion set; *(unset)* — Step 6c skips cleanly (non-ASF adopters, and ASF releases without Maven artefacts, leave it unset) |
 
 Model the companion set in § Expected artefact list too: for a
 `kind: jar` convenience artefact, name the `.pom`,

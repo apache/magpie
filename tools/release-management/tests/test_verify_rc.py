@@ -122,9 +122,23 @@ def test_args_expect_and_expect_optional_in_listed_order() -> None:
     assert "--tree apache-foo-1.0.0-source-release" in out["commands"]["binaries"]
 
 
-def test_args_sha512_always_checked() -> None:
+def test_args_sha256_only_set_passes_only_sha256() -> None:
     out = args_mod.invocations(vrc(digests=["sha256"]))
+    assert out["digests"] == ["sha256"]
+    assert "--digest sha256" in out["commands"]["checksums"]
+    assert "--digest sha512" not in out["commands"]["checksums"]
+    assert "--digest sha256" in out["commands"]["all"]
+    assert "--digest sha512" not in out["commands"]["all"]
+
+
+def test_args_sha512_stays_required_when_the_set_lists_it() -> None:
+    out = args_mod.invocations(vrc(digests=["sha256", "sha512"]))
     assert out["digests"] == ["sha512", "sha256"]
+
+
+def test_args_empty_set_defaults_to_sha512() -> None:
+    out = args_mod.invocations(vrc(digest_set=[]))
+    assert out["digests"] == ["sha512"]
 
 
 # --------------------------------------------------------------------------- Step 4
@@ -269,6 +283,49 @@ def test_case_1_clean_podling_staged_set(tmp_path: Path) -> None:
     assert HAS_PODLING.search(out["paste_recipe"])
     # companions with a staged .asc get their own gpg --verify line
     assert 'gpg --verify "foo-core-1.0.0-sources.jar.asc" "foo-core-1.0.0-sources.jar"' in out["paste_recipe"]
+
+
+def test_licence_notice_warning_is_surfaced_not_failed(tmp_path: Path) -> None:
+    jar = {
+        "jar": "foo-core-1.0.0.jar",
+        "companions": [
+            {"companion": "foo-core-1.0.0-sources.jar", "classification": "PASS", "detail": None},
+            {"companion": "foo-core-1.0.0-javadoc.jar", "classification": "PASS", "detail": None},
+        ],
+        "licence_notice": {
+            "jar": "foo-core-1.0.0.jar",
+            "status": "WARN",
+            "detail": "no META-INF/LICENSE and no META-INF/NOTICE in the main jar",
+        },
+    }
+    out = run_jvm(
+        vrc(jvm_companion_location="staged"), podling_tree(tmp_path), mav_report("WARN", jars=[jar])
+    )
+    assert out["status"] == "WARN"
+    assert out["licence_notice_findings"] == [
+        "foo-core-1.0.0.jar: no META-INF/LICENSE and no META-INF/NOTICE in the main jar"
+    ]
+    assert out["companion_findings"] == []
+
+
+def test_licence_notice_pass_is_not_reported(tmp_path: Path) -> None:
+    jar = {
+        "jar": "foo-core-1.0.0.jar",
+        "companions": [
+            {"companion": "foo-core-1.0.0-sources.jar", "classification": "PASS", "detail": None},
+            {"companion": "foo-core-1.0.0-javadoc.jar", "classification": "PASS", "detail": None},
+        ],
+        "licence_notice": {
+            "jar": "foo-core-1.0.0.jar",
+            "status": "PASS",
+            "detail": "META-INF/LICENSE and META-INF/NOTICE present",
+        },
+    }
+    out = run_jvm(
+        vrc(jvm_companion_location="staged"), podling_tree(tmp_path), mav_report("PASS", jars=[jar])
+    )
+    assert out["status"] == "PASS"
+    assert out["licence_notice_findings"] == []
 
 
 def test_case_4_jar_absent_nexus_only(tmp_path: Path) -> None:

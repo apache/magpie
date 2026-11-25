@@ -119,7 +119,7 @@ def test_rc_cut_build_sections_todo(project, preflight):
 @pytest.mark.parametrize(
     ("digests", "fragment"),
     [
-        ("- `sha256`, published.", "does not contain sha512"),
+        ("- `sha384`, published.", "contains neither sha256 nor sha512"),
         ("- `sha512`, required.\n- `md5`, legacy.", "contains md5"),
         ("- `sha512`, required.\n- `sha1`, legacy.", "contains sha1"),
     ],
@@ -127,6 +127,11 @@ def test_rc_cut_build_sections_todo(project, preflight):
 def test_rc_cut_digest_set(project, preflight, digests, fragment):
     build = BUILD_SOURCE_ONLY.replace("- `sha512`, required.", digests)
     blocked_on(preflight(project(build=build), "rc-cut", "1.1.0", "rc1"), fragment)
+
+
+def test_rc_cut_sha256_only_digest_set_passes(project, preflight):
+    build = BUILD_SOURCE_ONLY.replace("- `sha512`, required.", "- `sha256`, published.")
+    assert preflight(project(build=build), "rc-cut", "1.1.0", "rc1")["ok"]
 
 
 def test_rc_cut_digest_set_ignores_template_guidance(project, preflight):

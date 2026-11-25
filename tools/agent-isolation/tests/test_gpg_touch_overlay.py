@@ -26,6 +26,7 @@ matcher is exercisable with no X display and nothing left running.
 from __future__ import annotations
 
 import ast
+import contextlib
 import fcntl
 import json
 import os
@@ -36,6 +37,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -64,6 +66,24 @@ def _terminal_not_agent(monkeypatch):
     set it explicitly.
     """
     monkeypatch.delenv("CLAUDECODE", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_window(monkeypatch):
+    """Never raise the real overlay on the screen of whoever runs the suite.
+
+    Many tests start real watchers from an environment built on
+    `os.environ` (the wrap and ownership tests, the commit signed through
+    the wrapper), and a watcher draws its window with
+    `gpg-touch-overlay.sh _overlay` unless MAGPIE_GPG_TOUCH_OVERLAY names a
+    stand-in. Any watcher that sees a signature block past SHOW_DELAY, such
+    as one stuck on an ssh agent that never answers or a fake signer on
+    another xdist worker, would put the full-screen touch prompt over the
+    developer's desktop, whether or not they own a security key. `true`
+    runs in its place: it exits 0, which the watcher reads as the signature
+    being dismissed. The tests about the window pass their own stand-in.
+    """
+    monkeypatch.setenv("MAGPIE_GPG_TOUCH_OVERLAY", "true")
 
 
 _WARM_UP = "MAGPIE_TEST_WARM_UP"
@@ -453,7 +473,7 @@ def test_a_cached_on_is_trusted_for_ten_minutes(tmp_path: Path) -> None:
 
 
 def test_wrap_runs_the_program_without_a_watcher_when_touch_is_off(
-    tmp_path: Path,
+    tmp_path: Path, process_named
 ) -> None:
     runtime = tmp_path / "rt"
     program = tmp_path / "ssh-keygen"
@@ -579,7 +599,8 @@ def process_named(tmp_path):
     it is to give a harmless process the name it looks for. Every pytest
     worker sees the same process table, so under `-n auto` one test's
     signer is another's signature in flight: the tests that start one take
-    turns.
+    turns. A test that runs a signer some other way requests this fixture
+    only to take its turn.
     """
     lock = open(
         Path(tempfile.gettempdir()) / f"magpie-gpg-touch-signers-{os.getuid()}.lock",
@@ -612,6 +633,52 @@ def process_named(tmp_path):
         lock.close()
 
 
+# The probe sees the whole machine, so a test that needs it to report
+# nothing, or only the signers the test started, cannot run beside a real
+# signature or PIN prompt. The check runs once, at collection.
+def _no_signer_in_flight() -> bool:
+    """Whether pgrep works and sees no signer or pinentry on this machine.
+
+    pgrep exits 1 for no match. 0 is a real signature or PIN prompt, and
+    2 or 3 is a pgrep that cannot list processes (a sandbox that denies
+    it): the watcher cannot see the test's own signers either, so the
+    test would fail rather than test anything.
+    """
+    if shutil.which("pgrep") is None:
+        return False
+    probe = subprocess.run(
+        ["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"],
+        capture_output=True,
+        check=False,
+    )
+    return probe.returncode == 1
+
+
+_needs_a_quiet_signer = pytest.mark.skipif(
+    not _no_signer_in_flight(),
+    reason="needs a working pgrep and no real signature or PIN prompt in flight",
+)
+
+
+@pytest.mark.parametrize(
+    ("status", "quiet"),
+    [
+        pytest.param(1, True, id="no-match"),
+        pytest.param(0, False, id="a-real-signer"),
+        pytest.param(3, False, id="cannot-list-processes"),
+    ],
+)
+def test_quiet_signer_check_needs_a_working_pgrep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: int, quiet: bool
+) -> None:
+    """A sandboxed pgrep (exit 3) skips the tests instead of failing them."""
+    pgrep = tmp_path / "pgrep"
+    pgrep.write_text(f"#!/bin/sh\nexit {status}\n")
+    pgrep.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    assert _no_signer_in_flight() is quiet
+
+
 @pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
 def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
     """`gpg.format=ssh` signs through gpg-agent without ever running gpg."""
@@ -619,8 +686,16 @@ def test_signing_in_flight_sees_an_ssh_keygen_signature(process_named) -> None:
     assert _run("_signing_in_flight").returncode == 0
 
 
-@pytest.mark.skipif(shutil.which("pgrep") is None, reason="needs pgrep")
+@_needs_a_quiet_signer
 def test_signing_in_flight_matches_the_whole_process_name(process_named) -> None:
+    """A name that only starts with `ssh-keygen` is not a signature.
+
+    The probe sees the whole machine, so any real signer would make it
+    report one anyway. The guard skips the test if one ran at collection,
+    and the check below skips it if one is running now.
+    """
+    if _run("_signing_in_flight").returncode == 0:
+        pytest.skip("a real signature is in flight on this machine")
     process_named("ssh-keygenx")
     assert _run("_signing_in_flight").returncode != 0
 
@@ -1010,7 +1085,9 @@ def test_another_sessions_hook_watcher_does_not_count(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("ssh-keygen") is None, reason="needs ssh-keygen")
-def test_wrap_passes_a_verify_call_straight_through(tmp_path: Path) -> None:
+def test_wrap_passes_a_verify_call_straight_through(
+    tmp_path: Path, process_named
+) -> None:
     """`git log --show-signature` runs the signing program once per commit.
 
     Those calls never reach the key, so they get no watcher and no
@@ -1035,9 +1112,9 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     """End to end: `gpg.ssh.program` names the symlink and git commits.
 
     A software key stands in for the hardware one, so the real
-    `ssh-keygen -Y sign` signs without a touch. A shim ahead of it on
-    PATH holds the signature for a moment — long enough for the watcher
-    to see it in flight, short of SHOW_DELAY so nothing is drawn.
+    `ssh-keygen -Y sign` signs without a touch.
+    A shim ahead of it on PATH waits until the watcher observes the
+    operation, rather than racing its startup against a fixed delay.
     """
     scripts = tmp_path / "scripts"
     scripts.mkdir()
@@ -1048,7 +1125,15 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     shim_dir.mkdir()
     real_ssh_keygen = shutil.which("ssh-keygen")
     shim = shim_dir / "ssh-keygen"
-    _executable(shim, f'#!/bin/sh\nsleep 1\nexec "{real_ssh_keygen}" "$@"\n')
+    release = tmp_path / "release-signer"
+    os.mkfifo(release)
+    _executable(
+        shim,
+        f'#!/bin/bash\nif ! IFS= read -r -t 45 observed < "{release}"; then\n'
+        'echo "timed out waiting for watcher observation" >&2\nexit 1\nfi\n'
+        '[ "$observed" = sign ] || exit 1\n'
+        f'exec "{real_ssh_keygen}" "$@"\n',
+    )
 
     key = tmp_path / "key"
     subprocess.run(
@@ -1058,9 +1143,15 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
 
     repo = tmp_path / "repo"
     repo.mkdir()
+    window, _shown = _fake_window(tmp_path, 0)
     env = {
         **_wrap_env(tmp_path),
         "MAGPIE_GPG_TOUCH_DEBUG": "1",
+        # The handshake reads the watcher's xtrace for "+ saw_operation=1";
+        # pin the prefix so an exported PS4 cannot hide it.
+        "PS4": "+ ",
+        # A stalled handshake must not draw a real window on the host.
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
         "PATH": f"{shim_dir}{os.pathsep}{os.environ['PATH']}",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -1069,11 +1160,35 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
         "GIT_COMMITTER_NAME": "t",
         "GIT_COMMITTER_EMAIL": "t@example.invalid",
     }
+    # The key file is the only key this signature may reach. With
+    # SSH_AUTH_SOCK set, `ssh-keygen -Y sign` first asks that agent whether
+    # it holds the key, and an agent that never answers (a launchd
+    # ssh-agent that keeps failing to start, say) blocks the signature
+    # forever while the watcher reads the wait as a touch.
+    env.pop("SSH_AUTH_SOCK", None)
 
     def git(*args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *args], cwd=repo, capture_output=True, text=True, env=env
+        # Run git in its own session with a deadline. If a signature blocks,
+        # the test fails and git, the wrapper and the signer are killed,
+        # instead of hanging the suite and the pre-commit run around it.
+        proc = subprocess.Popen(
+            ["git", *args],
+            cwd=repo,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            start_new_session=True,
         )
+        try:
+            stdout, stderr = proc.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            # The group may have ended between the deadline and the kill.
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(proc.pid, signal.SIGKILL)
+            stdout, stderr = proc.communicate()
+            pytest.fail(f"git {args[0]} was still running after 60 s\n{stdout}{stderr}")
+        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
     assert git("init", "-q").returncode == 0
     for key_name, value in [
@@ -1084,14 +1199,41 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     ]:
         assert git("config", key_name, value).returncode == 0
 
-    commit = git("commit", "-q", "--allow-empty", "-m", "signed through the wrapper")
-    assert commit.returncode == 0, commit.stderr
+    log = tmp_path / "magpie-gpg-touch" / "watcher.log"
+
+    def observed() -> bool:
+        return log.exists() and "+ saw_operation=1" in log.read_text()
+
+    # RDWR keeps the FIFO open without blocking before the shim starts.
+    # Its own descriptor, not git's stdin, carries the release: git still
+    # supplies the real commit payload to ssh-keygen for signing.
+    with (
+        os.fdopen(os.open(release, os.O_RDWR | os.O_NONBLOCK), "wb", buffering=0) as go,
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        pending = executor.submit(
+            git, "commit", "-q", "--allow-empty", "-m", "signed through the wrapper"
+        )
+        try:
+            assert _wait_for(lambda: observed() or pending.done(), timeout=30), (
+                "watcher did not observe signing within 30 seconds:\n"
+                + (log.read_text() if log.exists() else "no watcher log")
+            )
+            assert observed(), "git finished before the watcher observed signing:\n" + (
+                log.read_text() if log.exists() else "no watcher log"
+            )
+        finally:
+            # Also release on assertion failure so git can exit and the
+            # wrapper can tear down its watcher and registration normally.
+            go.write(b"sign\n")
+            commit = pending.result()
+        trace = log.read_text() if log.exists() else "no watcher log"
+    assert commit.returncode == 0, f"{commit.stderr}\n{trace}"
 
     shown = git("cat-file", "-p", "HEAD")
     assert "gpgsig " in shown.stdout, "the commit was not signed"
 
     assert _no_registrations(tmp_path)
-    log = tmp_path / "magpie-gpg-touch" / "watcher.log"
     assert log.exists(), "no watcher ran for the signature"
     assert "signing_in_flight" in log.read_text()
 
@@ -1791,14 +1933,6 @@ def _wait_for(predicate, timeout: float) -> bool:
             return True
         time.sleep(0.1)
     return predicate()
-
-
-_needs_a_quiet_signer = pytest.mark.skipif(
-    shutil.which("pgrep") is None
-    or subprocess.run(["pgrep", "-x", "gpg|gpg2|ssh-keygen|pinentry.*"]).returncode
-    == 0,
-    reason="needs pgrep and no real signature or PIN prompt in flight",
-)
 
 
 @_needs_a_quiet_signer

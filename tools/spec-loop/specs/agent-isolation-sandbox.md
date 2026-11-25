@@ -395,12 +395,20 @@ See `docs/adapters/harnesses/goose.md`.
   warns about unknown `npm_config_*` names) sets `PNPM_HOME` to a
   per-project `~/.local/share/pnpm-sandbox/<project>` (spelled `~/`,
   the only form pnpm expands), `npm_config_cache_dir` inside it and
-  `npm_config_enable_global_virtual_store=true` (keeping
-  `node_modules/.pnpm`, where the harness refuses `.idea/codeStyles`
-  paths, out of the project), and grants only that directory. The
-  home is per project and outside `~/.cache` because the global
-  virtual store makes `node_modules` symlinks into its store, which the
-  project's hooks run outside the sandbox: a shared home would let any
+  `npm_config_cache` (npm's own cache, which the commands pnpm hands to
+  npm use instead of the sandbox-denied `~/.npm`) inside it too,
+  and grants only that directory, which
+  the operator creates once outside the sandbox (a grant on a missing
+  directory does nothing, and `~/.local/share` is not writable). The
+  virtual store stays in the project (`node_modules/.pnpm`): from one
+  outside it, pnpm's global virtual store included, TypeScript's
+  walk up from a package's real path never reaches the project's
+  `@types/*`, so type-aware checks fail. A dependency shipping
+  `.idea/codeStyles`, which the harness refuses in the project tree,
+  is the project's to override (`iconv-lite` 0.6.3 → 0.7). The home
+  is per project and outside `~/.cache` because `node_modules/.pnpm`
+  is linked from its store (hard links on Linux), which the project's
+  hooks run outside the sandbox: a shared home would let any
   project's sandboxed session plant that code. `Edit(~/.cache/pnpm/**)`
   denies the host cache, `sandbox-lint` requires the env and grant
   only for a project with a tracked `pnpm-lock.yaml` or
@@ -409,8 +417,8 @@ See `docs/adapters/harnesses/goose.md`.
   lower-case slug) with the cache exactly `<home>/cache`, and in every
   project rejects a grant over the whole `~/.local/share/pnpm-sandbox`
   and a moved store, state or virtual-store directory; the dispatcher
-  unsets any pnpm directory pointing into it, and the global-virtual-store
-  flag with it, when `SANDBOX_RUNTIME` is absent.
+  unsets any pnpm directory pointing into it (and a global-virtual-store
+  flag set beside it) when `SANDBOX_RUNTIME` is absent.
   Detection (a root config file, a tracked nested config, or an
   installed hook that runs the manager) decides only what a repository
   is configured with — the sandbox home its settings must carry, the

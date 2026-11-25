@@ -554,8 +554,9 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
 - Bitbucket write operations follow the framework write-path discipline:
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
-  coverage is Bitbucket Cloud and Data Center pull-request comment creation,
-  approve/unapprove and request-changes/remove-request-changes, plus
+  coverage is Bitbucket Cloud and Data Center same-repository pull-request
+  creation, pull-request comment creation, approve/unapprove and
+  request-changes/remove-request-changes, plus
   Bitbucket Cloud-only backend-neutral `post_review` through
   comment/approve/request-changes, backend-neutral `reject`, decline, and
   strategy-aware merge actions pinned to a caller-confirmed source commit

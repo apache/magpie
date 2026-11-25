@@ -46,7 +46,7 @@ What stays with the agent is judgement: inspecting a diff before approving a wor
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+, stdlib only; run via `uv run --project <framework>/tools/pr-management`.
+- **Runtime:** Python 3.11+, with `packaging` for PEP 440 version matching; run via `uv run --project <framework>/tools/pr-management`.
 - **CLIs:** None beyond the runtime. It never calls `gh`: under the secure setup `gh` only works outside the sandbox, so the skill fetches through [`vetted-ops`](https://github.com/apache/magpie/blob/main/tools/vetted-ops/README.md) and this tool reads the saved files. The one exception is the CI mode `stats build --fetch-with-gh`, which shells out to `gh`.
 - **Credentials / auth:** None (`--fetch-with-gh`: an authenticated `gh`).
 - **Network:** None — reads local files only (`--fetch-with-gh`: `api.github.com` through `gh`).

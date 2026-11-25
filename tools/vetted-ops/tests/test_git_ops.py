@@ -20,17 +20,24 @@
 from __future__ import annotations
 
 import dataclasses
+import fnmatch
+import json
 import os
+import shutil
+import stat
 import subprocess
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-from vetted_ops import git_ops
+from vetted_ops import checks, git_ops
 from vetted_ops.config import Config, ConfigError, account_home
 from vetted_ops.git_ops import Git, GitPolicy, GitRefused
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(autouse=True)
@@ -476,6 +483,8 @@ def test_inert_repository_config_is_accepted(git: Git, policy: LocalPolicy, repo
     _git(repo, "config", "remote.origin.url", "git@github.com:me/project.git")
     _git(repo, "config", "branch.topic.remote", "origin")
     _git(repo, "config", "user.name", "someone")
+    # Written by `gh stack link`, which AGENTS.md recommends; git never reads it.
+    _git(repo, "config", "gh-stack.remote", "upstream")
     _push(git, policy, repo, "topic", "fork", "topic", "new")
 
 
@@ -883,6 +892,11 @@ def _file(workspace: Path, name: str, text: str) -> str:
     return str(path)
 
 
+def _checked(wt: Path, paths_file: str) -> None:
+    """What `vetted-op-checks` does in the sandbox: run the checks, record the content."""
+    checks.record(wt, Path(paths_file))
+
+
 def test_stage_and_commit_a_listed_change(
     git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
 ) -> None:
@@ -890,6 +904,7 @@ def test_stage_and_commit_a_listed_change(
     (wt / "new.txt").write_text("new")
     (wt / "other.txt").write_text("not listed")
     paths = _file(workspace, "p", "new.txt\n")
+    _checked(wt, paths)
     out = git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
     assert "staged 1 path" in out
     assert _git(wt, "diff", "--cached", "--name-only") == "new.txt"
@@ -967,10 +982,156 @@ def test_commit_runs_no_hook(
     hook.chmod(0o755)
     (wt / "h.txt").write_text("h")
     paths = _file(workspace, "p", "h.txt")
+    _checked(wt, paths)
     git_ops.stage_paths(git, wpolicy, {"worktree": str(wt), "paths_file": paths}, False)
     message = _file(workspace, "m", "msg")
     git_ops.commit_staged(git, wpolicy, {"worktree": str(wt), "message_file": message}, False)
     assert not marker.exists()
+
+
+def _stage(git: Git, policy: GitPolicy, wt: Path, paths: str) -> None:
+    git_ops.stage_paths(git, policy, {"worktree": str(wt), "paths_file": paths}, False)
+
+
+def _commit_op(git: Git, policy: GitPolicy, wt: Path, workspace: Path) -> str:
+    message = _file(workspace, "m", "msg")
+    return git_ops.commit_staged(git, policy, {"worktree": str(wt), "message_file": message}, False)
+
+
+def test_commit_refuses_a_change_the_checks_never_saw(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    """No hook runs out here, so nothing is committed that the sandboxed checks did not pass."""
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    _stage(git, wpolicy, wt, _file(workspace, "p", "a.txt"))
+    with pytest.raises(GitRefused, match="no checks were recorded"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_refuses_content_changed_after_the_checks(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("checked")
+    paths = _file(workspace, "p", "a.txt")
+    _checked(wt, paths)
+    (wt / "a.txt").write_text("edited after the checks")
+    _stage(git, wpolicy, wt, paths)
+    with pytest.raises(GitRefused, match=r"did not pass these staged paths.*a\.txt"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_refuses_a_staged_path_the_checks_did_not_list(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    (wt / "b.txt").write_text("b")
+    _checked(wt, _file(workspace, "p", "a.txt"))
+    _stage(git, wpolicy, wt, _file(workspace, "q", "a.txt\nb.txt"))
+    with pytest.raises(GitRefused, match=r"b\.txt"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_commit_accepts_a_checked_deletion(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    tracked = _git(wt, "ls-files").splitlines()[0]
+    (wt / tracked).unlink()
+    paths = _file(workspace, "p", tracked)
+    _checked(wt, paths)
+    _stage(git, wpolicy, wt, paths)
+    assert _commit_op(git, wpolicy, wt, workspace).startswith("committed ")
+
+
+def test_a_record_outside_the_policy_workspace_does_not_count(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "p").write_text("a.txt")
+    checks.record(wt, elsewhere / "p")
+    _stage(git, wpolicy, wt, _file(workspace, "p", "a.txt"))
+    with pytest.raises(GitRefused, match="no checks were recorded"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def test_a_record_reached_through_a_symlink_is_refused(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, tmp_path: Path
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / "a.txt").write_text("a")
+    paths = _file(workspace, "p", "a.txt")
+    real = checks.record(wt, Path(paths))
+    moved = tmp_path / "moved.json"
+    real.rename(moved)
+    real.symlink_to(moved)
+    _stage(git, wpolicy, wt, paths)
+    with pytest.raises(GitRefused, match="cannot be read"):
+        _commit_op(git, wpolicy, wt, workspace)
+
+
+def _fake_prek(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    ran = tmp_path / "prek-args"
+    prek = bin_dir / "prek"
+    prek.write_text(f'#!/bin/sh\necho "$@" > {ran}\nexit {exit_code}\n')
+    prek.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    return ran
+
+
+def test_the_checks_run_prek_on_the_listed_paths(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    record = json.loads(checks.record(wt, Path(_file(workspace, "p", "a.txt"))).read_text())
+    assert ran.read_text().split() == ["run", "--files", "a.txt"]
+    assert record["checks"] == "prek"
+
+
+def test_failing_checks_record_nothing(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wt = _linked(git, wpolicy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    _fake_prek(tmp_path, monkeypatch, 1)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1
+    assert not checks.stamp_path(workspace, wt).exists()
+
+
+def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
+    """It runs the working tree's hooks; out of the sandbox it would be the very escape it prevents."""
+    settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
+    template = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.local.template.json"
+    excluded = [
+        *settings.get("sandbox", {}).get("excludedCommands", []),
+        *json.loads(template.read_text()).get("sandbox", {}).get("excludedCommands", []),
+    ]
+    for base in ("~/.claude/magpie/vetted-ops", "~/.cache/apache-magpie/vetted-ops/current"):
+        for launcher in ("uvx --from", "uv run --project"):
+            command = f"{launcher} {base} {checks.PROG} /wt /ws/p"
+            assert not [p for p in excluded if fnmatch.fnmatchcase(command, p)], command
 
 
 def test_fetch_writes_the_upstream_remote_tracking_ref(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
@@ -1039,3 +1200,1031 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
         _pr(git, wpolicy, repo, workspace, "t", "b", branch="main")
     with pytest.raises(GitRefused, match=r"no \[git\] fork"):
         _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")
+
+
+@dataclass
+class FakePr:
+    """`gh api repos/<upstream>/pulls/<N>`, answering with one pull request's head."""
+
+    head: dict[str, object]
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, json.dumps(self.head), "")
+
+
+def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
+    """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
+    _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
+    _git(repo, "checkout", "-q", "-b", "fixup")
+    head = _commit(repo, "contribution")
+    _git(repo, "push", "-q", policy.push_url("alice/project"), "HEAD:refs/heads/feature")
+    fixup = _commit(repo, "fixup")
+    answer: dict[str, object] = {
+        "state": "open",
+        "maintainer_can_modify": True,
+        "base_repo": "acme/project",
+        "head_repo": "alice/project",
+        "head_ref": "feature",
+        "head_sha": head,
+    }
+    answer.update(overrides)
+    return FakePr(answer), head, fixup
+
+
+def _push_head(
+    git: Git,
+    policy: GitPolicy,
+    repo: Path,
+    expected: str,
+    number: str = "42",
+    head_repo: str = "alice/project",
+    head_branch: str = "feature",
+) -> str:
+    return git_ops.push_pr_head(
+        git,
+        policy,
+        {
+            "worktree": str(repo),
+            "branch": "fixup",
+            "number": number,
+            "head_repo": head_repo,
+            "head_branch": head_branch,
+            "expected": expected,
+        },
+        False,
+    )
+
+
+def test_push_pr_head_fast_forwards_the_contributors_branch(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    fake, head, fixup = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    out = _push_head(git, policy, repo, head)
+    assert f"was {head}" in out and "alice/project feature" in out
+    assert _remote_head(policy, "alice/project", "feature") == fixup
+    assert fake.calls[0][4] == "repos/acme/project/pulls/42"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        pytest.param({"maintainer_can_modify": False}, "does not allow edits", id="edits-not-allowed"),
+        pytest.param({"state": "closed"}, "not open", id="closed"),
+        pytest.param({"head_sha": "0" * 40}, "head is now", id="head-moved"),
+        pytest.param({"base_repo": "other/project"}, "not against", id="other-base"),
+        pytest.param({"head_repo": None}, "no head repository", id="fork-deleted"),
+        pytest.param({"head_ref": "main"}, "protected", id="protected-head"),
+        pytest.param(
+            {"head_repo": "acme/project", "head_ref": "topic"}, "upstream_push", id="upstream-outside-globs"
+        ),
+    ],
+)
+def test_push_pr_head_refuses_what_the_forge_does_not_allow(
+    git: Git, policy: LocalPolicy, repo: Path, overrides: dict[str, object], message: str
+) -> None:
+    fake, head, _ = _contributor_pr(policy, repo, **overrides)
+    git.gh_runner = fake
+    # The caller names the head the forge reports, so each refusal is the one under test.
+    named_repo = overrides.get("head_repo") or "alice/project"
+    named_branch = overrides.get("head_ref") or "feature"
+    with pytest.raises(GitRefused, match=message):
+        _push_head(git, policy, repo, head, head_repo=str(named_repo), head_branch=str(named_branch))
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+@pytest.mark.parametrize(
+    ("head_repo", "head_branch"),
+    [("mallory/project", "feature"), ("alice/project", "other")],
+)
+def test_push_pr_head_refuses_a_head_other_than_the_one_named(
+    git: Git, policy: LocalPolicy, repo: Path, head_repo: str, head_branch: str
+) -> None:
+    """The confirmation shows the named head; the forge must agree with it."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    with pytest.raises(GitRefused, match="name the head the forge reports"):
+        _push_head(git, policy, repo, head, head_repo=head_repo, head_branch=head_branch)
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_refuses_a_merge_of_other_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Unpublished work merged into the fixup would go to the contributor's fork with it."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "-b", "private", "main")
+    _commit(repo, "unpublished")
+    _git(repo, "checkout", "-q", "fixup")
+    _git(repo, "merge", "-q", "--no-ff", "--no-edit", "private")
+    with pytest.raises(GitRefused, match="merge commit"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_sees_through_a_replace_ref(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A replace ref that hides the merge from the graph checks is not honoured."""
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "-b", "private", "main")
+    _commit(repo, "unpublished")
+    _git(repo, "checkout", "-q", "fixup")
+    _git(repo, "merge", "-q", "--no-ff", "--no-edit", "private")
+    merge = _git(repo, "rev-parse", "HEAD")
+    # The same tree as the merge, with the fixup as its only parent.
+    disguise = _git(repo, "commit-tree", f"{merge}^{{tree}}", "-p", f"{merge}^1", "-m", "fixup")
+    _git(repo, "replace", merge, disguise)
+    with pytest.raises(GitRefused, match="merge commit"):
+        _push_head(git, policy, repo, head)
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_the_graph_checks_never_read_agent_writable_graph_metadata(git: Git, repo: Path) -> None:
+    """The commit-graph, replace refs and grafts all live in `.git`; none of them is read."""
+    argv = git.argv(repo, "rev-list", "HEAD")
+    assert "core.commitGraph=false" in argv
+    env = git._env()
+    assert env["GIT_NO_REPLACE_OBJECTS"] == "1"
+    assert env["GIT_GRAFT_FILE"] == os.devnull
+
+
+def test_push_pr_head_accepts_the_forges_casing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """GitHub names are case-insensitive, and the forge answers in its canonical casing."""
+    fake, head, fixup = _contributor_pr(policy, repo, base_repo="Acme/Project")
+    git.gh_runner = fake
+    _push_head(git, policy, repo, head, head_repo="Alice/project")
+    assert _remote_head(policy, "alice/project", "feature") == fixup
+
+
+def test_a_repository_with_grafts_is_refused(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    (repo / ".git" / "info").mkdir(exist_ok=True)
+    (repo / ".git" / "info" / "grafts").write_text("")
+    _git(repo, "branch", "topic")
+    with pytest.raises(GitRefused, match="grafts"):
+        _push(git, policy, repo, "topic", "fork", "topic", "new")
+
+
+def test_push_pr_head_refuses_more_than_a_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    for n in range(git_ops.MAX_FIXUP_COMMITS):
+        _commit(repo, f"extra-{n}")
+    with pytest.raises(GitRefused, match="at most"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+
+
+def test_push_pr_head_never_rewrites_the_contributors_commits(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "reset", "-q", "--hard", "main")
+    _commit(repo, "replacement")
+    with pytest.raises(GitRefused, match="never rewrites"):
+        _push_head(git, policy, repo, head)
+    assert not fake.calls
+    assert _remote_head(policy, "alice/project", "feature") == head
+
+
+def test_push_pr_head_refuses_a_branch_with_no_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "reset", "-q", "--hard", head)
+    with pytest.raises(GitRefused, match="commit the fixup first"):
+        _push_head(git, policy, repo, head)
+
+
+def test_push_pr_head_to_an_upstream_head_inside_the_globs(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "checkout", "-q", "-b", "fixup")
+    head = _commit(repo, "contribution")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "HEAD:refs/heads/feature-x")
+    fixup = _commit(repo, "fixup")
+    git.gh_runner = FakePr(
+        {
+            "state": "open",
+            "maintainer_can_modify": False,
+            "base_repo": "acme/project",
+            "head_repo": "acme/project",
+            "head_ref": "feature-x",
+            "head_sha": head,
+        }
+    )
+    _push_head(git, policy, repo, head, head_repo="acme/project", head_branch="feature-x")
+    assert _remote_head(policy, "acme/project", "feature-x") == fixup
+
+
+@pytest.mark.parametrize(("number", "expected"), [("0", "a" * 40), ("42x", "a" * 40), ("42", "abc123")])
+def test_push_pr_head_validates_parameters(
+    git: Git, policy: LocalPolicy, repo: Path, number: str, expected: str
+) -> None:
+    _git(repo, "branch", "fixup")
+    git.gh_runner = FakePr({})
+    with pytest.raises(GitRefused):
+        _push_head(git, policy, repo, expected, number=number)
+
+
+def _switch(git: Git, policy: GitPolicy, worktree: Path, branch: str) -> str:
+    return git_ops.switch_branch(git, policy, {"worktree": str(worktree), "branch": branch}, False)
+
+
+def _upstream_main(repo: Path) -> None:
+    """Publish the checkout's current `main` as upstream's (the bare `acme/project` remote)."""
+    _git(
+        repo,
+        "push",
+        "-q",
+        "--force",
+        str(repo.parent / "remotes" / "acme__project.git"),
+        "main:refs/heads/main",
+    )
+
+
+def _settings(repo: Path, text: str, message: str) -> str:
+    (repo / ".claude").mkdir(exist_ok=True)
+    (repo / ".claude" / "settings.json").write_text(text)
+    _git(repo, "add", ".claude/settings.json")
+    _git(repo, "commit", "-q", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_switch_moves_a_clean_tree_to_a_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    topic = _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    out = _switch(git, policy, repo, "topic")
+    assert "from main to topic" in out
+    assert _git(repo, "rev-parse", "HEAD") == topic
+
+
+def test_switch_brings_harness_files_that_came_from_upstream(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """A branch cut from a newer upstream may carry its settings; only its own changes are refused."""
+    _git(repo, "checkout", "-q", "-b", "old")
+    _settings(repo, '{"v": 2}', "upstream moves settings")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--ff-only", "old")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "old")
+    _git(repo, "reset", "-q", "--hard", "main~1")
+    _switch(git, policy, repo, "topic")
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 2}'
+
+
+def test_switch_takes_an_older_branch_that_left_harness_files_alone(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """A branch cut before upstream changed its settings switches, with the settings it was cut with."""
+    _settings(repo, '{"v": 1}', "upstream, before")
+    _git(repo, "checkout", "-q", "-b", "old-topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    _settings(repo, '{"v": 2}', "upstream changes settings")
+    _upstream_main(repo)
+    _switch(git, policy, repo, "old-topic")
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 1}'
+
+
+@pytest.mark.parametrize(
+    ("path", "harness"),
+    [
+        (".claude/settings.json", True),
+        ("sub/project/.claude/skills/x/SKILL.md", True),
+        (".github/skills/x", True),
+        (".github", True),
+        (".apache-magpie-overrides/tools", True),
+        (".apache-magpie-overrides/tools/vetted-ops/config.toml", True),
+        ("nested/.apache-magpie-overrides/tools/vetted-ops/config.toml", True),
+        (".claude-plugin/marketplace.json", True),
+        (".github/workflows/ci.yml", False),
+        ("docs/claude.md", False),
+        (".claudette/x", False),
+        ("tools/vetted-ops/README.md", False),
+    ],
+)
+def test_harness_paths_cover_nested_dirs_and_the_ancestors_a_symlink_could_replace(
+    path: str, harness: bool
+) -> None:
+    assert git_ops.is_harness_path(path) is harness
+
+
+def _forge_loose_object(repo: Path, oid: str, kind: str, content: bytes) -> None:
+    """Overwrite the loose object stored under ``oid`` with other content, as an agent could."""
+    path = repo / ".git" / "objects" / oid[:2] / oid[2:]
+    path.chmod(0o644)
+    path.write_bytes(zlib.compress(f"{kind} {len(content)}\0".encode() + content))
+
+
+def test_switch_refuses_a_forged_object_in_the_store(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Git does not re-hash what it reads; the switch does, so a forged blob is caught."""
+    _settings(repo, '{"permissions": {"deny": ["Bash(curl *)"]}}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    blob = _git(repo, "rev-parse", "main:.claude/settings.json")
+    _forge_loose_object(repo, blob, "blob", b'{"permissions": {"allow": ["Bash(*)"]}}')
+    with pytest.raises(GitRefused, match="tampered with"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_puts_back_a_harness_file_that_changed_during_the_checkout(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _settings(repo, '{"v": "upstream"}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    real = git.runner
+
+    def tamper_during_checkout(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            (repo / ".claude" / "settings.json").write_text('{"v": "agent"}')
+        return done
+
+    git.runner = tamper_during_checkout
+    out = _switch(git, policy, repo, "topic")
+    assert "put back the verified content of .claude/settings.json" in out
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": "upstream"}'
+    # Put back owner-only: nobody else needs to read the harness's settings.
+    assert stat.S_IMODE((repo / ".claude" / "settings.json").stat().st_mode) == 0o600
+
+
+def test_switch_fails_closed_on_a_harness_directory_turned_into_a_symlink(
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    _settings(repo, '{"v": "upstream"}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    real = git.runner
+
+    def symlink_during_checkout(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            shutil.rmtree(repo / ".claude")
+            (repo / ".claude").symlink_to(elsewhere)
+        return done
+
+    git.runner = symlink_during_checkout
+    with pytest.raises(GitRefused, match="check them by hand"):
+        _switch(git, policy, repo, "topic")
+    assert not (elsewhere / "settings.json").exists()
+
+
+def test_switch_refuses_a_forged_upstream_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A forged upstream commit naming the agent's branch as its parent would make it the fork point."""
+    _git(repo, "checkout", "-q", "-b", "topic")
+    topic = _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "two")
+    _upstream_main(repo)
+    base = _git(repo, "rev-parse", "main")
+    tree = _git(repo, "rev-parse", "main^{tree}")
+    forged = f"tree {tree}\nparent {topic}\nauthor t <t@example.org> 0 +0000\ncommitter t <t@example.org> 0 +0000\n\nx\n"
+    # The upstream commit, as the repository now holds it: a child of the agent's branch.
+    _forge_loose_object(repo, base, "commit", forged.encode())
+    assert _git(repo, "merge-base", "topic", base) == topic  # git itself is fooled
+    with pytest.raises(GitRefused, match="tampered with"):
+        _switch(git, policy, repo, "topic")
+    assert not (repo / ".claude" / "settings.json").exists()
+
+
+def test_switch_refuses_a_tree_mode_git_reads_differently(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`040000` is a directory to git's checkout; the walk must not skip it."""
+    _upstream_main(repo)
+    blob = _git(repo, "hash-object", "-w", "--stdin")
+    inner = (
+        subprocess.run(
+            ["git", "-C", str(repo), "hash-object", "-t", "tree", "-w", "--literally", "--stdin"],
+            input=b"100644 settings.json\0" + bytes.fromhex(blob),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    claude = (
+        subprocess.run(
+            ["git", "-C", str(repo), "hash-object", "-t", "tree", "-w", "--literally", "--stdin"],
+            input=b"040000 .claude\0" + bytes.fromhex(inner),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    commit = _git(repo, "commit-tree", claude, "-p", "main", "-m", "odd mode")
+    _git(repo, "branch", "topic", commit)
+    with pytest.raises(GitRefused, match="malformed entry"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_refuses_a_branch_checked_out_elsewhere(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "branch", "topic")
+    _git(repo, "worktree", "add", "-q", str(repo.parent / "worktrees" / "other"), "topic")
+    with pytest.raises(GitRefused, match="is checked out in"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_harness_paths_from_the_policy_are_normalised(tmp_path: Path) -> None:
+    checkout = Path(os.path.realpath(tmp_path))
+    policy = git_ops.git_policy(
+        _config({"checkouts": [str(checkout)], "harness_paths": ["./tools/x/", "/y.json"]})
+    )
+    assert policy.harness_paths == ("tools/x", "y.json")
+    assert git_ops.is_harness_path("tools/x/settings.json", policy.harness_paths)
+
+
+def test_switch_honours_harness_paths_from_the_policy(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    (repo / "tools").mkdir()
+    (repo / "tools" / "settings.template.json").write_text("{}")
+    _git(repo, "add", "tools/settings.template.json")
+    _git(repo, "commit", "-q", "-m", "template")
+    _git(repo, "checkout", "-q", "main")
+    strict = dataclasses.replace(policy, harness_paths=("tools/settings.template.json",))
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, strict, repo, "topic")
+    _switch(git, policy, repo, "topic")
+
+
+def test_switch_refuses_a_branch_that_changes_harness_files_itself(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match=r"\.claude/settings\.json in its own commits"):
+        _switch(git, policy, repo, "topic")
+    assert _git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "main"
+    assert not (repo / ".claude" / "settings.json").exists()
+
+
+def test_switch_refuses_harness_changes_with_no_upstream_base(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, "{}", "settings")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="no branch 'main' to check against"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_ignores_a_local_upstream_ref_the_agent_could_move(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """`refs/remotes/upstream/main` is in the writable `.git`; only the policy's URL counts."""
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", "topic")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, policy, repo, "topic")
+
+
+@pytest.mark.parametrize("name", [".Claude/settings.json", ".CLAUDE/hooks/x", ".clau‍de/settings.json"])
+def test_switch_matches_harness_paths_as_the_file_system_does(
+    git: Git, policy: LocalPolicy, repo: Path, name: str
+) -> None:
+    """On a case-insensitive file system `.Claude/` is `.claude/`."""
+    assert git_ops.is_harness_path(name)
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    blob = _git(repo, "hash-object", "-w", "--stdin")
+    _git(repo, "update-index", "--add", "--cacheinfo", f"100644,{blob},{name}")
+    _git(repo, "commit", "-q", "-m", "sneak")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_attaches_only_the_commit_it_checked(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A branch moved during the switch is not attached; the tree holds the checked commit."""
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    checked = _commit(repo, "two")
+    moved = _commit(repo, "three")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "update-ref", "refs/heads/topic", checked)
+    real = git.runner
+
+    def move_after_detach(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            _git(repo, "update-ref", "refs/heads/topic", moved)
+        return done
+
+    git.runner = move_after_detach
+    out = _switch(git, policy, repo, "topic")
+    assert "detached HEAD" in out
+    assert _git(repo, "rev-parse", "HEAD") == checked
+    assert not (repo / "three").exists()
+
+
+def test_switch_refuses_local_changes_and_unknown_branches(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "branch", "topic")
+    (repo / "one").write_text("edited")
+    with pytest.raises(GitRefused, match="uncommitted changes"):
+        _switch(git, policy, repo, "topic")
+    _git(repo, "checkout", "-q", "--", "one")
+    with pytest.raises(GitRefused, match="never creates one"):
+        _switch(git, policy, repo, "no-such-branch")
+
+
+def test_switch_runs_no_post_checkout_hook(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "ran"
+    _hook(repo, "post-checkout", marker)
+    _upstream_main(repo)
+    _git(repo, "branch", "topic")
+    _switch(git, policy, repo, "topic")
+    assert not marker.exists()
+
+
+def _draft_table(message: str) -> str:
+    """The ["<upstream>"] table a refusal drafted, as TOML text."""
+    # The last occurrence: the refusal's own prose names the table first.
+    return message[message.rindex('["acme/project"]') :]
+
+
+def test_no_git_values_refusal_drafts_the_operator_table(
+    repo: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(repo)
+    with pytest.raises(ConfigError) as caught:
+        git_ops.git_policy(_config(None))
+    message = str(caught.value)
+    assert str(approved / git_ops.OPERATOR_GIT_FILE) in message
+    assert f'checkouts = ["{repo}"]' in message
+    assert 'fork = "<your-github-login>/project"' in message
+    # The draft is one the operator file accepts: only operator keys, valid TOML.
+    _operator(approved, _draft_table(message).replace("<your-github-login>", "me"))
+    assert git_ops.operator_git_table("acme/project") is not None
+
+
+def test_missing_checkouts_refusal_drafts_the_operator_table(
+    repo: Path, approved: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shared [git] for the project keys, but no operator file yet."""
+    monkeypatch.chdir(repo)
+    with pytest.raises(ConfigError) as caught:
+        git_ops.git_policy(_config({"upstream_push": ["ci-*"]}))
+    assert "checkouts must name at least one main checkout" in str(caught.value)
+    assert '["acme/project"]' in str(caught.value)
+
+
+# --- git-rebase ------------------------------------------------------------
+
+
+def _diverged(repo: Path, conflict: bool = False) -> tuple[str, str]:
+    """A topic branch with one commit, checked out, and upstream main one commit ahead.
+
+    Returns (the topic tip, the upstream commit to rebase onto).
+    """
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    base = _git(repo, "rev-parse", "HEAD")
+    if conflict:
+        (repo / "one").write_text("upstream")
+        _git(repo, "commit", "-qam", "upstream edits one")
+    else:
+        _commit(repo, "upstream-file")
+    onto = _git(repo, "rev-parse", "HEAD")
+    # The operation fetches the base itself, from the policy's upstream URL.
+    _git(repo, "push", "-q", str(repo.parent / "remotes" / "acme__project.git"), f"{onto}:refs/heads/main")
+    _git(repo, "checkout", "-q", "-b", "topic", base)
+    if conflict:
+        (repo / "one").write_text("topic")
+        _git(repo, "commit", "-qam", "topic edits one")
+    else:
+        _commit(repo, "topic-file")
+    return _git(repo, "rev-parse", "HEAD"), onto
+
+
+def _rebase(
+    git: Git, policy: GitPolicy, worktree: Path, onto: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.rebase_onto(
+        git, policy, {"worktree": str(worktree), "onto": onto, "expected": expected}, dry_run
+    )
+
+
+def test_rebase_replays_the_topic_onto_the_upstream_commit(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    message = _rebase(git, policy, repo, onto, tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+    assert _git(repo, "log", "-1", "--format=%s") == "topic-file"
+    assert (repo / "topic-file").exists() and (repo / "upstream-file").exists()
+    assert f"{tip} -> {rebased} (1 commits)" in message
+
+
+def test_rebase_works_in_a_linked_worktree(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    path = policy.worktree_roots[0] / "wt"
+    _git(repo, "worktree", "add", "-q", str(path), "topic")
+    _rebase(git, policy, path, onto, tip)
+    assert _git(path, "rev-parse", "HEAD^") == onto
+
+
+def test_rebase_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _rebase(git, policy, repo, onto, tip)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {tip}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == tip
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "rebase-merge").exists()
+
+
+def test_rebase_refuses_a_branch_that_moved(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _commit(repo, "later")
+    with pytest.raises(GitRefused, match="not the expected"):
+        _rebase(git, policy, repo, onto, tip)
+
+
+def test_rebase_refuses_a_base_upstream_does_not_have(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Even one a sandboxed fetch planted under the upstream remote-tracking namespace."""
+    tip, _ = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "local-only", "main")
+    local = _commit(repo, "local")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", local)
+    _git(repo, "update-ref", "refs/remotes/upstream/planted", local)
+    _git(repo, "checkout", "-q", "topic")
+    with pytest.raises(GitRefused, match="is not on acme/project main"):
+        _rebase(git, policy, repo, local, tip)
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+def test_rebase_refuses_main_hidden_behind_a_tag_of_the_same_name(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """`symbolic-ref --short` answers `heads/main` here, which no protected glob matches."""
+    _, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "tag", "main")
+    with pytest.raises(GitRefused, match="'main' is a protected branch"):
+        _rebase(git, policy, repo, onto, onto)
+
+
+def test_commit_refuses_main_hidden_behind_a_tag_of_the_same_name(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    _git(repo, "tag", "main")
+    (repo / "one").write_text("changed")
+    _git(repo, "add", "one")
+    with pytest.raises(GitRefused, match="'main' is a protected branch"):
+        git_ops.commit_staged(
+            git, wpolicy, {"worktree": str(repo), "message_file": _file(workspace, "m", "msg")}, False
+        )
+
+
+def test_rebase_refuses_a_branch_with_merge_commits(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "side", tip)
+    _commit(repo, "side-file")
+    _git(repo, "checkout", "-q", "topic")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+    merged = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(GitRefused, match="merge commits"):
+        _rebase(git, policy, repo, onto, merged)
+    assert _git(repo, "rev-parse", "HEAD") == merged
+
+
+def test_rebase_puts_back_a_branch_moved_as_it_started(policy: LocalPolicy, repo: Path) -> None:
+    """A commit landing between the checks and the rebase is never replayed under the approval."""
+    tip, onto = _diverged(repo)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "rebase" in argv and "--abort" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="moved to"):
+        _rebase(raced, policy, repo, onto, tip)
+    moved = _git(repo, "rev-parse", "HEAD")
+    assert moved != tip
+    assert _git(repo, "rev-parse", "HEAD^") == tip
+
+
+def test_rebase_refuses_a_protected_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _rebase(git, policy, repo, onto, onto)
+
+
+def test_rebase_refuses_local_changes(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    (repo / "topic-file").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _rebase(git, policy, repo, onto, tip)
+
+
+def test_rebase_of_a_branch_already_on_the_base_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _rebase(git, policy, repo, onto, tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert "nothing to rebase" in _rebase(git, policy, repo, onto, rebased)
+    assert _git(repo, "rev-parse", "HEAD") == rebased
+
+
+def test_rebase_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _hook(repo, "pre-rebase", marker, exit_code=1)
+    _hook(repo, "post-rewrite", marker)
+    _rebase(git, policy, repo, onto, tip)
+    assert not marker.exists()
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+
+
+def test_rebase_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    command = _rebase(git, policy, repo, onto, tip, dry_run=True)
+    assert "rebase" in command and "rerere.enabled=false" in command and onto in command
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("onto", "abc123", "full lowercase commit SHA"),
+        ("expected", "--exec=sh", "may not"),
+        ("worktree", "relative/path", "absolute"),
+    ],
+)
+def test_rebase_validates_parameters(
+    git: Git, policy: LocalPolicy, repo: Path, field: str, value: str, message: str
+) -> None:
+    tip, onto = _diverged(repo)
+    params = {"worktree": str(repo), "onto": onto, "expected": tip, field: value}
+    with pytest.raises(GitRefused, match=message):
+        git_ops.rebase_onto(git, policy, params, False)
+
+
+#: A stand-in for gpg: signs with a fixed block and verifies any signature as
+#: good and fully trusted, so `%G?` is `G` for a signed commit, `N` otherwise.
+FAKE_GPG = """#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "--verify" ]; then
+    cat >/dev/null
+    shift $(($# - 2))
+    if grep -q fake "$1"; then
+      printf '[GNUPG:] NEWSIG\\n[GNUPG:] GOODSIG ABCD t\\n'
+      printf '[GNUPG:] VALIDSIG ABCDEF 2020-01-01 0 4 0 1 8 00 ABCDEF\\n[GNUPG:] TRUST_ULTIMATE 0 pgp\\n'
+      exit 0
+    fi
+    printf '[GNUPG:] NEWSIG\\n[GNUPG:] BADSIG ABCD t\\n'
+    exit 1
+  fi
+done
+cat >/dev/null
+printf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 X\\n' >&2
+printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nfake\\n-----END PGP SIGNATURE-----\\n'
+"""
+
+
+def _signing_git(tmp_path: Path) -> tuple[Git, Path]:
+    """A `Git` whose user's global configuration signs commits, and the signer it uses."""
+    signer = tmp_path / "fake-gpg"
+    signer.write_text(FAKE_GPG)
+    signer.chmod(0o755)
+    global_config = tmp_path / "global.gitconfig"
+    global_config.write_text(f"[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = {signer}\n")
+    return Git(runner=_runner(str(global_config)), protocols=("https", "ssh", "file")), signer
+
+
+def _sign_tip(repo: Path, signer: Path) -> str:
+    """Re-make the checked-out tip as a commit the user signed."""
+    _git(repo, "-c", f"gpg.program={signer}", "commit", "-q", "--amend", "--no-edit", "-S")
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_rebase_signs_per_the_users_global_config(policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    """Re-signing the replayed commits is what the sandbox cannot do; the global config decides it."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    tip = _sign_tip(repo, signer)
+    _rebase(signing, policy, repo, onto, tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert rebased != tip
+    assert "fake" in _git(repo, "cat-file", "commit", rebased)
+
+
+def test_rebase_refuses_to_sign_a_commit_the_user_did_not(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """An unsigned commit the agent made in the sandbox never gets the user's signature here."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    _sign_tip(repo, signer)
+    unsigned = _commit(repo, "agent-made")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _rebase(signing, policy, repo, onto, unsigned)
+    assert _git(repo, "rev-parse", "HEAD") == unsigned
+
+
+def test_signing_settings_are_pinned_to_the_users_own(tmp_path: Path, repo: Path) -> None:
+    signing, signer = _signing_git(tmp_path)
+    argv = signing.argv(repo, "log")
+    assert f"gpg.program={signer}" in argv
+    assert f"gpg.openpgp.program={signer}" in argv
+    assert "gpg.format=openpgp" in argv
+    assert "gpg.ssh.program=ssh-keygen" in argv
+    # Unset by the user: an empty list of trusted ssh signers, never the repository's.
+    assert f"gpg.ssh.allowedSignersFile={os.devnull}" in argv
+
+
+def test_a_verifier_the_repository_gains_before_the_check_never_runs(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """A `gpg.program` set right after the configuration check cannot vouch for the agent's commit."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    _sign_tip(repo, signer)
+    agent_signer = tmp_path / "agent-gpg"
+    agent_signer.write_text(FAKE_GPG.replace("fake", "agent"))
+    agent_signer.chmod(0o755)
+    _git(repo, "-c", f"gpg.program={agent_signer}", "commit", "-q", "--allow-empty", "-S", "-m", "agent")
+    agent_commit = _git(repo, "rev-parse", "HEAD")
+    marker = tmp_path / "verifier-ran"
+    vouch = tmp_path / "vouch-gpg"
+    vouch.write_text(
+        f"#!/bin/sh\ntouch {marker}\ncat >/dev/null\n"
+        "printf '[GNUPG:] NEWSIG\\n[GNUPG:] GOODSIG ABCD t\\n[GNUPG:] TRUST_ULTIMATE 0 pgp\\n'\n"
+    )
+    vouch.chmod(0o755)
+    inner = signing.runner
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "--format=%H %G?" in argv:
+            _git(repo, "config", "gpg.program", str(vouch))
+        return inner(argv, env, cwd_fd)
+
+    signing.runner = racing
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {agent_commit}"):
+        _rebase(signing, policy, repo, onto, agent_commit)
+    assert not marker.exists()
+
+
+def test_rebase_without_signing_replays_unsigned_commits(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A user who does not sign gets no signature from the rebase either, so nothing is checked."""
+    assert not git.signs_commits()
+    tip, onto = _diverged(repo)
+    _rebase(git, policy, repo, onto, tip)
+    assert "gpgsig" not in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_rebase_refuses_a_branch_named_like_an_option(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`refs/heads/-x` is a valid ref; its name must never reach the rebase command line."""
+    tip, onto = _diverged(repo)
+    _git(repo, "update-ref", "refs/heads/--exec=touch-pwned", tip)
+    _git(repo, "symbolic-ref", "HEAD", "refs/heads/--exec=touch-pwned")
+    with pytest.raises(GitRefused, match="may not be empty, start with"):
+        _rebase(git, policy, repo, onto, tip)
+
+
+# --- git-cherry-pick -------------------------------------------------------
+
+
+def _pick(
+    git: Git, policy: GitPolicy, worktree: Path, commit: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.cherry_pick(
+        git, policy, {"worktree": str(worktree), "commit": commit, "expected": expected}, dry_run
+    )
+
+
+def _redo_branch(repo: Path, onto: str) -> str:
+    """A fresh topic branch on the upstream commit, to replay a conflicting rebase onto."""
+    _git(repo, "checkout", "-q", "-b", "redo", onto)
+    return onto
+
+
+def test_cherry_pick_replays_one_commit_onto_the_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    message = _pick(git, policy, repo, tip, onto)
+    picked = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-parse", "HEAD^") == onto
+    assert _git(repo, "log", "-1", "--format=%s") == "topic-file"
+    assert f"{onto} -> {picked}" in message
+
+
+def test_cherry_pick_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    _redo_branch(repo, onto)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _pick(git, policy, repo, tip, onto)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {onto}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == onto
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "CHERRY_PICK_HEAD").exists()
+
+
+def test_cherry_pick_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _git(repo, "checkout", "-q", "-b", "side", tip)
+    _commit(repo, "side-file")
+    _git(repo, "checkout", "-q", "topic")
+    _git(repo, "merge", "-q", "--no-ff", "-m", "merge side", "side")
+    merge = _git(repo, "rev-parse", "HEAD")
+    _redo_branch(repo, onto)
+    with pytest.raises(GitRefused, match="a merge commit"):
+        _pick(git, policy, repo, merge, onto)
+    with pytest.raises(GitRefused, match="not the expected"):
+        _pick(git, policy, repo, tip, tip)
+    (repo / "one").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _pick(git, policy, repo, tip, onto)
+    _git(repo, "checkout", "-q", "--", "one")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _pick(git, policy, repo, tip, _git(repo, "rev-parse", "HEAD"))
+    assert _git(repo, "rev-parse", "redo") == onto
+
+
+def test_cherry_pick_of_a_commit_already_on_the_branch_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, _ = _diverged(repo)
+    assert "nothing to replay" in _pick(git, policy, repo, tip, tip)
+
+
+def test_cherry_pick_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    _hook(repo, "pre-commit", marker, exit_code=1)
+    _hook(repo, "post-commit", marker)
+    _pick(git, policy, repo, tip, onto)
+    assert not marker.exists()
+
+
+def test_cherry_pick_replays_only_the_users_signed_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    unsigned, onto = _diverged(repo)
+    signed = _sign_tip(repo, signer)
+    _redo_branch(repo, onto)
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _pick(signing, policy, repo, unsigned, onto)
+    _pick(signing, policy, repo, signed, onto)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_cherry_pick_takes_back_a_pick_onto_a_branch_moved_as_it_started(
+    policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "cherry-pick" in argv and "--abort" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="taken back off"):
+        _pick(raced, policy, repo, tip, onto)
+    assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"
+
+
+def test_cherry_pick_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    _redo_branch(repo, onto)
+    command = _pick(git, policy, repo, tip, onto, dry_run=True)
+    assert "cherry-pick" in command and "rerere.enabled=false" in command and tip in command
+    assert _git(repo, "rev-parse", "HEAD") == onto
