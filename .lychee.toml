@@ -134,8 +134,9 @@ exclude_path = [
 
   # Eval fixture files contain intentionally fake URLs (placeholder GitHub
   # repos, private IPs, synthetic issue numbers) and are not documentation.
-  # Link-checking them produces noise with no signal.
-  "tools/skill-evals/evals",
+  # Link-checking them produces noise with no signal. Only the fixtures are
+  # skipped: each suite's README.md is documentation and is checked.
+  "tools/skill-evals/evals/.*/fixtures/",
 
   # Declared shared-block sources (`check-shared-blocks.py`). A block's
   # relative links (e.g. `[install.md](install.md#anchor)`) are written to
