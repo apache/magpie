@@ -3001,6 +3001,22 @@ def vetted_ops_ask(command: str, home: str | None = None) -> str | None:
     return None
 
 
+def vetted_ops_deny(command: str) -> str | None:
+    """`vetted_ops_ask` for a harness whose hook cannot ask: the same check, as a refusal."""
+    ask = vetted_ops_ask(command)
+    if not ask:
+        return None
+    return (
+        ask.replace("Confirm only if", "This harness cannot ask, so it is refused; run it only if")
+        + " Override: MAGPIE_ALLOW_VETTED_PATH=1."
+    )
+
+
+def guard_reason(command: str, cwd: str | None = None) -> str | None:
+    """`dispatch`, plus `vetted_ops_deny`: the full check for an adapter that can only deny."""
+    return dispatch(command, cwd) or vetted_ops_deny(command)
+
+
 def _emit_deny(reason: str) -> None:
     _emit_decision("deny", reason)
 
@@ -3036,10 +3052,7 @@ def _claude_event(event: object, harness: str | None = None) -> int:
     if ask:
         if harness == "codex":
             # Codex does not honour `ask` from a hook: refuse, with the override named.
-            _emit_deny(
-                ask.replace("Confirm only if", "Codex cannot ask, so it is refused; run it only if")
-                + " Override: MAGPIE_ALLOW_VETTED_PATH=1."
-            )
+            _emit_deny(vetted_ops_deny(command) or ask)
         else:
             _emit_decision("ask", ask)
     return ALLOW_EXIT
@@ -3112,7 +3125,7 @@ def opencode_main() -> int:
         return ALLOW_EXIT
     command = str(event.get("command", ""))
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         sys.stdout.write(reason + "\n")
         return DENY_EXIT
@@ -3145,7 +3158,7 @@ def kiro_main() -> int:
         return ALLOW_EXIT
     command = str(tool_input.get("command", ""))
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         sys.stderr.write(reason + "\n")
         return DENY_EXIT
@@ -3187,7 +3200,7 @@ def antigravity_main() -> int:
     if not isinstance(cwd, str) or not cwd:
         roots = event.get("workspacePaths")
         cwd = roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else None
-    reason = dispatch(command, cwd)
+    reason = guard_reason(command, cwd)
     if reason:
         sys.stdout.write(json.dumps({"decision": "deny", "reason": reason}) + "\n")
         return ALLOW_EXIT
@@ -3300,7 +3313,7 @@ def copilot_main() -> int:
     if parsed is None:
         return ALLOW_EXIT
     command, cwd = parsed
-    reason = dispatch(command, cwd)
+    reason = guard_reason(command, cwd)
     if reason:
         _copilot_emit("deny", reason)
     elif copilot_read_only(command):
@@ -3322,7 +3335,7 @@ def _grok_event(event: object) -> int:
         return ALLOW_EXIT
 
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         json.dump({"decision": "deny", "reason": reason}, sys.stdout)
         sys.stdout.write("\n")
@@ -3359,7 +3372,7 @@ def _junie_event(event: object) -> int:
         return ALLOW_EXIT
 
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         json.dump({"decision": "deny", "reason": reason}, sys.stdout)
         sys.stdout.write("\n")
@@ -3415,7 +3428,7 @@ def check_main(argv: list[str]) -> int:
     command = shlex.join(argv)
     cwd = os.getcwd()
     try:
-        reason = dispatch(command, cwd)
+        reason = guard_reason(command, cwd)
     except Exception as exc:  # fail-open: a guard glitch never blocks the user
         sys.stderr.write(f"agent-guard --check: guard engine error, allowing: {exc}\n")
         return ALLOW_EXIT
@@ -3467,7 +3480,7 @@ def exec_main(argv: list[str]) -> int:
     command = shlex.join(argv)
     cwd = os.getcwd()
     try:
-        reason = dispatch(command, cwd)
+        reason = guard_reason(command, cwd)
     except Exception as exc:  # fail-open: a guard glitch never blocks the user
         sys.stderr.write(f"agent-guard --exec: guard engine error, allowing: {exc}\n")
         reason = None
