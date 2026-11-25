@@ -20,6 +20,7 @@
 export type ReviewAxis = 'correctness' | 'security' | 'conventions';
 export type FindingSeverity = 'blocking' | 'advisory';
 export type FindingStatus = 'pending' | 'accepted' | 'dismissed';
+export type WriteTarget = 'regular' | 'missing' | 'unsafe';
 
 /**
  * An individual review finding emitted by a sub-agent pass.
@@ -72,11 +73,12 @@ export interface MultiAgentReviewPayload {
  */
 export interface MultiAgentReviewDecision {
   schema_version: 1;
-  head_sha: string;
-  source_payload_sha256: string;
+  head_sha: string | null;
+  source_payload_sha256: string | null;
   accepted_ids: string[];
   dismissed_ids: string[];
   status: 'reviewing' | 'curated' | 'ready';
+  invalidated?: boolean;
   updated_at: string;
 }
 

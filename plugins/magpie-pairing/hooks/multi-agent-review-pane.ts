@@ -28,6 +28,7 @@ import type {
   ParseReviewPayloadResult,
   ReviewAxis,
   ReviewFinding,
+  WriteTarget,
 } from './types.js';
 
 export const multiAgentReviewState = atom(
@@ -197,6 +198,23 @@ export function computePayloadHash(content: string): string {
 }
 
 /**
+ * Resolves a potentially relative review or decision path against session cwd.
+ */
+export function resolveReviewPath(targetPath: string, cwd?: string | null): string | null {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return null;
+  if (targetPath.includes('..') || targetPath.includes('\x00')) return null;
+
+  const normalized = targetPath.replace(/\\/g, '/');
+  if (normalized.startsWith('/') || /^[a-zA-Z]:\//.test(normalized)) {
+    return normalized;
+  }
+  if (typeof cwd !== 'string' || !cwd.trim()) return null;
+  const normCwd = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
+  const cleanTarget = normalized.replace(/^\.\//, '');
+  return `${normCwd}/${cleanTarget}`;
+}
+
+/**
  * Validates that a review or decision file path resides strictly inside session CWD,
  * matches the allowed naming pattern, and contains no directory traversal.
  */
@@ -204,8 +222,10 @@ export function isConfinedReviewPath(targetPath: string, cwd?: string | null): b
   if (typeof targetPath !== 'string' || !targetPath.trim()) return false;
   if (targetPath.includes('..') || targetPath.includes('\x00')) return false;
 
-  const normalized = targetPath.replace(/\\/g, '/');
-  const fileName = normalized.split('/').pop() || '';
+  const resolved = resolveReviewPath(targetPath, cwd);
+  if (!resolved) return false;
+
+  const fileName = resolved.split('/').pop() || '';
   if (!/^\.magpie-pairing-(?:review|decision)-[a-zA-Z0-9_\-]+\.json$/.test(fileName)) {
     return false;
   }
@@ -214,9 +234,132 @@ export function isConfinedReviewPath(targetPath: string, cwd?: string | null): b
     return false; // Fail closed if base directory is unavailable
   }
 
-  const normCwd = cwd.replace(/\\/g, '/');
-  const prefix = normCwd.endsWith('/') ? normCwd : `${normCwd}/`;
-  return normalized.startsWith(prefix);
+  // Enforce boundary strictly within session CWD prefix
+  const normCwd = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
+  const prefix = `${normCwd}/`;
+  return resolved.startsWith(prefix);
+}
+
+/**
+ * Classifies a write target path using $.fs.stat.
+ * Returns 'regular' for existing regular files, 'missing' for non-existent paths,
+ * and 'unsafe' for symlinks, directories, or stat failures.
+ */
+export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
+  let stat: any;
+  try {
+    stat = await $.fs.stat(path);
+  } catch (err: any) {
+    const isNotFound =
+      err?.code === 'ENOENT' ||
+      String(err).includes('ENOENT') ||
+      String(err).includes('not found');
+    return isNotFound ? 'missing' : 'unsafe';
+  }
+  if (!stat || stat.isLink !== false || stat.kind !== 'file') return 'unsafe';
+  return 'regular';
+}
+
+/**
+ * Derives the companion decision file path from a review payload path.
+ */
+export function getDecisionPath(reviewPath: string): string | null {
+  if (typeof reviewPath !== 'string' || !reviewPath.trim()) return null;
+  const normalized = reviewPath.replace(/\\/g, '/');
+  if (!normalized.includes('.magpie-pairing-review-')) return null;
+  return normalized.replace('.magpie-pairing-review-', '.magpie-pairing-decision-');
+}
+
+/**
+ * Writes the curated decision payload (.magpie-pairing-decision-<sha>.json)
+ * to disk beside the review payload using $.fs.write.
+ */
+export async function syncDecisionToDisk(
+  $: any,
+  state: MultiAgentReviewState | null,
+  reviewPath?: string | null,
+  payloadHash?: string | null
+): Promise<void> {
+  if (!state || !reviewPath) return;
+  try {
+    let sessionCwd: string | undefined;
+    try {
+      sessionCwd = await $.session.cwd();
+    } catch {
+      sessionCwd = undefined;
+    }
+
+    const decisionPath = getDecisionPath(reviewPath);
+    if (!decisionPath || !isConfinedReviewPath(decisionPath, sessionCwd)) {
+      return;
+    }
+
+    const targetType = await classifyWriteTarget($, decisionPath);
+    if (targetType === 'unsafe') {
+      return; // Never overwrite symlinks or non-regular files
+    }
+
+    const hash = payloadHash || state.payloadHash || '';
+    const decision = serializeDecision(state, hash);
+    const content = JSON.stringify(decision, null, 2) + '\n';
+    await $.fs.write(decisionPath, content);
+  } catch {
+    // Fail-open
+  }
+}
+
+/**
+ * Marks a decision file on disk as invalidated if it already exists as a regular file.
+ */
+export async function invalidateDecisionOnDisk(
+  $: any,
+  reviewPath?: string | null
+): Promise<void> {
+  if (!reviewPath) return;
+  try {
+    let sessionCwd: string | undefined;
+    try {
+      sessionCwd = await $.session.cwd();
+    } catch {
+      sessionCwd = undefined;
+    }
+
+    const decisionPath = getDecisionPath(reviewPath);
+    if (!decisionPath || !isConfinedReviewPath(decisionPath, sessionCwd)) {
+      return;
+    }
+
+    const targetType = await classifyWriteTarget($, decisionPath);
+    if (targetType !== 'regular') {
+      return; // Only overwrite if it already exists as a regular file
+    }
+
+    const invalidEnvelope: MultiAgentReviewDecision = {
+      schema_version: 1,
+      head_sha: null,
+      source_payload_sha256: null,
+      accepted_ids: [],
+      dismissed_ids: [],
+      status: 'reviewing',
+      invalidated: true,
+      updated_at: new Date().toISOString(),
+    };
+    await $.fs.write(decisionPath, JSON.stringify(invalidEnvelope, null, 2) + '\n');
+  } catch {
+    // Fail-open
+  }
+}
+
+/**
+ * Extracts a review payload candidate path from a bash command string.
+ */
+export function extractReviewPathFromCommand(command: string): string | null {
+  if (typeof command !== 'string') return null;
+  const match = command.match(
+    /(?:^|[\s="'])([^'"\s]*\.magpie-pairing-review-[a-zA-Z0-9_\-]+\.json)(?:$|[\s"'])/
+  );
+  if (!match || !match[1]) return null;
+  return match[1];
 }
 
 /**
@@ -619,8 +762,13 @@ export function renderMultiAgentReviewPane(
                     ...prev,
                     findings: updatedFindings,
                     overallStatus: deriveOverallStatus(updatedFindings, prev.injectionAttempts),
+                    updatedAt: new Date().toISOString(),
                   };
                 });
+                const next = await getMultiAgentReviewState($);
+                if (next && next.payloadPath) {
+                  await syncDecisionToDisk($, next, next.payloadPath, next.payloadHash);
+                }
               },
             })
           );
@@ -640,8 +788,13 @@ export function renderMultiAgentReviewPane(
                     ...prev,
                     findings: updatedFindings,
                     overallStatus: deriveOverallStatus(updatedFindings, prev.injectionAttempts),
+                    updatedAt: new Date().toISOString(),
                   };
                 });
+                const next = await getMultiAgentReviewState($);
+                if (next && next.payloadPath) {
+                  await syncDecisionToDisk($, next, next.payloadPath, next.payloadHash);
+                }
               },
             })
           );
@@ -661,8 +814,13 @@ export function renderMultiAgentReviewPane(
                     ...prev,
                     findings: updatedFindings,
                     overallStatus: deriveOverallStatus(updatedFindings, prev.injectionAttempts),
+                    updatedAt: new Date().toISOString(),
                   };
                 });
+                const next = await getMultiAgentReviewState($);
+                if (next && next.payloadPath) {
+                  await syncDecisionToDisk($, next, next.payloadPath, next.payloadHash);
+                }
               },
             })
           );
@@ -718,7 +876,7 @@ export function renderMultiAgentReviewPane(
 /**
  * Pane render handler for Claude Code mod (Fail-Open).
  */
-export async function handleRenderPane($: any, e: any, next: any): Promise<any> {
+export async function handleRenderPane($: any, e: any, next?: any): Promise<any> {
   try {
     const state = await getMultiAgentReviewState($);
     if (!state) {
@@ -740,16 +898,200 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
 }
 
 /**
+ * Handles UI button presses dispatched by Claude Code's ui.press lifecycle hook.
+ */
+export async function handleUiPress($: any, e: any, next?: any): Promise<any> {
+  if (!e || typeof e.element !== 'string') {
+    if (typeof next === 'function') return next(e);
+    return;
+  }
+
+  const element = e.element.trim();
+  try {
+    const state = await getMultiAgentReviewState($);
+    if (!state) {
+      if (typeof next === 'function') return next(e);
+      return;
+    }
+
+    let updated = false;
+
+    if (element === 'filter-all') {
+      await updateMultiAgentReviewState($, (prev) => (prev ? { ...prev, activeFilter: 'all' } : null));
+      updated = true;
+    } else if (element === 'filter-correctness') {
+      await updateMultiAgentReviewState($, (prev) =>
+        prev ? { ...prev, activeFilter: 'correctness' } : null
+      );
+      updated = true;
+    } else if (element === 'filter-security') {
+      await updateMultiAgentReviewState($, (prev) =>
+        prev ? { ...prev, activeFilter: 'security' } : null
+      );
+      updated = true;
+    } else if (element === 'filter-conventions') {
+      await updateMultiAgentReviewState($, (prev) =>
+        prev ? { ...prev, activeFilter: 'conventions' } : null
+      );
+      updated = true;
+    } else if (element.startsWith('accept-')) {
+      const findingId = element.slice('accept-'.length);
+      await updateMultiAgentReviewState($, (prev) => {
+        if (!prev) return null;
+        const findings = prev.findings.map((f) =>
+          f.id === findingId ? { ...f, status: 'accepted' as FindingStatus } : f
+        );
+        return {
+          ...prev,
+          findings,
+          overallStatus: deriveOverallStatus(findings, prev.injectionAttempts),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      updated = true;
+    } else if (element.startsWith('dismiss-')) {
+      const findingId = element.slice('dismiss-'.length);
+      await updateMultiAgentReviewState($, (prev) => {
+        if (!prev) return null;
+        const findings = prev.findings.map((f) =>
+          f.id === findingId ? { ...f, status: 'dismissed' as FindingStatus } : f
+        );
+        return {
+          ...prev,
+          findings,
+          overallStatus: deriveOverallStatus(findings, prev.injectionAttempts),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      updated = true;
+    } else if (element.startsWith('restore-') || element.startsWith('reset-')) {
+      const findingId = element.startsWith('restore-')
+        ? element.slice('restore-'.length)
+        : element.slice('reset-'.length);
+      await updateMultiAgentReviewState($, (prev) => {
+        if (!prev) return null;
+        const findings = prev.findings.map((f) =>
+          f.id === findingId ? { ...f, status: 'pending' as FindingStatus } : f
+        );
+        return {
+          ...prev,
+          findings,
+          overallStatus: deriveOverallStatus(findings, prev.injectionAttempts),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      updated = true;
+    }
+
+    if (updated) {
+      const nextState = await getMultiAgentReviewState($);
+      if (nextState && nextState.payloadPath) {
+        await syncDecisionToDisk($, nextState, nextState.payloadPath, nextState.payloadHash);
+      }
+    }
+  } catch {
+    // Fail-open
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
+
+/**
  * Observes Bash tool calls to clear the review pane on subsequent git modifications
  * or hydrate candidate review payloads.
  */
-export async function handleBashToolCall($: any, e: any, next: any): Promise<any> {
+export async function handleBashToolCall($: any, e: any, next?: any): Promise<any> {
   if (e && typeof e.command === 'string') {
     try {
       const command = e.command;
       // Auto-dismiss the review pane when git checkout, commit, reset, or merge runs
       if (/\bgit\s+(?:checkout|commit|merge|rebase|switch|reset|restore)\b/i.test(command)) {
+        const currentState = await getMultiAgentReviewState($);
+        if (currentState && currentState.payloadPath) {
+          await invalidateDecisionOnDisk($, currentState.payloadPath);
+        }
         await setMultiAgentReviewState($, null);
+      } else {
+        const rawPath = extractReviewPathFromCommand(command);
+        if (rawPath) {
+          let sessionCwd: string | undefined;
+          try {
+            sessionCwd = await $.session.cwd();
+          } catch {
+            sessionCwd = undefined;
+          }
+
+          const resolved = resolveReviewPath(rawPath, sessionCwd);
+          if (resolved && isConfinedReviewPath(resolved, sessionCwd)) {
+            const targetType = await classifyWriteTarget($, resolved);
+            if (targetType === 'regular') {
+              try {
+                const content = await $.fs.read(resolved);
+                if (typeof content === 'string' && content.trim().length > 0) {
+                  const parsed = parseMultiAgentReviewPayload(content);
+                  if (parsed.state) {
+                    const payloadHash = computePayloadHash(content);
+                    parsed.state.payloadPath = resolved;
+                    parsed.state.payloadHash = payloadHash;
+                    await setMultiAgentReviewState($, parsed.state);
+
+                    // Check if a curated decision already exists beside it on disk
+                    const decisionPath = getDecisionPath(resolved);
+                    if (decisionPath && (await classifyWriteTarget($, decisionPath)) === 'regular') {
+                      try {
+                        const rawDecision = await $.fs.read(decisionPath);
+                        const decisionObj = JSON.parse(rawDecision);
+                        if (
+                          decisionObj &&
+                          decisionObj.schema_version === 1 &&
+                          !decisionObj.invalidated &&
+                          decisionObj.head_sha === parsed.state.headSha &&
+                          decisionObj.source_payload_sha256 === payloadHash
+                        ) {
+                          const acceptedSet = new Set(decisionObj.accepted_ids || []);
+                          const dismissedSet = new Set(decisionObj.dismissed_ids || []);
+                          const reconciledFindings = parsed.state.findings.map((f) => {
+                            if (acceptedSet.has(f.id)) {
+                              return { ...f, status: 'accepted' as FindingStatus };
+                            }
+                            if (dismissedSet.has(f.id)) {
+                              return { ...f, status: 'dismissed' as FindingStatus };
+                            }
+                            return f;
+                          });
+                          parsed.state.findings = reconciledFindings;
+                          parsed.state.overallStatus = deriveOverallStatus(
+                            reconciledFindings,
+                            parsed.state.injectionAttempts
+                          );
+                          await setMultiAgentReviewState($, parsed.state);
+                        }
+                      } catch {
+                        // Ignore corrupt or unparsable existing decision
+                      }
+                    }
+
+                    // Open the comparison pane and invalidate UI
+                    try {
+                      await $.ui.open({ component: 'Pane' });
+                    } catch {
+                      // Fail-open
+                    }
+                    try {
+                      $.ui.invalidate('ui.render');
+                    } catch {
+                      // Fail-open
+                    }
+                  }
+                }
+              } catch {
+                // Fail-open on read error
+              }
+            }
+          }
+        }
       }
     } catch {
       // Safe no-op on failure (fail-open)
@@ -777,6 +1119,7 @@ export function register(hooks: any): void {
   });
 
   hooks('ui.render', { component: 'Pane' }, handleRenderPane);
+  hooks('ui.press', handleUiPress);
   hooks('tool.call', { tool: 'Bash' }, handleBashToolCall);
 }
 

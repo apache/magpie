@@ -21,17 +21,24 @@ import { describe, test } from 'claude-code/testing';
 import type { MultiAgentReviewState, ReviewFinding } from './types.js';
 import {
   calculateAxisSummary,
+  classifyWriteTarget,
   computePayloadHash,
   deriveOverallStatus,
+  extractReviewPathFromCommand,
+  getDecisionPath,
   getMultiAgentReviewState,
   handleBashToolCall,
   handleRenderPane,
+  handleUiPress,
+  invalidateDecisionOnDisk,
   isConfinedReviewPath,
   parseMultiAgentReviewPayload,
   renderMultiAgentReviewPane,
+  resolveReviewPath,
   sanitizeReviewText,
   serializeDecision,
   setMultiAgentReviewState,
+  syncDecisionToDisk,
 } from './multi-agent-review-pane.js';
 
 function assert(condition: any, message?: string): asserts condition {
@@ -52,6 +59,10 @@ assert.strictEqual = assertStrictEqual;
 
 function createMockEngine(overrides: any = {}): any {
   const store = new Map<string, any>();
+  const fileStore = new Map<string, string>();
+  const statStore = new Map<string, any>();
+  const openCalls: any[] = [];
+  const invalidateCalls: any[] = [];
   return {
     state: {
       get: (atom: any) => ({
@@ -71,17 +82,46 @@ function createMockEngine(overrides: any = {}): any {
       },
     },
     ui: {
-      invalidate: () => {},
+      invalidate: (scope?: string) => {
+        invalidateCalls.push(scope);
+      },
+      open: async (target: any) => {
+        openCalls.push(target);
+      },
       resolve: () => ({
         Box: (p: any) => ({ type: 'Box', ...p }),
         Text: (p: any) => ({ type: 'Text', ...p }),
         Button: (p: any) => ({ type: 'Button', ...p }),
       }),
     },
+    fs: {
+      read: async (path: string) => {
+        if (!fileStore.has(path)) {
+          const err: any = new Error(`ENOENT: no such file or directory, open '${path}'`);
+          err.code = 'ENOENT';
+          throw err;
+        }
+        return fileStore.get(path);
+      },
+      write: async (path: string, content: string) => {
+        fileStore.set(path, content);
+      },
+      stat: async (path: string) => {
+        if (statStore.has(path)) return statStore.get(path);
+        if (fileStore.has(path)) return { kind: 'file', isLink: false };
+        const err: any = new Error(`ENOENT: no such file or directory, stat '${path}'`);
+        err.code = 'ENOENT';
+        throw err;
+      },
+    },
     session: {
       cwd: async () => '/workspace/repo',
       root: async () => '/workspace/repo',
     },
+    _files: fileStore,
+    _stats: statStore,
+    _openCalls: openCalls,
+    _invalidateCalls: invalidateCalls,
     ...overrides,
   };
 }
@@ -394,6 +434,342 @@ describe('multi-agent-review-pane mod', () => {
       // Verify reset also clears state
       await setMultiAgentReviewState(engine, { headSha: '456' } as any);
       await handleBashToolCall(engine, { command: 'git reset --hard HEAD~1' }, () => {});
+      assert.strictEqual(await getMultiAgentReviewState(engine), null);
+    });
+  });
+
+  describe('Part 2 — Path resolution, write target classification and confinement', () => {
+    test('resolveReviewPath handles relative paths and normalizes slashes', () => {
+      assert.strictEqual(
+        resolveReviewPath('./.magpie-pairing-review-123.json', '/workspace/repo'),
+        '/workspace/repo/.magpie-pairing-review-123.json'
+      );
+      assert.strictEqual(
+        resolveReviewPath('.magpie-pairing-review-123.json', '/workspace/repo/'),
+        '/workspace/repo/.magpie-pairing-review-123.json'
+      );
+      assert.strictEqual(
+        resolveReviewPath('/workspace/repo/.magpie-pairing-review-123.json', '/workspace/repo'),
+        '/workspace/repo/.magpie-pairing-review-123.json'
+      );
+      // Rejects traversal and null bytes
+      assert.strictEqual(resolveReviewPath('../review.json', '/workspace/repo'), null);
+      assert.strictEqual(
+        resolveReviewPath('.magpie-pairing-review-123\x00.json', '/workspace/repo'),
+        null
+      );
+      assert.strictEqual(resolveReviewPath('', '/workspace/repo'), null);
+    });
+
+    test('isConfinedReviewPath enforces boundary, naming pattern, and cwd prefix', () => {
+      const cwd = '/workspace/repo';
+      assert(isConfinedReviewPath('.magpie-pairing-review-abc_123.json', cwd));
+      assert(isConfinedReviewPath('/workspace/repo/.magpie-pairing-review-abc_123.json', cwd));
+      assert(isConfinedReviewPath('.magpie-pairing-decision-abc_123.json', cwd));
+
+      // Rejects non-matching file names
+      assert(!isConfinedReviewPath('random.json', cwd));
+      assert(!isConfinedReviewPath('.magpie-pairing-other-123.json', cwd));
+
+      // Rejects escape outside cwd
+      assert(!isConfinedReviewPath('/workspace/other/.magpie-pairing-review-123.json', cwd));
+      assert(!isConfinedReviewPath('../.magpie-pairing-review-123.json', cwd));
+    });
+
+    test('classifyWriteTarget identifies regular file, missing, and unsafe targets', async () => {
+      const engine = createMockEngine();
+      engine._files.set('/workspace/repo/.magpie-pairing-decision-abc.json', '{}');
+      engine._stats.set('/workspace/repo/symlink.json', { kind: 'file', isLink: true });
+      engine._stats.set('/workspace/repo/directory', { kind: 'directory', isLink: false });
+
+      assert.strictEqual(
+        await classifyWriteTarget(engine, '/workspace/repo/.magpie-pairing-decision-abc.json'),
+        'regular'
+      );
+      assert.strictEqual(
+        await classifyWriteTarget(engine, '/workspace/repo/.magpie-pairing-decision-missing.json'),
+        'missing'
+      );
+      assert.strictEqual(
+        await classifyWriteTarget(engine, '/workspace/repo/symlink.json'),
+        'unsafe'
+      );
+      assert.strictEqual(
+        await classifyWriteTarget(engine, '/workspace/repo/directory'),
+        'unsafe'
+      );
+      // Missing engine or $.fs fails safe as 'unsafe'
+      assert.strictEqual(await classifyWriteTarget(null, '/any/path'), 'unsafe');
+      assert.strictEqual(await classifyWriteTarget({}, '/any/path'), 'unsafe');
+    });
+
+    test('getDecisionPath derives decision path from review path', () => {
+      assert.strictEqual(
+        getDecisionPath('/workspace/repo/.magpie-pairing-review-deadbeef.json'),
+        '/workspace/repo/.magpie-pairing-decision-deadbeef.json'
+      );
+      assert.strictEqual(
+        getDecisionPath('.magpie-pairing-review-123.json'),
+        '.magpie-pairing-decision-123.json'
+      );
+      assert.strictEqual(getDecisionPath('random.json'), null);
+      assert.strictEqual(getDecisionPath(''), null);
+    });
+
+    test('extractReviewPathFromCommand parses review target from bash commands', () => {
+      assert.strictEqual(
+        extractReviewPathFromCommand('test -f .magpie-pairing-review-abc.json'),
+        '.magpie-pairing-review-abc.json'
+      );
+      assert.strictEqual(
+        extractReviewPathFromCommand('cat /workspace/repo/.magpie-pairing-review-def456.json'),
+        '/workspace/repo/.magpie-pairing-review-def456.json'
+      );
+      assert.strictEqual(extractReviewPathFromCommand('git status'), null);
+    });
+  });
+
+  describe('Part 2 — syncDecisionToDisk & invalidateDecisionOnDisk', () => {
+    test('syncDecisionToDisk writes decision JSON to confined disk location', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-test1.json';
+      const decisionPath = '/workspace/repo/.magpie-pairing-decision-test1.json';
+      const state: MultiAgentReviewState = {
+        headSha: 'sha1',
+        baseRef: 'main',
+        filesChanged: 1,
+        linesAdded: 5,
+        linesRemoved: 1,
+        findings: [
+          {
+            id: 'c-1',
+            axis: 'correctness',
+            severity: 'blocking',
+            location: 'a.py:1',
+            summary: 'bug',
+            status: 'accepted',
+          },
+        ],
+        injectionAttempts: [],
+        activeFilter: 'all',
+        selectedFindingId: null,
+        overallStatus: 'ready',
+        updatedAt: '',
+      };
+
+      await syncDecisionToDisk(engine, state, reviewPath, 'hash123');
+      assert(engine._files.has(decisionPath));
+      const written = JSON.parse(engine._files.get(decisionPath));
+      assert.strictEqual(written.schema_version, 1);
+      assert.strictEqual(written.head_sha, 'sha1');
+      assert.strictEqual(written.source_payload_sha256, 'hash123');
+      assert(written.accepted_ids.includes('c-1'));
+    });
+
+    test('syncDecisionToDisk aborts write if destination is a symlink or unsafe', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-sym.json';
+      const decisionPath = '/workspace/repo/.magpie-pairing-decision-sym.json';
+      engine._stats.set(decisionPath, { kind: 'file', isLink: true }); // Symlink target!
+
+      const state: MultiAgentReviewState = {
+        headSha: 'symsha',
+        baseRef: 'main',
+        filesChanged: 1,
+        linesAdded: 1,
+        linesRemoved: 0,
+        findings: [],
+        injectionAttempts: [],
+        activeFilter: 'all',
+        selectedFindingId: null,
+        overallStatus: 'ready',
+        updatedAt: '',
+      };
+
+      await syncDecisionToDisk(engine, state, reviewPath, 'hash');
+      assert(!engine._files.has(decisionPath)); // Write was blocked
+    });
+
+    test('invalidateDecisionOnDisk marks decision as invalidated on mutating actions', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-inv.json';
+      const decisionPath = '/workspace/repo/.magpie-pairing-decision-inv.json';
+      engine._files.set(decisionPath, JSON.stringify({ schema_version: 1, head_sha: 'inv' }));
+
+      await invalidateDecisionOnDisk(engine, reviewPath);
+      assert(engine._files.has(decisionPath));
+      const content = JSON.parse(engine._files.get(decisionPath));
+      assert.strictEqual(content.invalidated, true);
+      assert.strictEqual(content.head_sha, null);
+    });
+  });
+
+  describe('Part 2 — handleBashToolCall IPC & Pane Ingestion', () => {
+    test('intercepts review command, reads payload via $.fs.read, sets atom and opens Pane', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-ipc.json';
+      const payload = {
+        schema_version: 1,
+        head_sha: 'sha-ipc',
+        base_ref: 'main',
+        files_changed: 2,
+        lines_added: 20,
+        lines_removed: 5,
+        findings: [
+          {
+            axis: 'correctness',
+            severity: 'blocking',
+            location: 'src/main.py:10',
+            summary: 'Null pointer dereference',
+          },
+        ],
+        injection_attempts: [],
+      };
+      const rawContent = JSON.stringify(payload);
+      engine._files.set(reviewPath, rawContent);
+
+      await handleBashToolCall(engine, { command: `test -f ${reviewPath}` }, () => {});
+
+      const state = await getMultiAgentReviewState(engine);
+      assert(state !== null);
+      assert.strictEqual(state.headSha, 'sha-ipc');
+      assert.strictEqual(state.findings.length, 1);
+      assert.strictEqual(state.findings[0]?.id, 'c-1');
+      assert.strictEqual(state.payloadPath, reviewPath);
+      assert.strictEqual(state.payloadHash, computePayloadHash(rawContent));
+
+      // Verifies Pane was opened and UI invalidated
+      assert(engine._openCalls.some((c: any) => c.component === 'Pane'));
+      assert(engine._invalidateCalls.includes('ui.render'));
+    });
+
+    test('reconciles existing curated decision from disk on ingestion', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-recon.json';
+      const decisionPath = '/workspace/repo/.magpie-pairing-decision-recon.json';
+
+      const payload = {
+        schema_version: 1,
+        head_sha: 'recon-sha',
+        base_ref: 'main',
+        files_changed: 1,
+        lines_added: 10,
+        lines_removed: 0,
+        findings: [
+          { axis: 'correctness', severity: 'blocking', location: 'a.py:1', summary: 'bug1' },
+          { axis: 'security', severity: 'advisory', location: 'b.py:2', summary: 'sec1' },
+        ],
+        injection_attempts: [],
+      };
+      const rawPayload = JSON.stringify(payload);
+      const hash = computePayloadHash(rawPayload);
+
+      const decision = {
+        schema_version: 1,
+        head_sha: 'recon-sha',
+        source_payload_sha256: hash,
+        accepted_ids: ['c-1'],
+        dismissed_ids: ['s-1'],
+        status: 'curated',
+        updated_at: new Date().toISOString(),
+      };
+
+      engine._files.set(reviewPath, rawPayload);
+      engine._files.set(decisionPath, JSON.stringify(decision));
+
+      await handleBashToolCall(engine, { command: `test -f ${reviewPath}` }, () => {});
+
+      const state = await getMultiAgentReviewState(engine);
+      assert(state !== null);
+      const f1 = state.findings.find((f: any) => f.id === 'c-1');
+      const f2 = state.findings.find((f: any) => f.id === 's-1');
+      assert.strictEqual(f1?.status, 'accepted');
+      assert.strictEqual(f2?.status, 'dismissed');
+    });
+
+    test('fails open and does not crash when payload file is unreadable or malformed', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-corrupt.json';
+      engine._files.set(reviewPath, 'NOT_VALID_JSON{');
+
+      let nextCalled = false;
+      await handleBashToolCall(engine, { command: `test -f ${reviewPath}` }, () => {
+        nextCalled = true;
+      });
+      assert(nextCalled);
+      assert.strictEqual(await getMultiAgentReviewState(engine), null);
+    });
+  });
+
+  describe('Part 2 — handleUiPress Interaction Routing', () => {
+    test('routes accept-<id>, dismiss-<id>, and restore-<id> button clicks and writes decision', async () => {
+      const engine = createMockEngine();
+      const reviewPath = '/workspace/repo/.magpie-pairing-review-press.json';
+      const decisionPath = '/workspace/repo/.magpie-pairing-decision-press.json';
+
+      const initialState: MultiAgentReviewState = {
+        headSha: 'press-sha',
+        baseRef: 'main',
+        filesChanged: 1,
+        linesAdded: 5,
+        linesRemoved: 1,
+        payloadPath: reviewPath,
+        payloadHash: 'hash-press',
+        findings: [
+          {
+            id: 'p-1',
+            axis: 'correctness',
+            severity: 'blocking',
+            location: 'a.py:1',
+            summary: 'bug',
+            status: 'pending',
+          },
+          {
+            id: 'p-2',
+            axis: 'security',
+            severity: 'advisory',
+            location: 'b.py:2',
+            summary: 'sec',
+            status: 'pending',
+          },
+        ],
+        injectionAttempts: [],
+        activeFilter: 'all',
+        selectedFindingId: null,
+        overallStatus: 'blocked',
+        updatedAt: '',
+      };
+      await setMultiAgentReviewState(engine, initialState);
+
+      // 1. Accept finding p-1
+      await handleUiPress(engine, { element: 'accept-p-1' }, () => {});
+      let state = await getMultiAgentReviewState(engine);
+      assert.strictEqual(state?.findings[0]?.status, 'accepted');
+      assert(engine._files.has(decisionPath));
+      let decision = JSON.parse(engine._files.get(decisionPath));
+      assert(decision.accepted_ids.includes('p-1'));
+
+      // 2. Dismiss finding p-2
+      await handleUiPress(engine, { element: 'dismiss-p-2' }, () => {});
+      state = await getMultiAgentReviewState(engine);
+      assert.strictEqual(state?.findings[1]?.status, 'dismissed');
+      decision = JSON.parse(engine._files.get(decisionPath));
+      assert(decision.dismissed_ids.includes('p-2'));
+
+      // 3. Restore finding p-1
+      await handleUiPress(engine, { element: 'restore-p-1' }, () => {});
+      state = await getMultiAgentReviewState(engine);
+      assert.strictEqual(state?.findings[0]?.status, 'pending');
+
+      // 4. Filter tab navigation
+      await handleUiPress(engine, { element: 'filter-correctness' }, () => {});
+      state = await getMultiAgentReviewState(engine);
+      assert.strictEqual(state?.activeFilter, 'correctness');
+    });
+
+    test('handleUiPress ignores unknown elements or null state safely', async () => {
+      const engine = createMockEngine();
+      await handleUiPress(engine, { element: 'unknown-btn' }, () => {});
       assert.strictEqual(await getMultiAgentReviewState(engine), null);
     });
   });
