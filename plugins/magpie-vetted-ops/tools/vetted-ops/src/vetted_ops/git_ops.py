@@ -63,8 +63,9 @@ What makes running git outside the sandbox safe here, beyond the closed shapes:
 * **What is re-checked cannot change in between.** The configuration check
   runs again right before the command that acts, and the keys that could start
   a program in that window are pinned on the command line (`PINNED_CONFIG`,
-  ``core.sshCommand`` set to the user's global value, hooks off where they are
-  not wanted). Attributes come from the empty tree, so no ``.gitattributes``
+  ``core.sshCommand`` set to the user's global value, the signing and
+  verification settings (`SIGNING_KEYS`) set to the user's own, hooks off where
+  they are not wanted). Attributes come from the empty tree, so no ``.gitattributes``
   can switch on a filter. ``GIT_ALLOW_PROTOCOL`` limits transports whatever
   the configuration says. Validated directories are opened without following
   a symlink and git runs inside them by descriptor, so a directory swapped for
@@ -536,6 +537,21 @@ PINNED_CONFIG = (
     "core.commitGraph=false",
 )
 
+#: The settings that pick the program that signs or verifies a commit, the key
+#: it signs with, and whom a signature is trusted from (see `Git.signing_pins`).
+SIGNING_KEYS = (
+    "gpg.format",
+    "gpg.program",
+    "gpg.openpgp.program",
+    "gpg.ssh.program",
+    "gpg.x509.program",
+    "gpg.ssh.allowedSignersFile",
+    "gpg.ssh.defaultKeyCommand",
+    "gpg.ssh.revocationFile",
+    "gpg.minTrustLevel",
+    "user.signingKey",
+)
+
 #: The first git that honours ``GIT_ATTR_SOURCE``.
 MIN_GIT_VERSION = (2, 42)
 
@@ -559,6 +575,8 @@ class Git:
     #: The user's global ``core.sshCommand`` (or plain ``ssh``), pinned on every
     #: call so the repository's configuration cannot replace it.
     _ssh_command: str | None = field(default=None, repr=False)
+    #: The user's signing and verification settings, pinned on every call (see `signing_pins`).
+    _signing_pins: list[str] | None = field(default=None, repr=False)
     #: Set once the object format is known (see `check_repository_config`).
     attr_source: str | None = None
     #: The repository's object format (`sha1` or `sha256`), set with `attr_source`.
@@ -608,6 +626,48 @@ class Git:
             self._ssh_command = value if value and "\n" not in value else "ssh"
         return self._ssh_command
 
+    def signs_commits(self) -> bool:
+        """Whether the user's own configuration signs commits (``commit.gpgsign``)."""
+        argv = ["git", "-C", "/", "config", "--bool", "--get", "commit.gpgsign"]
+        found = self.runner(argv, clean_env(), None)
+        return found.returncode == 0 and found.stdout.strip() == "true"
+
+    def _user_config(self, key: str) -> str | None:
+        """``key`` from the user's own (system and global) configuration, never a repository's."""
+        found = self.runner(["git", "-C", "/", "config", "--get", key], clean_env(), None)
+        value = found.stdout.strip() if found.returncode == 0 else ""
+        return value if value and "\n" not in value else None
+
+    def signing_pins(self) -> list[str]:
+        """The signing and verification settings, pinned to the user's own values on every call.
+
+        Signing a commit and checking a signature (``%G?``) start a program and
+        read a list of trusted signers. The repository-config check refuses a
+        repository that sets any of these, but it cannot cover the moment
+        between that check and the command, so the command carries the user's
+        values itself: a key the repository gains in between cannot name
+        another program or another allowed-signers file. A key the user leaves
+        unset is pinned to git's default, so the repository cannot set it
+        either; an unset allowed-signers file is pinned to an empty one.
+        """
+        if self._signing_pins is None:
+            values = {key: self._user_config(key) for key in SIGNING_KEYS}
+            program = values["gpg.program"] or "gpg"
+            defaults = {
+                "gpg.format": "openpgp",
+                "gpg.program": program,
+                "gpg.openpgp.program": program,
+                "gpg.ssh.program": "ssh-keygen",
+                "gpg.x509.program": "gpgsm",
+                "gpg.ssh.allowedSignersFile": os.devnull,
+            }
+            self._signing_pins = [
+                f"{key}={values[key] or defaults[key]}"
+                for key in SIGNING_KEYS
+                if values[key] is not None or key in defaults
+            ]
+        return self._signing_pins
+
     def argv(self, directory: Path, *args: str, hooks: bool = False) -> list[str]:
         """A git command in ``directory``, with hooks switched off unless ``hooks``.
 
@@ -616,6 +676,7 @@ class Git:
         """
         pins = [*PINNED_CONFIG, *(f"protocol.{p}.allow=always" for p in self.protocols)]
         pins.append(f"core.sshCommand={self.ssh_command()}")
+        pins.extend(self.signing_pins())
         if not hooks:
             pins.append("core.hooksPath=/dev/null")
         where = [] if directory in self.anchors else ["-C", str(directory)]
@@ -1135,6 +1196,33 @@ REBASE_CONFIG = (
 )
 
 
+def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
+    """Refuse to re-sign a commit that does not already carry the user's good signature.
+
+    An operation that replays commits (a rebase, a cherry-pick, a merge) signs
+    what it writes with the user's key, outside the sandbox. Inside it, the
+    agent can make commits of its own, unsigned and with content the sandboxed
+    checks never saw; replaying those here would put the user's signature on
+    them. So when the user signs commits, every replayed commit must already
+    verify (``%G?`` is ``G``) against their global configuration: one made
+    through `git-commit`, or one they signed themselves. Verifying runs here,
+    outside the sandbox, because the allowed-signers file and keyring are
+    out of its reach. When the user does not sign, nothing is signed here
+    either, and there is no signature to protect.
+    """
+    if not git.signs_commits():
+        return
+    output = git.run(worktree.path, "log", "--format=%H %G?", revisions)
+    unsigned = [fields[0] for fields in (line.split() for line in output.splitlines()) if fields[1:] != ["G"]]
+    if unsigned:
+        shown = ", ".join(unsigned[:10]) + (" …" if len(unsigned) > 10 else "")
+        raise GitRefused(
+            f"the {operation} would sign commits that carry no good signature of yours: {shown}. Commit through "
+            "git-commit, or sign those commits yourself, and retry. Signatures are checked against your global "
+            "gpg configuration (for ssh signing, gpg.ssh.allowedSignersFile)"
+        )
+
+
 def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
     """Fetch the policy's ``pr_base`` from the upstream URL and return the commit it fetched.
 
@@ -1222,6 +1310,9 @@ def rebase_onto(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
             "they resolved. Rebase it in the sandbox instead"
         )
     check_repository_config(git, worktree)
+    # After the last configuration check; verifying runs with the user's own
+    # signing settings pinned (`Git.signing_pins`).
+    require_signed(git, worktree, f"{onto}..{previous}", "rebase")
     argv, completed = git._call(worktree.path, *args)
     if completed.returncode != 0:
         conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""

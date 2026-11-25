@@ -1989,21 +1989,117 @@ def test_rebase_validates_parameters(
         git_ops.rebase_onto(git, policy, params, False)
 
 
-def test_rebase_signs_per_the_users_global_config(policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
-    """Re-signing the replayed commits is what the sandbox cannot do; the global config decides it."""
+#: A stand-in for gpg: signs with a fixed block and verifies any signature as
+#: good and fully trusted, so `%G?` is `G` for a signed commit, `N` otherwise.
+FAKE_GPG = """#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "--verify" ]; then
+    cat >/dev/null
+    shift $(($# - 2))
+    if grep -q fake "$1"; then
+      printf '[GNUPG:] NEWSIG\\n[GNUPG:] GOODSIG ABCD t\\n'
+      printf '[GNUPG:] VALIDSIG ABCDEF 2020-01-01 0 4 0 1 8 00 ABCDEF\\n[GNUPG:] TRUST_ULTIMATE 0 pgp\\n'
+      exit 0
+    fi
+    printf '[GNUPG:] NEWSIG\\n[GNUPG:] BADSIG ABCD t\\n'
+    exit 1
+  fi
+done
+cat >/dev/null
+printf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 X\\n' >&2
+printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nfake\\n-----END PGP SIGNATURE-----\\n'
+"""
+
+
+def _signing_git(tmp_path: Path) -> tuple[Git, Path]:
+    """A `Git` whose user's global configuration signs commits, and the signer it uses."""
     signer = tmp_path / "fake-gpg"
-    signer.write_text(
-        "#!/bin/sh\ncat >/dev/null\nprintf '\\n[GNUPG:] SIG_CREATED D 1 8 00 0 X\\n' >&2\n"
-        "printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nfake\\n-----END PGP SIGNATURE-----\\n'\n"
-    )
+    signer.write_text(FAKE_GPG)
     signer.chmod(0o755)
     global_config = tmp_path / "global.gitconfig"
     global_config.write_text(f"[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = {signer}\n")
-    tip, onto = _diverged(repo)
-    signing = Git(runner=_runner(str(global_config)), protocols=("https", "ssh", "file"))
+    return Git(runner=_runner(str(global_config)), protocols=("https", "ssh", "file")), signer
+
+
+def _sign_tip(repo: Path, signer: Path) -> str:
+    """Re-make the checked-out tip as a commit the user signed."""
+    _git(repo, "-c", f"gpg.program={signer}", "commit", "-q", "--amend", "--no-edit", "-S")
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_rebase_signs_per_the_users_global_config(policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    """Re-signing the replayed commits is what the sandbox cannot do; the global config decides it."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    tip = _sign_tip(repo, signer)
     _rebase(signing, policy, repo, onto, tip)
-    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
-    assert "fake" not in _git(repo, "cat-file", "commit", tip)
+    rebased = _git(repo, "rev-parse", "HEAD")
+    assert rebased != tip
+    assert "fake" in _git(repo, "cat-file", "commit", rebased)
+
+
+def test_rebase_refuses_to_sign_a_commit_the_user_did_not(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """An unsigned commit the agent made in the sandbox never gets the user's signature here."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    _sign_tip(repo, signer)
+    unsigned = _commit(repo, "agent-made")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _rebase(signing, policy, repo, onto, unsigned)
+    assert _git(repo, "rev-parse", "HEAD") == unsigned
+
+
+def test_signing_settings_are_pinned_to_the_users_own(tmp_path: Path, repo: Path) -> None:
+    signing, signer = _signing_git(tmp_path)
+    argv = signing.argv(repo, "log")
+    assert f"gpg.program={signer}" in argv
+    assert f"gpg.openpgp.program={signer}" in argv
+    assert "gpg.format=openpgp" in argv
+    assert "gpg.ssh.program=ssh-keygen" in argv
+    # Unset by the user: an empty list of trusted ssh signers, never the repository's.
+    assert f"gpg.ssh.allowedSignersFile={os.devnull}" in argv
+
+
+def test_a_verifier_the_repository_gains_before_the_check_never_runs(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """A `gpg.program` set right after the configuration check cannot vouch for the agent's commit."""
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    _sign_tip(repo, signer)
+    agent_signer = tmp_path / "agent-gpg"
+    agent_signer.write_text(FAKE_GPG.replace("fake", "agent"))
+    agent_signer.chmod(0o755)
+    _git(repo, "-c", f"gpg.program={agent_signer}", "commit", "-q", "--allow-empty", "-S", "-m", "agent")
+    agent_commit = _git(repo, "rev-parse", "HEAD")
+    marker = tmp_path / "verifier-ran"
+    vouch = tmp_path / "vouch-gpg"
+    vouch.write_text(
+        f"#!/bin/sh\ntouch {marker}\ncat >/dev/null\n"
+        "printf '[GNUPG:] NEWSIG\\n[GNUPG:] GOODSIG ABCD t\\n[GNUPG:] TRUST_ULTIMATE 0 pgp\\n'\n"
+    )
+    vouch.chmod(0o755)
+    inner = signing.runner
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "--format=%H %G?" in argv:
+            _git(repo, "config", "gpg.program", str(vouch))
+        return inner(argv, env, cwd_fd)
+
+    signing.runner = racing
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {agent_commit}"):
+        _rebase(signing, policy, repo, onto, agent_commit)
+    assert not marker.exists()
+
+
+def test_rebase_without_signing_replays_unsigned_commits(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A user who does not sign gets no signature from the rebase either, so nothing is checked."""
+    assert not git.signs_commits()
+    tip, onto = _diverged(repo)
+    _rebase(git, policy, repo, onto, tip)
+    assert "gpgsig" not in _git(repo, "cat-file", "commit", "HEAD")
 
 
 def test_rebase_refuses_a_branch_named_like_an_option(git: Git, policy: LocalPolicy, repo: Path) -> None:

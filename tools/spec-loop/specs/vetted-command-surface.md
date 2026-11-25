@@ -413,7 +413,9 @@ clean linked worktree), `git-rebase` (a clean, non-protected topic branch with n
 merge commits onto a full SHA of the upstream `pr_base`, which the operation
 fetches itself from the policy URL and checks against that fetch's own result;
 refused unless the branch is at the caller's expected SHA, and put back if it
-moves while the rebase starts; re-signs per the global config, with `rerere`,
+moves while the rebase starts; re-signs per the global config, and when that
+signs commits, refuses any replayed commit without the user's good signature,
+so a commit the agent made unsigned in the sandbox is never signed; with `rerere`,
 autostash, `updateRefs`, editors and hooks pinned off; a conflict aborts and
 names the paths), `git-worktree-add` and `git-worktree-remove`
 (never `--force`).
