@@ -983,6 +983,42 @@ committed version with drift detection.
     `unadopted_home` falls back to the in-tree `.apache-magpie-local/`.
     agent-guard runs its own git commands with `core.fsmonitor=false` and an
     empty `core.hooksPath`, so a crafted `.git/config` runs no program.
+41. `setup_preflight.isolated` answers two questions apart (#2146):
+    `installed` (the personal layer's stamp first, an explicit
+    `enabled: false` meaning opted out; unstamped, any managed, main-worktree,
+    project or user settings file that enables the sandbox) and
+    `sandbox-active` (Claude Code's precedence walk, merged managed settings
+    and their `managed-settings.d/` drop-ins first, the first explicit boolean
+    winning, default false).
+    `configured` remains as an alias of `installed`, so a contributor who
+    toggles `/sandbox` off keeps the isolated-setup upgrade findings and the
+    upgrade summary's state (`tools/setup-preflight/tests/test_isolated.py`).
+42. When a `security`-family skill is in scope and `security_pages_url` is
+    unset, `setup config` Step 3a.2 looks for the project's advisories page
+    (for an ASF project `https://<project>.apache.org/security` and the site
+    repository), then asks once whether one exists: a yes records the URL
+    and offers advisory records; a no proposes creating one in the
+    `cve-json-file` layout, drafted only on the user's go-ahead (#2219).
+    Without a `security_pages_url`, `security-issue-sync` sends no
+    security-pages reminder and the release-manager hand-off asks for no
+    website edit.
+43. Run from an adopter repository, `setup-upstream-fix` never clones the
+    framework inside the sandbox: it finishes Steps 1–3 and hands Steps 4–5
+    to a live session in the user's framework clone (ListAgents /
+    SendMessage in Claude Code), or else writes the brief to the scratch
+    directory for the user to paste, after scrubbing it for public
+    disclosure and showing it to the user (#2226; eval suite
+    `tools/skill-evals/evals/setup-upstream-fix/step-0-preflight`).
+    The brief never hands over an action a permission rule or the user
+    refused, and the receiving session re-checks the classification and the
+    duplicate search.
+44. `setup-isolated-setup-update`'s comdev MCP check resolves each server's
+    directory from the `index.js` its registration names (user, per-project
+    or `./.mcp.json`), prints only resolved paths, and skips a checkout
+    whose origin is not `apache/comdev`, that is off `main`, or whose fetch
+    failed; a refresh only fast-forwards to the checked `origin/main`
+    (#2199, #2202;
+    `plugins/magpie-setup/skills/isolated-setup-update/tests/test_comdev_mcp.py`).
 
 ## Validation
 

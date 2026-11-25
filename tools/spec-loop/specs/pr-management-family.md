@@ -130,6 +130,15 @@ same directory; the behaviour is unchanged.
   `plugins/magpie-pr-management/hooks/review-findings.ts`, wired through
   `hooks/hooks.json` with its types in `hooks/types.ts` and `types.d.ts`
   (#1920, #1954, #1992).
+  The same module also registers the triage sweep progress band from
+  `hooks/triage-progress-band.ts` (#2221);
+  see *The triage progress band is additive* below.
+  `code-review slop-comment` takes `--saved-dir` and resolves the viewer's role as `disposition` does
+  (`--permission`, else the saved `permission.txt`, else the saved PR read),
+  and `render` shares that helper, so a maintainer's slop warning carries the maintainer footer;
+  `--permission` on all three commands accepts only a repository role (#2265).
+  `review-flow.md` names the `explanation` key in the findings shape the agent writes,
+  the key `render` reads for each finding's prose (#2273).
 - Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
   of a GitHub stacked pull request. Resolves the stack from a member PR or
   its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`
@@ -377,10 +386,20 @@ same directory; the behaviour is unchanged.
   `FIXUP` is the default action: the maintainer commits those changes to the
   contributor's branch on confirmation, waits for CI, and approves with a body
   that lists what the fixup changed. A `major` is never fixed up.
+  The fixup runs through the vetted git operations under the `pr-management-code-review` caller:
+  the PR head is fetched in the sandbox over HTTPS, a worktree is made with `git-worktree-add`,
+  `vetted-op-checks` passes before `git-stage` / `git-commit`, and `git-push-branch` pushes it;
+  Magpie's own vetted-ops policy grants that caller those operations (#2277).
   The "touching mine" selector uses GitHub data rather than `git log
   --author`, CODEOWNERS team ownership checks team membership rather than
   organisation membership, and `maintain` permission gets the maintainer
   footer (#1585).
+  CODEOWNERS patterns match as GitHub documents them, in one module, `code_review/codeowners.py`:
+  a pattern whose last segment is a wildcard (`docs/*`) owns only files directly in that directory,
+  an unanchored directory (`apps/`) matches below the root, and `**/logs` matches at the root (#2206).
+  `reviewer_routing` (through an `owned_paths` helper) and the stats dashboard's CODEOWNERS panel
+  (`stats/reference.py`, keeping only @-handles) use the same module,
+  so all three surfaces agree on who owns a path (#2198, #2206).
   A suggested reviewer who is not a committer is called a frequent
   contributor only when a committer roster was loaded; with none, the reason
   makes no claim about the role and `committer` is null, and a configured
@@ -450,6 +469,18 @@ same directory; the behaviour is unchanged.
   findings were used, and `A` otherwise.
   Runtimes without mods keep the text picker alone, and Codex reads the clean
   `hooks/codex-hooks.json` instead (#1992).
+- **The triage progress band is additive.**
+  Under Claude Code, `hooks/triage-progress-band.ts` keeps a session atom of sweep progress
+  for `pr-triage` / `pr-stale-sweep` and renders it above the prompt
+  (`ui.render` on `AbovePrompt`) with no model turn (#2221).
+  It reads only the Bash commands the agent runs, never their output:
+  a triage invocation or `gh pr list` starts the sweep (total from `--limit` / `-L`, default 10),
+  `gh pr view` / `checkout` moves the focus,
+  and `gh pr edit --add-label`, `gh pr close` and `gh pr comment` count a labelled, closed or nudged PR once each;
+  a completed sweep resets on the next command that is not a follow-up.
+  PR titles shown in the band are stripped of ANSI escapes, bidirectional overrides, control characters and markup,
+  and a progress file it accepts must be named `.magpie-pr-triage-<id>.json` and stay inside the working directory.
+  Runtimes without mods run the sweep unchanged.
 - **Third-party licence scan reads only real copyright notices.**
   `scans.third_party_licences` treats an added file as third-party code when
   the first 25 lines carry a licence identifier or block and either a
@@ -472,6 +503,13 @@ same directory; the behaviour is unchanged.
   without either remains `unknown`. Every surfaced finding carries that
   constraint ledger, and its remediation follows the adopter's applicable
   `AGENTS.md` and dependency or release policy for all three classifications.
+  Specifiers are evaluated and candidates ordered per PEP 440 with `packaging`
+  (a `tools/pr-management` dependency),
+  so pre-, dev- and post-releases no longer collapse to their release segments,
+  and a candidate that is not a PEP 440 version (a Maven-style `6.4.4.Final`)
+  does not break the ledger (#2213).
+  Trailing zero components keep the precision a wildcard or compatible-release specifier names,
+  and explicit local labels count for equality and exclusion (#2196).
 - **A green rollup is not evidence CI ran.** `statusCheckRollup.state ==
   SUCCESS` aggregates only completed check-runs, so a PR whose real
   workflows sit in `action_required` — awaiting approval for a
