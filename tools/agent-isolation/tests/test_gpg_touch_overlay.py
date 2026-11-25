@@ -34,6 +34,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 from collections.abc import Iterator
@@ -1958,7 +1959,7 @@ def test_a_window_that_closes_unanswered_is_shown_again(
 
 @_needs_a_quiet_signer
 def test_a_dismissal_answers_only_its_own_signature(
-    tmp_path: Path, process_named
+    tmp_path: Path, process_named, _isolated_agent_sockets
 ) -> None:
     """Dismissed once, a window stays down -- until the next signature.
 
@@ -1969,7 +1970,7 @@ def test_a_dismissal_answers_only_its_own_signature(
     marker = tmp_path / "runtime" / "magpie-gpg-touch" / "dismissed"
     watcher = _start_watcher(tmp_path, window)
     try:
-        first = process_named("ssh-keygen", seconds=6)
+        first = process_named("ssh-keygen")
         assert _wait_for(marker.exists, timeout=10), "the dismissal was not recorded"
         assert str(first.pid) in marker.read_text().split(), (
             "the dismissal does not name the signature it answered"
@@ -1979,8 +1980,10 @@ def test_a_dismissal_answers_only_its_own_signature(
             "a dismissed window was shown again for the same signature"
         )
 
-        # Reaped, so pgrep cannot keep seeing it as a zombie.
-        first.wait(timeout=10)
+        # End the signer only after observing the dismissal, then reap it
+        # so pgrep cannot keep seeing it as a zombie.
+        first.kill()
+        first.wait(timeout=5)
         # Another signer for the next signature: the fixture names one
         # process per name.
         process_named("gpg", seconds=30)
@@ -2380,6 +2383,29 @@ def test_wrapped_and_hook_watchers_share_one_dismissal(
 
 
 @pytest.fixture
+def _isolated_agent_sockets(tmp_path: Path, monkeypatch) -> None:
+    """These watchers observe test-owned sockets, never the operator's agent.
+
+    Signer tests need no agent sockets. The authentication tests supply
+    their own socket and still inspect real kernel rows, but on macOS
+    lsof need only enumerate the pytest worker that owns those sockets.
+    Host-wide scans made each poll depend on unrelated machine activity.
+    """
+    probes = tmp_path / "agent-probes"
+    probes.mkdir()
+    _executable(probes / "gpgconf", "#!/bin/sh\nexit 0\n")
+    if sys.platform == "darwin":
+        real_lsof = shutil.which("lsof")
+        assert real_lsof is not None, "macOS socket observation needs lsof"
+        _executable(
+            probes / "lsof",
+            f'#!/bin/sh\nexec "{real_lsof}" -a -p {os.getpid()} "$@"\n',
+        )
+    monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
+    monkeypatch.setenv("PATH", f"{probes}:{os.environ['PATH']}")
+
+
+@pytest.fixture
 def agent_sock() -> Iterator[str]:
     """An agent socket path short enough to bind.
 
@@ -2392,7 +2418,7 @@ def agent_sock() -> Iterator[str]:
 
 @_needs_a_quiet_signer
 def test_each_ssh_authentication_gets_its_own_reminder(
-    tmp_path: Path, process_named, agent_sock: str
+    tmp_path: Path, process_named, agent_sock: str, _isolated_agent_sockets
 ) -> None:
     """Actual accepted Unix connections end and restart inside the TTL."""
     window, shown = _fake_window(tmp_path, 0)
@@ -2443,7 +2469,7 @@ def test_each_ssh_authentication_gets_its_own_reminder(
 
 @_needs_a_quiet_signer
 def test_a_watcher_armed_mid_authentication_keeps_its_dismissal(
-    tmp_path: Path, process_named, agent_sock: str
+    tmp_path: Path, process_named, agent_sock: str, _isolated_agent_sockets
 ) -> None:
     """A watcher whose baseline already counts the connection never saw it end."""
     window, shown = _fake_window(tmp_path, 0)
@@ -2540,7 +2566,7 @@ def test_wrapped_signer_record_is_cleaned_up(
 
 @_needs_a_quiet_signer
 def test_failed_signer_publication_preserves_input_status_and_reminder(
-    tmp_path: Path, process_named
+    tmp_path: Path, process_named, _isolated_agent_sockets
 ) -> None:
     """An obstructed context directory costs no input, status or reminder."""
     window, shown = _fake_window(tmp_path, 0)
@@ -2553,7 +2579,13 @@ def test_failed_signer_publication_preserves_input_status_and_reminder(
     binary_dir.mkdir()
     received = tmp_path / "received"
     program = binary_dir / "gpg"
-    _executable(program, f'#!/bin/sh\ncat > "{received}"\nsleep 4\nexit 7\n')
+    release = tmp_path / "release-signer"
+    os.mkfifo(release)
+    _executable(
+        program,
+        f'#!/bin/bash\ncat > "{received}"\n'
+        f'if ! read -r -t 30 observed < "{release}"; then exit 1; fi\nexit 7\n',
+    )
     env = {
         **os.environ,
         **NO_CARD,
@@ -2562,6 +2594,7 @@ def test_failed_signer_publication_preserves_input_status_and_reminder(
         "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
         "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
     }
+    release_fd = os.open(release, os.O_RDWR | os.O_NONBLOCK)
     wrapper = subprocess.Popen(
         ["bash", str(SCRIPT), "wrap", "gpg", "-bsau"],
         env=env,
@@ -2576,14 +2609,18 @@ def test_failed_signer_publication_preserves_input_status_and_reminder(
         wrapper.stdin.close()
         wrapper.stdin = None
         marker = state / "dismissed"
-        assert _wait_for(marker.exists, timeout=3)
+        assert _wait_for(marker.exists, timeout=10), (
+            "the watcher did not record the fallback signer dismissal"
+        )
         assert marker.read_text().split() == [str(wrapper.pid)]
         assert _showings(shown) >= 1
+        os.write(release_fd, b"observed\n")
         _stdout, stderr = wrapper.communicate(timeout=6)
         assert wrapper.returncode == 7
         assert received.read_text() == "synthetic signing input\n"
         assert stderr == ""
     finally:
+        os.close(release_fd)
         _end_wrapped_test_signer(wrapper)
 
 
