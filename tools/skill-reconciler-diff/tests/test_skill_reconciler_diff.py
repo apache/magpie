@@ -145,6 +145,156 @@ def test_parse_steps_basic():
     assert "1" in steps
 
 
+def test_parse_steps_last_step_ends_at_same_level_sections():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Follow them.
+
+        ## References
+
+        Read them.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Do work."
+
+
+def test_parse_steps_non_step_section_before_next_step_ends_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        First body.
+
+        ## Notes
+
+        Not part of the step.
+
+        ## Step 2
+
+        Second body.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "First body."
+    assert steps["2"] == "Second body."
+
+
+def test_parse_steps_deeper_heading_stays_in_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Start.
+
+        ### Detail
+
+        More detail.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Start.\n\n### Detail\n\nMore detail."
+
+
+def test_parse_steps_fenced_heading_stays_in_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Start.
+
+        ```markdown
+        ## Not a heading
+        ```
+
+        Finish.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Start.\n\n```markdown\n## Not a heading\n```\n\nFinish."
+
+
+def test_parse_steps_level_three_ends_at_same_or_higher_level_heading():
+    higher = textwrap.dedent("""\
+        ### Step 1
+
+        Do work.
+
+        ## Adopter overrides
+
+        Override details.
+        """)
+    same = textwrap.dedent("""\
+        ### Step 1
+
+        Do work.
+
+        ### Notes
+
+        Additional notes.
+        """)
+    assert _parse_steps(higher)["1"] == "Do work."
+    assert _parse_steps(same)["1"] == "Do work."
+
+
+def test_parse_steps_last_step_without_later_heading_runs_to_end():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        First line.
+
+        Last line.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "First line.\n\nLast line."
+
+
+def test_parse_steps_deeper_step_heading_still_ends_the_step():
+    text = "## Step 1\nFirst.\n### Step 2\nSecond.\n"
+    assert _parse_steps(text) == {"1": "First.", "2": "Second."}
+
+
+def test_parse_steps_after_a_bare_hash_line():
+    # A bare "#" line lets the heading pattern run into the next line, so the
+    # step heading is not in the heading list; the body still ends correctly.
+    text = "#\n## Step 1\nDo work.\n## Hard rules\nRule.\n"
+    assert _parse_steps(text) == {"1": "Do work."}
+
+
+@pytest.mark.parametrize("outer, inner", [("~~~~", "~~~"), ("````", "```")])
+def test_parse_steps_shorter_fence_run_does_not_close_a_longer_fence(outer, inner):
+    text = f"## Step 1\nbefore\n{outer}\n{inner}\n## inside\n{outer}\nafter\n## Hard rules\nRule.\n"
+    assert _parse_steps(text) == {"1": f"before\n{outer}\n{inner}\n## inside\n{outer}\nafter"}
+    assert [title for _, title in _parse_headings(text)] == ["Step 1", "Hard rules"]
+
+
+@pytest.mark.parametrize("tail", ["#\n", "#", "#\nText after.\n", "##\n## Step 2\nNext.\n"])
+def test_parse_steps_bare_hash_heading_ends_the_step(tail):
+    steps = _parse_steps("## Step 1\nbody\n" + tail)
+    assert steps["1"] == "body"
+
+
+def test_diff_steps_ignores_changes_after_last_step():
+    a = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Original rule.
+        """)
+    b = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Updated rule.
+        """)
+    diff = _diff_steps(_parse_steps(a), _parse_steps(b))
+    assert diff.body_changed == []
+
+
 def test_diff_steps_only_in_a():
     a = {"0": "Pre.", "1": "Work."}
     b = {"0": "Pre."}
