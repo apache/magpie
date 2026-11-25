@@ -60,6 +60,7 @@ ship in the same adopter directory and are referenced from here:
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
 | `version_manifest_files` | `setup.cfg`, `foo/__init__.py` |
+| `project_stage` | *(optional, ASF only)* `incubating` or `top-level` |
 | `changelog_label_categories` | *(optional)* e.g. `kind/feature=Features`, `kind/bug-fix=Bug fixes`, `area/docs=Documentation` |
 
 > `product_name` (optional) is the human-readable name a release is
@@ -72,6 +73,19 @@ ship in the same adopter directory and are referenced from here:
 > project, for example a sub-product released on its own train.
 > It is display text only; artefact names and dist paths use
 > `project_dist_name`.
+
+> `project_stage` (optional, ASF only) records which lifecycle stage
+> *this project* is in — `incubating` for a podling, `top-level` for a
+> TLP. The organization manifest publishes only the vocabulary
+> (`governance_vocabulary.project_stage_vocab`); nothing there says
+> which value is yours, and a disclaimer file in the release is what
+> the podling check exists to detect, so the key is the only place the
+> stage can be read from. `verify-rc args` adds `--podling` for
+> `incubating` on its own: do not pass that flag by hand, and do not
+> edit this key per candidate. Unset, the podling checks do not run
+> (`verify-rc args` warns) and the JVM recipe falls back to the
+> `DISCLAIMER` / `DISCLAIMER-WIP` file at the source root. Non-ASF
+> adopters leave it unset.
 
 > `changelog_label_categories` (optional) maps PR labels to the
 > `release-prepare prep` changelog sections (*Features*, *Bug fixes*,

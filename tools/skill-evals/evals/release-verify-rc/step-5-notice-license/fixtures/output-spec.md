@@ -28,4 +28,5 @@ Grading rules:
 - `diff_summary` must be a non-empty one-line description of the changes or
   "no diff — no previous release found" or "no changes"; on `FAIL` it names the
   file the current RC artefact lacks, never the absence of a previous release.
-- No extra keys are permitted in the response.
+- When the tool returns `disclaimer_present`, preserve that boolean; if it is false, `status` must be `"FAIL"` and `diff_summary` must name the missing disclaimer.
+- No other extra keys are permitted in the response.

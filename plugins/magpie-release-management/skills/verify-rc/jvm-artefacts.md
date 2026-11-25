@@ -47,7 +47,8 @@ a placeholder companion is the Maven-Central-sanctioned pattern, never a defect;
 
 It prints `SKIP` with `skip_reason` when the gate fails;
 otherwise `paste_recipe`, the `maven-artifact-verify` run with `--digests` from `jvm_digest_set` (else the § Digest set, default `sha512`)
-and `--podling` **only** when the unpacked source artefact ships a `DISCLAIMER` or `DISCLAIMER-WIP` at its root.
+and `--podling` when the config's `project_stage` is `incubating` — the same signal Step 5 uses, so the two steps never disagree.
+Only when `project_stage` is unset does it fall back to a `DISCLAIMER` / `DISCLAIMER-WIP` at the unpacked source root.
 Run it (offline, read-only: any voter may), save the JSON report, and re-run the command with `--report <report.json>`:
 the output is this step's JSON, the recipe now carrying the companion `gpg --verify` lines.
 

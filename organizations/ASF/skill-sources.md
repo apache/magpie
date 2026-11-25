@@ -117,9 +117,10 @@ when a marketplace catalog gained or lost it, or when a newer tag exists for a
 pin — which is when a maintainer moves the pin here.
 
 **Podlings: prefer `releasecheck` over `release-verify-rc`.** Magpie's
-`release-verify-rc` does not distinguish a podling release from a TLP one, so
-it does not check the things that make a podling RC valid — `incubating` in
-the archive names, a present `DISCLAIMER`, the two-stage PPMC-then-IPMC vote.
+`release-verify-rc` checks a present `DISCLAIMER` / `DISCLAIMER-WIP` only when
+`release-management-config.md` records `project_stage: incubating`, and it does
+not check the rest of what makes a podling RC valid — `incubating` in the
+archive names, the two-stage PPMC-then-IPMC vote.
 `releasecheck` is the IPMC's own check, maintained by the body that sets those
 rules. A podling verifying an RC should run it instead; a TLP has no reason to.
 This is a recommendation, not wiring — nothing resolves it automatically today.

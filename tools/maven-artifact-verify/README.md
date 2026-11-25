@@ -145,9 +145,10 @@ uv run --project tools/maven-artifact-verify maven-artifact-verify \
   <staged-dir> --digests sha512 [--podling]
 ```
 
-`--podling` gates check 2; pass it when the RC's source artefact ships
-a `DISCLAIMER` / `DISCLAIMER-WIP` file (the same signal a voter checks
-by hand today). Prints one JSON report on stdout; exit code 0 unless a
+`--podling` gates check 2; `verify-rc jvm` passes it when the project's
+`release-management-config.md` records `project_stage: incubating`, and
+falls back to a `DISCLAIMER` / `DISCLAIMER-WIP` file at the source root
+only when the stage is unset. Prints one JSON report on stdout; exit code 0 unless a
 check `FAIL`ed (then 1) or the arguments are wrong (2).
 
 ## Wiring
