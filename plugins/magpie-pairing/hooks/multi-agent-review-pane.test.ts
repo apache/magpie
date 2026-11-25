@@ -157,6 +157,17 @@ describe('multi-agent-review-pane mod', () => {
       assert.strictEqual(hash1.length, 64);
     });
 
+    test('computes known-answer SHA-256 test vectors', () => {
+      assert.strictEqual(
+        computePayloadHash(''),
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      );
+      assert.strictEqual(
+        computePayloadHash('abc'),
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+      );
+    });
+
     test('returns empty string for non-string', () => {
       assert.strictEqual(computePayloadHash(null as any), '');
     });
