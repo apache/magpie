@@ -220,7 +220,7 @@ class Config:
 
 def _require_repo(raw: dict[str, object], key: str) -> str:
     value = raw.get(key)
-    if not isinstance(value, str) or not _REPO.match(value):
+    if not isinstance(value, str) or not _REPO.fullmatch(value):
         raise ConfigError(f"{key!r} must be an 'owner/name' string, got {value!r}")
     return value
 
@@ -290,10 +290,12 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     if not url.startswith("https://"):
         raise ConfigError(f"[tracker] jira_url must use https://, got {url!r}")
     key = _one_line(raw, "jira_project")
-    if not _JIRA_KEY.match(key):
+    if not _JIRA_KEY.fullmatch(key):
         raise ConfigError(f"[tracker] jira_project must be a Jira project key, got {key!r}")
     authors = raw.get("jira_rollup_authors", [])
-    if not isinstance(authors, list) or not all(isinstance(a, str) and _JIRA_USER.match(a) for a in authors):
+    if not isinstance(authors, list) or not all(
+        isinstance(a, str) and _JIRA_USER.fullmatch(a) for a in authors
+    ):
         raise ConfigError(
             f"[tracker] jira_rollup_authors must be a list of Jira user names or account IDs, got {authors!r}"
         )

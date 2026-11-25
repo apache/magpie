@@ -418,19 +418,19 @@ def git_policy(config: Config) -> GitPolicy:
             "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
         )
     fork = table.get("fork")
-    if fork is not None and (not isinstance(fork, str) or not _REPO.match(fork)):
+    if fork is not None and (not isinstance(fork, str) or not _REPO.fullmatch(fork)):
         raise ConfigError(f"[git] fork must be an 'owner/name' string, got {fork!r}")
     host = table.get("host", "github.com")
-    if not isinstance(host, str) or not _HOST.match(host):
+    if not isinstance(host, str) or not _HOST.fullmatch(host):
         raise ConfigError(f"[git] host must be a host name, got {host!r}")
     transport = table.get("transport", "ssh")
     if transport not in ("ssh", "https"):
         raise ConfigError(f"[git] transport must be 'ssh' or 'https', got {transport!r}")
     upstream_remote = table.get("upstream_remote", "upstream")
-    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.match(upstream_remote):
+    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.fullmatch(upstream_remote):
         raise ConfigError(f"[git] upstream_remote must be a plain remote name, got {upstream_remote!r}")
     pr_base = table.get("pr_base", "main")
-    if not isinstance(pr_base, str) or not _BRANCH.match(pr_base):
+    if not isinstance(pr_base, str) or not _BRANCH.fullmatch(pr_base):
         raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
     return GitPolicy(
         checkouts=checkouts,
@@ -741,14 +741,14 @@ def _param(raw: str, name: str) -> str:
 
 
 def sha(raw: str, name: str) -> str:
-    if not _SHA.match(_param(raw, name)):
+    if not _SHA.fullmatch(_param(raw, name)):
         raise GitRefused(f"{name} must be a full lowercase commit SHA, got {raw!r}")
     return raw
 
 
 def branch_name(git: Git, directory: Path, raw: str, name: str) -> str:
     _param(raw, name)
-    if not _BRANCH.match(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
+    if not _BRANCH.fullmatch(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
         raise GitRefused(f"{name} is not an acceptable branch name: {raw!r}")
     if not git.ok(directory, "check-ref-format", "--branch", raw):
         raise GitRefused(f"{name} is not a valid branch name: {raw!r}")
@@ -931,7 +931,7 @@ def _check_config_in(git: Git, directory: Path) -> None:
             key
             for scope, key in parse_config_scopes(output)
             # `command` scope is this module's own `-c` pins; `GIT_CONFIG_*` is dropped.
-            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.match(key.lower())
+            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.fullmatch(key.lower())
         }
     )
     if unsafe:
@@ -1162,10 +1162,10 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     check_repository_config(git, worktree)
     local = branch_name(git, worktree.path, p["branch"], "branch")
     number = _param(p["number"], "number")
-    if not _PR_NUMBER.match(number):
+    if not _PR_NUMBER.fullmatch(number):
         raise GitRefused(f"number must be a pull request number, got {number!r}")
     named_repo = _param(p["head_repo"], "head_repo")
-    if not _REPO.match(named_repo):
+    if not _REPO.fullmatch(named_repo):
         raise GitRefused(f"head_repo must be 'owner/name', got {named_repo!r}")
     named_branch = branch_name(git, worktree.path, p["head_branch"], "head_branch")
     expected = sha(p["expected"], "expected")
@@ -1217,7 +1217,7 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             "fetch it again and rebuild the fixup on it"
         )
     repo = head.get("head_repo")
-    if not isinstance(repo, str) or not _REPO.match(repo):
+    if not isinstance(repo, str) or not _REPO.fullmatch(repo):
         raise GitRefused(f"pull request #{number} has no head repository (was its fork deleted?)")
     remote_branch = branch_name(git, worktree.path, str(head.get("head_ref") or ""), "the head branch")
     if (repo.casefold(), remote_branch) != (named_repo.casefold(), named_branch):
@@ -1359,7 +1359,7 @@ def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
     )
     for line in output.splitlines():
         fields = line.split()
-        if len(fields) == 4 and fields[3] == ref and _SHA.match(fields[2]):
+        if len(fields) == 4 and fields[3] == ref and _SHA.fullmatch(fields[2]):
             return fields[2]
     raise GitRefused(f"fetching {policy.upstream_repo} {policy.pr_base} reported no commit for {ref}")
 
@@ -1558,7 +1558,7 @@ def merge_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool
     onto = sha(p["onto"], "onto")
     expected = sha(p["expected"], "expected")
     pr = _param(p["pr"], "pr")
-    if pr != "none" and not _PR_NUMBER.match(pr):
+    if pr != "none" and not _PR_NUMBER.fullmatch(pr):
         raise GitRefused(f"pr must be a pull request number, or 'none' for your own branch; got {pr!r}")
     branch = current_branch(git, worktree)
     if is_protected(branch, policy):
@@ -1607,7 +1607,7 @@ def merge_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool
         if head.get("state") != "open":
             raise GitRefused(f"pull request #{pr} is {head.get('state')!r}, not open")
         head_sha = head.get("head_sha")
-        if not isinstance(head_sha, str) or not _SHA.match(head_sha):
+        if not isinstance(head_sha, str) or not _SHA.fullmatch(head_sha):
             raise GitRefused(f"pull request #{pr}: the forge reports no head commit")
         if not git.ok(worktree.path, "cat-file", "-e", f"{head_sha}^{{commit}}") or not git.ok(
             worktree.path, "merge-base", "--is-ancestor", head_sha, previous
@@ -1714,7 +1714,7 @@ def _upstream_base(git: Git, policy: GitPolicy, worktree: Worktree, fetch: bool 
     # The URL is built from the policy and starts with a scheme or `git@`, never `-`.
     lines = git.run(worktree.path, "ls-remote", url, ref).splitlines()
     found = [line.split("\t", 1)[0] for line in lines if line.endswith(f"\t{ref}")]
-    if len(found) != 1 or not _SHA.match(found[0]):
+    if len(found) != 1 or not _SHA.fullmatch(found[0]):
         raise GitRefused(f"{policy.upstream_repo} has no branch {policy.pr_base!r} to check against")
     base = found[0]
     if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
@@ -1790,7 +1790,7 @@ class _VerifiedObjects:
         return [line.split(" ", 1) for line in head.split("\n") if " " in line]
 
     def parents(self, oid: str) -> list[str]:
-        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.match(value)]
+        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.fullmatch(value)]
 
     def is_ancestor(self, ancestor: str, of: str, hint: Sequence[str] = ()) -> bool:
         """Whether ``ancestor`` is reachable from ``of`` through verified parent links.
@@ -1815,7 +1815,7 @@ class _VerifiedObjects:
     def harness_entries(self, commit: str, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
         """Every harness path in ``commit``'s tree, as ``{path: (mode, oid)}``, walked through verified trees."""
         trees = [value for key, value in self._commit_lines(commit) if key == "tree"]
-        if len(trees) != 1 or not _SHA.match(trees[0]):
+        if len(trees) != 1 or not _SHA.fullmatch(trees[0]):
             raise GitRefused(f"commit {commit} has no single tree line")
         width = 32 if self.git.object_format == "sha256" else 20
         entries: dict[str, tuple[str, str]] = {}
@@ -2083,7 +2083,7 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
         raise GitRefused("checkout must be the main checkout, not a linked worktree")
     check_repository_config(git, checkout)
     path = _absolute(p["path"], "path")
-    if not _WORKTREE_NAME.match(path.name):
+    if not _WORKTREE_NAME.fullmatch(path.name):
         raise GitRefused(f"the new worktree's directory name is not acceptable: {path.name!r}")
     if not any(
         path.parent == root and str(root) == os.path.realpath(path.parent) for root in policy.worktree_roots

@@ -514,7 +514,7 @@ def test_jira_rollup_authors_are_always_explicit(tmp_path: Path, capsys: pytest.
     assert "--rollup-author=" in capsys.readouterr().out.split()
 
 
-@pytest.mark.parametrize("value", ['"alice"', '["--url=x"]', '["a b"]', "[1]"])
+@pytest.mark.parametrize("value", ['"alice"', '["--url=x"]', '["a b"]', "[1]", '["alice\\n"]'])
 def test_jira_rollup_authors_are_validated(tmp_path: Path, value: str) -> None:
     path = _write_policy(tmp_path, JIRA + f"jira_rollup_authors = {value}\n")
     code = cli.main(

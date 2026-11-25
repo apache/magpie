@@ -1143,6 +1143,13 @@ def test_config_rejects_a_malformed_repo(tmp_path: Path) -> None:
         config.load(cfg_path)
 
 
+def test_config_rejects_a_repo_with_a_trailing_newline(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "bad.toml"
+    cfg_path.write_text('workspace = "."\n[repos]\ntracker = "acme/tracker\\n"\nupstream = "a/b"\n')
+    with pytest.raises(config.ConfigError, match="owner/name"):
+        config.load(cfg_path)
+
+
 # --- the GraphQL surface stays closed ----------------------------------------
 
 
