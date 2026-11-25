@@ -234,6 +234,7 @@ export function isConfinedReviewPath(targetPath: string, cwd?: string | null): b
     return false; // Fail closed if base directory is unavailable
   }
 
+  // Enforce boundary strictly within session CWD prefix
   const normCwd = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
   const prefix = `${normCwd}/`;
   return resolved.startsWith(prefix);
