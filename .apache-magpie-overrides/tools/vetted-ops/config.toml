@@ -88,12 +88,12 @@ close_reasons = ["completed", "not planned"]
     # before it proposes releasing them.
     "runs-at-head",
     # FIXUP disposition (classifications/disposition-fixup.md): a worktree at
-    # the PR head, commit the fixups, push a head branch on upstream.
+    # the PR head, commit the fixups, fast-forward the PR's head branch.
     "git-worktree-add",
     "git-worktree-remove",
     "git-stage",
     "git-commit",
-    "git-push-branch",
+    "git-push-pr-head",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,
