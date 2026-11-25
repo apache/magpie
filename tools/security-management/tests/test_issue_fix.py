@@ -102,6 +102,38 @@ def test_a_standalone_security_word_in_a_branch(capsys, tmp_path):
     assert out["branch"]["terms"] == ["security"]
 
 
+def test_labels_are_scrubbed_like_the_branch_name(capsys, tmp_path):
+    """A label is public as soon as it is set; one that frames the PR as a security fix is refused."""
+    out = ok(
+        capsys,
+        tmp_path,
+        "scrub",
+        {
+            "labels": [
+                "area:scheduler",
+                "kind:fix",
+                "area:security",
+                "kind:security-fix",
+                "type/vulnerability",
+            ]
+        },
+    )
+    assert out["labels"]["valid"] is False
+    assert out["labels"]["refused"] == ["area:security", "kind:security-fix", "type/vulnerability"]
+    assert out["clean"] is False
+
+
+def test_neutral_labels_pass_the_scrub(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "scrub",
+        {"title": "Validate the import path", "labels": ["area:scheduler", "kind:fix"]},
+    )
+    assert out["labels"] == {"valid": True, "terms": [], "hits": [], "refused": []}
+    assert out["clean"] is True
+
+
 @pytest.mark.parametrize(
     ("case", "branch", "title", "valid", "found"),
     [

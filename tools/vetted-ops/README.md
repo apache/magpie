@@ -238,38 +238,61 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set",
-                           # vetted-op-git: from a change to an open pull request.
+                           # vetted-op-git: from a change to an open pull request. Its
+                           # labels pass the same scrub as the title and body first: they
+                           # are public before the advisory.
                            "git-fetch", "git-worktree-add", "git-worktree-sync",
-                           "git-rebase", "git-worktree-remove", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-# The other skills that publish a change through vetted-op-git
-# (each skill's vetted-git-publish.md names its caller). Grant only the
-# skills the project runs; the draft-PR flows open the draft with
-# `gh pr create --web --draft`, so they need no git-pr-create.
-"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"release-prepare"       = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync", "git-rebase",
-                            "git-stage", "git-commit", "git-push-branch", "git-pr-create"]
-"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                                 "git-push-branch", "git-pr-create"]
-"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+# The other skills that publish a change through vetted-op-git (each skill's
+# vetted-git-publish.md names its caller and every step granted here; a test
+# keeps the two in step). Grant only the skills the project runs; the
+# draft-PR flows open the draft with `gh pr create --web --draft`, so they
+# need no git-pr-create or pr-add-label.
+"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"release-prepare"       = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                                 "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                                 "git-stage", "git-commit", "git-push-branch",
+                                 "git-pr-create", "pr-add-label", "git-delete-fork-branch"]
+"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
 # Only in a policy whose [repos] upstream is the site repository / apache/magpie.
-"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                            "git-push-branch", "git-pr-create"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-cherry-pick",
+"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
                            "git-merge-upstream", "git-switch", "git-stage", "git-commit",
                            "git-push-branch", "git-pr-create", "pr-add-label",
                            "git-delete-fork-branch"]
-"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-cherry-pick", "git-merge-upstream",
-                             "git-switch", "git-stage", "git-commit", "git-push-branch",
-                             "git-pr-create", "pr-add-label", "git-delete-fork-branch"]
+"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                             "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                             "git-merge-upstream", "git-switch", "git-stage", "git-commit",
+                             "git-push-branch", "git-pr-create", "pr-add-label",
+                             "git-delete-fork-branch"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
                            "board-item", "board-add-item", "board-set-status",

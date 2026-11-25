@@ -23,7 +23,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 6942
+measured_tokens: 7060
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -362,6 +362,7 @@ On the `patch-then-commit` flow there is no PR: the public step is the commit, b
 
 Open the PR with `git-pr-create` from [vetted-git-publish.md](vetted-git-publish.md), the title from 5c as its `title` parameter and the body from 5g in `<workspace>/pr-body-<issue>.md`.
 Show the user the exact title, body and Gen-AI disclosure first; their confirmation of the call is the submission gate, per [`AGENTS.md`](../../../../AGENTS.md#commit-and-pr-conventions).
+For the publishing file's *Label it* step, put the labels you would set in the scrub's `labels` list first (`<sm> scrub` with `{…, labels: [...]}`): a label is public as soon as it is set, before the advisory, so only labels naming the area or kind of change go on this PR, and every label in `labels.refused` (one that frames the PR as a security fix, such as `area:security`) is dropped, never set. The backport label below goes through the same check.
 `git-pr-create` targets the policy's `pr_base`; a PR against another base branch (a backport branch from 5a), or a project with no `[git]` values configured, opens with `gh pr create --web` instead, which the user submits from the browser:
 
 ```bash
@@ -410,7 +411,7 @@ the backport label (or that none was needed) and the next step — by default *"
 
 ## Guardrails
 
-- **No public leakage of *content* or *security framing*.** Run `<sm> scrub` on every piece of public-bound text — commit message, PR title, PR body, branch name, newsfragment, comments on `<upstream>` — against the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title); on any hit, abort and ask the user.
+- **No public leakage of *content* or *security framing*.** Run `<sm> scrub` on every piece of public-bound text — commit message, PR title, PR body, branch name, newsfragment, PR labels, comments on `<upstream>` — against the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title); on any hit, abort and ask the user.
   Bare tracker URLs and `<tracker>#NNN` identifiers are **not** flagged (see the Confidentiality paragraph above).
 - **Fork only.** Never push to `<upstream>` directly.
 - **Subversion: commit is publication.** Never `new-branch` or `commit` before the team clears the patch, and only through `magpie-vcs … --scrub`; the patch itself goes to private surfaces only ([`subversion-flow.md`](subversion-flow.md)).

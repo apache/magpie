@@ -67,3 +67,14 @@ one test per former case of `step-0-fix-flow` (cases 1–3), `step-5a-branch-nam
 `step-5e-backport` (1–3), `step-5f-newsfragment` (1–2), `step-6-confirm` (1–3) and `step-11-recap` (1–2).
 The same file pins the deterministic parts of steps 7, 8 and 9 (when the reviewers run, where the patch goes, the publication gate),
 whose model suites stay for the judgement around them.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-25 | `dd6fefe6` (fix/publish-grants-match-block) | `opus[1m]` | 2 | pass |  |
