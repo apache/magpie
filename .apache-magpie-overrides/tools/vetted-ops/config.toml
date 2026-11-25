@@ -43,11 +43,12 @@ upstream_labels = ["ready for maintainer review"]
 close_reasons = ["completed", "not planned"]
 
 [callers]
-# Read-only by construction: every operation below has writes=False, so this
-# caller runs entirely through `vetted-op-read`, which refuses writes before it
+# The reads run through `vetted-op-read`, which refuses writes before it
 # consults this file at all. The three review *submissions*
 # (pr-review-approve / -request-changes / -comment) are deliberately absent —
-# posting a review stays a confirmed action through `vetted-op`.
+# posting a review stays a confirmed action through `vetted-op`. The git
+# operations at the end are the FIXUP disposition's, run through
+# `vetted-op-git` and confirmed one by one.
 "pr-management-code-review" = [
     "viewer",
     "upstream-permission",
@@ -86,6 +87,13 @@ close_reasons = ["completed", "not planned"]
     # The workflow runs held at the head commit, which `code-review runs` reads
     # before it proposes releasing them.
     "runs-at-head",
+    # FIXUP disposition (classifications/disposition-fixup.md): a worktree at
+    # the PR head, commit the fixups, push a head branch on upstream.
+    "git-worktree-add",
+    "git-worktree-remove",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
 ]
 
 # pr-management-triage reads a whole sweep through `vetted-op-read --save`,

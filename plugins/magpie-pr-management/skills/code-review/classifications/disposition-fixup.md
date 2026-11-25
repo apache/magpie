@@ -10,12 +10,18 @@ A `major` or `blocking` finding is never fixed up — it goes back to the author
 Instead of asking the contributor for another round over small, mechanical points, the maintainer applies them and approves.
 
 1. **Check out the PR head** on a local branch.
+   Fetch it in the sandbox, from the main checkout, over HTTPS: `git fetch https://github.com/<upstream>.git +pull/<N>/head:refs/remotes/<upstream_remote>/pr-<N>` (`git-fetch` fetches upstream branches only, and a fork's head is not one).
+   Then create the worktree with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller pr-management-code-review git-worktree-add <checkout> <path> <local-branch> <head-sha>`, confirmed by the maintainer.
+   When no `[git]` values are configured for this project, every `vetted-op-git` step refuses: hand the maintainer each git command instead, starting with `git worktree add -b <local-branch> <path> <head-sha>`.
 2. **Apply exactly the `fixup.changes`**, nothing else. No drive-by edits, no behaviour beyond what each finding names.
-3. **Run the checks** for what was touched: the affected tool's tests and `prek run --files <touched files>`.
+3. **Run the checks** for what was touched: the affected tool's tests, then `uvx --from ~/.claude/magpie/vetted-ops vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox, which runs the hooks on those paths and records what passed.
+   `git-commit` refuses a staged path this record does not hold as it is staged, so never skip it.
    If a fixup turns out bigger than its one-line description, or a check fails, abandon it and fall back to `COMMENT` with the findings.
+   To abandon it, discard the edits in the sandbox (`git -C <worktree> restore .`), then remove the worktree with `… git-worktree-remove <worktree>`, which refuses a worktree with changes.
 4. **Show the diff and the commit message; confirm.** The message lists each change; add the project's attribution trailer per [`AGENTS.md`](../../../../../AGENTS.md#commit-and-pr-conventions).
-   Stage and commit with the vetted operations, each confirmed by the maintainer: `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller pr-management-code-review git-stage <worktree> <workspace>/<paths-file>`, then `… git-commit <worktree> <workspace>/<message-file>`, the trailer as the message file's last paragraph ([vetted-ops → Git operations the sandbox blocks](../../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
+   Stage and commit with the vetted operations, each confirmed by the maintainer: `… git-stage <worktree> <workspace>/<paths-file>` with the same paths file the checks ran on, then `… git-commit <worktree> <workspace>/<message-file>`, the trailer as the message file's last paragraph ([vetted-ops → Git operations the sandbox blocks](../../../../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks)).
    When no `[git]` values are configured for this project, hand the maintainer the `git commit` command instead.
+   Once the fixup is pushed, remove the worktree with `… git-worktree-remove <worktree>`.
 5. **Push to the PR head on confirmation**: the head repository and branch come from `gh pr view <N> --json headRepository,headRepositoryOwner,headRefName`. Pushing to a contributor's branch is visible to everyone watching the PR.
    A head branch on `<upstream>` that the policy's `upstream_push` allows goes through `… git-push-branch <worktree> <local-branch> upstream <head-branch> <head-sha>`; a head in a contributor's fork is outside what the vetted operations reach, so hand the maintainer the `git push --force-with-lease=<head-branch>:<head-sha> <head-repo-url> <local-branch>:<head-branch>` command to run.
 6. **Wait for CI on the new head** before approving (Golden rule 8), then re-run `guard` with the pushed SHA.

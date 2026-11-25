@@ -334,7 +334,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                # The head commit's check runs, read before an APPROVE to confirm real CI
                                # ran there (code-review disposition's secondary check, #2072).
                                "check-runs",
-                               # FIXUP disposition: commit the fixups, push a head branch on upstream.
+                               # FIXUP disposition: a worktree at the PR head, commit the fixups,
+                               # push a head branch on upstream.
+                               "git-worktree-add", "git-worktree-remove",
                                "git-stage", "git-commit", "git-push-branch"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]

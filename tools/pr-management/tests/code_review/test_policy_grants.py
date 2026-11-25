@@ -79,3 +79,28 @@ def test_magpies_own_policy_grants_every_needed_read() -> None:
     grants = tomllib.loads(OWN_POLICY.read_text(encoding="utf-8"))["callers"][CALLER]
     missing = sorted(_needed_ops() - set(grants))
     assert not missing, f"{OWN_POLICY.relative_to(REPO_ROOT)} does not grant {CALLER}: {missing}"
+
+
+CODE_REVIEW_SKILL = REPO_ROOT / "plugins" / "magpie-pr-management" / "skills" / "code-review"
+FIXUP_DOC = CODE_REVIEW_SKILL / "classifications" / "disposition-fixup.md"
+
+
+def _fixup_git_ops() -> set[str]:
+    """Every `vetted-op-git` operation the FIXUP disposition tells the agent to run."""
+    return set(re.findall(r"`[^`]*?\b(git-[a-z-]+) <", FIXUP_DOC.read_text(encoding="utf-8")))
+
+
+def test_the_fixup_doc_scan_finds_its_git_operations() -> None:
+    assert {"git-worktree-add", "git-stage", "git-commit"} <= _fixup_git_ops()
+
+
+def test_the_readme_template_grants_every_fixup_git_operation() -> None:
+    missing = sorted(_fixup_git_ops() - set(_template_grants()))
+    assert not missing, f"{README.relative_to(REPO_ROOT)} does not grant {CALLER}: {missing}"
+
+
+def test_magpies_own_policy_grants_every_fixup_git_operation() -> None:
+    """The FIXUP flow runs on Magpie's own PRs too (#2254 had to be pushed by hand)."""
+    grants = tomllib.loads(OWN_POLICY.read_text(encoding="utf-8"))["callers"][CALLER]
+    missing = sorted(_fixup_git_ops() - set(grants))
+    assert not missing, f"{OWN_POLICY.relative_to(REPO_ROOT)} does not grant {CALLER}: {missing}"
