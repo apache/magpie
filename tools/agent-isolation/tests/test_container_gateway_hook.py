@@ -49,6 +49,8 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
     env.update(env_extra or {})
     if payload is None:
         payload = json.dumps({"cwd": str(cwd)})
+    if trace:
+        env["PS4"] = "+ "
     return subprocess.run(["/bin/bash", *(["-x"] if trace else []), str(SCRIPT), action], input=payload,
                           capture_output=True, text=True, env=env, cwd=cwd, check=False, timeout=60)
 
@@ -1034,8 +1036,12 @@ def test_ensure_leaves_a_serving_gateway_alone(tmp_path: Path) -> None:
     assert _poll_sleeps(done) == []
 
 
-def test_ensure_waits_until_the_gateway_serves(tmp_path: Path) -> None:
+@pytest.mark.parametrize("ps4", ["+ ", "+ [$LINENO] ", "++ "])
+def test_ensure_waits_until_the_gateway_serves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ps4: str
+) -> None:
     """Holding the pid lock is not serving: the wait ends only once a backend socket is bound."""
+    monkeypatch.setenv("PS4", ps4)
     lay = Layout(tmp_path)
     ctl = _fake_gateway(lay, "slow")
     done, calls = _ensure_for_real(lay, ctl)

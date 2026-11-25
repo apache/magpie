@@ -34,6 +34,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 from collections.abc import Iterator
@@ -2313,7 +2314,7 @@ def _isolated_agent_sockets(tmp_path: Path, monkeypatch) -> None:
     probes = tmp_path / "agent-probes"
     probes.mkdir()
     _executable(probes / "gpgconf", "#!/bin/sh\nexit 0\n")
-    if os.uname().sysname == "Darwin":
+    if sys.platform == "darwin":
         real_lsof = shutil.which("lsof")
         assert real_lsof is not None, "macOS socket observation needs lsof"
         _executable(
