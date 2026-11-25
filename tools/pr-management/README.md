@@ -291,7 +291,7 @@ uv run --project <framework>/tools/pr-management pr-management mentor log --kind
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management reviewer-routing preflight --target <ref> --privacy-exit <code> [--privacy-message <text>]
-uv run --project <framework>/tools/pr-management pr-management reviewer-routing propose --target <ref> --saved-dir <workspace>/saved [--area <a>...] [--no-codeowners] [--injection <summary>]
+uv run --project <framework>/tools/pr-management pr-management reviewer-routing propose --target <ref> --saved-dir <workspace>/saved [--area <a>...] [--codeowners-missing <path>]... [--no-codeowners] [--injection <summary>]
 ```
 
 `propose` returns `needs` until every read is saved, then the primary, the backup, every candidate's score and the proposal text.
