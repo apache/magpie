@@ -73,6 +73,7 @@ Implemented commands and compatibility stubs:
 - `magpie-bitbucket issue attachments <id>` (fail-closed compatibility stub; native Cloud issue tracker removed)
 - `magpie-bitbucket pr list-open`
 - `magpie-bitbucket pr create --source <branch> --target <branch> --title <title> [--body-file <path>]` (Cloud and Data Center write; same-repository branches only)
+- `magpie-bitbucket pr edit <id> [--title <title>] [--body-file <path>]` (Data Center-only write; Cloud fails closed)
 - `magpie-bitbucket pr get <id>`
 - `magpie-bitbucket pr commits <id>`
 - `magpie-bitbucket pr jira-issues <id>` (Data Center-only linked Jira discovery)
@@ -104,7 +105,9 @@ The `pr reviews` command provides partial read-only review-state coverage,
 including reviewers, approvals, change-request signals, and related review
 activity where exposed by the configured Bitbucket backend.
 
-Write coverage is intentionally narrow. The bridge supports confirmed
+Write coverage is intentionally narrow. Data Center also supports confirmed
+pull-request title/description editing with a versioned update; Cloud editing
+fails closed pending stronger API guarantees. The bridge supports confirmed
 same-repository pull-request creation and top-level pull-request comment creation
 on Bitbucket Cloud and Data Center. Additional confirmed Cloud and Data Center
 writes cover pull-request approve/unapprove and
@@ -134,17 +137,18 @@ This implementation primarily covers read-only operations, plus narrowly scoped 
 4. **Native issue tracker compatibility guard:** retain the historical `issue` CLI surface, but fail closed before any request because Atlassian removed the native Bitbucket Cloud Issue Tracker API on 2026-08-20; Data Center native issues remain unsupported.
 5. **Pull-request listing:** list open pull requests as `contract:change-request` proposal summaries.
 6. **Pull-request creation:** create a same-repository pull request on Bitbucket Cloud or Data Center from explicit source and target branches after caller-side confirmation.
-7. **Pull-request fetch:** fetch one pull request as a normalized proposal object.
-8. **Pull-request commits fetch:** fetch commits associated with a pull request as normalized read-only output.
-9. **Data Center Jira handoff discovery:** fetch Jira issue keys associated with commits in a Bitbucket Data Center pull request and identify `tools/jira` as the tracker handoff. Bitbucket does not proxy Jira reads or writes.
-10. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
-11. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
-12. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
-13. **Pull-request approve:** approve one Cloud or Data Center pull request as the authenticated user after explicit caller-side confirmation.
-14. **Pull-request unapprove:** withdraw the authenticated user's Cloud or Data Center pull-request approval after explicit caller-side confirmation.
-15. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
-16. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
-17. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
+7. **Pull-request metadata editing:** edit the title and/or description of an open Data Center pull request using a versioned update after caller-side confirmation. Cloud editing fails closed.
+8. **Pull-request fetch:** fetch one pull request as a normalized proposal object.
+9. **Pull-request commits fetch:** fetch commits associated with a pull request as normalized read-only output.
+10. **Data Center Jira handoff discovery:** fetch Jira issue keys associated with commits in a Bitbucket Data Center pull request and identify `tools/jira` as the tracker handoff. Bitbucket does not proxy Jira reads or writes.
+11. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
+12. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
+13. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
+14. **Pull-request approve:** approve one Cloud or Data Center pull request as the authenticated user after explicit caller-side confirmation.
+15. **Pull-request unapprove:** withdraw the authenticated user's Cloud or Data Center pull-request approval after explicit caller-side confirmation.
+16. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
+17. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
+18. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
 
 The bridge supports two Bitbucket API flavours behind one command
 surface:
@@ -160,6 +164,7 @@ surface:
 | Repository restrictions | `repo restrictions` | Partial read-only | Fetches repository branch restriction / branch permission policy context where the configured backend and credentials expose it. Data Center may require `REPO_ADMIN`. This does not mutate branch rules or repository permissions. |
 | Change requests | `list_open` / `pr list-open` | Supported read-only | Lists open pull requests with pagination. |
 | Change requests | `pr create --source <branch> --target <branch> --title <title> [--body-file <path>]` | Partial write | Creates a same-repository pull request on Bitbucket Cloud or Data Center after explicit caller-side confirmation. Source and target are short branch names in the configured repository; fork/cross-repository creation is not supported by this command. |
+| Change requests | `pr edit <id> [--title <title>] [--body-file <path>]` | Partial write, Data Center only | Edits title and/or description of an OPEN pull request after caller-side confirmation. Fetches existing metadata and sends one versioned PUT; stale versions fail without automatic retry. An omitted body file preserves the description; a zero-byte file clears it. Cloud fails closed pending verification of field preservation and concurrency guarantees. Reviewer/draft round-trip behavior across Data Center versions remains to be verified. |
 | Change requests | `get` / `pr get <id>` | Partial read-only | Fetches PR metadata only. Commits, diff, discussion, review state, and status are fetched separately through dedicated read-only commands; mergeability remains incomplete. |
 | Change requests | `commits[]` supplement / `pr commits <id>` | Partial read-only | Fetches the commit list associated with a pull request so partial Bitbucket `get` coverage can expose proposal commits. This does not mutate branches, refs, or repository history. |
 | Change requests / tracker handoff | `pr jira-issues <id>` | Partial read-only, Data Center only | Fetches Jira issue keys associated by Bitbucket Data Center with commits in the pull request. Output identifies `tools/jira` as the handoff tool; this command does not fetch or mutate Jira issues. Bitbucket Cloud has no equivalent bridge endpoint here and fails closed. |
@@ -208,6 +213,10 @@ uv run --project tools/bitbucket magpie-bitbucket pr create \
   --target main \
   --title "Add feature" \
   --body-file /tmp/pr-body.md
+
+# Edit an OPEN Data Center pull request after caller-side confirmation
+uv run --project tools/bitbucket magpie-bitbucket pr edit 123 --title "Updated title"
+uv run --project tools/bitbucket magpie-bitbucket pr edit 123 --body-file /tmp/updated-pr-body.md
 
 # Fetch one pull request
 uv run --project tools/bitbucket magpie-bitbucket pr get 123
@@ -309,17 +318,21 @@ mutations, but it does **not** decide whether to mutate. Every write operation
 must be gated on **explicit user confirmation in the calling skill**; the bridge
 only executes an already-confirmed action.
 
-Comment bodies are read from `--body-file` to avoid shell-quoting issues.
-Missing or empty body files fail before any outbound write request is made.
+Write bodies are read from `--body-file` to avoid shell-quoting issues.
+For comment creation and pull-request creation, empty body files are rejected.
+For `pr edit`, omitting `--body-file` preserves the existing description, while a provided zero-byte file explicitly clears it. Unreadable paths and invalid UTF-8 fail before any network request.
 
 The bridge currently supports these narrow mutations (native Cloud
 issue writes were removed upstream and fail closed):
 
+- Data Center-only pull-request title/description editing using a versioned PUT
 - top-level pull-request comment creation on Cloud and Data Center
 - pull-request approval and approval withdrawal on Cloud and Data Center
 - pull-request change-request creation and removal on Cloud and Data Center
 - Cloud-only pull-request decline
 - Cloud-only pull-request merge with source-commit pinning
+
+For Data Center `pr edit`, a version conflict is not retried. If a submitted PUT has an ambiguous outcome, inspect `pr get <id>` before retrying. Cloud `pr edit` remains unsupported; reviewer/draft metadata preservation has not been verified against every Data Center version.
 
 For pull-request merge, the calling skill must run and inspect
 `pr merge-checks <id>` before invoking `pr merge`; the merge command itself

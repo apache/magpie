@@ -33,6 +33,7 @@ def _read_body_file(
     value: str,
     *,
     empty_message: str = "Comment body file must not be empty",
+    allow_empty: bool = False,
 ) -> str:
     """Read a confirmed write body from disk."""
     path = Path(value)
@@ -43,7 +44,7 @@ def _read_body_file(
     except (OSError, UnicodeDecodeError) as exc:
         raise BitbucketError(f"Failed to read body file {path}: {exc}") from exc
 
-    if not body.strip():
+    if not body.strip() and not allow_empty:
         raise BitbucketError(empty_message)
 
     return body
@@ -73,6 +74,26 @@ def _validate_pull_request_create(
             raise BitbucketError(f"Pull request {label} must be a short branch name, not a full ref")
 
     return source, target, title
+
+
+def _validate_pull_request_edit(
+    pull_request_id: str,
+    title: str | None,
+    body_file: str | None,
+) -> tuple[str, str | None]:
+    """Validate requested pull-request metadata edits."""
+    if not pull_request_id.isascii() or not pull_request_id.isdecimal() or int(pull_request_id) <= 0:
+        raise BitbucketError("Pull request ID must be a positive decimal integer")
+
+    if title is None and body_file is None:
+        raise BitbucketError("Specify --title and/or --body-file")
+
+    if title is not None:
+        title = title.strip()
+        if not title:
+            raise BitbucketError("Pull request title must not be empty")
+
+    return str(int(pull_request_id)), title
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -170,6 +191,17 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_create.add_argument(
         "--body-file",
         help="Optional path to the confirmed pull request description.",
+    )
+
+    pr_edit = pr_subparsers.add_parser(
+        "edit",
+        help="Edit pull-request metadata after caller-side confirmation.",
+    )
+    pr_edit.add_argument("pull_request_id", help="Pull request ID to edit.")
+    pr_edit.add_argument("--title", help="Replacement pull request title.")
+    pr_edit.add_argument(
+        "--body-file",
+        help="Replacement description; an empty file clears it.",
     )
 
     pr_get = pr_subparsers.add_parser("get", help="Fetch one pull request.")
@@ -408,6 +440,18 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
             description,
         )
         return normalize.created_pull_request(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "edit":
+        pr_id, edit_title = _validate_pull_request_edit(
+            args.pull_request_id,
+            args.title,
+            args.body_file,
+        )
+        description = (
+            _read_body_file(args.body_file, allow_empty=True) if args.body_file is not None else None
+        )
+        raw = backend.edit_pull_request(config, pr_id, edit_title, description)
+        return normalize.edited_pull_request(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "get":
         raw = backend.get_pull_request(config, args.pull_request_id)
