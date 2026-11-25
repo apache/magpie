@@ -220,13 +220,15 @@ class JiraRest:
     def search(
         self, jql: str, *, fields: str, pages: int, expand: str = ""
     ) -> tuple[list[dict[str, Any]], int]:
-        """Up to `pages` pages of 100 issues for `jql`, and the total Jira reports."""
+        """Up to `pages` pages (capped at 100 issues per page) for `jql`, and the total Jira reports."""
         issues: list[dict[str, Any]] = []
         total = 0
-        for page in range(pages):
+        for _ in range(pages):
             params: dict[str, str | int] = {
                 "jql": jql,
-                "startAt": page * PAGE_SIZE,
+                # Jira caps maxResults at jira.search.views.default.max, so a page can
+                # hold fewer than PAGE_SIZE issues: continue from what has arrived.
+                "startAt": len(issues),
                 "maxResults": PAGE_SIZE,
                 "fields": fields,
             }
