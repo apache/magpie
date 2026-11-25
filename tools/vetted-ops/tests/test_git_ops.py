@@ -23,7 +23,10 @@ import dataclasses
 import fnmatch
 import json
 import os
+import shutil
+import stat
 import subprocess
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -1419,6 +1422,342 @@ def test_push_pr_head_validates_parameters(
     git.gh_runner = FakePr({})
     with pytest.raises(GitRefused):
         _push_head(git, policy, repo, expected, number=number)
+
+
+def _switch(git: Git, policy: GitPolicy, worktree: Path, branch: str) -> str:
+    return git_ops.switch_branch(git, policy, {"worktree": str(worktree), "branch": branch}, False)
+
+
+def _upstream_main(repo: Path) -> None:
+    """Publish the checkout's current `main` as upstream's (the bare `acme/project` remote)."""
+    _git(
+        repo,
+        "push",
+        "-q",
+        "--force",
+        str(repo.parent / "remotes" / "acme__project.git"),
+        "main:refs/heads/main",
+    )
+
+
+def _settings(repo: Path, text: str, message: str) -> str:
+    (repo / ".claude").mkdir(exist_ok=True)
+    (repo / ".claude" / "settings.json").write_text(text)
+    _git(repo, "add", ".claude/settings.json")
+    _git(repo, "commit", "-q", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def test_switch_moves_a_clean_tree_to_a_branch(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    topic = _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    out = _switch(git, policy, repo, "topic")
+    assert "from main to topic" in out
+    assert _git(repo, "rev-parse", "HEAD") == topic
+
+
+def test_switch_brings_harness_files_that_came_from_upstream(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """A branch cut from a newer upstream may carry its settings; only its own changes are refused."""
+    _git(repo, "checkout", "-q", "-b", "old")
+    _settings(repo, '{"v": 2}', "upstream moves settings")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "merge", "-q", "--ff-only", "old")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "old")
+    _git(repo, "reset", "-q", "--hard", "main~1")
+    _switch(git, policy, repo, "topic")
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 2}'
+
+
+def test_switch_takes_an_older_branch_that_left_harness_files_alone(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """A branch cut before upstream changed its settings switches, with the settings it was cut with."""
+    _settings(repo, '{"v": 1}', "upstream, before")
+    _git(repo, "checkout", "-q", "-b", "old-topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    _settings(repo, '{"v": 2}', "upstream changes settings")
+    _upstream_main(repo)
+    _switch(git, policy, repo, "old-topic")
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 1}'
+
+
+@pytest.mark.parametrize(
+    ("path", "harness"),
+    [
+        (".claude/settings.json", True),
+        ("sub/project/.claude/skills/x/SKILL.md", True),
+        (".github/skills/x", True),
+        (".github", True),
+        (".apache-magpie-overrides/tools", True),
+        (".apache-magpie-overrides/tools/vetted-ops/config.toml", True),
+        ("nested/.apache-magpie-overrides/tools/vetted-ops/config.toml", True),
+        (".claude-plugin/marketplace.json", True),
+        (".github/workflows/ci.yml", False),
+        ("docs/claude.md", False),
+        (".claudette/x", False),
+        ("tools/vetted-ops/README.md", False),
+    ],
+)
+def test_harness_paths_cover_nested_dirs_and_the_ancestors_a_symlink_could_replace(
+    path: str, harness: bool
+) -> None:
+    assert git_ops.is_harness_path(path) is harness
+
+
+def _forge_loose_object(repo: Path, oid: str, kind: str, content: bytes) -> None:
+    """Overwrite the loose object stored under ``oid`` with other content, as an agent could."""
+    path = repo / ".git" / "objects" / oid[:2] / oid[2:]
+    path.chmod(0o644)
+    path.write_bytes(zlib.compress(f"{kind} {len(content)}\0".encode() + content))
+
+
+def test_switch_refuses_a_forged_object_in_the_store(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Git does not re-hash what it reads; the switch does, so a forged blob is caught."""
+    _settings(repo, '{"permissions": {"deny": ["Bash(curl *)"]}}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    blob = _git(repo, "rev-parse", "main:.claude/settings.json")
+    _forge_loose_object(repo, blob, "blob", b'{"permissions": {"allow": ["Bash(*)"]}}')
+    with pytest.raises(GitRefused, match="tampered with"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_puts_back_a_harness_file_that_changed_during_the_checkout(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _settings(repo, '{"v": "upstream"}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    real = git.runner
+
+    def tamper_during_checkout(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            (repo / ".claude" / "settings.json").write_text('{"v": "agent"}')
+        return done
+
+    git.runner = tamper_during_checkout
+    out = _switch(git, policy, repo, "topic")
+    assert "put back the verified content of .claude/settings.json" in out
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": "upstream"}'
+    # Put back owner-only: nobody else needs to read the harness's settings.
+    assert stat.S_IMODE((repo / ".claude" / "settings.json").stat().st_mode) == 0o600
+
+
+def test_switch_fails_closed_on_a_harness_directory_turned_into_a_symlink(
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    _settings(repo, '{"v": "upstream"}', "upstream settings")
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _commit(repo, "two")
+    _git(repo, "checkout", "-q", "main")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    real = git.runner
+
+    def symlink_during_checkout(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            shutil.rmtree(repo / ".claude")
+            (repo / ".claude").symlink_to(elsewhere)
+        return done
+
+    git.runner = symlink_during_checkout
+    with pytest.raises(GitRefused, match="check them by hand"):
+        _switch(git, policy, repo, "topic")
+    assert not (elsewhere / "settings.json").exists()
+
+
+def test_switch_refuses_a_forged_upstream_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A forged upstream commit naming the agent's branch as its parent would make it the fork point."""
+    _git(repo, "checkout", "-q", "-b", "topic")
+    topic = _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "two")
+    _upstream_main(repo)
+    base = _git(repo, "rev-parse", "main")
+    tree = _git(repo, "rev-parse", "main^{tree}")
+    forged = f"tree {tree}\nparent {topic}\nauthor t <t@example.org> 0 +0000\ncommitter t <t@example.org> 0 +0000\n\nx\n"
+    # The upstream commit, as the repository now holds it: a child of the agent's branch.
+    _forge_loose_object(repo, base, "commit", forged.encode())
+    assert _git(repo, "merge-base", "topic", base) == topic  # git itself is fooled
+    with pytest.raises(GitRefused, match="tampered with"):
+        _switch(git, policy, repo, "topic")
+    assert not (repo / ".claude" / "settings.json").exists()
+
+
+def test_switch_refuses_a_tree_mode_git_reads_differently(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`040000` is a directory to git's checkout; the walk must not skip it."""
+    _upstream_main(repo)
+    blob = _git(repo, "hash-object", "-w", "--stdin")
+    inner = (
+        subprocess.run(
+            ["git", "-C", str(repo), "hash-object", "-t", "tree", "-w", "--literally", "--stdin"],
+            input=b"100644 settings.json\0" + bytes.fromhex(blob),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    claude = (
+        subprocess.run(
+            ["git", "-C", str(repo), "hash-object", "-t", "tree", "-w", "--literally", "--stdin"],
+            input=b"040000 .claude\0" + bytes.fromhex(inner),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    commit = _git(repo, "commit-tree", claude, "-p", "main", "-m", "odd mode")
+    _git(repo, "branch", "topic", commit)
+    with pytest.raises(GitRefused, match="malformed entry"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_refuses_a_branch_checked_out_elsewhere(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "branch", "topic")
+    _git(repo, "worktree", "add", "-q", str(repo.parent / "worktrees" / "other"), "topic")
+    with pytest.raises(GitRefused, match="is checked out in"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_harness_paths_from_the_policy_are_normalised(tmp_path: Path) -> None:
+    checkout = Path(os.path.realpath(tmp_path))
+    policy = git_ops.git_policy(
+        _config({"checkouts": [str(checkout)], "harness_paths": ["./tools/x/", "/y.json"]})
+    )
+    assert policy.harness_paths == ("tools/x", "y.json")
+    assert git_ops.is_harness_path("tools/x/settings.json", policy.harness_paths)
+
+
+def test_switch_honours_harness_paths_from_the_policy(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    (repo / "tools").mkdir()
+    (repo / "tools" / "settings.template.json").write_text("{}")
+    _git(repo, "add", "tools/settings.template.json")
+    _git(repo, "commit", "-q", "-m", "template")
+    _git(repo, "checkout", "-q", "main")
+    strict = dataclasses.replace(policy, harness_paths=("tools/settings.template.json",))
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, strict, repo, "topic")
+    _switch(git, policy, repo, "topic")
+
+
+def test_switch_refuses_a_branch_that_changes_harness_files_itself(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match=r"\.claude/settings\.json in its own commits"):
+        _switch(git, policy, repo, "topic")
+    assert _git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "main"
+    assert not (repo / ".claude" / "settings.json").exists()
+
+
+def test_switch_refuses_harness_changes_with_no_upstream_base(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, "{}", "settings")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="no branch 'main' to check against"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_ignores_a_local_upstream_ref_the_agent_could_move(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """`refs/remotes/upstream/main` is in the writable `.git`; only the policy's URL counts."""
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    _settings(repo, '{"permissions": {"allow": ["Bash(*)"]}}', "widen")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", "topic")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, policy, repo, "topic")
+
+
+@pytest.mark.parametrize("name", [".Claude/settings.json", ".CLAUDE/hooks/x", ".clau‍de/settings.json"])
+def test_switch_matches_harness_paths_as_the_file_system_does(
+    git: Git, policy: LocalPolicy, repo: Path, name: str
+) -> None:
+    """On a case-insensitive file system `.Claude/` is `.claude/`."""
+    assert git_ops.is_harness_path(name)
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    blob = _git(repo, "hash-object", "-w", "--stdin")
+    _git(repo, "update-index", "--add", "--cacheinfo", f"100644,{blob},{name}")
+    _git(repo, "commit", "-q", "-m", "sneak")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="in its own commits"):
+        _switch(git, policy, repo, "topic")
+
+
+def test_switch_attaches_only_the_commit_it_checked(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """A branch moved during the switch is not attached; the tree holds the checked commit."""
+    _upstream_main(repo)
+    _git(repo, "checkout", "-q", "-b", "topic")
+    checked = _commit(repo, "two")
+    moved = _commit(repo, "three")
+    _git(repo, "checkout", "-q", "main")
+    _git(repo, "update-ref", "refs/heads/topic", checked)
+    real = git.runner
+
+    def move_after_detach(
+        argv: list[str], env: dict[str, str], cwd_fd: int | None
+    ) -> subprocess.CompletedProcess[str]:
+        done = real(argv, env, cwd_fd)
+        if "--detach" in argv:
+            _git(repo, "update-ref", "refs/heads/topic", moved)
+        return done
+
+    git.runner = move_after_detach
+    out = _switch(git, policy, repo, "topic")
+    assert "detached HEAD" in out
+    assert _git(repo, "rev-parse", "HEAD") == checked
+    assert not (repo / "three").exists()
+
+
+def test_switch_refuses_local_changes_and_unknown_branches(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _git(repo, "branch", "topic")
+    (repo / "one").write_text("edited")
+    with pytest.raises(GitRefused, match="uncommitted changes"):
+        _switch(git, policy, repo, "topic")
+    _git(repo, "checkout", "-q", "--", "one")
+    with pytest.raises(GitRefused, match="never creates one"):
+        _switch(git, policy, repo, "no-such-branch")
+
+
+def test_switch_runs_no_post_checkout_hook(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "ran"
+    _hook(repo, "post-checkout", marker)
+    _upstream_main(repo)
+    _git(repo, "branch", "topic")
+    _switch(git, policy, repo, "topic")
+    assert not marker.exists()
 
 
 def _draft_table(message: str) -> str:

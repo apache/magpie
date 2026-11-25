@@ -201,13 +201,14 @@ close_reasons = ["completed", "not planned"]
 # setup-upstream-fix and setup-override-upstream publish a framework fix from a
 # session in this clone, so they act on this policy: worktree, stage, commit,
 # push to the operator's fork and open the pull request through vetted-op-git,
-# each confirmed. There is deliberately no [git] table here: checkouts, fork and
-# worktree roots are each maintainer's own, in
+# each confirmed. The [git] table below holds project-wide values only:
+# checkouts, fork and worktree roots are each maintainer's own, in
 # ~/.config/apache-magpie/vetted-ops/operator-git.toml under ["apache/magpie"].
 "setup-upstream-fix" = [
     "git-fetch",
     "git-worktree-add",
     "git-rebase",
+    "git-switch",
     "git-stage",
     "git-commit",
     "git-push-branch",
@@ -217,8 +218,18 @@ close_reasons = ["completed", "not planned"]
     "git-fetch",
     "git-worktree-add",
     "git-rebase",
+    "git-switch",
     "git-stage",
     "git-commit",
     "git-push-branch",
     "git-pr-create",
+]
+
+[git]
+# Files beyond vetted-op-git's own HARNESS_PATHS that steer the agent outside
+# the sandbox, so git-switch writes only upstream's version of them. Keep in
+# step with the Edit() denies in .claude/settings.json (a test checks).
+harness_paths = [
+    "tools/agent-isolation/claude-settings.local.template.json",
+    "plugins/magpie-setup/skills/setup/family-mcp-allows.json",
 ]

@@ -260,9 +260,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Only in a policy whose [repos] upstream is the site repository / apache/magpie.
 "release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                             "git-push-branch", "git-pr-create"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-stage",
+"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-switch", "git-stage",
                            "git-commit", "git-push-branch", "git-pr-create"]
-"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
+"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-switch", "git-stage", "git-commit",
                              "git-push-branch", "git-pr-create"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
@@ -869,6 +869,7 @@ command, and every step is still confirmed by the user:
 | `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-rebase` | `worktree onto expected` | Rebases the clean topic branch checked out in `worktree` (never a protected one) onto `onto`, a full SHA on the upstream `pr_base`: the operation fetches `pr_base` itself, from the policy's URL, and checks `onto` against the commit that fetch returned, never against a remote-tracking ref a sandboxed fetch could also write. `expected` is the branch's current full SHA, so a branch that moved after the user approved the call is refused, and one that moves while the rebase starts is put back where it was. A branch with merge commits over `onto` is refused, since a rebase would flatten them. Signing follows the user's global git configuration; no recorded resolution (`rerere`), stash, editor or hook takes part. On a conflict it aborts, leaves the branch where it was, and names the conflicting paths: resolve them in the sandbox and commit with `git-commit`. |
+| `git-switch` | `worktree branch` | Switches a clean working tree (the main checkout or a linked worktree) to an existing local `branch`, with no hook. In the sandbox a switch fails half-way: the harness keeps `.claude/` settings, hooks and skills, the other harnesses' skill directories, `.mcp.json`, plugin manifests and the vetted-ops policy read-only (plus the policy's `harness_paths`), so git updates everything else and leaves those as local changes. Out here it can write them, so `branch` must not have changed any of them in its own commits: its version of every such file must be upstream's from where it left `pr_base`. Any branch that left them alone switches, however old. The upstream commit is asked of the policy's upstream URL during the call, never read from a local ref, the fork point must be reached from it through re-hashed parent links, and both trees are walked through objects re-hashed against their names (non-canonical tree modes refused), so neither a moved ref nor a forged object or history in the agent-writable `.git` counts. A branch checked out in another worktree is refused. Paths match at any depth, as a case-insensitive file system sees them (`.Claude/` is `.claude/`), and an entry that replaces a parent directory (a `.github` symlink) counts too. It checks out the commit it checked, detached, requires the index's harness entries to be the verified ones, hashes every harness file it wrote and puts back the verified content of any that differs, and attaches `branch` only if the branch still points there. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
 | `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |
@@ -916,6 +917,10 @@ protected = ["prod"]
 pr_base = "main"
 # The forge pushes and pull requests go to. Default: github.com.
 host = "github.com"
+# Files that steer the agent outside the sandbox, added to git-switch's built-in
+# list (.claude, .agents, .codex, .gemini, .github/skills, .mcp.json, .claude-plugin,
+# the vetted-ops policy layers): git-switch writes only upstream's version of them.
+harness_paths = ["tools/agent-settings.template.json"]
 ```
 
 Where your clones, worktrees and fork are differs per person, so it does not belong in a policy everyone commits and approves.
@@ -938,7 +943,7 @@ protected = ["my-wip-*"]
 ```
 
 That directory is outside every repository and every sandbox-writable root, and `Edit`-denied, so the file needs no separate approval step: only you put it there.
-Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`) is refused, so nothing in it widens what the shared policy allows.
+Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`, `harness_paths`) is refused, so nothing in it widens what the shared policy allows.
 Its values win over the same keys in the policy, which keeps an older policy that still carries them working.
 The file is never one of the approved policies, even byte-for-byte.
 With neither source naming a value for the upstream, every git operation refuses, and skills fall back to handing over the commands.
