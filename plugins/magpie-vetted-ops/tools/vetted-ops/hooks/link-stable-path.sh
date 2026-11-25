@@ -26,18 +26,24 @@ root="${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}"
 link_dir="$HOME/.claude/magpie"
 
 # link_one <name>: point $link_dir/<name> at $root/tools/<name>. Skips a tool this
-# plugin version does not carry, and never replaces anything but a symlink.
+# plugin version does not carry, and only ever moves a link this plugin made: one
+# that is missing or points into this plugin's own cache (any version). A real
+# directory (a pinned snapshot's copy) or a link elsewhere (a framework checkout,
+# linked by `setup`) is the operator's choice and is left alone, silently.
 link_one() {
   local name=$1
   local target="$root/tools/$name"
   local link="$link_dir/$name"
   [ -d "$target" ] || return 0
   if [ -e "$link" ] && [ ! -L "$link" ]; then
-    echo "magpie-vetted-ops: $link exists and is not a symlink; not replacing it" >&2
     return 0
   fi
-  if [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ]; then
-    return 0
+  if [ -L "$link" ]; then
+    case "$(readlink "$link")" in
+      "$target") return 0 ;;
+      "$(dirname "$root")"/*) ;;
+      *) return 0 ;;
+    esac
   fi
   mkdir -p "$link_dir"
   ln -sfn "$target" "$link"

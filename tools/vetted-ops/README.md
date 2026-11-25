@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [Where do the dispatchers start from?](#where-do-the-dispatchers-start-from)
     - [Is the policy approved?](#is-the-policy-approved)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
@@ -490,6 +491,26 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
 underlying command failed.
+
+### Where do the dispatchers start from?
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read source
+# {"stable": "~/.claude/magpie/vetted-ops", "kind": "plugin", "resolves_to": "/Users/me/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/0.9.0/tools/vetted-ops"}
+```
+
+Every skill launches the dispatchers from `~/.claude/magpie/vetted-ops`, and what that path is depends on how Magpie is installed:
+
+| Install | `~/.claude/magpie/vetted-ops` | `kind` |
+|---|---|---|
+| Marketplace | a link into the `magpie-vetted-ops` plugin's cache, kept by its session hook | `plugin` |
+| Pinned snapshot | a real copy of `<snapshot-dir>/tools/vetted-ops`, made by `setup` and refreshed by `setup update` | `copy` |
+| Framework checkout | a link into the main checkout's `tools/vetted-ops`, made by `setup`'s self-adoption | `checkout` |
+
+The plugin cache and a copy sit under `~/.claude`, which the sandbox cannot write.
+A checkout link runs code the agent can edit, outside the sandbox, so agent-guard asks before every launch through one, `vetted-op-read` included.
+The plugin's hook moves only a link into its own cache; a copy or a checkout link is left alone.
+`source` prints that path's `kind` and where it resolves (`missing` when nothing is there); like `approval-status`, it takes no option or parameter and never prompts.
 
 ### Is the policy approved?
 
