@@ -132,9 +132,9 @@ describe('multi-agent-review-pane mod', () => {
       assert.strictEqual(sanitizeReviewText(untrusted), 'Line1 Line2');
     });
 
-    test('strips markdown delimiters and HTML tags', () => {
-      const untrusted = '`Code` <script>alert(1)</script> "quoted"';
-      assert.strictEqual(sanitizeReviewText(untrusted), 'Code scriptalert(1)/script quoted');
+    test('preserves quotes and syntax characters in inert text', () => {
+      const text = 'don\'t call "foo" on `Map<String, Foo>`';
+      assert.strictEqual(sanitizeReviewText(text), text);
     });
 
     test('truncates at maxLen boundary', () => {

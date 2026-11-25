@@ -74,7 +74,7 @@ protecting the ASF contribution path (contributor → committer → PMC).
 - **Ships before Agentic Autonomous** in the roadmap (MISSION sequencing): Agentic Pairing
   must establish that human reasoning, not implementation chatter, is the
   load-bearing part of the workflow before any auto-merge is considered.
-- **The multi-agent review comparison pane is additive.** Under Claude Code, the mod (`plugins/magpie-pairing/hooks/`) hydrates merged findings from `.magpie-pairing-review-<sha>.json` into an interactive UI side pane, allowing developers to review and curate findings (`[Accept]`, `[Dismiss]`) across independent axes (`Correctness`, `Security`, `Conventions`) before deciding what to address. Staged curation choices are written to `.magpie-pairing-decision-<sha>.json` with a SHA-256 payload digest. On other harnesses or when the mod is absent, the skill continues with its standard markdown report.
+- **The multi-agent review comparison pane is additive.** Under Claude Code, the mod (`plugins/magpie-pairing/hooks/`) provides the side-by-side comparison pane UI (`[Accept]`, `[Dismiss]`, `[Reset]` across `Correctness`, `Security`, `Conventions`), session state atom, payload sanitization, and path-confinement / SHA-256 helpers (Part 1); Part 2 will wire runtime `$.fs` IPC (`.magpie-pairing-review-<sha>.json` / `.magpie-pairing-decision-<sha>.json`), `$.ui.open`, and `multi-agent-review` skill integration. On other harnesses or when the mod is absent, the skill continues with its standard markdown report.
 
 ## Out of scope
 

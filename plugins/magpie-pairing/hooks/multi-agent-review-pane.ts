@@ -100,7 +100,6 @@ export function sanitizeReviewText(raw: unknown, maxLen: number = 120): string {
     .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD\uFE00-\uFE0F]/g, '')
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/[\x00-\x1f\x7f-\x9f]/g, '')
-    .replace(/[`<>"']/g, '')
     .trim()
     .slice(0, maxLen);
 }
