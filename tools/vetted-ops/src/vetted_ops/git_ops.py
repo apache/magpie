@@ -2037,6 +2037,45 @@ def switch_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     return f"switched {worktree.path} from {previous} to {branch} at {target}{note}"
 
 
+def switch_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Create a branch at the upstream ``pr_base`` and switch a clean working tree to it.
+
+    The start of a new change in the main checkout, which a sandboxed
+    ``git switch -c`` cannot finish: the new branch starts where upstream is
+    now, asked of the policy's URL during this call, never where a local ref
+    says. Its harness files are then upstream's, so `switch_branch`, which
+    does the switch, finds nothing of the branch's own to refuse; every check
+    it makes still runs. A new branch that could not be switched to is
+    deleted again.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; a new topic branch is created only")
+    if git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        raise GitRefused(f"branch {branch!r} already exists; switch to it with git-switch")
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    if dry_run:
+        create = git.argv(
+            worktree.path, "branch", "--no-track", branch, f"<{policy.pr_base} from the policy URL>"
+        )
+        return " ".join(create) + "; then git-switch " + branch
+    base = _upstream_base(git, policy, worktree, fetch=True)
+    if base is None:
+        raise GitRefused(f"upstream {policy.pr_base} could not be read from the policy's URL")
+    check_repository_config(git, worktree)
+    # Created only if absent (the zero old value), so an existing branch is never moved.
+    git.run(worktree.path, "update-ref", f"refs/heads/{branch}", base, "0" * len(base))
+    try:
+        switched = switch_branch(git, policy, {"worktree": p["worktree"], "branch": branch}, False)
+    except (GitRefused, GitFailed):
+        git._call(worktree.path, "update-ref", "-d", f"refs/heads/{branch}", base)
+        raise
+    return f"created {branch} at upstream {policy.pr_base} {base}; {switched}"
+
+
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Create a linked worktree on a new branch, inside a policy worktree root."""
     checkout = resolve_worktree(git, p["checkout"], policy, "checkout")
@@ -2370,6 +2409,13 @@ OPS: dict[str, GitOp] = {
             "switch a clean working tree to an existing local <branch>; refused when the branch's own "
             "commits change a file that steers the agent harness (.claude/, hooks, skills, the policy)",
             switch_branch,
+        ),
+        GitOp(
+            "git-switch-create",
+            ("worktree", "branch"),
+            "create a new topic <branch> at upstream's pr_base, asked of the policy's URL now, and switch "
+            "the clean working tree to it, with git-switch's checks; never a protected or existing branch",
+            switch_create,
         ),
         GitOp(
             "git-worktree-add",
