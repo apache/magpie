@@ -1216,6 +1216,10 @@ class FakePr:
 
 def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
     """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
+    # The operations run git without the test's GIT_* identity, so a commit they
+    # make (a merge) needs one in the repository: Linux CI cannot guess one.
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
     _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
     # Upstream's pr_base, which a push of an upstream merge fetches to check the merge against.
     _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
