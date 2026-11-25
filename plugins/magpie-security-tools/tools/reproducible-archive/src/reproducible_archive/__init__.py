@@ -520,6 +520,13 @@ def _member_digest(entry: Entry) -> tuple[str, str, int, str]:
     return (entry.kind, hashlib.sha256(entry.data).hexdigest(), normalize_mode(entry.mode, entry.kind), entry.linkname)
 
 
+def _member_digests(entries: Iterable[Entry]) -> dict[str, list[tuple[str, str, int, str]]]:
+    grouped: dict[str, list[tuple[str, str, int, str]]] = {}
+    for entry in entries:
+        grouped.setdefault(entry.name.rstrip("/"), []).append(_member_digest(entry))
+    return grouped
+
+
 def compare(path_a: Path, path_b: Path) -> Comparison:
     """Three verdicts, in decreasing strength:
 
@@ -529,22 +536,23 @@ def compare(path_a: Path, path_b: Path) -> Comparison:
       and link target match, only archive metadata (timestamps, owners,
       ordering, extra fields, compression) differs — what a voter with a
       different `git`/`tar` version gets from a plain `git archive`;
-    * `differs` — members were added, removed or changed.
+    * `differs` — members were added, removed or changed, including a
+      repeated member whose count, content or order differs.
     """
     data_a, data_b = path_a.read_bytes(), path_b.read_bytes()
     sha_a, sha_b = _sha512(data_a), _sha512(data_b)
     swh_a, swh_b = swhid_of_archive(path_a), swhid_of_archive(path_b)
     if data_a == data_b:
         return Comparison("identical", sha_a, sha_b, swh_a, swh_b)
-    ents_a = {e.name.rstrip("/"): e for e in read_entries(path_a)}
-    ents_b = {e.name.rstrip("/"): e for e in read_entries(path_b)}
+    entries_a, entries_b = read_entries(path_a), read_entries(path_b)
+    ents_a, ents_b = _member_digests(entries_a), _member_digests(entries_b)
     added = sorted(set(ents_b) - set(ents_a))
     removed = sorted(set(ents_a) - set(ents_b))
-    changed = sorted(n for n in set(ents_a) & set(ents_b) if _member_digest(ents_a[n]) != _member_digest(ents_b[n]))
+    changed = sorted(n for n in set(ents_a) & set(ents_b) if ents_a[n] != ents_b[n])
     if added or removed or changed:
         return Comparison("differs", sha_a, sha_b, swh_a, swh_b, added, removed, changed)
     meta: list[str] = []
-    if [e.name for e in read_entries(path_a)] != [e.name for e in read_entries(path_b)]:
+    if [e.name for e in entries_a] != [e.name for e in entries_b]:
         meta.append("member order differs")
     fails_a = {r.name for r in check(path_a) if r.status == "FAIL"}
     fails_b = {r.name for r in check(path_b) if r.status == "FAIL"}
