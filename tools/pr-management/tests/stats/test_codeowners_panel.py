@@ -23,7 +23,7 @@ from __future__ import annotations
 import pytest
 
 from pr_management.code_review import codeowners
-from pr_management.stats import reference
+from pr_management.stats import dashboard, reference
 
 
 def _ready_pr(number: int) -> dict:
@@ -68,3 +68,10 @@ def test_panel_agrees_with_code_review() -> None:
 
 def test_panel_leaves_out_email_owners() -> None:
     assert _panel_owners("*.md @docs owner@example.org\n", "README.md") == {"docs"}
+
+
+def test_panel_says_no_file_only_when_there_is_none() -> None:
+    assert "No CODEOWNERS file found" in dashboard.render_codeowners(None, 0)
+    empty = dashboard.render_codeowners([], 3)
+    assert "not found" not in empty
+    assert "No ready-for-review PR touches" in empty
