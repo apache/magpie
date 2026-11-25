@@ -94,6 +94,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -237,6 +238,8 @@ class GitPolicy:
     upstream_remote: str = "upstream"
     #: The upstream branch a pull request opened by `git-pr-create` targets.
     pr_base: str = "main"
+    #: Paths `git-switch` treats as steering the harness, beyond `HARNESS_PATHS`.
+    harness_paths: tuple[str, ...] = ()
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
@@ -377,6 +380,7 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("host", policy.host),
         ("upstream_push", list(policy.upstream_push)),
         ("pr_base", policy.pr_base),
+        ("harness_paths", list(policy.harness_paths)),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -442,6 +446,7 @@ def git_policy(config: Config) -> GitPolicy:
         workspace=config.workspace,
         upstream_remote=upstream_remote,
         pr_base=pr_base,
+        harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
     )
 
 
@@ -556,6 +561,8 @@ class Git:
     _ssh_command: str | None = field(default=None, repr=False)
     #: Set once the object format is known (see `check_repository_config`).
     attr_source: str | None = None
+    #: The repository's object format (`sha1` or `sha256`), set with `attr_source`.
+    object_format: str = "sha1"
     #: Validated directories, open (see `open_dir`); git runs in these, never at the name.
     anchors: dict[Path, int] = field(default_factory=dict)
     #: Validated working tree -> its git directory. Git gets these explicitly
@@ -640,6 +647,23 @@ class Git:
         argv, completed = self._call(directory, *args, hooks=hooks)
         if completed.returncode != 0:
             raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+        return completed.stdout
+
+    def run_bytes(self, directory: Path, *args: str, stdin: str = "") -> bytes:
+        """Like `run`, for output that is not text (object contents), with ``stdin`` fed to git."""
+        argv = self.argv(directory, *args)
+        cwd_fd = self.anchors.get(directory)
+        completed = subprocess.run(
+            argv,
+            check=False,
+            capture_output=True,
+            input=stdin.encode(),
+            env=self._env(),
+            pass_fds=(cwd_fd,) if cwd_fd is not None else (),
+            preexec_fn=(lambda: os.fchdir(cwd_fd)) if cwd_fd is not None else None,
+        )
+        if completed.returncode != 0:
+            raise GitFailed(argv, completed.returncode, completed.stderr.decode("utf-8", "replace"))
         return completed.stdout
 
     def ok(self, directory: Path, *args: str) -> bool:
@@ -836,6 +860,7 @@ def check_repository_config(git: Git, worktree: Worktree) -> None:
     if object_format not in EMPTY_TREE:
         raise GitRefused(f"unsupported object format {object_format!r}")
     git.attr_source = EMPTY_TREE[object_format]
+    git.object_format = object_format
 
 
 def _check_config_in(git: Git, directory: Path) -> None:
@@ -1230,6 +1255,390 @@ def rebase_onto(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"rebased {branch} in {worktree.path} onto {onto}: {previous} -> {rebased} ({count} commits)"
 
 
+#: Tracked paths that steer an agent harness or this dispatcher: settings,
+#: hooks, skills, agents, MCP servers, plugin manifests and the vetted-ops
+#: policy. Harnesses keep them read-only in the sandbox because what they say
+#: runs outside it, which is also why a branch switch inside the sandbox fails
+#: half-way. `git-switch` writes them, so it only ever writes a version that
+#: came from upstream. A project adds its own with `[git] harness_paths`.
+HARNESS_PATHS = (
+    ".claude",
+    ".agents",
+    ".codex",
+    ".gemini",
+    ".github/skills",
+    ".mcp.json",
+    ".claude-plugin",
+    ".apache-magpie-overrides/tools/vetted-ops",
+    ".apache-magpie-local/tools/vetted-ops",
+    # A Subversion working copy's personal layer; a tree can carry `.svn` as plain files.
+    ".svn/apache-magpie/tools/vetted-ops",
+)
+
+
+def _path_key(path: str) -> str:
+    """``path`` as a case-insensitive, normalising file system sees it.
+
+    On such a file system (macOS by default) a tracked `.Claude/settings.json`
+    is written to `.claude/settings.json`, and HFS+ also drops Unicode format
+    characters, so a byte-exact comparison would miss both.
+    """
+    composed = unicodedata.normalize("NFC", path)
+    return "".join(c for c in composed if unicodedata.category(c) != "Cf").casefold()
+
+
+def is_harness_path(path: str, extra: Sequence[str] = ()) -> bool:
+    """Whether ``path`` is, is inside, or stands in for a directory of a harness path, at any depth.
+
+    Any depth, because harnesses also read nested `.claude/` directories. And
+    an ancestor counts (a tracked `.github` or `.apache-magpie-overrides/tools`
+    entry), because a symlink there would redirect every harness path below it.
+    ``extra`` are the policy's `harness_paths`.
+    """
+    keys = [_path_key(h) for h in (*HARNESS_PATHS, *extra)]
+    parts = _path_key(path).split("/")
+    for start in range(len(parts)):
+        tail = "/".join(parts[start:])
+        if any(tail == h or tail.startswith(f"{h}/") or h.startswith(f"{tail}/") for h in keys):
+            return True
+    return False
+
+
+def _upstream_base(git: Git, policy: GitPolicy, worktree: Worktree, fetch: bool = True) -> str | None:
+    """The upstream ``pr_base`` commit, asked of the policy's URL now, with its objects present.
+
+    Never a local ref: `refs/remotes/...` lives in the agent-writable `.git`,
+    so a ref there could name a commit of the agent's own as "upstream". The
+    objects behind the answer are then read through `_VerifiedObjects`, so a
+    forged object stored under that name is caught too. Without ``fetch`` (a
+    dry run) a commit not yet in the repository is None.
+    """
+    url = policy.push_url(policy.upstream_repo)
+    ref = f"refs/heads/{policy.pr_base}"
+    # The URL is built from the policy and starts with a scheme or `git@`, never `-`.
+    lines = git.run(worktree.path, "ls-remote", url, ref).splitlines()
+    found = [line.split("\t", 1)[0] for line in lines if line.endswith(f"\t{ref}")]
+    if len(found) != 1 or not _SHA.match(found[0]):
+        raise GitRefused(f"{policy.upstream_repo} has no branch {policy.pr_base!r} to check against")
+    base = found[0]
+    if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
+        if not fetch:
+            return None
+        git.run(
+            worktree.path, "fetch", "--no-tags", "--no-recurse-submodules", "--no-write-fetch-head", url, ref
+        )
+    if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
+        raise GitRefused(
+            f"upstream {policy.pr_base} ({base}) is missing or damaged in the repository even after fetching "
+            "it: it moved meanwhile (retry), or the object store has been tampered with"
+        )
+    return base
+
+
+#: Tree entry modes `git-switch` writes as files: regular, executable, symlink.
+_FILE_MODES = ("100644", "100755", "120000")
+#: Every mode a well-formed tree uses; `git fsck` flags any other spelling.
+_TREE_MODES = ("40000", *_FILE_MODES, "160000")
+#: Commits read to confirm the fork point is upstream's, at most.
+MAX_ANCESTRY = 200_000
+
+
+class _VerifiedObjects:
+    """Objects read from the repository and re-hashed before they are believed.
+
+    The object store is in the agent-writable `.git`, and git does not re-hash
+    what it reads, so a loose object holding other content under a name would
+    be taken as genuine. Every object here is hashed again and must match the
+    name it was asked for, so a walk that starts from a commit name obtained
+    from the forge reads only content the forge's history really holds.
+    """
+
+    def __init__(self, git: Git, directory: Path) -> None:
+        self.git = git
+        self.directory = directory
+        self.cache: dict[str, tuple[str, bytes]] = {}
+
+    def read(self, oids: Sequence[str]) -> None:
+        wanted = [oid for oid in dict.fromkeys(oids) if oid not in self.cache]
+        if not wanted:
+            return
+        output = self.git.run_bytes(
+            self.directory, "cat-file", "--batch", stdin="".join(f"{o}\n" for o in wanted)
+        )
+        at = 0
+        for oid in wanted:
+            end = output.index(b"\n", at)
+            header = output[at:end].decode("ascii", "replace").split()
+            if len(header) != 3 or header[0] != oid:
+                raise GitRefused(f"object {oid} is missing from the repository")
+            kind, size = header[1], int(header[2])
+            body = output[end + 1 : end + 1 + size]
+            at = end + 1 + size + 1
+            digest = hashlib.new(self.git.object_format, f"{kind} {size}\0".encode() + body).hexdigest()
+            if digest != oid:
+                raise GitRefused(
+                    f"object {oid} in the repository holds other content (it hashes to {digest}); "
+                    "the object store has been tampered with"
+                )
+            self.cache[oid] = (kind, body)
+
+    def get(self, oid: str, kind: str) -> bytes:
+        self.read([oid])
+        found, body = self.cache[oid]
+        if found != kind:
+            raise GitRefused(f"object {oid} is a {found}, not a {kind}")
+        return body
+
+    def _commit_lines(self, oid: str) -> list[list[str]]:
+        head = self.get(oid, "commit").split(b"\n\n", 1)[0].decode("utf-8", "replace")
+        return [line.split(" ", 1) for line in head.split("\n") if " " in line]
+
+    def parents(self, oid: str) -> list[str]:
+        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.match(value)]
+
+    def is_ancestor(self, ancestor: str, of: str, hint: Sequence[str] = ()) -> bool:
+        """Whether ``ancestor`` is reachable from ``of`` through verified parent links.
+
+        ``hint`` (commits git lists in between) is only read ahead in one batch;
+        nothing in it is believed until a verified parent link reaches it.
+        """
+        self.read([of, *hint])
+        seen = {of}
+        frontier = [of]
+        while frontier:
+            if ancestor in seen:
+                return True
+            if len(seen) > MAX_ANCESTRY:
+                raise GitRefused(f"{of} is more than {MAX_ANCESTRY} commits from {ancestor}; switch by hand")
+            self.read(frontier)
+            nxt = [p for oid in frontier for p in self.parents(oid) if p not in seen]
+            seen.update(nxt)
+            frontier = list(dict.fromkeys(nxt))
+        return ancestor in seen
+
+    def harness_entries(self, commit: str, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
+        """Every harness path in ``commit``'s tree, as ``{path: (mode, oid)}``, walked through verified trees."""
+        trees = [value for key, value in self._commit_lines(commit) if key == "tree"]
+        if len(trees) != 1 or not _SHA.match(trees[0]):
+            raise GitRefused(f"commit {commit} has no single tree line")
+        width = 32 if self.git.object_format == "sha256" else 20
+        entries: dict[str, tuple[str, str]] = {}
+        level = [("", trees[0])]
+        while level:
+            self.read([oid for _, oid in level])
+            below: list[tuple[str, str]] = []
+            for prefix, oid in level:
+                raw = self.get(oid, "tree")
+                at = 0
+                while at < len(raw):
+                    space = raw.index(b" ", at)
+                    nul = raw.index(b"\0", space)
+                    mode = raw[at:space].decode("ascii", "replace")
+                    name = raw[space + 1 : nul].decode("utf-8", "surrogateescape")
+                    child = raw[nul + 1 : nul + 1 + width].hex()
+                    at = nul + 1 + width
+                    # Git's own walker accepts other spellings of a mode (`040000`); refusing
+                    # them keeps this walk and the checkout reading the same tree.
+                    if mode not in _TREE_MODES or name in ("", ".", "..") or "/" in name:
+                        raise GitRefused(f"tree {oid} has a malformed entry {mode} {name!r}")
+                    path = f"{prefix}{name}"
+                    if mode == "40000":
+                        below.append((f"{path}/", child))
+                    elif is_harness_path(path, extra):
+                        entries[path] = (mode, child)
+            level = below
+        return entries
+
+
+def _plain_directories(root: Path, parts: Sequence[str]) -> bool:
+    """Whether every directory on ``parts`` under ``root`` exists; a symlink on the way fails closed."""
+    here = root
+    for part in parts:
+        here = here / part
+        try:
+            st = os.lstat(here)
+        except FileNotFoundError:
+            return False
+        if not stat.S_ISDIR(st.st_mode):
+            raise GitRefused(f"{str(here.relative_to(root))!r} is not a plain directory")
+    return True
+
+
+def _restore_written(
+    worktree: Worktree, entries: dict[str, tuple[str, str]], objects: _VerifiedObjects
+) -> list[str]:
+    """Re-hash each harness file the switch wrote, and put back verified content where it differs.
+
+    Git read those files from the same object store, and something could have
+    changed an object between the walk and the checkout; this is the check that
+    what is on disk is what was verified. A missing file whose directory exists
+    is written too; a missing directory is a sparse checkout and is left alone.
+    """
+    restored = []
+    for path, (mode, oid) in sorted(entries.items()):
+        if mode not in _FILE_MODES:
+            continue
+        content = objects.get(oid, "blob")
+        parts = Path(path).parts
+        if not _plain_directories(worktree.path, parts[:-1]):
+            continue  # not written: a sparse checkout
+        dir_fd = open_dir((worktree.path / path).parent)
+        name = parts[-1]
+        try:
+            try:
+                st: os.stat_result | None = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                st = None
+            ok = False
+            if st is not None and mode == "120000":
+                ok = stat.S_ISLNK(st.st_mode) and os.readlink(name, dir_fd=dir_fd).encode() == content
+            elif st is not None and stat.S_ISREG(st.st_mode):
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
+                with os.fdopen(fd, "rb") as handle:
+                    ok = stat.S_ISREG(os.fstat(handle.fileno()).st_mode) and handle.read() == content
+            if ok:
+                continue
+            temp = f".{name}.vetted-op-git-{os.urandom(8).hex()}"
+            if mode == "120000":
+                os.symlink(content, temp, dir_fd=dir_fd)
+            else:
+                fd = os.open(
+                    temp,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o755 if mode == "100755" else 0o644,
+                    dir_fd=dir_fd,
+                )
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(content)
+            os.replace(temp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+            restored.append(path)
+        finally:
+            os.close(dir_fd)
+    return restored
+
+
+def _index_harness_entries(git: Git, worktree: Worktree, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
+    """The harness entries of the index the checkout just wrote, as ``{path: (mode, oid)}``."""
+    entries = {}
+    for record in git.run(worktree.path, "ls-files", "--stage", "-z").split("\0"):
+        if not record:
+            continue
+        info, _, path = record.partition("\t")
+        mode, oid, _stage = info.split(" ")
+        if is_harness_path(path, extra):
+            entries[path] = (mode, oid)
+    return entries
+
+
+def _checked_out_elsewhere(git: Git, worktree: Worktree, branch: str) -> str | None:
+    """The other working tree that has ``branch`` checked out, if any."""
+    current = None
+    for line in git.run(worktree.path, "worktree", "list", "--porcelain").splitlines():
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :]
+        elif (
+            line == f"branch refs/heads/{branch}"
+            and current is not None
+            and os.path.realpath(current) != str(worktree.path)
+        ):
+            return current
+    return None
+
+
+def switch_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Switch a clean working tree to an existing local branch.
+
+    Inside the sandbox a switch fails half-way: the harness keeps its files
+    (`HARNESS_PATHS`, plus the policy's `harness_paths`) read-only, so git
+    updates everything else, leaves those behind and reports them as local
+    changes. Out here it can write them, and that is the risk: a branch whose
+    own commits change `.claude/settings.json` or a hook would be installed by
+    a confirmation that shows only a branch name. So the branch's harness
+    files must be upstream's from where the branch left it: any branch that
+    did not change them itself switches, however old.
+
+    - The upstream commit is asked of the policy's URL during this call, so a
+      local ref the agent moved cannot stand in for it.
+    - The fork point must be reached from it through verified parent links,
+      and both trees are walked through `_VerifiedObjects`, so a forged
+      object or a forged history in the agent-writable `.git` is refused.
+    - After the checkout, the index's harness entries must be the verified
+      ones, and every harness file on disk is hashed again; any that differs
+      is replaced with the verified content.
+
+    The files written are those of the commit checked here, whatever the
+    branch name points at later.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if not git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        raise GitRefused(f"there is no local branch {branch!r}; git-switch never creates one")
+    elsewhere = _checked_out_elsewhere(git, worktree, branch)
+    if elsewhere:
+        raise GitRefused(
+            f"{branch!r} is checked out in {elsewhere}; a branch is checked out in one place only"
+        )
+    target = git.run(worktree.path, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}").strip()
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    args = ["switch", "--detach", "--no-recurse-submodules", target]
+    base = _upstream_base(git, policy, worktree, fetch=not dry_run)
+    if base is None:
+        return " ".join(git.argv(worktree.path, *args)) + f"  # after fetching {policy.pr_base}"
+    merge_base = git._call(worktree.path, "merge-base", target, base)[1]
+    if merge_base.returncode != 0:
+        raise GitRefused(f"{branch!r} shares no history with upstream {policy.pr_base}")
+    fork_point = merge_base.stdout.strip()
+    objects = _VerifiedObjects(git, worktree.path)
+    between = git.run(worktree.path, "rev-list", f"{base}", f"^{fork_point}").split()
+    if not objects.is_ancestor(fork_point, base, between):
+        raise GitRefused(
+            f"{fork_point}, where git says {branch!r} left {policy.pr_base}, is not in upstream's history; "
+            "the repository's history has been tampered with"
+        )
+    expected = objects.harness_entries(fork_point, policy.harness_paths)
+    found = objects.harness_entries(target, policy.harness_paths)
+    own = sorted(path for path in expected.keys() | found.keys() if expected.get(path) != found.get(path))
+    if own:
+        shown = ", ".join(own[:10]) + (" …" if len(own) > 10 else "")
+        raise GitRefused(
+            f"{branch!r} changes {shown} in its own commits; those files steer the agent harness "
+            "outside the sandbox, so only you may switch to it"
+        )
+    # Read now, so the restore below needs nothing from the store after the checkout.
+    objects.read([oid for mode, oid in found.values() if mode in _FILE_MODES])
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    check_repository_config(git, worktree)
+    previous = git.run(worktree.path, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    git.run(worktree.path, *args)
+    try:
+        written = _index_harness_entries(git, worktree, policy.harness_paths)
+        if written != found:
+            extra_paths = sorted(set(written) - set(found))
+            raise GitRefused(
+                "the checkout wrote harness entries other than the verified ones"
+                + (f" ({', '.join(extra_paths[:10])})" if extra_paths else "")
+            )
+        restored = _restore_written(worktree, found, objects)
+    except (GitRefused, OSError) as exc:
+        raise GitRefused(
+            f"checked out {target} in {worktree.path} with a detached HEAD, but its harness files could not "
+            f"be verified ({exc}); check them by hand before running anything there"
+        ) from None
+    note = f"; put back the verified content of {', '.join(restored)}" if restored else ""
+    git.run(worktree.path, "symbolic-ref", "HEAD", f"refs/heads/{branch}")
+    # Attached only to the commit that was checked: a branch moved meanwhile leaves HEAD detached there.
+    if git.run(worktree.path, "rev-parse", "--verify", "HEAD^{commit}").strip() != target:
+        git.run(worktree.path, "update-ref", "--no-deref", "HEAD", target)
+        return (
+            f"checked out {target} in {worktree.path} (from {previous}) with a detached HEAD: "
+            f"{branch} moved during the switch, so it was not attached{note}"
+        )
+    return f"switched {worktree.path} from {previous} to {branch} at {target}{note}"
+
+
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Create a linked worktree on a new branch, inside a policy worktree root."""
     checkout = resolve_worktree(git, p["checkout"], policy, "checkout")
@@ -1531,6 +1940,13 @@ OPS: dict[str, GitOp] = {
             "branch git-fetch brought in; <expected> is the branch's current full SHA. Re-signs per "
             "the user's global git config; on a conflict, aborts and names the conflicting paths",
             rebase_onto,
+        ),
+        GitOp(
+            "git-switch",
+            ("worktree", "branch"),
+            "switch a clean working tree to an existing local <branch>; refused when the branch's own "
+            "commits change a file that steers the agent harness (.claude/, hooks, skills, the policy)",
+            switch_branch,
         ),
         GitOp(
             "git-worktree-add",

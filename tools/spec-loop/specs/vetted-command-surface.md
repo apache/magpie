@@ -401,7 +401,14 @@ fast-forwards an open upstream pull request's head branch, named by the
 caller so the confirmation shows it and checked against what the forge
 reports, leased on the head the caller built on, at most ten non-merge
 commits on top; a contributor's fork only when its author allows maintainer
-edits), `git-worktree-sync` (`reset --keep` of a
+edits),
+`git-switch` (a clean working tree to an existing local branch, only when
+the branch's own commits leave its files that steer the agent harness,
+plus the policy's `harness_paths`, as upstream's `pr_base` had them where
+the branch left it: that commit asked of the policy's URL during the
+call, both trees walked through objects re-hashed against their names,
+and every harness file written hashed again after the checkout),
+`git-worktree-sync` (`reset --keep` of a
 clean linked worktree), `git-rebase` (a clean, non-protected topic branch with no
 merge commits onto a full SHA of the upstream `pr_base`, which the operation
 fetches itself from the policy URL and checks against that fetch's own result;
