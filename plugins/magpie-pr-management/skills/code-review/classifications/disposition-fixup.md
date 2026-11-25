@@ -14,7 +14,7 @@ Instead of asking the contributor for another round over small, mechanical point
    Then create the worktree with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller pr-management-code-review git-worktree-add <checkout> <path> <local-branch> <head-sha>`, confirmed by the maintainer.
    When no `[git]` values are configured for this project, every `vetted-op-git` step refuses: hand the maintainer each git command instead, starting with `git worktree add -b <local-branch> <path> <head-sha>`.
 2. **Apply exactly the `fixup.changes`**, nothing else. No drive-by edits, no behaviour beyond what each finding names.
-3. **Run the checks** for what was touched: the affected tool's tests, then `uvx --from ~/.claude/magpie/vetted-ops vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox, which runs the hooks on those paths and records what passed.
+3. **Run the checks** for what was touched: the affected tool's tests, then `uvx --from ~/.cache/apache-magpie/vetted-ops/current vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox, which runs the hooks on those paths and records what passed.
    `git-commit` refuses a staged path this record does not hold as it is staged, so never skip it.
    If a fixup turns out bigger than its one-line description, or a check fails, abandon it and fall back to `COMMENT` with the findings.
    To abandon it, discard the edits in the sandbox (`git -C <worktree> restore .`), then remove the worktree with `… git-worktree-remove <worktree>`, which refuses a worktree with changes.

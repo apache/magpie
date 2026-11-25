@@ -1128,8 +1128,10 @@ def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
         *settings.get("sandbox", {}).get("excludedCommands", []),
         *json.loads(template.read_text()).get("sandbox", {}).get("excludedCommands", []),
     ]
-    command = f"uvx --from ~/.claude/magpie/vetted-ops {checks.PROG} /wt /ws/p"
-    assert not [p for p in excluded if fnmatch.fnmatchcase(command, p)]
+    for base in ("~/.claude/magpie/vetted-ops", "~/.cache/apache-magpie/vetted-ops/current"):
+        for launcher in ("uvx --from", "uv run --project"):
+            command = f"{launcher} {base} {checks.PROG} /wt /ws/p"
+            assert not [p for p in excluded if fnmatch.fnmatchcase(command, p)], command
 
 
 def test_fetch_writes_the_upstream_remote_tracking_ref(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
