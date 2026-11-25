@@ -103,8 +103,8 @@ class VerifyRc:
 
     @property
     def is_podling(self) -> bool:
-        """A recorded `project_stage: incubating`; an unset stage is never a podling."""
-        return self.project_stage == "incubating"
+        """A recorded `project_stage: incubating` of an ASF project; an unset stage is never a podling."""
+        return self.is_asf and self.project_stage == "incubating"
 
     @property
     def ci_automated(self) -> bool:

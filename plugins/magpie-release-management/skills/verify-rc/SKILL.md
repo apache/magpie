@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 7127
+measured_tokens: 7386
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

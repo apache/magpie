@@ -122,7 +122,8 @@ def invocations(
     if v.is_asf and v.project_stage is None:
         warnings.append(
             "project_stage is unset: record `incubating` or `top-level` in release-management-config.md "
-            "so the podling checks are decided by the config; no disclaimer check is emitted"
+            "so the podling checks are decided by the config; "
+            + ("--podling was forced on this run" if is_podling else "no disclaimer check is emitted")
         )
     if not v.artefacts:
         warnings.append("release-build.md § Expected artefact list names no artefact: fill it before Step 1")

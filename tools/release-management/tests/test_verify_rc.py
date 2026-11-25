@@ -1392,6 +1392,14 @@ def test_args_unset_project_stage_is_silent_for_a_non_asf_adopter() -> None:
 def test_args_podling_flag_overrides_an_unset_project_stage() -> None:
     out = args_mod.invocations(vrc(), podling=True)
     assert out["podling"] is True and "--podling" in out["commands"]["notice-license"]
+    assert any("--podling was forced on this run" in w for w in out["warnings"])
+    assert not any("no disclaimer check is emitted" in w for w in out["warnings"])
+
+
+def test_a_non_asf_project_stage_never_makes_a_podling() -> None:
+    v = vrc(organization="independent", config={"project_stage": "incubating"})
+    assert v.is_podling is False
+    assert "--podling" not in args_mod.invocations(v)["commands"]["notice-license"]
 
 
 @pytest.mark.parametrize("stage", ["podling", "TLP", "incubated"])
