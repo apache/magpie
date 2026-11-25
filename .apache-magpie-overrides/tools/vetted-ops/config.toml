@@ -199,6 +199,7 @@ close_reasons = ["completed", "not planned"]
 "setup-upstream-fix" = [
     "git-fetch",
     "git-worktree-add",
+    "git-rebase",
     "git-stage",
     "git-commit",
     "git-push-branch",
@@ -207,6 +208,7 @@ close_reasons = ["completed", "not planned"]
 "setup-override-upstream" = [
     "git-fetch",
     "git-worktree-add",
+    "git-rebase",
     "git-stage",
     "git-commit",
     "git-push-branch",
