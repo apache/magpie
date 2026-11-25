@@ -5,5 +5,5 @@
 
 {report}
 
-The user accepted the offer to commit the default set. Decide how to write it.
+The user accepted the offer to commit the default set. Say what the merge rules require: `create`, `merge`, or `refuse`.
 Return JSON only.

@@ -9,6 +9,7 @@
   - [Prerequisites](#prerequisites)
   - [Why it is installed into the project](#why-it-is-installed-into-the-project)
   - [Invocation](#invocation)
+  - [Derived wiring merge](#derived-wiring-merge)
   - [Output](#output)
     - [The scopes](#the-scopes)
   - [Two rules that are the reason this is code](#two-rules-that-are-the-reason-this-is-code)
@@ -144,6 +145,32 @@ In the framework checkout, the same thing through the workspace:
 ```bash
 uv run --directory tools/setup-preflight --project . setup-preflight --skill … --hash …
 ```
+
+## Derived wiring merge
+
+`setup adopt` Step 3 derives the marketplace entry, the `enabledPlugins`
+entries and the MCP allows from `.apache-magpie.lock`, and merges them into
+`.claude/settings.json` without touching anything else.
+That merge runs here too, so the step is a named operation instead of code
+the agent composes:
+
+```bash
+uv run --project tools/setup-preflight setup-settings-merge            # report only
+uv run --project tools/setup-preflight setup-settings-merge --write    # apply
+```
+
+`--settings`, `--lock` and `--registry` default to `.claude/settings.json`,
+`.apache-magpie.lock` and the `family-mcp-allows.json` shipped beside this
+package.
+The command adds the missing marketplace definition, the floor's missing
+plugin entries (plus `magpie-vetted-ops@apache-magpie` when an older lock
+omits it) and the derived `mcp__…` allows, in that order.
+It never removes an entry and never rewrites an existing `apache-magpie`
+marketplace definition, so a pinned one stays pinned.
+A file that does not parse, or a block of the wrong JSON type, is refused:
+the command prints the `refuse` report, exits non-zero and leaves the file
+alone.
+Without `--write` nothing is written.
 
 ## Output
 

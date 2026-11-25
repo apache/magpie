@@ -193,8 +193,20 @@ Run the commands, then read the result against the **merge rules**
 below before staging. Those rules are the contract however the file
 got written: the CLI is not Magpie's code, and a settings file it
 changed in a way they forbid is a finding rather than a fait accompli.
-Where the CLI is absent, or its result breaks a rule, write the file
-yourself to the same rules.
+
+Where the CLI is absent, or it cannot derive the MCP allows, run the
+shipped merge instead of writing the file by hand:
+
+```bash
+uv run --project <framework>/tools/setup-preflight setup-settings-merge
+```
+
+It prints the entries it would add and writes nothing until `--write`
+is passed, so show the maintainer that report and the `git diff` after
+the write, exactly as for the CLI's own result. It refuses a file that
+does not parse rather than replacing it. Where the CLI's result breaks
+a merge rule, report the finding and leave the file as it was; do not
+patch it by hand.
 
 **Write the marketplace entry untagged** — `"repo": "apache/magpie"`,
 with no `@version`. The floor is a minimum, and tagging the marketplace
