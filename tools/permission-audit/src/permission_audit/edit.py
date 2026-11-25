@@ -21,6 +21,9 @@ writes the same file's `sandbox.filesystem.*` arrays) must not
 silently clobber each other. The edit path is:
 
 1. POSIX `fcntl.flock` advisory exclusive lock on the target file.
+   If a competing writer replaced (or removed) the file while we
+   waited, the lock is on the old inode: drop it and start again on
+   the file now at the path (giving up after `_LOCK_ATTEMPTS` tries).
 2. Re-parse the file under the lock (so the in-memory copy reflects
    any change a competing writer landed between our audit pass and
    our edit pass).
@@ -48,6 +51,11 @@ import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
+
+# Each retry means another writer finished an edit while we waited for the
+# lock; give up rather than spin if the file never stops being replaced.
+_LOCK_ATTEMPTS = 100
 
 
 @dataclass(frozen=True)
@@ -55,6 +63,35 @@ class EditOutcome:
     added: list[str]
     removed: list[str]
     file_was_created: bool
+
+
+def _is_file_at(fh: TextIO, path: Path) -> bool:
+    """True when `path` still names the file open on `fh`."""
+    locked = os.fstat(fh.fileno())
+    try:
+        current = os.stat(path)
+    except FileNotFoundError:
+        return False
+    return os.path.samestat(locked, current)
+
+
+def _lock_current(settings_path: Path) -> TextIO | None:
+    """Open `settings_path` in r+ mode and take the exclusive lock on it.
+
+    Returns None when, by the time the lock is granted, the path no longer
+    names the locked file: another writer's `os.replace` (or a removal)
+    landed while we waited, so the lock and the content behind it are stale.
+    """
+    fh = settings_path.open("r+", encoding="utf-8")
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        if _is_file_at(fh, settings_path):
+            return fh
+    except BaseException:
+        fh.close()
+        raise
+    fh.close()  # closing the descriptor releases its lock
+    return None
 
 
 def apply_changes(
@@ -86,21 +123,30 @@ def apply_changes(
             `create_if_missing` is False.
         ValueError: if the file exists but is not valid JSON, or
             if `permissions.allow` is present but not a list.
+        RuntimeError: if another writer replaced the file every time
+            the lock was granted, `_LOCK_ATTEMPTS` times in a row.
     """
     additions_list = list(additions)
     removals_set = set(removals)
     file_was_created = False
 
-    if not settings_path.exists():
-        if not create_if_missing:
-            raise FileNotFoundError(settings_path)
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text("{}\n", encoding="utf-8")
-        file_was_created = True
+    for _attempt in range(_LOCK_ATTEMPTS):
+        if not settings_path.exists():
+            if not create_if_missing:
+                raise FileNotFoundError(settings_path)
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            settings_path.write_text("{}\n", encoding="utf-8")
+            file_was_created = True
+        locked_fh = _lock_current(settings_path)
+        if locked_fh is not None:
+            break
+    else:
+        raise RuntimeError(
+            f"{settings_path}: another writer replaced the file each time it was locked "
+            f"({_LOCK_ATTEMPTS} attempts); not editing it"
+        )
 
-    # Open in r+ mode so we can lock + re-read under the lock.
-    with settings_path.open("r+", encoding="utf-8") as fh:
-        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+    with locked_fh as fh:
         try:
             fh.seek(0)
             raw = fh.read()
