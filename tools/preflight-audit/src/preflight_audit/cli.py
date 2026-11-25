@@ -20,7 +20,7 @@ Two modes:
 
 - **Live**: ``preflight-audit classify --repo o/r --issues 1,2,3``
   shells out to `gh api graphql` and prints the classification.
-- **Replay**: ``preflight-audit classify --load response.json``
+- **Replay**: ``preflight-audit classify --load response.json --now <ISO-8601>``
   reads a pre-fetched GraphQL response and classifies it. Useful
   for CI eval fixtures and deterministic regression tests.
 """
@@ -116,6 +116,10 @@ def _format_json(items: list[Classification]) -> str:
 
 
 def _cmd_classify(args: argparse.Namespace) -> int:
+    if args.load and not args.now:
+        sys.stderr.write("error: --now is required with --load (replay mode must be deterministic)\n")
+        return 2
+
     if args.load:
         response = json.loads(Path(args.load).read_text(encoding="utf-8"))
     else:
@@ -161,7 +165,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_cls.add_argument(
         "--now",
-        help="ISO-8601 timestamp to use as 'now' (deterministic replay; default: real time)",
+        help=(
+            "ISO-8601 timestamp to use as 'now' (required with --load; defaults to real time in live mode)"
+        ),
     )
     p_cls.add_argument(
         "--bot-logins",
