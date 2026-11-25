@@ -418,6 +418,9 @@ plus the policy's `harness_paths`, as upstream's `pr_base` had them where
 the branch left it: that commit asked of the policy's URL during the
 call, both trees walked through objects re-hashed against their names,
 and every harness file written hashed again after the checkout),
+`git-switch-create` (a new, non-protected topic branch at upstream's
+`pr_base` as the policy's URL reports it during the call, then `git-switch`
+to it; a branch it could not switch to is deleted again),
 `git-worktree-sync` (`reset --keep` of a
 clean linked worktree), `git-rebase` (a clean, non-protected topic branch with no
 merge commits onto a full SHA of the upstream `pr_base`, which the operation

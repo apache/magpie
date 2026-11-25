@@ -2568,3 +2568,87 @@ def test_merge_upstream_takes_back_a_merge_onto_a_branch_moved_as_it_started(
     with pytest.raises(GitRefused, match="taken back off"):
         _merge(raced, policy, repo, onto, tip)
     assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"
+
+
+# --- git-switch-create -----------------------------------------------------
+
+
+def _switch_create(git: Git, policy: GitPolicy, worktree: Path, branch: str, dry_run: bool = False) -> str:
+    return git_ops.switch_create(git, policy, {"worktree": str(worktree), "branch": branch}, dry_run)
+
+
+def _upstream_moves_with_settings(repo: Path) -> str:
+    """Upstream main gains a commit that changes the settings; the checkout stays on an older branch."""
+    _git(repo, "checkout", "-q", "-b", "work")
+    _git(repo, "checkout", "-q", "-b", "upstream-next", "main")
+    upstream = _settings(repo, '{"v": 2}', "upstream moves settings")
+    _git(
+        repo,
+        "push",
+        "-q",
+        str(repo.parent / "remotes" / "acme__project.git"),
+        "upstream-next:refs/heads/main",
+    )
+    _git(repo, "checkout", "-q", "work")
+    _git(repo, "branch", "-q", "-D", "upstream-next")
+    return upstream
+
+
+def test_switch_create_starts_a_branch_where_upstream_is_now(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    upstream = _upstream_moves_with_settings(repo)
+    out = _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "fix-thing"
+    # Upstream's own settings arrive with the new branch.
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 2}'
+    assert "created fix-thing at upstream main" in out
+
+
+def test_switch_create_ignores_a_local_ref_naming_another_upstream(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """The start is asked of the policy's URL, never read from `refs/remotes/upstream/main`."""
+    upstream = _upstream_moves_with_settings(repo)
+    planted = _commit(repo, "agent-made")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", planted)
+    _git(repo, "reset", "-q", "--hard", "HEAD~1")
+    _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+
+
+def test_switch_create_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "branch", "existing")
+    with pytest.raises(GitRefused, match="already exists"):
+        _switch_create(git, policy, repo, "existing")
+    with pytest.raises(GitRefused, match="protected"):
+        _switch_create(git, policy, repo, "release-1.0")
+    (repo / "one").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _switch_create(git, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+
+
+def test_switch_create_removes_a_branch_it_could_not_switch_to(policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    plain = _runner(os.devnull)
+
+    def failing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "switch" in argv:
+            return subprocess.CompletedProcess(argv, 1, "", "error: simulated checkout failure\n")
+        return plain(argv, env, cwd_fd)
+
+    broken = Git(runner=failing, protocols=("https", "ssh", "file"))
+    with pytest.raises(git_ops.GitFailed):
+        _switch_create(broken, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "main"
+
+
+def test_switch_create_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    command = _switch_create(git, policy, repo, "fix-thing", dry_run=True)
+    assert "fix-thing" in command and "git-switch" in command
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
