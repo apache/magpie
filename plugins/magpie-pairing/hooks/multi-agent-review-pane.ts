@@ -1075,16 +1075,12 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
 
                     // Open the comparison pane and invalidate UI
                     try {
-                      if ($.ui && typeof $.ui.open === 'function') {
-                        await $.ui.open({ component: 'Pane' });
-                      }
+                      await $.ui.open({ component: 'Pane' });
                     } catch {
                       // Fail-open
                     }
                     try {
-                      if ($.ui && typeof $.ui.invalidate === 'function') {
-                        $.ui.invalidate('ui.render');
-                      }
+                      $.ui.invalidate('ui.render');
                     } catch {
                       // Fail-open
                     }
