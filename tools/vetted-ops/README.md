@@ -201,7 +201,9 @@ upstream = "acme/product"
 
 [values]
 labels        = ["needs triage", "security issue", "cve allocated", "pr merged"]
-upstream_labels = ["ready for maintainer review", "area:scheduler"]  # issues *and* PRs
+# Issues *and* PRs. List every label a skill may set, by name: a publishing
+# skill labels the pull request it opened with pr-add-label, one per call.
+upstream_labels = ["ready for maintainer review", "area:scheduler"]
 milestones    = ["1.2.3", "1.3.0"]
 # Optional: full-match patterns that widen the list above (see below).
 milestones_patterns = ['Providers \d{4}-\d{2}-\d{2}']
@@ -261,9 +263,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                             "git-push-branch", "git-pr-create"]
 "setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-switch", "git-stage",
-                           "git-commit", "git-push-branch", "git-pr-create"]
+                           "git-commit", "git-push-branch", "git-pr-create", "pr-add-label"]
 "setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-switch", "git-stage", "git-commit",
-                             "git-push-branch", "git-pr-create"]
+                             "git-push-branch", "git-pr-create", "pr-add-label"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
                            "board-item", "board-add-item", "board-set-status",
