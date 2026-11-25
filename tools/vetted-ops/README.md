@@ -237,7 +237,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set",
                            # vetted-op-git: from a change to an open pull request.
                            "git-fetch", "git-worktree-add", "git-worktree-sync",
-                           "git-worktree-remove", "git-stage", "git-commit",
+                           "git-rebase", "git-worktree-remove", "git-stage", "git-commit",
                            "git-push-branch", "git-pr-create"]
 # The other skills that publish a change through vetted-op-git
 # (each skill's vetted-git-publish.md names its caller). Grant only the
@@ -249,7 +249,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "git-push-branch"]
 "release-prepare"       = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                            "git-push-branch"]
-"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync", "git-rebase",
                             "git-stage", "git-commit", "git-push-branch", "git-pr-create"]
 "release-audit-report"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                            "git-push-branch", "git-pr-create"]
@@ -260,8 +260,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Only in a policy whose [repos] upstream is the site repository / apache/magpie.
 "release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                             "git-push-branch", "git-pr-create"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
+"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-stage",
+                           "git-commit", "git-push-branch", "git-pr-create"]
 "setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
                              "git-push-branch", "git-pr-create"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
@@ -849,6 +849,10 @@ used to end in a command the user pasted into their own terminal:
   shared object store, and a signed commit needs the user's key (its PIN and
   touch), which the sandbox does not reach.
 - **Fetching over SSH**, for the same reason as pushing.
+- **Rebasing a signed branch.** A rebase re-creates every commit it replays,
+  so it signs each one with the user's key, which the sandbox does not reach;
+  and the replayed commits can change paths the harness keeps read-only, such
+  as `.claude/settings.json`.
 - **Opening the pull request.** Raw `gh pr create` runs unconfirmed, and the
   publication guard refuses its text when it cannot read the body file.
 
@@ -861,6 +865,7 @@ command, and every step is still confirmed by the user:
 |---|---|---|
 | `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
+| `git-rebase` | `worktree onto expected` | Rebases the clean topic branch checked out in `worktree` (never a protected one) onto `onto`, a full SHA on the upstream `pr_base`: the operation fetches `pr_base` itself, from the policy's URL, and checks `onto` against the commit that fetch returned, never against a remote-tracking ref a sandboxed fetch could also write. `expected` is the branch's current full SHA, so a branch that moved after the user approved the call is refused, and one that moves while the rebase starts is put back where it was. A branch with merge commits over `onto` is refused, since a rebase would flatten them. Signing follows the user's global git configuration; no recorded resolution (`rerere`), stash, editor or hook takes part. On a conflict it aborts, leaves the branch where it was, and names the conflicting paths: resolve them in the sandbox and commit with `git-commit`. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
 | `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |
@@ -869,7 +874,8 @@ command, and every step is still confirmed by the user:
 | `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`). |
 
 From a change to an open pull request, then, with each step confirmed:
-`git-worktree-add` (or `git-fetch` + `git-worktree-sync` to refresh one), edit in
+`git-worktree-add` (or `git-fetch` + `git-worktree-sync` to refresh one, or
+`git-fetch` + `git-rebase` to bring a topic branch up to date), edit in
 the sandbox, `vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox,
 `git-stage` with the same paths file, `git-commit`,
 `git-push-branch … fork <branch> new`, `git-pr-create`.
@@ -1001,9 +1007,10 @@ What makes running git unsandboxed acceptable here:
   approved copy checks the parameters and runs no git command; only an
   approved policy prints the command it would run.
 
-Everything else git does in a sandboxed session stays there. Rewriting history
-for a branch checked out in a worktree you did not create is done in a scratch
-clone (`git clone --shared <checkout> <scratch>`), fetched back into the main
+Everything else git does in a sandboxed session stays there. A plain rebase
+onto an upstream `pr_base` commit is `git-rebase`. Any other history rewrite for
+a branch checked out in a worktree you did not create (a squash, a reorder, a
+conflict resolution, a branch with merge commits) is done in a scratch clone (`git clone --shared <checkout> <scratch>`), fetched back into the main
 checkout, pushed with `git-push-branch` and applied with `git-worktree-sync`.
 
 ## Wiring it into settings
