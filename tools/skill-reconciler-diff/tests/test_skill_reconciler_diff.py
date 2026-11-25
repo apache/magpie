@@ -46,6 +46,7 @@ from skill_reconciler_diff import (
     _diff_section_headings,
     _diff_steps,
     _parse_frontmatter,
+    _parse_hard_rules,
     _parse_headings,
     _parse_placeholders,
     _parse_safety_baseline,
@@ -661,3 +662,55 @@ def test_headings_and_steps_ignore_fenced_code_blocks():
     assert "99" not in steps
     # The step body still keeps the fenced code it contains.
     assert "echo hi" in steps["0"]
+
+
+# ---------------------------------------------------------------------------
+# Hard rules block
+# ---------------------------------------------------------------------------
+
+
+def test_parse_hard_rules_ends_at_the_next_same_level_heading():
+    text = "## Step 1\nWork.\n## Hard rules\n\n- Rule one.\n\n### Detail\n\nMore.\n## References\nRead.\n"
+    assert _parse_hard_rules(text) == "- Rule one.\n\n### Detail\n\nMore."
+
+
+def test_parse_hard_rules_absent_or_fenced():
+    assert _parse_hard_rules("## Step 1\nWork.\n") is None
+    assert _parse_hard_rules("## Step 1\n```\n## Hard rules\n```\n") is None
+
+
+def test_hard_rules_edit_is_reported(tmp_path):
+    base = _BASE_FM + "\n## Step 1\n\nWork.\n\n## Hard rules\n\n- Rule one.\n"
+    skill_a = _make_skill(tmp_path, "hra", base)
+    skill_b = _make_skill(tmp_path, "hrb", base + "- Rule two.\n")
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert d.hard_rules_diff.body_changed is True
+    assert d.hard_rules_diff.has_diff
+    assert not d.step_diff.has_diff
+    assert d.identical is False
+    assert json.loads(render_json(d))["hard_rules_diff"] == {
+        "a_present": True,
+        "b_present": True,
+        "body_changed": True,
+    }
+
+
+def test_hard_rules_only_in_one_skill(tmp_path):
+    base = _BASE_FM + "\n## Step 1\n\nWork.\n"
+    skill_a = _make_skill(tmp_path, "hoa", base)
+    skill_b = _make_skill(tmp_path, "hob", base + "\n## Hard rules\n\n- Rule one.\n")
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert (d.hard_rules_diff.a_present, d.hard_rules_diff.b_present) == (False, True)
+    assert d.hard_rules_diff.body_changed is False
+    assert d.hard_rules_diff.has_diff
+
+
+def test_identical_hard_rules_report_no_diff(tmp_path):
+    content = _BASE_FM + "\n## Step 1\n\nWork.\n\n## Hard rules\n\n- Rule one.\n"
+    skill_a = _make_skill(tmp_path, "hia", content)
+    skill_b = _make_skill(tmp_path, "hib", content)
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert not d.hard_rules_diff.has_diff
