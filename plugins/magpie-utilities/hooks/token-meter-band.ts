@@ -237,7 +237,8 @@ function resolveRelativePath(baseDir: string, targetPath: string): string {
   for (const seg of normTarget.split('/')) {
     if (!seg || seg === '.') continue;
     if (seg === '..') {
-      if (parts.length > 1 || (parts.length === 1 && parts[0] !== '' && !/^[A-Za-z]:$/.test(parts[0]))) {
+      const first = parts[0];
+      if (parts.length > 1 || (parts.length === 1 && first && !/^[A-Za-z]:$/.test(first))) {
         parts.pop();
       }
     } else {
@@ -267,7 +268,7 @@ async function resolveGitDirs(
   const dotGitContent = await safeRead(dotGitPath);
   if (dotGitContent) {
     const match = dotGitContent.match(/^gitdir:\s*(.+)$/m);
-    if (match) {
+    if (match && match[1]) {
       const gitDir = resolveRelativePath(normCwd, match[1].trim());
       const commonDirContent = await safeRead(`${gitDir}/commondir`);
       const gitCommonDir = commonDirContent?.trim()
