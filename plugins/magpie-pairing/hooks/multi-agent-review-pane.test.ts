@@ -617,7 +617,6 @@ describe('multi-agent-review-pane mod', () => {
         lines_removed: 5,
         findings: [
           {
-            id: 'c-10',
             axis: 'correctness',
             severity: 'blocking',
             location: 'src/main.py:10',
@@ -635,7 +634,7 @@ describe('multi-agent-review-pane mod', () => {
       assert(state !== null);
       assert.strictEqual(state.headSha, 'sha-ipc');
       assert.strictEqual(state.findings.length, 1);
-      assert.strictEqual(state.findings[0]?.id, 'c-10');
+      assert.strictEqual(state.findings[0]?.id, 'c-1');
       assert.strictEqual(state.payloadPath, reviewPath);
       assert.strictEqual(state.payloadHash, computePayloadHash(rawContent));
 
@@ -657,8 +656,8 @@ describe('multi-agent-review-pane mod', () => {
         lines_added: 10,
         lines_removed: 0,
         findings: [
-          { id: 'f-1', axis: 'correctness', severity: 'blocking', location: 'a.py:1', summary: 'bug1' },
-          { id: 'f-2', axis: 'security', severity: 'advisory', location: 'b.py:2', summary: 'sec1' },
+          { axis: 'correctness', severity: 'blocking', location: 'a.py:1', summary: 'bug1' },
+          { axis: 'security', severity: 'advisory', location: 'b.py:2', summary: 'sec1' },
         ],
         injection_attempts: [],
       };
@@ -669,8 +668,8 @@ describe('multi-agent-review-pane mod', () => {
         schema_version: 1,
         head_sha: 'recon-sha',
         source_payload_sha256: hash,
-        accepted_ids: ['f-1'],
-        dismissed_ids: ['f-2'],
+        accepted_ids: ['c-1'],
+        dismissed_ids: ['s-1'],
         status: 'curated',
         updated_at: new Date().toISOString(),
       };
@@ -682,8 +681,8 @@ describe('multi-agent-review-pane mod', () => {
 
       const state = await getMultiAgentReviewState(engine);
       assert(state !== null);
-      const f1 = state.findings.find((f: any) => f.id === 'f-1');
-      const f2 = state.findings.find((f: any) => f.id === 'f-2');
+      const f1 = state.findings.find((f: any) => f.id === 'c-1');
+      const f2 = state.findings.find((f: any) => f.id === 's-1');
       assert.strictEqual(f1?.status, 'accepted');
       assert.strictEqual(f2?.status, 'dismissed');
     });
