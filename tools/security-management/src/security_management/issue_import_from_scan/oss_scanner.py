@@ -743,10 +743,14 @@ def render_patch_comments(
         f"**Scanner evidence — `{fid}`**",
         "",
         "> [!WARNING]",
-        f"> Machine-generated material from the scan{f' of {where}' if where else ''}, quoted from its encrypted archive."
-        " None of it has been tested or reviewed by the team.",
-        "> Do not run the reproducers or apply the patches outside an isolated, throwaway environment;"
-        " they are here to read, as a starting point for `security-issue-fix`.",
+        (
+            f"> Machine-generated material from the scan{f' of {where}' if where else ''}, quoted from its encrypted archive."
+            " None of it has been tested or reviewed by the team."
+        ),
+        (
+            "> Do not run the reproducers or apply the patches outside an isolated, throwaway environment;"
+            " they are here to read, as a starting point for `security-issue-fix`."
+        ),
         "> They spell out the security impact: keep them on this private tracker and never copy them into a public PR.",
         "",
     ]
