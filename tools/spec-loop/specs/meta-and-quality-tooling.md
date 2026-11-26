@@ -115,9 +115,16 @@ trustworthy as it grows.
 - `tools/spec-status-index/` — deterministic `uv` tool that reads
   `tools/spec-loop/specs/` and prints specs grouped by status; used by
   build iterations to mechanically select the next work item.
+  A frontmatter value drops a YAML `#` comment, as in the spec template's
+  `status: experimental   # stable | …`: an unquoted value loses a `#` that
+  starts it or follows a space or tab (`C# tooling` is kept), and a quoted
+  value keeps its quotes and loses only a comment after its closing quote
+  (#2344).
 - `tools/spec-inventory/` — deterministic `uv` tool that summarizes
   specs, skills, and tools into a compact routing inventory for spec-loop
   prompts.
+  Its frontmatter parser applies the same comment rule to the value on a
+  `key:` line, before the block-scalar check (#2368).
   A skill edit, which `git diff` reports under `plugins/<plugin>/skills/<alias>/`,
   maps back to `skills/<name>/` through the repository's symlinks, so a spec's
   skill bullet matches it (#1936).

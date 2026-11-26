@@ -28,6 +28,10 @@ dispatcher whose operations are a **closed catalogue** of fixed shapes:
   check matches the whole value (`fullmatch`), so a trailing newline is
   refused, in the operations, the git operations and the policy loader alike
   (#2270, #2314);
+- every parser (the four dispatchers, `vetted-op-checks` and
+  `vetted-ops-codex-rules`) sets `allow_abbrev=False`, so a long option is
+  matched by its exact spelling, as the pre-parse checks assume, and a
+  prefix such as `--call` for `--caller` is a usage error (#2363);
 - builders return `list[str]` executed without a shell for forge operations, or a request descriptor executed via Python stdlib `urllib.request` for HTTP read operations;
 - the repository is policy, never a parameter;
 - value-bearing parameters (labels, milestones, assignees, columns, close

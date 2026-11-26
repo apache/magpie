@@ -284,6 +284,12 @@ code lands.
   mtime, sorted members, uid/gid 0, `a=rX,u+w`, no PAX `atime`/`ctime`,
   `gzip -n`, `zip -X`), so the bytes are a function of the tag alone.
   Never an archive of a working tree.
+  The zip comment is the commit id, as `git archive` writes it, and the
+  check accepts 40 or 64 lowercase hex characters (SHA-1 or SHA-256 object
+  names) and nothing else (#2347).
+  `compare` matches the ordered list of members under each name, so an
+  archive repeating a name whose count, content or order differs is
+  `differs`, never content-identical (#2341).
 - **First-release `.gitattributes` review is an education step.**
   `release-prepare prep` Step 2e classifies every top-level path, checks
   references before proposing an exclusion, confirms each entry with the

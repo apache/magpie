@@ -397,6 +397,11 @@ by swapping the adapter, not the skill.
   message whose `From` is not `IMAP_SOURCE_USER`, skipping a message with no
   sender, and only then the earliest message; that is a heuristic, not a proof
   (#1977).
+  The subject is decoded and unfolded, each RFC 2047 encoded word with its
+  own charset (so Shift_JIS or EUC-JP half-width katakana decode), keeping
+  the raw text when a charset is unknown and a raw 8-bit subject as it is,
+  so a folded subject no longer breaks `create_draft` (#2349); `maildir`'s
+  archive reader decodes `Subject` and `From` the same way (#2366).
   `tools/mail-source/mailman3/` is a doc-only, read-only backend over
   Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
   `thread_url`); it has no drafts or sent view, so it pairs with a drafting
