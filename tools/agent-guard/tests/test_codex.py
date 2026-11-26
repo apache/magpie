@@ -43,13 +43,14 @@ def run(monkeypatch, capsys, payload):
 def test_deny_uses_native_schema_and_passes_cwd(monkeypatch, capsys):
     calls = []
 
-    def guard(command, cwd=None, harness=None):
-        calls.append((command, cwd, harness))
+    def guard(command, cwd=None, harness=None, transcript_path=None):
+        calls.append((command, cwd, harness, transcript_path))
         return "test denial"
 
     monkeypatch.setattr(agent_guard, "dispatch", guard)
     rc, out = run(monkeypatch, capsys, event("git push", cwd="/tmp/worktree"))
-    assert calls == [("git push", "/tmp/worktree", "codex")]
+    # Codex's transcript is in its own format, so it is not passed on.
+    assert calls == [("git push", "/tmp/worktree", "codex", None)]
     assert rc == 0
     assert json.loads(out.out) == {
         "hookSpecificOutput": {
