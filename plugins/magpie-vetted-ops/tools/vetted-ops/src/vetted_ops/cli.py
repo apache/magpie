@@ -229,6 +229,9 @@ def _reject_repeated_caller(argv: Sequence[str]) -> None:
     permission rule written against the read-only prefix. That turns a
     prefix-matched allow rule into a bypass, so repetition is an error rather
     than a last-wins convenience.
+
+    Counting the exact spelling is enough because the parser is built with
+    ``allow_abbrev=False``: a prefix such as ``--call`` never parses at all.
     """
     seen = sum(1 for a in argv if a == "--caller" or a.startswith("--caller="))
     if seen > 1:
@@ -263,7 +266,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     else:
         prog = "vetted-op"
         description = "Run one fixed, policy-scoped GitHub operation. No pass-through arguments."
-    parser = argparse.ArgumentParser(prog=prog, description=description)
+    # allow_abbrev=False: every long option is matched exactly, as the checks on
+    # the raw argv (a single `--caller`) assume; a prefix such as `--call` is an error.
+    parser = argparse.ArgumentParser(prog=prog, description=description, allow_abbrev=False)
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")

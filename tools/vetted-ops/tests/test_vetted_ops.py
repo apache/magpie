@@ -1437,6 +1437,54 @@ def test_repeated_caller_is_refused(policy_path: Path, capsys: pytest.CaptureFix
     assert "more than once" in capsys.readouterr().err
 
 
+# The longest prefix of `--caller`, spelled by slicing so the spell checker passes it.
+CALLER_ONE_SHORT = "--caller"[:-1]
+
+_ENTRY_POINTS = {
+    "vetted-op": {},
+    "vetted-op-read": {"read_only": True},
+    "vetted-op-tracker": {"tracker_only": True},
+}
+
+
+@pytest.mark.parametrize("entry", sorted(_ENTRY_POINTS))
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        ["--ca", "security-issue-sync"],
+        ["--call", "security-issue-sync"],
+        [CALLER_ONE_SHORT, "security-issue-sync"],
+        ["--call=security-issue-sync"],
+        ["--caller", "security-issue-triage", "--call=security-issue-sync"],
+        ["--caller", "security-issue-triage", CALLER_ONE_SHORT, "security-issue-sync"],
+        ["--caller", "security-issue-triage", "--dry", "--conf", "x.toml"],
+        ["--caller", "security-issue-triage", "--sa", "out"],
+    ],
+)
+def test_abbreviated_long_options_are_not_accepted(
+    entry: str, spelling: list[str], policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every long option is matched exactly, as the checks on the raw argv assume."""
+    with pytest.raises(SystemExit) as exc:
+        cli.main(
+            [*spelling, "issue-view", "7", "--config", str(policy_path), "--dry-run"],
+            **_ENTRY_POINTS[entry],
+        )
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "caller", [["--caller", "security-issue-triage"], ["--caller=security-issue-triage"]]
+)
+def test_exact_caller_spellings_still_parse(
+    caller: list[str], policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = cli.main([*caller, "issue-view", "7", "--config", str(policy_path), "--dry-run"], read_only=True)
+    assert rc == cli.EXIT_OK
+    assert "gh issue view 7" in capsys.readouterr().out
+
+
 def test_read_dispatcher_still_runs_reads(policy_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     rc = cli.main(
         ["--caller", "security-issue-triage", "issue-view", "7", "--config", str(policy_path), "--dry-run"],

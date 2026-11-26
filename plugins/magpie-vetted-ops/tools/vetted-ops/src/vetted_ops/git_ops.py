@@ -2466,9 +2466,12 @@ OPS: dict[str, GitOp] = {
 def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     """The ``vetted-op-git`` console script."""
     raw = list(sys.argv[1:] if argv is None else argv)
+    # allow_abbrev=False: every long option is matched exactly, as the `--caller`
+    # count below assumes; a prefix such as `--call` is an argparse error.
     parser = argparse.ArgumentParser(
         prog=PROG,
         description="Run one fixed, policy-scoped git operation outside the sandbox. No pass-through arguments.",
+        allow_abbrev=False,
     )
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--dry-run", action="store_true", help="validate, print the git command, run nothing")

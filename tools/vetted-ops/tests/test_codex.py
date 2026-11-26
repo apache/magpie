@@ -54,6 +54,12 @@ def test_cli_prints_without_installing(tmp_path: Path, capsys: pytest.CaptureFix
     assert not absent.exists()
 
 
+def test_cli_refuses_abbreviated_options(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--tool", str(tmp_path)])
+    assert exc.value.code == 2
+
+
 @pytest.mark.skipif(shutil.which("codex") is None, reason="native Codex evaluator unavailable")
 @pytest.mark.parametrize("launcher", [("uv", "run", "--project"), ("uvx", "--from")])
 @pytest.mark.parametrize(

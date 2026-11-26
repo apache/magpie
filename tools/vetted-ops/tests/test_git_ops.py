@@ -825,6 +825,56 @@ def test_a_dry_run_against_an_unapproved_policy_runs_no_git(
     assert "no git command was run" in capsys.readouterr().out
 
 
+# The longest prefix of `--caller`, spelled by slicing so the spell checker passes it.
+CALLER_ONE_SHORT = "--caller"[:-1]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        ["--ca", "skill"],
+        ["--call", "skill"],
+        [CALLER_ONE_SHORT, "skill"],
+        ["--call=skill"],
+        ["--caller", "skill", "--call=other"],
+        ["--caller", "skill", CALLER_ONE_SHORT, "other"],
+        ["--caller", "skill", "--dry"],
+    ],
+)
+def test_abbreviated_long_options_are_not_accepted(
+    spelling: list[str], repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every long option is matched exactly, as the `--caller` count assumes; argparse refuses a prefix."""
+    argv = [*spelling, "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    with pytest.raises(SystemExit) as exc:
+        git_ops.main(argv, git=_ExplodingGit())
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("caller", [["--caller", "skill"], ["--caller=skill"]])
+def test_exact_caller_spellings_still_parse(
+    caller: list[str], policy: LocalPolicy, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
+
+    def fake_load(*, approved_only: bool = False, **_: object) -> Config:
+        if approved_only:
+            raise ConfigError("the policy is not an approved copy")
+        return config
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    monkeypatch.setattr(git_ops, "git_policy", lambda _config: policy)
+    argv = [*caller, "--dry-run", "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
+
+
+def test_checks_refuses_abbreviated_options(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        checks.main(["--h", str(tmp_path), str(tmp_path / "paths")])
+    assert exc.value.code == 2
+
+
 def test_a_real_run_against_an_unapproved_policy_is_refused(
     policy: LocalPolicy, repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
