@@ -175,6 +175,18 @@ def test_recording_in_an_adopted_repo_writes_the_in_tree_local_dir(project: Path
     assert not (project / ".git" / "apache-magpie").exists()
 
 
+def test_a_legacy_in_tree_stamp_never_fills_in_keys_beside_the_git_dir_home(project: Path) -> None:
+    """The in-tree directory may have come with a clone: read whole, only when nothing else has a stamp."""
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "reconciled.json").write_text(json.dumps({"isolated_setup": {"enabled": False}}))
+    assert isolated._load_stamp(project) == {"isolated_setup": {"enabled": False}}
+    home = project / ".git" / "apache-magpie"
+    home.mkdir(parents=True)
+    (home / "reconciled.json").write_text(json.dumps({"verified_at": "2026-11-01"}))
+    assert isolated._load_stamp(project) == {"verified_at": "2026-11-01"}
+
+
 def test_recording_carries_a_legacy_stamp_over_to_the_git_dir_home(project: Path) -> None:
     legacy = project / ".apache-magpie-local"
     legacy.mkdir()

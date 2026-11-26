@@ -53,7 +53,9 @@ def _make_git_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def _run(cwd: Path, args: list | None = None, extra_env: dict | None = None) -> subprocess.CompletedProcess:
+def _run(
+    cwd: Path, args: list | None = None, extra_env: dict | None = None
+) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     if extra_env:
         env.update(extra_env)
@@ -152,7 +154,10 @@ class TestMerge:
         repo = _make_git_repo(tmp_path)
         claude_dir = repo / ".claude"
         claude_dir.mkdir(parents=True, exist_ok=True)
-        existing = {"sandbox": {"filesystem": {"allowRead": ["/other"]}}, "someKey": "someValue"}
+        existing = {
+            "sandbox": {"filesystem": {"allowRead": ["/other"]}},
+            "someKey": "someValue",
+        }
         (claude_dir / "settings.local.json").write_text(json.dumps(existing))
         _run(repo)
         data = _load(claude_dir / "settings.local.json")
@@ -166,7 +171,16 @@ class TestMerge:
 
 
 def _tool_reads(home: Path) -> list[str]:
-    return [str(home / p) for p in (".gitconfig", ".config/git", ".cache", ".local/share/uv", ".local/bin")]
+    return [
+        str(home / p)
+        for p in (
+            ".gitconfig",
+            ".config/git",
+            ".cache",
+            ".local/share/uv",
+            ".local/bin",
+        )
+    ]
 
 
 def _tool_writes(home: Path) -> list[str]:
@@ -179,7 +193,9 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        read_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowRead"]
+        read_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"][
+            "filesystem"
+        ]["allowRead"]
         for path in _tool_reads(home):
             assert path in read_paths
 
@@ -187,7 +203,9 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        write_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
+        write_paths = _load(repo / ".claude" / "settings.local.json")["sandbox"][
+            "filesystem"
+        ]["allowWrite"]
         assert write_paths == [str(repo)] + _tool_writes(home)
 
     def test_never_adds_credential_paths(self, tmp_path: Path) -> None:
@@ -212,33 +230,55 @@ class TestToolPaths:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         cache = str(home / ".cache")
-        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [cache], "allowWrite": [cache]}}})
+        _seed_settings(
+            repo,
+            {"sandbox": {"filesystem": {"allowRead": [cache], "allowWrite": [cache]}}},
+        )
         _run(repo, extra_env={"HOME": str(home)})
         data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
         assert data["allowRead"].count(cache) == 1
         assert data["allowWrite"].count(cache) == 1
         assert data["allowRead"][0] == cache  # existing entries keep their place
 
-    def test_removes_the_uv_data_dir_write_an_earlier_version_added(self, tmp_path: Path) -> None:
+    def test_removes_the_uv_data_dir_write_an_earlier_version_added(
+        self, tmp_path: Path
+    ) -> None:
         """Hooks, MCP servers and excluded uv commands run its interpreters unsandboxed."""
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         uv = str(home / ".local" / "share" / "uv")
         stale = [uv, uv + "/", "~/.local/share/uv", "~/.local/share/uv/"]
-        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [uv], "allowWrite": ["/opt/data", *stale]}}})
+        _seed_settings(
+            repo,
+            {
+                "sandbox": {
+                    "filesystem": {
+                        "allowRead": [uv],
+                        "allowWrite": ["/opt/data", *stale],
+                    }
+                }
+            },
+        )
         _run(repo, extra_env={"HOME": str(home)})
         data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
         assert not set(stale) & set(data["allowWrite"])
         assert "/opt/data" in data["allowWrite"]
         assert uv in data["allowRead"]  # reading it stays allowed
 
-    def test_removes_the_uv_data_dir_write_even_without_tool_paths(self, tmp_path: Path) -> None:
+    def test_removes_the_uv_data_dir_write_even_without_tool_paths(
+        self, tmp_path: Path
+    ) -> None:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         uv = str(home / ".local" / "share" / "uv")
         _seed_settings(repo, {"sandbox": {"filesystem": {"allowWrite": [uv]}}})
         _run(repo, args=["--no-tool-paths"], extra_env={"HOME": str(home)})
-        assert uv not in _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
+        assert (
+            uv
+            not in _load(repo / ".claude" / "settings.local.json")["sandbox"][
+                "filesystem"
+            ]["allowWrite"]
+        )
 
     def test_no_tool_paths_flag_adds_project_root_only(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)
@@ -271,7 +311,9 @@ class TestWorkingDirs:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
-        for entry in _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]:
+        for entry in _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]:
             assert "*" not in entry
             assert not entry.startswith("~")
 
@@ -280,29 +322,45 @@ class TestWorkingDirs:
         home = tmp_path / "home"
         _run(repo, extra_env={"HOME": str(home)})
         _run(repo, extra_env={"HOME": str(home)})
-        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]
         assert dirs == _work_dirs(home)
 
     def test_keeps_existing_working_dirs(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
-        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data"], "allow": ["Bash(ls *)"]}})
+        _seed_settings(
+            repo,
+            {
+                "permissions": {
+                    "additionalDirectories": ["/opt/data"],
+                    "allow": ["Bash(ls *)"],
+                }
+            },
+        )
         _run(repo, extra_env={"HOME": str(home)})
         permissions = _load(repo / ".claude" / "settings.local.json")["permissions"]
         assert permissions["additionalDirectories"] == ["/opt/data"] + _work_dirs(home)
         assert permissions["allow"] == ["Bash(ls *)"]  # other permission keys untouched
 
     @pytest.mark.parametrize("extra_args", [[], ["--no-working-dirs"]])
-    def test_removes_the_writable_magpie_dir(self, tmp_path: Path, extra_args: list[str]) -> None:
+    def test_removes_the_writable_magpie_dir(
+        self, tmp_path: Path, extra_args: list[str]
+    ) -> None:
         # A working directory is sandbox-writable, and the vetted-ops commands
         # run from ~/.claude/magpie outside the sandbox.
         repo = _make_git_repo(tmp_path)
         home = tmp_path / "home"
         magpie = str(home / ".claude" / "magpie")
         stale = [magpie, magpie + "/", "~/.claude/magpie", "~/.claude/magpie/"]
-        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data", *stale]}})
+        _seed_settings(
+            repo, {"permissions": {"additionalDirectories": ["/opt/data", *stale]}}
+        )
         _run(repo, extra_args, extra_env={"HOME": str(home)})
-        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"][
+            "additionalDirectories"
+        ]
         assert not set(stale) & set(dirs)
         assert dirs[0] == "/opt/data"
 
@@ -323,7 +381,9 @@ def _seed_settings(repo: Path, content: dict | None = None) -> Path:
     claude_dir = repo / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
     settings = claude_dir / "settings.local.json"
-    settings.write_text(json.dumps(content or {"sandbox": {"filesystem": {"allowRead": []}}}))
+    settings.write_text(
+        json.dumps(content or {"sandbox": {"filesystem": {"allowRead": []}}})
+    )
     return settings
 
 
@@ -444,7 +504,8 @@ class TestGitignoreSafetyCheck:
         # fell through to writing anyway, which would mask the bug.
         (repo / ".claude").mkdir()
         result = _run(
-            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
         )
 
         assert "is not gitignored" not in result.stderr
@@ -455,15 +516,21 @@ class TestGitignoreSafetyCheck:
         """The allowlist entry must be the repo root, not the .claude subdir."""
         repo = _make_git_repo(tmp_path)
         (repo / ".claude").mkdir()
-        _run(repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)})
+        _run(
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
+        )
         data = _load(repo / ".claude" / "settings.local.json")
         assert str(repo) in data["sandbox"]["filesystem"]["allowRead"]
 
-    def test_git_dir_exported_still_refuses_when_not_gitignored(self, tmp_path: Path) -> None:
+    def test_git_dir_exported_still_refuses_when_not_gitignored(
+        self, tmp_path: Path
+    ) -> None:
         """The fix must not turn the safety check into a no-op."""
         repo = _bare_git_repo(tmp_path)
         result = _run(
-            repo, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+            repo,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)},
         )
 
         assert "is not gitignored" in result.stderr
@@ -473,8 +540,117 @@ class TestGitignoreSafetyCheck:
         """The real-world trigger: a hook firing inside a git worktree."""
         repo = _make_git_repo(tmp_path)
         subprocess.run(
-            ["git", "-C", str(repo), "add", ".gitignore"], check=True, capture_output=True
+            ["git", "-C", str(repo), "add", ".gitignore"],
+            check=True,
+            capture_output=True,
         )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "user.email=t@e.st",
+                "-c",
+                "user.name=t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "init",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        wt = tmp_path / "wt"
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "add", "-q", str(wt), "-b", "wt"],
+            check=True,
+            capture_output=True,
+        )
+
+        (wt / ".claude").mkdir()
+        result = _run(
+            wt,
+            extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)},
+        )
+
+        assert "is not gitignored" not in result.stderr
+        assert (wt / ".claude" / "settings.local.json").exists()
+        data = _load(wt / ".claude" / "settings.local.json")
+        assert str(wt) in data["sandbox"]["filesystem"]["allowRead"]
+
+    def test_linked_worktree_may_read_its_main_checkout_but_not_write_it(
+        self, tmp_path: Path
+    ) -> None:
+        """A linked worktree inherits the main checkout's personal layer and settings."""
+        repo = _make_git_repo(tmp_path)
+        subprocess.run(
+            ["git", "-C", str(repo), "add", ".gitignore"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "user.email=t@e.st",
+                "-c",
+                "user.name=t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "init",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        wt = tmp_path / "wt"
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "add", "-q", str(wt), "-b", "wt"],
+            check=True,
+            capture_output=True,
+        )
+        (repo / ".apache-magpie-local").mkdir()
+        (repo / ".claude").mkdir()
+        (repo / ".claude" / "settings.json").write_text("{}")
+        (repo / ".claude" / "worktrees").mkdir()  # sibling worktrees live here: never granted
+        main = str(repo.resolve())
+        inherited = [
+            main + "/.apache-magpie-local",
+            main + "/.claude/settings.json",
+            # Written by the same --all-worktrees run, for the main checkout, first.
+            main + "/.claude/settings.local.json",
+        ]
+
+        # From the worktree itself (the post-checkout hook): its `.git` file is
+        # sandbox-writable, so nothing is granted.
+        env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)}
+        assert _run(wt, extra_env=env).returncode == 0
+        fs = _load(wt / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert not any(path.startswith(main + "/") for path in fs["allowRead"])
+
+        # From the main checkout with --all-worktrees: exactly the inherited files.
+        main_env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+        assert _run(repo, ["--all-worktrees"], extra_env=main_env).returncode == 0
+        fs = _load(wt / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        for path in inherited:
+            assert path in fs["allowRead"]
+            assert path not in fs["allowWrite"]
+        assert main not in fs["allowRead"]
+        assert main + "/.claude" not in fs["allowRead"]
+        assert main + "/.claude/worktrees" not in fs["allowRead"]
+        own =_load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert not any(path.startswith(str(wt.resolve())) for path in own["allowRead"])
+
+    def test_a_grant_whose_path_became_a_symlink_is_dropped_on_the_next_run(self, tmp_path: Path) -> None:
+        """The main checkout's sandbox can swap its layer for a symlink after the grant; any run drops it."""
+        repo = _make_git_repo(tmp_path)
+        (repo / ".apache-magpie-local").mkdir()
+        subprocess.run(["git", "-C", str(repo), "add", ".gitignore"], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(repo), "-c", "user.email=t@e.st", "-c", "user.name=t",
              "-c", "commit.gpgsign=false", "commit", "-m", "init"],
@@ -487,14 +663,127 @@ class TestGitignoreSafetyCheck:
             check=True,
             capture_output=True,
         )
+        layer = str(repo.resolve() / ".apache-magpie-local")
+        main_env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+        assert _run(repo, ["--all-worktrees"], extra_env=main_env).returncode == 0
+        settings = wt / ".claude" / "settings.local.json"
+        assert layer in _load(settings)["sandbox"]["filesystem"]["allowRead"]
 
-        (wt / ".claude").mkdir()
-        result = _run(wt, extra_env={**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)})
+        secret = tmp_path / "secret"
+        secret.mkdir()
+        (repo / ".apache-magpie-local").rmdir()
+        (repo / ".apache-magpie-local").symlink_to(secret)
+        wt_env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(wt)}
+        result = _run(wt, extra_env=wt_env)
+        assert result.returncode == 0
+        assert layer not in _load(settings)["sandbox"]["filesystem"]["allowRead"]
+        assert "dropping the read grant" in result.stderr
 
-        assert "is not gitignored" not in result.stderr
-        assert (wt / ".claude" / "settings.local.json").exists()
-        data = _load(wt / ".claude" / "settings.local.json")
-        assert str(wt) in data["sandbox"]["filesystem"]["allowRead"]
+    def test_a_symlinked_inherited_path_is_never_granted(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        secret = tmp_path / "secret"
+        secret.mkdir()
+        (repo / ".apache-magpie-local").symlink_to(secret)
+        subprocess.run(["git", "-C", str(repo), "add", ".gitignore"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(repo), "-c", "user.email=t@e.st", "-c", "user.name=t",
+             "-c", "commit.gpgsign=false", "commit", "-m", "init"],
+            check=True,
+            capture_output=True,
+        )
+        wt = tmp_path / "wt"
+        subprocess.run(
+            ["git", "-C", str(repo), "worktree", "add", "-q", str(wt), "-b", "wt"],
+            check=True,
+            capture_output=True,
+        )
+        env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(repo)}
+        assert _run(repo, ["--all-worktrees"], extra_env=env).returncode == 0
+        reads = _load(wt / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowRead"]
+        assert str(repo.resolve() / ".apache-magpie-local") not in reads
+        assert not any(path.startswith(str(secret.resolve())) for path in reads)
+
+    def test_a_forged_git_file_never_widens_the_read_grant(
+        self, tmp_path: Path
+    ) -> None:
+        """A `.git` file naming a repository that does not list the worktree grants nothing."""
+        other = tmp_path / "other"
+        other.mkdir()
+        subprocess.run(
+            ["git", "init", "-q", str(other)], check=True, capture_output=True
+        )
+        wt = _make_git_repo(tmp_path)
+        # Sandboxed code can rewrite the worktree's `.git` file and create a
+        # git dir in writable space whose `commondir` names `other`, but it
+        # cannot register a worktree inside `other/.git`.
+        fake = tmp_path / "writable" / "forged"
+        fake.mkdir(parents=True)
+        (fake / "commondir").write_text(str(other / ".git") + "\n")
+        (fake / "HEAD").write_text("ref: refs/heads/main\n")
+        (fake / "gitdir").write_text(str(wt / ".git") + "\n")
+        subprocess.run(["rm", "-rf", str(wt / ".git")], check=True)
+        (wt / ".git").write_text(f"gitdir: {fake}\n")
+        env = {**_no_global_git_config(tmp_path), "GIT_DIR": str(fake)}
+        settings = wt / ".claude" / "settings.local.json"
+        for args in ([], ["--all-worktrees"]):
+            _run(wt, args, extra_env=env)
+            if settings.exists():
+                reads = _load(settings)["sandbox"]["filesystem"]["allowRead"]
+                assert not any(path.startswith(str(other.resolve())) for path in reads)
+
+    def test_an_inherited_git_dir_never_lists_another_repos_worktrees(
+        self, tmp_path: Path
+    ) -> None:
+        """A run from main checkout A with GIT_DIR naming repository B grants B's worktrees nothing of A."""
+        (tmp_path / "a").mkdir()
+        (tmp_path / "b").mkdir()
+        main = _make_git_repo(tmp_path / "a")
+        (main / ".apache-magpie-local").mkdir()
+        other = _make_git_repo(tmp_path / "b")
+        subprocess.run(
+            ["git", "-C", str(other), "-c", "user.name=t", "-c", "user.email=t@t",
+             "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "init"],
+            check=True,
+            capture_output=True,
+        )
+        foreign = tmp_path / "b-wt"
+        subprocess.run(
+            ["git", "-C", str(other), "worktree", "add", "-q", str(foreign), "-b", "foreign"],
+            check=True,
+            capture_output=True,
+        )
+        (foreign / ".gitignore").write_text("/.claude/settings.local.json\n")
+        env = {**_no_global_git_config(tmp_path), "GIT_DIR": _git_dir_of(other)}
+        _run(main, ["--all-worktrees"], extra_env=env)
+        settings = foreign / ".claude" / "settings.local.json"
+        if settings.exists():
+            reads = _load(settings)["sandbox"]["filesystem"]["allowRead"]
+            assert not any(path.startswith(str(main.resolve())) for path in reads)
+
+    def test_a_repository_planted_in_writable_space_grants_nothing(self, tmp_path: Path) -> None:
+        """Sandboxed code can create a repo that registers the worktree and symlinks a secret."""
+        wt = _make_git_repo(tmp_path)
+        secret = tmp_path / "home" / ".ssh"
+        secret.mkdir(parents=True)
+        fake_main = tmp_path / "writable" / "fake"
+        fake_main.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(fake_main)], check=True, capture_output=True)
+        (fake_main / ".apache-magpie-local").symlink_to(secret)
+        registered = fake_main / ".git" / "worktrees" / "wt"
+        registered.mkdir(parents=True)
+        (registered / "commondir").write_text("../..\n")
+        (registered / "HEAD").write_text("ref: refs/heads/main\n")
+        (registered / "gitdir").write_text(str(wt / ".git") + "\n")
+        subprocess.run(["rm", "-rf", str(wt / ".git")], check=True)
+        (wt / ".git").write_text(f"gitdir: {registered}\n")
+        env = {**_no_global_git_config(tmp_path), "GIT_DIR": str(registered)}
+        settings = wt / ".claude" / "settings.local.json"
+        for args in ([], ["--all-worktrees"]):
+            _run(wt, args, extra_env=env)
+            if settings.exists():
+                reads = _load(settings)["sandbox"]["filesystem"]["allowRead"]
+                assert not any(path.startswith(str(fake_main.resolve())) for path in reads)
+                assert not any(path.startswith(str(secret.resolve())) for path in reads)
 
 
 # ---------------------------------------------------------------------------
@@ -543,7 +832,9 @@ def _fake_bin_failing_mv(tmp_path: Path) -> Path:
     fake_bin = tmp_path / "fake_mv_bin"
     fake_bin.mkdir(exist_ok=True)
     mv = fake_bin / "mv"
-    mv.write_text("#!/bin/sh\necho \"mv: rename $1 to $2: Operation not permitted\" >&2\nexit 1\n")
+    mv.write_text(
+        '#!/bin/sh\necho "mv: rename $1 to $2: Operation not permitted" >&2\nexit 1\n'
+    )
     mv.chmod(0o755)
     return fake_bin
 
@@ -551,14 +842,18 @@ def _fake_bin_failing_mv(tmp_path: Path) -> Path:
 class TestReplaceFails:
     def _run_denied(self, repo: Path, tmp_path: Path) -> subprocess.CompletedProcess:
         fake_bin = _fake_bin_failing_mv(tmp_path)
-        return _run(repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"})
+        return _run(
+            repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"}
+        )
 
     def test_leaves_no_temp_file(self, tmp_path: Path) -> None:
         """Regression: a failed rename left `settings.local.json.XXXXXX` behind."""
         repo = _make_git_repo(tmp_path)
         _seed_settings(repo)
         self._run_denied(repo, tmp_path)
-        leftovers = sorted(p.name for p in (repo / ".claude").glob("settings.local.json.*"))
+        leftovers = sorted(
+            p.name for p in (repo / ".claude").glob("settings.local.json.*")
+        )
         assert leftovers == []
 
     def test_leaves_file_untouched(self, tmp_path: Path) -> None:

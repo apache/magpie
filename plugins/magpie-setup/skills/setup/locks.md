@@ -210,6 +210,14 @@ anywhere**, because there is no configuration to have gone stale. A
 skill's own pre-flight treats that absence as nothing-to-reconcile,
 silently, not as a sweep to propose.
 
+**Where "the personal layer's `reconciled.json`" is written.** Every
+write, by a checker or by a JSON edit, goes to the `reconciled.json` in
+`stamp_dir` (`python3 -P -m setup_preflight.layers` prints it), never in
+`personal_dir`: in a linked worktree of an adopted project, `personal_dir`
+can be the main checkout's layer, which the worktree inherits and may
+only read. A JSON edit preserves every other key. Readers merge the
+stamps of every personal layer, the worktree's own first.
+
 **The personal layer's `reconciled.json` is a plain JSON object, never
 wrapped in a `reconciled:` key** — the filename already says what it
 is. A **configured-but-unadopted** project, which has nowhere else to

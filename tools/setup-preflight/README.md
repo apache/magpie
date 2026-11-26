@@ -223,6 +223,23 @@ python3 -m setup_preflight.welcome enable --family security
 The [`welcome-guide`](../../plugins/magpie-setup/skills/welcome-guide/SKILL.md) skill
 (`/magpie-setup:welcome-guide [<family>]`) is the user-facing way to run `show` and `enable`.
 
+Every `reconciled.json` reader merges the personal layers (`layers.merged_stamp`):
+each top-level key, and each entry of a block (a welcome family, say), comes from the first layer holding it,
+so a linked worktree's own stamp adds to its main checkout's instead of hiding it.
+A block in `layers.WHOLE_BLOCKS` (`isolated_setup`, whose fields describe one state together) comes whole from the first layer holding it;
+a worktree's first record of it starts from the block it inherits, and running the install or update skill there ends an inherited opt-out for that worktree only.
+An unadopted repo's legacy in-tree stamp is never merged: it may have arrived with a clone, so it is read whole, and only when no other layer has a stamp file.
+Writers add or replace only their own entries, in this checkout's own layer (`layers.stamp_dir`, which `setup_preflight.layers` prints, created on first write), never in a main checkout's:
+a linked worktree's sandbox may only read that one. Each writes through its own dot-named temporary file (`layers.write_stamp`).
+A layer holding only such bookkeeping (`layers.BOOKKEEPING`, including the gateway's and `skill-lock`'s `run/`) never takes over as the worktree's configuration layer,
+so `setup config` run from a worktree still writes to the main checkout's personal layer, which every worktree inherits;
+a layer that exists but cannot be listed still counts as the worktree's own.
+Clearing an inherited welcome answer writes an `enabled` entry over it.
+
+The `machine` finding `inherited-path-symlink` (rules in the section of the same name) fires in a linked worktree of an adopted project
+when one of the paths it inherits from the main checkout (`.apache-magpie-local`, `.claude/settings.json`, `.claude/settings.local.json`) is now a symlink,
+or sits under one: `sandbox-add-project-root.sh` grants those reads only while they are not, and drops the grant on its next run.
+
 **`machine`** findings are about the isolated (secure agent) setup on
 this machine, reported only where it is used: `isolated-setup-changed`
 when the fingerprint of the secure-setup files differs from the one the

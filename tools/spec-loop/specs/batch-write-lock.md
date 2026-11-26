@@ -78,10 +78,12 @@ not prevented, by the re-read of each item just before its write.
 - **Scope.** `<skill>@<owner>__<repo>`. Two skills on one repository
   never contend (they post different things); one skill on two
   repositories never contends.
-- **Location.** `<personal layer>/run/locks/<scope>.lock/`, resolved the
-  way every framework tool resolves the personal layer: the gitignored
-  `.apache-magpie-local/` in an adopted project, the git-directory home
-  otherwise. Never the working tree of an adopted project.
+- **Location.** `<personal layer>/run/locks/<scope>.lock/`: this checkout's
+  own gitignored `.apache-magpie-local/` in an adopted project, also in a
+  linked worktree (never the main checkout's, which the worktree's sandbox
+  may only read), and the git-directory home otherwise. Runtime state, like
+  the container gateway's `run/`, so it follows the checkout rather than
+  the configuration layer. Never the working tree of an adopted project.
 - **Re-read before each write.** Once the lock is held, the skill
   re-reads each item just before writing to it and skips one that
   already carries this skill's marker newer than its classify read,

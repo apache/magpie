@@ -65,13 +65,21 @@ of `git_common_dir` and the same test vectors; keep them in step.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 
 LOCK_NAME = ".apache-magpie.lock"
 LOCAL_DIR = ".apache-magpie-local"
+#: The personal layer's record of what the skills reconciled and showed.
+STAMP_NAME = "reconciled.json"
+# Blocks inherited whole rather than entry by entry: their fields describe one
+# state together (the isolated setup's opt-out and its install record), so a
+# worktree's own block replaces the main checkout's, `enabled` included.
+WHOLE_BLOCKS = frozenset({"isolated_setup"})
 OVERRIDES_DIR = ".apache-magpie-overrides"
 #: The personal layer's name inside the git common directory.
 GIT_HOME_NAME = "apache-magpie"
@@ -319,17 +327,41 @@ def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
     Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
-    that has none while its main checkout has one: then the main
-    checkout's, so a worktree writes where it already reads.  Not adopted →
-    `unadopted_home`.  May not exist yet.
+    that holds no configuration of its own while its main checkout has a
+    layer: then the main checkout's, so configuration set from a worktree
+    reaches every worktree.  A worktree layer holding only bookkeeping
+    (`BOOKKEEPING`, written to `stamp_dir`) does not count, so recording a
+    hint or a welcome answer never redirects later configuration writes.
+    Not adopted → `unadopted_home`.  May not exist yet.
     """
     if adopted(root):
         own = root / LOCAL_DIR
         main = main_worktree(root)
-        if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
+        if _holds_config(own) or main is None or not (main / LOCAL_DIR).is_dir():
             return own
         return main / LOCAL_DIR
     return unadopted_home(root)
+
+
+#: Personal-layer entries that are bookkeeping, never configuration: the
+#: stamp, the pre-flight cache, the container gateway's run directory and a
+#: checker copy.  Dot-files (temporary files among them) never count either.
+BOOKKEEPING = frozenset({"reconciled.json", ".preflight-cache.json", "run", "setup_preflight"})
+
+
+def _holds_config(layer: Path) -> bool:
+    """Whether `layer` holds any configuration, not only bookkeeping.
+
+    A layer that exists but cannot be listed counts as holding some, so
+    configuration is never redirected away from it on a read error.
+    """
+    try:
+        names = [entry.name for entry in layer.iterdir()]
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return True
+    return any(name not in BOOKKEEPING and not name.startswith(".") for name in names)
 
 
 def personal_layers(root: Path) -> list[Path]:
@@ -367,6 +399,104 @@ def legacy_local_dir(root: Path) -> Path | None:
     return legacy if legacy.is_dir() and legacy != unadopted_home(root) else None
 
 
+def write_atomic(directory: Path, name: str, text: str) -> None:
+    """Atomically replace `<directory>/<name>` with `text`, creating the directory.
+
+    Through a dot-named temporary file of this writer's own, created
+    exclusively (never a fixed name a symlink could stand in for), so
+    concurrent writers never share one and a leftover never reads as
+    configuration (`_holds_config` ignores dot-files).
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=f".{name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp, directory / name)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+def write_stamp(directory: Path, stamp: dict[str, object]) -> None:
+    """Atomically write `<directory>/reconciled.json`, creating the directory (`write_atomic`)."""
+    write_atomic(directory, STAMP_NAME, json.dumps(stamp, indent=2, sort_keys=True) + "\n")
+
+
+def stamp_in(directory: Path) -> dict[str, object] | None:
+    """`<directory>/reconciled.json` as an object; `None` when missing, unreadable or not an object."""
+    try:
+        loaded = json.loads((directory / STAMP_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def merged_stamp(root: Path) -> dict[str, object]:
+    """`reconciled.json` as the skills read it: each key, and each entry of a block, from the first layer holding it.
+
+    A linked worktree's own stamp adds to its main checkout's instead of
+    hiding it, so the worktree inherits every record it does not override.
+    A block in `WHOLE_BLOCKS` comes whole from the first layer holding it.
+    A stamp that cannot be read is skipped, never fatal.
+
+    Only the personal layers outside the working tree's versioned content
+    are merged.  The legacy in-tree directory of an unadopted repo could
+    have arrived with a clone, so its stamp is read whole and only when no
+    other layer has one, as before the merge.
+    """
+    legacy = legacy_local_dir(root)
+    merged: dict[str, object] = {}
+    trusted_stamp = False
+    for layer in personal_layers(root):
+        if layer == legacy:
+            continue
+        stamp = stamp_in(layer)
+        trusted_stamp = trusted_stamp or (layer / STAMP_NAME).exists()
+        for key, value in (stamp or {}).items():
+            held = merged.get(key)
+            if key not in merged:
+                merged[key] = dict(value) if isinstance(value, dict) else value
+            elif isinstance(held, dict) and isinstance(value, dict) and key not in WHOLE_BLOCKS:
+                # One level deeper too: a block's entries (one per family,
+                # skill or field) are inherited one by one, so a worktree
+                # recording one entry never hides the main checkout's others.
+                for sub, entry in value.items():
+                    held.setdefault(sub, entry)
+    if not trusted_stamp and legacy is not None:
+        return stamp_in(legacy) or {}
+    return merged
+
+
+def stamp_dir(root: Path) -> Path:
+    """Where bookkeeping (`reconciled.json`, the pre-flight cache) is written; never created here.
+
+    Adopted → this checkout's own `<root>/.apache-magpie-local`, also in a
+    linked worktree that has none yet: the main checkout's layer is
+    inherited for reading, and a linked worktree's sandbox may only read
+    it.  Not adopted → `personal_dir`, already shared by every worktree.
+    """
+    if adopted(root):
+        return root / LOCAL_DIR
+    return personal_dir(root)
+
+
+def own_stamp(root: Path) -> dict[str, object]:
+    """The stamp in `stamp_dir(root)` alone, for rewriting one block of it; `{}` when there is none.
+
+    A writer adds or replaces only its own entries in its block here, so
+    nothing inherited from a main checkout is copied in.  The one
+    exception is a migration: with no stamp here yet, an unadopted repo's
+    legacy in-tree stamp is carried over (read, never deleted).
+    """
+    directory = stamp_dir(root)
+    if (directory / STAMP_NAME).exists():
+        return stamp_in(directory) or {}
+    legacy = legacy_local_dir(root)
+    return (stamp_in(legacy) if legacy is not None else None) or {}
+
+
 def config_layers(root: Path) -> list[Path]:
     """Every directory a config file is looked up in, first match wins."""
     return [*personal_layers(root), root / OVERRIDES_DIR]
@@ -396,6 +526,8 @@ def describe(root: Path) -> dict[str, object]:
         "personal_dir": str(home),
         "personal_dir_exists": home.is_dir(),
         "personal_layers": [str(p) for p in personal_layers(root)],
+        # Where this checkout writes `reconciled.json`; `personal_dir` is for configuration.
+        "stamp_dir": str(stamp_dir(root)),
         "legacy_local_dir": str(legacy) if legacy is not None else None,
         "config_layers": [str(p) for p in config_layers(root)],
     }

@@ -1328,6 +1328,18 @@ The helper:
   into **each worktree's** own `.claude/settings.local.json`.
 - Without the flag, writes only the current worktree's path
   into the current worktree's `.claude/settings.local.json`.
+- With `--all-worktrees` run from a main checkout, also adds that
+  checkout's `.apache-magpie-local/`, `.claude/settings.json` and
+  `.claude/settings.local.json` to each linked worktree's `allowRead`
+  only, never to `allowWrite`: the worktree inherits that personal layer
+  and loads those settings first, so the skills must be able to read
+  them. Only from there: a worktree's `.git` file is writable from inside
+  the sandbox, so the main checkout is never derived from it, and
+  without the flag nothing is added. A path that is a symlink, or does
+  not exist yet, is not granted, and every run, with or without the flag,
+  drops an inherited grant whose path has since become a symlink. Between
+  runs, the setup pre-flight reports such a swap at the next skill start
+  (`inherited-path-symlink`).
 - Also adds the [working directory](#working-directories-under-the-read-outside-working-directories-block)
   `/tmp/claude-<uid>`, resolved, to `permissions.additionalDirectories`;
   `--no-working-dirs` skips it. It removes `$HOME/.claude/magpie` from

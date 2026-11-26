@@ -34,4 +34,4 @@ personal layer first, then `.apache-magpie-overrides/project.md`,
 default 7; `0` turns the timer off while still reporting changes. Someone who
 does not use the isolated setup here can silence both with
 `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json`
-(the `personal_dir` that `python3 -P -m setup_preflight.layers` prints).
+(in the `stamp_dir` that `python3 -P -m setup_preflight.layers` prints).
