@@ -405,6 +405,14 @@ def test_reminder_kept_when_the_page_flag_is_absent_or_true(capsys, tmp_path):
                 advisory_records_configured=True,
                 comments=[team("<!-- apache-magpie: advisory-records v1 -->")],
             ),
+            "recheck",
+        ),
+        (
+            closed(
+                advisory_records_configured=True,
+                cve_org_state="RESERVED",
+                comments=[team("<!-- apache-magpie: advisory-records v1 -->")],
+            ),
             "done",
         ),
         (closed(advisory_records_configured=True, planner_exit=0, planner_result="proposed"), "pending"),
@@ -460,11 +468,30 @@ def pr_mode(**kw):
             pr_mode(
                 comments=[team(_RECORDED), team("<!-- apache-magpie: advisory-records-merged v1 -->\ndone")]
             ),
+            "recheck",
+            None,
+        ),
+        # Recorded at announcement, merged before cve.org lists it: nothing to check yet.
+        (
+            pr_mode(
+                cve_org_state="RESERVED",
+                comments=[team(_RECORDED), team("<!-- apache-magpie: advisory-records-merged v1 -->\ndone")],
+            ),
             "done",
             None,
         ),
+        # Recorded at announcement, pull request still open while cve.org has not caught up.
+        (
+            pr_mode(cve_org_state="RESERVED", comments=[team(_RECORDED)], records_pr_state="OPEN"),
+            "pr_open",
+            _PR,
+        ),
         # A direct-mode comment (no pull request in it) still means done after a switch to pull requests.
-        (pr_mode(comments=[team("<!-- apache-magpie: advisory-records v1 -->\nCommitted.")]), "done", None),
+        (
+            pr_mode(comments=[team("<!-- apache-magpie: advisory-records v1 -->\nCommitted.")]),
+            "recheck",
+            None,
+        ),
     ],
 )
 def test_advisory_records_pull_request(capsys, tmp_path, data, step, pr_url):
@@ -473,6 +500,58 @@ def test_advisory_records_pull_request(capsys, tmp_path, data, step, pr_url):
     assert out.get("records_pr_url") == pr_url
     assert out["security_pages_reminder_pending"] is False
     assert bool(out["blockers"]) is (step == "pr_closed")
+
+
+_MERGED = team("<!-- apache-magpie: advisory-records-merged v1 -->\ndone")
+
+
+@pytest.mark.parametrize(
+    ("extra", "step", "noted"),
+    [
+        ({"site_recheck": "unchanged"}, "recheck_unchanged", "matches"),
+        ({"site_recheck": "differs"}, "refresh", None),
+        ({"site_recheck": "failed"}, "retry_recheck", "could not be read"),
+        (
+            {
+                "comments": [
+                    team(_RECORDED),
+                    _MERGED,
+                    team("<!-- apache-magpie: advisory-records-refresh v1 -->"),
+                ]
+            },
+            "done",
+            None,
+        ),
+    ],
+)
+def test_the_site_record_is_checked_once_cve_org_publishes(capsys, tmp_path, extra, step, noted):
+    data = pr_mode(**{"comments": [team(_RECORDED), _MERGED], **extra})
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == step
+    if noted:
+        assert noted in out["note"]
+
+
+def test_the_recheck_marker_ends_the_check(capsys, tmp_path):
+    """Once the unchanged result is recorded, the site is never read again."""
+    recorded = team("<!-- apache-magpie: advisory-records-recheck v1 -->\nunchanged")
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, recorded])
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == "done"
+    outsider = team(
+        "<!-- apache-magpie: advisory-records-recheck v1 -->", association="NONE", login="reporter"
+    )
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, outsider])
+    assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "recheck"
+
+
+def test_an_unknown_recheck_result_is_refused(capsys, tmp_path):
+    path = tmp_path / "in.json"
+    path.write_text(
+        json.dumps(pr_mode(comments=[team(_RECORDED), _MERGED], site_recheck="maybe")), encoding="utf-8"
+    )
+    assert main(["issue-sync", "closed-announced", "--input", str(path)]) == 2
+    assert "site_recheck" in json.loads(capsys.readouterr().out)["refused"]
 
 
 def test_a_closed_unrecorded_pull_request_is_named(capsys, tmp_path):

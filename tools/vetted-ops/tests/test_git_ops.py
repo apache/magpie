@@ -1257,6 +1257,75 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
         _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")
 
 
+def test_pr_create_lets_a_published_records_identifier_through_where_the_policy_says(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    """A site policy names `published_terms`: the record's identifier passes, every other term stays refused."""
+    fake = FakeGh()
+    git.gh_runner = fake
+    site = dataclasses.replace(wpolicy, published_terms=("CVE id", "CVE"))
+    body = "Adds the published record of CVE-2026-1234:\n\n- `security/json/CVE-2026-1234.json`\n"
+    assert "pull/7" in _pr(git, site, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
+    with pytest.raises(GitRefused, match=r"never published.*advisory"):
+        _pr(git, site, repo, workspace, "Add CVE-2026-1234", "the advisory")
+    with pytest.raises(GitRefused, match="never published"):
+        _pr(git, wpolicy, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
+    assert len(fake.calls) == 1
+
+
+def test_published_terms_name_only_a_records_identifier(tmp_path: Path, approved: Path) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    policy = git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["CVE id", "CVE"]}))
+    assert policy.published_terms == ("CVE id", "CVE")
+    assert git_ops.git_policy(_config({"checkouts": [checkout]})).published_terms == ()
+    with pytest.raises(ConfigError, match="published_terms may name only"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["advisory"]}))
+
+
+def test_the_operator_file_cannot_let_terms_through(tmp_path: Path, approved: Path) -> None:
+    """`published_terms` is the project's decision, in the shared policy everyone approves."""
+    checkout = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\npublished_terms = ["CVE"]\n')
+    with pytest.raises(ConfigError, match="may not set published_terms"):
+        git_ops.git_policy(_config(None))
+
+
+def test_policy_from_discovers_the_policy_in_the_named_directory(
+    policy: LocalPolicy, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
+    seen: list[object] = []
+
+    def fake_load(*, approved_only: bool = False, cwd: Path | None = None, **_: object) -> Config:
+        seen.append(cwd)
+        if approved_only:
+            raise ConfigError("the policy is not an approved copy")
+        return config
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    monkeypatch.setattr(git_ops, "git_policy", lambda _config, _base=None: policy)
+    site = Path(os.path.realpath(tmp_path))
+    argv = ["--caller", "skill", "--policy-from", str(site), "--dry-run"]
+    argv += ["git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
+    assert seen == [site, site]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        pytest.param(["--policy-from", "relative/dir"], id="relative"),
+        pytest.param(["--policy-from", "/does/not/exist"], id="missing"),
+        pytest.param(["--policy-from", "/", "--policy-from=/tmp"], id="twice"),
+    ],
+)
+def test_policy_from_refuses_a_relative_missing_or_repeated_directory(
+    spelling: list[str], repo: Path
+) -> None:
+    argv = ["--caller", "skill", *spelling, "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+
+
 @dataclass
 class FakePr:
     """`gh api repos/<upstream>/pulls/<N>`, answering with one pull request's head."""

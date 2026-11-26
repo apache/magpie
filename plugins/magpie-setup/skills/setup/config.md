@@ -416,6 +416,21 @@ The project-wide `[git]` keys and the publishing skills' grants stay in the shar
   Show it, with the line that appends it to the file, for the user to run in their own terminal:
   the sandbox denies that directory by design, and setup never writes it.
   `vetted-op-git` prints the same draft whenever it refuses for missing values.
+- **The security records site** (only when `project.md` declares [`advisory_records`](../../templates/project.md#advisory-records)
+  with `publish: pull-request`): `security-issue-sync` publishes each record to the site repository through `vetted-op-git`
+  ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md#publishing-through-vetted-op-git)),
+  against the site repository's own policy, so propose three more things, each for the user to apply themselves:
+  1. a `["<site repo>"]` table in the same `operator-git.toml`: `checkouts` is the site checkout
+     (`user.md → environment.advisory_records_clone`, else `advisory_records.working_copy`), `fork` the operator's fork
+     (`environment.advisory_records_fork`), and `worktree_roots` a directory the sandbox can write, such as
+     `~/.cache/apache-magpie/worktrees/<site name>` (the default `~/.cache/` grant covers it), created first with `mkdir -m 700`;
+  2. the site policy, drafted from the README's [second-policy example](../../../../tools/vetted-ops/README.md#configuration)
+     with the site repository as `[repos] upstream` and the project's `workspace`, saved by the user at
+     `<site checkout>/.git/apache-magpie/tools/vetted-ops/config.toml` and approved with a copy into `~/.config/apache-magpie/vetted-ops/`
+     (the policy is `Edit`-denied to the agent, as above);
+  3. the site checkout in the tracker session's `sandbox.filesystem.allowRead` (in `.claude/settings.local.json`), read-only:
+     the planner and `vetted-op-checks` run in the sandbox and read the checkout's `.git` through the worktree; every write to it goes through `vetted-op-git`.
+  Until all three are in place, sync hands over the `magpie-vcs` commands of the pull-request mode, as before.
 
 A declined proposal is not a failure; record it like any other declined configuration.
 
