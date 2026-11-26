@@ -191,7 +191,10 @@ No sandboxed command reads the site checkout: what sync needs to know about the 
 
 The proposal is planned from the forge. For each file the record touches (the JSON file, or each release-line page),
 sync reads the site's copy at the base branch with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`
-(a missing file is a 404: the file is new), and runs the planner with `--vetted-git --from-saved <path>=<saved file>`;
+and runs the planner with `--vetted-git --from-saved <path>=<saved file>`, or `--site-absent <path>` for a 404 (the file is new);
+the planner refuses a path answered by neither, so an unread file is never taken as absent.
+`--policy-from` accepts only a checkout the operator's own `operator-git.toml` lists for the site repository:
+the read dispatcher runs without a prompt, so it cannot be pointed at any other directory;
 `repo-file` saves the forge's base64 content, which the planner decodes.
 A backfill lists the site's files instead (`… --save <name> repo-tree <base>`) and passes the listing as `--site-listing`.
 Then, on confirmation:
@@ -232,7 +235,14 @@ What makes it possible, and what it keeps apart:
   Git itself cannot run there from the sandbox: a linked worktree keeps its index and objects in the site checkout's `.git`, which the sandbox denies.
   So `vetted-op-checks` computes the checked files' blob ids itself (SHA-1, as `git hash-object` would; a SHA-256 repository never matches, so `git-commit` refuses rather than commit unchecked content).
   A site repository with a hook configuration (`.pre-commit-config.yaml`) cannot be checked this way, since `prek` runs git:
-  the checks refuse, and sync hands over the `magpie-vcs` commands instead.
+  by default sync reads `.pre-commit-config.yaml` from the forge first and, when the site has one, hands over the `magpie-vcs` commands from the start.
+  If the checks still refuse once the worktree exists, the hand-over is the planner's `fallback_commands`:
+  remove the worktree (`git worktree remove --force`, since it holds the uncommitted change) and delete its never-pushed branch, then the `magpie-vcs` commands,
+  which make the same branch again, the one later syncs find the pull request by.
+  A site may opt in to skipping its own hooks on this route with `[git] site_hooks = "skip"` in its policy
+  (only a records-site policy, one with `published_paths`, may set it): the checks are then recorded as skipped, `git-commit` accepts that,
+  and the pull request's body says *"Hooks were not run locally; the repository's CI checks this PR."*
+  The pull request changes only the records files, and the site's own CI runs the hooks on it.
   `git-fetch`, `git-worktree-add`, `git-stage` and `git-commit` read and write the checkout outside the sandbox.
 - **The published identifier passes `git-pr-create`'s scan, nothing else does.** That scan refuses every term the publication guard keeps back before disclosure.
   The site policy sets `[git] published_terms = ["CVE id", "CVE"]`, which only a policy can set and which names nothing beyond the record's identifier,

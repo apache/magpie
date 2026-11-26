@@ -481,6 +481,12 @@ pr_base = "main"
 published_terms = ["CVE id", "CVE"]
 # ...and only for a branch that changes nothing outside the records directory.
 published_paths = ["content/security/json"]
+# Optional, a records-site policy only (one with published_paths): the site's own hooks
+# (.pre-commit-config.yaml) cannot run in the sandbox, which cannot read the site checkout's
+# .git; "skip" lets vetted-op-checks --skip-site-hooks record them as skipped. A records pull
+# request changes only the files under published_paths, and the site's CI runs the hooks on it.
+# Unset (the default): vetted-op-checks refuses, and the skill hands over the commands instead.
+# site_hooks = "skip"
 
 [callers]
 # Only in a policy whose [repos] upstream is the advisory_records site repository.
@@ -1016,12 +1022,23 @@ under `~/.cache/` of a checkout the sandbox denies), `vetted-op-checks` computes
 the blob ids itself, as `git hash-object --no-filters` would in a SHA-1
 repository (a SHA-256 one never matches, so `git-commit` refuses), and refuses
 when the worktree has a hook configuration: the hook manager runs git, which
-cannot open that git directory.
+cannot open that git directory. A records site may opt out of its own hooks on
+this route: `[git] site_hooks = "skip"`, valid only in a policy that sets
+`published_paths` (never from `operator-git.toml`). Then `vetted-op-checks
+--skip-site-hooks` records the checks as `skipped: site hooks off by policy`,
+with the computed blob ids, and `git-commit` accepts that record only under
+such a policy; under any other it refuses. The site's CI still runs the hooks on
+the pull request, which changes only the records files.
 
 The read and write dispatchers take `--policy-from <absolute dir>` too, so
 `vetted-op-read --policy-from <site checkout> --save <name> repo-file <path> <base>`
-reads a site repository's file from the forge through its own policy; from a
-named directory even a read acts only on an approved policy.
+reads a site repository's file from the forge through its own policy.
+On every dispatcher the directory must be a `checkouts` entry of your own
+`operator-git.toml` (checked before anything on disk is looked at), the policy
+found there must be an approved copy, and its upstream's table must list that
+checkout: `vetted-op-read` runs without a prompt, so it must not be pointed at
+an arbitrary directory, to probe the host or to read through another project's
+policy. `approval-status` and `source` refuse the option.
 
 `vetted-op-checks` is the one vetted-ops command that runs *inside* the
 sandbox (no `excludedCommands` entry names it, and a test keeps it that way):
@@ -1078,8 +1095,9 @@ harness_paths = ["tools/agent-settings.template.json"]
 
 The policy is discovered from the working directory, or from the absolute
 directory `--policy-from <dir>` names (`vetted-op-git --caller <skill>
---policy-from <dir> <operation> …`). Either way only an approved policy acts, so
-the option widens nothing; it lets a session in the tracker repository reach the
+--policy-from <dir> <operation> …`), which must be a checkout your
+`operator-git.toml` lists for the repository the policy there names. Either way
+only an approved policy acts, so the option widens nothing; it lets a session in the tracker repository reach the
 site repository's own policy without leaving its working directory (a `cd` into
 the site checkout would put the command back in the sandbox), and the confirmation
 shows which policy the call uses.

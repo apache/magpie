@@ -428,11 +428,14 @@ The project-wide `[git]` keys and the publishing skills' grants stay in the shar
      with the site repository as `[repos] upstream`, the project's `workspace`, and `[git] published_paths` set to the records directory
      (the directory of `cve_json_file.path`, or of `release_page.path`), saved by the user at
      `<site checkout>/.git/apache-magpie/tools/vetted-ops/config.toml` and approved with a copy into `~/.config/apache-magpie/vetted-ops/`
-     (the policy is `Edit`-denied to the agent, as above);
+     (the policy is `Edit`-denied to the agent, as above).
+     When the site repository has a hook configuration (`.pre-commit-config.yaml`; check with a `repo-file` read), ask whether to add `[git] site_hooks = "skip"`:
+     its hooks cannot run in the sandbox, which cannot read the site checkout's `.git`, so without it every record is handed over as commands;
+     with it, the hooks are skipped locally and the site's CI runs them on the pull request, which changes only the records files. Leave it out unless the user says yes;
   No sandbox grant for the site checkout is needed or proposed: sync reads the site's files from the forge (`vetted-op-read --policy-from`)
   and writes only in the worktree.
   Until both are in place, sync hands over the `magpie-vcs` commands of the pull-request mode, as before;
-  it does the same for a site repository with a hook configuration, whose checks cannot run in the sandbox.
+  it does the same for a site repository with a hook configuration and no `site_hooks = "skip"`, whose checks cannot run in the sandbox.
 
 A declined proposal is not a failure; record it like any other declined configuration.
 

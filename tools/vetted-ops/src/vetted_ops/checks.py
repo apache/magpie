@@ -46,6 +46,9 @@ STAMP_DIR = "checks"
 #: The hook configurations this command knows how to run, and the command for each.
 CHECKERS = ((".pre-commit-config.yaml", ("prek", "run", "--files")),)
 DELETED = "deleted"
+#: What the record says when a records site's own hooks were skipped: only a
+#: policy that opts in (`[git] site_hooks = "skip"`) lets `git-commit` accept it.
+SITE_HOOKS_SKIPPED = "skipped: site hooks off by policy"
 
 
 def stamp_path(workspace: Path, worktree: Path) -> Path:
@@ -114,20 +117,27 @@ def read_paths(paths_file: Path) -> list[str]:
     return paths
 
 
-def run_checks(worktree: Path, paths: list[str], git_dir: Path | None = None) -> str:
+def run_checks(
+    worktree: Path, paths: list[str], git_dir: Path | None = None, *, skip_site_hooks: bool = False
+) -> str:
     """Run the worktree's hook configuration on `paths`; the checker's name, or `none`.
 
     ``git_dir`` is the worktree's unreadable git directory, if any: a hook
     manager runs git, so a configured one cannot run, and the checks refuse
-    rather than pass unchecked content.
+    rather than pass unchecked content, unless ``skip_site_hooks`` asks to
+    record them as skipped. That is only a claim: `git-commit` accepts the
+    record only from a records-site policy that sets `[git] site_hooks = "skip"`.
     """
     present = [p for p in paths if os.path.lexists(worktree / p)]
     for config, command in CHECKERS:
         if (worktree / config).is_file():
+            if git_dir is not None and skip_site_hooks:
+                return SITE_HOOKS_SKIPPED
             if git_dir is not None:
                 raise RuntimeError(
                     f"{config} configures checks, and {command[0]} needs the worktree's git directory "
-                    f"{git_dir}, which the sandbox cannot read; these changes cannot be checked here"
+                    f"{git_dir}, which the sandbox cannot read; these changes cannot be checked here "
+                    '(a records site whose policy sets [git] site_hooks = "skip" passes --skip-site-hooks)'
                 )
             if present:
                 done = subprocess.run([*command, *present], cwd=worktree, check=False)
@@ -137,13 +147,13 @@ def run_checks(worktree: Path, paths: list[str], git_dir: Path | None = None) ->
     return "none"
 
 
-def record(worktree: Path, paths_file: Path) -> Path:
+def record(worktree: Path, paths_file: Path, *, skip_site_hooks: bool = False) -> Path:
     """Run the checks on the listed paths and write the record; returns its path."""
     worktree = Path(os.path.realpath(worktree))
     paths_file = Path(os.path.realpath(paths_file))
     paths = read_paths(paths_file)
     git_dir = unreadable_git_dir(worktree)
-    checker = run_checks(worktree, paths, git_dir)
+    checker = run_checks(worktree, paths, git_dir, skip_site_hooks=skip_site_hooks)
     stamp = {
         "worktree": str(worktree),
         "checks": checker,
@@ -171,9 +181,15 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="the git-stage path list in the vetted-ops workspace; the record is written beside it",
     )
+    parser.add_argument(
+        "--skip-site-hooks",
+        action="store_true",
+        help="in a worktree whose git directory the sandbox cannot read, record the site's hooks as skipped "
+        'instead of refusing; git-commit accepts that only under a policy with [git] site_hooks = "skip"',
+    )
     args = parser.parse_args(argv)
     try:
-        target = record(args.worktree, args.paths_file)
+        target = record(args.worktree, args.paths_file, skip_site_hooks=args.skip_site_hooks)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f"{PROG}: {exc}", file=sys.stderr)
         return 1

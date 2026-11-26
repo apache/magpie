@@ -482,8 +482,11 @@ lists every changed file under one of them, with the branch's head at the local
 branch's commit, so a source-repository change never gets it).
 `--policy-from <absolute dir>` (on `vetted-op-git`, and on `vetted-op`,
 `vetted-op-read` and `vetted-op-tracker`, where it makes even a read require an
-approved policy) discovers the policy from that directory instead
-of the working directory; only an approved policy acts either way, so it lets a
+approved policy; on all of them the directory must be a `checkouts` entry of
+the operator's `operator-git.toml`, checked before the file system is touched,
+and the policy's upstream table must list it, so the unprompted read dispatcher
+cannot probe the host; `approval-status` and `source` refuse it) discovers the
+policy from that directory instead of the working directory; only an approved policy acts either way, so it lets a
 tracker session reach a site repository's own policy without a `cd` that would
 put the call back in the sandbox. `security-issue-sync` uses it to publish its
 records pull request, granted only in a policy whose `[repos] upstream` is the
@@ -520,7 +523,10 @@ readable per-version copy the plugin's session hook keeps at
 hooks on the listed paths and records the content they passed in
 `<workspace>/checks/` (in a linked worktree whose git directory the sandbox
 cannot read, it computes SHA-1 blob ids itself and refuses when a hook
-configuration is present, since the hook manager runs git); `git-commit` refuses a staged path missing from that
+configuration is present, since the hook manager runs git, unless the
+policy is a records-site one with `[git] site_hooks = "skip"`, where
+`--skip-site-hooks` records them as skipped and `git-commit` accepts only
+that policy's record); `git-commit` refuses a staged path missing from that
 record or staged with other content. The record is sandbox-writable, so it
 holds an agent to the checks the way CI does, not against a forgery.
 
