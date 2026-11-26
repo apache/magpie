@@ -463,11 +463,24 @@ def test_a_folded_note_is_recognised_by_its_fold_marker(monkeypatch):
     assert reason and "fold" in reason
 
 
-def test_a_body_the_guard_cannot_read_is_let_through(monkeypatch, tmp_path):
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr comment 5 --body-file -",
+        "gh issue comment 5 --body-file -",
+        "gh pr edit 5 --body-file {missing}",
+        "gh api graphql --input -",
+    ],
+)
+def test_a_body_the_guard_cannot_read_is_refused_whoever_posts_it(monkeypatch, tmp_path, command):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    assert dispatch("gh pr comment 5 --body-file -") is None
-    assert dispatch(f"gh pr edit 5 --body-file {tmp_path / 'missing.md'}") is None
-    assert dispatch("gh api graphql --input -") is None
+    reason = dispatch(command.format(missing=tmp_path / "missing.md"))
+    assert reason and "cannot be inspected" in reason
+
+
+def test_an_unreadable_body_passes_with_the_override(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch("MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body-file -") is None
 
 
 # --- mark-ready guard (skill-owned) ---------------------------------------- #

@@ -236,8 +236,9 @@ same directory; the behaviour is unchanged.
   triage comment) or a `pr-triage-fold` block. On those it checks
   `gh pr|issue comment`, folded notes, and every value a non-GET `gh api`
   call sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
-  reads, `--input`); reviews and other skills' posts pass, and a body it
-  cannot read is let through, since triage always posts from a readable file.
+  reads, `--input`); reviews and other skills' posts pass. A comment, body
+  edit or API write whose text it cannot read (stdin, an unreadable file) is
+  refused whoever sends it, since the guard cannot tell whether it is triage's.
   The guard takes the allowlist only from `.apache-magpie-overrides/` as GitHub
   serves it from the target repository's default branch — never the local
   checkout — so only a reviewed, merged change widens what may be mentioned.

@@ -42,8 +42,9 @@ key every `pr-management` renderer honours. Only a reviewed, merged change can
 put a handle there; a local edit, commit or scratch repository cannot.
 Otherwise maintainer handles must be backtick-quoted so they never notify.
 
-A body the guard cannot read (stdin, an unreadable file) cannot be shown to be
-triage's and is let through: triage always posts from a readable file.
+A body the guard cannot read (stdin, an unreadable file) is refused, whichever
+skill posts it: the guard cannot tell whether it is triage's. Every skill posts
+from a readable file, so this costs a legitimate post nothing.
 
 Discovered by
 the agent-guard PreToolUse dispatcher from a guards.d directory — see
@@ -63,6 +64,15 @@ def _is_triage(text):
     """Whether ``text`` is a body `pr-management-triage` rendered."""
     flat = "".join(text.split())
     return any(marker in flat for marker in TRIAGE_MARKERS)
+
+
+def _uninspectable(what):
+    return (
+        f"agent-guard[mention]: the text of this {what} cannot be inspected (read from stdin, or an "
+        "unreadable file), so the guard cannot tell whether it is a triage body that @-mentions a "
+        "maintainer. Pass the text in a readable file, or override with MAGPIE_ALLOW_MENTIONS=1 for a "
+        "deliberate exception."
+    )
 
 
 def _nobody(what, mentions):
@@ -97,9 +107,13 @@ def guard(ctx):
     # a triage body. No author exemption here.
     api = ctx.gh_api_posted_text()
     if api is not None:
+        if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+            return None
         texts, readable = api
+        if not readable:
+            return _uninspectable("API call")
         triage = [text for text in texts if _is_triage(text)]
-        if not readable or not triage or ctx.override("MAGPIE_ALLOW_MENTIONS"):
+        if not triage:
             return None
         mentions = sorted({m for text in triage for m in ctx.mentions(text)} - _allowlist(ctx))
         return _nobody("triage text sent by `gh api`", mentions) if mentions else None
@@ -117,12 +131,12 @@ def guard(ctx):
     if not (is_pr_body_edit or is_comment):
         return None
 
-    if ctx.opt("-F", "--body-file") == "-":
+    if ctx.override("MAGPIE_ALLOW_MENTIONS"):
         return None
     body = ctx.gh_body(read_files=True)
-    if UNREADABLE in body or not _is_triage(body):
-        return None
-    if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+    if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
+        return _uninspectable("folded triage note" if is_pr_body_edit else "comment")
+    if not _is_triage(body):
         return None
     mentions = ctx.mentions(body)
     if not set(mentions) - _allowlist(ctx):
