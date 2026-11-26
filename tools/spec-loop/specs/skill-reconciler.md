@@ -68,8 +68,9 @@ that a maintainer should not ignore.
 - Deterministic helper: `tools/skill-reconciler-diff/`, a stdlib-only `uv`
   tool (`substrate:framework-dev`) that parses two skill trees into a
   normalised JSON diff (frontmatter, section headings, step inventory,
-  placeholder inventory, support files, and per-clause safety-baseline
-  presence, detected by regex against the checklist's three clauses).
+  Hard rules block, placeholder inventory, support files, and per-clause
+  safety-baseline presence, detected by regex against the checklist's
+  three clauses).
   Follows the tool-backs-skill pattern used across the catalogue.
 - Inputs: two `SKILL.md` trees (plus their supporting `.md` files),
   identified by path or by `source` tag.
@@ -150,8 +151,8 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/skill-reco
 - **Deterministic structural-diff helper shipped** —
   `tools/skill-reconciler-diff/` is a stdlib-only `uv` tool that parses
   two skill trees into a normalised diff (frontmatter, section headings,
-  step inventory, placeholder inventory, support files, and
-  safety-baseline clause presence) and emits a JSON object.  It is
+  step inventory, Hard rules block, placeholder inventory, support files,
+  and safety-baseline clause presence) and emits a JSON object.  It is
   intended to be used as an optional Step 1 enhancement to the
   `skill-reconciler` skill, but the skill still does not wire it in:
   `SKILL.md` never names `skill-reconciler-diff`. Its unit tests cover

@@ -17,6 +17,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { atom, read, update } from 'claude-code';
 import type {
   QueueItemSeverity,
   QueueItemStage,
@@ -26,6 +27,13 @@ import type {
   SecurityTriageQueueState,
   StagedLauncherAction,
 } from './types.js';
+
+export type WriteTarget = 'regular' | 'missing' | 'unsafe';
+
+export const triageQueueState = atom(
+  { plugin: 'magpie-security', key: 'triageQueueState' },
+  null as SecurityTriageQueueState | null
+);
 
 export const SECURITY_QUEUE_STATE_KEY = 'magpie-security.triageQueueState';
 export const SECURITY_QUEUE_PANE_ID = 'magpie-security:triage-queue';
@@ -122,30 +130,50 @@ export function isConfinedQueuePath(filePath: string, cwd: string): boolean {
 }
 
 /**
- * Reads the security triage queue state from $.state, failing open to null.
+ * Classifies a file target via $.fs.stat, refusing symlinks and non-regular files.
  */
-export function getSecurityTriageQueueState($: any): SecurityTriageQueueState | null {
+export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
+  let stat: any;
   try {
-    const res = $.state.get({ plugin: 'magpie-security', key: 'triageQueueState' });
-    if (res && res.isSet && res.value) {
-      return res.value as SecurityTriageQueueState;
-    }
-    return null;
+    stat = await $.fs.stat(path);
+  } catch (err: any) {
+    const isNotFound =
+      err?.code === 'ENOENT' ||
+      String(err).includes('ENOENT') ||
+      String(err).includes('not found');
+    return isNotFound ? 'missing' : 'unsafe';
+  }
+  if (!stat || stat.isLink !== false || stat.kind !== 'file') return 'unsafe';
+  return 'regular';
+}
+
+/**
+ * Reads the security triage queue state from the session store, failing open to null.
+ */
+export async function getSecurityTriageQueueState(
+  $: any
+): Promise<SecurityTriageQueueState | null> {
+  try {
+    return (await read($, triageQueueState)) ?? null;
   } catch {
     return null;
   }
 }
 
 /**
- * Writes the security triage queue state to $.state and invalidates ui.render.
+ * Writes the security triage queue state to the session store and invalidates ui.render.
  */
-export function setSecurityTriageQueueState(
+export async function setSecurityTriageQueueState(
   $: any,
   value: SecurityTriageQueueState | null
-): void {
+): Promise<void> {
   try {
-    $.state.set({ plugin: 'magpie-security', key: 'triageQueueState' }, { value });
-    $.ui.invalidate('ui.render');
+    await update($, triageQueueState, () => value);
+    try {
+      $.ui.invalidate('ui.render');
+    } catch {
+      // Fail-open in headless/non-interactive harnesses
+    }
   } catch {
     // Fail-open in headless/non-interactive harnesses
   }
@@ -291,7 +319,7 @@ export function renderSecurityQueuePane(
 
   const tabButtons = tabDefs.map((tab) =>
     Button({
-      id: `sq:filter:${tab.key}`,
+      key: `sq:filter:${tab.key}`,
       label: state.activeFilter === tab.key ? `[${tab.label}]` : tab.label,
       variant: state.activeFilter === tab.key ? 'primary' : 'secondary',
     })
@@ -322,7 +350,7 @@ export function renderSecurityQueuePane(
 
           const actionButtons = [
             Button({
-              id: `sq:launch:issue-sync:${item.id}`,
+              key: `sq:launch:issue-sync:${item.id}`,
               label: '[Sync]',
               variant: 'secondary',
             }),
@@ -330,7 +358,7 @@ export function renderSecurityQueuePane(
           if (item.needsCve || !item.cveId) {
             actionButtons.push(
               Button({
-                id: `sq:launch:cve-allocate:${item.id}`,
+                key: `sq:launch:cve-allocate:${item.id}`,
                 label: '[Allocate CVE]',
                 variant: 'primary',
               })
@@ -338,7 +366,7 @@ export function renderSecurityQueuePane(
           }
           actionButtons.push(
             Button({
-              id: `sq:launch:issue-triage:${item.id}`,
+              key: `sq:launch:issue-triage:${item.id}`,
               label: '[Triage]',
               variant: 'secondary',
             })
@@ -405,7 +433,7 @@ export function renderSecurityQueuePane(
             children: ['Security Triage Queue (Local-Only)'],
           }),
           Button({
-            id: 'sq:close',
+            key: 'sq:close',
             label: '[Close]',
             variant: 'secondary',
           }),
@@ -451,6 +479,14 @@ export async function handleQueueCommand($: any): Promise<string> {
       return 'Security Triage Queue: refused unconfined queue path.';
     }
 
+    const queueTarget = await classifyWriteTarget($, queuePath);
+    if (queueTarget === 'missing') {
+      return `No local queue file found at ${QUEUE_INPUT_FILENAME}.`;
+    }
+    if (queueTarget === 'unsafe') {
+      return `Security Triage Queue: refusing to read symlink or non-regular file at ${QUEUE_INPUT_FILENAME}.`;
+    }
+
     let rawContent: string | null = null;
     try {
       rawContent = await $.fs.read(queuePath);
@@ -467,10 +503,10 @@ export async function handleQueueCommand($: any): Promise<string> {
       return `Security Triage Queue error: ${parsed.error}`;
     }
 
-    setSecurityTriageQueueState($, parsed.state);
+    await setSecurityTriageQueueState($, parsed.state);
 
     try {
-      await $.ui.open({ id: SECURITY_QUEUE_PANE_ID });
+      await $.ui.open({ component: 'Pane' });
     } catch {
       // Fail-open when $.ui.open is unavailable
     }
@@ -485,22 +521,22 @@ export async function handleQueueCommand($: any): Promise<string> {
 /**
  * Handles `ui.render` for the Security Triage Queue Pane, failing open when empty.
  */
-export function handleRenderSecurityQueuePane($: any, e: any, next: any): any {
+export async function handleRenderSecurityQueuePane(
+  $: any,
+  e: any,
+  next: any
+): Promise<any> {
   try {
-    if (
-      !e ||
-      e.component !== 'Pane' ||
-      (e.requestId !== undefined && e.requestId !== SECURITY_QUEUE_PANE_ID)
-    ) {
+    if (!e || (e.component && e.component !== 'Pane')) {
       return typeof next === 'function' ? next(e) : undefined;
     }
 
-    const state = getSecurityTriageQueueState($);
+    const state = await getSecurityTriageQueueState($);
     if (!state) {
       return typeof next === 'function' ? next(e) : undefined;
     }
 
-    const ui = $.ui.resolve();
+    const ui = $.ui.resolve(e);
     if (!ui?.Box || !ui?.Text || !ui?.Button) {
       return typeof next === 'function' ? next(e) : undefined;
     }
@@ -518,25 +554,25 @@ export function handleRenderSecurityQueuePane($: any, e: any, next: any): any {
  */
 export async function handleSecurityQueuePress($: any, e: any, next: any): Promise<any> {
   try {
-    const buttonId = typeof e?.buttonId === 'string' ? e.buttonId : '';
-    if (!buttonId) {
+    const element = typeof e?.element === 'string' ? e.element : '';
+    if (!element) {
       return typeof next === 'function' ? next(e) : undefined;
     }
 
-    const state = getSecurityTriageQueueState($);
+    const state = await getSecurityTriageQueueState($);
     if (!state) {
       return typeof next === 'function' ? next(e) : undefined;
     }
 
-    if (buttonId === 'sq:close') {
-      setSecurityTriageQueueState($, null);
+    if (element === 'sq:close') {
+      await setSecurityTriageQueueState($, null);
       return;
     }
 
-    if (buttonId.startsWith('sq:filter:')) {
-      const nextFilter = buttonId.slice('sq:filter:'.length);
+    if (element.startsWith('sq:filter:')) {
+      const nextFilter = element.slice('sq:filter:'.length);
       if ((ALLOWED_FILTERS as readonly string[]).includes(nextFilter)) {
-        setSecurityTriageQueueState($, {
+        await setSecurityTriageQueueState($, {
           ...state,
           activeFilter: nextFilter as QueueStageFilter,
         });
@@ -544,11 +580,11 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
       }
     }
 
-    if (buttonId.startsWith('sq:select:')) {
-      const targetId = buttonId.slice('sq:select:'.length);
+    if (element.startsWith('sq:select:')) {
+      const targetId = element.slice('sq:select:'.length);
       const exists = state.items.some((item) => item.id === targetId);
       if (exists) {
-        setSecurityTriageQueueState($, {
+        await setSecurityTriageQueueState($, {
           ...state,
           selectedItemId: targetId,
         });
@@ -556,8 +592,8 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
       }
     }
 
-    if (buttonId.startsWith('sq:launch:')) {
-      const rest = buttonId.slice('sq:launch:'.length);
+    if (element.startsWith('sq:launch:')) {
+      const rest = element.slice('sq:launch:'.length);
       const colonIdx = rest.indexOf(':');
       if (colonIdx > 0) {
         const rawSkill = rest.slice(0, colonIdx);
@@ -585,13 +621,17 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
               const normCwd = String(cwd).replace(/\\/g, '/').replace(/\/+$/, '');
               const actionPath = `${normCwd}/${QUEUE_ACTION_FILENAME}`;
               if (normCwd && isConfinedQueuePath(actionPath, normCwd)) {
-                await $.fs.write(actionPath, JSON.stringify(action, null, 2) + '\n');
+                if ((await classifyWriteTarget($, actionPath)) === 'unsafe') {
+                  syncError = `Refusing to write to symlink or non-regular file: ${QUEUE_ACTION_FILENAME}`;
+                } else {
+                  await $.fs.write(actionPath, JSON.stringify(action, null, 2) + '\n');
+                }
               }
             } catch {
               syncError = `Could not write ${QUEUE_ACTION_FILENAME}; run command manually.`;
             }
 
-            setSecurityTriageQueueState($, {
+            await setSecurityTriageQueueState($, {
               ...state,
               selectedItemId: rawItemId,
               lastLaunchedAction: action,
@@ -612,11 +652,11 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
 /**
  * Invalidates stale local queue state on mutating git operations (checkout, switch, reset, commit).
  */
-export function clearSecurityQueueOnMutatingGit($: any, command: string): void {
+export async function clearSecurityQueueOnMutatingGit($: any, command: string): Promise<void> {
   try {
-    if (/\bgit\s+(?:checkout|switch|reset|commit)\b/.test(command)) {
-      if (getSecurityTriageQueueState($)) {
-        setSecurityTriageQueueState($, null);
+    if (/\bgit\s+(?:checkout|switch|reset|commit|merge|rebase|restore)\b/i.test(command)) {
+      if (await getSecurityTriageQueueState($)) {
+        await setSecurityTriageQueueState($, null);
       }
     }
   } catch {
@@ -627,7 +667,11 @@ export function clearSecurityQueueOnMutatingGit($: any, command: string): void {
 /**
  * Bash tool.call helper for unit-testing mutating git command invalidation.
  */
-export function handleSecurityQueueBashToolCall($: any, e: any, next: any): any {
+export async function handleSecurityQueueBashToolCall(
+  $: any,
+  e: any,
+  next: any
+): Promise<any> {
   const cmd =
     typeof e?.command === 'string'
       ? e.command
@@ -635,7 +679,7 @@ export function handleSecurityQueueBashToolCall($: any, e: any, next: any): any 
         ? e.input.command
         : '';
   if (cmd) {
-    clearSecurityQueueOnMutatingGit($, cmd);
+    await clearSecurityQueueOnMutatingGit($, cmd);
   }
   return typeof next === 'function' ? next(e) : undefined;
 }
@@ -645,7 +689,7 @@ export function handleSecurityQueueBashToolCall($: any, e: any, next: any): any 
  */
 export function register(on: any): void {
   on('session.start', async ($: any, _e: any, next: any) => {
-    setSecurityTriageQueueState($, null);
+    await setSecurityTriageQueueState($, null);
     try {
       await $.command.register({
         name: SECURITY_QUEUE_COMMAND,
@@ -661,8 +705,8 @@ export function register(on: any): void {
     'command.run',
     { command: SECURITY_QUEUE_COMMAND },
     async ($: any, _e: any, _next: any) => {
-      const output = await handleQueueCommand($);
-      return { output };
+      const text = await handleQueueCommand($);
+      return { text };
     }
   );
 

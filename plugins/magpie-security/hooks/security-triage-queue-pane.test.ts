@@ -21,6 +21,8 @@ import { describe, test } from 'claude-code/testing';
 import type { SecurityTriageQueueState } from './types.js';
 import {
   buildLauncherAction,
+  classifyWriteTarget,
+  getSecurityTriageQueueState,
   handleQueueCommand,
   handleRenderSecurityQueuePane,
   handleSecurityQueueBashToolCall,
@@ -32,10 +34,13 @@ import {
   parseSecurityQueuePayload,
   QUEUE_ACTION_FILENAME,
   QUEUE_INPUT_FILENAME,
+  register,
   renderSecurityQueuePane,
   sanitizeSecurityText,
+  SECURITY_QUEUE_COMMAND,
   SECURITY_QUEUE_PANE_ID,
   SECURITY_QUEUE_STATE_KEY,
+  setSecurityTriageQueueState,
 } from './security-triage-queue-pane.js';
 
 function assert(condition: unknown, message?: string): asserts condition {
@@ -53,30 +58,36 @@ function assertStrictEqual(actual: any, expected: any, message?: string): void {
 }
 
 function createMockEngine(overrides: any = {}): any {
-  const store = new Map<string, any>();
+  const store = new Map<string, { value: any; version: number }>();
   return {
     state: {
-      get: (atom: any) => ({
-        isSet: store.has(atom.key),
-        value: store.has(atom.key) ? store.get(atom.key) : null,
-      }),
-      set: (atom: any, wrapped: any) => {
-        const nextVal =
-          wrapped && typeof wrapped === 'object' && 'value' in wrapped
-            ? wrapped.value
-            : wrapped;
-        store.set(atom.key, nextVal);
-        return { isSet: true, value: nextVal };
+      get: async (atom: any) => {
+        const entry = store.get(atom.key);
+        return entry ? { value: entry.value, version: entry.version } : { value: atom.initial ?? null, version: 0 };
+      },
+      set: async (atom: any, value: any) => {
+        const prev = store.get(atom.key)?.version ?? 0;
+        const nextVersion = prev + 1;
+        store.set(atom.key, { value, version: nextVersion });
+        return { value, version: nextVersion };
       },
     },
     ui: {
       invalidate: () => {},
       open: async () => {},
-      resolve: () => ({
-        Box: (p: any) => ({ type: 'Box', ...p }),
-        Text: (p: any) => ({ type: 'Text', ...p }),
-        Button: (p: any) => ({ type: 'Button', ...p }),
-      }),
+      resolve: (e: any) => {
+        if (!e) return {};
+        return {
+          Box: (p: any) => ({ type: 'Box', ...p }),
+          Text: (p: any) => ({ type: 'Text', ...p }),
+          Button: (p: any) => ({ type: 'Button', ...p }),
+        };
+      },
+    },
+    fs: {
+      stat: async () => ({ kind: 'file', size: 100, mtimeMs: 0, isLink: false }),
+      read: async () => '',
+      write: async () => {},
     },
     session: {
       root: async () => '/workspace/tracker',
@@ -219,15 +230,23 @@ describe('security-triage-queue-pane mod (family:security)', () => {
       assert(tree !== null);
       const serialized = JSON.stringify(tree);
       assert(serialized.includes('[Allocate CVE]'));
+      assert(serialized.includes('"key":"sq:launch:cve-allocate:#1042"'));
+      assert(serialized.includes('"key":"sq:close"'));
       assert(serialized.includes('Staged: /magpie-security:cve-allocate #1042'));
     });
   });
 
   describe('runtime lifecycle integration', () => {
-    test('handleQueueCommand reads confined file, sets state, and calls $.ui.open', async () => {
-      let openedId = '';
+    test('handleQueueCommand reads confined regular file, sets async state, and calls $.ui.open', async () => {
+      let openedComponent = '';
       const mock$ = createMockEngine({
         fs: {
+          stat: async (p: string) =>
+            p === `/workspace/tracker/${QUEUE_INPUT_FILENAME}`
+              ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+              : (() => {
+                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+                })(),
           read: async (p: string) =>
             p === `/workspace/tracker/${QUEUE_INPUT_FILENAME}`
               ? JSON.stringify({
@@ -245,94 +264,146 @@ describe('security-triage-queue-pane mod (family:security)', () => {
         ui: {
           invalidate: () => {},
           open: async (opts: any) => {
-            openedId = opts?.id;
+            openedComponent = opts?.component;
           },
-          resolve: () => ({
-            Box: (p: any) => ({ type: 'Box', ...p }),
-            Text: (p: any) => ({ type: 'Text', ...p }),
-            Button: (p: any) => ({ type: 'Button', ...p }),
-          }),
+          resolve: (e: any) =>
+            e
+              ? {
+                  Box: (p: any) => ({ type: 'Box', ...p }),
+                  Text: (p: any) => ({ type: 'Text', ...p }),
+                  Button: (p: any) => ({ type: 'Button', ...p }),
+                }
+              : {},
         },
       });
 
       const out = await handleQueueCommand(mock$);
       assert(out.includes('1 item(s)'));
-      assertStrictEqual(openedId, SECURITY_QUEUE_PANE_ID);
+      assertStrictEqual(openedComponent, 'Pane');
 
-      // Matching Pane render succeeds
-      const rendered = handleRenderSecurityQueuePane(
+      // Matching Pane render succeeds (passes e to $.ui.resolve(e), works regardless of engine requestId)
+      const rendered = await handleRenderSecurityQueuePane(
         mock$,
-        { component: 'Pane', requestId: SECURITY_QUEUE_PANE_ID },
+        { component: 'Pane', requestId: 'engine-req-1' },
         () => 'passthrough'
       );
       assertStrictEqual(rendered.type, 'Box');
 
-      // Mismatched requestId passes through
-      const passthrough = handleRenderSecurityQueuePane(
+      // Non-Pane component passes through
+      const passthrough = await handleRenderSecurityQueuePane(
         mock$,
-        { component: 'Pane', requestId: 'other-pane' },
+        { component: 'AbovePrompt' },
         () => 'passthrough'
       );
       assertStrictEqual(passthrough, 'passthrough');
     });
 
-    test('handleSecurityQueuePress stages launcher action and fails open on $.fs.write error', async () => {
+    test('handleQueueCommand refuses symlink or non-regular queue file before $.fs.read', async () => {
+      let readCalled = false;
       const mock$ = createMockEngine({
         fs: {
+          stat: async () => ({ kind: 'file', size: 100, mtimeMs: 0, isLink: true }),
+          read: async () => {
+            readCalled = true;
+            return '{}';
+          },
+        },
+      });
+
+      const out = await handleQueueCommand(mock$);
+      assert(out.includes('refusing to read symlink or non-regular file'));
+      assertStrictEqual(readCalled, false);
+      assertStrictEqual(await getSecurityTriageQueueState(mock$), null);
+    });
+
+    test('handleSecurityQueuePress stages launcher action, refuses symlink writes, and clears on git', async () => {
+      const initialState: SecurityTriageQueueState = {
+        items: [
+          {
+            id: '#2001',
+            title: 'Sensitive report title',
+            stage: 'needs-sync',
+            severity: 'high',
+            cveId: null,
+            needsCve: true,
+            updatedAt: '2026-11-25T10:00:00Z',
+          },
+        ],
+        activeFilter: 'all',
+        selectedItemId: '#2001',
+        lastLaunchedAction: null,
+        syncError: null,
+        updatedAt: '2026-11-25T10:00:00Z',
+      };
+
+      // 1. Write failure records syncError
+      const err$ = createMockEngine({
+        fs: {
+          stat: async () => {
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
           write: async () => {
             throw new Error('EACCES');
           },
         },
       });
-      mock$.state.set(
-        { plugin: 'magpie-security', key: 'triageQueueState' },
-        {
-          value: {
-            items: [
-              {
-                id: '#2001',
-                title: 'Sensitive report title',
-                stage: 'needs-sync',
-                severity: 'high',
-                cveId: null,
-                needsCve: true,
-                updatedAt: '2026-11-25T10:00:00Z',
-              },
-            ],
-            activeFilter: 'all',
-            selectedItemId: '#2001',
-            lastLaunchedAction: null,
-            syncError: null,
-            updatedAt: '2026-11-25T10:00:00Z',
+      await setSecurityTriageQueueState(err$, initialState);
+
+      await handleSecurityQueuePress(err$, { element: 'sq:launch:issue-sync:#2001' }, () => {});
+      const updated = await getSecurityTriageQueueState(err$);
+      assertStrictEqual(updated?.lastLaunchedAction?.command, '/magpie-security:issue-sync #2001');
+      assert(updated?.syncError?.includes(QUEUE_ACTION_FILENAME));
+
+      // 2. Symlink at action path refuses $.fs.write and sets syncError
+      let symlinkWriteCalled = false;
+      const symlink$ = createMockEngine({
+        fs: {
+          stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: true }),
+          write: async () => {
+            symlinkWriteCalled = true;
           },
-        }
-      );
+        },
+      });
+      await setSecurityTriageQueueState(symlink$, initialState);
+      await handleSecurityQueuePress(symlink$, { element: 'sq:launch:issue-sync:#2001' }, () => {});
+      assertStrictEqual(symlinkWriteCalled, false);
+      const symlinkState = await getSecurityTriageQueueState(symlink$);
+      assert(symlinkState?.syncError?.includes('Refusing to write to symlink or non-regular file'));
 
-      await handleSecurityQueuePress(mock$, { buttonId: 'sq:launch:issue-sync:#2001' }, () => {});
-      const updated = mock$.state.get({ plugin: 'magpie-security', key: 'triageQueueState' }).value;
-      assertStrictEqual(updated.lastLaunchedAction.command, '/magpie-security:issue-sync #2001');
-      assert(updated.syncError.includes(QUEUE_ACTION_FILENAME));
-
-      // Unprefixed buttonId from another pane passes through untouched
+      // 3. Unprefixed element from another pane passes through untouched
       let passedThrough = false;
-      await handleSecurityQueuePress(mock$, { buttonId: 'close' }, () => {
+      await handleSecurityQueuePress(err$, { element: 'close' }, () => {
         passedThrough = true;
       });
       assertStrictEqual(passedThrough, true);
 
-      // Spoofed itemId not in state.items is ignored
-      await handleSecurityQueuePress(mock$, { buttonId: 'sq:launch:issue-sync:#9999' }, () => {});
-      assertStrictEqual(
-        mock$.state.get({ plugin: 'magpie-security', key: 'triageQueueState' }).value.lastLaunchedAction.itemId,
-        '#2001'
-      );
+      // 4. Spoofed itemId not in state.items is ignored
+      await handleSecurityQueuePress(err$, { element: 'sq:launch:issue-sync:#9999' }, () => {});
+      assertStrictEqual((await getSecurityTriageQueueState(err$))?.lastLaunchedAction?.itemId, '#2001');
 
-      // Mutating git command clears state (supports both e.command and e.input.command)
-      handleSecurityQueueBashToolCall(mock$, { command: 'git checkout main' }, () => {});
-      assertStrictEqual(
-        mock$.state.get({ plugin: 'magpie-security', key: 'triageQueueState' }).value,
-        null
-      );
+      // 5. Mutating git command clears async state
+      await handleSecurityQueueBashToolCall(err$, { command: 'git checkout main' }, () => {});
+      assertStrictEqual(await getSecurityTriageQueueState(err$), null);
+    });
+
+    test('register command.run returns { text } matching CommandRunResult shape', async () => {
+      const handlers: Record<string, Function> = {};
+      const fakeOn = (event: string, optsOrFn: any, maybeFn?: Function) => {
+        const fn = typeof optsOrFn === 'function' ? optsOrFn : maybeFn;
+        if (fn) handlers[event] = fn;
+      };
+      register(fakeOn);
+
+      const mock$ = createMockEngine({
+        fs: {
+          stat: async () => {
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
+        },
+      });
+      const res = await handlers['command.run'](mock$, { command: SECURITY_QUEUE_COMMAND }, () => {});
+      assert(typeof res?.text === 'string' && res.text.includes('No local queue file found'));
+      assertStrictEqual(res?.output, undefined);
     });
   });
 });

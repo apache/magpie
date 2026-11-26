@@ -158,6 +158,7 @@ def existing_rollup(*actions: str, marker: str = MARKER) -> str:
         ["gh", "api", "repos/acme/tracker/issues/1", "repos/acme/product/issues/1"],
         ["gh", "issue", "view", "1", "--repo", "acme/product", "--json", "body"],
         ["gh", "issue", "view", "1", "--json", "body"],
+        ["gh", "issue", "view", "1\n", "--repo", "acme/tracker", "--json", "body"],
         ["gh", "issue", "view", "1", "--repo", "acme/tracker", "--repo", "acme/product"],
         ["gh", "issue", "close", "1", "--repo", "acme/tracker"],
         ["gh", "pr", "view", "1", "--repo", "acme/tracker"],
@@ -185,6 +186,13 @@ def test_runner_refuses_writes_that_read_local_files_or_leave_the_tracker(argv: 
     fake = FakeGh()
     with pytest.raises(procedures.RunnerRefused):
         runner(fake).write(argv, stdin="x")
+    assert fake.calls == []
+
+
+def test_rest_id_refuses_a_node_id_with_a_trailing_newline() -> None:
+    fake = FakeGh()
+    with pytest.raises(procedures.ProcedureRefused, match="usable node id"):
+        procedures._rest_id(runner(fake), {"id": "IC_kwDOnode\n", "url": ""})
     assert fake.calls == []
 
 

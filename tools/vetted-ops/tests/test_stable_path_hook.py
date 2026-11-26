@@ -136,3 +136,34 @@ def test_no_staging_directory_is_left_behind(tmp_path: Path) -> None:
     home.mkdir()
     _run(home, _plugin(tmp_path, "1.0"))
     assert list((home / ".local" / "state" / "apache-magpie").iterdir()) == []
+
+
+def test_a_link_into_a_checkout_is_left_alone(tmp_path: Path) -> None:
+    """A framework checkout links the stable path into its own tools/; the plugin must not undo it."""
+    home = tmp_path / "home"
+    checkout = tmp_path / "code" / "magpie" / "tools" / "vetted-ops"
+    checkout.mkdir(parents=True)
+    magpie = home / ".claude" / "magpie"
+    magpie.mkdir(parents=True)
+    (magpie / "vetted-ops").symlink_to(checkout)
+    _run(home, _plugin(tmp_path / "cache", "1.0"))
+    assert os.readlink(magpie / "vetted-ops") == str(checkout)
+
+
+def test_a_snapshot_copy_is_left_alone(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    copy = home / ".claude" / "magpie" / "vetted-ops"
+    copy.mkdir(parents=True)
+    (copy / "pyproject.toml").write_text("snapshot\n")
+    _run(home, _plugin(tmp_path, "1.0"))
+    assert not copy.is_symlink() and (copy / "pyproject.toml").read_text() == "snapshot\n"
+
+
+def test_a_link_to_an_older_plugin_version_is_moved(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    old = _plugin(tmp_path / "cache", "1.0")
+    _run(home, old)
+    new = _plugin(tmp_path / "cache", "2.0")
+    _run(home, new)
+    assert os.readlink(home / ".claude" / "magpie" / "vetted-ops") == str(new / "tools" / "vetted-ops")

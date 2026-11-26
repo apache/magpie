@@ -651,10 +651,11 @@ def validate_spdx_header(path: Path, text: str) -> list[Violation]:
     Apache-2.0`` somewhere before the opening ``---`` delimiter.  Files
     without frontmatter are skipped silently — they are not spec files.
     """
-    if parse_frontmatter(text) is None:
+    bounds = _frontmatter_bounds(text)
+    if bounds is None:
         return []  # Not a spec file; no SPDX required.
 
-    if SPDX_MARKER not in text:
+    if SPDX_MARKER not in text[: bounds[0] - len("---\n")]:
         return [
             Violation(
                 path,

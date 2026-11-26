@@ -184,6 +184,11 @@ See `docs/adapters/harnesses/goose.md`.
   `OVERLAY_UNANSWERED`, could not be drawn, or crashed) is no dismissal and
   is shown again after `RESHOW_DELAY` while the signature still blocks
   (#1832).
+  Inside a Claude Code session (`CLAUDECODE=1`) the wrapper stands aside
+  only while a hook-armed watcher for that session
+  (`CLAUDE_CODE_SESSION_ID`) is actually alive: a command the user types
+  with the `!` prefix sets the same variable but fires no hook, so the
+  wrapper draws the window itself (#2218).
   The matcher arms for every git that can reach the key — global options
   with quoted values, git or ssh named by path or passed to a shell as a
   string, remote-talking subcommands beyond fetch and push (`lfs`,

@@ -1035,6 +1035,30 @@ completion (see [Writing `verified_at`](#writing-verified_at) below).
   `/magpie-setup:setup reconcile`, which offers to drop the redundant local
   entry. Do not resolve it here.
 
+### 11b. Vetted-ops source
+
+The dispatchers start from `~/.claude/magpie/vetted-ops`, which the sandbox
+cannot read, so ask the read dispatcher, which runs outside it:
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read source
+```
+
+It prints `{"stable": …, "kind": …, "resolves_to": …}`. The expected `kind`
+follows the install method:
+
+- ✓ marketplace: `plugin`; pinned snapshot: `copy`; framework checkout
+  (`method: local`): `checkout`, pointing at the main checkout's
+  `tools/vetted-ops`.
+- ⚠ another `kind` than the method's: say which, and give the matching
+  lines ([`install` → Step 6b](install.md#step-6b--copy-the-vetted-operations-out-of-the-snapshot)
+  for a snapshot, the [self-adoption](install.md#local-self-adoption-methodlocal)
+  link for a checkout, or `/plugin install magpie-vetted-ops@apache-magpie`).
+- ✗ the command cannot start, or `kind` is `missing`: no vetted operation
+  can run; give the same lines.
+- `?` unchecked: `vetted-op-read` refuses `source` as an unknown operation
+  (a vetted-ops copy older than the subcommand).
+
 ### 11a. Vetted-ops policy approval
 
 The write entry points (`vetted-op`, `vetted-op-tracker`, `vetted-op-git`)

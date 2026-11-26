@@ -145,6 +145,40 @@ def test_live_mode_requires_repo_when_no_load(capsys: pytest.CaptureFixture[str]
     assert "required" in capsys.readouterr().err
 
 
+def test_replay_mode_requires_now(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    fixture = tmp_path / "resp.json"
+    fixture.write_text(json.dumps(CANNED_RESPONSE), encoding="utf-8")
+
+    rc = cli.main(["classify", "--load", str(fixture)])
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "--now" in captured.err
+    assert captured.out == ""
+
+
+def test_replay_mode_requires_now_before_reading_file(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    missing_fixture = tmp_path / "missing.json"
+
+    rc = cli.main(["classify", "--load", str(missing_fixture)])
+
+    assert rc == 2
+    captured = capsys.readouterr()
+    assert "--now" in captured.err
+    assert captured.out == ""
+
+
+def test_live_mode_does_not_require_now(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(cli, "fetch_state", lambda **_: CANNED_RESPONSE)
+
+    rc = cli.main(["classify", "--repo", "owner/repo", "--issues", "100,101,102"])
+
+    assert rc == 0
+    assert "Total trackers: 3" in capsys.readouterr().out
+
+
 def test_live_mode_rejects_empty_issues_list(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as exc:
         cli.main(["classify", "--repo", "o/r", "--issues", ",,,"])
@@ -233,3 +267,33 @@ def test_extra_bot_logins_flag(tmp_path, capsys: pytest.CaptureFixture[str]) -> 
     flag_out = capsys.readouterr().out
     with_flag = {p["number"]: p for p in json.loads(flag_out)}
     assert with_flag[100]["decision"] == "skip-noop"
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("not-a-date", "not an ISO-8601 timestamp"),
+        ("2026-05-31T12:00:00", "needs a timezone"),
+        ("2026-05-31", "needs a timezone"),
+    ],
+)
+def test_now_is_refused_unless_it_is_a_timestamp_with_a_timezone(
+    tmp_path, capsys: pytest.CaptureFixture[str], value: str, message: str
+) -> None:
+    fixture = tmp_path / "resp.json"
+    fixture.write_text(json.dumps(CANNED_RESPONSE), encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["classify", "--load", str(fixture), "--now", value])
+
+    assert exc.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["2026-05-31T12:00:00Z", "2026-05-31T14:00:00+02:00"])
+def test_now_with_a_timezone_is_accepted(tmp_path, capsys: pytest.CaptureFixture[str], value: str) -> None:
+    fixture = tmp_path / "resp.json"
+    fixture.write_text(json.dumps(CANNED_RESPONSE), encoding="utf-8")
+
+    assert cli.main(["classify", "--load", str(fixture), "--now", value]) == 0
+    assert "Total trackers: 3" in capsys.readouterr().out

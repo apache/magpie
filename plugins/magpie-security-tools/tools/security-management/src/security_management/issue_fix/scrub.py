@@ -69,6 +69,30 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
             hit["surface"] = surface
         out[surface] = {"valid": not hits, "terms": sorted({h["term"] for h in hits}), "hits": hits}
         every.extend(hits)
+    # Labels are public as soon as they are set, so each is scrubbed like the
+    # branch name: its separators (`area:security-fix`) read as spaces, and a
+    # bare `security` is a hit.
+    labels = [str(label) for label in data.get("labels") or [] if str(label).strip()]
+    if "labels" in data:
+        label_hits: list[dict[str, Any]] = []
+        for label in labels:
+            spaced = re.sub(r"[-_/.:]+", " ", label)
+            hits = list(
+                reuse.scrub(message=spaced, extra_terms=names, allow=allow, private_texts=private)["hits"]
+            )
+            if _SECURITY_WORD.search(spaced) and not any(h["term"] == "security fix" for h in hits):
+                hits.append({"term": "security", "match": "security", "line": None, "file": None})
+            for hit in hits:
+                hit["surface"] = "labels"
+                hit["label"] = label
+            label_hits.extend(hits)
+        out["labels"] = {
+            "valid": not label_hits,
+            "terms": sorted({h["term"] for h in label_hits}),
+            "hits": label_hits,
+            "refused": sorted({h["label"] for h in label_hits}),
+        }
+        every.extend(label_hits)
     out["clean"] = not every
     out["forbidden_terms_found"] = sorted({h["match"] for h in every})
     if "newsfragment" in out:

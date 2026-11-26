@@ -161,6 +161,10 @@ by swapping the adapter, not the skill.
   an issue without one is refused. Every request goes through
   `jira_bridge.rest.JiraRest`, whose `send()` keeps the token bound to a
   confirmed host and refuses any write when the token was withheld.
+  Its JQL search pages continue from the issues already received
+  (`startAt` = issues so far), not from a page index,
+  so a server whose `jira.search.views.default.max` caps a page below 100
+  skips no issue (#2258).
   Body fields go through a byte-identical copy of github-body-field's
   parser, with wiki `h1.`–`h3.` headings outside closed code blocks read
   as `### <Heading>`; `body` exports exactly those fields. The CLI takes
@@ -221,8 +225,11 @@ by swapping the adapter, not the skill.
   On Cloud, `pr status` fetches the pull request first and reports its
   state and source commit alongside the `/statuses` build checks, matching
   the Data Center payload (#1526).
-  Confirmed pull-request comment, approve/unapprove, and
-  request-changes/remove-request-changes writes cover Cloud and Data Center.
+  Confirmed same-repository pull-request creation
+  (`pr create --source <branch> --target <branch> --title <title> [--body-file <path>]`, #2149),
+  pull-request comment, approve/unapprove, and
+  request-changes/remove-request-changes writes cover Cloud and Data Center;
+  fork and cross-repository creation is not supported.
   Additional Cloud-only writes cover decline, backend-neutral `reject`,
   and `pr merge --strategy
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
@@ -314,6 +321,9 @@ by swapping the adapter, not the skill.
   Comment bodies go through `--body-file` only, a GraphQL mutation needs
   `--allow-mutation`, and the service must be a bare sr.ht subdomain
   (#1862).
+  Every GraphQL request times out after 30 seconds, the Bitbucket and GitLab
+  bridges' default, and a stall while reading the body raises a
+  `SourceHutError` instead of hanging (#2171).
 - `tools/asf-svn/` — ASF Subversion distribution backend: staging area
   reads, `svn` command-sequence generation for releases and KEYS updates.
   Never runs `svn commit`; emits paste-ready commands for the Release

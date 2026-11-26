@@ -688,6 +688,32 @@ How it differs from a remote adoption:
    same, then suggest the user `git add` the symlinks,
    `.apache-magpie.lock`, and `.gitignore`.
 
+8. **Vetted operations from the checkout.** The skills start every vetted
+   operation from `~/.claude/magpie/vetted-ops` (and the batch-write lock from
+   `~/.claude/magpie/skill-lock`); on a marketplace install the
+   `magpie-vetted-ops` plugin's session hook links them into the plugin
+   cache. In the framework checkout they run from the checkout's own
+   `tools/` instead, so a change to vetted-ops is what the next call runs.
+   The sandbox cannot write `~/.claude/magpie`, so hand the user these lines
+   to run in their own terminal (`<main-checkout>` is the main checkout's
+   absolute path, never a linked worktree's):
+
+   ```bash
+   mkdir -p ~/.claude/magpie
+   ln -sfn <main-checkout>/tools/vetted-ops ~/.claude/magpie/vetted-ops
+   ln -sfn <main-checkout>/tools/skill-lock ~/.claude/magpie/skill-lock
+   ```
+
+   Say plainly what this trades: the dispatchers run outside the sandbox,
+   and this code is the agent's to edit. So agent-guard asks before every
+   launch through such a link, `vetted-op-read` included
+   ([`agent-guard` → vetted-ops-source](../../../../tools/agent-guard/README.md#guards)),
+   and the plugin's hook leaves the link alone. `vetted-op-checks` runs
+   inside the sandbox and starts in-tree:
+   `uv run --project tools/vetted-ops vetted-op-checks …`.
+   [`setup verify` → 11b](verify.md#11b-vetted-ops-source) reports which
+   source is in use.
+
 Self-adoption skips the adopter-only steps entirely: no snapshot
 fetch (Step 3), no committed-`setup` reconcile (Step 3b), no
 fit-signal probe (Step 4b), no family prompt (Step 5), no
@@ -1162,6 +1188,31 @@ source_ref:       <ref>
 fetched_commit:   <commit SHA — for git-branch and git-tag>
 fetched_at:       <ISO-8601 timestamp>
 ```
+
+## Step 6b — Copy the vetted operations out of the snapshot
+
+The skills start every vetted operation from `~/.claude/magpie/vetted-ops`
+(and the batch-write lock from `~/.claude/magpie/skill-lock`). A marketplace
+install gets them from the `magpie-vetted-ops` plugin; a pinned snapshot
+carries them in `<snapshot-dir>/tools/`, which the agent can edit, and the
+dispatchers run outside the sandbox. So they run from a copy under
+`~/.claude/magpie`, which the sandbox cannot write, made now and refreshed
+by [`setup update`](update.md) whenever the snapshot moves. Hand the user
+these lines to run in their own terminal, from the repository root:
+
+```bash
+mkdir -p ~/.claude/magpie
+rm -rf ~/.claude/magpie/vetted-ops ~/.claude/magpie/skill-lock
+cp -R <snapshot-dir>/tools/vetted-ops ~/.claude/magpie/vetted-ops
+cp -R <snapshot-dir>/tools/skill-lock ~/.claude/magpie/skill-lock
+```
+
+The copy is as trustworthy as the snapshot at the moment it is made: run it
+right after the fetch, before anything else has worked in the tree. The
+`magpie-vetted-ops` plugin's hook, if that plugin is also installed, leaves
+a real directory there alone. `vetted-op-checks` runs inside the sandbox and
+starts from the snapshot itself:
+`uv run --project <snapshot-dir>/tools/vetted-ops vetted-op-checks …`.
 
 ## Step 7 — `.gitignore` entries (FRESH only)
 

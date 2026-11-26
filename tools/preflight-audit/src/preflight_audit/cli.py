@@ -20,7 +20,7 @@ Two modes:
 
 - **Live**: ``preflight-audit classify --repo o/r --issues 1,2,3``
   shells out to `gh api graphql` and prints the classification.
-- **Replay**: ``preflight-audit classify --load response.json``
+- **Replay**: ``preflight-audit classify --load response.json --now <ISO-8601>``
   reads a pre-fetched GraphQL response and classifies it. Useful
   for CI eval fixtures and deterministic regression tests.
 """
@@ -116,6 +116,10 @@ def _format_json(items: list[Classification]) -> str:
 
 
 def _cmd_classify(args: argparse.Namespace) -> int:
+    if args.load and not args.now:
+        sys.stderr.write("error: --now is required with --load (replay mode must be deterministic)\n")
+        return 2
+
     if args.load:
         response = json.loads(Path(args.load).read_text(encoding="utf-8"))
     else:
@@ -129,7 +133,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         numbers = _parse_issue_list(args.issues)
         response = fetch_state(owner=owner, name=name, numbers=numbers)
 
-    now = datetime.fromisoformat(args.now.replace("Z", "+00:00")) if args.now else datetime.now(UTC)
+    now = args.now or datetime.now(UTC)
     extra_bots = frozenset(b.strip() for b in (args.bot_logins or "").split(",") if b.strip())
     items = classify_response(response, now=now, extra_bot_logins=extra_bots)
 
@@ -139,6 +143,17 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         sys.stdout.write(_format_human(items))
     sys.stdout.write("\n")
     return 0
+
+
+def _parse_now(value: str) -> datetime:
+    """An ISO-8601 timestamp with a timezone; the tracker's timestamps all carry one."""
+    try:
+        now = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an ISO-8601 timestamp: {value!r}") from None
+    if now.tzinfo is None:
+        raise argparse.ArgumentTypeError(f"needs a timezone, such as Z or +00:00: {value!r}")
+    return now
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -161,7 +176,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_cls.add_argument(
         "--now",
-        help="ISO-8601 timestamp to use as 'now' (deterministic replay; default: real time)",
+        type=_parse_now,
+        help=(
+            "ISO-8601 timestamp to use as 'now' (required with --load; defaults to real time in live mode)"
+        ),
     )
     p_cls.add_argument(
         "--bot-logins",

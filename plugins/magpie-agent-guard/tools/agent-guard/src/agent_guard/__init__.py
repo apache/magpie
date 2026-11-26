@@ -2959,12 +2959,74 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
     return guard_chained_exclusion(segments)
 
 
+def vetted_ops_ask(command: str, home: str | None = None) -> str | None:
+    """A reason to confirm a vetted-ops launch whose code the agent could have edited, or None.
+
+    The dispatchers run outside the sandbox from ``~/.claude/magpie/<tool>``.
+    The plugin cache and a pinned snapshot's copy both sit under ``~/.claude/``,
+    which the sandbox cannot write. A framework checkout links that path into its
+    own ``tools/`` instead, so its code is the agent's to edit: every launch
+    through such a link must be confirmed, even `vetted-op-read`, which the
+    permission rules otherwise allow without asking. `vetted-op-checks` runs
+    inside the sandbox and is never asked about.
+    """
+    root = Path(home or os.path.expanduser("~"))
+    protected = os.path.realpath(root / ".claude")
+    # The absolute spellings of the stable path the guards let through: the
+    # expanded home form, and the roots Codex's own rewrite hook substitutes.
+    absolute_roots = {str(root / ".claude" / "magpie")} | {
+        str(Path(r).parent) for r in (_codex_stable_roots() if home is None else set())
+    }
+    for seg in split_segments(command):
+        launch = _vetted_launch(seg.argv)
+        if launch is None:
+            continue
+        _option, base, entry = launch
+        base = base.rstrip("/")
+        if base.startswith(VETTED_STABLE_BASE):
+            path = root / ".claude" / "magpie" / base[len(VETTED_STABLE_BASE) :]
+        elif base.startswith("/") and any(base == r or base.startswith(f"{r}/") for r in absolute_roots):
+            path = Path(base)
+        else:
+            continue  # any other spelling is guard_vetted_ops_spelling's to refuse
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            continue
+        resolved = os.path.realpath(path)
+        if os.path.commonpath([resolved, protected]) != protected:
+            return (
+                f"agent-guard[vetted-ops-source]: `{entry}` would run outside the sandbox from "
+                f"{resolved}, a framework checkout the agent can edit. Confirm only if that code "
+                "is what you expect to run."
+            )
+    return None
+
+
+def vetted_ops_deny(command: str) -> str | None:
+    """`vetted_ops_ask` for a harness whose hook cannot ask: the same check, as a refusal."""
+    ask = vetted_ops_ask(command)
+    if not ask:
+        return None
+    return (
+        ask.replace("Confirm only if", "This harness cannot ask, so it is refused; run it only if")
+        + " Override: MAGPIE_ALLOW_VETTED_PATH=1."
+    )
+
+
+def guard_reason(command: str, cwd: str | None = None) -> str | None:
+    """`dispatch`, plus `vetted_ops_deny`: the full check for an adapter that can only deny."""
+    return dispatch(command, cwd) or vetted_ops_deny(command)
+
+
 def _emit_deny(reason: str) -> None:
+    _emit_decision("deny", reason)
+
+
+def _emit_decision(decision: str, reason: str) -> None:
     json.dump(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
+                "permissionDecision": decision,
                 "permissionDecisionReason": reason,
             }
         },
@@ -2985,6 +3047,14 @@ def _claude_event(event: object, harness: str | None = None) -> int:
     reason = dispatch(command, cwd if isinstance(cwd, str) else None, harness)
     if reason:
         _emit_deny(reason)
+        return ALLOW_EXIT
+    ask = vetted_ops_ask(command)
+    if ask:
+        if harness == "codex":
+            # Codex does not honour `ask` from a hook: refuse, with the override named.
+            _emit_deny(vetted_ops_deny(command) or ask)
+        else:
+            _emit_decision("ask", ask)
     return ALLOW_EXIT
 
 
@@ -3055,7 +3125,7 @@ def opencode_main() -> int:
         return ALLOW_EXIT
     command = str(event.get("command", ""))
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         sys.stdout.write(reason + "\n")
         return DENY_EXIT
@@ -3088,7 +3158,7 @@ def kiro_main() -> int:
         return ALLOW_EXIT
     command = str(tool_input.get("command", ""))
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         sys.stderr.write(reason + "\n")
         return DENY_EXIT
@@ -3130,7 +3200,7 @@ def antigravity_main() -> int:
     if not isinstance(cwd, str) or not cwd:
         roots = event.get("workspacePaths")
         cwd = roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else None
-    reason = dispatch(command, cwd)
+    reason = guard_reason(command, cwd)
     if reason:
         sys.stdout.write(json.dumps({"decision": "deny", "reason": reason}) + "\n")
         return ALLOW_EXIT
@@ -3243,7 +3313,7 @@ def copilot_main() -> int:
     if parsed is None:
         return ALLOW_EXIT
     command, cwd = parsed
-    reason = dispatch(command, cwd)
+    reason = guard_reason(command, cwd)
     if reason:
         _copilot_emit("deny", reason)
     elif copilot_read_only(command):
@@ -3265,7 +3335,7 @@ def _grok_event(event: object) -> int:
         return ALLOW_EXIT
 
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         json.dump({"decision": "deny", "reason": reason}, sys.stdout)
         sys.stdout.write("\n")
@@ -3302,7 +3372,7 @@ def _junie_event(event: object) -> int:
         return ALLOW_EXIT
 
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    reason = guard_reason(command, cwd if isinstance(cwd, str) else None)
     if reason:
         json.dump({"decision": "deny", "reason": reason}, sys.stdout)
         sys.stdout.write("\n")
@@ -3358,7 +3428,7 @@ def check_main(argv: list[str]) -> int:
     command = shlex.join(argv)
     cwd = os.getcwd()
     try:
-        reason = dispatch(command, cwd)
+        reason = guard_reason(command, cwd)
     except Exception as exc:  # fail-open: a guard glitch never blocks the user
         sys.stderr.write(f"agent-guard --check: guard engine error, allowing: {exc}\n")
         return ALLOW_EXIT
@@ -3410,7 +3480,7 @@ def exec_main(argv: list[str]) -> int:
     command = shlex.join(argv)
     cwd = os.getcwd()
     try:
-        reason = dispatch(command, cwd)
+        reason = guard_reason(command, cwd)
     except Exception as exc:  # fail-open: a guard glitch never blocks the user
         sys.stderr.write(f"agent-guard --exec: guard engine error, allowing: {exc}\n")
         reason = None

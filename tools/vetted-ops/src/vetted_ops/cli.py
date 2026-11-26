@@ -22,6 +22,7 @@ The dispatcher.
 ``vetted-op-read --caller <name> <operation> [param …]``  (reads only, by construction)
 ``vetted-op-tracker --caller <name> <operation> [param …]``  (tracker procedures only, by construction)
 ``vetted-op-read approval-status``  (whether the discovered policy is an approved copy; JSON)
+``vetted-op-read source``  (what ~/.claude/magpie/vetted-ops is: plugin, copy or checkout; JSON)
 
 Everything the caller supplies is a *parameter*, never a fragment of a command.
 The operation name selects a builder from the closed catalogue; the builder
@@ -74,6 +75,7 @@ EXIT_COMMAND = 4
 
 #: The `vetted-op-read` subcommand that reports whether the discovered policy is approved.
 APPROVAL_STATUS = "approval-status"
+SOURCE = "source"
 
 
 def _validate_params(
@@ -274,7 +276,8 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     parser.add_argument(
         "operation",
         nargs="?",
-        help="operation name, or 'list-ops' / 'policy'" + (" / 'approval-status'" if read_only else ""),
+        help="operation name, or 'list-ops' / 'policy'"
+        + (" / 'approval-status' / 'source'" if read_only else ""),
     )
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
@@ -289,6 +292,8 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
 
     if read_only and args.operation == APPROVAL_STATUS:
         return _approval_status(args, prog)
+    if read_only and args.operation == SOURCE:
+        return _source(args, prog)
 
     # The write entry points run outside the sandbox, so a policy they act on
     # must be one the agent cannot write. `--config` names any file, including
@@ -364,6 +369,50 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     if code == EXIT_OK and op.writes and not args.dry_run:
         _consume(op, list(args.params), config)
     return code
+
+
+def stable_source(home: Path | None = None) -> dict[str, object]:
+    """What ``~/.claude/magpie/vetted-ops`` is: the plugin's, a pinned snapshot's copy, or a checkout's.
+
+    - ``plugin``: a link into the harness's plugin cache (a marketplace install);
+    - ``copy``: a real directory (a pinned snapshot, copied out by `setup`);
+    - ``checkout``: a link anywhere else (a framework checkout's own ``tools/``),
+      whose code the agent can edit: agent-guard asks before every launch;
+    - ``missing``: nothing there, so no vetted operation can start.
+    """
+    root = home or Path(os.path.expanduser("~"))
+    stable = root / ".claude" / "magpie" / "vetted-ops"
+    if not os.path.lexists(stable):
+        return {"stable": "~/.claude/magpie/vetted-ops", "kind": "missing", "resolves_to": None}
+    resolved = os.path.realpath(stable)
+    if not stable.is_symlink():
+        kind = "copy"
+    elif os.path.commonpath([resolved, os.path.realpath(root / ".claude" / "plugins")]) == os.path.realpath(
+        root / ".claude" / "plugins"
+    ):
+        kind = "plugin"
+    else:
+        kind = "checkout"
+    return {"stable": "~/.claude/magpie/vetted-ops", "kind": kind, "resolves_to": resolved}
+
+
+def _source(args: argparse.Namespace, prog: str) -> int:
+    """Print what the stable path the dispatchers start from is, as one JSON object.
+
+    The sandbox cannot read ``~/.claude/magpie``; `vetted-op-read` runs outside it,
+    so `setup verify` asks it. It takes nothing and prints a kind and a path.
+    """
+    if (
+        args.config is not None
+        or args.caller is not None
+        or args.save is not None
+        or args.dry_run
+        or args.params
+    ):
+        print(f"{prog}: refused: {SOURCE} takes no options or parameters", file=sys.stderr)
+        return EXIT_USAGE
+    print(json.dumps(stable_source()))
+    return EXIT_OK
 
 
 def _approval_status(args: argparse.Namespace, prog: str) -> int:
