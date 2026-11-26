@@ -483,8 +483,12 @@ def main(argv: Sequence[str] | None, *, single: SingleCall, unprompted: bool = F
     """
     raw = list(sys.argv[1:] if argv is None else argv)
     prog = UNPROMPTED_PROG if unprompted else "vetted-op-tracker-batch"
+    # allow_abbrev=False, as every other vetted-ops parser: the repeated-option
+    # checks below count exact spellings, so `--policy-f` or `--call` must never
+    # parse as `--policy-from` or `--caller`.
     parser = argparse.ArgumentParser(
         prog=prog,
+        allow_abbrev=False,
         description=(
             "Run a checked manifest of private-tracker writes, in order, without a prompt; "
             "only for a policy that sets [approval] private_tracker_writes = 'none'."

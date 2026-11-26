@@ -676,3 +676,32 @@ def test_a_repeated_policy_from_is_refused_on_a_batch(
     assert cli.main_batch(argv) == 3
     assert "--policy-from given more than once" in capsys.readouterr().err
     assert gh.writes == []
+
+
+@pytest.mark.parametrize("entry", ["main_batch", "main_batch_unprompted"])
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        ["--call", "security-issue-import", "--expect", "0" * 16],
+        ["--caller", "security-issue-import", "--exp", "0" * 16],
+        [
+            "--caller",
+            "security-issue-import",
+            "--expect",
+            "0" * 16,
+            "--policy-f",
+            "/tmp",
+            "--policy-from",
+            ".",
+        ],
+    ],
+    ids=["caller", "expect", "policy-from"],
+)
+def test_abbreviated_long_options_are_not_accepted(
+    entry: str, spelling: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Exact spellings only, so the repeated-option checks on the raw argv see every one."""
+    with pytest.raises(SystemExit) as exc:
+        getattr(cli, entry)([*spelling, "manifest.json"])
+    assert exc.value.code == 2  # a usage error, before any policy is read
+    assert "error:" in capsys.readouterr().err
