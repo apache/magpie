@@ -325,6 +325,11 @@ same directory; the behaviour is unchanged.
   `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`, and any
   missing credential, approval, or network error falls through without
   affecting triage (#1403).
+  That log, the mentor log (`logs/pr-management-mentor.jsonl`) and the
+  stats session state are runtime state: in an adopted project they live in
+  this checkout's own `.apache-magpie-local/`, also in a linked worktree,
+  never in the main checkout's, which the worktree's sandbox may only read
+  (#2372).
 - **The fold timestamp is untrusted input to stats.** The
   `pr-triage-fold` block lives in the PR body, which the author controls.
   `tools/pr-management/src/pr_management/stats/reference.py` (`fold_triaged_at`, via the shared `markers.parse_fold`) treats an

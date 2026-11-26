@@ -345,6 +345,19 @@ See `docs/adapters/harnesses/goose.md`.
   anyway: they spell `~` literally, which the read block cannot check, so
   install Step V.1 requires it off where vetted-ops is used (#1640; see
   [`vetted-command-surface.md`](vetted-command-surface.md)).
+  With `--all-worktrees` run from a main checkout (its `.git` a real
+  directory, the git environment stripped), it also adds that checkout's
+  `.apache-magpie-local/`, `.claude/settings.json` and
+  `.claude/settings.local.json` to each linked worktree's `allowRead`, never
+  `allowWrite`, because a linked worktree inherits that personal layer and
+  loads those settings first (#2372). The main checkout is never derived
+  from a worktree's sandbox-writable `.git` file, so the single-worktree
+  mode adds none. A path that is a symlink, or sits under one, or does not
+  exist yet, is not granted, and every run, in either mode, drops an
+  inherited grant whose path has since become a symlink. Between runs, the
+  setup pre-flight's `machine` finding `inherited-path-symlink` reports such
+  a swap in a linked worktree and hands the user the commands to check the
+  link and refresh the grants, never touching the link itself.
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at

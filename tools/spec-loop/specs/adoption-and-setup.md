@@ -59,8 +59,27 @@ acceptance:
     Its personal layers are its own `.apache-magpie-local/`, then the main
     checkout's when that exists, per file, first match wins
     (`personal_layers`), and its write target (`personal_dir`) is its own
-    directory if it exists, else the main checkout's if that exists, else
-    its own. The main checkout is found by reading files only
+    directory if it holds configuration, else the main checkout's if that
+    exists, else its own. A layer holding only bookkeeping
+    (`layers.BOOKKEEPING`: `reconciled.json`, the pre-flight cache, `run/`, a
+    checker copy, and any dot-file) never takes over as the configuration
+    layer, in every copy of the layer rule, so `setup config` run from a
+    worktree still writes to the main checkout's layer; one that cannot be
+    listed counts as holding configuration (#2372).
+    Bookkeeping is written elsewhere: `layers.stamp_dir` (printed by
+    `setup_preflight.layers`) is this checkout's own `.apache-magpie-local/`
+    in an adopted project, also in a linked worktree, whose sandbox may only
+    read the main checkout's, and `personal_dir` otherwise. Every
+    `reconciled.json` reader merges the personal layers
+    (`layers.merged_stamp`): each top-level key, and each entry of a block,
+    comes from the first layer holding it, so a worktree's own stamp adds to
+    its main checkout's instead of hiding it; `isolated_setup`
+    (`layers.WHOLE_BLOCKS`) comes whole, and running the install or update
+    skill in a worktree ends an inherited opt-out there only. An unadopted
+    repository's legacy in-tree stamp is never merged, only read whole when
+    no other layer has a stamp. Writers add only their own entries, through
+    a dot-named temporary file of their own (`layers.write_atomic`), as the
+    pre-flight cache is written too. The main checkout is found by reading files only
     (`main_worktree`: the common git directory is named `.git` and is its
     parent's `.git` directory; a main checkout, a bare repository, a
     submodule or no repository has none). It is located from the
@@ -260,6 +279,10 @@ committed version with drift detection.
   The package also carries `isolated_verify`, the read-only checker
   `setup-isolated-setup-verify` runs for its mechanical checks, so it ships
   wherever the pre-flight checker does.
+  It also carries `local_families`, whose `candidates` / `record`
+  commands back the keep-or-hide question for families enabled for the
+  user but not adopted (#2373; tests in
+  `tools/setup-preflight/tests/test_local_families.py`).
 - Project templates: `plugins/magpie-setup/templates/` (#1410), the
   scaffold `setup config` copies adopter configuration from.
   `projects/_template` is a symlink to it, so older paths keep resolving;
@@ -528,6 +551,29 @@ committed version with drift detection.
   framework checkout's template plus the registry) and hands the write to
   the user, adding missing entries and removing dropped ones only on
   confirmation.
+- **A family enabled for the user but not adopted here is kept or hidden,
+  once** (#2373). Under Claude Code, a `magpie-<family>@apache-magpie`
+  enabled in the user-scope settings loads in every project; absence from a
+  marketplace floor never means *disable*. The same reconcile step runs
+  `python3 -P -m setup_preflight.local_families candidates` and asks, per
+  family in `ask`, keep it here or hide it here with
+  `"<plugin>@apache-magpie": false` in `.claude/settings.local.json`; a hide
+  already made in another worktree is in `apply`, added without asking.
+  Substrate plugins and any plugin a project settings file already names are
+  never candidates. Answers are recorded with `local_families record` under
+  `local_families.<plugin>` in `reconciled.json` (`keep` is never asked
+  again, `disable` lists the worktrees it was applied in), in the checkout's
+  own stamp and read merged. Once the floor adopts a hidden family, the step
+  offers to remove the hide (`restore`), but only a `false` Magpie applied
+  and recorded in that checkout's own stamp; a hide in the main checkout's
+  settings seen from a worktree (`restore_in_main`) is restored from the
+  main checkout. Inside a sandbox that denies the user-scope settings
+  (`user-settings-unreadable`), the agent reads the file with the harness's
+  file-read tool and passes back only `{"enabledPlugins": {…}}` on stdin
+  (`--user-settings -`), never a copy of the file. Separately, the
+  pre-flight's `family` finding `family-not-adopted` gives a one-time,
+  non-blocking hint under Claude Code (recorded as `hinted`), silent where
+  the sandbox hides the user-scope settings.
 - **Every skill's pre-flight brings the machine up to the floor** and
   then stops for a restart, and does so without asking only when the
   lock's `url` is `apache/magpie`. `magpie-vetted-ops` counts as part of
