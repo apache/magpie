@@ -703,3 +703,115 @@ def test_many_items_past_the_limit_are_omitted_not_overflowed(tmp_path) -> None:
     (body,) = oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": paths}, {}, limit=8000)
     assert len(body) <= 8000
     assert "omitted for the comment limit" in body
+
+
+@pytest.mark.parametrize("entry_id", ["ANT-2026-DDDDDDD4", "ANT-2025-ZZZZZZZ9"])
+def test_promoted_ordinary_bugs_and_unlisted_reports_get_their_evidence_comment(
+    capsys, tmp_path, entry_id
+) -> None:
+    archive = full_archive(tmp_path)
+    for folder in (
+        archive / "bugs-not-security" / "ANT-2026-DDDDDDD4",
+        archive / "previously-sent" / "ANT-2025-ZZZZZZZ9",
+    ):
+        (folder / "patches").mkdir()
+        (folder / "patches" / "1.patch").write_text(patch("bug fix"))
+        (folder / "repro").mkdir()
+        (folder / "repro" / "poc.sh").write_text("echo hi\n")
+    index_path = parse_with_archive(capsys, tmp_path, archive)
+    index = json.loads(index_path.read_text())
+    entries = {e["id"]: e for e in [*index["not_security"], *index["other_reports"]]}
+    assert [Path(p).name for p in entries[entry_id]["patches"]] == ["1.patch"]
+    assert [Path(p).name for p in entries[entry_id]["reproducers"]] == ["poc.sh"]
+    code, out = run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index_path),
+        "--finding",
+        entry_id,
+        "--out-dir",
+        str(tmp_path / "c"),
+    )
+    assert code == 0, out
+    body = Path(out["bodies"][0]["path"]).read_text()
+    assert f"`{entry_id}`" in body
+    assert "Reproducer file `repro/poc.sh`" in body and "Candidate patch 1 — bug fix" in body
+
+
+def test_an_unknown_id_is_refused(capsys, tmp_path) -> None:
+    index_path = parse_with_archive(capsys, tmp_path, full_archive(tmp_path))
+    code, out = run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index_path),
+        "--finding",
+        "ANT-2026-NOPE0000",
+        "--out-dir",
+        str(tmp_path / "c"),
+    )
+    assert code == 2 and "no finding, ordinary bug or archive report" in out["refused"]
+
+
+FENCED_REPORT = """# Report
+
+## Background
+
+```python
+# PoC helper, not a heading
+x = 1
+```
+
+## Reproduction
+
+```bash
+# start the server
+widget serve &
+# send the request
+curl -d password=%00 http://localhost/token
+```
+
+~~~
+## not a heading either
+~~~
+
+Then read the token.
+
+## Fix
+
+See the patches.
+"""
+
+
+def test_headings_inside_fenced_code_are_not_section_boundaries(tmp_path) -> None:
+    title, section = oss_scanner._repro_section(FENCED_REPORT)
+    assert title.startswith("Reproduction steps")
+    assert section.startswith("## Reproduction")
+    assert "# send the request\ncurl" in section and "Then read the token." in section
+    assert "PoC helper" not in section and "See the patches" not in section
+
+
+def test_a_binary_patch_is_listed_not_quoted_and_does_not_abort(tmp_path) -> None:
+    text = tmp_path / "1.patch"
+    text.write_text(patch("text fix"))
+    binary = tmp_path / "2.patch"
+    binary.write_bytes(b"# x\n# fixture\n\x00\xff\xfe")
+    latin = tmp_path / "3.patch"
+    latin.write_bytes(b"# x\n# \xe9t\xe9\n")
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": [str(text), str(binary), str(latin)]}
+    (body,) = oss_scanner.render_patch_comments(finding, {})
+    assert "Candidate patch 1 — text fix" in body
+    assert body.count("Binary or non-UTF-8 patch") == 2
+    assert "\x00" not in body
+
+
+def test_a_lone_reproducer_shows_its_name_not_a_dot(tmp_path) -> None:
+    (tmp_path / "repro").mkdir()
+    poc = tmp_path / "repro" / "poc.py"
+    poc.write_text("print(1)\n")
+    (body,) = oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "reproducers": [str(poc)]}, {})
+    assert "Reproducer file `poc.py`" in body and "`.`" not in body
+    finding = {"id": "ANT-2026-AAAAAAA1", "reproducers": [str(poc)], "evidence_dir": str(tmp_path)}
+    (body,) = oss_scanner.render_patch_comments(finding, {})
+    assert "Reproducer file `repro/poc.py`" in body

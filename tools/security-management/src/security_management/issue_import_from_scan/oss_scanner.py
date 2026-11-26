@@ -483,24 +483,42 @@ def attach_archive(parsed: dict[str, Any], archive_dir: Path) -> None:
     archive_dir = archive_dir.resolve()
     linked: set[Path] = set()
     for f in parsed["findings"]:
-        finding_dir = archive_dir / f["banner_severity"].lower() / f["id"]
-        report = finding_dir / "REPORT.md"
-        f["report_md"] = str(report) if _archive_file(report) else None
-        patches = [p for p in (finding_dir / "patches").glob("*.patch") if _archive_file(p)]
-        patches = sorted(patches, key=lambda p: (_patch_number(p), p.name))
-        f["patches"] = [str(p) for p in patches]
-        f["reproducers"] = _reproducers(finding_dir, patches)
-        linked.add(report)
+        linked.add(_link(f, archive_dir / f["banner_severity"].lower() / f["id"]))
     for b in parsed["not_security"]:
-        report = archive_dir / "bugs-not-security" / b["id"] / "REPORT.md"
-        b["report_md"] = str(report) if _archive_file(report) else None
-        linked.add(report)
+        linked.add(_link(b, archive_dir / "bugs-not-security" / b["id"]))
     other = []
     for report in sorted(archive_dir.glob("*/*/REPORT.md")):
         fid, section = report.parent.name, report.parent.parent.name
         if report not in linked and re.fullmatch(_ID, fid) and _archive_file(report):
-            other.append({"id": fid, "section": section, "report_md": str(report)})
+            entry = {"id": fid, "section": section}
+            _link(entry, report.parent)
+            other.append(entry)
     parsed["other_reports"] = other
+
+
+def _link(entry: dict[str, Any], folder: Path) -> Path:
+    """Set *entry*'s `report_md`, `patches` and `reproducers` from its archive folder; returns the report path.
+
+    Every entry gets them — a finding, an ordinary bug or an unlisted report — since
+    any of them can be promoted to a tracker and then gets the evidence comment.
+    """
+    report = folder / "REPORT.md"
+    entry["report_md"] = str(report) if _archive_file(report) else None
+    patches = [p for p in (folder / "patches").glob("*.patch") if _archive_file(p)]
+    patches = sorted(patches, key=lambda p: (_patch_number(p), p.name))
+    entry["patches"] = [str(p) for p in patches]
+    entry["reproducers"] = _reproducers(folder, patches)
+    entry["evidence_dir"] = str(folder)
+    return report
+
+
+def find_entry(index: Mapping[str, Any], entry_id: str) -> dict[str, Any] | None:
+    """The finding, ordinary bug or unlisted archive report with *entry_id*, from a scan folder's index."""
+    for key in ("findings", "not_security", "other_reports"):
+        for entry in index.get(key) or []:
+            if isinstance(entry, dict) and entry.get("id") == entry_id:
+                return entry
+    return None
 
 
 # Read no more of one archive file than a comment could ever hold.
@@ -529,13 +547,6 @@ def _read_text(path: Path) -> str | None:
         return None
 
 
-def _read_patch(path: Path) -> str:
-    text = _read_text(path)
-    if text is None:
-        raise ValueError(f"{path} is not a text patch")
-    return text
-
-
 # GitHub refuses a comment over 65,536 characters; keep headroom for its own counting.
 COMMENT_LIMIT = 65_000
 # The skill-comment marker (tools/github/status-rollup.md), so sync's pre-flight
@@ -544,7 +555,8 @@ PATCH_COMMENT_MARKER = "<!-- apache-magpie: scan-evidence v1 -->"
 # A block cut to less than this is listed as omitted instead.
 _MIN_BLOCK = 400
 _REPRO_HEADING = re.compile(r"reproduc|proof[ -]of[ -]concept|\bpoc\b|steps to", re.I)
-_HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$", re.M)
+_HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 def _escape(text: str) -> str:
@@ -569,14 +581,42 @@ def _shown_path(path: Path, base: Path) -> str:
     return "`" + re.sub(r"[^\w./+-]", "_", rel)[:160] + "`"
 
 
+def _headings(report: str) -> list[tuple[int, int, str]]:
+    """`(offset, level, text)` of each Markdown heading, skipping lines inside fenced code blocks.
+
+    A `# comment` in a shell, Python, YAML or Dockerfile snippet is not a heading.
+    """
+    heads: list[tuple[int, int, str]] = []
+    fence: tuple[str, int] | None = None
+    offset = 0
+    for line in report.splitlines(keepends=True):
+        opener = _FENCE.match(line)
+        if fence is None and opener:
+            fence = (opener.group(1)[0], len(opener.group(1)))
+        elif fence is not None:
+            closer = _FENCE.match(line)
+            if (
+                closer
+                and closer.group(1)[0] == fence[0]
+                and len(closer.group(1)) >= fence[1]
+                and not closer.group(2).strip()
+            ):
+                fence = None
+        else:
+            m = _HEADING.match(line.rstrip("\n"))
+            if m:
+                heads.append((offset, len(m.group(1)), m.group(2)))
+        offset += len(line)
+    return heads
+
+
 def _repro_section(report: str) -> tuple[str, str]:
     """`(title, text)`: the report's reproduction section, else the whole report."""
-    heads = list(_HEADING.finditer(report))
-    for i, m in enumerate(heads):
-        if _REPRO_HEADING.search(m.group(2)):
-            level = len(m.group(1))
-            end = next((h.start() for h in heads[i + 1 :] if len(h.group(1)) <= level), len(report))
-            return "Reproduction steps (from the scanner's REPORT.md)", report[m.start() : end]
+    heads = _headings(report)
+    for i, (start, level, text) in enumerate(heads):
+        if _REPRO_HEADING.search(text):
+            end = next((h[0] for h in heads[i + 1 :] if h[1] <= level), len(report))
+            return "Reproduction steps (from the scanner's REPORT.md)", report[start:end]
     return "The scanner's REPORT.md (it has no separate reproduction section)", report
 
 
@@ -634,8 +674,13 @@ def _blocks_for(finding: Mapping[str, Any]) -> list[_Block]:
             blocks.append(_Block(title, section, "markdown"))
     patches = [Path(p) for p in finding.get("patches") or []]
     repros = [Path(p) for p in finding.get("reproducers") or []]
-    files = [str(p) for p in [*patches, *repros]]
-    base = Path(report).parent if report else Path(os.path.commonpath(files)) if files else Path("/")
+    parents = [str(p.parent) for p in [*patches, *repros]]
+    if finding.get("evidence_dir"):
+        base = Path(finding["evidence_dir"])
+    elif report:
+        base = Path(report).parent
+    else:
+        base = Path(os.path.commonpath(parents)) if parents else Path("/")
     for path in repros:
         size = _read_archive_bytes(path)[1]
         text = _read_text(path)
@@ -643,7 +688,15 @@ def _blocks_for(finding: Mapping[str, Any]) -> list[_Block]:
         note = f"Binary file, {size} bytes: not quoted. It is in the local decrypted archive."
         blocks.append(_Block(summary, text, "", note))
     for n, path in enumerate(patches, 1):
-        text = _read_patch(path)
+        text = _read_text(path)
+        if text is None:
+            size = _read_archive_bytes(path)[1]
+            summary = f"Candidate patch {n} {_shown_path(path, base)} — untested, do not apply as-is"
+            note = (
+                f"Binary or non-UTF-8 patch, {size} bytes: not quoted. It is in the local decrypted archive."
+            )
+            blocks.append(_Block(summary, None, "", note))
+            continue
         blocks.append(_Block(f"{_patch_summary(text, n)} — untested, do not apply as-is", text, "diff"))
     return blocks
 
@@ -771,8 +824,8 @@ def materialise(parsed: Mapping[str, Any], meta: Mapping[str, Any], out_dir: Pat
         summary["archive"] = {
             "reports": sum(1 for e in entries if e.get("report_md")),
             "missing_reports": sum(1 for e in entries if not e.get("report_md")),
-            "patches": sum(len(f.get("patches") or []) for f in parsed["findings"]),
-            "reproducer_files": sum(len(f.get("reproducers") or []) for f in parsed["findings"]),
+            "patches": sum(len(e.get("patches") or []) for e in entries),
+            "reproducer_files": sum(len(e.get("reproducers") or []) for e in entries),
             "other_reports": len(parsed["other_reports"]),
         }
     return summary

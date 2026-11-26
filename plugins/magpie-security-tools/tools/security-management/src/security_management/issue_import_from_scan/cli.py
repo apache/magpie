@@ -149,14 +149,15 @@ def dispatch(args: argparse.Namespace) -> int:
             return refuse(str(exc))
     elif command == "render-patch-comment":
         index = read_object(args.index)
-        found = [f for f in index.get("findings") or [] if f.get("id") == args.finding]
-        if not found:
-            return refuse(f"no finding {args.finding!r} in {args.index}")
-        if "patches" not in found[0]:
+        # A promoted ordinary bug or unlisted archive report gets its evidence comment too.
+        entry = oss_scanner.find_entry(index, args.finding)
+        if entry is None:
+            return refuse(f"no finding, ordinary bug or archive report {args.finding!r} in {args.index}")
+        if "patches" not in entry:
             return refuse("the scan folder was parsed without --archive-dir, so no patches are linked")
         verdict = Path(args.verdict).read_text(encoding="utf-8") if args.verdict else None
         bodies = oss_scanner.write_patch_comments(
-            found[0], index.get("scan") or {}, Path(args.out_dir), verdict=verdict
+            entry, index.get("scan") or {}, Path(args.out_dir), verdict=verdict
         )
         emit({"finding": args.finding, "bodies": bodies})
     elif command == "bucket-action":

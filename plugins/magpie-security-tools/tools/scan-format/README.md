@@ -136,15 +136,18 @@ and for a `.gpg` archive checks that the OpenPGP packets tile the file exactly a
 - **Only a passphrase-encrypted file is decrypted**: session-key packets, then exactly one encrypted-data packet.
   A bare literal or compressed packet (which gpg would print without decrypting) is refused,
   and the plaintext counts only when gpg reports `DECRYPTION_OKAY`, so a wrong passphrase or a modified file stops here.
-  The plaintext is capped while it streams.
+  The encrypted file's size is checked before it is read, and the plaintext is capped while it streams.
 - **The tarball is checked before anything is unpacked.**
   Every member must be a regular file or a directory, with no absolute path and no `..` component, and the member count and total size stay under their caps;
-  one bad member refuses the whole archive.
+  no member may take the name of `open-archive`'s own marker file,
+  and each extended header (a PAX record or GNU long name), and all of them together, are capped before tarfile reads one into memory;
+  one bad member refuses the whole archive, and a corrupt compressed stream is a refusal too.
   The checked members are then unpacked with `tarfile`'s `data` filter into the new folder, made owner-only with no execute bit on any file.
 - It prints `archive_dir`, which goes to `parse-email --archive-dir`.
   That links each finding's `<severity>/<id>/REPORT.md`, its candidate `patches/<n>.patch` files in numeric order (`patches`, `[]` when none)
   and every other file in its folder as `reproducers`,
   and lists the archive's reports for ids the mail does not list as findings or ordinary bugs in `other_reports`.
+  Ordinary bugs (`bugs-not-security/<id>/`) and `other_reports` entries get the same three links, since any of them can be promoted to a tracker.
 - **Lifetime.** The opened archive is embargoed material: it stays in the session scratch directory, never on a public surface,
   and `discard-archive --dir <out-dir>` deletes it (and only a folder `open-archive` wrote) at the end of the run, with the passphrase file.
 
@@ -153,10 +156,10 @@ Running one is the operator's explicit decision, in an isolated throwaway enviro
 [proof-of-concept handling policy](https://github.com/apache/magpie/blob/main/docs/security/poc-handling-policy.md).
 
 **The evidence goes on the tracker, in one comment.**
-For each finding that becomes a tracker, `render-patch-comment --index <index.json> --finding <id> --out-dir <dir> --verdict <file>` writes `<id>.md`:
+For each entry that becomes a tracker (a finding, an ordinary bug or an `other_reports` entry), `render-patch-comment --index <index.json> --finding <id> --out-dir <dir> --verdict <file>` writes `<id>.md`:
 a warning that the material is untested and must not be run or applied as-is, the operator-confirmed triage verdict,
-then one collapsed `<details>` block each for the reproduction steps (the `REPORT.md` section whose heading names reproduction, else the whole report),
-every reproducer file (a binary one is listed, not quoted) and every candidate patch (titled by its own one-line header, fenced as `diff`),
+then one collapsed `<details>` block each for the reproduction steps (the `REPORT.md` section whose heading names reproduction, else the whole report; a `#` line inside a fenced code block is not a heading),
+every reproducer file and every candidate patch (titled by its own one-line header, fenced as `diff`); a binary or non-UTF-8 file is listed, not quoted,
 each fenced longer than any backtick run inside it.
 It only reads the files, never applies or runs them.
 The body stays under GitHub's 65,536-character comment limit (65,000 with headroom):

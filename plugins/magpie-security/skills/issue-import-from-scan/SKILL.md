@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 7232
+measured_tokens: 7248
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -363,7 +363,7 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
      Step 7 (one `Needs triage` tracker each) — the only tracker-creating path.
      Set *Security mailing list thread* to `N/A — imported from scan <scan-source>; no <security-list> thread.`:
      there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`.
-     For an email scan, every new tracker also gets **one evidence comment**, part of the same confirmed apply (not a separate opt-in):
+     For an email scan, every new tracker (from a finding, an ordinary bug or an `other_reports` entry) also gets **one evidence comment**, part of the same confirmed apply (not a separate opt-in):
      write the operator-confirmed verdict (bucket and grounding, one or two sentences) to `<scratch>/<id>-verdict.txt`, run
      `<sm> render-patch-comment --index <index.json> --finding <id> --out-dir <scratch>/evidence-comments --verdict <scratch>/<id>-verdict.txt`,
      and show the operator the body: the reproduction steps, each reproducer file and each candidate patch, folded in `<details>` and marked untested / do not run,

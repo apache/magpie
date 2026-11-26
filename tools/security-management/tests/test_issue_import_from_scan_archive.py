@@ -201,9 +201,11 @@ def test_decrypted_data_that_is_not_a_tarball_is_refused(capsys, tmp_path) -> No
 
 @needs_gpg
 def test_decrypted_size_cap_stops_the_stream(tmp_path) -> None:
-    gpg_file = encrypt(tmp_path, tarball(good_tree()))
+    # gpg compresses before encrypting: a small ciphertext that decrypts to a megabyte.
+    gpg_file = encrypt(tmp_path, b"\0" * 1_000_000)
+    assert gpg_file.stat().st_size < 100_000
     with pytest.raises(archive.ArchiveError, match="decrypted archive is over"):
-        archive.open_archive(gpg_file, passphrase_file(tmp_path), tmp_path / "o", max_decrypted=10)
+        archive.open_archive(gpg_file, passphrase_file(tmp_path), tmp_path / "o", max_decrypted=100_000)
     assert not (tmp_path / "o").exists()
 
 
@@ -319,3 +321,127 @@ def test_discard_refuses_a_folder_open_archive_did_not_write(capsys, tmp_path) -
     code, _result = run(capsys, "discard-archive", "--dir", str(keep))
     assert code == 2 and (keep / "file").exists()
     assert os.path.isdir(keep)
+
+
+def pax_member(name: str, value_size: int) -> tarfile.TarInfo:
+    info = tarfile.TarInfo(name)
+    info.pax_headers = {"comment": "x" * value_size}
+    return info
+
+
+def pax_tarball(entries: list[tarfile.TarInfo]) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz", format=tarfile.PAX_FORMAT) as tar:
+        for info in entries:
+            tar.addfile(info, io.BytesIO(b""))
+    return buffer.getvalue()
+
+
+def test_an_oversized_extended_header_is_refused_before_it_is_read(tmp_path) -> None:
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(pax_tarball([pax_member("high/a.txt", archive.MAX_EXTENDED_HEADER_BYTES + 1)]))
+    out = tmp_path / "o"
+    out.mkdir()
+    with pytest.raises(archive.ArchiveError, match="extended tar header of"):
+        archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
+    assert list(out.iterdir()) == []
+
+
+def test_extended_headers_are_capped_in_total(tmp_path) -> None:
+    per = archive.MAX_EXTENDED_HEADER_BYTES - 1024
+    count = archive.MAX_EXTENDED_HEADERS_TOTAL // per + 2
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(pax_tarball([pax_member(f"high/{n}.txt", per) for n in range(count)]))
+    out = tmp_path / "o"
+    out.mkdir()
+    with pytest.raises(archive.ArchiveError, match="extended tar headers are over"):
+        archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
+
+
+def test_a_small_extended_header_is_fine(tmp_path) -> None:
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(pax_tarball([pax_member("high/a.txt", 100)]))
+    out = tmp_path / "o"
+    out.mkdir()
+    assert archive._extract(plain, out, 10_000, 100)[0] == 1
+
+
+@pytest.mark.parametrize("suffix", ["gz", "xz"])
+def test_a_corrupt_compressed_stream_is_a_clean_refusal(tmp_path, suffix) -> None:
+    buffer = io.BytesIO()
+    tar = (
+        tarfile.open(fileobj=buffer, mode="w:gz")
+        if suffix == "gz"
+        else tarfile.open(fileobj=buffer, mode="w:xz")
+    )
+    with tar:
+        for n in range(20):
+            payload = (f"line {n} of a reproducible payload\n" * 200).encode()
+            info = tarfile.TarInfo(f"high/{n}.bin")
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
+    data = bytearray(buffer.getvalue())
+    # Right after the 10-byte gzip header, 0xff is a reserved deflate block type; xz breaks mid-stream.
+    middle = 10 if suffix == "gz" else len(data) // 2
+    data[middle : middle + 64] = b"\xff" * 64
+    plain = tmp_path / "a.tar"
+    plain.write_bytes(bytes(data))
+    out = tmp_path / "o"
+    out.mkdir()
+    with pytest.raises(archive.ArchiveError, match="not a readable tar archive"):
+        archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
+
+
+@pytest.mark.parametrize("name", [archive.MARKER, archive.MARKER.upper(), f"{archive.MARKER}/inner.txt"])
+def test_a_member_named_like_the_marker_is_refused(tmp_path, name) -> None:
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(tarball([(name, b"x")]))
+    out = tmp_path / "o"
+    out.mkdir()
+    with pytest.raises(archive.ArchiveError, match="marker"):
+        archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
+
+
+def test_an_oversized_encrypted_file_is_refused_before_it_is_read(tmp_path) -> None:
+    path = tmp_path / "a.gpg"
+    path.write_bytes(bytes([0x8C, 0x02, 0x04, 0x07, 0xD2, 0x04]) + b"abcd")
+    with pytest.raises(archive.ArchiveError, match="encrypted archive is over"):
+        archive.open_archive(path, passphrase_file(tmp_path), tmp_path / "o", max_decrypted=8)
+    assert not (tmp_path / "o").exists()
+
+
+def test_gpg_exiting_early_is_a_refusal_not_a_broken_pipe(tmp_path, monkeypatch) -> None:
+    true = shutil.which("true")
+    if true is None:
+        pytest.skip("no `true` binary")
+    monkeypatch.setattr(archive, "_gpg", lambda: true)
+    home = tmp_path / "home"
+    home.mkdir()
+    archive_file = tmp_path / "a.gpg"
+    archive_file.write_bytes(b"x")
+    with pytest.raises(archive.ArchiveError, match="could not decrypt"):
+        archive._decrypt(archive_file, b"p" * (1 << 20), home, tmp_path / "out.tar", 1000)
+
+
+def test_no_gnupghome_is_left_when_the_out_dir_cannot_be_made(tmp_path, monkeypatch) -> None:
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temp))
+    blocker = tmp_path / "file"
+    blocker.write_text("not a folder")
+    path = tmp_path / "a.gpg"
+    path.write_bytes(bytes([0x8C, 0x02, 0x04, 0x07, 0xD2, 0x04]) + b"abcd")
+    with pytest.raises(OSError):
+        archive.open_archive(path, passphrase_file(tmp_path), blocker / "o")
+    assert list(temp.iterdir()) == []
+
+
+def test_discard_refuses_a_symlinked_marker(capsys, tmp_path) -> None:
+    keep = tmp_path / "keep"
+    keep.mkdir()
+    (keep / "file").write_text("x")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_text("x")
+    (keep / archive.MARKER).symlink_to(elsewhere)
+    code, _result = run(capsys, "discard-archive", "--dir", str(keep))
+    assert code == 2 and (keep / "file").exists()

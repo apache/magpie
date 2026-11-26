@@ -36,6 +36,7 @@ runs, builds or applies anything from it.
 
 from __future__ import annotations
 
+import lzma
 import os
 import re
 import shutil
@@ -44,6 +45,7 @@ import subprocess
 import tarfile
 import tempfile
 import threading
+import zlib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -58,6 +60,19 @@ GPG_TIMEOUT_SECONDS = 300
 MARKER = ".magpie-scan-archive"
 _SESSION_KEY_TAGS = frozenset({1, 3})  # PKESK, SKESK
 _CHUNK = 1 << 16
+# Extended tar headers (PAX records, GNU long names) are read whole into memory
+# before a member is returned, so each one, and all of them together, are capped.
+MAX_EXTENDED_HEADER_BYTES = 64 * 1024
+MAX_EXTENDED_HEADERS_TOTAL = 1024 * 1024
+_EXTENDED_TYPES = frozenset(
+    {
+        tarfile.XHDTYPE,
+        tarfile.XGLTYPE,
+        tarfile.SOLARIS_XHDTYPE,
+        tarfile.GNUTYPE_LONGNAME,
+        tarfile.GNUTYPE_LONGLINK,
+    }
+)
 # The archive's top-level folders, as `attach_archive` reads them.
 _SECTIONS = frozenset({"critical", "high", "medium", "low", "bugs-not-security"})
 
@@ -125,8 +140,11 @@ def _decrypt(archive: Path, passphrase: bytes, home: Path, out: Path, max_bytes:
         timer.start()
         try:
             assert proc.stdin is not None and proc.stdout is not None
-            proc.stdin.write(passphrase + b"\n")
-            proc.stdin.close()
+            try:
+                proc.stdin.write(passphrase + b"\n")
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass  # gpg exited early; its status and exit code below say why
             while chunk := proc.stdout.read(_CHUNK):
                 written += len(chunk)
                 if written > max_bytes:
@@ -156,12 +174,31 @@ def _check_member(member: tarfile.TarInfo) -> None:
         raise ArchiveError(f"archive member {shown!r} has an unusable name")
     if name.startswith("/") or re.match(r"[A-Za-z]:", name):
         raise ArchiveError(f"archive member {shown!r} has an absolute path")
-    if ".." in PurePosixPath(name).parts:
+    parts = PurePosixPath(name).parts
+    if ".." in parts:
         raise ArchiveError(f"archive member {shown!r} climbs out with '..'")
+    if parts and parts[0].casefold() == MARKER.casefold():
+        raise ArchiveError(f"archive member {shown!r} takes the name of open-archive's own marker")
     if member.issym() or member.islnk():
         raise ArchiveError(f"archive member {shown!r} is a link")
     if not (member.isreg() or member.isdir()) or member.issparse():
         raise ArchiveError(f"archive member {shown!r} is a device, FIFO or other special file")
+
+
+class _CappedTarInfo(tarfile.TarInfo):
+    """Refuses an extended header over its cap before tarfile reads its payload into memory."""
+
+    def _proc_member(self, tarfile_: tarfile.TarFile) -> tarfile.TarInfo:
+        if self.type in _EXTENDED_TYPES:
+            if self.size > MAX_EXTENDED_HEADER_BYTES:
+                raise ArchiveError(f"the archive has an extended tar header of {self.size} bytes")
+            seen = getattr(tarfile_, "_magpie_extended", 0) + self.size
+            if seen > MAX_EXTENDED_HEADERS_TOTAL:
+                raise ArchiveError(
+                    f"the archive's extended tar headers are over {MAX_EXTENDED_HEADERS_TOTAL} bytes"
+                )
+            tarfile_._magpie_extended = seen  # type: ignore[attr-defined]
+        return super()._proc_member(tarfile_)  # type: ignore[misc]
 
 
 def _extract(tarball: Path, out_dir: Path, max_bytes: int, max_members: int) -> tuple[int, int]:
@@ -169,7 +206,7 @@ def _extract(tarball: Path, out_dir: Path, max_bytes: int, max_members: int) -> 
     if not hasattr(tarfile, "data_filter"):
         raise ArchiveError("this Python has no tarfile extraction filters; use 3.11.4 or later")
     try:
-        with tarfile.open(tarball, "r:*") as tar:
+        with tarfile.open(tarball, "r:*", tarinfo=_CappedTarInfo) as tar:
             members: list[tarfile.TarInfo] = []
             total = 0
             while (member := tar.next()) is not None:
@@ -181,7 +218,7 @@ def _extract(tarball: Path, out_dir: Path, max_bytes: int, max_members: int) -> 
                     raise ArchiveError(f"the archive unpacks to more than {max_bytes} bytes")
                 members.append(member)
             tar.extractall(out_dir, members=members, filter="data")
-    except (tarfile.TarError, EOFError, OSError) as exc:
+    except (tarfile.TarError, EOFError, OSError, zlib.error, lzma.LZMAError) as exc:
         raise ArchiveError(f"the decrypted file is not a readable tar archive: {type(exc).__name__}") from exc
     return len(members), total
 
@@ -227,22 +264,34 @@ def open_archive(
         raise ArchiveError(f"{archive}: not a regular file")
     if out_dir.exists() or out_dir.is_symlink():
         raise ArchiveError(f"{out_dir} already exists: name a new folder")
+    # The ciphertext is at most a little larger than the plaintext it may decrypt to.
+    if archive.stat().st_size > max_decrypted:
+        raise ArchiveError(f"the encrypted archive is over {max_decrypted} bytes")
     _check_framing(archive.read_bytes())
     passphrase = _read_passphrase(passphrase_file)
-    home = Path(tempfile.mkdtemp(prefix="magpie-gpg-"))
-    out_dir.mkdir(mode=0o700, parents=True)
+    home: Path | None = None
+    created = False
     try:
+        home = Path(tempfile.mkdtemp(prefix="magpie-gpg-"))
         os.chmod(home, 0o700)
+        out_dir.mkdir(mode=0o700, parents=True)
+        created = True
         tarball = home / "archive.tar"
         _decrypt(archive.resolve(), passphrase, home, tarball, max_decrypted)
         members, size = _extract(tarball, out_dir, max_extracted, max_members)
-        (out_dir / MARKER).write_text("written by security-management open-archive\n", encoding="utf-8")
+        fd = os.open(
+            out_dir / MARKER, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as marker:
+            marker.write("written by security-management open-archive\n")
         files = _make_private(out_dir) - 1
     except BaseException:
-        shutil.rmtree(out_dir, ignore_errors=True)
+        if created:
+            shutil.rmtree(out_dir, ignore_errors=True)
         raise
     finally:
-        shutil.rmtree(home, ignore_errors=True)
+        if home is not None:
+            shutil.rmtree(home, ignore_errors=True)
     root = _archive_root(out_dir)
     sections = sorted(e.name for e in root.iterdir() if e.is_dir() and re.fullmatch(r"[\w.-]{1,64}", e.name))
     return {
@@ -257,7 +306,11 @@ def open_archive(
 
 def discard_archive(folder: Path) -> dict[str, Any]:
     """Delete a folder `open_archive` wrote; refuses anything without its marker."""
-    if folder.is_symlink() or not (folder / MARKER).is_file():
+    try:
+        marker = (folder / MARKER).lstat()
+    except OSError:
+        marker = None
+    if folder.is_symlink() or not folder.is_dir() or marker is None or not stat.S_ISREG(marker.st_mode):
         raise ArchiveError(f"{folder} was not written by open-archive; not deleting it")
     shutil.rmtree(folder)
     return {"discarded": str(folder)}
