@@ -181,6 +181,25 @@ def test_zip_applies_every_rule(repo: Path) -> None:
     assert all(r.status != "FAIL" for r in ra.check_zip(data, EPOCH))
 
 
+@pytest.mark.parametrize(
+    ("comment", "fails"),
+    [
+        (b"a" * 40, False),
+        (b"a" * 64, False),
+        (b"a" * 50, True),
+        (b"a" * 64 + b"\n", True),
+        (b"not a commit id", True),
+    ],
+)
+def test_zip_comment_accepts_sha1_and_sha256_commit_ids(repo: Path, comment: bytes, fails: bool) -> None:
+    data, _ = ra.build("1.0.0-rc1", repo, "zip", "p")
+    buf = io.BytesIO(data)
+    with zipfile.ZipFile(buf, "a") as zf:
+        zf.comment = comment
+    failed = {r.name for r in ra.check_zip(buf.getvalue(), EPOCH) if r.status == "FAIL"}
+    assert ("zip-extra-fields" in failed) is fails
+
+
 def test_zip_rejects_pre_1980_epoch(repo: Path) -> None:
     with pytest.raises(ra.ReproError, match="1980"):
         ra.build("1.0.0-rc1", repo, "zip", "p", epoch=1)

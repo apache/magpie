@@ -462,7 +462,7 @@ def check_zip(data: bytes, epoch: int | None = None) -> list[CheckResult]:
     extras: list[str] = []
     owners: list[str] = []
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
-        if zf.comment and not re.fullmatch(rb"[0-9a-f]{40}", zf.comment):
+        if zf.comment and not re.fullmatch(rb"[0-9a-f]{40}|[0-9a-f]{64}", zf.comment):
             extras.append("archive comment present (only a commit id, as git archive writes, is expected)")
         for info in zf.infolist():
             names.append(info.filename)
