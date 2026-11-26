@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6001
+measured_tokens: 6500
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -265,6 +265,23 @@ the full triage analysis — do **not** invent a parallel taxonomy; reuse:
   the default branch since the scan's commit** (the scan ages quickly;
   this is the single most common scanner disposition).
 
+Where these reads run through vetted-ops (a read-only per-finding subagent, or a non-GitHub tracker), they use this skill's own caller, never the caller of the skill whose step they reuse:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan --save open-trackers.json issue-list-with-bodies
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan issue-search "<key>"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan issue-view <N>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan repo-pr-search "<words>"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan pr-view <PR>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan pr-diff <PR>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import-from-scan compare <scan-commit> <merge-commit>
+```
+
+`issue-list-with-bodies` is the open-tracker list (keep the `open` entries), `issue-search` the Step 2a and Step 2.6 searches (no `:` qualifiers: filter the returned `state` and `labels`), and `issue-view` the Step 2a follow-up reads.
+For the fixed-since-the-scan check, `repo-pr-search` finds candidate PRs, `pr-view` gives each one's state, files and merge commit, `pr-diff` shows whether it addresses the finding,
+and `compare` with the scan's commit as base and the merge commit as head prints `ahead` when the fix landed after the scan.
+A refusal naming the caller is a missing grant to report, never a reason to borrow another skill's caller.
+
 ## Step C — Bucket each finding by proposed disposition
 
 Map every finding into exactly one bucket (these mirror the six triage
@@ -331,7 +348,8 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
      there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`.
      When the finding has candidate `patches` (the scan shipped them and the decrypted archive was linked with `--archive-dir`),
      also attach them: `<sm> render-patch-comment --index <index.json> --finding <id> --out-dir <scratch>/patch-comments`,
-     show the operator the rendered bodies, and on confirmation post each with `gh issue comment <N> --repo <tracker> --body-file <path>`.
+     show the operator the rendered bodies, and on confirmation post each with `gh issue comment <N> --repo <tracker> --body-file <path>`
+     (through vetted-ops: `uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-scan issue-comment <N> <workspace>/<file>`).
      The patches are quoted, folded and untested, never applied or run. Their headers describe the vulnerability, which is
      fine on the private tracker, but never copy them into a public PR;
    - **PR-worth / defense-in-depth** → hand to

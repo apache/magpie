@@ -53,6 +53,14 @@ candidate as a potential `fix-already-public`):
    `closedAt` is the merge date (the `--merged` filter guarantees every
    hit was merged).
 
+   Through vetted-ops (a read-only gatherer), one call under this skill's own caller covers both searches;
+   it takes no qualifiers, so keep the open hits and the closed hits whose `closedAt` falls within the 180 days.
+   A closed hit may be closed unmerged: grade it at most MEDIUM until the triager has read the PR.
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import repo-pr-search '<cleaned keywords>'
+   ```
+
 3. **GHSA cross-reference.** If the body contains a `GHSA-…` ID
    that Step 2a did *not* match against an existing tracker,
    search `<upstream>` for a PR that references that GHSA — some

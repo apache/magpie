@@ -233,7 +233,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "issue-create-labeled",
                            "cve-record-fetch", "cve-record-update",
                            "board-item", "board-items", "board-add-item", "board-set-status",
-                           "board-archive-item"]
+                           "board-archive-item",
+                           # Step 1b: upstream PRs that mention the tracker.
+                           "repo-pr-search"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
@@ -316,7 +318,17 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            # Step 1: read a GHSA-relayed report and its discussion.
                            "advisory-view", "advisory-comments",
                            # Step 2a: the duplicate search and its follow-up reads.
-                           "issue-search", "issue-view"]
+                           "issue-search", "issue-view",
+                           # Step 2c: an upstream PR that already fixes the report.
+                           "repo-pr-search"]
+"security-issue-import-from-scan" = [
+                           # Step B: the open-tracker list, the duplicate and precedent
+                           # searches, and their follow-up reads.
+                           "issue-list-with-bodies", "issue-search", "issue-view",
+                           # Step B: the fix-already-public / fixed-since-the-scan check.
+                           "repo-pr-search", "pr-view", "pr-diff", "compare",
+                           # Step F: a finding's candidate patches, on its new tracker.
+                           "issue-comment"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 

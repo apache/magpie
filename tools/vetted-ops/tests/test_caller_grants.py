@@ -168,7 +168,12 @@ def test_the_scan_finds_the_security_skills_calls() -> None:
         ("security-issue-triage", "issue-search"),
         ("security-issue-import", "issue-search"),
         ("security-issue-import", "advisory-view"),
+        ("security-issue-import", "repo-pr-search"),
         ("security-issue-sync", "rollup-append"),
+        ("security-issue-sync", "repo-pr-search"),
+        ("security-issue-import-from-scan", "issue-list-with-bodies"),
+        ("security-issue-import-from-scan", "compare"),
+        ("security-issue-import-from-scan", "issue-comment"),
     ]:
         assert pair in named, f"no doc runs {pair[1]} as {pair[0]}"
 
