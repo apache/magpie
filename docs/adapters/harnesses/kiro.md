@@ -87,7 +87,7 @@ reasoning-effort scale runs to `xhigh` and `max`; the runner maps the neutral
 ## Clean-environment wrapper
 
 ```bash
-source /path/to/magpie/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 kiro-iso
 ```
 

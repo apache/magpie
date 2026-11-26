@@ -127,7 +127,7 @@ credential-strip layer is already available for any runtime:
 
 ```bash
 # Source agent-iso.sh and use the generic entry point:
-source /path/to/magpie/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso <your-runtime-cli> [cli-args]
 ```
 

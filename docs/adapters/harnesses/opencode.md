@@ -83,7 +83,7 @@ mapping: the runner translates the neutral `low` / `medium` / `high` to
 ## Clean-environment wrapper
 
 ```bash
-source /path/to/magpie/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 opencode-iso
 ```
 
