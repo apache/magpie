@@ -588,6 +588,16 @@ committed version with drift detection.
   with a *"Depends on #N"* line.
   `gh stack submit --auto` and letting `gh stack` generate titles or bodies
   are never used.
+- **`AGENTS.md` only, never `CLAUDE.md`.** `install` never creates a
+  `CLAUDE.md` or a `CLAUDE.md` → `AGENTS.md` symlink: Claude Code reads
+  `AGENTS.md` natively in every session from 2.1.281, and a `CLAUDE.md` in
+  the working directory or above makes it read `CLAUDE.md` files only. A root
+  `CLAUDE.md` that only points at `AGENTS.md` is proposed for removal in the
+  same commit; one with content of its own is left, and the user is told it
+  shadows `AGENTS.md`. The secure setup's `claude-code` floor is 2.1.281
+  (2.1.277 still read `CLAUDE.md` only on a third-party provider or with
+  telemetry off, and 2.1.277–2.1.280 reject Magpie's hook modules); verify
+  check 5 hard-fails below it.
 - **Commit attribution is a project choice** (#1385). `adopt` always asks
   the maintainer for the convention (`generated-by`, the default and the
   ASF convention; `assisted-by`; `co-authored-by`; `none`;

@@ -462,6 +462,12 @@ for adopters still on an older runtime — they must upgrade to
 `@latest` (which they should be doing anyway) before the setup will
 verify.
 
+The floor is **2.1.281**, the first release that reads `AGENTS.md` natively in every session.
+Magpie keeps its agent instructions in `AGENTS.md` only, with no `CLAUDE.md` beside it.
+2.1.277 reads `AGENTS.md` too, except on a third-party provider such as Amazon Bedrock or with telemetry disabled, where it still reads `CLAUDE.md` files only
+([Claude Code → AGENTS.md](https://code.claude.com/docs/en/memory#agents-md)).
+2.1.281 is also the first release whose `claude plugin validate` accepts Magpie's hook modules.
+
 ### Wiring the check script into a weekly routine
 
 The framework's `/schedule` slash-command lets you wire the check
