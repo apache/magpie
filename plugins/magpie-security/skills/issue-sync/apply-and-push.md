@@ -460,10 +460,10 @@ The remaining transitions stay separate:
 ### Decision flow
 
 `<sm> push-decision` (`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites)) walks this flow:
-write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json, title_product_prefix}`, act on its `action`,
+write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
 and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
 It checks the title cascade, the title length, the upgrade-target version and the CWE long form on the JSON itself;
-for the title length pass `report_json`, the generator's `--report-json` file (`<scratch>/cve-report-<N>.json`), and `title_product_prefix`, the project's `[cna].title_product_prefix` from `cve-json-config.toml` (`true` for ASF projects).
+for the title length pass `report_json`, the generator's `--report-json` file (`<scratch>/cve-report-<N>.json`); its `title_product_prefix` is the resolved value (the project's config, else its organization: true for ASF), so do not pass one.
 A title over the record's 256-character limit, bare or as the CVE tool posts it, blocks the push;
 a title over 100 characters comes back in `warnings` on every answer: show each to the user in the proposal and the Step 6 recap, and propose a shorter title through the Step 1d title row of [`gather.md`](gather.md).
 the four gates that need judgement (trigger conditions, the incomplete-fix clause, the private-finder anonymisation, the conservative range) are your verdicts in `judged`, and one not given is asked for, never assumed.

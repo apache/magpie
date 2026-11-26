@@ -595,3 +595,108 @@ def test_the_record_generator_report_feeds_the_gate(capsys, tmp_path):
     report.write_text(json.dumps({"title_length": [{**error, "max_title_chars": 60}]}))
     out = decide(capsys, tmp_path, report_json=str(report))
     assert (out["action"], out["gate_failed"]) == ("block", "title_length")
+
+
+# --- title_product_prefix resolves through the configuration chain when not given ---
+
+
+def _tracker(tmp_path, monkeypatch, organization: str | None, adopter: bool | None = None):
+    from generate_cve_json import cve_json
+
+    root = tmp_path / "tracker"
+    (root / ".apache-magpie-overrides").mkdir(parents=True)
+    if organization is not None:
+        (root / ".apache-magpie-overrides" / "project.md").write_text(f"organization: {organization}\n")
+    monkeypatch.setattr(cve_json, "_CONFIG", None)
+    if adopter is None:
+        monkeypatch.delenv("CVE_JSON_CONFIG", raising=False)
+    else:
+        config = tmp_path / "cve-json-config.toml"
+        config.write_text(f"[cna]\ntitle_product_prefix = {str(adopter).lower()}\n")
+        monkeypatch.setenv("CVE_JSON_CONFIG", str(config))
+    monkeypatch.chdir(root)
+
+
+def _over_by_one(products: list[str]) -> dict:
+    prefix = ", ".join(dict.fromkeys(products)) + ": "
+    return _with_products(_long(256 - len(prefix) + 1), products)
+
+
+@pytest.mark.parametrize(
+    ("organization", "adopter", "blocked"),
+    [("ASF", None, True), ("ASF", False, False), (None, None, False), ("independent", None, False)],
+    ids=["org-true-adopter-unset", "adopter-false-overrides-org", "no-project", "no-org-key"],
+)
+def test_the_prefix_follows_the_configuration_chain(
+    capsys, tmp_path, monkeypatch, organization, adopter, blocked
+):
+    _tracker(tmp_path, monkeypatch, organization, adopter)
+    out = decide(capsys, tmp_path, record=_over_by_one(FOUR))
+    assert (out["gate_failed"] == "title_length") is blocked
+
+
+def test_the_report_value_comes_before_the_chain(capsys, tmp_path, monkeypatch):
+    _tracker(tmp_path, monkeypatch, "ASF")
+    report = tmp_path / "cve-report.json"
+    report.write_text(json.dumps({"title_length": [], "title_product_prefix": False}))
+    out = decide(capsys, tmp_path, record=_over_by_one(FOUR), report_json=str(report))
+    assert out["gate_failed"] is None
+
+
+# --- review fixes: raw counting, a malformed report, the block reason, a products problem ---
+
+
+def test_the_gate_counts_the_title_as_posted_without_folding_whitespace(capsys, tmp_path):
+    title = "Token" + " " * 250 + "leak in auth"
+    assert len(title) > 256
+    out = decide(capsys, tmp_path, record=record(title=title), title_product_prefix=False)
+    assert out["gate_failed"] in ("title_strip_cascade", "title_length")
+    out = decide(
+        capsys, tmp_path, record=_with_products(_long(250) + "  ", ["Foo"]), title_product_prefix=True
+    )
+    assert out["gate_failed"] == "title_length"  # 252 + "Foo: " = 257
+
+
+@pytest.mark.parametrize("payload", ["null", "[]", '"text"'])
+def test_a_report_that_is_not_an_object_is_refused(capsys, tmp_path, payload):
+    report = tmp_path / "cve-report.json"
+    report.write_text(payload)
+    data = {"regenerated": True, "cve_id": "CVE-2026-41107", **NAMES, "judged": GOOD, "record": record()}
+    code, out = run(capsys, tmp_path, "push-decision", {**data, "report_json": str(report)})
+    assert code == 2
+    assert out["ok"] is False and "not a JSON object" in out["refused"]
+
+
+def test_a_report_entry_without_a_budget_falls_back_to_the_records_own(capsys, tmp_path):
+    report = tmp_path / "cve-report.json"
+    report.write_text(
+        json.dumps({"title_length": [{"kind": "title-long", "severity": "warning", "title_chars": 120}]})
+    )
+    out = decide(
+        capsys, tmp_path, record=record(title=_long(120)), report_json=str(report), title_product_prefix=False
+    )
+    assert "at most 100 characters" in out["warnings"][0]
+
+
+def test_a_short_title_blocked_on_the_posted_length_names_the_budget(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d}" for n in range(7)]
+    prefix = len(", ".join(products) + ": ")
+    budget = 256 - prefix
+    assert budget < 90
+    out = decide(capsys, tmp_path, record=_with_products(_long(90), products), title_product_prefix=True)
+    assert out["gate_failed"] == "title_length"
+    assert out["warnings"] == []
+    assert f"at most {budget} characters" in out["reason"] and "title" in out["reason"]
+    assert "body field" not in out["reason"].split("(")[0]
+
+
+def test_a_prefix_with_no_room_blocks_as_a_products_problem(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d} Long Name" for n in range(8)]
+    out = decide(
+        capsys,
+        tmp_path,
+        record=_with_products("Token leak in the store", products),
+        title_product_prefix=True,
+    )
+    assert out["gate_failed"] == "title_length"
+    assert "products problem" in out["reason"] and "at most" not in out["reason"]

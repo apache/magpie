@@ -39,7 +39,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from security_management.shared.rollup import one_line
-from security_management.shared.titles import length_check
+from security_management.shared.titles import length_check, title_product_prefix
 
 TRACKER_PREFIXES = ("ZDRES", "HUNTR", "GHSL")
 MIN_WORDS = 3
@@ -126,9 +126,18 @@ def normalize(data: Mapping[str, Any]) -> dict[str, Any]:
             f"Normalized title is {count} — verify no over-stripping occurred and consider a manual override "
             "before pasting it into the CVE tool"
         )
-    length = length_check(normalized, _list(data.get("products")), bool(data.get("title_product_prefix")))
+    products = _list(data.get("products"))
+    prefix = bool(products) and title_product_prefix(data)
+    length = length_check(normalized, products, prefix)
     length_warning = None
-    if length["shorten"]:
+    if length["products_too_long"]:
+        length_warning = (
+            f"The affected product names alone take {length['prefix_chars']} characters of the title the "
+            "CVE tool posts, leaving no room within the schema's 256: a products problem (too many or too "
+            "long product names), so merge or shorten the affected product entries; shortening the title "
+            "cannot fix it"
+        )
+    elif length["shorten"]:
         length_warning = (
             f"Normalized title is {length['title_chars']} characters, over the "
             f"{length['max_title_chars']}-character budget"

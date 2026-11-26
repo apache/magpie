@@ -905,3 +905,48 @@ def test_step_2_budget_follows_the_product_prefix(capsys, tmp_path, products, ov
     assert out["length"]["over_limit"] is limit
     assert out["length"]["max_title_chars"] == min(100, 256 - len(prefix))
     assert out["length"]["shorten"] is True  # over 100 either way
+
+
+@pytest.mark.parametrize(
+    ("organization", "adopter", "limit"),
+    [("ASF", None, True), ("ASF", False, False), (None, None, False)],
+    ids=["org-true-adopter-unset", "adopter-false-overrides-org", "no-org"],
+)
+def test_step_2_prefix_follows_the_configuration_chain(
+    capsys, tmp_path, monkeypatch, organization, adopter, limit
+):
+    from generate_cve_json import cve_json
+
+    root = tmp_path / "tracker"
+    (root / ".apache-magpie-overrides").mkdir(parents=True)
+    if organization:
+        (root / ".apache-magpie-overrides" / "project.md").write_text(f"organization: {organization}\n")
+    monkeypatch.setattr(cve_json, "_CONFIG", None)
+    monkeypatch.delenv("CVE_JSON_CONFIG", raising=False)
+    if adopter is not None:
+        config = tmp_path / "cve-json-config.toml"
+        config.write_text(f"[cna]\ntitle_product_prefix = {str(adopter).lower()}\n")
+        monkeypatch.setenv("CVE_JSON_CONFIG", str(config))
+    monkeypatch.chdir(root)
+    products = ["Foo", "Foo Bar"]
+    out = title(capsys, tmp_path, _long(256 - len("Foo, Foo Bar: ") + 1), products=products)
+    assert out["length"]["over_limit"] is limit
+
+
+def test_step_2_an_apache_title_gets_the_prefixed_budget(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d}" for n in range(7)]
+    prefix = len(", ".join(products) + ": ")
+    out = title(
+        capsys, tmp_path, ("Apache widget " + "x" * 120)[:120], products=products, title_product_prefix=True
+    )
+    assert out["length"]["over_limit"] is False  # posted bare
+    assert out["length"]["max_title_chars"] == 256 - prefix
+    assert out["length_warning"] is not None
+
+
+def test_step_2_a_prefix_with_no_room_is_a_products_problem(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d} Long Name" for n in range(8)]
+    out = title(capsys, tmp_path, "Token leak in the store", products=products, title_product_prefix=True)
+    assert out["length"]["products_too_long"] is True
+    assert out["length"]["max_title_chars"] is None
+    assert "products problem" in out["length_warning"]

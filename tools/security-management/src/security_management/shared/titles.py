@@ -28,7 +28,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from generate_cve_json.cve_json import configured_title_product_prefix
 
 _MAIL_PREFIX = re.compile(r"^\s*(?:(?:re|fwd?)\s*:|\[\s*security(?:\s+report)?\s*\])\s*", re.IGNORECASE)
 _CONVENTIONAL = re.compile(
@@ -97,23 +100,44 @@ def posted_title(title: str, products: Sequence[str] = (), product_prefix: bool 
     return f"{', '.join(names)}: {title}"
 
 
+def title_product_prefix(data: Mapping[str, Any], report: Mapping[str, Any] | None = None) -> bool:
+    """Whether the CVE tool prefixes the title: the caller's explicit value, else
+    the record generator's report, else the configuration chain the generator
+    resolves (its config's `[cna].title_product_prefix`, then project.md, then
+    the organization manifest, then `False`), read from the working directory.
+    """
+    if data.get("title_product_prefix") is not None:
+        return bool(data["title_product_prefix"])
+    if report is not None and isinstance(report.get("title_product_prefix"), bool):
+        return bool(report["title_product_prefix"])
+    return configured_title_product_prefix()[0]
+
+
 def length_check(
     title: str, products: Sequence[str] = (), product_prefix: bool = False
-) -> dict[str, int | bool]:
+) -> dict[str, int | bool | None]:
     """The length verdict on a record title; proposing the shorter title stays the model's job.
 
     The schema limit applies to :func:`posted_title`.
     ``max_title_chars`` is the budget left after the product prefix, capped at
-    :data:`TITLE_WARN_CHARS`; ``shorten`` is true exactly when the title is
-    over it, i.e. when the schema limit or the subject warning fires.
+    :data:`TITLE_WARN_CHARS`; the prefix counts even when the title holds the
+    word ``Apache``, since a shorter title must not rely on it. ``shorten`` is
+    true exactly when the title is over that budget. ``products_too_long`` is
+    true when the prefix alone leaves no room (``max_title_chars`` is then
+    ``None``): a products problem, not a title one.
     """
     length = len(title)
     posted = len(posted_title(title, products, product_prefix))
-    budget = max(min(TITLE_MAX_CHARS - (posted - length), TITLE_WARN_CHARS), 0)
+    names = list(dict.fromkeys(p for p in products if p))
+    prefix_chars = len(f"{', '.join(names)}: ") if product_prefix and names else 0
+    room = TITLE_MAX_CHARS - prefix_chars
+    budget = min(room, TITLE_WARN_CHARS) if room > 0 else None
     return {
         "title_chars": length,
         "posted_chars": posted,
+        "prefix_chars": prefix_chars,
         "max_title_chars": budget,
+        "products_too_long": budget is None,
         "over_limit": max(length, posted) > TITLE_MAX_CHARS,
-        "shorten": length > budget,
+        "shorten": budget is not None and length > budget,
     }
