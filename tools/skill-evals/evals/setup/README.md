@@ -156,6 +156,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-26 | `f403a18e` (feat/incubator-marketplace-offer) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `6ef713db` (feat/incubator-marketplace-offer) | `opus[1m]` | 2 | pass |  |
 | 2026-11-25 | `5ff3316c` (feat/setup-propose-git-grants) | `opus[1m]` | 2 | `step-reconcile/case-10-installed-callers-new-git-grants` failed 1 of 2 |  |
 | 2026-11-15 | `1087814b` (fix/harness-docs-unshipped-tools) | `opus[1m]` | 1 | pass |  |

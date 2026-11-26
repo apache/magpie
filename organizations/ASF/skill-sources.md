@@ -53,6 +53,11 @@ There are two ways to install them, and they do not conflict:
   `marketplace` field), so a skill installs as `<skill>@apache-incubator`,
   for example `/plugin install releasecheck@apache-incubator`.
   Updates then arrive through the agent's own plugin update.
+  The catalogs point at directories on `apache/incubator`'s default branch,
+  so a marketplace install tracks that branch: no tag, no commit pin, and
+  nothing Magpie verified. Through Magpie, by contrast, a skill is fetched
+  at a pinned tag and checked against its recorded commit; only a skill the
+  Incubator has tagged (`pinned` below) can be installed that way.
 
 **Pinning and updates.**
 The Incubator versions each skill on its own, tagging it `<skill>-<version>`

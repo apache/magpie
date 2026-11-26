@@ -4,7 +4,7 @@
 Agent detected: Claude Code.
 Plugins just installed: magpie-setup, magpie-agent-guard, magpie-release-management.
 `claude plugin list`: no other plugins.
-Resolved project.md: `organization: independent`.
+`python3 -P -m setup_preflight.organization_network --project-root . --is-asf`: `false`.
 `~/.cache/apache-magpie/companions-offered`: absent.
 
 Companion registry entries (from docs/setup/companion-skills.md):

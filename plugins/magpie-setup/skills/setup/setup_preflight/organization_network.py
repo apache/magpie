@@ -125,7 +125,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fragment", type=Path, default=Path(__file__).with_name("claude-settings.asf.fragment.json")
     )
+    parser.add_argument(
+        "--is-asf",
+        action="store_true",
+        help="print only whether the project declares organization: ASF (true or false), with the same parser",
+    )
     args = parser.parse_args(argv)
+
+    if args.is_asf:
+        print("true" if is_asf_project(args.project_root) else "false")
+        return 0
 
     try:
         settings = selected_asf_network_settings(args.project_root, args.fragment)

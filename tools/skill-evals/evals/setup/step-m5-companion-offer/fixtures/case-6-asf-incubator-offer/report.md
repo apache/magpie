@@ -4,7 +4,7 @@
 Agent detected: Claude Code.
 Plugins just installed: magpie-setup, magpie-agent-guard, magpie-release-management.
 `claude plugin list`: releasecheck@apache-incubator installed.
-Resolved project.md: `organization: ASF`.
+`python3 -P -m setup_preflight.organization_network --project-root . --is-asf`: `true`.
 `~/.cache/apache-magpie/companions-offered`: absent.
 
 Companion registry entries (from docs/setup/companion-skills.md):

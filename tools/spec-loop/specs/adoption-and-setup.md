@@ -158,7 +158,9 @@ acceptance:
     Incubator's marketplace: the skills the ASF catalogue
     (`organizations/ASF/skill-sources.md`) lists for the agent, minus those
     already installed, with the add command and `<skill>@apache-incubator`,
-    printed and never run, recorded as `apache-incubator <agent>`. A
+    printed and never run, saying that a marketplace install tracks
+    `apache/incubator`'s default branch with no pin Magpie verified,
+    recorded as `apache-incubator <agent>`. A
     pinned-snapshot update points once at that catalogue and
     `setup skill-sources` instead (`apache-incubator snapshot`).
   - The default-set floor is seeded with four plugins (`magpie-setup`,
