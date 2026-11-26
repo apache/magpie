@@ -24,7 +24,10 @@ is correct but unusable degrades into a posture that is bypassed.
 Replace the wildcard, not the confirmation. Route forge actions through a
 dispatcher whose operations are a **closed catalogue** of fixed shapes:
 
-- parameters are typed and validated; none may start with `-`;
+- parameters are typed and validated; none may start with `-`; an anchored
+  check matches the whole value (`fullmatch`), so a trailing newline is
+  refused, in the operations, the git operations and the policy loader alike
+  (#2270, #2314);
 - builders return `list[str]` executed without a shell for forge operations, or a request descriptor executed via Python stdlib `urllib.request` for HTTP read operations;
 - the repository is policy, never a parameter;
 - value-bearing parameters (labels, milestones, assignees, columns, close
@@ -514,6 +517,9 @@ own policy (draft-PR flows get no `git-pr-create` or `pr-add-label`), and
 `tests/test_committed_policy.py` fails when the committed policy is invalid TOML,
 grants an operation that does not exist, or misses a taxonomy label from
 `docs/labels-and-capabilities.md` (#2231, #2283).
+Magpie's own policy grants the installed non-security skills the callers the
+README example lists; the security-family callers are left out because the
+framework checkout has no tracker (#2320).
 
 **Keeping a policy's grants current** (#2235, #2299).
 `setup` reconcile check 3a compares every caller the policy declares, and every

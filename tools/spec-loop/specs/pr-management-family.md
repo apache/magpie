@@ -98,6 +98,9 @@ same directory; the behaviour is unchanged.
   only when a maintainer asks what a panel means.
   Triage markers, bot detection and maintainer detection come from the same
   modules `pr-management-triage` uses, so both agree on what "triaged" means.
+  The CODEOWNERS panel says which of two things left it empty: no CODEOWNERS
+  file in `.github/`, the root or `docs/`, or no ready-for-review PR touching
+  an owned path (#2329).
 - Skill: `pr-management-code-review` (`code-review/`) — deep, line-aware
   code review one PR at a time; applies project criteria and drafts an
   `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
@@ -525,9 +528,9 @@ same directory; the behaviour is unchanged.
   APPROVE as one that fails, sorts below every PR with a real run when
   a queue is ordered, and is reported as *CI unverified* rather than
   having its outcome predicted.
-- **A posted review is confirmed, never retried.** `gh pr review` prints
-  nothing on success, so an empty result must not be read as failure: a
-  zero exit means the review posted whatever it printed. Before any
+- **A posted review is confirmed, never retried.** A zero exit means the
+  review posted, whatever it printed, and a failed-looking call may still
+  have posted it. Before any
   retry the skill confirms the post-condition through the reviews API,
   because a duplicate cannot be withdrawn — GitHub deletes only pending
   reviews, and `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
@@ -537,6 +540,10 @@ same directory; the behaviour is unchanged.
   through the REST reviews endpoint (`repos/<repo>/pulls/<N>/reviews`),
   never a GraphQL mutation, so the public-surface scrub can see the
   target repository.
+  `code-review render` writes one payload for every review, body-only or
+  with inline threads, pinned to the head it was drafted against
+  (`commit_id`), and prints
+  `gh api repos/<repo>/pulls/<N>/reviews -X POST --input <payload>` (#2355).
 - **Adversarial second read in code review.** `pr-management-code-review`
   offers two paths at Step 5 of `review-flow.md`.
   The tool path — `with-reviewers:codex,copilot`, or a resolved

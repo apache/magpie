@@ -153,11 +153,17 @@ trustworthy as it grows.
   skill marker or with the status-rollup marker line
   (`<!-- <name> status rollup v<N>`) counts as skill activity, not human
   activity, so a fresh rollup append no longer dispatches the tracker
-  (#1444). Capability: `substrate:analytics`.
+  (#1444).
+  Replay mode (`classify --load`) requires `--now`, and a `--now` without a
+  timezone, or one that is not a timestamp, is a usage error (exit `2`), so
+  the same replay file always gives the same decisions (#2325, #2335).
+  Capability: `substrate:analytics`.
 - `tools/spec-validator/` — validates spec-loop spec frontmatter
   (required keys, valid `status`/`kind`/`mode` values, body-section
   presence, `Known gaps` section required in functional specs,
-  SPDX-License-Identifier header, Validation code block present,
+  SPDX-License-Identifier header before the frontmatter's opening `---`,
+  so a marker quoted later in the file does not count (#2303),
+  Validation code block present,
   filesystem paths in Validation blocks must exist under repo root);
   the spec-side counterpart to `skill-and-tool-validator`.
   It also checks `gap-closes-when` predicates on Known gaps and cross-spec
@@ -300,6 +306,8 @@ trustworthy as it grows.
   `main` they run `--all-files`. The lychee link check is exempt from the
   scoping and runs whole-repo on both events, because its file filter
   only decides whether it fires.
+  It checks the eval suites' READMEs and skips only their `fixtures/`
+  directories, at any depth (#2339).
   So is `check-claude-mods` (#1564), a `manual`-stage hook CI runs in its
   own step: it runs `claude plugin validate --strict` and `claude plugin
   test` on every plugin whose `hooks/hooks.json` declares `modules`,
@@ -522,6 +530,8 @@ uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tool
   tree carrying that frontmatter.
   <!-- gap-closes-when: none (narrative) -->
 - **The 500-line cap is advisory.** `skill-line-limit` is a SOFT check, so
-  nothing blocks a `SKILL.md` growing past it. No `SKILL.md` is over 500 lines
-  today; the largest, `issue-triage`, sits at exactly 500.
+  nothing blocks a `SKILL.md` growing past it. Seven are over it today:
+  `issue-triage` (531), `release-verify-rc` (527), `issue-stale-sweep` (525),
+  `issue-reassess` (520), `issue-reproducer` (518), `audit-finding-fix` (504)
+  and `issue-deduplicate` (503).
   <!-- gap-closes-when: none (narrative) -->
