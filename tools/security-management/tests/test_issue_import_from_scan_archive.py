@@ -358,6 +358,42 @@ def test_extended_headers_are_capped_in_total(tmp_path) -> None:
         archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
 
 
+def test_tarfile_still_calls_the_header_hook_the_cap_relies_on(tmp_path, monkeypatch) -> None:
+    # The extended-header cap overrides tarfile's private `TarInfo._proc_member`.
+    # If a Python release renames it or stops calling it, the override is never
+    # reached and the cap silently disappears: this test fails first.
+    assert "_proc_member" in vars(tarfile.TarInfo), (
+        "tarfile.TarInfo no longer defines _proc_member: the extended-header cap in archive.py is not applied"
+    )
+    calls: list[str] = []
+    original = archive._CappedTarInfo._proc_member
+
+    def spy(self, tarfile_):
+        calls.append(self.name)
+        return original(self, tarfile_)
+
+    monkeypatch.setattr(archive._CappedTarInfo, "_proc_member", spy)
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(pax_tarball([pax_member("high/a.txt", 100)]))
+    out = tmp_path / "o"
+    out.mkdir()
+    archive._extract(plain, out, 10_000, 100)
+    assert calls, "tarfile did not call _CappedTarInfo._proc_member: the extended-header cap is not applied"
+
+
+def test_an_oversized_gnu_long_name_is_refused(tmp_path) -> None:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz", format=tarfile.GNU_FORMAT) as tar:
+        tar.addfile(tarfile.TarInfo("high/" + "n" * (archive.MAX_EXTENDED_HEADER_BYTES + 1)), io.BytesIO(b""))
+    plain = tmp_path / "a.tar.gz"
+    plain.write_bytes(buffer.getvalue())
+    out = tmp_path / "o"
+    out.mkdir()
+    with pytest.raises(archive.ArchiveError, match="extended tar header of"):
+        archive._extract(plain, out, archive.MAX_EXTRACTED_BYTES, archive.MAX_MEMBERS)
+    assert list(out.iterdir()) == []
+
+
 def test_a_small_extended_header_is_fine(tmp_path) -> None:
     plain = tmp_path / "a.tar.gz"
     plain.write_bytes(pax_tarball([pax_member("high/a.txt", 100)]))
