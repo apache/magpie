@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/schemas/hooks.json",
-  "description": "Apache Magpie — Claude Code mod for deterministic public-surface scrub against unredacted security embargo leaks.",
+  "description": "Apache Magpie — Claude Code mods for deterministic public-surface scrub and local security triage queue pane.",
   "hooks": {},
   "modules": [
     "./public-surface-scrub.ts"

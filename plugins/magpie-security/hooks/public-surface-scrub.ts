@@ -18,6 +18,7 @@
 // under the License.
 
 import { CANONICAL_FORBIDDEN_TERMS, type CanonicalForbiddenTerm } from './forbidden-terms.js';
+import { register as registerSecurityTriageQueuePane } from './security-triage-queue-pane.js';
 
 /**
  * Single canonical forbidden-term regexes for public surfaces, derived directly
@@ -2878,6 +2879,8 @@ export function register(on: any): void {
       return next(e);
     }
   });
+
+  registerSecurityTriageQueuePane(on);
 }
 
 export default register;
