@@ -216,7 +216,12 @@ def test_context_then_disposition_then_render(
         "write",
     )
     assert out["footer_verified"] and out["live_mentions"] == [] and out["inline_threads"] == 1
-    assert shlex.split(out["post_command"]) == ["gh", "api", "graphql", "--input", out["payload_file"]]
+    # REST, not GraphQL: the path names the repository, so the public-surface scrub can see the target.
+    argv = shlex.split(out["post_command"])
+    assert argv[:2] == ["gh", "api"] and argv[3:] == ["-X", "POST", "--input", out["payload_file"]]
+    assert argv[2].startswith("repos/") and argv[2].endswith("/pulls/7/reviews")
+    payload = json.loads(Path(out["payload_file"]).read_text(encoding="utf-8"))
+    assert payload["event"] == "COMMENT" and len(payload["comments"]) == 1
     body = Path(out["body_file"]).read_text()
     assert "Apache Product maintainer" in body and "https://example.org/contrib" in body
 
@@ -352,7 +357,7 @@ def test_render_auto_picks_valid_curated_sidecar(
     )
     assert out["footer_verified"] and out["inline_threads"] == 1
     payload = json.loads(Path(out["payload_file"]).read_text(encoding="utf-8"))
-    thread_body = payload["variables"]["threads"][0]["body"]
+    thread_body = payload["comments"][0]["body"]
     assert "Curated maintainer explanation." in thread_body
     assert "Original explanation." not in thread_body
 
@@ -420,7 +425,7 @@ def test_render_falls_back_when_curated_sidecar_has_mismatched_sha(
     )
     assert out["footer_verified"] and out["inline_threads"] == 1
     payload = json.loads(Path(out["payload_file"]).read_text(encoding="utf-8"))
-    thread_body = payload["variables"]["threads"][0]["body"]
+    thread_body = payload["comments"][0]["body"]
     assert "Original explanation fallback." in thread_body
     assert "Stale sidecar explanation." not in thread_body
 

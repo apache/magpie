@@ -233,11 +233,18 @@ def test_inline_comments_and_payload() -> None:
     assert result["threads"][0]["body"] == "ask `@bob`" and result["unanchorable"] == [
         {"index": 2, "file": "hook.py", "line": 99}
     ]
-    payload = json.loads(body.review_payload("PR_1", "COMMENT", "Body", result["threads"]))
-    assert payload["variables"]["threads"] == [
-        {"path": "hook.py", "line": 12, "side": "RIGHT", "body": "ask `@bob`"}
-    ]
-    assert "addPullRequestReview" in payload["query"]
+    payload = json.loads(body.review_payload("a" * 40, "COMMENT", "Body", result["threads"]))
+    assert payload == {
+        "event": "COMMENT",
+        "body": "Body",
+        "commit_id": "a" * 40,
+        "comments": [{"path": "hook.py", "line": 12, "side": "RIGHT", "body": "ask `@bob`"}],
+    }
+
+
+def test_a_body_only_review_payload_has_no_comments_and_no_unknown_head() -> None:
+    payload = json.loads(body.review_payload(None, "APPROVE", "Looks good", []))
+    assert payload == {"event": "APPROVE", "body": "Looks good"}
 
 
 def test_an_inline_comment_carries_the_finding_text_not_just_its_rule() -> None:

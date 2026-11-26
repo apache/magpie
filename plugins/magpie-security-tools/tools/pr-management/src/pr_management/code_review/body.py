@@ -300,21 +300,18 @@ def inline_comments(
     return {"threads": threads, "unanchorable": unanchorable}
 
 
-REVIEW_MUTATION = """mutation($pullRequestId: ID!, $event: PullRequestReviewEvent!, $body: String, $threads: [DraftPullRequestReviewThread!]) {
-  addPullRequestReview(input: {pullRequestId: $pullRequestId, event: $event, body: $body, threads: $threads}) {
-    pullRequestReview { id url }
-  }
-}"""
+def review_payload(head_sha: str | None, disposition: str, body: str, threads: list[dict[str, Any]]) -> str:
+    """The `POST repos/<repo>/pulls/<N>/reviews` document for a review, inline threads included.
 
-
-def review_payload(node_id: str, disposition: str, body: str, threads: list[dict[str, Any]]) -> str:
-    """The `gh api graphql --input` document for a review with inline threads."""
-    variables = {
-        "pullRequestId": node_id,
-        "event": disposition,
-        "body": body,
-        "threads": [
+    The REST endpoint names the repository in its path, so the public-surface scrub can see
+    which repository a review goes to; a GraphQL mutation addresses a node id and cannot show it.
+    `commit_id` pins the review to the head that was read, when the read carries it.
+    """
+    payload: dict[str, Any] = {"event": disposition, "body": body}
+    if head_sha:
+        payload["commit_id"] = head_sha
+    if threads:
+        payload["comments"] = [
             {"path": t["path"], "line": t["line"], "side": t["side"], "body": t["body"]} for t in threads
-        ],
-    }
-    return json.dumps({"query": REVIEW_MUTATION, "variables": variables}, indent=2, ensure_ascii=False)
+        ]
+    return json.dumps(payload, indent=2, ensure_ascii=False)

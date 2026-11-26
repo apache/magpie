@@ -530,8 +530,10 @@ same directory; the behaviour is unchanged.
   reviews, and `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
   answers `422 Can not delete a non-pending pull request review` once
   submitted, leaving the body edited down to a pointer as the only
-  repair. The same rule covers `gh pr comment` and the
-  `addPullRequestReview` mutation.
+  repair. The same rule covers `gh pr comment`. Every review is posted
+  through the REST reviews endpoint (`repos/<repo>/pulls/<N>/reviews`),
+  never a GraphQL mutation, so the public-surface scrub can see the
+  target repository.
 - **Adversarial second read in code review.** `pr-management-code-review`
   offers two paths at Step 5 of `review-flow.md`.
   The tool path — `with-reviewers:codex,copilot`, or a resolved

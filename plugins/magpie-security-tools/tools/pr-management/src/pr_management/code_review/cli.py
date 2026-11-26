@@ -697,24 +697,24 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     body_file.write_text(text + "\n", encoding="utf-8")
     hits = review_body.mention_scan(text + "\n" + "\n".join(t["body"] for t in inline["threads"]), allow)
     check = review_body.verify_footer(text, variant)
-    flag = {"APPROVE": "--approve", "REQUEST_CHANGES": "--request-changes", "COMMENT": "--comment"}[
-        args.disposition
-    ]
     repo = cfg.upstream_repo or ""
     if not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", repo) or not _PR.match(str(args.pr)):
         raise SystemExit("pr-management: the upstream repo or PR number is not valid for a command")
-    payload_file = None
-    if inline["threads"] and pr.node_id:
-        payload_file = args.out_dir / f"review-payload-{args.pr}.json"
-        payload_file.write_text(
-            review_body.review_payload(pr.node_id, args.disposition, text, inline["threads"]),
-            encoding="utf-8",
-        )
-        command = shlex.join(["gh", "api", "graphql", "--input", str(payload_file)])
-    else:
-        command = shlex.join(
-            ["gh", "pr", "review", str(args.pr), "--repo", repo, flag, "--body-file", str(body_file)]
-        )
+    # Every review, with or without inline threads, goes through the REST endpoint: its path names
+    # the repository, which the public-surface scrub needs to recognise the framework's own repo.
+    payload_file = args.out_dir / f"review-payload-{args.pr}.json"
+    payload_file.write_text(
+        review_body.review_payload(
+            pr.head_sha if _SHA.fullmatch(pr.head_sha or "") else None,
+            args.disposition,
+            text,
+            inline["threads"],
+        ),
+        encoding="utf-8",
+    )
+    command = shlex.join(
+        ["gh", "api", f"repos/{repo}/pulls/{args.pr}/reviews", "-X", "POST", "--input", str(payload_file)]
+    )
     verify = shlex.join(["gh", "api", f"repos/{repo}/pulls/{args.pr}/reviews"])
     auto_merge_command = None
     if args.auto_merge:
@@ -760,14 +760,14 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "footer": variant,
         "footer_verified": check["footer_present"],
         "body_file": str(body_file),
-        "payload_file": str(payload_file) if payload_file else None,
+        "payload_file": str(payload_file),
         "inline_threads": len(inline["threads"]),
         "unanchorable": inline["unanchorable"],
         "live_mentions": hits,
         "post_command": command,
         "auto_merge_command": auto_merge_command,
         "verify_command": verify,
-        "verify_note": "Empty output from the post is success. Never re-run it: count the viewer's reviews instead.",
+        "verify_note": "Never re-run the post, whatever it printed: count the viewer's reviews instead.",
         "preview": text.splitlines()[:40],
         "docs": ["posting.md"],
     }

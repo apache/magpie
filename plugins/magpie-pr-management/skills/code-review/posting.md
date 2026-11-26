@@ -88,18 +88,17 @@ doing it here (Golden rule 9, in [`scope.md`](scope.md)).
 
 ## The post
 
-`render` prints `post_command`:
+`render` prints `post_command`: `gh api repos/<repo>/pulls/<N>/reviews -X POST --input <payload>`.
+The payload carries the event, the body, the head SHA it was drafted against (`commit_id`), and every kept inline thread (`comments`), each placed by `path` + `line` + `side` (RIGHT for an added or context line, LEFT for a removed one) computed from the saved diff; a body-only review (no inline thread survived, or `inline:off`) has no `comments`.
+It is a REST call, not a GraphQL mutation, because its path names the repository: the public-surface scrub can only recognise a post to the framework's own repository, and set aside its own tool names, when the command shows where it goes.
 
-- with inline threads: `gh api graphql --input <payload>` — one `addPullRequestReview` mutation carrying the body and every kept thread, each placed by `path` + `line` + `side` (RIGHT for an added or context line, LEFT for a removed one) computed from the saved diff;
-- body-only (no inline thread survived, or `inline:off`): `gh pr review <N> --repo <repo> --approve|--request-changes|--comment --body-file <file>`.
+It reads the body from a file, never an inline string. Run the command exactly as printed, as a bare command, only after the maintainer confirmed the body.
 
-Both read the body from a file, never an inline string. Run the command exactly as printed, as a bare command, only after the maintainer confirmed the body.
+### Confirm the review posted — never re-run it
 
-### Confirm the review posted — never re-run on empty output
-
-`gh pr review` **prints nothing on success.** Empty output is the
-expected result, not a failure, and re-running the command because it
-"looked like nothing happened" submits the review a second time.
+The post prints the new review's JSON, but a failed-looking call
+can still have posted it, and re-running the command submits the
+review a second time.
 
 That second review cannot be taken back. GitHub's API deletes only
 *pending* reviews: `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
@@ -118,15 +117,14 @@ gh api repos/<repo>/pulls/<N>/reviews
 
 (`render` prints it as `verify_command`; run it as a bare command — a `--jq` filter is fine, a pipe is not — and count the entries whose `user.login` is the viewer.)
 
-Treat a non-zero exit from `gh pr review` as the only failure signal. If
+Treat a non-zero exit from the post as the only failure signal. If
 the command exits zero, the review is posted — whatever it printed. If
 the exit status is genuinely non-zero, re-check with the query above
 before any retry, because a partial failure (for example the review
 landing but an inline comment being rejected) can still leave a review
 behind.
 
-The same applies to `gh pr comment` and to the `addPullRequestReview`
-mutation below.
+The same applies to `gh pr comment`.
 
 Inline positions are valid only against the head that was diffed; when the Step 8 `guard` reports new commits, re-run Steps 1–7 (`[R]efresh`) or post body-only (`[B]ody-only-now`).
 
@@ -250,5 +248,5 @@ When the `dry-run` selector is in effect (see
 > *Dry-run mode: would post `<DISP>` review to PR #N. Move on?
 > `[Y]es` (default), `[E]dit`, `[S]kip`, `[Q]uit`.*
 
-`gh pr review` is **not invoked**. The session summary lists
+`post_command` is **not run**. The session summary lists
 the would-have-been dispositions and counts.
