@@ -210,9 +210,9 @@ def test_an_asf_project_gets_the_hosts_for_this_session_only(tmp_path: Path) -> 
     settings = _session_settings(result)
     assert settings is not None
     allow = settings["permissions"]["allow"]
-    assert [rule for rule in allow if rule.startswith("read_url(") and "apache.org" in rule] == [
-        f"read_url({host})" for host in ASF_HOSTS
-    ]
+    expected = [f"read_url({host})" for host in ASF_HOSTS]
+    assert [rule for rule in allow if rule in expected] == expected
+    assert allow[-len(expected) :] == expected
     assert _args(result)[-2:] == ["-p", "hello"]
     assert "for this session only" in result.stderr
     # Nothing is written to the user's profile.
