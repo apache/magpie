@@ -1844,10 +1844,31 @@ def personal_dir(root: Path) -> Path:
     if adopted(root):
         own = root / LOCAL_DIR
         main = main_worktree(root)
-        if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
+        if _holds_config(own) or main is None or not (main / LOCAL_DIR).is_dir():
             return own
         return main / LOCAL_DIR
     return unadopted_home(root)
+
+
+#: Personal-layer entries that are bookkeeping, never configuration: the
+#: stamp, the pre-flight cache, the container gateway's run directory and a
+#: checker copy.  Dot-files (temporary files among them) never count either.
+BOOKKEEPING = frozenset({"reconciled.json", ".preflight-cache.json", "run", "setup_preflight"})
+
+
+def _holds_config(layer: Path) -> bool:
+    """Whether `layer` holds any configuration, not only bookkeeping.
+
+    A layer that exists but cannot be listed counts as holding some, so
+    configuration is never redirected away from it on a read error.
+    """
+    try:
+        names = [entry.name for entry in layer.iterdir()]
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return True
+    return any(name not in BOOKKEEPING and not name.startswith(".") for name in names)
 
 
 def personal_layers(root: Path) -> list[Path]:

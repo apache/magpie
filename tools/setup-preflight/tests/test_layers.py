@@ -298,8 +298,20 @@ def test_vector_adopted_worktree_with_its_own_dir_writes_there(tmp_path: Path) -
     main, wt = _linked_worktree(tmp_path)
     (main / LOCAL).mkdir()
     (wt / LOCAL).mkdir()
+    (wt / LOCAL / "user.md").write_text("own configuration")
     assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
     assert layers.personal_dir(wt) == wt / LOCAL
+
+
+def test_vector_a_worktree_dir_of_bookkeeping_only_still_writes_to_the_main_checkouts(tmp_path: Path) -> None:
+    """A hint or welcome answer recorded in the worktree never redirects configuration writes."""
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    (wt / LOCAL / "run").mkdir(parents=True)
+    for name in ("reconciled.json", ".preflight-cache.json", ".reconciled.json.x.tmp"):
+        (wt / LOCAL / name).write_text("{}")
+    assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
+    assert layers.personal_dir(wt) == main / LOCAL
 
 
 def test_vector_adopted_worktree_with_neither_dir_writes_its_own(tmp_path: Path) -> None:
@@ -371,6 +383,7 @@ SHARED = (
     "adopted",
     "main_worktree",
     "personal_dir",
+    "_holds_config",
     "personal_layers",
 )
 

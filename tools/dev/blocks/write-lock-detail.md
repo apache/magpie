@@ -34,9 +34,10 @@ uvx --isolated --from ~/.claude/magpie/skill-lock skill-lock release {override_n
 ```
 
 The lock is scoped to this skill and `<upstream>` only; other skills and
-other repositories never contend. It lives in the personal config layer
-(`run/locks/`), never in the working tree, so it serialises runs from one
-clone only. Runs from another clone or another machine are not
-serialised; the re-read before each write narrows that window but does
+other repositories never contend. It lives under `run/locks/` in this
+checkout's own personal layer in an adopted project (in the git directory,
+shared by every worktree, otherwise), never in the working tree, so it
+serialises runs from one checkout only. Runs from another worktree of an
+adopted project, another clone or another machine are not serialised; the re-read before each write narrows that window but does
 not close it. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).

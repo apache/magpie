@@ -55,6 +55,13 @@
 # every sandboxed command is a decision for the operator, not for a
 # helper that runs from a git hook. `--no-tool-paths` skips the set.
 #
+# Main checkout: run with `--all-worktrees` from a main checkout, the
+# helper also adds that checkout's `.apache-magpie-local/`,
+# `.claude/settings.json` and `.claude/settings.local.json` to each linked
+# worktree's `allowRead`, never to `allowWrite`: a linked worktree inherits
+# them. Only from there: a worktree's `.git` file is sandbox-writable, so
+# the single-worktree mode adds nothing. Symlinked paths are never granted.
+#
 # Working directories: with `permissions.blockReadsOutsideWorkingDirectories`
 # on, every read outside the session's working directories asks first.
 # The skills keep their scratch files outside the repository, so the
@@ -165,7 +172,7 @@ while [ $# -gt 0 ]; do
     --no-tool-paths) tool_paths=0 ;;
     --no-working-dirs) working_dirs=0 ;;
     -h|--help)
-      sed -n '19,134p' "$0"  # print the usage + behaviour block above
+      sed -n '19,140p' "$0"  # print the usage + behaviour block above
       exit 0
       ;;
     *)
@@ -213,14 +220,57 @@ add_pair() {
   target_files+=("$wt/.claude/settings.local.json")
 }
 
+# trusted_main: the main checkout whose inherited files the linked worktrees
+# may read, or empty. It is taken only from a trusted starting point: an
+# `--all-worktrees` run whose current checkout is itself a main checkout
+# (`.git` is a directory). Never from a worktree's own `.git` file, which is
+# writable from inside the sandbox, and never from a repository that lists
+# the worktree: sandboxed code can create one in writable space and register
+# the worktree there.
+trusted_main=""
 if [ "$all_worktrees" -eq 1 ]; then
+  top=$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE git rev-parse --show-toplevel 2>/dev/null) || top=""
+  if [ -n "$top" ] && [ -d "$top/.git" ] && [ ! -L "$top/.git" ]; then
+    trusted_main=$(cd "$top" && pwd -P)
+  fi
+fi
+
+# inherited_reads <worktree>: JSON array of the trusted main checkout's files
+# a linked worktree inherits, as read-only grants: the personal layer and the
+# two Claude settings files, nothing else under `.claude/` (it can hold
+# sibling worktrees). A path that is a symlink is never granted, nor one that
+# does not exist yet: the next run from the main checkout adds it.
+inherited_reads() {
+  local wt="$1" own candidate
+  local grants=()
+  [ -n "$trusted_main" ] || { printf '[]\n'; return 0; }
+  own=$(cd "$wt" 2>/dev/null && pwd -P) || { printf '[]\n'; return 0; }
+  [ "$own" = "$trusted_main" ] && { printf '[]\n'; return 0; }
+  for candidate in "$trusted_main/.apache-magpie-local" "$trusted_main/.claude/settings.json" "$trusted_main/.claude/settings.local.json"; do
+    if [ -e "$candidate" ] && [ ! -L "$candidate" ] && [ ! -L "$trusted_main/.claude" ]; then
+      grants+=("$candidate")
+    fi
+  done
+  if [ "${#grants[@]}" -eq 0 ]; then
+    printf '[]\n'
+  else
+    jq -cn '$ARGS.positional' --args "${grants[@]}"
+  fi
+}
+
+if [ "$all_worktrees" -eq 1 ]; then
+  # List the worktrees with the git environment stripped, and from the trusted
+  # main checkout when there is one: an inherited GIT_DIR would otherwise list
+  # another repository's worktrees, and each would be granted a read of this
+  # main checkout's inherited files.
+  list_dir="${trusted_main:-.}"
   while IFS= read -r line; do
     case "$line" in
       "worktree "*)
         add_pair "${line#worktree }"
         ;;
     esac
-  done < <(git worktree list --porcelain)
+  done < <(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR git -C "$list_dir" worktree list --porcelain)
 else
   add_pair "$(git rev-parse --show-toplevel)"
 fi
@@ -267,6 +317,9 @@ fi
 update_settings() {
   local file="$1"
   local path="$2"
+  # What a linked worktree inherits from its trusted main checkout, read-only.
+  local parent
+  parent=$(inherited_reads "$path")
 
   # Safety: refuse to touch <file> if it is NOT gitignored in the
   # repo it lives in. settings.local.json is per-machine; writing
@@ -337,11 +390,38 @@ update_settings() {
     input=/dev/null
   fi
 
+  # Re-check, on every run and in either mode, the inherited reads granted
+  # earlier: a granted path that has since become a symlink (or sits under
+  # one) could lead the grant elsewhere, so it is dropped. Dropping a grant
+  # is always safe; only an --all-worktrees run from the main checkout adds
+  # one back.
+  local unsafe='[]' entry
+  local dropped=()
+  if [ "$input" != /dev/null ]; then
+    while IFS= read -r entry; do
+      case "$entry" in
+        "$path"/*|"$path") continue ;;
+        */.apache-magpie-local|*/.claude/settings.json|*/.claude/settings.local.json) ;;
+        *) continue ;;
+      esac
+      if [ -L "$entry" ] || [ -L "$(dirname "$entry")" ] \
+        || { [ -e "$entry" ] && [ "$(cd "$(dirname "$entry")" 2>/dev/null && pwd -P)" != "$(dirname "$entry")" ]; }; then
+        dropped+=("$entry")
+        warn "dropping the read grant for $entry from $file: it is now a symlink or sits under one."
+      fi
+    done < <(jq -r '.sandbox.filesystem.allowRead // [] | .[] | strings' "$input")
+    if [ "${#dropped[@]}" -gt 0 ]; then
+      unsafe=$(jq -cn '$ARGS.positional' --args "${dropped[@]}")
+    fi
+  fi
+
   local jq_prog='
     def add_missing($new): reduce $new[] as $x (.; if index([$x]) then . else . + [$x] end);
     .
     | .sandbox.filesystem.allowRead  = (
-        (.sandbox.filesystem.allowRead  // []) | add_missing([$p] + $reads)
+        (.sandbox.filesystem.allowRead  // [])
+        | map(select(. as $r | $unsafe | any(. == $r) | not))
+        | add_missing([$p] + $reads + ($parent - $unsafe))
       )
     | .sandbox.filesystem.allowWrite = (
         (.sandbox.filesystem.allowWrite // []) | add_missing([$p] + $writes)
@@ -361,13 +441,13 @@ update_settings() {
   tmp=$(mktemp "${file}.XXXXXX")
 
   if [ "$input" = "/dev/null" ]; then
-    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" "$jq_prog" > "$tmp"; then
+    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" --argjson parent "$parent" --argjson unsafe "$unsafe" "$jq_prog" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
     fi
   else
-    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" "$jq_prog" "$file" > "$tmp"; then
+    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" --argjson parent "$parent" --argjson unsafe "$unsafe" "$jq_prog" "$file" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0

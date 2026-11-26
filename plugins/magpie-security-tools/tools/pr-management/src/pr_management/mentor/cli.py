@@ -26,7 +26,7 @@ from typing import Any
 
 from .. import config as core_config
 from .. import mentions
-from ..layers import personal_dir
+from ..layers import LOCAL_DIR, adopted, personal_dir
 from ..people import Maintainers, load_permissions, load_team
 from . import config, render, thread, tone
 
@@ -149,7 +149,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "tone-check":
         return tone.check(args.draft.read_text(encoding="utf-8"), author=args.author, footer=cfg.footer)
     if args.command == "log":
-        path = personal_dir(args.project_root) / "logs" / "pr-management-mentor.jsonl"
+        # Runtime state follows the checkout: in an adopted project a linked
+        # worktree's `personal_dir` can be the main checkout's, read-only there.
+        root = args.project_root
+        home = root / LOCAL_DIR if adopted(root) else personal_dir(root)
+        path = home / "logs" / "pr-management-mentor.jsonl"
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         entry = {
             "at": dt.datetime.now(dt.UTC).isoformat(),

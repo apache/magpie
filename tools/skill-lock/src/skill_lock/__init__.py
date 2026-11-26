@@ -61,7 +61,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from .layers import personal_dir
+from .layers import LOCAL_DIR, adopted, personal_dir
 
 DEFAULT_TTL_SECONDS = 2 * 60 * 60
 LOCKS_SUBDIR = Path("run") / "locks"
@@ -100,6 +100,13 @@ def scope_name(skill: str, repo: str) -> str:
 
 
 def locks_dir(root: Path) -> Path:
+    """Runtime state of this checkout: its own `.apache-magpie-local/` when adopted.
+
+    Never `personal_dir` there: in a linked worktree that can be the main
+    checkout's layer, which the worktree's sandbox may only read.
+    """
+    if adopted(root):
+        return root / LOCAL_DIR / LOCKS_SUBDIR
     return personal_dir(root) / LOCKS_SUBDIR
 
 

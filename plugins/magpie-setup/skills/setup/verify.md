@@ -1158,7 +1158,8 @@ findings, on any of the three branches above (including
 [Local self-adoption checks](#local-self-adoption-checks), which
 skips checks 11 and 12 but still completes a run) — writes today's
 date as `verified_at` into the personal layer's `reconciled.json`
-(the `personal_dir` above), creating the file (and the directory, if
+(in the `stamp_dir` that `python3 -P -m setup_preflight.layers` prints: this
+checkout's own layer, also in a linked worktree), creating the file (and the directory, if
 absent) when neither exists yet — never an in-tree
 `.apache-magpie-local/` in a repo that has not adopted Magpie. This is the always-local key the shared pre-flight block's
 end-of-run clock reads (step 10 of

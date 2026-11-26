@@ -547,8 +547,11 @@ up to date:
    for existing entries as well as new ones. Once the user confirms the copy,
    record the template, selected ASF fragment and registry entries under
    `local_settings`, keyed by this worktree's root
-   (`git rev-parse --show-toplevel`), in the personal layer's
-   `reconciled.json`; an entry recorded there that
+   (`git rev-parse --show-toplevel`), in the `reconciled.json` of this
+   checkout's own stamp directory (`stamp_dir`, which
+   `python3 -P -m setup_preflight.layers` prints; never `personal_dir`,
+   which in a linked worktree is the main checkout's, read-only from here);
+   an entry recorded there that
    the current template and registry no longer propose was dropped
    upstream, so ask before removing it. An entry that was never recorded
    is the user's own: never touch it.

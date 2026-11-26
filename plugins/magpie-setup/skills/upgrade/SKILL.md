@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 8150
+measured_tokens: 8185
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -179,7 +179,7 @@ A checker copy older than `gather` fails with `invalid choice: 'gather'`: read e
 The plan then carries the checker refresh that `setup config` Step 2a describes.
 
 **Where the personal layer is.**
-`layers.personal_dir` is the only place this run writes personal-layer files.
+`layers.personal_dir` is the only place this run writes personal-layer configuration files; `reconciled.json` is written in `layers.stamp_dir` (this checkout's own layer, also in a linked worktree).
 If the call fails with `ModuleNotFoundError`, no checker copy exists yet: treat the repo as not configured (below), since `setup config` installs the checker.
 A location the plan still needs is then worked out without the plugin's copy, which Bash cannot read under the sandbox.
 In a framework checkout or on a pinned snapshot, run the in-tree package inside the sandbox (`plugins/magpie-setup/skills/setup/` or `.apache-magpie/tools/setup-preflight/src/` on `PYTHONPATH`).
@@ -208,7 +208,7 @@ When `isolated.state` is `unknown` (`python3 -P -m setup_preflight.isolated conf
 [Plan](#plan) holds the rule: a `[bypass]` *Check* item reads `~/.claude/settings.json` for `sandbox.enabled`, and the offer waits until that read confirms absence.
 The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.
 It proposes [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) after this run, as one question folded into the plan's approval message.
-On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the personal layer's `reconciled.json` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
+On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the `reconciled.json` in `layers.stamp_dir` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
 The summary says how to undo it: remove that key, or run `setup-isolated-setup-install`.
 
 **Probes the sandbox blocks are not run here.**
@@ -314,7 +314,7 @@ Then write the stamps the existing skills own, each through its own definition, 
 
 - `verified_at`, as [`setup verify` → Writing `verified_at`](../setup/verify.md#writing-verified_at) defines it, because Gather ran every check of `setup verify` for this install.
 - The isolated-setup run record, through `python3 -P -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when this run gathered the *Isolated setup* area and no item of it was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined, or when Gather left the area out because it needed no attention: the last run's record still stands.
-- The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the personal layer's `reconciled.json`.
+- The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the `reconciled.json` in `layers.stamp_dir`.
 
 Then record this skill's own run, which stops every skill's pre-flight from asking again until the version moves next:
 

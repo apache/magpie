@@ -440,6 +440,21 @@ def test_the_project_verdict_is_reused_for_identical_inputs(project: Path) -> No
     assert cached is True and codes(second) == ["below-floor"]
 
 
+def test_the_cache_write_never_follows_a_planted_symlink(project: Path, tmp_path: Path) -> None:
+    """A fixed temporary name could be a symlink to any file the writer can reach."""
+    write_lock(project, MARKETPLACE)
+    local = project / ".apache-magpie-local"
+    local.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("untouched\n")
+    (local / ".preflight-cache.tmp").symlink_to(victim)
+    (local / ".preflight-cache.json.tmp").symlink_to(victim)
+    cached_project_findings(project, {"magpie-setup": "0.1.0"})
+    assert victim.read_text() == "untouched\n"
+    assert not (local / ".preflight-cache.json").is_symlink()
+    assert sorted(p.name for p in local.iterdir() if p.name.endswith(".tmp") and not p.is_symlink()) == []
+
+
 def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     (project / ".apache-magpie-local").mkdir()

@@ -54,7 +54,17 @@ from pathlib import Path
 
 from .core import LOCAL_METHOD, SNAPSHOT_METHODS, STAMP_NAME, Finding, configured_at_all, project_findings
 from .installed import read_installed
-from .layers import FRAMEWORK_ROOTS, LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
+from .layers import (
+    FRAMEWORK_ROOTS,
+    LOCK_NAME,
+    OVERRIDES_DIR,
+    describe,
+    merged_stamp,
+    own_stamp,
+    personal_layers,
+    stamp_dir,
+    write_stamp,
+)
 from .lockfile import MalformedLock, load
 from .version import InvalidVersion, compare
 
@@ -67,16 +77,8 @@ MARKER = "magpie-plugin-version"
 
 
 def _load_stamp(root: Path) -> dict[str, object]:
-    """The stamp as read: personal layer first, then the legacy in-tree one."""
-    for layer in personal_layers(root):
-        try:
-            loaded = json.loads((layer / STAMP_NAME).read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            continue
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return loaded if isinstance(loaded, dict) else {}
-    return {}
+    """The stamp merged across the personal layers (`layers.merged_stamp`)."""
+    return merged_stamp(root)
 
 
 def _marker_paths(env: Mapping[str, str], home: Path) -> list[Path]:
@@ -247,14 +249,10 @@ def record(
     resolved = _valid(version) if version is not None else running_version(None, None, env, home, skill_dir)
     if resolved is None:
         raise ValueError("the running Magpie version cannot be read; pass --version")
-    stamp = _load_stamp(root)
+    stamp = own_stamp(root)
     block: dict[str, object] = {"version": resolved, "at": (today or date.today()).isoformat()}
     stamp[BLOCK] = block
-    path = personal_dir(root) / STAMP_NAME
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    write_stamp(stamp_dir(root), stamp)
     return block
 
 
