@@ -232,6 +232,15 @@ by swapping the adapter, not the skill.
   pull-request comment, approve/unapprove, and
   request-changes/remove-request-changes writes cover Cloud and Data Center;
   fork and cross-repository creation is not supported.
+  Data Center also supports confirmed
+  `pr edit <id> --expected-version <n> [--title <title>] [--body-file <path>]`
+  for title/description changes through a versioned update.
+  The edit is refused before writing when the pull request's version differs
+  from the one the caller previewed.
+  An empty or whitespace-only file clears the description; an omitted flag preserves it.
+  Cloud editing fails closed, before the body file is read,
+  pending verification of preservation and concurrency guarantees.
+  Data Center reviewer/draft round-trip behavior still requires verification.
   Additional Cloud-only writes cover decline, backend-neutral `reject`,
   and `pr merge --strategy
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
@@ -572,7 +581,7 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
   coverage is Bitbucket Cloud and Data Center same-repository pull-request
-  creation, pull-request comment creation, approve/unapprove and
+  creation, Data Center-only versioned title/description editing, pull-request comment creation, approve/unapprove and
   request-changes/remove-request-changes, plus
   Bitbucket Cloud-only backend-neutral `post_review` through
   comment/approve/request-changes, backend-neutral `reject`, decline, and
