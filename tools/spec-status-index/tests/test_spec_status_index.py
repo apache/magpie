@@ -107,6 +107,24 @@ acceptance:
         assert fm["title"] == "C# tooling"
         assert fm["summary"] == '"a # b"'
 
+    def test_comment_after_a_quoted_value_is_dropped(self) -> None:
+        text = (
+            "---\n"
+            'summary: "a # b"  # note\n'
+            "title: 'it''s # here'\t# note\n"
+            'kind: "say \\"hi\\" # x" # note\n'
+            'mode: "unclosed # x\n'
+            "status: 'Maintainer''s guide'\n"
+            "---\n"
+        )
+        fm = parse_frontmatter(text)
+        assert fm["summary"] == '"a # b"'
+        assert fm["title"] == "'it''s # here'"
+        assert fm["kind"] == '"say \\"hi\\" # x"'
+        # No closing quote: the value is kept as written, as before.
+        assert fm["mode"] == '"unclosed # x'
+        assert fm["status"] == "'Maintainer''s guide'"
+
     def test_hash_after_non_breaking_space_is_kept(self) -> None:
         # YAML separates a comment only with a space or tab.
         fm = parse_frontmatter("---\ntitle: a\u00a0#b\n---\n")

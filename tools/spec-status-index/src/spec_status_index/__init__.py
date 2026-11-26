@@ -82,6 +82,9 @@ _LEADING_COMMENTS_RE = re.compile(r"^\s*(?:<!--.*?-->\s*)+", re.DOTALL)
 # A YAML comment starts at a `#` that opens the value or follows a space or tab;
 # a `#` inside a word (`C# tooling`) is part of the value.
 _INLINE_COMMENT_RE = re.compile(r"(?:^|[ \t])#.*$")
+# A quoted scalar ends at its closing quote: `\"` escapes inside double quotes,
+# `''` inside single quotes. A comment may follow it after a space or tab.
+_QUOTED_RE = re.compile(r"""^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*')(?:[ \t]+#.*)?$""")
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
@@ -90,8 +93,9 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     Block scalars (``>``, ``|``) and multi-line values are omitted —
     only single-line key: value pairs are captured, which is all that
     spec frontmatter uses for the index fields (title, status, kind, mode).
-    A trailing ``# comment`` is dropped from unquoted values, as YAML does,
-    so the commented template in the spec-loop README parses cleanly.
+    A trailing ``# comment`` is dropped, as YAML does, so the commented
+    template in the spec-loop README parses cleanly. A quoted value keeps its
+    quotes as before, and loses only a comment after its closing quote.
     """
     m = _FM_RE.match(_LEADING_COMMENTS_RE.sub("", text, count=1))
     if not m:
@@ -102,6 +106,8 @@ def parse_frontmatter(text: str) -> dict[str, str]:
         val = val.strip()
         if not val.startswith(('"', "'")):
             val = _INLINE_COMMENT_RE.sub("", val).strip()
+        elif quoted := _QUOTED_RE.match(val):
+            val = quoted.group(1)
         result[key] = val
     return result
 
