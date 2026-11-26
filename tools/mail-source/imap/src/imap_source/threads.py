@@ -35,7 +35,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.errors import HeaderParseError
-from email.header import decode_header, make_header
+from email.header import decode_header
 
 _MSG_ID = re.compile(r"<[^<>\s]+>")
 _BARE_MSG_ID = re.compile(r"[^<>\s]+@[^<>\s]+")
@@ -58,8 +58,14 @@ def decode_subject(value: object) -> str:
     """
     text = str(value or "")
     if "=?" in text:
-        with contextlib.suppress(HeaderParseError, LookupError, UnicodeDecodeError):
-            text = str(make_header(decode_header(text)))
+        with contextlib.suppress(HeaderParseError, LookupError, UnicodeError):
+            # Each part is decoded with its own charset. ``make_header`` would
+            # re-encode Japanese charsets as ISO-2022-JP, which has no
+            # half-width katakana, and raise on a Shift_JIS or EUC-JP subject.
+            text = "".join(
+                part.decode(charset or "ascii") if isinstance(part, bytes) else part
+                for part, charset in decode_header(text)
+            )
     return " ".join(text.split())
 
 
