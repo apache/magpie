@@ -79,7 +79,6 @@
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",
       "Bash(gh pr view *)",
       "Bash(gh pr list *)",
       "Bash(gh pr diff *)",
