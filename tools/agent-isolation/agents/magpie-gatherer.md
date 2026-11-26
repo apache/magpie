@@ -3,16 +3,16 @@
 # https://www.apache.org/licenses/LICENSE-2.0
 name: magpie-gatherer
 description: Read-only state gatherer for Apache Magpie skills that fan out across many trackers, issues or PRs (pr-management-code-review prefetch, pr-management-stack-review layer readers). Dispatched by a Magpie skill's orchestrator to assess ONE item and return a structured report. Never mutates anything. Do not use for non-Magpie work, and do not use when the orchestrator wants an item applied rather than assessed.
-tools: Read, Grep, Glob, Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *), mcp__ponymail__search_list, mcp__ponymail__get_thread, mcp__ponymail__get_email, mcp__ponymail__get_source, mcp__ponymail__auth_status
-model: sonnet
+tools: Read, Grep, Glob, Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)
 color: cyan
 hooks:
   PreToolUse:
-    - matcher: "mcp__ponymail__(search_list|get_thread|get_email|get_source)"
+    - matcher: "Bash"
       hooks:
         - type: command
           command: >-
-            printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"magpie-gatherer: read-only PonyMail read"}}'
+            python3 -I -c 'import json,re,sys; c=json.load(sys.stdin).get("tool_input",{}).get("command",""); ok=re.fullmatch(r"uvx --from ~/\.claude/magpie/vetted-ops vetted-op-read( [A-Za-z0-9_.:=/@,+-]+)+", c) and not re.search(r"(^| )--(config|save)(=| |$)", c); ok or print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"magpie-gatherer runs only `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> <operation> [param ...]`, without --config or --save"}}))'
+            || { echo "magpie-gatherer: the Bash guard could not run, so the command is blocked" >&2; exit 2; }
 ---
 
 You assess exactly one item — one tracker issue, one PR — for a Magpie
@@ -36,10 +36,12 @@ instead of retrying outside the sandbox. That
 exact shape is what the sandbox exclusion matches; anything else runs sandboxed,
 where `gh` cannot read its config and every read fails.
 
-`vetted-op-read` cannot write. It refuses every write operation in the
-catalogue before it even reads the policy, so there is no argument you could
-pass — no caller name, no parameter — that turns one of your calls into a
-mutation. That is a property of the command, not of your good behaviour.
+`vetted-op-read` cannot write to a forge or tracker: it refuses every write
+operation in the catalogue before it even reads the policy. This agent's own
+hook also refuses any other Bash command, any chaining or redirection, and the
+`--config` and `--save` options, so you cannot point the dispatcher at another
+policy or write a file with it. That is a property of the command and the hook,
+not of your good behaviour.
 
 Your dispatch names the caller. Use that name verbatim; do not substitute a
 different one to reach an operation you were refused. A refusal is the policy

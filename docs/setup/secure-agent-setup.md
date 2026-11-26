@@ -1118,11 +1118,14 @@ For Claude Code the framework ships a narrower agent,
 The `security-issue-sync` and `security-issue-triage` bulk agents are not on it yet: they still run raw `gh`, Gmail reads and file writes, which it does not allow.
 The agent:
 
-- **Tools:** `Read`, `Grep`, `Glob`, `Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)` and the PonyMail reads, nothing that writes.
-  `vetted-op-read` refuses every write operation before it reads the policy, so no argument turns a call into a mutation.
-- **Its own hook:** a `PreToolUse` hook in the agent's frontmatter approves the four PonyMail reads (`search_list`, `get_thread`, `get_email`, `get_source`) for this agent only, so they need no session-wide `allow` rule that every other agent and the foreground session would share.
+- **Tools:** `Read`, `Grep`, `Glob` and `Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)`; no MCP tool, nothing that writes.
+  It runs on the session's model.
+- **Its own hook enforces the Bash limit:** the `tools:` line is not trusted alone, so a `PreToolUse` hook in the agent's frontmatter denies every Bash command except that exact read, with no chaining, redirection, `--config` (another policy) or `--save` (a file write).
+  It fails closed: if the guard itself cannot run (no `python3`, unreadable input), it exits 2, the one exit code Claude Code treats as a block; any other failure would let the command through.
+  `vetted-op-read` itself refuses every forge or tracker write before it reads the policy.
+- **No mail reads:** a list-wide search such as PonyMail's `search_list` stays behind the harness prompt ([`family-mcp-allows.json`](../../plugins/magpie-setup/skills/setup/family-mcp-allows.json)), which a background agent cannot answer, and the skills that use the agent read PRs, not mail.
 - **User scope, not a plugin:** Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook would have to match the agent's name, which any agent can take.
-  So install Step V.2 copies it to `~/.claude/agents/`, verify check 21 checks that it stays read-only, and update reports drift from the framework's copy.
+  So install Step V.2 copies it to `~/.claude/agents/` and proposes `Edit(~/.claude/agents/**)` in the user-scope deny list, since the hook runs outside the sandbox; verify check 21 checks the tools, the hook and that deny rule; update reports drift from the framework's copy.
 
 The agent returns a report; the orchestrator applies every change, sequentially, after the operator confirms it.
 

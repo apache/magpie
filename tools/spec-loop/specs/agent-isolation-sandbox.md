@@ -86,11 +86,13 @@ See `docs/adapters/harnesses/goose.md`.
   Claude Code agent `pr-management-code-review`'s prefetch and
   `pr-management-stack-review`'s layer readers fan out into where it is
   installed (the security bulk agents still need raw `gh`, Gmail and
-  writes, so they stay `general-purpose`): no write tool, `vetted-op-read`
-  as its only Bash, and a frontmatter `PreToolUse` hook approving the four
-  PonyMail reads for it alone. Installed at user scope by install Step V.2
-  (a plugin agent's hooks are ignored), kept read-only by verify check 21,
-  diffed by update; the secure-setup fingerprint counts its Markdown.
+  writes, so they stay `general-purpose`): no write tool, no MCP tool,
+  `vetted-op-read` as its only Bash, enforced by a frontmatter `PreToolUse`
+  hook that denies any other command, chaining, redirection, `--config` and
+  `--save` (`tools/agent-isolation/tests/test_gatherer_agent.py`). Installed
+  at user scope by install Step V.2 (a plugin agent's hooks are ignored)
+  with `Edit(~/.claude/agents/**)` denied, kept read-only by verify check
+  21, diffed by update; the secure-setup fingerprint counts its Markdown.
 - `tools/agent-isolation/gpg-touch-overlay.sh` (+ the two window
   scripts) — the hardware-key touch overlay: a window on screen while a
   signing key or ssh authentication key with a touch policy blocks

@@ -1,7 +1,7 @@
 {
   "snapshot_drift": "none",
   "checks": [
-    {"n": 16, "status": "✓", "evidence": "vetted-op-read allowed and excluded for both ~ launchers; no ask rule; read block off; the three Edit deny rules present; no additionalDirectories; agent-guard installed"},
-    {"n": 21, "status": "✗", "evidence": "~/.claude/agents/magpie-gatherer.md exists (21a ✓); its tools: line adds an unrestricted Bash beside the vetted-op-read rule (21b ✗); the hook matcher names only the four PonyMail reads (21c ✓)"}
+    {"n": 16, "status": "✓", "evidence": "vetted-op-read allowed and excluded for both ~ launchers; no ask rule; read block off; the vetted-ops Edit deny rules present; no additionalDirectories; agent-guard installed"},
+    {"n": 21, "status": "✗", "evidence": "~/.claude/agents/magpie-gatherer.md exists (21a ✓); its tools: line adds an unrestricted Bash beside the vetted-op-read rule (21b ✗); the Bash hook is identical to the framework copy (21c ✓); Edit(~/.claude/agents/**) denied in user scope (21d ✓)"}
   ]
 }

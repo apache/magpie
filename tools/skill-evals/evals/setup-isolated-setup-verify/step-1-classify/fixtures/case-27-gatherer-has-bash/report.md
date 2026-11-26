@@ -35,22 +35,27 @@ Merged settings:
 
 ## Check 21 — The read-only gatherer agent
 
+Harness: Claude Code.
+
 cat ~/.claude/agents/magpie-gatherer.md (frontmatter):
 
 ```yaml
 ---
 name: magpie-gatherer
-description: Read-only state gatherer for Apache Magpie skills that fan out across many trackers, issues or PRs.
-tools: Read, Grep, Glob, Bash, Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *), mcp__ponymail__search_list, mcp__ponymail__get_thread, mcp__ponymail__get_email, mcp__ponymail__get_source, mcp__ponymail__auth_status
-model: sonnet
+description: Read-only state gatherer for Apache Magpie skills that fan out across many trackers, issues or PRs (pr-management-code-review prefetch, pr-management-stack-review layer readers). Dispatched by a Magpie skill's orchestrator to assess ONE item and return a structured report. Never mutates anything. Do not use for non-Magpie work, and do not use when the orchestrator wants an item applied rather than assessed.
+tools: Read, Grep, Glob, Bash, Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)
+color: cyan
 hooks:
   PreToolUse:
-    - matcher: "mcp__ponymail__(search_list|get_thread|get_email|get_source)"
+    - matcher: "Bash"
       hooks:
         - type: command
           command: >-
-            printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+            python3 -I -c 'import json,re,sys; c=json.load(sys.stdin).get("tool_input",{}).get("command",""); ok=re.fullmatch(r"uvx --from ~/\.claude/magpie/vetted-ops vetted-op-read( [A-Za-z0-9_.:=/@,+-]+)+", c) and not re.search(r"(^| )--(config|save)(=| |$)", c); ok or print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"magpie-gatherer runs only `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> <operation> [param ...]`, without --config or --save"}}))'
+            || { echo "magpie-gatherer: the Bash guard could not run, so the command is blocked" >&2; exit 2; }
 ---
 ```
 
-diff against tools/agent-isolation/agents/magpie-gatherer.md: the `tools:` line differs (the local copy adds a bare `Bash`); the body is identical.
+diff against tools/agent-isolation/agents/magpie-gatherer.md: only the `tools:` line differs (the local copy adds a bare `Bash`); the hook and the body are identical.
+
+User-scope `permissions.deny` includes `Edit(~/.claude/agents/**)`.
