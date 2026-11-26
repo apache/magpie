@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8777
+measured_tokens: 8818
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -373,6 +373,7 @@ The table below says where each value comes from in the inbound report.
 
 **Issue title**: the reporter's subject if descriptive, else a paraphrase as *"<Component>: <short vulnerability description>"* led by the component (`Webserver: …`, `Auth: …`).
 `<sm> title` strips the `Re:` / `Fwd:` / `[SECURITY]` prefixes; **do not prefix the product name** (`Webserver: session cookie missing Secure flag`, the tracker is project-scoped).
+The title ships as the published record's title and in the announcement subject: when its `length.shorten` is set (over 100 characters), propose a shorter one of at most 100 instead.
 
 ---
 

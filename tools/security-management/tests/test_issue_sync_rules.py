@@ -530,3 +530,68 @@ def test_a_malformed_cve_id_never_reaches_a_command(capsys, tmp_path):
     )
     assert code == 2
     assert "CVE-YYYY-NNNNN" in out["refused"]
+
+
+# --- the title-length gate (characters, not bytes; synthetic titles) --------
+
+
+def _long(chars: int, word: str = "Token") -> str:
+    return (f"{word} leak é " + "x" * chars)[:chars]
+
+
+def _with_products(title: str, products: list[str]) -> dict:
+    out = record(title=title)
+    out["containers"]["cna"]["affected"] = [{"product": p} for p in products]
+    return out
+
+
+FOUR = ["Foo", "Foo Bar", "Foo Baz", "Foo Bar"]  # three distinct, one repeated
+
+
+@pytest.mark.parametrize(("chars", "warned"), [(100, False), (101, True)])
+def test_a_title_over_100_characters_is_warned_but_pushed(capsys, tmp_path, chars, warned):
+    out = decide(capsys, tmp_path, record=record(title=_long(chars)))
+    assert out["gate_failed"] is None
+    assert bool(out["warnings"]) is warned
+    if warned:
+        assert "at most 100 characters" in out["warnings"][0]
+
+
+@pytest.mark.parametrize(("chars", "blocked"), [(256, False), (257, True)])
+def test_a_bare_title_over_256_characters_blocks(capsys, tmp_path, chars, blocked):
+    out = decide(capsys, tmp_path, record=record(title=_long(chars)))
+    assert (out["gate_failed"] == "title_length") is blocked
+
+
+@pytest.mark.parametrize("products", [["Foo"], FOUR], ids=["one", "four"])
+@pytest.mark.parametrize(("over", "blocked"), [(0, False), (1, True)])
+def test_the_posted_title_blocks_above_256_with_the_prefix(capsys, tmp_path, products, over, blocked):
+    prefix = ", ".join(dict.fromkeys(products)) + ": "
+    title = _long(256 - len(prefix) + over)
+    out = decide(capsys, tmp_path, record=_with_products(title, products), title_product_prefix=True)
+    assert (out["gate_failed"] == "title_length") is blocked
+    # Without the tool's prefix only the bare title counts.
+    bare = decide(capsys, tmp_path, record=_with_products(title, products))
+    assert bare["gate_failed"] is None
+
+
+def test_an_apache_title_gets_no_prefix(capsys, tmp_path):
+    title = _long(250, "Apache")
+    out = decide(capsys, tmp_path, record=_with_products(title, FOUR), title_product_prefix=True)
+    assert out["gate_failed"] is None
+    word = _long(250, "ApacheHttpClient")
+    out = decide(capsys, tmp_path, record=_with_products(word, FOUR), title_product_prefix=True)
+    assert out["gate_failed"] == "title_length"
+
+
+def test_the_record_generator_report_feeds_the_gate(capsys, tmp_path):
+    report = tmp_path / "cve-report.json"
+    entry = {"field": "title", "kind": "title-long", "severity": "warning", "limit": 100}
+    report.write_text(json.dumps({"title_length": [{**entry, "title_chars": 120, "max_title_chars": 80}]}))
+    out = decide(capsys, tmp_path, report_json=str(report))
+    assert out["gate_failed"] is None
+    assert "120 characters" in out["warnings"][0] and "at most 80" in out["warnings"][0]
+    error = {**entry, "kind": "posted-title-over-limit", "severity": "error", "title_chars": 90}
+    report.write_text(json.dumps({"title_length": [{**error, "max_title_chars": 60}]}))
+    out = decide(capsys, tmp_path, report_json=str(report))
+    assert (out["action"], out["gate_failed"]) == ("block", "title_length")

@@ -26,7 +26,10 @@ period dropped, the first letter capitalised. The project's names and
 tracker prefixes come from `<project-config>/title-normalization.md`.
 
 Fewer than 3 words left is an over-strip warning: over-stripping is worse
-than one redundant word.
+than one redundant word. A title over the record's length budget (100
+characters, or less when the CVE tool prefixes it with the product names and
+the 256-character schema limit leaves less) is a length warning: propose a
+shorter one.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from security_management.shared.rollup import one_line
+from security_management.shared.titles import length_check
 
 TRACKER_PREFIXES = ("ZDRES", "HUNTR", "GHSL")
 MIN_WORDS = 3
@@ -122,10 +126,21 @@ def normalize(data: Mapping[str, Any]) -> dict[str, Any]:
             f"Normalized title is {count} — verify no over-stripping occurred and consider a manual override "
             "before pasting it into the CVE tool"
         )
+    length = length_check(normalized, _list(data.get("products")), bool(data.get("title_product_prefix")))
+    length_warning = None
+    if length["shorten"]:
+        length_warning = (
+            f"Normalized title is {length['title_chars']} characters, over the "
+            f"{length['max_title_chars']}-character budget"
+            + (" (the CVE tool's posted title would exceed the schema's 256)" if length["over_limit"] else "")
+            + f": propose a shorter title of at most {length['max_title_chars']} characters"
+        )
     return {
         "original_title": original,
         "normalized_title": normalized,
         "word_count": words,
         "changed": normalized != original,
         "over_strip_warning": warning,
+        "length": length,
+        "length_warning": length_warning,
     }

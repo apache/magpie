@@ -103,6 +103,12 @@ cve_authority:
     # same for every project. Only the generated CVE JSON uses it; allocation
     # does not.
     asf_org_id: f0158376-9dc2-43b6-827c-5f631a4d8d09
+    # Vulnogram posts a record title without the whole word `Apache` as
+    # `<distinct affected products, first-seen order, joined with ", ">: <title>`,
+    # and the 256-character schema limit applies to that. ASF projects set
+    # `[cna].title_product_prefix = true` in cve-json-config.toml so the
+    # generator checks the posted length.
+    title_product_prefix: true
 ```
 
 ## Governance gate

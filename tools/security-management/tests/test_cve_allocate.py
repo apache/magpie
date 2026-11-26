@@ -878,3 +878,30 @@ def test_case_2_no_draft(capsys, tmp_path):
     assert flags_["has_draft_id"] is False
     assert all(value for key, value in flags_.items() if key != "has_draft_id")
     assert "Reporter draft: none — the reporter is on the security team." in out["text"]
+
+
+def _long(chars: int, word: str = "Token") -> str:
+    """A synthetic title of ``chars`` characters (one of them two bytes long)."""
+    return (f"{word} leak é " + "x" * chars)[:chars]
+
+
+@pytest.mark.parametrize(("chars", "warned"), [(100, False), (101, True)])
+def test_step_2_asks_for_a_shorter_title_above_100_characters(capsys, tmp_path, chars, warned):
+    out = title(capsys, tmp_path, _long(chars))
+    assert out["length"]["title_chars"] == chars
+    assert out["length"]["shorten"] is warned
+    assert (out["length_warning"] is not None) is warned
+    if warned:
+        assert "at most 100 characters" in out["length_warning"]
+
+
+@pytest.mark.parametrize(("over", "limit"), [(0, False), (1, True)])
+@pytest.mark.parametrize("products", [["Foo"], ["Foo", "Foo Bar", "Foo Baz", "Foo Qux"]], ids=["one", "four"])
+def test_step_2_budget_follows_the_product_prefix(capsys, tmp_path, products, over, limit):
+    prefix = ", ".join(products) + ": "
+    out = title(
+        capsys, tmp_path, _long(256 - len(prefix) + over), products=products, title_product_prefix=True
+    )
+    assert out["length"]["over_limit"] is limit
+    assert out["length"]["max_title_chars"] == min(100, 256 - len(prefix))
+    assert out["length"]["shorten"] is True  # over 100 either way

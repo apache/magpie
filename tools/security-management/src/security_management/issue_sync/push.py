@@ -20,8 +20,12 @@ The decision flow of `apply-and-push.md`, in order, each call fed what the
 previous one printed (`next` names the command to run and pass back):
 
 1. no regeneration (no CVE) — `skip`;
-2. the seven pre-push gates, first failure — `block`. Three are checked
-   here on the JSON: the title through the cve-allocate strip cascade, an
+2. the eight pre-push gates, first failure — `block`. Four are checked
+   here on the JSON: the title through the cve-allocate strip cascade, the
+   title's length (the record generator's `title_length` report entries
+   when `report_json` names its `--report-json` file, plus the bare and
+   posted length of the JSON's own title; an `error` blocks, a `warning`
+   over 100 characters is returned in `warnings` on every answer), an
    upgrade-target version in the summary, the `CWE-NNN: <Title>` long form.
    Four need judgement and come in as the model's verdicts (`judged`):
    trigger conditions, the incomplete-fix clause, the private-finder
@@ -43,16 +47,20 @@ previous one printed (`next` names the command to run and pass back):
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from security_management.cve_allocate.title import TRACKER_PREFIXES, strip
 from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
+from security_management.shared.titles import TITLE_WARN_CHARS, length_check
 
 GATES = (
     "title_strip_cascade",
+    "title_length",
     "upgrade_target_version",
     "trigger_conditions",
     "incomplete_fix_clause",
@@ -91,6 +99,35 @@ def mechanical(record: Mapping[str, Any], names: list[str], short: list[str]) ->
     }
 
 
+def title_length(data: Mapping[str, Any], record: Mapping[str, Any]) -> tuple[bool, list[str]]:
+    """Whether the record title fits, and the length warnings to surface.
+
+    Two sources, both counted in characters: the record generator's report
+    (`report_json`, its `title_length` entries), and the JSON's own title
+    checked here, with the product prefix when `title_product_prefix` is set
+    (the project's `[cna].title_product_prefix`).
+    """
+    findings: list[Mapping[str, Any]] = []
+    path = one_line(data.get("report_json"))
+    if path:
+        report = json.loads(Path(path).read_text(encoding="utf-8"))
+        findings = [f for f in report.get("title_length") or [] if isinstance(f, Mapping)]
+    cna = _cna(record)
+    products = [one_line(a.get("product")) for a in cna.get("affected") or [] if isinstance(a, Mapping)]
+    own = length_check(one_line(cna.get("title")), products, bool(data.get("title_product_prefix")))
+    passed = not own["over_limit"] and not any(f.get("severity") == "error" for f in findings)
+    warnings = []
+    longest = max([int(own["title_chars"]), *(int(f.get("title_chars") or 0) for f in findings)])
+    if longest > TITLE_WARN_CHARS:
+        budget = min([int(own["max_title_chars"]), *(int(f.get("max_title_chars") or 0) for f in findings)])
+        warnings.append(
+            f"the record title is {longest} characters, over {TITLE_WARN_CHARS}: it is reused in the "
+            f"announcement mail subject, so propose a shorter title of at most {budget} characters "
+            "(shorten it; never add the product name to it)"
+        )
+    return passed, warnings
+
+
 def _state(value: object) -> str | None:
     text = one_line(value)
     return NATIVE.get(text.upper(), text.lower() or None) if text else None
@@ -99,8 +136,11 @@ def _state(value: object) -> str | None:
 def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = one_line(data.get("cve_id"))
 
+    warnings: list[str] = []
+
     def out(action: str, why: str, **extra: Any) -> dict[str, Any]:
         return {
+            "warnings": warnings,
             "ok": True,
             "action": action,
             "gate_failed": extra.pop("gate_failed", None),
@@ -123,6 +163,11 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     if not names:
         return {"ok": False, "refused": "project_names is empty: read them from title-normalization.md"}
     checks = mechanical(data.get("record") or {}, names, [one_line(n) for n in data.get("short_names") or []])
+    try:
+        checks["title_length"], found = title_length(data, data.get("record") or {})
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "refused": f"report_json could not be read: {exc}"}
+    warnings.extend(found)
     judged = data.get("judged") or {}
     for gate in GATES:
         if gate in checks:

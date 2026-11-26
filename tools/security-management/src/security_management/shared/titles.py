@@ -21,11 +21,14 @@
 - `strip_pr_title` — a PR title without its conventional-commit prefix and
   scope, `[skip ci]`-style markers and trailing `(#N)` / `[#N]`.
 - `md_title` — a markdown finding's title with the `[ Security Report ] ` prefix.
+- `length_check` — whether a title is too long for the published record or the
+  announcement subject, and the length a shorter one must fit.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 _MAIL_PREFIX = re.compile(r"^\s*(?:(?:re|fwd?)\s*:|\[\s*security(?:\s+report)?\s*\])\s*", re.IGNORECASE)
 _CONVENTIONAL = re.compile(
@@ -67,3 +70,50 @@ def md_title(title: str) -> str:
     if text.startswith(MD_TITLE_PREFIX.strip()):
         text = _tidy(text[len(MD_TITLE_PREFIX.strip()) :])
     return MD_TITLE_PREFIX + text
+
+
+# The published record's hard limit on its title (the record schema's
+# `maxLength: 256`), and the length above which the title, reused in the
+# announcement mail subject, is worth shortening. Counted in characters
+# (Unicode code points, Python `len`), never bytes; the record generator
+# applies the same two limits.
+TITLE_MAX_CHARS = 256
+TITLE_WARN_CHARS = 100
+# JavaScript's `\b` is ASCII only, hence re.ASCII, to read titles as Vulnogram does.
+_APACHE_WORD = re.compile(r"\bApache\b", re.ASCII)
+
+
+def posted_title(title: str, products: Sequence[str] = (), product_prefix: bool = False) -> str:
+    """The title as the CVE tool posts it, which the registry validates.
+
+    Without ``product_prefix`` that is the bare title. With it, the ASF
+    Vulnogram rule: a title with the whole word ``Apache`` (case-sensitive,
+    ASCII word boundaries) is posted as is; any other as ``<products>: <title>``,
+    the distinct product names in first-seen order joined with ``", "``.
+    """
+    names = list(dict.fromkeys(p for p in products if p))
+    if not product_prefix or not names or _APACHE_WORD.search(title):
+        return title
+    return f"{', '.join(names)}: {title}"
+
+
+def length_check(
+    title: str, products: Sequence[str] = (), product_prefix: bool = False
+) -> dict[str, int | bool]:
+    """The length verdict on a record title; proposing the shorter title stays the model's job.
+
+    The schema limit applies to :func:`posted_title`.
+    ``max_title_chars`` is the budget left after the product prefix, capped at
+    :data:`TITLE_WARN_CHARS`; ``shorten`` is true exactly when the title is
+    over it, i.e. when the schema limit or the subject warning fires.
+    """
+    length = len(title)
+    posted = len(posted_title(title, products, product_prefix))
+    budget = max(min(TITLE_MAX_CHARS - (posted - length), TITLE_WARN_CHARS), 0)
+    return {
+        "title_chars": length,
+        "posted_chars": posted,
+        "max_title_chars": budget,
+        "over_limit": max(length, posted) > TITLE_MAX_CHARS,
+        "shorten": length > budget,
+    }
