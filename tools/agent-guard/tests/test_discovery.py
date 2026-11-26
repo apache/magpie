@@ -91,7 +91,7 @@ def test_a_skill_owned_guard_denies_with_no_env_configuration(monkeypatch):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(agent_guard, "_run", lambda args, cwd=None: None)
 
-    reason = agent_guard.dispatch('gh pr comment 123 --body "@somebody take a look"', None)
+    reason = agent_guard.dispatch('gh pr comment 123 --body "<!-- pr-triage --> @somebody take a look"', None)
 
     assert reason is not None
     assert "mention" in reason

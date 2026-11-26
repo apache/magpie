@@ -63,9 +63,6 @@ def test_without_an_allowlist_only_the_author_stays_live() -> None:
     assert text == "@alice — cc `@release-bot`"
 
 
-def test_code_review_keeps_allowed_handles_live() -> None:
+def test_code_review_mention_scan_skips_allowed_handles() -> None:
     allowed = frozenset({"acme/docs-team"})
-    assert (
-        review_body.escape_handles("cc @acme/docs-team and @bob", allowed) == "cc @acme/docs-team and `@bob`"
-    )
     assert [h["handle"] for h in review_body.mention_scan("cc @acme/docs-team and @bob", allowed)] == ["bob"]

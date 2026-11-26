@@ -53,8 +53,8 @@ def test_mention_case_3_code_spans_fences_cron_and_decorators() -> None:
     assert body.mention_scan(text) == []
 
 
-def test_escape_handles_backticks_live_mentions_only() -> None:
-    assert body.escape_handles("thanks @alice and `@bob`") == "thanks `@alice` and `@bob`"
+def test_mention_scan_lists_live_handles_only() -> None:
+    assert [h["handle"] for h in body.mention_scan("thanks @alice and `@bob`")] == ["alice"]
 
 
 # --- step-7b footer -----------------------------------------------------------------------------------
@@ -191,7 +191,26 @@ def test_compose_orders_sections_and_folds_dropped_inline_comments() -> None:
     )
     assert text.index("Found 1 blocking") < text.index("Rebase needed") < text.index("### Blocking — No SQL")
     assert "See inline comments on `hook.py:42`" in text and "`hook.py:11` — Spacing." in text
-    assert "@y" not in text and "`@alice`" in text and body.mention_scan(text) == []
+    # The suggested reviewers stay quoted: nothing is asked of them.
+    assert "`@alice`" in text and body.mention_scan(text) == []
+
+
+def test_compose_keeps_the_handles_a_finding_names_live() -> None:
+    finding = {
+        "file": "hook.py",
+        "line": 12,
+        "severity": "major",
+        "rule_id": "r",
+        "explanation": "As @bob said.",
+    }
+    text = body.compose(
+        summary="Thanks @carol.",
+        findings=[finding],
+        inline_kept=[],
+        footer_text=body.footer("request-changes", "Foo", URL),
+    )
+    assert "Thanks @carol." in text and "As @bob said." in text
+    assert [h["handle"] for h in body.mention_scan(text)] == ["carol", "bob"]
     assert body.verify_footer(text, "request-changes")["footer_present"]
 
 
@@ -230,14 +249,21 @@ def test_inline_comments_and_payload() -> None:
         {"file": "hook.py", "line": 99, "comment": "x"},
     ]
     result = body.inline_comments(findings, [1, 2], files)
-    assert result["threads"][0]["body"] == "ask `@bob`" and result["unanchorable"] == [
+    assert result["threads"][0]["body"] == "ask @bob" and result["unanchorable"] == [
         {"index": 2, "file": "hook.py", "line": 99}
     ]
-    payload = json.loads(body.review_payload("PR_1", "COMMENT", "Body", result["threads"]))
-    assert payload["variables"]["threads"] == [
-        {"path": "hook.py", "line": 12, "side": "RIGHT", "body": "ask `@bob`"}
-    ]
-    assert "addPullRequestReview" in payload["query"]
+    payload = json.loads(body.review_payload("a" * 40, "COMMENT", "Body", result["threads"]))
+    assert payload == {
+        "event": "COMMENT",
+        "body": "Body",
+        "commit_id": "a" * 40,
+        "comments": [{"path": "hook.py", "line": 12, "side": "RIGHT", "body": "ask @bob"}],
+    }
+
+
+def test_a_body_only_review_payload_has_no_comments_and_no_unknown_head() -> None:
+    payload = json.loads(body.review_payload(None, "APPROVE", "Looks good", []))
+    assert payload == {"event": "APPROVE", "body": "Looks good"}
 
 
 def test_an_inline_comment_carries_the_finding_text_not_just_its_rule() -> None:
@@ -253,7 +279,7 @@ def test_an_inline_comment_carries_the_finding_text_not_just_its_rule() -> None:
     }
     thread = body.inline_comments([finding], [1], files)["threads"][0]
     assert thread["body"] == (
-        "**semantic line breaks**\n\n> One sentence per line.\n\nBreak it after `a.`, cc `@bob`."
+        "**semantic line breaks**\n\n> One sentence per line.\n\nBreak it after `a.`, cc @bob."
     )
 
 

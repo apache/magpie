@@ -20,8 +20,9 @@ The agent writes the findings (Step 4 shape) and the summary line; everything
 else is assembled here: the section order, the blocking / major / smaller
 observations layout, the inline-comment set and its anchors, the suggested
 reviewers, the conflict and security notes, and the verbatim AI-attribution
-footer. Every handle is backtick-quoted, so nothing posted live-mentions
-anyone; `mention_scan` re-checks the result outside code spans and fences.
+footer. Handles are posted as written, so a review notifies the people it
+names; only the suggested reviewers stay backtick-quoted, since nothing is
+asked of them. `mention_scan` lists the live mentions in a draft.
 """
 
 from __future__ import annotations
@@ -90,31 +91,6 @@ def verify_footer(body: str, variant: str | None = None) -> dict[str, Any]:
         if any(_footer_regex(name, link).search(flat) for link in (True, False)):
             return {"footer_present": True, "variant": name, "action": "post"}
     return {"footer_present": False, "variant": None, "action": "block"}
-
-
-def escape_handles(text: str, allowed: frozenset[str] = frozenset()) -> str:
-    """Backtick every live `@handle` outside code, so posting it notifies nobody."""
-    out = []
-    inside = False
-    for line in text.splitlines():
-        if _FENCE.match(line):
-            inside = not inside
-            out.append(line)
-            continue
-        if inside or _DECORATOR.match(line):
-            out.append(line)
-            continue
-        pieces = re.split(r"(`[^`]*`)", line)
-        pieces = [
-            p
-            if p.startswith("`")
-            else _MENTION.sub(
-                lambda m: m.group(0) if m.group(1).lower() in allowed else f"`@{m.group(1)}`", p
-            )
-            for p in pieces
-        ]
-        out.append("".join(pieces))
-    return "\n".join(out)
 
 
 def mention_scan(text: str, allowed: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
@@ -225,7 +201,6 @@ def compose(
     reviewers: list[dict[str, Any]] | None = None,
     conflict_note: str | None = None,
     security_note: str | None = None,
-    allowed: frozenset[str] = frozenset(),
 ) -> str:
     """The review body, in the template's section order; empty sections are omitted."""
     anchored = [i for i, f in enumerate(findings, start=1) if f.get("line")]
@@ -257,14 +232,13 @@ def compose(
             "and optional."
         )
     parts.append(footer_text)
-    return escape_handles("\n\n".join(p for p in parts if p), allowed)
+    return "\n\n".join(p for p in parts if p)
 
 
 def inline_comments(
     findings: list[dict[str, Any]],
     kept: list[int],
     files: list[difflib.DiffFile],
-    allowed: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """The picked comments as review threads (line/side), and the ones the diff cannot anchor."""
     anchored = [f for f in findings if f.get("line")]
@@ -279,12 +253,9 @@ def inline_comments(
         # The comment stands alone on the diff: give it the finding's full
         # text, as the body would, not just the rule it names. The excerpt is
         # the line it sits on, so it is left out.
-        text = escape_handles(
-            str(
-                finding.get("comment") or f"**{_title(finding)}**\n\n{_details(finding, excerpt=False)}"
-            ).strip(),
-            allowed,
-        )
+        text = str(
+            finding.get("comment") or f"**{_title(finding)}**\n\n{_details(finding, excerpt=False)}"
+        ).strip()
         if spot is None:
             unanchorable.append({"index": index, "file": finding["file"], "line": finding["line"]})
             continue
@@ -300,21 +271,18 @@ def inline_comments(
     return {"threads": threads, "unanchorable": unanchorable}
 
 
-REVIEW_MUTATION = """mutation($pullRequestId: ID!, $event: PullRequestReviewEvent!, $body: String, $threads: [DraftPullRequestReviewThread!]) {
-  addPullRequestReview(input: {pullRequestId: $pullRequestId, event: $event, body: $body, threads: $threads}) {
-    pullRequestReview { id url }
-  }
-}"""
+def review_payload(head_sha: str | None, disposition: str, body: str, threads: list[dict[str, Any]]) -> str:
+    """The `POST repos/<repo>/pulls/<N>/reviews` document for a review, inline threads included.
 
-
-def review_payload(node_id: str, disposition: str, body: str, threads: list[dict[str, Any]]) -> str:
-    """The `gh api graphql --input` document for a review with inline threads."""
-    variables = {
-        "pullRequestId": node_id,
-        "event": disposition,
-        "body": body,
-        "threads": [
+    The REST endpoint names the repository in its path, so the public-surface scrub can see
+    which repository a review goes to; a GraphQL mutation addresses a node id and cannot show it.
+    `commit_id` pins the review to the head that was read, when the read carries it.
+    """
+    payload: dict[str, Any] = {"event": disposition, "body": body}
+    if head_sha:
+        payload["commit_id"] = head_sha
+    if threads:
+        payload["comments"] = [
             {"path": t["path"], "line": t["line"], "side": t["side"], "body": t["body"]} for t in threads
-        ],
-    }
-    return json.dumps({"query": REVIEW_MUTATION, "variables": variables}, indent=2, ensure_ascii=False)
+        ]
+    return json.dumps(payload, indent=2, ensure_ascii=False)

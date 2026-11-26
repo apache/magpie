@@ -24,7 +24,7 @@ argument-hint: "[pr:N | stack:N] [layers:a-b] [read-budget:LINES] [no-fetch] [dr
 capability: capability:review
 surface_hash: sha256:f0872f2cf794b6d2
 license: Apache-2.0
-measured_tokens: 5197
+measured_tokens: 5195
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -180,7 +180,7 @@ Everything you infer from reading is `major` at most, and only after verificatio
 **Golden rule 6 — never re-derive what the tool decided.**
 Do not re-grade a finding the tool mapped, recompute the verdict, or pick the post target yourself; confirm or drop candidates, then let `verdict` and `post` decide.
 
-**Golden rule 7 — `pr-management-code-review`'s per-PR rules apply by reference:** its [Real-CI guard](../code-review/prerequisites.md#real-ci-guard), [mention policy](../code-review/posting.md#mention-policy), verbatim `COMMENT` [footer](../code-review/posting.md#ai-attribution-footer), full PR URLs, [confirm-never-retry](../code-review/posting.md#confirm-the-review-posted--never-re-run-on-empty-output) posting, and [triage actions](../code-review/scope.md) only pointed at.
+**Golden rule 7 — `pr-management-code-review`'s per-PR rules apply by reference:** its [Real-CI guard](../code-review/prerequisites.md#real-ci-guard), [mention policy](../code-review/posting.md#mention-policy), verbatim `COMMENT` [footer](../code-review/posting.md#ai-attribution-footer), full PR URLs, [confirm-never-retry](../code-review/posting.md#confirm-the-review-posted--never-re-run-it) posting, and [triage actions](../code-review/scope.md) only pointed at.
 
 ---
 

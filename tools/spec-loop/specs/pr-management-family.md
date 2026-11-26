@@ -24,9 +24,10 @@ acceptance:
     candidates and the exact merge command for the maintainer.
   - pr-management-thread-mentor never posts without explicit maintainer
     confirmation; its output is pedagogical, never gatekeeping.
-  - No pr-management body @-mentions anyone but the PR author and the
-    project's merged mention_allowlist; the agent-guard mention guard
-    refuses the rest on every posting surface.
+  - No triage, stale-sweep or mentor body @-mentions anyone but the PR
+    author and the project's merged mention_allowlist; the agent-guard
+    mention guard refuses the rest on every body triage rendered.
+    Code reviews mention the people they name.
   - All family skills validate under skill-and-tool-validate with no errors.
   - docs/pr-management/README.md lists the family's skills.
 ---
@@ -223,18 +224,22 @@ same directory; the behaviour is unchanged.
   body comes from `triage render`, which allows only the author's
   `@`-mention and the project's `mention_allowlist`.
   Regression cases: `tools/pr-management/tests/`.
-- **Mentions are allowlisted, and the guard enforces it.** Every
-  pr-management renderer (triage notes, stale-sweep comments, mentor comments,
-  code-review bodies) keeps only the PR author's `@`-mention live and
-  backtick-quotes every other handle, except handles and teams listed in
-  `mention_allowlist` in `pr-management-config.md` (#1584).
-  The agent-guard `mention` guard checks `gh pr|issue comment`, folded notes,
-  `gh pr review --body/--body-file`, and every value a non-GET `gh api` call
-  sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
-  reads, `--input`); text it cannot read is refused rather than passed
-  (#1579).
-  The guard takes the allowlist, and the mentoring hand-off's
-  `maintainer_team_handle`, only from `.apache-magpie-overrides/` as GitHub
+- **Mentions are allowlisted, and the guard enforces it on triage.** The
+  triage, stale-sweep and mentor renderers keep only the PR author's
+  `@`-mention live and backtick-quote every other handle, except handles and
+  teams listed in `mention_allowlist` in `pr-management-config.md` (#1584).
+  Code-review bodies post the handles a review names live; only the suggested
+  reviewers stay backtick-quoted, and quoted contributor text stays in code
+  spans or fenced blocks.
+  The agent-guard `mention` guard checks only bodies triage rendered: those
+  carrying the `<!-- pr-triage -->` comment marker (the first line of every
+  triage comment) or a `pr-triage-fold` block. On those it checks
+  `gh pr|issue comment`, folded notes, and every value a non-GET `gh api`
+  call sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
+  reads, `--input`); reviews and other skills' posts pass. A comment, body
+  edit or API write whose text it cannot read (stdin, an unreadable file) is
+  refused whoever sends it, since the guard cannot tell whether it is triage's.
+  The guard takes the allowlist only from `.apache-magpie-overrides/` as GitHub
   serves it from the target repository's default branch — never the local
   checkout — so only a reviewed, merged change widens what may be mentioned.
   The target must be explicit and unambiguous (`--repo` in any spelling,
@@ -242,8 +247,6 @@ same directory; the behaviour is unchanged.
   or a plain `repos/OWNER/REPO/…` endpoint); arguments are parsed by flag
   arity, an unreadable line names no target, and GraphQL writes get no
   allowlist.
-  The hand-off team is allowed alone, in a body that opens with the hand-off
-  template's line, and only for a team of the organisation owning the target.
   One call can add a handle with `--allow-mention <login>` paired with
   `MAGPIE_ALLOW_MENTIONS=1` on the posting command (#1584).
 - **Session-local history and guarded recovery.**
@@ -530,8 +533,10 @@ same directory; the behaviour is unchanged.
   reviews, and `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
   answers `422 Can not delete a non-pending pull request review` once
   submitted, leaving the body edited down to a pointer as the only
-  repair. The same rule covers `gh pr comment` and the
-  `addPullRequestReview` mutation.
+  repair. The same rule covers `gh pr comment`. Every review is posted
+  through the REST reviews endpoint (`repos/<repo>/pulls/<N>/reviews`),
+  never a GraphQL mutation, so the public-surface scrub can see the
+  target repository.
 - **Adversarial second read in code review.** `pr-management-code-review`
   offers two paths at Step 5 of `review-flow.md`.
   The tool path — `with-reviewers:codex,copilot`, or a resolved

@@ -31,7 +31,7 @@ import re
 from dataclasses import dataclass
 
 from . import people
-from .config import CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN
+from .config import COMMENT_MARKER, CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN
 from .model import COLLABORATOR_ASSOCIATIONS, PR
 
 FOLD_RE = re.compile(
@@ -44,8 +44,8 @@ FOLD_RE = re.compile(
 )
 CONFIRMATION_ACTION = "request-author-confirmation"
 
-#: The legacy HTML-comment marker some older triage comments carry.
-LEGACY_MARKER = "<!-- pr-triage -->"
+#: The HTML-comment marker every triage comment opens with (older ones carry it too).
+LEGACY_MARKER = COMMENT_MARKER
 
 
 @dataclass(frozen=True)
