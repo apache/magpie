@@ -32,9 +32,10 @@ silently clobber each other. The edit path is:
 5. `os.replace(tmp, target)` — atomic on the same filesystem.
 6. Release the lock.
 
-The lock is taken on the **target file** itself, which is the
-convention `sandbox-add-project-root.sh` already follows. Two
-edit processes serialize without either losing work; a reader
+The lock is taken on the **target file** itself. Two edit
+processes serialize without either losing work
+(`sandbox-add-project-root.sh` takes no lock: it replaces the file
+with `mv`, which the same-file check above detects); a reader
 takes no lock and may briefly observe pre- or post-edit content
 but never a partial JSON.
 
@@ -135,9 +136,21 @@ def apply_changes(
             if not create_if_missing:
                 raise FileNotFoundError(settings_path)
             settings_path.parent.mkdir(parents=True, exist_ok=True)
-            settings_path.write_text("{}\n", encoding="utf-8")
-            file_was_created = True
-        locked_fh = _lock_current(settings_path)
+            # Exclusive create: a file another writer created since the
+            # check above is kept, locked and edited, never truncated.
+            try:
+                with settings_path.open("x", encoding="utf-8") as created:
+                    created.write("{}\n")
+                file_was_created = True
+            except FileExistsError:
+                pass
+        try:
+            locked_fh = _lock_current(settings_path)
+        except FileNotFoundError:
+            # Removed between the check and the open: start again.
+            if not create_if_missing:
+                raise
+            continue
         if locked_fh is not None:
             break
     else:

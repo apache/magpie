@@ -189,6 +189,25 @@ def test_file_removed_while_we_waited_is_recreated_when_allowed(tmp_path, monkey
     assert len(attempts) == 2
 
 
+def test_a_file_created_by_another_writer_after_the_check_is_kept(tmp_path, monkeypatch):
+    # The file does not exist when checked, but another writer creates it,
+    # with its own entries, before we create ours: it must be edited, not wiped.
+    p = tmp_path / "settings.local.json"
+    real_exists = Path.exists
+
+    def exists_then_competing_create(self: Path) -> bool:
+        if self == p and not real_exists(self):
+            _write_settings(p, {"permissions": {"allow": ["theirs"], "deny": ["keep-me"]}})
+            return False
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", exists_then_competing_create)
+    outcome = apply_changes(p, additions=["ours"], removals=[], create_if_missing=True)
+    monkeypatch.undo()
+    assert outcome.file_was_created is False
+    assert json.loads(p.read_text()) == {"permissions": {"allow": ["theirs", "ours"], "deny": ["keep-me"]}}
+
+
 def test_gives_up_when_every_lock_lands_on_a_replaced_file(tmp_path, monkeypatch):
     p = tmp_path / "settings.local.json"
     _write_settings(p, {"permissions": {"allow": []}})
