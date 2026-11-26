@@ -113,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG,
         description="Run a change's checks inside the sandbox and record what passed, for git-commit.",
+        allow_abbrev=False,
     )
     parser.add_argument("worktree", type=Path, help="the worktree the change is in")
     parser.add_argument(

@@ -162,6 +162,8 @@ losing its gate, and it is why `--caller` repeated twice is an error rather than
 a last-wins convenience: argparse keeps the last occurrence, so repetition would
 let a command match a rule written against a read-only prefix while resolving to
 a privileged caller.
+Every dispatcher also refuses abbreviated long options (`--call` for `--caller`),
+so each option is matched exactly, as that check and the permission rules assume.
 
 For writes, the confirmation the harness puts in front of `vetted-op` is still
 doing the work. A finer boundary — per-skill scope bound by the runtime — needs
