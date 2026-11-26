@@ -96,6 +96,10 @@ SOURCES: tuple[str, ...] = (
 _SKIP_DIRS = frozenset({"__pycache__", "tests", ".pytest_cache", ".mypy_cache", ".ruff_cache"})
 _SKIP_SUFFIXES = (".md", ".pyc")
 _SKIP_NAMES = frozenset({".DS_Store"})
+#: Markdown that is installed rather than read: an agent definition's body
+#: is its prompt and its frontmatter its tools, so a change is a change on
+#: the user's machine.
+_COUNTED_MARKDOWN = ("tools/agent-isolation/agents/",)
 
 #: The directory whose presence marks a tree as carrying the framework source.
 _MARKER = "tools/agent-isolation"
@@ -122,7 +126,10 @@ def _files(base: Path) -> list[Path]:
             relative = candidate.relative_to(base)
             if not candidate.is_file() or _SKIP_DIRS.intersection(relative.parts):
                 continue
-            if candidate.name in _SKIP_NAMES or candidate.name.endswith(_SKIP_SUFFIXES):
+            if candidate.name in _SKIP_NAMES:
+                continue
+            counted = relative.as_posix().startswith(_COUNTED_MARKDOWN) and candidate.suffix == ".md"
+            if candidate.name.endswith(_SKIP_SUFFIXES) and not counted:
                 continue
             found.append(candidate)
     return sorted(found, key=lambda p: p.relative_to(base).as_posix())

@@ -88,6 +88,17 @@ def test_a_documentation_only_change_does_not_move_the_fingerprint(project: Path
     assert isolated.current(project) == before
 
 
+def test_an_agent_definition_change_moves_the_fingerprint(project: Path) -> None:
+    """An agent's Markdown is installed, not read: its body is the agent's prompt."""
+    framework_tree(project)
+    agents = project / "tools" / "agent-isolation" / "agents"
+    agents.mkdir()
+    (agents / "magpie-gatherer.md").write_text("---\nname: magpie-gatherer\n---\none\n")
+    before = isolated.current(project)
+    (agents / "magpie-gatherer.md").write_text("---\nname: magpie-gatherer\n---\ntwo\n")
+    assert isolated.current(project) != before
+
+
 def test_a_change_already_shown_is_not_repeated(project: Path) -> None:
     framework_tree(project)
     write_stamp(project, {"isolated_setup": {"fingerprint": "sha256:old", "updated_at": "2026-09-25"}})

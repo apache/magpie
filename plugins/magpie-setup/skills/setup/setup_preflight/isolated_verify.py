@@ -821,6 +821,18 @@ class Verifier:
             self.gate_17(),
             self.result("18", "manual", ["local agent settings against the reconciliation"]),
             self.gate_19(),
+            self.result(
+                "20",
+                "manual",
+                ["n/a unless the magpie-security-tools plugin is installed"],
+                see=f"{CONDITIONAL}#check-20--cve-tool-exclusion-if-installed",
+            ),
+            self.result(
+                "21",
+                "manual",
+                ["Claude Code: read ~/.claude/agents/magpie-gatherer.md when it exists"],
+                see=f"{CONDITIONAL}#check-21--the-read-only-gatherer-agent",
+            ),
         ]
         facts = {
             "platform": self.ctx.system,

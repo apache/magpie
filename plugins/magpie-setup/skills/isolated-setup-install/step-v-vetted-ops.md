@@ -193,3 +193,28 @@ operator applies it; never write a settings file on your own.
 
 This covers the read dispatcher only. `vetted-op-tracker`, `vetted-op-git` and `vetted-op`
 are excluded but stay in `ask`, never in `allow`.
+
+## Step V.2 — The read-only gatherer agent (Claude Code)
+
+Bulk skills fan out one background agent per item.
+A general-purpose agent has `Bash`, `Edit` and `Write`, and reads content written by outsiders:
+the read-then-act exposure Step V.1's unprompted reads should not widen.
+The framework ships a narrower agent, which `pr-management-code-review`'s prefetch and `pr-management-stack-review`'s layer readers use where it is installed,
+[`tools/agent-isolation/agents/magpie-gatherer.md`](../../../../tools/agent-isolation/agents/magpie-gatherer.md):
+`Read`, `Grep`, `Glob` and `vetted-op-read` as its only Bash.
+It has no `Edit`, `Write`, MCP tool or general Bash, and it runs on the session's model.
+The `tools:` line is not trusted alone: a `PreToolUse` hook in the agent's own frontmatter denies every Bash command but `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read …`, with no chaining, redirection, `--config` or `--save`.
+
+Claude Code only, and only after Step V.1 passes: without it every gatherer read is a silent denial.
+On another harness, report **n/a**.
+
+1. Propose copying it to the user scope, `~/.claude/agents/magpie-gatherer.md`:
+   `mkdir -p ~/.claude/agents && cp <framework>/tools/agent-isolation/agents/magpie-gatherer.md ~/.claude/agents/`.
+   It must be a user-scope agent, not a plugin agent: Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook matching the agent's name would match any agent that takes the name.
+   The operator runs the copy; never write it yourself.
+2. **Tamper protection.** Propose `Edit(~/.claude/agents/**)` in the user-scope `permissions.deny`.
+   An agent file's hooks run outside the sandbox, and its `tools:` line decides what the fan-out may do, so no agent may rewrite it with its file tools.
+   The operator updates the copy from a terminal.
+3. If a file is already there and differs, show the diff and let the operator choose;
+   a local edit that adds a tool, a hook or a `model:` line changes what the fan-out can do and is theirs to keep or drop knowingly.
+4. Say that a session started before the copy does not see the agent: it takes effect in the next session.
