@@ -663,8 +663,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     anchored = [f for f in findings if f.get("line")]
     keep = _curated_keep(curated_path) if args.keep == "curated" else (args.keep or "A")
     picked = review_body.pick(keep, len(anchored)) if args.inline == "on" else {"keep": []}
-    allow = mentions.allowed(cfg)
-    inline = review_body.inline_comments(findings, picked["keep"], files, allow)
+    inline = review_body.inline_comments(findings, picked["keep"], files)
     kept = [k for k in picked["keep"] if k not in {u["index"] for u in inline["unanchorable"]}]
     variant = disposition.footer_variant(args.disposition, _permission(args, pr))
     project = cfg.project_name or (cfg.upstream_repo or "the project").split("/")[-1].capitalize()
@@ -683,7 +682,6 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         conflict = "GitHub has not yet computed whether this branch merges cleanly with its base."
     security_note = Path(args.security_note).read_text(encoding="utf-8") if args.security_note else None
     text = review_body.compose(
-        allowed=allow,
         summary=summary,
         findings=findings,
         inline_kept=kept,
@@ -695,7 +693,6 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     body_file = args.out_dir / f"review-body-{args.pr}.md"
     body_file.write_text(text + "\n", encoding="utf-8")
-    hits = review_body.mention_scan(text + "\n" + "\n".join(t["body"] for t in inline["threads"]), allow)
     check = review_body.verify_footer(text, variant)
     repo = cfg.upstream_repo or ""
     if not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", repo) or not _PR.match(str(args.pr)):
@@ -763,7 +760,6 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "payload_file": str(payload_file),
         "inline_threads": len(inline["threads"]),
         "unanchorable": inline["unanchorable"],
-        "live_mentions": hits,
         "post_command": command,
         "auto_merge_command": auto_merge_command,
         "verify_command": verify,
@@ -816,7 +812,6 @@ def _slop_comment(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any
             disposition.footer_variant("COMMENT", _permission(args, pr)), project, cfg.contributing_docs_url
         ),
     )
-    text = review_body.escape_handles(text, mentions.allowed(cfg))
     args.out_dir.mkdir(parents=True, exist_ok=True)
     path = args.out_dir / f"slop-warning-{args.pr}.md"
     path.write_text(text, encoding="utf-8")
@@ -906,7 +901,6 @@ def add_parsers(sub: Any) -> None:
     rev.add_argument("--now", default=None)
 
     ren = commands.add_parser("render", help="Steps 7a-7b: the body, the inline threads, the post command")
-    mentions.add_flag(ren)
     ren.add_argument("--saved-dir", type=Path, required=True)
     ren.add_argument("--pr", type=int, required=True)
     ren.add_argument("--findings", required=True)
@@ -971,7 +965,6 @@ def add_parsers(sub: Any) -> None:
     grd.add_argument("--viewer", required=True)
 
     slc = commands.add_parser("slop-comment", help="the [C] warning body and the [X] close commands")
-    mentions.add_flag(slc)
     slc.add_argument("--pr", type=int, required=True)
     slc.add_argument("--issues", required=True, help="one plain-English issue per line")
     slc.add_argument("--out-dir", type=Path, required=True)

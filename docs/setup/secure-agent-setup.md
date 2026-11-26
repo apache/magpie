@@ -1913,9 +1913,9 @@ ships two **bundled** (universal `git` hygiene) guards:
 
 The domain-specific guards are **owned by the skills that need them**
 and discovered the same way (below) — `skills/pr-management-triage/guards/`
-ships **mention** (never `@`-ping a non-author in an author-directed
+ships **mention** (on a body triage rendered, never `@`-ping a non-author in an author-directed
 `gh pr comment`/`gh issue comment`; never `@`-mention anyone in a
-`gh pr edit --body` fold) and **mark-ready** (never add `ready for
+`gh pr edit --body` fold; other skills' posts pass) and **mark-ready** (never add `ready for
 maintainer review` while CI awaits approval); `skills/security-issue-fix/guards/`
 ships **security-language** (no CVE / security-fix wording in a public
 `gh pr create|edit` title/body).

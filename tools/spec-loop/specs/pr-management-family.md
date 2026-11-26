@@ -24,9 +24,10 @@ acceptance:
     candidates and the exact merge command for the maintainer.
   - pr-management-thread-mentor never posts without explicit maintainer
     confirmation; its output is pedagogical, never gatekeeping.
-  - No pr-management body @-mentions anyone but the PR author and the
-    project's merged mention_allowlist; the agent-guard mention guard
-    refuses the rest on every posting surface.
+  - No triage, stale-sweep or mentor body @-mentions anyone but the PR
+    author and the project's merged mention_allowlist; the agent-guard
+    mention guard refuses the rest on every body triage rendered.
+    Code reviews mention the people they name.
   - All family skills validate under skill-and-tool-validate with no errors.
   - docs/pr-management/README.md lists the family's skills.
 ---
@@ -223,18 +224,21 @@ same directory; the behaviour is unchanged.
   body comes from `triage render`, which allows only the author's
   `@`-mention and the project's `mention_allowlist`.
   Regression cases: `tools/pr-management/tests/`.
-- **Mentions are allowlisted, and the guard enforces it.** Every
-  pr-management renderer (triage notes, stale-sweep comments, mentor comments,
-  code-review bodies) keeps only the PR author's `@`-mention live and
-  backtick-quotes every other handle, except handles and teams listed in
-  `mention_allowlist` in `pr-management-config.md` (#1584).
-  The agent-guard `mention` guard checks `gh pr|issue comment`, folded notes,
-  `gh pr review --body/--body-file`, and every value a non-GET `gh api` call
-  sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
-  reads, `--input`); text it cannot read is refused rather than passed
-  (#1579).
-  The guard takes the allowlist, and the mentoring hand-off's
-  `maintainer_team_handle`, only from `.apache-magpie-overrides/` as GitHub
+- **Mentions are allowlisted, and the guard enforces it on triage.** The
+  triage, stale-sweep and mentor renderers keep only the PR author's
+  `@`-mention live and backtick-quote every other handle, except handles and
+  teams listed in `mention_allowlist` in `pr-management-config.md` (#1584).
+  Code-review bodies post the handles a review names live; only the suggested
+  reviewers stay backtick-quoted, and quoted contributor text stays in code
+  spans or fenced blocks.
+  The agent-guard `mention` guard checks only bodies triage rendered: those
+  carrying the `<!-- pr-triage -->` comment marker (the first line of every
+  triage comment) or a `pr-triage-fold` block. On those it checks
+  `gh pr|issue comment`, folded notes, and every value a non-GET `gh api`
+  call sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
+  reads, `--input`); reviews and other skills' posts pass, and a body it
+  cannot read is let through, since triage always posts from a readable file.
+  The guard takes the allowlist only from `.apache-magpie-overrides/` as GitHub
   serves it from the target repository's default branch — never the local
   checkout — so only a reviewed, merged change widens what may be mentioned.
   The target must be explicit and unambiguous (`--repo` in any spelling,
@@ -242,8 +246,6 @@ same directory; the behaviour is unchanged.
   or a plain `repos/OWNER/REPO/…` endpoint); arguments are parsed by flag
   arity, an unreadable line names no target, and GraphQL writes get no
   allowlist.
-  The hand-off team is allowed alone, in a body that opens with the hand-off
-  template's line, and only for a team of the organisation owning the target.
   One call can add a handle with `--allow-mention <login>` paired with
   `MAGPIE_ALLOW_MENTIONS=1` on the posting command (#1584).
 - **Session-local history and guarded recovery.**

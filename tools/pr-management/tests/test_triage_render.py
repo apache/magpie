@@ -155,7 +155,7 @@ def test_pr_body_note_is_folded_and_mentions_only_the_author() -> None:
 def test_comment_channel_ends_with_the_long_footer() -> None:
     result = _render(pr(mergeable="CONFLICTING"), "draft", "deterministic_flag", cfg=_cfg("comment"))
     body = result.body or ""
-    assert body.startswith("@nina-contributor Converting to **draft**")
+    assert body.startswith("<!-- pr-triage -->\n@nina-contributor Converting to **draft**")
     assert "pr-triage-fold" not in body
     assert body.rstrip().endswith("the conversation with you._")
     assert "Apache Foo maintainer" in body
@@ -209,7 +209,7 @@ def test_an_override_replaces_the_default_body() -> None:
         ).body
         or ""
     )
-    assert body.startswith("@nina-contributor Custom wording.")
+    assert body.startswith("<!-- pr-triage -->\n@nina-contributor Custom wording.")
     assert "A few things need addressing" not in body
 
 

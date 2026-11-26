@@ -215,7 +215,7 @@ def test_context_then_disposition_then_render(
         "--permission",
         "write",
     )
-    assert out["footer_verified"] and out["live_mentions"] == [] and out["inline_threads"] == 1
+    assert out["footer_verified"] and "live_mentions" not in out and out["inline_threads"] == 1
     # REST, not GraphQL: the path names the repository, so the public-surface scrub can see the target.
     argv = shlex.split(out["post_command"])
     assert argv[:2] == ["gh", "api"] and argv[3:] == ["-X", "POST", "--input", out["payload_file"]]

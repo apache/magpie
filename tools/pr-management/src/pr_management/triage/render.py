@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import ci, markers, mdconfig, mentions
-from ..config import CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN, Config
+from ..config import COMMENT_MARKER, CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN, Config
 from ..model import PR
 from . import signals
 
@@ -508,7 +508,8 @@ def render(
         body = overrides.get(stem) or load_template(stem)
         footer = cfg.footer or load_template("ai-attribution-footer").strip("\n")
         values["<ai_attribution_footer>"] = _substitute(footer, values)
-        body = _tidy(_substitute(body, values))
+        # The marker tells the agent-guard `mention` guard this comment is triage's.
+        body = f"{COMMENT_MARKER}\n{_tidy(_substitute(body, values))}"
         if stem == "ready-flip":
             result.unassign_author = True
 

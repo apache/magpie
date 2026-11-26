@@ -13,37 +13,18 @@ How the findings list becomes a GitHub review submission.
 > **This section is normative and applies to every character this
 > skill posts** — the review body, every inline review comment,
 > findings folded in from an adversarial reviewer, and any
-> contributor text quoted inside a finding. It is the review-side
-> counterpart of the author-only notification rule in
-> [`pr-management-triage`](../../../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies).
+> contributor text quoted inside a finding. Unlike
+> [`pr-management-triage`](../../../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies),
+> whose notes mention only the PR author, a review may notify the people it names.
 
-Submitting a review already notifies the PR author and every
-subscriber — that is all the notification a review needs. A live
-`@`-mention additionally summons the named person, without their
-consent, onto a thread where nothing is being asked of them.
+A review is the maintainer talking to the people on the PR, so it mentions them the way the maintainer would.
 
-- **Nothing this skill posts ever live-`@`-mentions anyone** —
-  not suggested reviewers, not `CODEOWNERS` owners or teams, not
-  the PR author, not the operator. When a handle must appear
-  (a suggested reviewer, the author of a prior review being
-  referenced), render it **backtick-quoted** — `` `@login` `` /
-  `` `@org/team` `` — which reads as a handle without producing
-  a notification.
-- **Quoted contributor text is escaped too.** Commit messages,
-  PR-body excerpts, and code comments quoted into a finding may
-  carry `@handle` tokens; keep such quotes inside code spans or
-  fenced blocks so GitHub never processes the mentions.
-- **Adversarial fold-in is covered.** Findings imported from a
-  second reviewer (Step 5 of [`review-flow.md`](review-flow.md))
-  get the same escaping before composition — the other tool's
-  output is not exempt.
-- **A deliberate ping is still possible — never silent.** The
-  mention scan in Step 8 of
-  [`review-flow.md`](review-flow.md) flags any live mention that
-  survives drafting and posts it only on the maintainer's
-  explicit `[K]eep`. Formally requesting a reviewer remains a
-  separate action
-  ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+- **Handles the review names are live.** When the review answers or credits someone (a reviewer whose point it takes up, the author of a prior review), write `@login`: `render` posts it as written, and that person is notified.
+- **Suggested reviewers stay backtick-quoted** (`` `@login` `` / `` `@org/team` ``): nothing is asked of them, and the *Worth a second look from* section says nobody was notified.
+  Formally requesting a reviewer remains a separate action ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+- **Quoted text stays in code.** Commit messages, PR-body excerpts, code comments and findings folded in from an adversarial reviewer (Step 5 of [`review-flow.md`](review-flow.md)) may carry `@handle` tokens.
+  Keep every such quote inside a code span or a fenced block, so GitHub never processes the mentions in it: a review notifies only the people the maintainer meant to name.
+- The agent-guard `mention` guard checks only what `pr-management-triage` posts, so it does not stand between a review and its post.
 
 ---
 

@@ -14,44 +14,36 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
 """pr-management-triage mention guard (skill-contributed).
 
-Deterministically enforces author-only notification (Golden rule 12): the PR
-author is the only login the skill may @-mention. This applies identically to
-the folded maintainer-triage note (`gh pr edit --body` / `--body-file`) and to
-author-directed comments (`gh pr/issue comment`) — in both, the author's
+Deterministically enforces author-only notification (Golden rule 12) on what
+`pr-management-triage` posts, and on nothing else. A body is triage's when it
+carries a triage marker: the `<!-- pr-triage-fold: … -->` block of a folded
+note, or the `<!-- pr-triage -->` line every triage comment opens with. Reviews,
+comments and API calls from any other skill carry neither and pass untouched:
+those skills mention people on purpose.
+
+On a triage body, the PR author is the only login it may @-mention. This applies
+identically to the folded triage note (`gh pr edit --body` / `--body-file`) and
+to author-directed comments (`gh pr/issue comment`) — in both, the author's
 @-mention is permitted (it is the intended "your move" signal) and any other
 @-mention (a maintainer: operator, reviewer, CODEOWNER, team) is blocked.
-Two exceptions lift the block: an explicit ``MAGPIE_ALLOW_MENTIONS=1`` override
-(a deliberate one-off, requested by the operator), and the operator commenting
-on their **own** PR/issue — when the target's author is the authenticated ``gh``
+Text a non-GET `gh api` call sends that carries a triage marker may @-mention
+nobody, not even the author.
+
+Three exceptions lift the block: an explicit ``MAGPIE_ALLOW_MENTIONS=1`` override
+(a deliberate one-off, requested by the operator); the operator commenting on
+their **own** PR/issue — when the target's author is the authenticated ``gh``
 user, mentioning maintainers is a legitimate self-directed nudge to one's own
-reviewers, not the drive-by maintainer spam this guard exists to stop.
+reviewers, not the drive-by maintainer spam this guard exists to stop; and the
+handles in `mention_allowlist` of `.apache-magpie-overrides/pr-management-config.md`
+*as GitHub serves it from the target repository's default branch* — the same
+key every `pr-management` renderer honours. Only a reviewed, merged change can
+put a handle there; a local edit, commit or scratch repository cannot.
 Otherwise maintainer handles must be backtick-quoted so they never notify.
 
-Two further surfaces:
-
-* **Review and API posting** (`gh pr review --body/--body-file`, and every
-  value a non-GET `gh api` call sends — every field, in every spelling `gh`
-  accepts, and every `--input` string — whatever the endpoint): such text
-  may @-mention nobody, not even the author, whose "your move" signal is
-  the triage note.
-* **Uninspectable text** (a body on stdin, an unreadable body or field
-  file) is refused: the guard cannot confirm it is clean.
-* **The project allowlist**: handles in `mention_allowlist` of
-  `.apache-magpie-overrides/pr-management-config.md` *as GitHub serves it
-  from the target repository's default branch* are never refused, on any
-  surface — the same key every `pr-management` renderer honours. Only a
-  reviewed, merged change can put a handle there; a local edit, commit or
-  scratch repository cannot.
-* **The mentoring hand-off**: `pr-management-thread-mentor` hands a thread to the
-  maintainers with a body that opens "@<team> — handing this off:". That one
-  mention is allowed when <team> is the `maintainer_team_handle` of the
-  `.apache-magpie-overrides/mentoring-config.md` on the target
-  repository's default branch (read from GitHub, like the allowlist),
-  belongs to the organisation that owns the target repository, and is the
-  only non-author mention in the body.
+A body the guard cannot read (stdin, an unreadable file) cannot be shown to be
+triage's and is let through: triage always posts from a readable file.
 
 Discovered by
 the agent-guard PreToolUse dispatcher from a guards.d directory — see
@@ -62,16 +54,15 @@ everything comes from ``ctx``.
 TRIGGERS = ["gh"]
 
 
-HANDOFF_OPENING = " — handing this off:"
 UNREADABLE = "\x00UNREADABLE_BODY_FILE\x00"
+# The markers triage's renderer writes, compared with all whitespace removed.
+TRIAGE_MARKERS = ("<!--pr-triage-->", "<!--pr-triage-fold:")
 
 
-def _uninspectable(what):
-    return (
-        f"agent-guard[mention]: the text of this {what} cannot be inspected (read from stdin, or an "
-        "unreadable file), so the guard cannot confirm it @-mentions no maintainer. Pass the text in a "
-        "readable file, or override with MAGPIE_ALLOW_MENTIONS=1 for a deliberate exception."
-    )
+def _is_triage(text):
+    """Whether ``text`` is a body `pr-management-triage` rendered."""
+    flat = "".join(text.split())
+    return any(marker in flat for marker in TRIAGE_MARKERS)
 
 
 def _nobody(what, mentions):
@@ -102,29 +93,16 @@ def _allowlist(ctx):
 
 
 def guard(ctx):
-    # Anything a non-GET `gh api` call sends, whatever the endpoint. No author
-    # exemption here.
+    # Anything a non-GET `gh api` call sends, whatever the endpoint, when it is
+    # a triage body. No author exemption here.
     api = ctx.gh_api_posted_text()
     if api is not None:
-        if ctx.override("MAGPIE_ALLOW_MENTIONS"):
-            return None
         texts, readable = api
-        if not readable:
-            return _uninspectable("API call")
-        mentions = sorted({m for text in texts for m in ctx.mentions(text)} - _allowlist(ctx))
-        return _nobody("text sent by `gh api`", mentions) if mentions else None
-
-    sub = ctx.gh_subcommand()
-    if sub == ("pr", "review") and (
-        ctx.opt("-b", "--body") is not None or ctx.opt("-F", "--body-file") is not None
-    ):
-        if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+        triage = [text for text in texts if _is_triage(text)]
+        if not readable or not triage or ctx.override("MAGPIE_ALLOW_MENTIONS"):
             return None
-        body = ctx.gh_body(read_files=True)
-        if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
-            return _uninspectable("review")
-        mentions = sorted(set(ctx.mentions(body)) - _allowlist(ctx))
-        return _nobody("a review body", mentions) if mentions else None
+        mentions = sorted({m for text in triage for m in ctx.mentions(text)} - _allowlist(ctx))
+        return _nobody("triage text sent by `gh api`", mentions) if mentions else None
 
     sub = ctx.gh_subcommand()
     if sub is None:
@@ -139,11 +117,13 @@ def guard(ctx):
     if not (is_pr_body_edit or is_comment):
         return None
 
-    if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+    if ctx.opt("-F", "--body-file") == "-":
         return None
     body = ctx.gh_body(read_files=True)
-    if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
-        return _uninspectable("folded triage note" if is_pr_body_edit else "comment")
+    if UNREADABLE in body or not _is_triage(body):
+        return None
+    if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+        return None
     mentions = ctx.mentions(body)
     if not set(mentions) - _allowlist(ctx):
         return None
@@ -157,7 +137,7 @@ def guard(ctx):
         author = ctx.run(
             ["gh", view, "view", target, *ctx.repo_flag(), "--json", "author", "--jq", ".author.login"]
         )
-    surface = "folded triage note" if is_pr_body_edit else "author-directed comment"
+    surface = "folded triage note" if is_pr_body_edit else "triage comment"
     if not author:
         return (
             f"agent-guard[mention]: this {surface} @-mentions "
@@ -175,8 +155,6 @@ def guard(ctx):
         return None
     author_handle = _mention_handle(author)
     offenders = sorted({m for m in mentions if m != author_handle} - _allowlist(ctx))
-    if offenders and is_comment and _is_mentoring_handoff(ctx, offenders):
-        return None
     if offenders:
         return (
             f"agent-guard[mention]: a {surface} may only @-mention the PR author "
@@ -185,20 +163,3 @@ def guard(ctx):
             "MAGPIE_ALLOW_MENTIONS=1 for a deliberate exception."
         )
     return None
-
-
-def _is_mentoring_handoff(ctx, offenders):
-    """The one mention the mentoring hand-off exists to make, and nothing else."""
-    team = (
-        (ctx.committed_config_value("mentoring-config.md", "maintainer_team_handle") or "")
-        .lstrip("@")
-        .lower()
-    )
-    if not team or "/" not in team or offenders != [team]:
-        return False
-    # The team must belong to the organisation that owns the repository the
-    # comment goes to: a hand-off never reaches outside the project.
-    if team.split("/", 1)[0] != (ctx.target_repo_owner() or ""):
-        return False
-    body = (ctx.gh_body(read_files=True) or "").lstrip().lower()
-    return body.startswith(f"@{team}{HANDOFF_OPENING}")

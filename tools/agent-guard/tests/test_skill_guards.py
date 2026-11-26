@@ -97,30 +97,30 @@ def test_guard_files_exist():
 
 def test_mention_author_allowed(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    assert dispatch('gh pr comment 5 --body "@alice thanks"') is None
+    assert dispatch('gh pr comment 5 --body "<!-- pr-triage --> @alice thanks"') is None
 
 
 def test_mention_non_author_denied(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    reason = dispatch('gh pr comment 5 --body "@bob please review"')
+    reason = dispatch('gh pr comment 5 --body "<!-- pr-triage --> @bob please review"')
     assert reason and "bob" in reason and "mention" in reason
 
 
 def test_mention_own_pr_allows_maintainers(monkeypatch):
     # Operator commenting on their own PR may @-mention maintainers/reviewers.
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice", operator="alice")))
-    assert dispatch('gh pr comment 5 --body "@bob @carol please take a look"') is None
+    assert dispatch('gh pr comment 5 --body "<!-- pr-triage --> @bob @carol please take a look"') is None
 
 
 def test_mention_own_pr_case_insensitive(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="Alice", operator="alice")))
-    assert dispatch('gh pr comment 5 --body "@bob review please"') is None
+    assert dispatch('gh pr comment 5 --body "<!-- pr-triage --> @bob review please"') is None
 
 
 def test_mention_others_pr_still_denied_when_operator_known(monkeypatch):
     # Author is someone else; operator resolving successfully must not relax the rule.
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice", operator="carol")))
-    reason = dispatch('gh pr comment 5 --body "@bob ping"')
+    reason = dispatch('gh pr comment 5 --body "<!-- pr-triage --> @bob ping"')
     assert reason and "bob" in reason and "mention" in reason
 
 
@@ -129,18 +129,18 @@ def test_mention_app_author_allowed(monkeypatch):
     # while its @-mention handle is `<slug>`: `@dependabot rebase` on a
     # Dependabot PR addresses the author.
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="app/dependabot")))
-    assert dispatch('gh pr comment 5 --body "@dependabot rebase"') is None
+    assert dispatch('gh pr comment 5 --body "<!-- pr-triage --> @dependabot rebase"') is None
 
 
 def test_mention_bot_suffix_author_allowed(monkeypatch):
     # The REST spelling of the same author is `dependabot[bot]`.
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="dependabot[bot]")))
-    assert dispatch('gh pr comment 5 --body "@dependabot rebase"') is None
+    assert dispatch('gh pr comment 5 --body "<!-- pr-triage --> @dependabot rebase"') is None
 
 
 def test_mention_app_author_others_still_denied(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="app/dependabot")))
-    reason = dispatch('gh pr comment 5 --body "@dependabot rebase, @bob please merge"')
+    reason = dispatch('gh pr comment 5 --body "<!-- pr-triage --> @dependabot rebase, @bob please merge"')
     # Only the maintainer is refused; the App author stays allowed.
     assert reason and "maintainer(s) ['bob']" in reason
 
@@ -150,40 +150,30 @@ def test_fold_any_mention_denied(monkeypatch):
     # Stubbed so it never depends on a real `gh pr view` (and so the own-PR
     # exemption, author == operator, is not accidentally triggered).
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="bob", operator="carol")))
-    reason = dispatch('gh pr edit 5 --body "@alice heads up"')
+    reason = dispatch('gh pr edit 5 --body "<!-- pr-triage --> @alice heads up"')
     assert reason and "fold" in reason
 
 
 def test_fold_clean_allowed():
-    assert dispatch('gh pr edit 5 --body "rebased onto main, fixed conflicts"') is None
+    assert dispatch('gh pr edit 5 --body "<!-- pr-triage --> rebased onto main, fixed conflicts"') is None
 
 
 def test_mention_body_file(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     body = tmp_path / "b.md"
-    body.write_text("@bob please look", encoding="utf-8")
+    body.write_text("<!-- pr-triage --> @bob please look", encoding="utf-8")
     assert dispatch(f"gh pr comment 5 --body-file {body}") is not None
 
 
 def test_mention_author_unresolved_fails_closed(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(lambda a: None))
-    reason = dispatch('gh pr comment 5 --body "@bob hi"')
+    reason = dispatch('gh pr comment 5 --body "<!-- pr-triage --> @bob hi"')
     assert reason and "could not be verified" in reason
 
 
 def test_mention_override(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    assert dispatch('MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
-
-
-def test_review_body_may_mention_nobody(monkeypatch):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    reason = dispatch('gh pr review 5 --comment --body "@alice @bob see inline"')
-    assert reason and "review body" in reason
-
-
-def test_review_body_without_mentions_allowed():
-    assert dispatch('gh pr review 5 --comment --body "see the inline comments"') is None
+    assert dispatch('MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "<!-- pr-triage --> @bob ping"') is None
 
 
 def test_graphql_review_payload_is_scanned(tmp_path):
@@ -196,7 +186,7 @@ def test_graphql_review_payload_is_scanned(tmp_path):
                 "query": "mutation($body: String!) { addPullRequestReview(input: {}) { clientMutationId } }",
                 "variables": {
                     "body": "Summary",
-                    "threads": [{"body": "ask `@carol`"}, {"body": "@dave look"}],
+                    "threads": [{"body": "ask `@carol`"}, {"body": "<!-- pr-triage --> @dave look"}],
                 },
             }
         ),
@@ -212,7 +202,12 @@ def test_any_graphql_write_is_scanned_not_just_reviews(tmp_path):
 
     payload = tmp_path / "q.json"
     payload.write_text(
-        json.dumps({"query": "mutation { somethingNew(input: {}) { ok } }", "variables": {"note": "@x"}})
+        json.dumps(
+            {
+                "query": "mutation { somethingNew(input: {}) { ok } }",
+                "variables": {"note": "<!-- pr-triage --> @x"},
+            }
+        )
     )
     assert dispatch(f"gh api graphql --input {payload.as_posix()}")
 
@@ -243,47 +238,11 @@ def served(files, *, author="alice", repo="acme/product"):
     return _stub
 
 
-def _team(handle):
-    return {
-        "mentoring-config.md": f"| Key | Value | Notes |\n|---|---|---|\n| `maintainer_team_handle` | `{handle}` | x |\n"
-    }
-
-
 def _allow(*handles):
     cell = " ".join(f"`{h}`" for h in handles)
     return {
         "pr-management-config.md": f"| Key | Value | Notes |\n|---|---|---|\n| `mention_allowlist` | {cell} | x |\n"
     }
-
-
-def _handoff(tmp_path, body, repo_flag="--repo acme/product"):
-    f = tmp_path / "b.md"
-    f.write_text(body, encoding="utf-8")
-    return agent_guard.dispatch(
-        f"gh issue comment 7 {repo_flag} --body-file {f.as_posix()}", cwd=str(tmp_path)
-    )
-
-
-def test_mentoring_handoff_may_mention_the_configured_team(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", served(_team("@acme/committers")))
-    assert _handoff(tmp_path, "@acme/committers — handing this off: should this be a plugin?") is None
-
-
-def test_handoff_exemption_needs_the_template_opening(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", served(_team("@acme/committers")))
-    reason = _handoff(tmp_path, "hey @acme/committers look")
-    assert reason and "acme/committers" in reason
-
-
-def test_handoff_exemption_covers_the_team_only(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", served(_team("@acme/committers")))
-    reason = _handoff(tmp_path, "@acme/committers — handing this off: also @bob")
-    assert reason and "bob" in reason
-
-
-def test_handoff_never_reaches_another_organisation(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", served(_team("@other-org/committers")))
-    assert _handoff(tmp_path, "@other-org/committers — handing this off: q")
 
 
 def _local_commit(tmp_path, name, text):
@@ -308,43 +267,28 @@ def _local_commit(tmp_path, name, text):
     )
 
 
-def test_handoff_ignores_a_team_committed_only_locally(monkeypatch, tmp_path):
-    ((name, text),) = _team("@acme/committers").items()
-    _local_commit(tmp_path, name, text)
-    monkeypatch.setattr(agent_guard, "_run", served({}))
-    assert _handoff(tmp_path, "@acme/committers — handing this off: q")
-
-
-def test_handoff_ignores_a_team_served_by_another_repository(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", served(_team("@acme/committers"), repo="alice/product"))
-    assert _handoff(tmp_path, "@acme/committers — handing this off: q")
-
-
 def test_allowlisted_handle_passes_in_a_comment(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@release-bot", "@acme/docs-team")))
     assert (
         agent_guard.dispatch(
-            'gh pr comment 5 --repo acme/product --body "@alice see @release-bot"', cwd=str(tmp_path)
+            'gh pr comment 5 --repo acme/product --body "<!-- pr-triage --> @alice see @release-bot"',
+            cwd=str(tmp_path),
         )
         is None
     )
     reason = agent_guard.dispatch(
-        'gh pr comment 5 --repo acme/product --body "@release-bot and @bob"', cwd=str(tmp_path)
+        'gh pr comment 5 --repo acme/product --body "<!-- pr-triage --> @release-bot and @bob"',
+        cwd=str(tmp_path),
     )
     assert reason and "bob" in reason and "release-bot" not in reason
 
 
-def test_allowlisted_handle_passes_in_reviews_and_api_writes(monkeypatch, tmp_path):
+def test_allowlisted_handle_passes_in_api_writes(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@acme/docs-team")))
     assert (
         agent_guard.dispatch(
-            'gh pr review 5 -R acme/product --comment --body "cc @acme/docs-team"', cwd=str(tmp_path)
-        )
-        is None
-    )
-    assert (
-        agent_guard.dispatch(
-            'gh api repos/acme/product/issues/5/comments -f body="cc @acme/docs-team"', cwd=str(tmp_path)
+            'gh api repos/acme/product/issues/5/comments -f body="<!-- pr-triage --> cc @acme/docs-team"',
+            cwd=str(tmp_path),
         )
         is None
     )
@@ -354,33 +298,35 @@ def test_a_locally_committed_allowlist_is_ignored(monkeypatch, tmp_path):
     ((name, text),) = _allow("@bob").items()
     _local_commit(tmp_path, name, text)
     monkeypatch.setattr(agent_guard, "_run", served({}))
-    assert agent_guard.dispatch('gh pr comment 5 --repo acme/product --body "@bob"', cwd=str(tmp_path))
+    assert agent_guard.dispatch(
+        'gh pr comment 5 --repo acme/product --body "<!-- pr-triage --> @bob"', cwd=str(tmp_path)
+    )
 
 
 def test_the_allowlist_of_the_api_endpoint_repository_governs(monkeypatch, tmp_path):
     """An API write to another repository does not borrow the checkout's allowlist."""
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
     assert agent_guard.dispatch(
-        'gh api repos/victim/other/issues/5/comments -f body="@bob"', cwd=str(tmp_path)
+        'gh api repos/victim/other/issues/5/comments -f body="<!-- pr-triage --> @bob"', cwd=str(tmp_path)
     )
 
 
 @pytest.mark.parametrize(
     "command",
     [
-        'gh pr comment 5 --body "@bob"',
-        'gh pr comment https://github.com/victim/other/pull/5 --repo acme/product --body "@bob"',
-        'gh pr comment 5 --repo acme/product --repo victim/other --body "@bob"',
-        'gh pr comment 5 --repo acme/product -Rvictim/other --body "@bob"',
-        'gh pr comment 5 --body "-Racme/product @bob"',
-        'gh pr comment 5 -b "--repo=acme/product @bob"',
-        'gh pr comment 5 --repo acme/product --unknown-flag x --body "@bob"',
-        'gh api --unknown x repos/acme/product/issues/5/comments -f body="@bob"',
-        'gh api repos/acme/product/issues/5/comments repos/victim/other/x -f body="@bob"',
-        'gh api repos/acme/product/../../victim/other/issues/5/comments -f body="@bob"',
-        'gh api repos/acme/product%2F..%2F../victim/issues/5/comments -f body="@bob"',
-        'gh api repos/{owner}/{repo}/issues/5/comments -f body="@bob"',
-        'gh pr comment 5 --body "@bob, see https://github.com/acme/product/pull/1"',
+        'gh pr comment 5 --body "<!-- pr-triage --> @bob"',
+        'gh pr comment https://github.com/victim/other/pull/5 --repo acme/product --body "<!-- pr-triage --> @bob"',
+        'gh pr comment 5 --repo acme/product --repo victim/other --body "<!-- pr-triage --> @bob"',
+        'gh pr comment 5 --repo acme/product -Rvictim/other --body "<!-- pr-triage --> @bob"',
+        'gh pr comment 5 --body "<!-- pr-triage --> -Racme/product @bob"',
+        'gh pr comment 5 -b "<!-- pr-triage --> --repo=acme/product @bob"',
+        'gh pr comment 5 --repo acme/product --unknown-flag x --body "<!-- pr-triage --> @bob"',
+        'gh api --unknown x repos/acme/product/issues/5/comments -f body="<!-- pr-triage --> @bob"',
+        'gh api repos/acme/product/issues/5/comments repos/victim/other/x -f body="<!-- pr-triage --> @bob"',
+        'gh api repos/acme/product/../../victim/other/issues/5/comments -f body="<!-- pr-triage --> @bob"',
+        'gh api repos/acme/product%2F..%2F../victim/issues/5/comments -f body="<!-- pr-triage --> @bob"',
+        'gh api repos/{owner}/{repo}/issues/5/comments -f body="<!-- pr-triage --> @bob"',
+        'gh pr comment 5 --body "<!-- pr-triage --> @bob, see https://github.com/acme/product/pull/1"',
     ],
 )
 def test_no_allowlist_unless_the_target_is_explicit_and_unambiguous(monkeypatch, tmp_path, command):
@@ -391,7 +337,10 @@ def test_no_allowlist_unless_the_target_is_explicit_and_unambiguous(monkeypatch,
 def test_the_attached_short_repo_flag_names_the_target(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
     assert (
-        agent_guard.dispatch('gh pr comment 5 -Racme/product --body "@alice @bob"', cwd=str(tmp_path)) is None
+        agent_guard.dispatch(
+            'gh pr comment 5 -Racme/product --body "<!-- pr-triage --> @alice @bob"', cwd=str(tmp_path)
+        )
+        is None
     )
 
 
@@ -399,7 +348,8 @@ def test_a_pr_url_names_the_target(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
     assert (
         agent_guard.dispatch(
-            'gh pr comment https://github.com/acme/product/pull/5 --body "@alice @bob"', cwd=str(tmp_path)
+            'gh pr comment https://github.com/acme/product/pull/5 --body "<!-- pr-triage --> @alice @bob"',
+            cwd=str(tmp_path),
         )
         is None
     )
@@ -408,66 +358,44 @@ def test_a_pr_url_names_the_target(monkeypatch, tmp_path):
 def test_graphql_writes_get_no_allowlist(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
     assert agent_guard.dispatch(
-        'gh api graphql -f query="mutation { x(body: \\"@bob\\") }"', cwd=str(tmp_path)
+        'gh api graphql -f query="mutation { x(body: \\"<!-- pr-triage --> @bob\\") }"', cwd=str(tmp_path)
     )
 
 
 # --- bodies the guard cannot read, and text posted through `gh api` --------- #
 
 
-def test_comment_body_on_stdin_is_refused(monkeypatch):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    reason = dispatch("gh pr comment 5 --body-file -")
-    assert reason and "cannot be inspected" in reason
-
-
-def test_unreadable_body_file_is_refused(monkeypatch, tmp_path):
-    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    reason = dispatch(f"gh pr edit 5 --body-file {tmp_path / 'missing.md'}")
-    assert reason and "cannot be inspected" in reason
-
-
-def test_review_body_on_stdin_is_refused():
-    reason = dispatch("gh pr review 5 --comment --body-file -")
-    assert reason and "cannot be inspected" in reason
-
-
 def test_rest_comment_through_gh_api_is_scanned(tmp_path):
     body = tmp_path / "c.md"
-    body.write_text("ping @bob", encoding="utf-8")
+    body.write_text("<!-- pr-triage --> ping @bob", encoding="utf-8")
     reason = dispatch(f"gh api repos/acme/product/issues/5/comments -F body=@{body.as_posix()}")
     assert reason and "bob" in reason
 
 
 def test_rest_review_field_through_gh_api_is_scanned():
     reason = dispatch(
-        'gh api -X POST repos/acme/product/pulls/5/reviews -f body="cc @carol" -f event=COMMENT'
+        'gh api -X POST repos/acme/product/pulls/5/reviews -f body="<!-- pr-triage --> cc @carol" -f event=COMMENT'
     )
     assert reason and "carol" in reason
 
 
 def test_graphql_comment_mutation_in_a_field_is_scanned():
     reason = dispatch(
-        'gh api graphql -f query="mutation { addComment(input: {subjectId: \\"X\\", body: \\"@dave hi\\"}) '
+        'gh api graphql -f query="mutation { addComment(input: {subjectId: \\"X\\", body: \\"<!-- pr-triage --> @dave hi\\"}) '
         '{ clientMutationId } }"'
     )
     assert reason and "dave" in reason
 
 
-def test_graphql_on_stdin_is_refused():
-    reason = dispatch("gh api graphql --input -")
-    assert reason and "cannot be inspected" in reason
-
-
 @pytest.mark.parametrize(
     "command",
     [
-        'gh api -XPOST repos/acme/product/issues/5/comments -f body="hi @bob"',
-        'gh api --method=PATCH repos/acme/product/issues/comments/9 -f body="hi @bob"',
-        'gh api repos/acme/product/issues/5/comments -fbody="hi @bob"',
-        'gh api repos/acme/product/issues/5/comments --raw-field=body="hi @bob"',
-        'gh api repos/acme/product/issues/5/comments --field=body="hi @bob"',
-        'gh api repos/acme/product/some/new/endpoint -f note="hi @bob"',
+        'gh api -XPOST repos/acme/product/issues/5/comments -f body="<!-- pr-triage --> hi @bob"',
+        'gh api --method=PATCH repos/acme/product/issues/comments/9 -f body="<!-- pr-triage --> hi @bob"',
+        'gh api repos/acme/product/issues/5/comments -fbody="<!-- pr-triage --> <!-- pr-triage --> hi @bob"',
+        'gh api repos/acme/product/issues/5/comments --raw-field=body="<!-- pr-triage --> hi @bob"',
+        'gh api repos/acme/product/issues/5/comments --field=body="<!-- pr-triage --> hi @bob"',
+        'gh api repos/acme/product/some/new/endpoint -f note="<!-- pr-triage --> hi @bob"',
     ],
 )
 def test_every_spelling_of_a_gh_api_write_is_scanned(command):
@@ -477,7 +405,7 @@ def test_every_spelling_of_a_gh_api_write_is_scanned(command):
 
 def test_a_field_file_in_attached_form_is_read(tmp_path):
     body = tmp_path / "c.md"
-    body.write_text("ping @bob", encoding="utf-8")
+    body.write_text("<!-- pr-triage --> ping @bob", encoding="utf-8")
     assert dispatch(f"gh api repos/acme/product/issues/5/comments --field=body=@{body}")
 
 
@@ -491,7 +419,55 @@ def test_api_reads_are_not_scanned():
 
 
 def test_api_text_without_mentions_passes():
-    assert dispatch('gh api repos/acme/product/issues/5/comments -f body="thanks, merged"') is None
+    assert (
+        dispatch('gh api repos/acme/product/issues/5/comments -f body="<!-- pr-triage --> thanks, merged"')
+        is None
+    )
+
+
+# --- only triage bodies are checked ------------------------------------------ #
+
+
+def test_a_comment_without_a_triage_marker_may_mention_anyone(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch('gh pr comment 5 --body "@bob @carol please take a look"') is None
+
+
+def test_a_review_is_never_checked(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch('gh pr review 5 --request-changes --body "As @dpol1 said, see @bob"') is None
+
+
+def test_a_body_edit_without_a_fold_may_mention_anyone():
+    assert dispatch('gh pr edit 5 --body "Supersedes the work @alice started"') is None
+
+
+def test_api_text_without_a_triage_marker_may_mention_anyone(tmp_path):
+    import json
+
+    payload = tmp_path / "review.json"
+    payload.write_text(
+        json.dumps({"event": "COMMENT", "body": "cc @carol", "comments": []}), encoding="utf-8"
+    )
+    assert dispatch(f"gh api repos/acme/product/pulls/5/reviews -X POST --input {payload.as_posix()}") is None
+
+
+def test_a_mentoring_hand_off_is_not_triage(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch('gh issue comment 7 --body "@acme/committers — handing this off: q"') is None
+
+
+def test_a_folded_note_is_recognised_by_its_fold_marker(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="bob", operator="carol")))
+    reason = dispatch('gh pr edit 5 --body "<!-- pr-triage-fold: triaged=x --> @alice heads up"')
+    assert reason and "fold" in reason
+
+
+def test_a_body_the_guard_cannot_read_is_let_through(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch("gh pr comment 5 --body-file -") is None
+    assert dispatch(f"gh pr edit 5 --body-file {tmp_path / 'missing.md'}") is None
+    assert dispatch("gh api graphql --input -") is None
 
 
 # --- mark-ready guard (skill-owned) ---------------------------------------- #
@@ -590,13 +566,15 @@ def test_security_override():
 @pytest.mark.parametrize("prefix", ["env ", "env -i ", "env FOO=1 ", "command ", "env command "])
 def test_prefix_wrappers_reach_the_mention_guard(monkeypatch, prefix):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    reason = dispatch(f'{prefix}gh pr comment 5 --body "@bob please review"')
+    reason = dispatch(f'{prefix}gh pr comment 5 --body "<!-- pr-triage --> @bob please review"')
     assert reason and "bob" in reason and "mention" in reason
 
 
 def test_an_override_on_env_still_counts(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
-    assert dispatch('env MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
+    assert (
+        dispatch('env MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "<!-- pr-triage --> @bob ping"') is None
+    )
 
 
 # --- lefthook hooks-path guard (skill-owned) ------------------------------- #
