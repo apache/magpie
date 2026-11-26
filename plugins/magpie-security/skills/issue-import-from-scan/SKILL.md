@@ -370,7 +370,15 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
      cut with a note to stay under GitHub's comment limit ([format](../../../../tools/scan-format/README.md#the-encrypted-archive)).
      Copy it into `<workspace>` and post it on the new private tracker with
      `uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-import-from-scan issue-comment <N> <workspace>/<id>.md`.
-     Nothing in it is run or applied; it describes the vulnerability, so it never goes into a public PR;
+     Nothing in it is run or applied; it describes the vulnerability, so it never goes into a public PR.
+     **A scan import is the bulk case batching exists for:** when the approved vetted-ops policy sets
+     `[approval] private_tracker_writes` to `batch` or `none`, run every confirmed import through Step 7's
+     [batched phases](../issue-import/apply.md#step-7--apply-confirmed-imports) under the `security-issue-import` caller,
+     so the creates are one confirmation and the board moves and rollup entries another, whatever the number of findings.
+     The evidence comments are tracker writes too: add each confirmed one to the last batch
+     as an `issue-comment <N> <workspace>/<id>.md` entry (the caller needs the `issue-comment` grant it already has for the rejections ledger),
+     instead of one `vetted-op` call each.
+     Anything bound for a public surface (the gist, a scan-repository comment, the report-back PR) never goes in a batch;
    - **PR-worth / defense-in-depth** → hand to
      [`security-issue-fix`](../issue-fix/SKILL.md) (public PR) or skip;
    - **by-design / dup / already-fixed** → no action; the report is the record.

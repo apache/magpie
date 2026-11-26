@@ -529,7 +529,7 @@ The full block below is the two merged, annotated.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
-    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, `vetted-op`) are
+    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, the two batch entry points, `vetted-op`) are
     // excluded for the same reason: their writes need a gh that can verify
     // TLS, and a sandboxed `vetted-op` cannot even read ~/.claude/magpie to
     // start. Each operation is a fixed gh argv built from the catalogue, with
@@ -557,6 +557,10 @@ The full block below is the two merged, annotated.
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
@@ -795,6 +799,10 @@ The full block below is the two merged, annotated.
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",  // checked batches of private-tracker writes: one prompt per batch, never `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",  // runs only a policy set to private_tracker_writes = "none"; the one batch rule an adopter on `none` may move to `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
       "Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)",  // cve-tool: excluded from the sandbox above, and it changes CVE records, so every call asks
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",  // push / worktree moves outside the sandbox: never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)",
@@ -992,6 +1000,10 @@ policy in a path the sandbox does not grant write to and point
 each bounded by the approved policy's `[git]` table and the operator's own `operator-git.toml`.
 `vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
 and their runner refuses any `gh` call outside `repos/<tracker>/`.
+`vetted-op-tracker-batch` runs only a manifest of private-tracker writes that `vetted-op-read batch-check` printed for the user, on a tracker the forge confirms is private,
+and only when the approved policy turns batching on; it always keeps its `ask`.
+Its twin `vetted-op-tracker-batch-unprompted` refuses every policy not set to `[approval] private_tracker_writes = "none"`, and is the only write entry point an adopter on `none` may move to `allow`
+([batch design note](../designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts)).
 `vetted-op` runs the whole write catalogue, but each operation is a fixed `gh` argv with no shell,
 parameters that may not start with `-`, and a body read only from the owner-only workspace,
 so unsandboxed it reaches less than the bare `gh *` the framework already excludes.
@@ -1057,7 +1069,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
-5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker`, `vetted-op-git` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
+5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted`, `vetted-op-git` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
    Without them, an allowed call runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
 6. The agent-guard plugin is installed, so the `vetted-ops-spelling` guard turns an expanded spelling into a refusal instead of a sandboxed call that fails silently.
 
@@ -1067,7 +1079,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "excludedCommands": [
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
-    // ...plus the two vetted-op-tracker, two vetted-op-git and two vetted-op entries
+    // ...plus the two vetted-op-tracker, two vetted-op-tracker-batch, two vetted-op-tracker-batch-unprompted, two vetted-op-git and two vetted-op entries
   ]
 },
 "permissions": {
@@ -4105,6 +4117,11 @@ never delete it:
      `sandbox.excludedCommands` (both forms), never in `allow`;
      an exclusion without its `ask` is ✗ (the prompt is the only
      gate on an unsandboxed write).
+   - `vetted-op-tracker-batch` is in `ask` and `sandbox.excludedCommands` (both forms),
+     never in `allow` (it also runs `batch` policies, which asked for a prompt).
+   - `vetted-op-tracker-batch-unprompted` is in `sandbox.excludedCommands` (both forms) and in `ask`,
+     or in `allow` only when the approved policy sets
+     `[approval] private_tracker_writes = "none"`; excluded with neither is ✗.
    - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the

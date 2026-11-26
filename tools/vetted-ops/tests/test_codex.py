@@ -37,7 +37,9 @@ def test_rules_keep_stable_path_and_never_allow_writes(tmp_path: Path) -> None:
     text = render_rules(stable)
     assert str(target) not in text
     assert text.count('decision = "allow"') == 2
-    assert text.count('decision = "prompt"') == 6
+    assert text.count('decision = "prompt"') == 10
+    assert '"vetted-op-tracker-batch-unprompted"], decision = "prompt"' in text
+    assert '"vetted-op-tracker-batch"], decision = "prompt"' in text
     assert '"vetted-op-git"], decision = "prompt"' in text
     assert str(stable) in text
 

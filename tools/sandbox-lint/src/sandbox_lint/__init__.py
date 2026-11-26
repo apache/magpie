@@ -155,7 +155,17 @@ VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
 # allow, and the prompt is then the gate on every remote mutation.
 VETTED_OP_WRITE_SAMPLE_COMMANDS = tuple(
     f"{launcher} {VETTED_OPS_BASE} {name} --caller sandbox-lint pr-add-label 1 sandbox-lint"
-    for name in ("vetted-op-tracker", "vetted-op-git", "vetted-op")
+    for name in ("vetted-op-tracker", "vetted-op-tracker-batch", "vetted-op-git", "vetted-op")
+    for launcher in VETTED_OP_READ_LAUNCHERS
+)
+# The unprompted private-tracker batch dispatcher, one sample per launcher. It
+# runs only a checked manifest of private-tracker writes, and only under a
+# policy that sets `[approval] private_tracker_writes = "none"`, so it is the
+# one write dispatcher an adopter may put in `allow`; excluded, it must still
+# match `ask` or `allow`. `vetted-op-tracker-batch` (which also runs `batch`
+# policies) stays with the write dispatchers above: ask, never allow.
+VETTED_OP_BATCH_SAMPLE_COMMANDS = tuple(
+    f"{launcher} {VETTED_OPS_BASE} vetted-op-tracker-batch-unprompted --caller sandbox-lint --expect 0 m.json"
     for launcher in VETTED_OP_READ_LAUNCHERS
 )
 # Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
@@ -355,6 +365,10 @@ EXCLUDED_COMMAND_ALLOWLIST = frozenset(
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
@@ -1157,7 +1171,7 @@ def _vetted_op_read_never_prompts(
 def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: list[str]) -> list[str]:
     """Violations of the always-prompt shape for the vetted-ops write dispatchers.
 
-    `vetted-op`, `vetted-op-tracker` and `vetted-op-git` run outside the sandbox (a sandboxed
+    `vetted-op`, `vetted-op-tracker`, `vetted-op-tracker-batch` and `vetted-op-git` run outside the sandbox (a sandboxed
     `gh` cannot verify TLS), which is safe only while every call still asks.
     A write command that is excluded or allowed must therefore match an `ask` rule.
     """
@@ -1179,6 +1193,19 @@ def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: lis
                 f"permissions.ask: must contain a rule matching {dispatcher!r} "
                 f"(sandbox.excludedCommands {excluded_by[0]!r} runs it outside the sandbox, "
                 "so its prompt is the only gate on the write)"
+            )
+    # The unprompted batch dispatcher may be allowed (the adopter's "none"
+    # choice; it refuses any other policy) or asked (the default); excluded
+    # with neither, its approval is left to chance.
+    for command in VETTED_OP_BATCH_SAMPLE_COMMANDS:
+        if any(_bash_rule_matches(rule, command) for rule in [*ask, *allow]):
+            continue
+        excluded_by = [entry for entry in excluded if fnmatch.fnmatchcase(command, entry)]
+        if excluded_by:
+            errors.append(
+                f"permissions.ask: must contain a rule matching {command.split(' --caller')[0]!r} "
+                f"(sandbox.excludedCommands {excluded_by[0]!r} runs it outside the sandbox; "
+                "ask, or allow only where the policy sets private_tracker_writes = 'none')"
             )
     return errors
 

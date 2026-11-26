@@ -6,13 +6,15 @@
 Read this when the walk-through reaches Step V and both of its conditions in `SKILL.md` hold:
 the adopter routes forge operations through `vetted-ops`, and the sandbox is on.
 
-There are four console scripts over one catalogue, and which of them
+There are six console scripts over one catalogue, and which of them
 gets the `allow` is the entire security question:
 
 | Entry point | Can write? | Permission |
 |---|---|---|
 | `vetted-op-read` | never — refused before policy or `--caller` is consulted | `allow` |
 | `vetted-op-tracker` | only the tracker rollup / body-field procedures — everything else refused before policy | `ask` |
+| `vetted-op-tracker-batch` | only a checked manifest of private-tracker writes, when the approved policy turns batching on (`batch` or `none`) | `ask` |
+| `vetted-op-tracker-batch-unprompted` | the same, and only under a policy set to `none`; refuses any other policy before reading the manifest | `ask` (`allow` only on the adopter's explicit `private_tracker_writes = "none"`) |
 | `vetted-op-git` | only the git operations the sandbox blocks, plus `git-pr-create` | `ask` |
 | `vetted-op` | yes | `ask` |
 
@@ -35,6 +37,10 @@ writes structurally.
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
@@ -66,8 +72,10 @@ gatherer agents use `uvx --from`, because `uv run` in the plugin cache
 needs to write a venv there. A rule for only one form leaves every call
 in the other form prompting.
 
-Add both forms of `vetted-op-tracker`, `vetted-op-git` and `vetted-op` to `sandbox.excludedCommands` too
+Add both forms of `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted`, `vetted-op-git` and `vetted-op` to `sandbox.excludedCommands` too
 (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *"`,
 `"uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *"`,
 `"uv run --project ~/.claude/magpie/vetted-ops vetted-op *"` and `"uvx --from ~/.claude/magpie/vetted-ops vetted-op *"`):
 their writes need a `gh` that can verify TLS, which a sandboxed one cannot,
@@ -76,9 +84,12 @@ and a sandboxed `vetted-op` cannot even read `~/.claude/magpie/` to start.
 and a linked worktree's administrative directory is read-only there.
 Excluding them is acceptable because every operation is a fixed `gh` argv with no shell
 and bodies come only from the workspace, so they reach less than the bare `gh *` already excluded;
-`vetted-op-tracker` is further closed to the tracker procedures.
-**All three stay in `ask`, never `allow`**, so each write keeps its confirmation;
+`vetted-op-tracker` is further closed to the tracker procedures, and the two batch entry points to a checked manifest of them and the other private-tracker writes.
+**All five stay in `ask`, never `allow`**, so each write (or each batch) keeps its confirmation;
 `sandbox-lint` fails an exclusion that has lost its `ask`.
+The one exception is the adopter's to make, never the agent's to propose unprompted:
+a project whose approved policy sets `[approval] private_tracker_writes = "none"` may move the two `vetted-op-tracker-batch-unprompted` rules, and only those, to `allow` (never `vetted-op-tracker-batch`, which also runs `batch` policies), after reading what that gives up in the
+[batch design note](../../../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts).
 
 Before the user approves the policy, propose the grants the installed skills use.
 Run the caller-grant comparison of [`setup reconcile` check 3a](../setup/reconcile.md#the-sweep): every installed

@@ -26,6 +26,7 @@ never supplied on the command line — a caller cannot widen its own policy.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -67,6 +68,15 @@ PATTERNS_SUFFIX = "_patterns"
 #: label reaches `gh` list flags and search qualifiers, and a login has its own
 #: format check, so both stay listed by name.
 PATTERN_KEYS = frozenset({"milestones"})
+
+#: ``[approval] private_tracker_writes``: how writes to the private tracker are
+#: approved. ``each`` (the default) keeps one confirmation per call and turns
+#: `vetted-op-tracker-batch` off; ``batch`` turns it on, so a checked manifest of
+#: tracker writes runs under one confirmation; ``none`` also turns it on and
+#: records that the adopter allows the batch entry point without a prompt. The
+#: prompt itself comes from the harness's permission rules, never from this tool,
+#: so ``batch`` and ``none`` act alike here (see `batch.py`).
+PRIVATE_TRACKER_WRITES = ("each", "batch", "none")
 
 
 def cast_patterns(raw: object, key: str) -> list[str]:
@@ -171,6 +181,11 @@ class Config:
     tracker_backend: TrackerBackend | None = None
     #: The raw ``[git]`` table, validated by `git_ops.git_policy` for `vetted-op-git`.
     git: object = None
+    #: ``[approval] private_tracker_writes``, one of `PRIVATE_TRACKER_WRITES`.
+    private_tracker_writes: str = "each"
+    #: SHA-256 of the policy file's bytes: binds a checked batch to the very
+    #: policy (and so the approved copy) it was checked against.
+    policy_sha256: str = ""
 
     def as_mapping(self) -> dict[str, object]:
         """The mapping handed to an operation's ``build`` callable."""
@@ -314,6 +329,24 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     )
 
 
+def _approval(raw: object) -> str:
+    """Validate the optional ``[approval]`` table; return ``private_tracker_writes``."""
+    if raw is None:
+        return "each"
+    if not isinstance(raw, dict):
+        raise ConfigError("[approval] must be a table")
+    unknown = sorted(set(raw) - {"private_tracker_writes"})
+    if unknown:
+        raise ConfigError(f"[approval] takes only 'private_tracker_writes', got {', '.join(unknown)}")
+    value = raw.get("private_tracker_writes", "each")
+    if value not in PRIVATE_TRACKER_WRITES:
+        raise ConfigError(
+            f"[approval] private_tracker_writes must be one of {', '.join(PRIVATE_TRACKER_WRITES)}, "
+            f"got {value!r}"
+        )
+    return str(value)
+
+
 def _discover(base: Path) -> tuple[Path, bytes]:
     found = _discover_optional(base)
     if found is None:
@@ -455,6 +488,8 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
         callers=callers,
         tracker_backend=_tracker_backend(raw.get("tracker")),
         git=raw.get("git"),
+        private_tracker_writes=_approval(raw.get("approval")),
+        policy_sha256=hashlib.sha256(data).hexdigest(),
     )
 
 
@@ -470,6 +505,7 @@ def describe(config: Config) -> str:
             "callers": {k: sorted(v) for k, v in sorted(config.callers.items())},
             "tracker_backend": (dict(vars(config.tracker_backend)) if config.tracker_backend else "github"),
             "git": config.git,
+            "approval": {"private_tracker_writes": config.private_tracker_writes},
         },
         indent=2,
         sort_keys=True,

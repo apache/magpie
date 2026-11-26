@@ -11,6 +11,8 @@ The write dispatcher in an `allow` list grants the whole catalogue, because whoe
 Report that as a must-fix, ahead of anything else in this section.
 `vetted-op-tracker` or `vetted-op-git` in `allow`, or an excluded write dispatcher with no matching `ask` rule, is the same must-fix.
 `vetted-op-tracker`, `vetted-op-git` and `vetted-op` each in `ask` and in `sandbox.excludedCommands` (both the `uv run --project` and `uvx --from` forms) is the intended wiring; a missing entry is drift, since without the exclusion their writes fail in the sandbox (for `vetted-op-git`, an SSH push gets no connection through the sandbox's proxy and a linked worktree's administrative directory is read-only there).
+`vetted-op-tracker-batch` and `vetted-op-tracker-batch-unprompted` are wired the same way.
+`vetted-op-tracker-batch` in `allow` is the same must-fix as any write dispatcher there; `vetted-op-tracker-batch-unprompted` in `allow` is correct only when the approved policy sets `[approval] private_tracker_writes = "none"`, and a must-fix otherwise.
 
 **Second, `permissions.deny` still covers both surfaces**, each with an `Edit` rule:
 

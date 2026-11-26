@@ -23,6 +23,7 @@ The dispatcher.
 ``vetted-op-tracker --caller <name> <operation> [param …]``  (tracker procedures only, by construction)
 ``vetted-op-read approval-status``  (whether the discovered policy is an approved copy; JSON)
 ``vetted-op-read source``  (what ~/.claude/magpie/vetted-ops is: plugin, copy or checkout; JSON)
+``vetted-op-read --caller <name> batch-check <manifest.json>``  (check a tracker-write batch; runs nothing)
 
 Everything the caller supplies is a *parameter*, never a fragment of a command.
 The operation name selects a builder from the closed catalogue; the builder
@@ -63,6 +64,7 @@ import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import batch as batch_mod
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
 from .config import Config, ConfigError, approval_status, describe, load
@@ -76,6 +78,8 @@ EXIT_COMMAND = 4
 #: The `vetted-op-read` subcommand that reports whether the discovered policy is approved.
 APPROVAL_STATUS = "approval-status"
 SOURCE = "source"
+#: The `vetted-op-read` subcommand that checks a tracker-write batch (see batch.py).
+BATCH_CHECK = "batch-check"
 
 
 def _validate_params(
@@ -290,7 +294,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         "operation",
         nargs="?",
         help="operation name, or 'list-ops' / 'policy'"
-        + (" / 'approval-status' / 'source'" if read_only else ""),
+        + (" / 'approval-status' / 'source' / 'batch-check'" if read_only else ""),
     )
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
@@ -349,6 +353,12 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         except ConfigError as exc:
             print(f"{prog}: refused: {exc}", file=sys.stderr)
             return EXIT_POLICY
+
+    # After the --policy-from checks above (once, no --config, a listed
+    # checkout): the batch check loads the approved policy the same way the
+    # batch scripts do, including the upstream check.
+    if read_only and args.operation == BATCH_CHECK:
+        return _batch_check(args, prog)
 
     try:
         # The write entry points act only on a policy the user approved (see
@@ -462,6 +472,33 @@ def _source(args: argparse.Namespace, prog: str) -> int:
         return EXIT_USAGE
     print(json.dumps(stable_source()))
     return EXIT_OK
+
+
+def _batch_check(args: argparse.Namespace, prog: str) -> int:
+    """Check a tracker-write manifest against the approved policy and print its summary.
+
+    It runs nothing, so it lives on the read entry point and never prompts. It
+    takes the approved policy only (`--config` is refused): the summary it
+    prints, and the digest the batch run is held to, are about the policy the
+    run will act on. Body and title files show by size, never by content.
+    """
+    extra = [
+        flag
+        for flag, given in (
+            ("--config", args.config is not None),
+            ("--save", args.save is not None),
+            ("--dry-run", args.dry_run),
+        )
+        if given
+    ]
+    if extra or not args.caller or len(args.params) != 1:
+        print(
+            f"{prog}: refused: usage: {prog} --caller <name> [--policy-from DIR] {BATCH_CHECK} <manifest.json>"
+            + (f" (takes no {', '.join(extra)})" if extra else ""),
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    return batch_mod.check_main(args.caller, args.params[0], args.policy_from, BATCH_SINGLE)
 
 
 def _approval_status(args: argparse.Namespace, prog: str) -> int:
@@ -759,3 +796,25 @@ def main_tracker(argv: list[str] | None = None) -> int:
     in `ask`, never in `allow`.
     """
     return main(argv, tracker_only=True)
+
+
+#: The single-call machinery a batch reuses, handed to `batch` so that the
+#: dependency runs one way (`cli` imports `batch`; `batch` imports nothing from
+#: `cli`) while every batch entry still goes through exactly this code.
+BATCH_SINGLE = batch_mod.SingleCall(
+    validate=_validate_params,
+    build=build_argv,
+    dispatch=_dispatch,
+    consume=_consume,
+    reject_repeated_caller=_reject_repeated_caller,
+)
+
+
+def main_batch(argv: list[str] | None = None) -> int:
+    """The `vetted-op-tracker-batch` console script: a checked batch under a `batch` or `none` policy (see batch.py)."""
+    return batch_mod.main(argv, single=BATCH_SINGLE)
+
+
+def main_batch_unprompted(argv: list[str] | None = None) -> int:
+    """The `vetted-op-tracker-batch-unprompted` console script: the same, for a `none` policy only."""
+    return batch_mod.main(argv, single=BATCH_SINGLE, unprompted=True)
