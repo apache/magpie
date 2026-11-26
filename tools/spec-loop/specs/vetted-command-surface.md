@@ -417,6 +417,36 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    [`tools/permission-audit`](../../permission-audit/README.md) is the natural
    place to detect and offer to remove them.
 
+## Batches of private-tracker writes (`vetted-op-tracker-batch`, `-unprompted`)
+
+A bulk run makes dozens of private-tracker writes, and each vetted call is one permission prompt.
+When the approved policy sets `[approval] private_tracker_writes` to `batch` or `none`
+(default `each`: the batch entry point refuses), a skill writes those writes into one JSON manifest in the workspace
+(`{"version": 1, "ops": [{"op": …, "params": […]}, …]}`, 1–200 entries, positional parameters exactly as a single call takes them).
+`vetted-op-read --caller <skill> batch-check <manifest>` checks it against the approved policy and prints one line per entry
+(bodies and file titles by size only) and a digest; it runs nothing.
+The digest binds the destination and what runs: the approved policy's hash, tracker, tracker backend, board id, resolved workspace and mode,
+the manifest, every body and title it names, and every entry's built command, so a manifest checked under one policy is refused under another.
+`vetted-op-tracker-batch --caller <skill> --expect <digest> <manifest>` checks the manifest again,
+refuses a digest that does not match, and runs the entries in order, stopping at the first failure.
+Its report lists the entries that `succeeded`, the failing one as `unknown` (a write can land and still exit non-zero) and the rest as `not_run`;
+the caller reads the tracker before proposing the unknown entry again.
+Body and title files are consumed only after every entry succeeded; the manifest is removed after any run, so it is never rerun blindly.
+`vetted-op-tracker-batch-unprompted` takes the same arguments and refuses, before it reads the manifest, any policy not set to `none`.
+Every check runs before the first write, and one failure refuses the whole batch:
+batching on, the schema, every operation in the closed `BATCHABLE` list of private-tracker writes
+(public and outbound writes — `pr-*`, `repo-issue-*`, `advisory-comment`, the CVE-tool operations, `tracker-publish`, `vetted-op-git` — are refused by name, even when granted),
+the caller's grants, the single-call parameter checks and builder, a built argv that addresses the tracker or the policy's board,
+and, on GitHub, the forge reporting the tracker private and a touched board not public.
+The prompt is the harness's: both batch dispatchers are excluded from the sandbox and on `ask` like the other write dispatchers.
+sandbox-lint accepts `allow` for `vetted-op-tracker-batch-unprompted` alone, which an adopter writes only under `none`;
+since that script runs no other mode, an `allow` for one project cannot run another approved project's `batch` policy unprompted, whichever policy `--policy-from` or `cd` selects.
+`batch-check` and both batch dispatchers take `--policy-from <dir>` with the single-call dispatchers' confinement:
+only a checkout the operator's own `operator-git.toml` lists, compared as text before the file system is touched,
+and only an approved policy there that lists that checkout for its upstream; a repeated `--policy-from` is refused.
+Design, alternatives and the trade-off of `none`:
+[`docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md`](../../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md).
+
 ## Git operations the sandbox blocks (`vetted-op-git`)
 
 A fourth entry point, `vetted-op-git`

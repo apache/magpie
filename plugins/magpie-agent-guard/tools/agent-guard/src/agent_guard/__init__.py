@@ -2084,6 +2084,8 @@ VETTED_ENTRY_POINTS = {
     "vetted-op": "vetted-ops",
     "vetted-op-read": "vetted-ops",
     "vetted-op-tracker": "vetted-ops",
+    "vetted-op-tracker-batch": "vetted-ops",
+    "vetted-op-tracker-batch-unprompted": "vetted-ops",
     "vetted-op-git": "vetted-ops",
     "adversarial-review": "adversarial-review",
 }

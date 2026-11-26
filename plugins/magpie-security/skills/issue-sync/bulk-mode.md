@@ -245,6 +245,25 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    so `gh` rate limits, partial failures and user interrupts stay legible.
    Do not spawn subagents for the apply phase.
 
+   **One confirmation for the tracker writes, when the policy allows it.**
+   Read `approval.private_tracker_writes` from `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read policy`.
+   When it is `batch` or `none`, collect the confirmed **non-CVE-affecting** items that are private-tracker writes —
+   label, milestone and assignee changes, `body-field-set`, board moves and archives, tracker comments and the per-tracker `rollup-append` / `rollup-amend-latest` entries —
+   into one manifest, `<workspace>/batch-sync-<date>.json`, in the apply order above (ascending tracker number, each tracker's items in proposal order, its rollup entry last).
+   Run `batch-check` on it, show the user its summary next to the merged proposal they confirmed, and on their yes run the batch with the printed digest
+   (`vetted-op-tracker-batch` under `batch`, `vetted-op-tracker-batch-unprompted` under `none`;
+   [vetted-ops → Batches of private-tracker writes](../../../../tools/vetted-ops/README.md#batches-of-private-tracker-writes)).
+   Everything else keeps its own confirmation, in the order [apply-and-push.md](apply-and-push.md) gives it:
+   the whole CVE-affecting bucket (body-field edits that change the record, the regen and the `cve-record-update` push, and the rollup entry recording them),
+   Gmail drafts, advisory comments, and anything on a public repository.
+   The batch entry point refuses those by name, so a manifest that holds one is a bug in the run, not a policy question.
+   On a `stopped` report, the `unknown` entry may or may not have taken effect: first read that tracker's state for it
+   (`issue-view` for labels, milestone and assignees, `body-field-get`, `board-item`, `issue-comments` for a rollup entry),
+   then tell the user which entries succeeded, what the unknown one turned out to be, and which did not run,
+   and propose a new manifest with the `not_run` entries, plus the unknown one only if it did not take effect.
+   Every body file is still in the workspace; the old manifest is gone, and is never rebuilt whole.
+   With `each`, or a refusal saying batching is off, apply one call at a time as before.
+
 6. **State-summary draft, after the apply and the end-of-sync sweep.**
    When `parse-bulk-reply` returned `summary: draft`, run this after the apply loop and the [Step 5d sweep](apply-and-push.md#step-5d--end-of-sync-reconciliation-sweep-board--milestone--rm-hand-off), and before the recap.
    Update each report to the applied state: set `current_labels`, `current_milestone`, `milestone_due_on`, assignee, `state` (closed by this run), `release_manager`, `advisory_shipped`

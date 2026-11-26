@@ -22,6 +22,7 @@
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
+  - [Batches of private-tracker writes](#batches-of-private-tracker-writes)
   - [Tracker backends](#tracker-backends)
   - [Git operations the sandbox blocks](#git-operations-the-sandbox-blocks)
   - [Wiring it into settings](#wiring-it-into-settings)
@@ -888,6 +889,79 @@ The parsing and composing code is vendored byte-for-byte from the two tools
 copy of its own directory and cannot import them; a test fails if a copy drifts
 from its source.
 
+## Batches of private-tracker writes
+
+A bulk run (an import of a dozen reports, a bulk sync) makes dozens of tracker writes, and each vetted call is one permission prompt.
+When the approved policy turns batching on, a skill writes those writes into one manifest and the user confirms them once.
+Design and trade-offs: [the batch design note](../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md).
+
+```toml
+[approval]
+# each  — the default: every tracker write prompts on its own; the batch entry point refuses.
+# batch — a checked manifest of private-tracker writes runs under one prompt.
+# none  — as batch, and the adopter allows vetted-op-tracker-batch-unprompted without a prompt.
+private_tracker_writes = "batch"
+```
+
+There are two batch entry points, so that an unprompted run can never act on a policy whose adopter asked for a prompt:
+
+| Entry point | Runs a policy set to | Permission |
+|---|---|---|
+| `vetted-op-tracker-batch` | `batch` or `none` | `ask`, always |
+| `vetted-op-tracker-batch-unprompted` | `none` only; refuses anything else before it reads the manifest | `ask` by default; `allow` only where the adopter chose `none` |
+
+Without the split, an `allow` written for a `none` project would also run, unprompted, the policy of any other approved project the caller selects with `--policy-from` or `cd`, including one set to `batch`.
+`batch-check` and both batch scripts take `--policy-from <dir>` under the same rules as the single-call dispatchers:
+only a checkout listed in your own `operator-git.toml`, compared as text before anything on disk is touched,
+whose approved policy lists that checkout for its upstream.
+Pass body files and the manifest as absolute paths with it.
+Skills run `vetted-op-tracker-batch-unprompted` when the policy says `none`, and `vetted-op-tracker-batch` otherwise.
+
+The manifest is a `.json` file in the workspace, written with the file-writing tool:
+
+```json
+{"version": 1,
+ "ops": [{"op": "issue-add-label", "params": ["212", "needs triage"]},
+         {"op": "rollup-append", "params": ["212", "Sync", "<workspace>/entry-212.md"]}]}
+```
+
+Each entry is one operation and its positional parameters, exactly as a single call takes them.
+Then, each as a command line of its own:
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync batch-check <workspace>/batch-sync.json
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch --caller security-issue-sync --expect <digest> <workspace>/batch-sync.json
+```
+
+1. `batch-check` runs nothing and never prompts.
+   It checks every entry against the approved policy and prints one line per entry (bodies and file titles by size, never by content), then a JSON line with the `digest`.
+   Show the user that summary as the proposal.
+2. `vetted-op-tracker-batch` checks the manifest again, refuses unless its digest equals `--expect`, and runs the entries in order.
+   The digest binds the destination as well as the content: the approved policy's hash, its tracker, tracker backend, board and resolved workspace,
+   the manifest, every body and title file, and every entry's built command.
+   A manifest checked under one policy is refused under another, and what runs is exactly what was summarised.
+   It prints a header line per entry and each operation's own output (an `issue-create-labeled` prints `number`, `node_id` and `url`),
+   then `{"batch": "done", …}`, or, at the first failure and with that operation's exit code,
+   `{"batch": "stopped", "succeeded": [...], "unknown": <n>, "op": …, "not_run": [...]}`.
+   Body and title files, and the manifest, are deleted only after every entry succeeded; after a stop all of them stay.
+3. After a stop, the `unknown` entry's outcome is unknown: a write can land and still exit non-zero.
+   **Read the tracker first** (`issue-view`, `issue-comments`, `board-item`, `body-field-get` through `vetted-op-read`) to see whether it took effect.
+   Then write a new manifest with the `not_run` entries, plus the `unknown` one only if it did not take effect, check it, and show the user the new summary.
+   Never rerun the old manifest: entries that succeeded would run twice.
+
+The whole batch is refused, with nothing run, when any of these fails:
+batching is on in the approved policy and the policy declares a tracker;
+the manifest matches the schema (exactly `version` and `ops`, each entry exactly `op` and `params`, 1–200 entries);
+every operation is a private-tracker write (`issue-create`, `issue-create-labeled`, the `issue-*` label, milestone, assignee, comment, body, title, close and reopen writes, `comment-update`, `milestone-create`, `milestone-close`, the four procedure writes, and `board-add-item`, `board-set-status`, `board-archive-item`);
+the caller is granted every one of them;
+every entry passes the same parameter checks and builder as a single call, and the built command addresses the tracker or the policy's board;
+and, on GitHub, the tracker reports itself private and the board, when a board write is present, not public.
+Public and outbound writes (`pr-*`, `repo-issue-*`, `advisory-comment`, `cve-allocate`, `cve-record-update`, `tracker-publish`, every `vetted-op-git` operation) are refused by name, even when granted: they keep their own confirmation.
+No grant is needed for the batch itself; the caller needs the grants for the operations in it.
+
+A batch cannot refer to a number an earlier entry creates.
+A skill that creates trackers and then labels, boards or annotates them runs two batches: the creates, then the rest with the numbers the first one printed.
+
 ## Tracker backends
 
 The security tracker need not be a GitHub repository.
@@ -1221,6 +1295,13 @@ anything still invoked directly:
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    // The private-tracker batches (see "Batches of private-tracker writes"): never allow.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    // The unprompted twin runs only a `none` policy. An adopter whose policy sets
+    // private_tracker_writes = "none" may move these two, and only these, to allow.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
@@ -1256,6 +1337,10 @@ fails the same way:
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
@@ -1276,6 +1361,15 @@ the tracker procedures, and their runner refuses any `gh` call outside
 `repos/<tracker>/`. The repositories both write to come from the policy, which is
 why both keep their `ask` (never `allow`); `sandbox-lint` fails an excluded write
 dispatcher that has lost its `ask` rule.
+
+`vetted-op-tracker-batch-unprompted` is the one exception, and only by the adopter's choice.
+It runs nothing but a checked manifest of private-tracker writes, on a tracker the forge confirms is private,
+and only under a policy that sets `[approval] private_tracker_writes = "none"`,
+so a project whose approved policy says `none` may move its two rules from `ask` to `allow`.
+`vetted-op-tracker-batch` never moves: it also runs `batch` policies, whose adopters asked for a prompt.
+`sandbox-lint` accepts `ask` or `allow` for the unprompted dispatcher, fails it excluded with neither,
+and treats `vetted-op-tracker-batch` like every other write dispatcher.
+What `none` gives up is in [the batch design note](../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts).
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook
@@ -1322,10 +1416,10 @@ layer.
 
 Codex loads the plugin’s Claude-compatible `SessionStart` hook after hook trust review.
 The shared stable path remains `~/.claude/magpie/vetted-ops`; no Claude runtime is needed.
-Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules (absolute path only, never `~`), then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+Run `vetted-ops-codex-rules` from the installed tool to print twelve native prefix rules (absolute path only, never `~`), then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
 Run `vetted-ops-codex-rules --hook` to print the Codex-only PreToolUse hook that rewrites a lone `vetted-op-read` call in the `~` spelling skills use to that path before the rules see it (writes and compound commands are never rewritten); review it and add it to `~/.codex/config.toml` — never to Claude Code, which reads its `allow` as a permission grant.
 The renderer only prints; it never edits user policy.
-Both supported launchers allow only `vetted-op-read` and prompt `vetted-op` and `vetted-op-tracker`.
+Both supported launchers allow only `vetted-op-read` and prompt `vetted-op`, `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted` and `vetted-op-git`.
 Paths are absolute, with no version glob or general `uv` allow rule.
 
 These native rules provide Codex’s approval path for networked reads; they do not create a sandbox exclusion or a file-write deny.

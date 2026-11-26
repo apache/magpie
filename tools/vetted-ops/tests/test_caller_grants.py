@@ -47,8 +47,9 @@ README = REPO_ROOT / "tools" / "vetted-ops" / "README.md"
 ENTRY = re.compile(r"(?<![\w/-])vetted-op(?:-read|-tracker|-git)?(?![\w-])")
 #: Flags that take a value; every other `--flag` is boolean (`--dry-run`).
 VALUE_FLAGS = {"--caller", "--config", "--save", "--policy-from"}
-#: Subcommands that are not operations and need no grant.
-META = {"policy", "list-ops", "approval-status", "source"}
+#: Subcommands that are not operations and need no grant (`batch-check` only
+#: validates a manifest whose entries need the grants themselves).
+META = {"policy", "list-ops", "approval-status", "source", "batch-check"}
 NAME = re.compile(r"[a-z][a-z0-9-]*")
 #: Punctuation a call picks up from the surrounding prose or code span.
 TRIM = "`'\",.;:)"

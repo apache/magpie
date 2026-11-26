@@ -165,7 +165,10 @@ def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str
         assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
+@pytest.mark.parametrize(
+    "dispatcher",
+    ["vetted-op-tracker", "vetted-op-tracker-batch", "vetted-op-tracker-batch-unprompted", "vetted-op"],
+)
 @pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
 def test_baseline_excludes_and_asks_the_vetted_op_write_dispatchers(
     baseline: dict[str, Any], form: str, dispatcher: str
@@ -181,7 +184,10 @@ def test_baseline_excludes_and_asks_the_vetted_op_write_dispatchers(
     assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
+@pytest.mark.parametrize(
+    "dispatcher",
+    ["vetted-op-tracker", "vetted-op-tracker-batch", "vetted-op-tracker-batch-unprompted", "vetted-op"],
+)
 def test_excluded_write_dispatcher_without_ask_is_an_invariant_error(
     baseline: dict[str, Any], dispatcher: str
 ) -> None:
@@ -202,6 +208,32 @@ def test_allowed_write_dispatcher_is_an_invariant_error(baseline: dict[str, Any]
     weakened = copy.deepcopy(baseline)
     write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
     rule = f"Bash(uv run --project {write})"
+    weakened["permissions"]["ask"].remove(rule)
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.allow" in e for e in errors), errors
+
+
+def test_the_unprompted_batch_dispatcher_alone_may_be_allowed(baseline: dict[str, Any]) -> None:
+    # An adopter whose policy sets [approval] private_tracker_writes = "none"
+    # moves the unprompted batch dispatcher, which refuses every other policy,
+    # from ask to allow; nothing else.
+    relaxed = copy.deepcopy(baseline)
+    for form in ("uv run --project", "uvx --from"):
+        rule = (
+            f"Bash({form} {VETTED_OP_READ.replace('vetted-op-read', 'vetted-op-tracker-batch-unprompted')})"
+        )
+        relaxed["permissions"]["ask"].remove(rule)
+        relaxed["permissions"]["allow"].append(rule)
+    errors = check_invariants(relaxed)
+    assert not [e for e in errors if "vetted-op-tracker-batch" in e], errors
+
+
+def test_the_prompted_batch_dispatcher_may_not_be_allowed(baseline: dict[str, Any]) -> None:
+    # vetted-op-tracker-batch also runs `batch` policies, whose adopters asked
+    # for a prompt per batch: an allow on it would skip that prompt.
+    weakened = copy.deepcopy(baseline)
+    rule = f"Bash(uvx --from {VETTED_OP_READ.replace('vetted-op-read', 'vetted-op-tracker-batch')})"
     weakened["permissions"]["ask"].remove(rule)
     weakened["permissions"]["allow"].append(rule)
     errors = check_invariants(weakened)

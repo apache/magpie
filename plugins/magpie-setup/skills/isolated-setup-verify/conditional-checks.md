@@ -125,6 +125,10 @@ reading this file; read the section for a check whose condition holds.
    the prompt is the only gate on its unsandboxed writes.
    A missing `vetted-op` exclusion is ✗ too: every write op fails
    with *"Project directory … does not exist"*.
+   `vetted-op-tracker-batch` belongs in `sandbox.excludedCommands` (both forms) and in `ask`, never in `allow`.
+   `vetted-op-tracker-batch-unprompted` belongs in `sandbox.excludedCommands` (both forms) and in `ask`;
+   in `allow` it is ✓ only when the approved policy sets `[approval] private_tracker_writes = "none"`
+   (`vetted-op-read policy` prints it), and ✗ otherwise.
 
    A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
    that spells the versioned plugin-cache path with a `*`

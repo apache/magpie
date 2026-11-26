@@ -300,6 +300,19 @@ publication, with a human gate and an audit-log entry at every step.
   --output-body …` on them, and the vetted `issue-edit-body` write.
   Each skill notes once how to run the same operations without the
   secure setup, through the `github-rollup` and `github-body-field` CLIs.
+- When the approved vetted-ops policy turns batching on
+  (`[approval] private_tracker_writes = "batch"` or `"none"`), the bulk
+  tracker writes of `security-issue-sync` bulk apply,
+  `security-issue-import` Step 7 and `security-issue-import-from-scan`
+  Step F go through one checked manifest per phase
+  (`vetted-op-read batch-check`, then `vetted-op-tracker-batch`, or
+  `vetted-op-tracker-batch-unprompted` under `none`), one
+  confirmation per batch; an import runs two batches (the creates, then
+  board moves and rollup entries on the new numbers). Gmail drafts, CVE-tool
+  pushes, advisory comments and public comments stay one confirmation each,
+  and the batch entry point refuses them by name. With the default `each`
+  the skills write one call at a time, as before (see
+  [vetted-command-surface.md](vetted-command-surface.md)).
 - Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),
   `tools/cve-org`, `tools/gmail` + `tools/ponymail` (mail), and the
   `tools/privacy-llm` gate/redactor ([the privacy gate](privacy-llm-gate.md)).
