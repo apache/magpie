@@ -160,7 +160,9 @@ def security_list(resolver: mdconfig.Resolver) -> str | None:
     return value if value and "<" not in value else None
 
 
-def pick_template(action: str, classification: str | None, cfg: Config, *, has_fold: bool) -> str | None:
+def pick_template(
+    action: str, classification: str | None, cfg: Config, *, has_fold: bool, variant: str | None = None
+) -> str | None:
     if action in NO_BODY:
         return None
     if action in ("mark-ready", "ready"):
@@ -177,6 +179,12 @@ def pick_template(action: str, classification: str | None, cfg: Config, *, has_f
         return "review-nudge" if classification == "stale_review" else "reviewer-ping"
     if action == "comment":
         return "security-language" if classification == "security_language_signal" else "comment"
+    if action == "close-stale":
+        if variant == "triaged":
+            return "stale-draft-close"
+        if variant == "untriaged":
+            return "stale-draft-close-untriaged"
+        raise ValueError("close-stale requires details.variant to be 'triaged' or 'untriaged'")
     if action == "close":
         if classification == "stale_draft":
             return "stale-draft-close"
@@ -467,7 +475,9 @@ def render(
     details = dict(details or {})
     overrides = overrides or {}
     fold = markers.parse_fold(pr.body)
-    stem = template or pick_template(action, classification, cfg, has_fold=fold is not None)
+    stem = template or pick_template(
+        action, classification, cfg, has_fold=fold is not None, variant=details.get("variant")
+    )
     channel = cfg.feedback_channel
     if stem is None:
         return Rendered(pr.number, action, channel, None, None)

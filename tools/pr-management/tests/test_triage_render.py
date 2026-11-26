@@ -345,3 +345,61 @@ def test_cli_render_writes_the_body_and_reports(tmp_path: Path, capsys: pytest.C
     assert out["assign_author"] is True and out["mentions"] == ["@nina-contributor"]
     assert Path(out["body_file"]).read_text().startswith("<!-- pr-triage-fold:")
     assert out["body_file"].endswith("pr-7-draft.md")
+
+
+@pytest.mark.parametrize("details", [{}, {"variant": "unknown"}])
+def test_close_stale_requires_a_known_variant(details: dict[str, str]) -> None:
+    with pytest.raises(ValueError, match=r"close-stale requires details\.variant"):
+        _render(pr(draft=True), "close-stale", "stale_draft", details=details)
+
+
+@pytest.mark.parametrize(
+    ("channel", "triaged_text"),
+    [
+        ("pr-body", "no author response for 8 days since the last triage note"),
+        ("comment", "8 days since the last triage comment and no response from the author"),
+    ],
+    ids=["pr-body", "comment"],
+)
+def test_cli_renders_both_stale_draft_notices_from_classify(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], channel: str, triaged_text: str
+) -> None:
+    triaged = pr(
+        101,
+        draft=True,
+        created=ago(days=60),
+        updated=ago(days=8),
+        committed=ago(days=10),
+        comments=[comment("triager", "MEMBER", ago(days=8), "Pull Request quality criteria")],
+    )
+    untriaged = pr(102, draft=True, created=ago(days=60), updated=ago(days=30), committed=ago(days=30))
+    (tmp_path / "triage-pages.json").write_text(json.dumps(page(triaged, untriaged)))
+    (tmp_path / "pr-management-config.md").write_text(
+        f"| Key | Value |\n|---|---|\n| `triage_feedback_channel` | `{channel}` |\n"
+    )
+    (tmp_path / "pr-management-triage-comment-templates.md").write_text(
+        "| Placeholder | Value |\n|---|---|\n" + "".join(f"| `{k}` | `{v}` |\n" for k, v in URLS.items())
+    )
+    triage = ["--config-dir", str(tmp_path), "triage"]
+    common = ["--saved-dir", str(tmp_path), "--viewer", "triager", "--now", NOW.isoformat()]
+    assert cli.main([*triage, "classify", *common]) == 0
+    (group,) = json.loads(capsys.readouterr().out)["groups"]
+    assert (group["classification"], group["action"]) == ("stale_draft", "close-stale")
+    expected = {
+        101: ("sweep-1a", "stale-draft-close", triaged_text),
+        102: ("sweep-1b", "stale-draft-close-untriaged", "no activity for 4 weeks"),
+    }
+    assert {entry["number"] for entry in group["prs"]} == expected.keys()
+    for entry in group["prs"]:
+        number = entry["number"]
+        row, template, text = expected[number]
+        assert entry["row"] == row
+        details = tmp_path / f"pr-{number}-details.json"
+        details.write_text(json.dumps(entry["details"]))
+        args = ["--pr", str(number), "--action", group["action"], "--row", entry["row"]]
+        files = ["--details-json", str(details), "--out-dir", str(tmp_path)]
+        assert cli.main([*triage, "render", *common, *args, *files]) == 0
+        result = json.loads(capsys.readouterr().out)
+        assert (result["action"], result["channel"], result["template"]) == ("close-stale", channel, template)
+        assert result["ok"] and result["warnings"] == []
+        assert text in Path(result["body_file"]).read_text(encoding="utf-8").lower()
