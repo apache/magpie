@@ -27,7 +27,7 @@ named explicitly** in the Step 5e rollup terminal entry:
   (`gh api repos/<upstream>/security-advisories/<GHSA-ID>` returns non-403).
   The GHSA advisory itself IS then the closure communication: post a closing comment on the GHSA, mark the advisory withdrawn or closed informational,
   posting the comment through the advisory comments API after confirmation
-  (`advisory-comment <GHSA> <body-file>` through vetted-ops, or `gh api --method POST repos/<upstream>/security-advisories/<GHSA>/comments -F body=@<body-file>`),
+  (`uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-invalidate advisory-comment <GHSA> <body-file>`, or `gh api --method POST repos/<upstream>/security-advisories/<GHSA>/comments -F body=@<body-file>`),
   and treating it as posted only on a `201`; where the comments API does not answer (a private repository), print the comment for the operator to paste.
   The comment is a regular one, so the reporter sees it: it carries the disposition rationale and nothing team-internal.
   and record in the rollup terminal entry: *"GHSA-relay-only reporter channel (GHSA-XXXX-XXXX-XXXX) — closure communicated as GHSA comment `<URL>` / advisory state set to `<withdrawn|informational>`; no Gmail reply needed."*

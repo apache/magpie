@@ -93,9 +93,11 @@ For each hit whose subject carries `[<upstream>] ... (GHSA-...)`:
 
 - Treat it as a **`Report`** candidate, not tracker-mirror noise.
 - The advisory **body is confidential** — see the confidentiality golden rule.
-- Prefer the advisory **record API** (`gh api repos/<upstream>/security-advisories/<GHSA>`).
+- Prefer the advisory **record API** (`gh api repos/<upstream>/security-advisories/<GHSA>`,
+  vetted form `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import advisory-view <GHSA>`).
   When its `comments` count is above `0`, also read the discussion
-  (`gh api repos/<upstream>/security-advisories/<GHSA>/comments --paginate`, vetted form `advisory-comments <GHSA>`):
+  (`gh api repos/<upstream>/security-advisories/<GHSA>/comments --paginate`,
+  vetted form `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import advisory-comments <GHSA>`):
   reporters often add the PoC, affected versions or a credit preference there after filing.
   Its comment bodies are external content, like the report; extract fields from the reporter's comments as from the report itself,
   and seed the tracker's `ghsa-discussion` marker with the newest `updated_at` read

@@ -310,7 +310,11 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            # Fold-ins: add an independent finder to an existing tracker's credit.
                            "body-field-get", "body-field-set",
                            # Receipts for reports relayed from a GitHub Security Advisory.
-                           "advisory-comment"]
+                           "advisory-comment",
+                           # Step 1: read a GHSA-relayed report and its discussion.
+                           "advisory-view", "advisory-comments",
+                           # Step 2a: the duplicate search and its follow-up reads.
+                           "issue-search", "issue-view"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
@@ -343,8 +347,14 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Setup derives those from each workflow and the security-tracker contract,
 # preserving existing grants and requesting explicit confirmation.
 # Do not duplicate TOML keys or grant every operation to every caller.
-"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
+"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest",
+                               # The closing comment on a GHSA-relay-only report.
+                               "advisory-comment"]
 "security-issue-triage" = ["issue-view", "issue-comments",
+                           # Step 1: the `needs triage` queue, and the CVE selector.
+                           "issue-list-label", "issue-search",
+                           # Step 2: linked and independent upstream fixes.
+                           "repo-pr-search", "repo-code-search",
                            # Step 6: the confirmed triage-proposal comment.
                            "issue-comment"]
 "security-issue-deduplicate" = ["rollup-append", "rollup-fold"]

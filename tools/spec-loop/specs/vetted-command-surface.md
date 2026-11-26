@@ -332,6 +332,16 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    so "was this already fixed upstream?" needs no raw `gh search` outside the
    dispatcher. Like `issue-search`, each pins the repository from policy and
    takes one plain-word `query` (no `:`, one line, no leading `-`, after `--`).
+   The README's caller example grants each security skill the reads its own
+   docs run under its caller, so a gatherer never borrows another skill's
+   caller: `security-issue-triage` reads its queue (`issue-list-label`),
+   searches trackers (`issue-search`) and upstream (`repo-pr-search`,
+   `repo-code-search`); `security-issue-import` reads a relayed GHSA
+   (`advisory-view`, `advisory-comments`) and runs its duplicate search
+   (`issue-search`, `issue-view`); `security-issue-invalidate` posts the
+   closing GHSA comment (`advisory-comment`).
+   `test_caller_grants.py` checks every `--caller` call in the repository's
+   Markdown against that example.
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They

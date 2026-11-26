@@ -16,6 +16,17 @@ and run a fuzzy-match search against existing issues on the keys below.
 Fetch the thread **once** with `mcp__claude_ai_Gmail__get_thread` and `messageFormat: FULL_CONTENT`, and keep the result as *the Step 2a thread fetch*.
 Step 3 (root message and the last-5-messages converged-disposition check) and Step 4 (field extraction) reuse it instead of fetching the thread again.
 
+Where these reads run through vetted-ops (a read-only gatherer, or a non-GitHub tracker), each search and each follow-up read uses this skill's own caller:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import issue-search "<key>"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-import issue-view <N>
+```
+
+`issue-search` covers open and closed trackers and takes no `:` qualifier, so filter the returned `state` instead of passing `--state`;
+the semantic sweep reuses the Step 2 `issue-list-with-bodies` index.
+A refusal naming the caller is a missing grant to report, never a reason to borrow another skill's caller.
+
 1. **GHSA IDs**: grep the body for `GHSA-[a-z0-9-]{4,}` tokens. For
    each hit, `gh search issues "<GHSA-ID>" --repo <tracker>
    --state open --match body,title` plus the same with `--state
