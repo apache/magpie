@@ -81,6 +81,29 @@ _FIELD_RE = re.compile(r"^(\w+)\s*:\s*(.+)$", re.MULTILINE)
 _LEADING_COMMENTS_RE = re.compile(r"^\s*(?:<!--.*?-->\s*)+", re.DOTALL)
 
 
+def _strip_comment(value: str) -> str:
+    """Drop a YAML inline comment from a single-line scalar.
+
+    YAML starts a comment at ``#`` only when it opens the value or follows
+    whitespace, and never inside a quoted scalar, so ``title: C# bindings``
+    and ``title: "a # b"`` keep their text.  The spec template introduces
+    every index field with one (``status: experimental   # stable | ...``),
+    and without this the comment becomes part of the value.
+    """
+    quote = ""
+    for index, char in enumerate(value):
+        if quote:
+            if char == quote:
+                quote = ""
+            continue
+        if char in ("'", '"'):
+            quote = char
+            continue
+        if char == "#" and (index == 0 or value[index - 1].isspace()):
+            return value[:index].rstrip()
+    return value
+
+
 def parse_frontmatter(text: str) -> dict[str, str]:
     """Return a flat dict of scalar frontmatter fields.
 
@@ -94,7 +117,7 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     block = m.group(1)
     result: dict[str, str] = {}
     for key, val in _FIELD_RE.findall(block):
-        result[key] = val.strip()
+        result[key] = _strip_comment(val.strip())
     return result
 
 

@@ -67,6 +67,35 @@ class TestParseFrontmatter:
         fm = parse_frontmatter(text)
         assert fm["title"] == "Padded Title"
 
+    def test_strips_the_inline_comments_the_spec_template_writes(self) -> None:
+        text = (
+            "---\ntitle: A Spec\n"
+            "status: experimental   # stable | experimental | proposed | off\n"
+            "kind: feature          # feature | fix | docs | chore\n"
+            "mode: Triage           # Triage | Mentoring | Drafting | Pairing | infra\n"
+            "---\n"
+        )
+        fm = parse_frontmatter(text)
+        assert fm["status"] == "experimental"
+        assert fm["kind"] == "feature"
+        assert fm["mode"] == "Triage"
+
+    def test_a_hash_inside_a_quoted_value_is_kept(self) -> None:
+        text = "---\ntitle: \"a # b\"  # trailing note\nstatus: stable\n---\n"
+        fm = parse_frontmatter(text)
+        assert fm["title"] == '"a # b"'
+
+    def test_a_hash_without_leading_whitespace_is_kept(self) -> None:
+        text = "---\ntitle: C# bindings\nstatus: stable\n---\n"
+        fm = parse_frontmatter(text)
+        assert fm["title"] == "C# bindings"
+
+    def test_a_value_that_is_only_a_comment_becomes_empty(self) -> None:
+        text = "---\ntitle: A Spec\nstatus: # fill me in\n---\n"
+        fm = parse_frontmatter(text)
+        assert fm["title"] == "A Spec"
+        assert "status" not in fm or fm["status"] == ""
+
     def test_empty_frontmatter_block(self) -> None:
         text = "---\n---\n# body\n"
         fm = parse_frontmatter(text)
