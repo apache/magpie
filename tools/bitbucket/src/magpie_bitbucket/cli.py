@@ -96,6 +96,13 @@ def _validate_pull_request_edit(
     return str(int(pull_request_id)), title
 
 
+def _nonnegative_int(value: str) -> int:
+    """Parse a non-negative decimal integer for argparse."""
+    if not value.isascii() or not value.isdecimal():
+        raise argparse.ArgumentTypeError("must be a non-negative decimal integer")
+    return int(value)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the magpie-bitbucket command line interface."""
     parser = _build_parser()
@@ -201,7 +208,13 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_edit.add_argument("--title", help="Replacement pull request title.")
     pr_edit.add_argument(
         "--body-file",
-        help="Replacement description; an empty file clears it.",
+        help="Replacement description; an empty or whitespace-only file clears it.",
+    )
+    pr_edit.add_argument(
+        "--expected-version",
+        required=True,
+        type=_nonnegative_int,
+        help="Pull request version the caller read with `pr get` before confirming.",
     )
 
     pr_get = pr_subparsers.add_parser("get", help="Fetch one pull request.")
@@ -442,15 +455,21 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
         return normalize.created_pull_request(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "edit":
+        if config.kind == "cloud":
+            # Report the unsupported backend, not a body-file error, before touching the file.
+            raise cloud.pull_request_edit_unsupported()
         pr_id, edit_title = _validate_pull_request_edit(
             args.pull_request_id,
             args.title,
             args.body_file,
         )
-        description = (
-            _read_body_file(args.body_file, allow_empty=True) if args.body_file is not None else None
-        )
-        raw = backend.edit_pull_request(config, pr_id, edit_title, description)
+        description = None
+        if args.body_file is not None:
+            description = _read_body_file(args.body_file, allow_empty=True)
+            if not description.strip():
+                # An editor's "empty" file usually holds a newline: treat it as a clear.
+                description = ""
+        raw = backend.edit_pull_request(config, pr_id, edit_title, description, args.expected_version)
         return normalize.edited_pull_request(config.kind, raw)
 
     if args.subcommand == "pr" and args.pr_action == "get":

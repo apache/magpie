@@ -33,7 +33,15 @@ _ALLOWED_AUTH_SCHEMES = {"basic", "bearer"}
 
 
 class BitbucketError(Exception):
-    """Raised when the Bitbucket bridge cannot complete a request."""
+    """Raised when the Bitbucket bridge cannot complete a request.
+
+    ``status`` carries the HTTP status code when Bitbucket answered with an
+    error response, so callers can classify it without parsing the message.
+    """
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 class NoAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -187,7 +195,9 @@ def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
         raise
     except urllib.error.HTTPError as exc:
         message = _read_http_error(exc)
-        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+        raise BitbucketError(
+            f"Bitbucket request failed with HTTP {exc.code}: {message}", status=exc.code
+        ) from exc
     except urllib.error.URLError as exc:
         raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
     except TimeoutError as exc:
@@ -230,7 +240,9 @@ def get_json_with_header(
         raise
     except urllib.error.HTTPError as exc:
         message = _read_http_error(exc)
-        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+        raise BitbucketError(
+            f"Bitbucket request failed with HTTP {exc.code}: {message}", status=exc.code
+        ) from exc
     except urllib.error.URLError as exc:
         raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
     except TimeoutError as exc:
@@ -292,7 +304,9 @@ def write_request_with_metadata(
         raise
     except urllib.error.HTTPError as exc:
         message = _read_http_error(exc)
-        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+        raise BitbucketError(
+            f"Bitbucket request failed with HTTP {exc.code}: {message}", status=exc.code
+        ) from exc
     except urllib.error.URLError as exc:
         raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
     except TimeoutError as exc:
@@ -363,7 +377,9 @@ def get_text(url: str, config: BitbucketConfig, accept: str = "text/plain") -> d
         raise
     except urllib.error.HTTPError as exc:
         message = _read_http_error(exc)
-        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+        raise BitbucketError(
+            f"Bitbucket request failed with HTTP {exc.code}: {message}", status=exc.code
+        ) from exc
     except urllib.error.URLError as exc:
         raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
     except TimeoutError as exc:

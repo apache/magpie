@@ -73,7 +73,7 @@ Implemented commands and compatibility stubs:
 - `magpie-bitbucket issue attachments <id>` (fail-closed compatibility stub; native Cloud issue tracker removed)
 - `magpie-bitbucket pr list-open`
 - `magpie-bitbucket pr create --source <branch> --target <branch> --title <title> [--body-file <path>]` (Cloud and Data Center write; same-repository branches only)
-- `magpie-bitbucket pr edit <id> [--title <title>] [--body-file <path>]` (Data Center-only write; Cloud fails closed)
+- `magpie-bitbucket pr edit <id> --expected-version <n> [--title <title>] [--body-file <path>]` (Data Center-only write; Cloud fails closed)
 - `magpie-bitbucket pr get <id>`
 - `magpie-bitbucket pr commits <id>`
 - `magpie-bitbucket pr jira-issues <id>` (Data Center-only linked Jira discovery)
@@ -320,7 +320,9 @@ only executes an already-confirmed action.
 
 Write bodies are read from `--body-file` to avoid shell-quoting issues.
 For comment creation and pull-request creation, empty body files are rejected.
-For `pr edit`, omitting `--body-file` preserves the existing description, while a provided zero-byte file explicitly clears it. Unreadable paths and invalid UTF-8 fail before any network request.
+For `pr edit`, omitting `--body-file` preserves the existing description.
+A provided file that is empty or holds only whitespace explicitly clears it.
+Unreadable paths and invalid UTF-8 fail before any network request.
 
 The bridge currently supports these narrow mutations (native Cloud
 issue writes were removed upstream and fail closed):
@@ -332,7 +334,11 @@ issue writes were removed upstream and fail closed):
 - Cloud-only pull-request decline
 - Cloud-only pull-request merge with source-commit pinning
 
-For Data Center `pr edit`, a version conflict is not retried. If a submitted PUT has an ambiguous outcome, inspect `pr get <id>` before retrying. Cloud `pr edit` remains unsupported; reviewer/draft metadata preservation has not been verified against every Data Center version.
+For Data Center `pr edit`, the caller passes `--expected-version`, the `version` it read from `pr get <id>` (under `raw`) when it built the confirmed preview.
+The bridge refuses the edit before writing if the pull request has changed since, so it never overwrites a title or description the maintainer did not see.
+A version conflict is not retried.
+If a submitted PUT has an ambiguous outcome, inspect `pr get <id>` before retrying.
+Cloud `pr edit` remains unsupported; reviewer/draft metadata preservation has not been verified against every Data Center version.
 
 For pull-request merge, the calling skill must run and inspect
 `pr merge-checks <id>` before invoking `pr merge`; the merge command itself

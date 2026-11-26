@@ -227,8 +227,15 @@ def edit_pull_request(
     pull_request_id: str,
     title: str | None,
     description: str | None,
+    expected_version: int,
 ) -> dict[str, Any]:
-    """Edit Data Center PR metadata using its optimistic version check."""
+    """Edit Data Center PR metadata using its optimistic version check.
+
+    ``expected_version`` is the version the caller read with ``pr get`` when it
+    built the confirmed preview. A pull request changed since then is refused
+    before the PUT, so the edit never overwrites a change the maintainer did
+    not see.
+    """
     if not pull_request_id.isascii() or not pull_request_id.isdecimal() or int(pull_request_id) <= 0:
         raise BitbucketError("Pull request ID must be a positive decimal integer")
 
@@ -248,6 +255,12 @@ def edit_pull_request(
     version = raw.get("version")
     if type(version) is not int or version < 0:
         raise BitbucketError("Data Center PR requires a valid nonnegative version")
+    if version != expected_version:
+        raise BitbucketError(
+            f"Data Center PR changed since it was previewed (version {version}, "
+            f"expected {expected_version}); re-read it with `pr get {pull_request_id}` "
+            "and confirm the edit again"
+        )
 
     old_title = raw.get("title")
     if not isinstance(old_title, str) or not old_title.strip():
@@ -297,7 +310,8 @@ def edit_pull_request(
     new_title = title.strip() if title is not None else old_title
     new_description = description if description is not None else old_description
 
-    if new_title == old_title and new_description == old_description:
+    # Data Center may leave out an empty description, so None and "" are the same.
+    if new_title == old_title and (new_description or "") == (old_description or ""):
         raise BitbucketError("Pull request edit would not change any metadata")
 
     payload: dict[str, Any] = {
@@ -334,15 +348,9 @@ def edit_pull_request(
         )
     except BitbucketError as exc:
         message = str(exc)
-        prefix = "Bitbucket request failed with HTTP "
-
-        if message.startswith(prefix):
-            status_text = message[len(prefix) :].split(":", 1)[0]
-            if status_text.isdecimal():
-                status = int(status_text)
-                if 400 <= status < 500 and status != 408:
-                    # Definite client-side rejection, including version 409.
-                    raise
+        if exc.status is not None and 400 <= exc.status < 500 and exc.status != 408:
+            # Definite client-side rejection, including version 409.
+            raise
 
         # Timeout, transport failure, malformed response, or server error:
         # the PUT may already have been applied. Never retry automatically.
@@ -363,7 +371,7 @@ def edit_pull_request(
         type(updated.get("id")) is not int
         or updated["id"] != int(pull_request_id)
         or updated.get("title") != new_title
-        or updated.get("description") != new_description
+        or (updated.get("description") or "") != (new_description or "")
     ):
         raise BitbucketError(
             "Data Center PR edit outcome unknown: response does not match "

@@ -232,10 +232,14 @@ by swapping the adapter, not the skill.
   pull-request comment, approve/unapprove, and
   request-changes/remove-request-changes writes cover Cloud and Data Center;
   fork and cross-repository creation is not supported.
-  Data Center also supports confirmed `pr edit <id> [--title <title>] [--body-file <path>]`
-  for title/description changes through a versioned update. An empty file
-  clears the description; an omitted flag preserves it. Cloud editing fails
-  closed pending verification of preservation and concurrency guarantees.
+  Data Center also supports confirmed
+  `pr edit <id> --expected-version <n> [--title <title>] [--body-file <path>]`
+  for title/description changes through a versioned update.
+  The edit is refused before writing when the pull request's version differs
+  from the one the caller previewed.
+  An empty or whitespace-only file clears the description; an omitted flag preserves it.
+  Cloud editing fails closed, before the body file is read,
+  pending verification of preservation and concurrency guarantees.
   Data Center reviewer/draft round-trip behavior still requires verification.
   Additional Cloud-only writes cover decline, backend-neutral `reject`,
   and `pr merge --strategy

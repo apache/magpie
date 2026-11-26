@@ -201,10 +201,16 @@ def edit_pull_request(
     pull_request_id: str,
     title: str | None,
     description: str | None,
+    expected_version: int,
 ) -> dict[str, Any]:
     """Fail closed until Cloud update preservation and concurrency are verified."""
-    _ = (config, pull_request_id, title, description)
-    raise BitbucketError(
+    _ = (config, pull_request_id, title, description, expected_version)
+    raise pull_request_edit_unsupported()
+
+
+def pull_request_edit_unsupported() -> BitbucketError:
+    """Return the fail-closed error for Cloud pull-request editing."""
+    return BitbucketError(
         "Bitbucket Cloud PR editing is not supported: "
         "field preservation and concurrency guarantees are unverified"
     )
