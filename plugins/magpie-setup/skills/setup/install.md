@@ -1543,6 +1543,12 @@ setup; the skills skip any block that is missing or marked `TODO`.
 - `advisory_records_fork_remote: TODO` — the remote of your site
   working copy that points at that fork (default `fork`).
 
+## `security_issue_sync`
+
+- `do_not_ping: []` — GitHub handles of people who are away, for now.
+  `security-issue-sync` never `@`-mentions them in a nudge and never names them in its bulk state-summary email.
+  Personal and temporary, so it lives here and never in committed project config.
+
 ## `tools`
 
 ### `ponymail`

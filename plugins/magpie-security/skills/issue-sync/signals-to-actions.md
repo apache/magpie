@@ -604,6 +604,15 @@ Group them by category:
   do **not** hold them back pending a reporter reply.
   Re-surface the item on every later pass while the thread stays stale; it stops once the reporter replies and the `gather.md` check no longer fires.
 
+- **Unanswered team question (team nudge)** — when the newest triage proposal on the tracker, or a question put to named team members,
+  has had no answer from any of them for at least `nudge_after_days` (default 7, in the `security-issue-sync.md` override file),
+  propose one short status comment that restates the decision asked for in one line and `@`-mentions the people asked,
+  leaving out every handle in `security_issue_sync.do_not_ping` of the resolved `user.md` (personal, never committed).
+  Propose it at most once per question: when the tracker already carries a nudge for it, propose none.
+  **In bulk mode the nudges can collapse:** when at least `nudge_summary_threshold` trackers (default 5) would get one,
+  no tracker gets a nudge and the run proposes one state-summary email to `<security-list>` instead,
+  per [`bulk-mode.md` step 4b](bulk-mode.md#orchestrator-responsibilities).
+
 - **Draft email to reporter (other reasons)** — whenever the ball is in our court on the thread for another reason
   (a reporter question, a triage follow-up, a negative assessment), propose a **Gmail draft** reply (not a sent message).
   State the draft's intent in one line, and reuse a canned response from

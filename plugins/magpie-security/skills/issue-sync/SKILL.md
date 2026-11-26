@@ -20,9 +20,9 @@ when_to_use: |
   reconciles the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:3ee6236a0b32e928
+surface_hash: sha256:8cfc7395b16c2cf9
 license: Apache-2.0
-measured_tokens: 7499
+measured_tokens: 7500
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

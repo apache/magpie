@@ -655,4 +655,8 @@ Anything that **creates** state (a new milestone, an ambiguous release-date choi
 still follows the skill's propose-before-apply rule (Golden rule 1).
 The Step 6 recap always lists what the sweep moved (column, milestone, assignee) per tracker.
 
+**Then, in bulk mode, the state summary.** When the bulk confirmation kept a state summary in place of the team nudges,
+it is rendered from the state this sweep leaves, confirmed and drafted to `<security-list>` as a new thread now, before the recap:
+[`bulk-mode.md` step 6](bulk-mode.md#orchestrator-responsibilities).
+
 ---

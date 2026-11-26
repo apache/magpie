@@ -40,6 +40,7 @@ from security_management.issue_sync import (
     render,
     select,
     state,
+    summary,
 )
 from security_management.shared import drafting, numbered, recipients
 
@@ -51,7 +52,8 @@ COMMANDS = {
     "preflight-query": "Bulk 1b: the batched GraphQL state read (JSON: tracker, numbers, scratch)",
     "preflight": "Bulk 1b: the no-op classifier (JSON: tracker, now, responses, explicit)",
     "bucket": "Bulk 3: CVE-affecting and non-CVE-affecting trackers, the walk order",
-    "parse-bulk-reply": "Bulk 4: the merged confirmation (JSON: reply, proposal, preflight_skipped)",
+    "parse-bulk-reply": "Bulk 4: the merged confirmation (JSON: reply, proposal, preflight_skipped, summary)",
+    "nudge-summary": "Bulk 4/6: collapse many team nudges into one state-summary email to the private list",
     "parse-reply": "Step 3: the single-tracker confirmation (JSON: reply, items)",
     "check": "Guardrails: CVSS, other ASF projects and link forms in the proposal's surfaces",
     "security-cc": "Step 0: the security CC of every draft (JSON: project, organization, framework_defaults, existing_cc)",
@@ -104,6 +106,7 @@ def dispatch(args: argparse.Namespace) -> int:
         "preflight": preflight.classify,
         "bucket": bulk.bucket,
         "parse-bulk-reply": bulk.parse_reply,
+        "nudge-summary": summary.nudge_summary,
         "parse-reply": _parse,
         "check": render.check,
         "security-cc": _cc,
