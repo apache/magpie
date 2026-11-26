@@ -57,7 +57,9 @@ def decode_subject(value: object) -> str:
     reach the draft's ``Subject`` header with a line break in it.
     """
     text = str(value or "")
-    if "=?" in text:
+    # Encoded words are ASCII by definition. A raw 8-bit subject is kept as it
+    # is: ``decode_header`` would hand its unencoded runs back escaped.
+    if "=?" in text and text.isascii():
         with contextlib.suppress(HeaderParseError, LookupError, UnicodeError):
             # Each part is decoded with its own charset. ``make_header`` would
             # re-encode Japanese charsets as ISO-2022-JP, which has no

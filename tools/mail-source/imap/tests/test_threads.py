@@ -140,6 +140,13 @@ def test_decode_subject_keeps_undecodable_bytes_as_raw_text() -> None:
     assert decode_subject("=?utf-8?b?/w==?=") == "=?utf-8?b?/w==?="
 
 
+def test_decode_subject_keeps_a_raw_8bit_subject_with_an_encoded_word() -> None:
+    # Decoding it would turn the raw characters into literal escapes.
+    assert decode_subject("café =?utf-8?q?x?=") == "café =?utf-8?q?x?="
+    assert decode_subject("=?utf-8?q?a?=中b") == "=?utf-8?q?a?=中b"
+    assert "\\u" not in decode_subject("caf�� =?utf-8?q?x?=\r\n tail")
+
+
 def test_decode_subject_keeps_undecodable_text() -> None:
     assert decode_subject("=?bogus-charset?q?x?=") == "=?bogus-charset?q?x?="
     assert decode_subject(None) == ""
