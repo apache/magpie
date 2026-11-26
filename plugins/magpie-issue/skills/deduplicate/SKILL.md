@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:a2de67a9772c9dc0
 license: Apache-2.0
-measured_tokens: 6091
+measured_tokens: 6132
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
