@@ -1175,6 +1175,115 @@ def test_failing_checks_record_nothing(
     assert not checks.stamp_path(workspace, wt).exists()
 
 
+def _unreadable_git_dir(tmp_path: Path) -> Path:
+    """A worktree whose `.git` points where nothing can be read, as a site checkout the sandbox denies."""
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {tmp_path / 'denied' / '.git' / 'worktrees' / '-'}\n")
+    return wt
+
+
+def test_checks_without_a_readable_git_dir_record_git_s_own_blob_ids(
+    tmp_path: Path, workspace: Path, repo: Path
+) -> None:
+    """No hooks configured: the record's ids are computed in-process and equal git's."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / "content").mkdir()
+    (wt / "content" / "a.json").write_text('{"a": 1}\n')
+    assert checks.unreadable_git_dir(wt) is not None
+    record = json.loads(
+        checks.record(wt, Path(_file(workspace, "p", "content/a.json\ngone.txt"))).read_text()
+    )
+    assert record["checks"] == "none"
+    (repo / "probe.json").write_text('{"a": 1}\n')
+    assert record["files"]["content/a.json"] == _git(repo, "hash-object", "--no-filters", "probe.json")
+    assert record["files"]["gone.txt"] == checks.DELETED
+
+
+def test_configured_checks_refuse_without_a_readable_git_dir(
+    tmp_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hook manager runs git: with the git directory out of reach the checks refuse, never pass unchecked."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1
+    assert not ran.exists()
+    assert not checks.stamp_path(workspace, wt).exists()
+
+
+def test_site_hooks_are_recorded_as_skipped_only_when_asked(
+    tmp_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1  # without the opt-in: refused
+    assert checks.main([str(wt), paths, "--skip-site-hooks"]) == 0
+    assert not ran.exists()
+    record = json.loads(checks.stamp_path(workspace, wt).read_text())
+    assert record["checks"] == checks.SITE_HOOKS_SKIPPED
+    assert record["files"]["a.txt"] == checks.blob_id(b"a")
+
+
+def _skipped_hooks_commit(
+    git: Git, policy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> str:
+    """Stage and commit a change whose checks record says the site's hooks were skipped."""
+    wt = _linked(git, policy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "security").mkdir()
+    (wt / "security" / "a.json").write_text("{}\n")
+    paths = _file(workspace, "p", "security/a.json\n")
+    # As in a ~/.cache worktree of a checkout the sandbox denies.
+    monkeypatch.setattr(checks, "unreadable_git_dir", lambda _wt: tmp_git_dir)
+    checks.record(wt, Path(paths), skip_site_hooks=True)
+    git_ops.stage_paths(git, policy, {"worktree": str(wt), "paths_file": paths}, False)
+    message = _file(workspace, "m", "Add a record\n")
+    return git_ops.commit_staged(git, policy, {"worktree": str(wt), "message_file": message}, False)
+
+
+tmp_git_dir = Path("/nonexistent/.git/worktrees/-")
+
+
+def test_commit_accepts_skipped_site_hooks_under_a_site_policy_that_opts_in(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site = dataclasses.replace(
+        wpolicy, published_terms=("CVE",), published_paths=("security",), site_hooks="skip"
+    )
+    assert _skipped_hooks_commit(git, site, repo, workspace, monkeypatch).startswith("committed ")
+
+
+def test_commit_refuses_skipped_site_hooks_without_the_opt_in(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(GitRefused, match="site's hooks were skipped"):
+        _skipped_hooks_commit(git, wpolicy, repo, workspace, monkeypatch)
+
+
+def test_site_hooks_belong_to_a_records_site_policy_only(tmp_path: Path, approved: Path) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    site = {"checkouts": [checkout], "published_terms": ["CVE"], "published_paths": ["security"]}
+    assert git_ops.git_policy(_config({**site, "site_hooks": "skip"})).site_hooks == "skip"
+    assert git_ops.git_policy(_config(site)).site_hooks is None
+    with pytest.raises(ConfigError, match="records-site policy"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "site_hooks": "skip"}))
+    with pytest.raises(ConfigError, match='may only be "skip"'):
+        git_ops.git_policy(_config({**site, "site_hooks": "off"}))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\nsite_hooks = "skip"\n')
+    with pytest.raises(ConfigError, match="may not set site_hooks"):
+        git_ops.git_policy(_config(site))
+
+
+def test_a_readable_linked_worktree_still_uses_git(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
+    assert checks.unreadable_git_dir(_linked(git, wpolicy, repo)) is None
+
+
 def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
     """It runs the working tree's hooks; out of the sandbox it would be the very escape it prevents."""
     settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
@@ -1293,6 +1402,10 @@ def test_pr_create_lets_a_published_records_identifier_through_where_the_policy_
         _pr(git, wpolicy, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
     assert [any("/compare/" in a for a in call) for call in fake.calls] == [True, False]
     assert "repos/acme/project/compare/main...me:topic" in fake.calls[0]
+    # A renamed file's old path counts as changed too, so a move out of a path
+    # outside `published_paths` is caught.
+    jq = fake.calls[0][fake.calls[0].index("--jq") + 1]
+    assert ".previous_filename" in jq
 
 
 @pytest.mark.parametrize(
@@ -1370,7 +1483,7 @@ def test_the_operator_file_cannot_let_terms_through(tmp_path: Path, approved: Pa
 
 
 def test_policy_from_discovers_the_policy_in_the_named_directory(
-    policy: LocalPolicy, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    policy: LocalPolicy, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, approved: Path
 ) -> None:
     config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
     seen: list[object] = []
@@ -1384,10 +1497,39 @@ def test_policy_from_discovers_the_policy_in_the_named_directory(
     monkeypatch.setattr(git_ops, "load", fake_load)
     monkeypatch.setattr(git_ops, "git_policy", lambda _config, _base=None: policy)
     site = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{site}"]\n')
     argv = ["--caller", "skill", "--policy-from", str(site), "--dry-run"]
     argv += ["git-push-branch", str(repo), "topic", "fork", "topic", "new"]
     assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
     assert seen == [site, site]
+
+
+def test_policy_from_takes_only_a_checkout_the_operator_listed(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    approved: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An unlisted directory is refused before anything on disk is looked at: no probing of the host."""
+    looked: list[object] = []
+
+    def fake_load(**kw: object) -> Config:
+        looked.append(kw)
+        return _config({})
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    listed = Path(os.path.realpath(tmp_path)) / "site"
+    _operator(approved, f'["acme/other"]\ncheckouts = ["{listed}"]\n')
+    argv = ["--caller", "skill", "--policy-from", str(tmp_path / "elsewhere"), "--dry-run"]
+    argv += ["git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+    assert "is not a checkout your" in capsys.readouterr().err
+    assert not looked
+    # Listed, but under another repository than the policy found there names.
+    argv[argv.index("--policy-from") + 1] = str(listed)
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+    assert "does not list" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

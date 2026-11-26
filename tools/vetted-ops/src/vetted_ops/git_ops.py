@@ -248,6 +248,10 @@ class GitPolicy:
     #: Relative path prefixes the `published_terms` exemption is bound to: it
     #: applies only to a branch whose every changed file lies under one of them.
     published_paths: tuple[str, ...] = ()
+    #: `"skip"`: a records site's own hooks may be recorded as skipped by
+    #: `vetted-op-checks` (they need the checkout's git directory, which the
+    #: sandbox cannot read); the site's CI runs them on the pull request.
+    site_hooks: str | None = None
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
@@ -286,8 +290,13 @@ def _under(path: str, prefixes: Sequence[str]) -> bool:
 
 
 #: The forge's compare of the pull request's base and head: every changed file
-#: and the head commit it compared.
-_COMPARE_JQ = "{files: [.files[]?.filename], head: (.commits | last | .sha), total: .files | length}"
+#: and the head commit it compared. A renamed or copied file contributes its old
+#: path too, so moving a file out of a path outside `published_paths` counts as
+#: changing that path.
+_COMPARE_JQ = (
+    "{files: [.files[]? | .filename, (.previous_filename // empty)], "
+    "head: (.commits | last | .sha), total: .files | length}"
+)
 #: GitHub's compare lists at most this many files; a longer list is incomplete.
 _COMPARE_FILE_LIMIT = 300
 
@@ -398,6 +407,57 @@ def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
     return table
 
 
+def _operator_checkouts() -> dict[str, set[str]]:
+    """Each upstream's checkouts in the operator file, as absolute paths (no file-system access)."""
+    path = operator_git_path()
+    try:
+        data = read_regular_file(path)
+    except TamperedPath as exc:
+        raise ConfigError(str(exc)) from None
+    if data is None:
+        return {}
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{path} is not valid TOML: {exc}") from None
+    found: dict[str, set[str]] = {}
+    for repo, table in raw.items():
+        entries = table.get("checkouts", []) if isinstance(table, dict) else []
+        if isinstance(entries, list):
+            found[repo] = {os.path.abspath(_expand_home(e)) for e in entries if isinstance(e, str) and e}
+    return found
+
+
+def policy_from_checkout(raw: Path) -> Path:
+    """The directory ``--policy-from`` names, refused unless it is a checkout the operator listed.
+
+    The read dispatcher runs outside the sandbox without a prompt, so a free
+    choice of directory would let an agent probe the host for directories and
+    approved policies, or read through another project's policy unseen. Only a
+    ``checkouts`` entry of the operator's own `OPERATOR_GIT_FILE` (which only
+    they write) is accepted, and the check runs before anything on disk is
+    looked at, so an unlisted path learns nothing about the file system.
+    """
+    if not raw.is_absolute():
+        raise ConfigError("--policy-from must be an absolute directory")
+    wanted = os.path.abspath(raw)
+    if not any(wanted in paths for paths in _operator_checkouts().values()):
+        raise ConfigError(
+            f"--policy-from {wanted} is not a checkout your {operator_git_path().name} lists; "
+            "name the main checkout of a repository you configured there"
+        )
+    return Path(wanted)
+
+
+def check_policy_from_upstream(config: Config, base: Path) -> None:
+    """Refuse a policy found in ``base`` whose upstream's operator table does not list ``base``."""
+    if os.path.abspath(base) not in _operator_checkouts().get(config.upstream_repo, set()):
+        raise ConfigError(
+            f"the policy in {base} is for {config.upstream_repo}, whose table in "
+            f"{operator_git_path().name} does not list {base} as a checkout"
+        )
+
+
 def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
     """A ready-to-save ``["<upstream>"]`` table for the operator file, for a refusal to show.
 
@@ -469,6 +529,7 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("harness_paths", list(policy.harness_paths)),
         ("published_terms", list(policy.published_terms)),
         ("published_paths", list(policy.published_paths)),
+        ("site_hooks", policy.site_hooks),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -532,6 +593,14 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
         )
     if published_paths and not published_terms:
         raise ConfigError("[git] published_paths applies only with published_terms")
+    site_hooks = table.get("site_hooks")
+    if site_hooks is not None:
+        if site_hooks != "skip":
+            raise ConfigError(f'[git] site_hooks may only be "skip", got {site_hooks!r}')
+        if not published_paths:
+            raise ConfigError(
+                "[git] site_hooks applies only in a records-site policy, one that sets published_paths"
+            )
     unknown_terms = sorted(set(published_terms) - PUBLISHABLE_TERMS)
     if unknown_terms:
         raise ConfigError(
@@ -556,6 +625,7 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
         harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
         published_terms=tuple(published_terms),
         published_paths=tuple(published_paths),
+        site_hooks=site_hooks,
     )
 
 
@@ -2306,7 +2376,7 @@ def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
     workspace, which sandboxed commands can write, so this keeps an agent
     honest the way CI does; it is not a proof against one forging it.
     """
-    from .checks import DELETED, stamp_path
+    from .checks import DELETED, SITE_HOOKS_SKIPPED, stamp_path
     from .checks import PROG as CHECKS
 
     assert policy.workspace is not None  # the message file was read from it
@@ -2325,6 +2395,11 @@ def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
     files = record.get("files") if isinstance(record, dict) else None
     if not isinstance(files, dict):
         raise GitRefused(f"the checks record {str(path)!r} lists no files: {hint}")
+    if record.get("checks") == SITE_HOOKS_SKIPPED and policy.site_hooks != "skip":
+        raise GitRefused(
+            "the checks record says the site's hooks were skipped, and this policy does not allow that "
+            '([git] site_hooks = "skip", in a records-site policy only); run the checks with the hooks instead'
+        )
     staged = [
         p
         for p in git.run(worktree.path, "diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
@@ -2624,10 +2699,11 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     # another (a site repository) and shows that choice in the confirmed command.
     base: Path | None = None
     if args.policy_from is not None:
-        if not args.policy_from.is_absolute() or not args.policy_from.is_dir():
-            print(f"{PROG}: refused: --policy-from must be an absolute directory", file=sys.stderr)
+        try:
+            base = policy_from_checkout(args.policy_from)
+        except ConfigError as exc:
+            print(f"{PROG}: refused: {exc}", file=sys.stderr)
             return EXIT_POLICY
-        base = args.policy_from
 
     # Like every entry point that runs outside the sandbox: only a policy the user
     # placed in the approved directory themselves drives git. A dry run against
@@ -2642,6 +2718,8 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
                 raise
             config = load(cwd=base, approved_only=False)
             approved = False
+        if base is not None:
+            check_policy_from_upstream(config, base)
         policy = git_policy(config) if base is None else git_policy(config, base)
     except ConfigError as exc:
         print(f"{PROG}: config error: {exc}", file=sys.stderr)

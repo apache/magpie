@@ -81,6 +81,9 @@ or the planner steps below, with `records_pr_closed_url` when only a closed pull
    In pull-request mode under the secure setup, add `--vetted-git --worktree-root <dir> --workspace <dir>` when the site policy is in place
    (`uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --policy-from <site checkout> policy` prints its `worktree_roots` and `workspace`);
    the commands are then `vetted-op-git` operations ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md#publishing-through-vetted-op-git)).
+   The plan then comes from the forge, never the site checkout: first save each file the record touches at the base branch with
+   `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`,
+   and pass `--from-saved <path>=<saved file>`, or `--site-absent <path>` for a 404; the planner refuses a path answered by neither.
    For `release-page`, pass `--reported-date` (the date of the first message on the *Security mailing list thread*).
    When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
    in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.

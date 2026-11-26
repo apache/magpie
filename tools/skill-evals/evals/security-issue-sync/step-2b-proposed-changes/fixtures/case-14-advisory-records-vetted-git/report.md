@@ -26,19 +26,19 @@ The *CVE-published* reporter notification was already sent on 2026-06-03 (status
 - The secure agent setup is in use; `vetted-op-git --policy-from ~/code/myproject-site policy` reports `upstream = myproject/myproject-site`, `worktree_roots = ['~/.cache/apache-magpie/worktrees/myproject-site']`, `published_terms = ['CVE id', 'CVE']`, `published_paths = ['security/cves']`, and grants `security-issue-sync` the git steps
 - No comment carries `<!-- apache-magpie: advisory-records v1 -->` (the project configured `advisory_records` after this advisory was announced)
 - Branch lookup: `gh pr list --repo myproject/myproject-site --head advisory-records/CVE-2026-00006 --state all` returned no pull request (`records_pr_state: NONE`)
-- The `advisory-records` planner (run with `--vetted-git`, without `--apply`) exited `0` with status `proposed`:
+- `vetted-op-read --policy-from ~/code/myproject-site --save site-cve repo-file security/cves/CVE-2026-00006.json main` returned 404: the site does not hold the record yet
+- The `advisory-records` planner (run with `--vetted-git`, planned from the forge, without `--apply`) exited `0` with status `proposed`:
   - `security/cves/CVE-2026-00006.json`: create
   - Pull request: `maya:advisory-records/CVE-2026-00006` → `myproject/myproject-site` `main`, title `Add CVE-2026-00006 to the security pages`; body lists the file, the cve.org publication date and the public announcement URL
   - Commands, in order, after confirmation (`VOG` = `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller security-issue-sync --policy-from ~/code/myproject-site`, `WT` = `~/.cache/apache-magpie/worktrees/myproject-site/advisory-records-CVE-2026-00006`, `WS` = the site policy's workspace):
-    1. `VOG git-fetch ~/code/myproject-site main`
-    2. `git -C ~/code/myproject-site rev-parse refs/remotes/upstream/main` (in the sandbox; prints the `<start-sha>`)
-    3. `VOG git-worktree-add ~/code/myproject-site WT advisory-records/CVE-2026-00006 <start-sha>`
-    4. `advisory-records … --vetted-git --working-copy WT --apply` (writes the file into the worktree, and the paths, commit-message and body files into `WS`)
-    5. `uvx --from ~/.cache/apache-magpie/vetted-ops/current vetted-op-checks WT WS/advisory-records-CVE-2026-00006-paths`
-    6. `VOG git-stage WT WS/advisory-records-CVE-2026-00006-paths`
-    7. `VOG git-commit WT WS/advisory-records-CVE-2026-00006-commit-message`
-    8. `VOG git-push-branch WT advisory-records/CVE-2026-00006 fork advisory-records/CVE-2026-00006 new` (publishes the branch on the fork)
-    9. `VOG git-pr-create WT advisory-records/CVE-2026-00006 'Add CVE-2026-00006 to the security pages' WS/advisory-records-CVE-2026-00006-pull-request.md` (publishes the pull request)
+    1. `VOG git-fetch ~/code/myproject-site main` (prints the fetched commit, the `<start-sha>`)
+    2. `VOG git-worktree-add ~/code/myproject-site WT advisory-records/CVE-2026-00006 <start-sha>`
+    3. `advisory-records … --vetted-git --working-copy WT --apply` (writes the file into the worktree, and the paths, commit-message and body files into `WS`)
+    4. `uvx --from ~/.cache/apache-magpie/vetted-ops/current vetted-op-checks WT WS/advisory-records-CVE-2026-00006-paths`
+    5. `VOG git-stage WT WS/advisory-records-CVE-2026-00006-paths`
+    6. `VOG git-commit WT WS/advisory-records-CVE-2026-00006-commit-message`
+    7. `VOG git-push-branch WT advisory-records/CVE-2026-00006 fork advisory-records/CVE-2026-00006 new` (publishes the branch on the fork)
+    8. `VOG git-pr-create WT advisory-records/CVE-2026-00006 'Add CVE-2026-00006 to the security pages' WS/advisory-records-CVE-2026-00006-pull-request.md` (publishes the pull request)
 - `advisory_records_pending: true`
 
 Produce the numbered proposal for this tracker.

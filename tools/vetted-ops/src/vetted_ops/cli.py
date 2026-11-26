@@ -271,6 +271,14 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     parser = argparse.ArgumentParser(prog=prog, description=description, allow_abbrev=False)
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
+    parser.add_argument(
+        "--policy-from",
+        metavar="DIR",
+        type=Path,
+        default=None,
+        help="discover the policy from this absolute directory instead of the working directory "
+        "(only an approved policy is accepted from there, reads included)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")
     parser.add_argument(
         "--save",
@@ -295,6 +303,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             print(f"{kind}  {name:<22} {' '.join(op.params)}\n        {op.summary}")
         return EXIT_OK
 
+    if args.policy_from is not None and args.operation in (APPROVAL_STATUS, SOURCE):
+        print(f"{prog}: refused: {args.operation} takes no --policy-from", file=sys.stderr)
+        return EXIT_USAGE
     if read_only and args.operation == APPROVAL_STATUS:
         return _approval_status(args, prog)
     if read_only and args.operation == SOURCE:
@@ -316,11 +327,44 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         )
         return EXIT_POLICY
 
+    # `--policy-from` lets a session in one repository use another repository's
+    # policy (a site repository's) without a `cd`, which would put the call back
+    # in the sandbox. The read entry point runs unprompted, so the directory may
+    # only be a checkout the operator listed in their own operator-git.toml
+    # (checked before anything on disk is touched: no probing of the host), and
+    # the policy found there acts only when it is an approved copy whose
+    # upstream's table lists that checkout.
+    base: Path | None = None
+    if args.policy_from is not None:
+        if sum(1 for a in raw if a == "--policy-from" or a.startswith("--policy-from=")) > 1:
+            print(f"{prog}: refused: --policy-from given more than once", file=sys.stderr)
+            return EXIT_POLICY
+        if args.config is not None:
+            print(f"{prog}: refused: --policy-from and --config exclude each other", file=sys.stderr)
+            return EXIT_POLICY
+        from .git_ops import policy_from_checkout
+
+        try:
+            base = policy_from_checkout(args.policy_from)
+        except ConfigError as exc:
+            print(f"{prog}: refused: {exc}", file=sys.stderr)
+            return EXIT_POLICY
+
     try:
         # The write entry points act only on a policy the user approved (see
         # `config.approved_dir`); dry runs and `policy` publish nothing.
-        approved_only = not read_only and not args.dry_run and args.operation != "policy"
-        config = load(args.config, approved_only=approved_only)
+        approved_only = (
+            not read_only and not args.dry_run and args.operation != "policy"
+        ) or base is not None
+        config = (
+            load(args.config, approved_only=approved_only)
+            if base is None
+            else load(args.config, cwd=base, approved_only=approved_only)
+        )
+        if base is not None:
+            from .git_ops import check_policy_from_upstream
+
+            check_policy_from_upstream(config, base)
     except ConfigError as exc:
         print(f"vetted-op: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY

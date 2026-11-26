@@ -175,7 +175,7 @@ The planner cannot see an open pull request, since the base branch does not hold
 | … merged | proposes a status comment opening with `<!-- apache-magpie: advisory-records-merged v1 -->` and the ticked security-pages checklist item |
 | … closed without merging | a blocker naming the pull request; nothing is re-proposed until the team decides how to record the CVE (to try again, a team member deletes the status comment, and the operator the branch on the fork and in the working copy) |
 | an `advisory-records-merged v1` comment (or a direct-mode `advisory-records v1` comment), cve.org not `PUBLISHED` yet | done for now |
-| … and cve.org lists the CVE `PUBLISHED` | reads the site's copy of the record (`gh api repos/<site repo>/contents/<path>?ref=<base>`) and runs the planner against it with `--recheck` and the record regenerated now, which compares contents (a JSON file with the rendered record, a page entry with the entry rendered from it): `unchanged` → one closing `advisory-records-recheck v1` comment, so the site is read once; a difference → proposes a refresh, the same publication on a `advisory-records/<CVE-ID>-refresh` branch; a page entry that does not match → a blocker for the team to compare by hand, never reported as matching; a failed read → try again next sync |
+| … and cve.org lists the CVE `PUBLISHED` | reads the site's copy of the record from the forge (`vetted-op-read … repo-file <path> <base>` with `--save`) and runs the planner against it (`--from-saved`) with `--recheck` and the record regenerated now, which compares contents (a JSON file with the rendered record, a page entry with the entry rendered from it): `unchanged` → one closing `advisory-records-recheck v1` comment, so the site is read once; a difference → proposes a refresh, the same publication on a `advisory-records/<CVE-ID>-refresh` branch; a page entry that does not match → a blocker for the team to compare by hand, never reported as matching; a failed read → try again next sync |
 | an `advisory-records-refresh v1` comment naming a pull request | follows it like the first one: open → waits; merged → proposes the `advisory-records-refresh-merged v1` comment; closed without merging → proposes the refresh again, on `advisory-records/<CVE-ID>-refresh-<N>` |
 | an `advisory-records-recheck v1` or `advisory-records-refresh-merged v1` comment | done |
 
@@ -186,26 +186,36 @@ Both lookups are read-only `gh` calls; a failed lookup proposes nothing and is r
 Under the [secure agent setup](../setup/secure-agent-setup.md) the site checkout is out of the sandbox's reach
 (only the tracker and framework checkouts are granted), so the `magpie-vcs` commands above can only be handed to the user.
 [`vetted-op-git`](../../tools/vetted-ops/README.md#git-operations-the-sandbox-blocks) runs the same publication outside the sandbox,
-one confirmed operation at a time, from a linked worktree of the site checkout:
+one confirmed operation at a time, from a linked worktree of the site checkout.
+No sandboxed command reads the site checkout: what sync needs to know about the site comes from the forge or from a vetted operation.
+
+The proposal is planned from the forge. For each file the record touches (the JSON file, or each release-line page),
+sync reads the site's copy at the base branch with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`
+and runs the planner with `--vetted-git --from-saved <path>=<saved file>`, or `--site-absent <path>` for a 404 (the file is new);
+the planner refuses a path answered by neither, so an unread file is never taken as absent.
+`--policy-from` accepts only a checkout the operator's own `operator-git.toml` lists for the site repository:
+the read dispatcher runs without a prompt, so it cannot be pointed at any other directory;
+`repo-file` saves the forge's base64 content, which the planner decodes.
+A backfill lists the site's files instead (`… --save <name> repo-tree <base>`) and passes the listing as `--site-listing`.
+Then, on confirmation:
 
 | Step | Command | Where |
 |---|---|---|
-| 1 | `git-fetch <site checkout> <base>` | outside the sandbox |
-| 2 | `git -C <site checkout> rev-parse refs/remotes/<upstream_remote>/<base>` | in the sandbox: prints `<start-sha>` |
-| 3 | `git-worktree-add <site checkout> <worktree> <branch> <start-sha>` | outside |
-| 4 | the planner again with `--apply`, writing into `<worktree>`, and the paths list, the commit message and the body into the policy's workspace | in the sandbox |
-| 5 | `vetted-op-checks <worktree> <paths file>` | in the sandbox |
-| 6 | `git-stage <worktree> <paths file>` | outside |
-| 7 | `git-commit <worktree> <message file>` | outside |
-| 8 | `git-push-branch <worktree> <branch> fork <branch> new` | outside: publishes the branch on the operator's fork |
-| 9 | `git-pr-create <worktree> <branch> "<title>" <body file>` | outside: publishes the pull request |
+| 1 | `git-fetch <site checkout> <base>` | outside the sandbox: prints the fetched commit, `<start-sha>` |
+| 2 | `git-worktree-add <site checkout> <worktree> <branch> <start-sha>` | outside |
+| 3 | the planner again with `--apply`, recomputing the change on `<worktree>` and writing it there, and the paths list, the commit message and the body into the policy's workspace | in the sandbox |
+| 4 | `vetted-op-checks <worktree> <paths file>` | in the sandbox, see below |
+| 5 | `git-stage <worktree> <paths file>` | outside |
+| 6 | `git-commit <worktree> <message file>` | outside |
+| 7 | `git-push-branch <worktree> <branch> fork <branch> new` | outside: publishes the branch on the operator's fork |
+| 8 | `git-pr-create <worktree> <branch> "<title>" <body file>` | outside: publishes the pull request |
 
 The commit message file ends with the attribution trailer [`commit-attribution.md`](../setup/commit-attribution.md) resolves:
 the project's convention (`--commit-trailer`, or `--no-commit-trailer` for none), else the framework's own `Generated-by: <agent name and version>` (`--agent`);
 the site repository has not adopted Magpie, so the tracker project's convention is the one that applies.
 The planner prints these with `--vetted-git`; every `vetted-op-git` call is spelled
 `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --caller security-issue-sync --policy-from <site checkout> …`.
-Between steps 7 and 8 sync runs the adversarial review, as in the table above.
+Between steps 6 and 7 sync runs the adversarial review, as in the table above.
 After the pull request merges, `git-worktree-remove <worktree>` and `git-delete-fork-branch <site checkout> <branch> <head-sha>` clean up, each confirmed.
 
 What makes it possible, and what it keeps apart:
@@ -218,12 +228,22 @@ What makes it possible, and what it keeps apart:
   `--policy-from <site checkout>` selects it without leaving the tracker session's working directory.
 - **The operator's own values** for the site repository are a `["<site repo>"]` table in `~/.config/apache-magpie/vetted-ops/operator-git.toml`:
   `checkouts` (the site checkout), `fork` and `worktree_roots`.
-- **The worktree is sandbox-writable, the checkout only readable.** The planner's `--apply` and `vetted-op-checks` run in the sandbox,
+- **The worktree is sandbox-writable; the checkout is never read from the sandbox.** The planner's `--apply` and `vetted-op-checks` run in the sandbox,
   so the worktree root must be one the sandbox writes: a directory under `~/.cache/`, which the secure setup grants
   (for example `~/.cache/apache-magpie/worktrees/<site name>`, created with `mkdir -m 700`, as `vetted-op-git` requires).
-  A linked worktree keeps its index and objects in the site checkout's `.git`, so the sandbox also needs to read the checkout:
-  one `sandbox.filesystem.allowRead` entry for it in the tracker session's settings.
-  No sandboxed command writes the checkout; `git-fetch`, `git-worktree-add`, `git-stage` and `git-commit` do, outside the sandbox.
+  The `--apply` run reads and writes only the worktree's files.
+  Git itself cannot run there from the sandbox: a linked worktree keeps its index and objects in the site checkout's `.git`, which the sandbox denies.
+  So `vetted-op-checks` computes the checked files' blob ids itself (SHA-1, as `git hash-object` would; a SHA-256 repository never matches, so `git-commit` refuses rather than commit unchecked content).
+  A site repository with a hook configuration (`.pre-commit-config.yaml`) cannot be checked this way, since `prek` runs git:
+  by default sync reads `.pre-commit-config.yaml` from the forge first and, when the site has one, hands over the `magpie-vcs` commands from the start.
+  If the checks still refuse once the worktree exists, the hand-over is the planner's `fallback_commands`:
+  remove the worktree (`git worktree remove --force`, since it holds the uncommitted change) and delete its never-pushed branch, then the `magpie-vcs` commands,
+  which make the same branch again, the one later syncs find the pull request by.
+  A site may opt in to skipping its own hooks on this route with `[git] site_hooks = "skip"` in its policy
+  (only a records-site policy, one with `published_paths`, may set it): the checks are then recorded as skipped, `git-commit` accepts that,
+  and the pull request's body says *"Hooks were not run locally; the repository's CI checks this PR."*
+  The pull request changes only the records files, and the site's own CI runs the hooks on it.
+  `git-fetch`, `git-worktree-add`, `git-stage` and `git-commit` read and write the checkout outside the sandbox.
 - **The published identifier passes `git-pr-create`'s scan, nothing else does.** That scan refuses every term the publication guard keeps back before disclosure.
   The site policy sets `[git] published_terms = ["CVE id", "CVE"]`, which only a policy can set and which names nothing beyond the record's identifier,
   so the title and body may name the published CVE while every other term stays refused.
@@ -231,10 +251,10 @@ What makes it possible, and what it keeps apart:
   and `git-pr-create` applies it only when the forge reports that every file the pushed branch changes against the base lies under one of those paths.
   A branch that touches anything else, as a source-repository change would, gets the normal scan.
 
-`setup config` proposes the operator table, the site policy and the read grant
+`setup config` proposes the operator table and the site policy
 ([Step 3a.3](../../plugins/magpie-setup/skills/setup/config.md#step-3a3--your-git-values-for-publishing-secure-setup-only)),
 and `setup reconcile` reports them missing.
-Until all three are there, `vetted-op-git` refuses and sync hands over the `magpie-vcs` commands of the table above, as before.
+Until both are there, `vetted-op-git` refuses and sync hands over the `magpie-vcs` commands of the table above, as before.
 
 ### The publication guards
 

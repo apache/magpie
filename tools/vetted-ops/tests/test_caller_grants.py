@@ -46,7 +46,7 @@ README = REPO_ROOT / "tools" / "vetted-ops" / "README.md"
 #: The dispatcher entry points, as a whole word (not `vetted-ops`, `vetted-op-checks`).
 ENTRY = re.compile(r"(?<![\w/-])vetted-op(?:-read|-tracker|-git)?(?![\w-])")
 #: Flags that take a value; every other `--flag` is boolean (`--dry-run`).
-VALUE_FLAGS = {"--caller", "--config", "--save"}
+VALUE_FLAGS = {"--caller", "--config", "--save", "--policy-from"}
 #: Subcommands that are not operations and need no grant.
 META = {"policy", "list-ops", "approval-status", "source"}
 NAME = re.compile(r"[a-z][a-z0-9-]*")
