@@ -20,6 +20,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from spec_inventory import (
     build_inventory,
     compact_metadata_value,
@@ -52,6 +54,95 @@ license: Apache-2.0
     assert fm["mode"] == "Triage"
     assert fm["description"] == "First line.\nSecond line."
     assert fm["capability"] == "capability:triage"
+
+
+def test_readme_template_comments_are_removed_from_inventory(tmp_path: Path) -> None:
+    frontmatter = """---
+title: Example Spec
+status: experimental   # stable | experimental | proposed | off
+kind: feature          # feature | fix | docs | chore
+mode: Triage           # Triage | Mentoring | Drafting | Pairing | infra
+---
+"""
+    specs_dir = tmp_path / "tools" / "spec-loop" / "specs"
+    specs_dir.mkdir(parents=True)
+    (specs_dir / "example.md").write_text(frontmatter)
+    (tmp_path / "skills").mkdir()
+
+    assert specs_dir.is_dir()
+    inventory = build_inventory(tmp_path, max_where=1, max_validation=1, max_gaps=1)
+    markdown = format_markdown(inventory)
+
+    assert "`tools/spec-loop/specs/example.md`" in markdown
+    assert "[experimental, Triage, feature]" in markdown
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("value\t# note", "value"),
+        ('"a # b"  # note', '"a # b"'),
+        (r'"say \"hi\" # x"  # n', r'"say \"hi\" # x"'),
+        ("'it''s # here'\t# note", "'it''s # here'"),
+        ('"unclosed # x', '"unclosed # x'),
+        ('"a" b # c', '"a" b # c'),
+        ('["a # b", c]  # note', '["a # b", c]  # note'),
+        ("[a, b]  # note", "[a, b]"),
+        ("it's # x", "it's"),
+        ("C# tooling", "C# tooling"),
+        ("a\N{NO-BREAK SPACE}#b", "a\N{NO-BREAK SPACE}#b"),
+        ("# todo", ""),
+    ],
+)
+def test_parse_frontmatter_handles_yaml_comments(value: str, expected: str) -> None:
+    assert parse_frontmatter(f"---\ntitle: {value}\n---\n")["title"] == expected
+
+
+def test_continuation_lines_are_kept_verbatim() -> None:
+    fm = parse_frontmatter(
+        """---
+capability:
+  - a  # x
+quoted: "first
+  # literal
+# column zero
+  last"
+description: |2
+  # Heading
+  text
+---
+"""
+    )
+
+    assert fm["capability"] == "- a  # x"
+    assert fm["quoted"] == '"first\n# literal\n# column zero\nlast"'
+    assert fm["description"] == "|2\n# Heading\ntext"
+
+
+def test_block_scalar_header_comment_is_removed_before_detection() -> None:
+    fm = parse_frontmatter(
+        """---
+description: >  # note
+  First line.
+  Second line.
+---
+"""
+    )
+
+    assert fm["description"] == "First line.\nSecond line."
+
+
+def test_block_scalar_comment_content_is_kept_verbatim() -> None:
+    fm = parse_frontmatter(
+        """---
+description: |
+  # Heading
+  C # sharp
+---
+"""
+    )
+
+    assert fm["description"] == "# Heading\nC # sharp"
 
 
 def test_validation_commands_extracts_non_comment_lines() -> None:
