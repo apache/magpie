@@ -12,6 +12,7 @@
   - [Security model](#security-model)
     - [Terminal sandbox boundaries](#terminal-sandbox-boundaries)
     - [What asks and what denies](#what-asks-and-what-denies)
+    - [ASF host access limitation](#asf-host-access-limitation)
     - [Deterministic guard rules](#deterministic-guard-rules)
   - [Reuse framework MCP servers](#reuse-framework-mcp-servers)
   - [Spec-loop runner](#spec-loop-runner)
@@ -97,7 +98,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
    If the operator retains any, report that the permissions remain
    globally effective across repositories. Do not automatically add
    ASF project-specific permissions to this user-scope profile.
-   Antigravity has no project-level grant yet, so ASF hosts are not pre-approved on this harness, even for an ASF project ([#2003](https://github.com/apache/magpie/issues/2003)).
+   Antigravity has no workspace-level permission file in the repository, so ASF hosts are not pre-approved in the global user-scope profile ([#2003](https://github.com/apache/magpie/issues/2003)).
    Leave `agentMode` unset (or `plan`): `accept-edits` and `auto` approve edits or commands without review.
 4. **Register the guard.** Merge the `magpie-agent-guard` entry from the shipped `hooks.json`, with the path resolved in step 1.
    Keep exactly one effective guard registration; propose correcting a stale or duplicate entry instead of appending another.
@@ -173,6 +174,12 @@ Rules apply with **Deny > Ask > Allow** precedence, on top of the account's perm
 Command rules match word by word as a literal prefix.
 Command substitution, redirection and similar constructs force an exact full-line match, so they fall back to the default ask.
 Prefix rules are a friction layer, not a shell parser; the guard and the sandbox are the enforcement layers.
+
+### ASF host access limitation
+
+The neutral user-scope profile (`~/.gemini/antigravity-cli/settings.json`) deliberately does not pre-approve ASF hosts (`lists.apache.org`, `dist.apache.org`, `repository.apache.org`, `downloads.apache.org`, `archive.apache.org`, `cveprocess.apache.org`) because user-scope `read_url(...)` rules apply globally across unrelated repositories ([#2003](https://github.com/apache/magpie/issues/2003)).
+Antigravity CLI stores per-project permission grants under `~/.gemini/config/projects/<project-id>.json` rather than a committed workspace file, and the terminal sandbox grants no network access by default (see [Terminal sandbox boundaries](#terminal-sandbox-boundaries)).
+Project-scoped in-sandbox access to ASF hosts remains an open limitation under [#2003](https://github.com/apache/magpie/issues/2003) until a project-scoped `read_url(...)` rule or workspace-level grant is verified to extend the sandbox allowlist for a single project without widening global permissions.
 
 ### Deterministic guard rules
 
