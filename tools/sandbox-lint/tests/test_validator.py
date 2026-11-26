@@ -397,6 +397,20 @@ def test_mid_rule_wildcard_in_allow_is_an_invariant_error(baseline: dict[str, An
     assert any(rule in e for e in errors), errors
 
 
+@pytest.mark.parametrize("rule", ["Bash(gh api graphql *)", "Bash(gh api *)", "Bash(gh api)"])
+def test_gh_api_allow_that_can_write_is_an_invariant_error(baseline: dict[str, Any], rule: str) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "can write" in e for e in errors), errors
+
+
+def test_a_specific_gh_api_get_allow_is_not_flagged_as_writing(baseline: dict[str, Any]) -> None:
+    allowed = copy.deepcopy(baseline)
+    allowed["permissions"]["allow"].append("Bash(gh api repos/o/r/pulls)")
+    assert not any("can write" in e for e in check_invariants(allowed))
+
+
 def test_mid_entry_wildcard_in_excluded_commands_is_an_invariant_error(
     baseline: dict[str, Any],
 ) -> None:

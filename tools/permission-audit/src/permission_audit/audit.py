@@ -74,6 +74,9 @@ FORBIDDEN_PATTERNS: frozenset[str] = frozenset(
         "Bash(go run *)",
         # Broad API / container / privilege wildcards
         "Bash(gh api *)",
+        # A GraphQL call can write (a mutation) and a prefix cannot tell a
+        # query from one; the settings template shipped this until 2026-11.
+        "Bash(gh api graphql *)",
         "Bash(docker run *)",
         "Bash(docker exec *)",
         "Bash(kubectl exec *)",

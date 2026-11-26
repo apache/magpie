@@ -59,6 +59,11 @@ def test_release_management_family_recommendations():
     assert {f.pattern for f in result_asf.missing_recommended} == expected_asf
 
 
+def test_the_old_template_graphql_allow_is_flagged():
+    result = audit_settings(allow_list=["Bash(gh api graphql *)"], families=["security"])
+    assert {f.pattern for f in result.forbidden} == {"Bash(gh api graphql *)"}
+
+
 def test_forbidden_python_wildcard_flagged_with_pointer():
     allow = [
         "Bash(git status *)",

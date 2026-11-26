@@ -687,7 +687,8 @@ The full block below is the two merged, annotated.
     "allow": [
       // No `gh api graphql` allow: a GraphQL call can write (a mutation) and a
       // command prefix cannot tell a query from one, so raw `gh api graphql`
-      // always prompts. Bounded GraphQL reads go through vetted-ops instead.
+      // always prompts. Bounded GraphQL reads belong in vetted-ops reads, which
+      // run without a prompt; a skill's direct GraphQL read prompts each time.
       // Two read-only REST `gh api` GETs the skills need for read-only
       // analysis (security-team / reviewer roster lookup; release-tag ↔
       // fix-commit ancestry when verifying a fix shipped). Without these,
