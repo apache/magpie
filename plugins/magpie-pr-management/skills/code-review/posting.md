@@ -183,8 +183,8 @@ agreed.
 
 ## Confirm-before-post
 
-The maintainer's harness-level instructions (`AGENTS.md`,
-`~/.claude/CLAUDE.md`) typically include a "confirm before
+The maintainer's instructions (`AGENTS.md`, their personal agent
+instructions) typically include a "confirm before
 sending" rule for any message authored on their behalf. The
 post step is **always** preceded by:
 
@@ -205,8 +205,8 @@ exact text it approved.
 
 ## Per-tone overrides
 
-If the maintainer's harness-level instructions (`AGENTS.md`,
-`~/.claude/CLAUDE.md`) define **per-contributor tone overrides**
+If the maintainer's instructions (`AGENTS.md`, their personal agent
+instructions) define **per-contributor tone overrides**
 — e.g. one contributor expects a sharper register, another
 gets a more measured tone — the **summary line** and body
 wording for the affected PR shift accordingly. The findings
