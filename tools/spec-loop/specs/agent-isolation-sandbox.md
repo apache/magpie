@@ -419,6 +419,21 @@ See `docs/adapters/harnesses/goose.md`.
   points `PREK_HOME` at `~/.local/share/prek-host` and `XDG_CACHE_HOME`
   at `~/.local/share/prek-host/cache`, keeping an operator's own value
   outside `~/.cache`.
+  pre-commit takes lefthook's `hide-global-config` strategy (#1820) and
+  has a home the committed settings cannot carry: `PRE_COMMIT_HOME`
+  reaches `os.path.realpath` unexpanded, so a `~` value would resolve
+  under the session's working directory.
+  The settings keep no `env` entry for it (an absolute path is per
+  machine), `Edit(~/.cache/pre-commit/**)` denies the default home, and
+  `sandbox-add-project-root.sh` writes the resolved sandbox home
+  `~/.cache/pre-commit-sandbox` into the project-local
+  `.claude/settings.local.json` for a repository that uses pre-commit —
+  filling a gap only, never replacing a value the operator set there —
+  and removes that value again from a repository that does not.
+  Detection counts an installed hook only when it carries
+  `https://pre-commit.com`, the URL pre-commit writes into its generated
+  hook; a `prek` hook mentions `--hook-type=pre-commit` and would otherwise
+  match.
   pnpm gets the same split without being a hook manager: a pnpm
   project's own settings `env` (never the shared template, since npm
   warns about unknown `npm_config_*` names) sets `PNPM_HOME` to a
@@ -457,7 +472,8 @@ See `docs/adapters/harnesses/goose.md`.
   `registry.json` registers prek (install strategy `git-dir-flag`),
   overcommit (`hooks-path-env`, with `install.runtime_env` so the
   dispatcher exports the same `core.hooksPath` at run time), lefthook
-  (`hide-global-config`, no home), captainhook (`hooks-path-env`, #1899),
+  (`hide-global-config`, no home), pre-commit (`hide-global-config`, home
+  from the helper, #1820), captainhook (`hooks-path-env`, #1899),
   plus four
   managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:

@@ -1107,6 +1107,54 @@ def test_settings_need_no_prek_home_for_a_project_without_prek(
     assert any(e.startswith("env.PREK_HOME: missing") for e in errors), errors
 
 
+PRE_COMMIT_FILES = (".pre-commit-config.yaml", ".pre-commit-config.yml")
+
+
+def _pre_commit_repo(tmp_path: Path) -> Path:
+    repo = _git_repo(tmp_path / "pre-commit-repo")
+    (repo / ".pre-commit-config.yaml").write_text("")
+    return repo
+
+
+def test_the_default_pre_commit_home_is_denied(baseline: dict[str, Any]) -> None:
+    assert "Edit(~/.cache/pre-commit/**)" in baseline["permissions"]["deny"]
+
+
+def test_a_literal_tilde_is_refused_for_a_home_the_tool_does_not_expand(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    """pre-commit runs os.path.realpath, so `~` would resolve under the working directory."""
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": "~/.cache/pre-commit-sandbox"}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert any("PRE_COMMIT_HOME" in e and "absolute" in e for e in errors), errors
+
+
+def test_an_absent_pre_commit_home_is_not_an_error(baseline: dict[str, Any], tmp_path: Path) -> None:
+    """The helper writes it per machine; without it a sandboxed run hits the denied default home."""
+    settings = copy.deepcopy(baseline)
+    settings.pop("env", None)
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert not [e for e in errors if "PRE_COMMIT_HOME" in e], errors
+
+
+def test_a_pre_commit_home_inside_the_default_home_is_refused(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    default_home = Path(os.path.expanduser("~/.cache/pre-commit"))
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": str(default_home / "sandbox")}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert any(e.startswith("env.PRE_COMMIT_HOME:") for e in errors), errors
+
+
+def test_an_absolute_pre_commit_home_is_accepted(baseline: dict[str, Any], tmp_path: Path) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": str(tmp_path / "home" / ".cache" / "pre-commit-sandbox")}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert not [e for e in errors if "PRE_COMMIT_HOME" in e], errors
+
+
 def test_the_default_prek_home_is_denied_even_without_prek(baseline: dict[str, Any], tmp_path: Path) -> None:
     """The default home is per-user: another project's terminal commits run from it."""
     settings = copy.deepcopy(baseline)

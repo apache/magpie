@@ -116,6 +116,7 @@
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(~/.config/uv/**)",
+      "Edit(~/.cache/pre-commit/**)",
       "Edit(~/.cache/prek/**)",
       "Edit(~/.cache/pnpm/**)",
       "Edit(~/.cache/ponymail-attachments/**)",
