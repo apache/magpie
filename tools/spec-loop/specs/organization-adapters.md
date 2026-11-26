@@ -122,6 +122,18 @@ identical "ASF default" values in its own `project.md`.
   with the id `apache-incubator-<skill>`. A descriptor may record the
   source's agent marketplace name (`marketplace: apache-incubator`), so a
   skill installs as `<skill>@<marketplace>`.
+  When a curated pin moves, `setup update` Step 6f tells each project that
+  trusts the source: `setup_preflight.skill_sources pins` compares the
+  trust list with the catalogue the new snapshot carries (`moved`,
+  `same`, `tag-moved`, `adopter-ahead`, `not-comparable`, `not-curated`,
+  `declined`), and on the operator's yes the skill stages the new `ref`
+  and anchor (`commit`, or `sha512` for an archive) in the trust list and
+  the sources lock, never committing, and fetches nothing from it until the
+  bump is committed and `setup skill-sources` verifies it. The catalogue is
+  the snapshot's, or the adopter-local organization's under
+  `.apache-magpie-overrides/organizations/<org>/`.
+  A no is recorded under `skill_source_pins` in `reconciled.json`, so the
+  same bump is not proposed again until the curated ref moves past it.
   `tools/dev/check-skill-source-drift.py` reads each GitHub source through
   the REST API and reports added, removed or re-laid-out skills, a pin
   whose tag no longer resolves to the recorded commit, a newer or first tag,
