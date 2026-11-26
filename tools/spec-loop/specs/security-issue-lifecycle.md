@@ -659,6 +659,10 @@ publication, with a human gate and an audit-log entry at every step.
   `security_pages: not_configured` and never proposes the reminder;
   a caller that omits the flag keeps the reminder.
   `/magpie-setup:setup config` asks whether the project has a security page.
+- **Import records *Affected versions* in a shape the generator accepts.**
+  `security-issue-import` writes `<version>`, `< Y`, `<= Y`, `>= X` or
+  `>= X, < Y`; several tested versions become `<=` the highest one, never a
+  comma-separated list, which `generate-cve-json` refuses (#2300).
 - **Sync state markers are read from comments only (#1716).**
   `issue-sync closed-announced` decides "records done", "pages ticked" and
   "reporter notification drafted" from the tracker's comments, never its
@@ -677,7 +681,9 @@ publication, with a human gate and an audit-log entry at every step.
   the `magpie-vcs` commands; sync proposes them as one item and runs them only
   on confirmation, then posts an `advisory-records` marker comment with the
   ticked checklist item. The planner refuses before publication, is
-  idempotent, escapes tracker text, and refuses a page it cannot parse. The
+  idempotent, escapes tracker text, and refuses a page it cannot parse. Its
+  reported, public and per-version release dates must name a real day, not
+  only match `YYYY-MM-DD` (#2294). The
   reminder never fires for such a project. `magpie-vcs` gains `update` and
   `checkout` for it.
   With `publish: pull-request` (Git), the operator instead commits on a new

@@ -45,7 +45,9 @@ by swapping the adapter, not the skill.
   sandboxed Bash, and sandbox-lint refuses an `allowRead` grant for it
   (#1681). A draft threads on the inbound message one of three ways
   (`tools/gmail/threading.md`): attached to its Gmail `thread_id`, with
-  `In-Reply-To` / `References` derived from the thread's last message;
+  `In-Reply-To` / `References` derived from the thread's last message
+  (a parent with no `References` but a single-id `In-Reply-To` passes that
+  id on, so the thread root stays first in the chain, #2316);
   header-threaded by an explicit `in_reply_to` / `references`
   (`--in-reply-to` / `--references` on `oauth-draft-create`) when the
   message is not in the user's Gmail but its `Message-ID` is known from

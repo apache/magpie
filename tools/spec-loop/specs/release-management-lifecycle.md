@@ -101,7 +101,15 @@ code lands.
   reproducibility / namespace / companion-content observations —
   plus the Nexus staging repository behind them via the read-only
   `tools/asf-nexus` adapter (ASF-only); version consistency,
-  Step 6);
+  Step 6).
+  For a podling, Step 5 also fails an RC with neither `DISCLAIMER` nor
+  `DISCLAIMER-WIP` at the source root (presence only, not wording).
+  The stage comes from the optional, ASF-only `project_stage` key
+  (`incubating` / `top-level`) in `release-management-config.md`, never
+  from a file in the RC: `verify-rc args` adds `--podling` itself, and the
+  JVM step uses the same signal, falling back to the disclaimer file only
+  when the key is unset. Unset on an ASF project, `args` warns, and the
+  skill asks the release manager once and records the answer (#2114);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
   and planning-issue comment after a PASS pre-flight, naming the Nexus
   staging-repository URL when the RC carries JVM artefacts (read from the
@@ -143,7 +151,9 @@ code lands.
   (#1619): `verify-rc args` emits the `release-verify` invocations from
   `release-build.md`, and `rat`, `source-tree`, `jvm`, `nexus`, `repro` and
   `report` classify Steps 4, 7, 6b, 6c, 9 and 10, checking the Nexus
-  staging-repository id shape before any URL is built and withholding the
+  staging-repository id shape (`<name>-NNNN`, which fits both
+  `orgapache<project>-NNNN` and `maven-NNNN`, #2209) before any URL is
+  built and withholding the
   trusted-hardware attestation unless automated signing, a Step 9 `PASS`
   and every artefact `identical` all hold.
   It renders the `[VOTE]` draft and planning-issue comment
@@ -167,6 +177,9 @@ code lands.
   set, as ASF policy accepts either; every other staged digest is checked,
   and `release-config preflight --skill rc-cut` accepts a set with `sha256`
   or `sha512` and no `md5` / `sha1` (#2212).
+  `maven-artifact-verify` refuses a `--digests` value that names no digest
+  type (exit `2`, `FAIL`), which would otherwise pass companions that carry
+  no checksum at all (#2332).
   A `**/` in a prohibited-binaries glob matches zero or more directories,
   so `**/gradle-wrapper.jar` matches a jar at the root but not
   `fake-gradle-wrapper.jar` (#2257).
@@ -370,6 +383,12 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
 
 ## Known gaps
 
+- **Only part of the podling checks is covered.** `release-verify-rc`
+  checks that a disclaimer file is present, but not `incubating` in the
+  archive names or the two-stage PPMC-then-IPMC vote;
+  `organizations/ASF/skill-sources.md` still recommends the IPMC's
+  `releasecheck` for podlings.
+  <!-- gap-closes-when: none (narrative) -->
 - **All ten skills have shipped** — `release-prepare`, `release-keys-sync`,
   `release-rc-cut`, `release-vote-draft`, `release-archive-sweep`,
   `release-audit-report`, `release-announce-draft`, `release-verify-rc`,
@@ -399,6 +418,6 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
 - **`release-verify-rc` is back over the 500-line cap.** The
   decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625) brought
   every `SKILL.md` in the family under it (`release-prepare` fell from 1,208
-  to 367), but later additions grew `verify-rc/SKILL.md` to 517 lines;
+  to 367), but later additions grew `verify-rc/SKILL.md` to 527 lines;
   `rc-cut/SKILL.md` (498) is next.
   <!-- gap-closes-when: none (narrative) -->

@@ -72,6 +72,11 @@ that a maintainer should not ignore.
   safety-baseline presence, detected by regex against the checklist's
   three clauses).
   Follows the tool-backs-skill pattern used across the catalogue.
+  A step body and the Hard rules block each end at the next heading of the
+  same or a higher level outside a fenced block (a step also ends at the
+  next Step heading), so an edit to a later section is not reported as a
+  step change (#2322). `hard_rules_diff` says whether each skill has the
+  block and whether the two texts differ (#2337).
 - Inputs: two `SKILL.md` trees (plus their supporting `.md` files),
   identified by path or by `source` tag.
 - It reads the safety-baseline definition from the same place the rest of
