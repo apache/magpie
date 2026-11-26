@@ -461,6 +461,11 @@ class Verifier:
             except (OSError, tomllib.TOMLDecodeError) as error:
                 parts.append(("unknown", f"{PINNED}: {error}"))
         floor = _get(manifest, "tools", "claude-code", "min_version")
+        stricter = _get(manifest, "tools", "claude-code", "min_version_no_telemetry")
+        why = _telemetry_off(self.ctx.env)
+        reason = ""
+        if why and isinstance(floor, str) and isinstance(stricter, str) and _key(stricter) > _key(floor):
+            floor, reason = stricter, f" ({why}: reads AGENTS.md only from this release)"
         shown = running or "not available"
         if framework is None:
             parts.append(
@@ -484,9 +489,13 @@ class Verifier:
                 if harness == "claude"
                 else " (not running under Claude Code: floor not enforced as a hard gate)"
             )
-            parts.append((status, f"claude-code {running} is below the min_version floor {floor}{note}"))
+            parts.append(
+                (status, f"claude-code {running} is below the min_version floor {floor}{reason}{note}")
+            )
         else:
-            parts.append(("pass", f"claude-code {running}, at or above the min_version floor {floor}"))
+            parts.append(
+                ("pass", f"claude-code {running}, at or above the min_version floor {floor}{reason}")
+            )
         if self.ctx.system != "Linux":
             parts.append(("pass", "bubblewrap/socat: not needed here (Seatbelt is built in)"))
         else:
@@ -835,6 +844,24 @@ class Verifier:
             ],
         }
         return {"facts": facts, "findings": findings}
+
+
+# Before 2.1.281, a session on a third-party provider (which turns telemetry
+# off by itself) or with telemetry disabled read CLAUDE.md files only.
+_PROVIDER_ENV = ("CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
+# Claude Code treats any non-empty value of these as set, `0` included.
+_TELEMETRY_OFF_ENV = ("DISABLE_TELEMETRY", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC")
+
+
+def _telemetry_off(env: Mapping[str, str]) -> str | None:
+    """The variable that puts this session on the stricter floor, if any."""
+    for name in _PROVIDER_ENV:
+        if env.get(name, "").strip().lower() not in ("", "0", "false"):
+            return f"{name} is set"
+    for name in _TELEMETRY_OFF_ENV:
+        if env.get(name):
+            return f"{name} is set"
+    return None
 
 
 def _key(version: str) -> tuple[int, ...]:

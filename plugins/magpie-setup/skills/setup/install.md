@@ -2080,6 +2080,11 @@ framework before they hit a "skill not found" error:
    authoritative entry-point, and an empty `AGENTS.md` would
    be more noise than signal.
 
+   Never create a `CLAUDE.md`, or a `CLAUDE.md` → `AGENTS.md` symlink.
+   Claude Code reads `AGENTS.md` natively from 2.1.277, the secure setup's floor, and a `CLAUDE.md` in the working directory or above makes it read `CLAUDE.md` files only, so every nested `AGENTS.md` stops loading.
+   If the repo has a root `CLAUDE.md` that is only a symlink to `AGENTS.md` (or a one-line `@AGENTS.md` import), propose removing it in the same commit, saying why.
+   A `CLAUDE.md` with content of its own is the project's choice: leave it, and tell the user that Claude Code reads it instead of `AGENTS.md`, block above included.
+
 3. **`CONTRIBUTING.md` (fallback only).** If `README.md` is
    absent or strictly off-limits (some projects vendor it
    from another source and rebuild on release), add the
@@ -2090,7 +2095,7 @@ runs `doctoc` or similar README-TOC hooks, expect the next
 commit to also touch the TOC block. Either run the hook
 yourself before staging or note it in the commit message.
 
-Surface the rendered diff (`git diff README.md AGENTS.md`)
+Surface the rendered diff (`git diff README.md AGENTS.md`, plus `CLAUDE.md` when its removal is proposed)
 to the user before writing. The user confirms once for the
 whole doc set; do not ask separately per file.
 

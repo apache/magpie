@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:7e0d11345084066f
 license: Apache-2.0
-measured_tokens: 6360
+measured_tokens: 6394
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -136,7 +136,7 @@ When the command fails (no checker copy, or one older than this skill), say that
 **No framework checkout.** When `facts.framework_checkout` is null, ask the user once for the path of their `magpie` clone and re-run with `--framework <path>`.
 Without one, keep the checker's verdicts: 10a's script comparison and 13c are **unchecked — no framework checkout**, check 5's `bubblewrap`/`socat` pins too, and the unenforced `claude-code` floor is ⚠ (overall `warn`), never unchecked; say which path to supply.
 
-**Check 5 `fail`** is the running `claude-code` below the manifest's `min_version` under Claude Code: a **hard fail**, never downgraded to ⚠, because the permission-rule, sandbox and prompt-injection guarantees may not hold on an older build.
+**Check 5 `fail`** is the running `claude-code` below the manifest's `min_version` under Claude Code (`min_version_no_telemetry` when the evidence names a third-party provider or telemetry turned off, the sessions that read `AGENTS.md` only from that release): a **hard fail**, never downgraded to ⚠, because the permission-rule, sandbox and prompt-injection guarantees may not hold on an older build.
 Stop, tell the operator to upgrade (`npm install -g --no-save @anthropic-ai/claude-code@latest`), and re-run.
 At or above the floor, suggest `@latest` if it is not already the newest (a note; the checker does not look it up).
 

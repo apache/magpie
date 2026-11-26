@@ -115,8 +115,16 @@ install.from_source = "http://www.dest-unreach.org/socat/download/socat-1.8.1.3.
 # below this floor — the secure setup's guarantees do not hold on an
 # older runtime, so the run stops. Raise the floor only when the
 # framework starts to depend on behaviour from a newer release.
-min_version = "2.1.202"
-released = "2026-07-06"  # release date of the min_version floor
+#
+# 2.1.277 is the first release that reads `AGENTS.md` natively, with no
+# `CLAUDE.md` beside it; Magpie keeps its agent instructions in
+# `AGENTS.md` only. Before 2.1.281, a session on a third-party provider
+# (Amazon Bedrock, Google Vertex, Microsoft Foundry) or with telemetry
+# disabled still read `CLAUDE.md` files only, so verify applies
+# `min_version_no_telemetry` instead when the environment says so.
+min_version = "2.1.277"
+released = "2026-09-18"  # release date of the min_version floor
+min_version_no_telemetry = "2.1.281"  # released 2026-09-23
 purpose = """
 The agent runtime itself. The secure setup's permission-rule
 semantics, sandbox flags, and prompt-injection mitigations depend
