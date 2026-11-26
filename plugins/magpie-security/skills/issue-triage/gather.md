@@ -124,6 +124,16 @@ that the orchestrator aggregates into one proposal.
 The orchestrator runs the item 1 batched read first and hands each subagent its tracker's redacted slice,
 so subagents run only the genuinely per-tracker calls (the item 3 searches, the item 4 mail thread, the item 6 cross-reference search) and never `gh issue view`.
 
+A subagent limited to vetted reads (or any read on a non-GitHub tracker) makes those searches under this skill's own caller:
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-triage repo-pr-search "<words>"
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-triage issue-search "<key>"
+```
+
+`repo-pr-search` covers the item 3 upstream searches, and `issue-search` the item 6 cross-reference search and the [Step 2.6](security-model-and-precedents.md) precedent search; neither takes a `:` qualifier, so filter the returned `state` and `labels` instead of passing `--state` or `--label`.
+A refusal naming the caller is a missing grant to report, never a reason to borrow another skill's caller.
+
 **Hard rules for bulk mode** (mirrors `security-issue-sync`):
 
 - Subagents are read-only; they never call `gh issue edit`,
