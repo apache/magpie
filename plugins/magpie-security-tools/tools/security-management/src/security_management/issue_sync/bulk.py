@@ -27,13 +27,15 @@ a tracker that is also CVE-affecting for a content change.
 
 `parse_reply` reads the merged confirmation: `all`, `<N>:all`,
 `<N>:1,3,5`, `<N>:skip`, `<N>:edit <item>: <value>`, `force-sync <N>` (a
-pre-flight-skipped tracker only), `summary:skip` (drop the state-summary
-email that replaced the nudges; only when `summary` is true), `cancel` /
-`none`. Clauses split on `;` and new lines. A tracker or item the proposal
+pre-flight-skipped tracker only), `summary` / `summary:skip` (approve or drop
+the state-summary email that replaced the nudges; only when `summary` is
+true), `cancel` / `none`. Clauses split on `;` and new lines. A tracker or item the proposal
 does not carry, two dispositions for one tracker, `summary:…` with no
 summary in the proposal, or free text makes the reply `ambiguous`: nothing
-applies. `summary` comes back `draft` (shown for its own confirmation after
-the apply and the end-of-sync sweep), `skip`, or null when there is none.
+applies, and so does an empty reply. `summary` comes back `draft` only when
+the reply approved it (`all`, or an explicit `summary`), to be shown for its
+own confirmation after the apply and the end-of-sync sweep; any other reply
+gives `skip`, and there is null when the proposal carried none.
 """
 
 from __future__ import annotations
@@ -103,8 +105,19 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
     ambiguous: list[str] = []
     everything = False
     has_summary = bool(data.get("summary"))
-    summary: str | None = "draft" if has_summary else None
+    summary: str | None = None
     summary_set = False
+    if not reply:
+        return {
+            "ok": True,
+            "action": "ambiguous",
+            "apply": {},
+            "edits": [],
+            "force_sync": [],
+            "skip": [],
+            "ambiguous": [""],
+            "summary": None,
+        }
 
     def take(number: int, items: list[int], token: str) -> None:
         if number in plan or number in skip:
@@ -184,6 +197,8 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
                 plan.setdefault(number, items)
     for change in edits:
         plan.setdefault(int(change["tracker"]), proposal[int(change["tracker"])])
+    if has_summary and not summary_set:
+        summary = "draft" if everything else "skip"
     action = "apply" if plan else ("force_sync" if force else "none")
     return {
         "ok": True,

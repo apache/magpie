@@ -110,6 +110,9 @@ Use:
 
   Capture the comment URL (POST or PATCH) for the Step 6 recap.
   Before posting or PATCHing, apply the rollup entry's bare-name → `@`-handle scrub to the resolved body, so the `RM_HANDLE` substitution notifies the release manager.
+- **Team nudge comment:** write the body (first line `<!-- apache-magpie: team-nudge v1 -->`, then the one-line question, the link to the question comment and the `@`-mentions, minus `do_not_ping`) to a temp file and POST it:
+  `gh issue comment <N> --repo <tracker> --body-file <tmpfile>`.
+  Never PATCH an earlier nudge; a new question gets a new nudge. Add a one-line rollup entry linking the posted comment.
 - **Publication-ready notification comment:** same recipe as the hand-off comment above (same variant decision, same POST-vs-PATCH logic, same scrub), but loading
   `tools/<cve-tool>/release-manager-publication-comment-oauth-pushed.md`
   or `tools/<cve-tool>/release-manager-publication-comment.md`.

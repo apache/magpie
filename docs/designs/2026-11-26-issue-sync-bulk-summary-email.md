@@ -46,6 +46,8 @@ so each run improvised one per tracker, and the bulk orchestrator had nothing to
 1. **Name the nudge.** `signals-to-actions.md` gains an *Unanswered team question* bullet:
    when the newest triage proposal, or a question to named team members, has had no answer from them for `nudge_after_days` (default 7),
    propose one short status comment that restates the decision and `@`-mentions the people asked, minus `do_not_ping`, at most once per question.
+   It is a standalone comment, the one exception besides the release-manager comments to the rollup-only rule, because an `@`-mention in an edited rollup notifies nobody;
+   its `<!-- apache-magpie: team-nudge v1 -->` marker lets pre-flight treat it as skill-authored and lets the next sync see that the question was nudged.
    Single-tracker syncs keep it.
 2. **Report the question as state, not as a comment.** Bulk subagents return `pending_team_question` (`url`, a one-line `question`, `asked`, `since`, `nudged`)
    and four dates and names the summary needs (`milestone_due_on`, `release_manager`, `released_on`, `expected_disclosure_by`, plus `state`).
@@ -53,8 +55,12 @@ so each run improvised one per tracker, and the bulk orchestrator had nothing to
    no tracker gets a nudge, and the merged proposal gains one *State summary* group.
    Below the threshold it returns the candidates and the per-tracker nudges are proposed as before.
    The rule is a function of the reports, so it runs as code, with tests, not as prose the model re-derives.
-4. **Draft after the sweep.** The summary is previewed in the merged proposal, but the draft is rendered again after the apply loop and the Step 5d end-of-sync sweep,
-   so it describes the state the sync leaves behind, not the state it found.
+4. **Draft after the sweep.** The summary is previewed in the merged proposal, but the draft is rendered again after the apply loop and the Step 5d end-of-sync sweep
+   (`stage: final`), so it describes the state the sync leaves behind, not the state it found.
+   The final stage does not recount: the collapse Step 4b decided stands, since those nudges were already withheld,
+   and it reads only applied values (`current_*`), never a proposal the user may have declined.
+   Pre-flight-skipped trackers have no subagent report, so their pre-flight nodes (number, state, title, labels, milestone) feed a minimal report each,
+   and the summary still counts and groups them.
    It is then confirmed like any other draft (`parse-reply`) and created through the drafting backend.
 5. **Recap.** One line: *"N nudges replaced by summary email draft `<id>` to `<security-list>`"*.
 
@@ -109,8 +115,10 @@ Please answer on each tracker, so every decision stays with its own case.
 Drafted by the security-issue-sync skill and reviewed before sending.
 ```
 
-Every open tracker lands in at most one of groups 1 to 4, first match wins:
-a pending question or `needs triage` (1), released with the advisory not sent (4), a fix PR open or merged (3), past triage with no fix PR (2).
+Every open tracker lands in at most one of groups 1 to 4, first match wins, terminal state first:
+a closing disposition (`invalid`, `duplicate`, `wontfix`, `not CVE worthy`), an `announced` label or a shipped advisory lists nowhere;
+then a pending question or `needs triage` (1), `fix released` or a shipped release with the advisory not sent (4), a fix PR open or merged (3), past triage with no fix PR (2).
+Release-cut deadlines come only from groups 2 and 3, so a shipped release never shows as an overdue cut.
 Group 1 lists every pending question, not only the nudge candidates, longest wait first, so the picture is complete.
 Closed trackers and the rest are counted, not listed.
 
@@ -138,8 +146,10 @@ Seven days matches the stale-review-ping cooldown the PR-management family uses.
 - **Nothing the list does not already handle.** The body carries each tracker's title (the cleaned title, which the private list already sees) with its full tracker URL,
   the one-line question, the names of the people asked, release titles and dates.
   It carries no CVE ID, severity, CWE, reporter detail or quoted discussion.
-- **Guardrails in the command.** It runs the `check` guardrails over the body as an `email` surface (reporter CVSS, other ASF projects, the CVE-tool URL) and returns `clean` / `violations`;
-  the orchestrator rewrites an offending question line before showing the draft.
+- **Scrub, then check, in the command.** Titles and questions lose CVE and GHSA IDs, bare `#NNN` references, `do_not_ping` handles and names, and the `@` of any other handle.
+  Then the `check` guardrails run over the body as an `email` surface (reporter CVSS, other ASF projects, the CVE-tool URL), plus a residue check for `@`, record IDs and bare references, and return `clean` / `violations`.
+  No draft is created while `clean` is false.
+- **The tracker's own links only.** A reported `issue_url` is used only when it is this tracker's URL for that issue; anything else gets the canonical URL.
 - **Plain text, real links, never sent.** The draft goes through `oauth_curl` or `maildir`; `claude_ai_mcp` rewrites links, so it is never used for a body that is mostly links.
   With neither available, the draft is printed for the user to send.
 - **One thread rule unaffected.** The summary answers no inbound thread.
@@ -154,11 +164,12 @@ Seven days matches the stale-review-ping cooldown the PR-management family uses.
 | File | Change |
 |---|---|
 | `tools/security-management/src/security_management/issue_sync/summary.py` | New: `nudge-summary`, the collapse rule, the groups and the plain-text renderer. |
+| `tools/security-management/src/security_management/issue_sync/preflight.py` | The Step 1b query also reads each tracker's title and milestone, for the summary's pre-flight-skipped trackers. |
 | `tools/security-management/src/security_management/issue_sync/bulk.py` | `parse-bulk-reply` takes `summary` and the `summary:skip` clause, and returns `summary`. |
 | `tools/security-management/tests/test_issue_sync_summary.py` | New tests for both. |
 | `plugins/magpie-security/skills/issue-sync/bulk-mode.md` | The report fields, step 4b (collapse), step 6 (draft after the sweep), the settings table, the hard rule. |
 | `plugins/magpie-security/skills/issue-sync/signals-to-actions.md` | The *Unanswered team question* nudge, with a pointer to the collapse. |
-| `plugins/magpie-security/skills/issue-sync/apply-and-push.md` | Step 5d hands over to the summary before the recap. |
+| `plugins/magpie-security/skills/issue-sync/apply-and-push.md` | The team-nudge comment recipe; Step 5d hands over to the summary before the recap. |
 | `tools/spec-loop/specs/security-issue-lifecycle.md` | The behaviour, as a guarantee. |
 
 ## Alternatives considered
@@ -168,6 +179,7 @@ Seven days matches the stale-review-ping cooldown the PR-management family uses.
 - **One comment on a tracking issue instead of an email.** It notifies only the people it mentions, and the security list is where the team already reads about the backlog;
   a tracker comment would also need its own home issue, which the tracker does not have.
 - **Post to `<private-list>`.** The governing body's list is wider than the security team and is for escalation (process Step 4), not routine state.
+- **Recount the threshold after the apply.** If the apply closed or answered enough trackers to drop below the threshold, the summary would vanish while its nudges stayed withheld: neither would reach the team.
 - **Render once, from the pre-apply reports.** Cheaper, but the email would describe state the same run had just changed: a tracker moved to `fix released` would still read as *in flight*.
 - **Always send the summary, whatever the count.** On a quiet week it is a weekly email nobody asked for; the threshold keeps it for the runs that would otherwise be noisy.
 - **Leave the collapse in prose.** The model would recount and regroup on every run; the count, the threshold and the grouping are a function of the reports, so they belong in code.

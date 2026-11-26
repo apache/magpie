@@ -65,7 +65,8 @@ def query(data: Mapping[str, Any]) -> dict[str, Any]:
         chunk = numbers[index : index + CHUNK]
         blocks = "\n".join(
             f"    i{n}: issue(number: {n}) {{\n"
-            "      number state closedAt updatedAt\n"
+            "      number state closedAt updatedAt title\n"
+            "      milestone { title dueOn }\n"
             "      labels(first: 30) { nodes { name } }\n"
             "      comments(last: 1) { nodes { author { login } createdAt body } }\n"
             "    }"

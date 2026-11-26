@@ -64,7 +64,8 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
     query {
       repository(owner: "<owner>", name: "<repo>") {
         i<N1>: issue(number: <N1>) {
-          number state closedAt updatedAt
+          number state closedAt updatedAt title
+          milestone { title dueOn }
           labels(first: 30) { nodes { name } }
           comments(last: 1) {
             nodes { author { login } createdAt body }
@@ -210,12 +211,13 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    - `<N>:edit <item-number>: <new value>` — replace the proposed item with a free-form override before applying.
    - `force-sync <N>` — dispatch a subagent for a `skip-noop` tracker:
      the full Step 1 gather runs on the next turn and its result folds into the next proposal.
-   - `summary:skip` — when the proposal carries a state summary (step 4b), drop it: no summary draft and no per-tracker nudges.
-     Without it, every reply but `cancel` keeps the summary, which gets its own confirmation after the apply.
+   - `summary` / `summary:skip` — when the proposal carries a state summary (step 4b), keep it or drop it.
+     Only `all` or an explicit `summary` keeps it, for its own confirmation after the apply; any other reply drops it.
+     A dropped summary means no summary draft and no per-tracker nudges this run.
    - `cancel` / `none` — apply nothing.
 
    Write `{reply, proposal, preflight_skipped, summary}` (`proposal`: tracker → its item numbers; `summary`: true when step 4b collapsed the nudges) and run `<sm> parse-bulk-reply`.
-   An unknown tracker or item, two dispositions for one tracker, `force-sync` of a tracker that was not skipped, `summary:` with no summary in the proposal, or free text is `ambiguous`: nothing applies, so ask again.
+   An unknown tracker or item, two dispositions for one tracker, `force-sync` of a tracker that was not skipped, `summary:` with no summary in the proposal, free text, or an empty reply is `ambiguous`: nothing applies, so ask again.
 
    **Proposal order in the merged pack.** Trackers appear in **ascending tracker-number order**, stable across reruns.
    The operator can name a different order at confirmation (*"apply #438 first; I want to think about #232 last"*) and the orchestrator honours it.
@@ -223,17 +225,21 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 4b. **Collapse the team nudges into one state summary.**
     A *team nudge* is the per-tracker reminder comment that [`signals-to-actions.md`](signals-to-actions.md) proposes (its *Unanswered team question* bullet) when a triage proposal or a question to named team members has gone unanswered.
     One nudge per tracker is right for a single sync; across a 90-tracker sweep it is notification noise that still does not show the overall picture.
-    So before presenting the merged proposal, write `{tracker, now, reports, nudge_summary_threshold, nudge_after_days, security_list, public_lists, project_name, people, user, organization, own_names, cve_tool_url}` and run `<sm> nudge-summary`.
+    So before presenting the merged proposal, write `{tracker, now, reports, preflight_trackers, nudge_summary_threshold, nudge_after_days, security_list, public_lists, project_name, people, user, issue_url_prefix, organization, own_names, cve_tool_url}` and run `<sm> nudge-summary` (its `stage` defaults to `preview`).
+    `preflight_trackers` are the Step 1b GraphQL nodes of the open `skip-noop` trackers, as fetched (number, state, title, labels, milestone; the command never reads their comment body),
+    so steady-state trackers with no subagent report are still counted and grouped;
+    `issue_url_prefix` is set only for a non-GitHub tracker backend.
     `security_list` is `<security-list>` from `project.md`; `public_lists` are the publicly archived lists `project.md` declares (`<users-list>`, `<dev-list>`, the announce list), so a misconfigured public address is refused;
     `people` maps roster handles to names from [`release-trains.md`](../../../../<project-config>/release-trains.md);
-    `user` is the `security_issue_sync` block of the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)), which holds `do_not_ping`.
+    `user` is the `security_issue_sync` block of the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)), passed as is: `{"do_not_ping": ["<login>", ...]}`.
     The [settings](#settings-for-the-state-summary) come from the override file.
 
     - **`collapse: false`** (fewer than `nudge_summary_threshold` candidates, or `off`) — propose the trackers in `per_tracker_nudges` their nudge as today, each in its tracker's section of the non-CVE-affecting bucket.
     - **`collapse: true`** — propose **no** nudge on any tracker in `collapsed`, and no rollup entry about one.
       Add one group at the end of the merged proposal, **State summary to `<security-list>`**: the number of nudges it replaces, the trackers, and the `subject` and `body` of its `draft` as a preview.
       The preview is rendered from the pre-apply reports; the draft itself is rendered after the apply (step 6), so it shows the state the sync leaves behind.
-      A `draft.clean: false` lists its `violations`: rewrite the offending question line in the report before showing the preview.
+      The command scrubs titles and questions (record IDs, bare `#NNN` references, `@`, `do_not_ping` handles and names) and checks the result;
+      a `draft.clean: false` lists its `violations`: rewrite the offending question line in the report and run it again before showing the preview.
 
 5. **Apply sequentially, not in parallel.** Assessment ran in parallel, but the apply phase is sequential
    so `gh` rate limits, partial failures and user interrupts stay legible.
@@ -241,13 +247,17 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
 6. **State-summary draft, after the apply and the end-of-sync sweep.**
    When `parse-bulk-reply` returned `summary: draft`, run this after the apply loop and the [Step 5d sweep](apply-and-push.md#step-5d--end-of-sync-reconciliation-sweep-board--milestone--rm-hand-off), and before the recap.
-   Update each report with what was applied (labels, milestone, assignee, the release manager) and run `<sm> nudge-summary` again.
+   Update each report to the applied state: set `current_labels`, `current_milestone`, `milestone_due_on`, assignee, `state` (closed by this run), `release_manager`, `advisory_shipped`
+   from what actually applied, and clear every `proposed_*` value.
+   Run `<sm> nudge-summary` again with `stage: final` and `collapsed`, step 4b's list: the collapse step 4b decided stands even when the apply left fewer candidates,
+   because those nudges were already withheld, and the final stage reads only applied values.
+   **Create nothing while `draft.clean` is false**: fix the report line its `violations` name and run it again.
    Show the `to`, `subject` and `body` of its `draft` and confirm it like any other draft: write `{reply, items: [1]}` and run `<sm> parse-reply`
    (`1` / `all` drafts it, an edit regenerates and re-confirms, `none` drops it).
    Create it through the [drafting backend](apply-and-push.md#step-4--apply-confirmed-changes) as a **new thread**: `to` the `<security-list>` only, the subject as rendered (no `Re:`), and no `thread_id`, `in_reply_to` or `references`.
    The body carries tracker URLs, so the `claude_ai_mcp` backend is never used for it; with neither `oauth_curl` nor `maildir` available, print the draft for the user to send themselves.
    Never send it.
-   Then run `<sm> nudge-summary` once more with `draft: {id, url}` and add its `recap_line` (*"N nudges replaced by summary email draft `<id>` to `<security-list>`"*) to the recap.
+   Then run `<sm> nudge-summary` once more (same input, `stage: final`) with `draft: {id, url}` and add its `recap_line` (*"N nudges replaced by summary email draft `<id>` to `<security-list>`"*) to the recap.
 
 ### Settings for the state summary
 

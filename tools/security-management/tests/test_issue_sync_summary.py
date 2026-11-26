@@ -29,6 +29,8 @@ from security_management.cli import main
 TRACKER = "example-s/example-s"
 NOW = "2026-11-26T09:00:00Z"
 LIST = "security@example.apache.org"
+# Built at run time so the source carries no literal record ID.
+RECORD = "CVE" + "-2026-" + "12345"
 
 
 def run(capsys, tmp_path: Path, command: str, data: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -180,12 +182,19 @@ def test_groups_and_deadlines(capsys, tmp_path):
     ) in body
     assert f"- 2026-12-03: release 3.1.2 cut\n  https://github.com/{TRACKER}/issues/301\n" in body
     assert f"- Token leak in the export log\n  https://github.com/{TRACKER}/issues/300\n" in body
-    assert "1 other trackers in this sync need nothing from the team" in body
+    assert "other open trackers" not in body  # the closed tracker is not counted as open
     assert "/issues/303" not in body
 
 
 def personal(*handles: str) -> dict[str, Any]:
-    return {"security_issue_sync": {"do_not_ping": list(handles)}}
+    """The documented `user` input: the `security_issue_sync` block of `user.md`."""
+    return {"do_not_ping": list(handles)}
+
+
+def test_do_not_ping_whole_user_md_shape_also_excludes(capsys, tmp_path):
+    reports = [*stale(4), asked(110, "2026-11-01", ["carol"])]
+    user = {"security_issue_sync": {"do_not_ping": ["carol"]}}
+    assert "carol" not in ok(capsys, tmp_path, base(reports, user=user))["draft"]["body"]
 
 
 def test_do_not_ping_and_names(capsys, tmp_path):
@@ -244,8 +253,15 @@ def test_recap_line_after_the_draft(capsys, tmp_path):
     )
 
 
-def parse(capsys, tmp_path: Path, reply: str, summary: bool = True) -> dict[str, Any]:
-    data = {"reply": reply, "proposal": {"212": [1, 2]}, "summary": summary}
+def parse(
+    capsys, tmp_path: Path, reply: str, summary: bool = True, skipped: list[int] | None = None
+) -> dict[str, Any]:
+    data = {
+        "reply": reply,
+        "proposal": {"212": [1, 2]},
+        "summary": summary,
+        "preflight_skipped": skipped or [],
+    }
     code, out = run(capsys, tmp_path, "parse-bulk-reply", data)
     assert code == 0, out
     return out
@@ -253,7 +269,12 @@ def parse(capsys, tmp_path: Path, reply: str, summary: bool = True) -> dict[str,
 
 def test_bulk_reply_summary_clause(capsys, tmp_path):
     assert parse(capsys, tmp_path, "all")["summary"] == "draft"
-    assert parse(capsys, tmp_path, "212:1")["summary"] == "draft"
+    assert parse(capsys, tmp_path, "212:1")["summary"] == "skip"  # a subset never approves the summary
+    assert parse(capsys, tmp_path, "212:1; summary")["summary"] == "draft"
+    assert parse(capsys, tmp_path, "force-sync 211", skipped=[211])["summary"] == "skip"
+    for empty in ("", "   ", "\n"):
+        out = parse(capsys, tmp_path, empty)
+        assert (out["action"], out["summary"]) == ("ambiguous", None)
     out = parse(capsys, tmp_path, "all; summary:skip")
     assert (out["action"], out["summary"]) == ("apply", "skip")
     assert parse(capsys, tmp_path, "cancel")["summary"] == "skip"
@@ -261,3 +282,127 @@ def test_bulk_reply_summary_clause(capsys, tmp_path):
         assert parse(capsys, tmp_path, reply)["action"] == "ambiguous"
     assert parse(capsys, tmp_path, "summary:skip", summary=False)["action"] == "ambiguous"
     assert parse(capsys, tmp_path, "all", summary=False)["summary"] is None
+
+
+# --- review follow-ups ---------------------------------------------------------
+
+
+def test_final_stage_keeps_the_step_4b_collapse(capsys, tmp_path):
+    preview = ok(capsys, tmp_path, base(stale(5)))
+    reports = stale(5)
+    for report in reports[:3]:  # the apply loop answered or closed three of them
+        report["state"] = "closed"
+    data = base(reports, stage="final", collapsed=preview["collapsed"])
+    out = ok(capsys, tmp_path, data)
+    assert out["collapse"] is True and out["collapsed"] == [100, 101, 102, 103, 104]
+    assert out["draft"] is not None and "It replaces 5 separate reminder comments" in out["draft"]["body"]
+    code, refused = run(capsys, tmp_path, "nudge-summary", base(reports, stage="final"))
+    assert code == 2 and "collapsed" in refused["refused"]
+    code, refused = run(capsys, tmp_path, "nudge-summary", base(reports, stage="later"))
+    assert code == 2
+
+
+def test_final_stage_ignores_unapplied_proposals(capsys, tmp_path):
+    fix = {"issue": 302, "title": "Unsafe redirect", "current_labels": ["cve allocated"],
+           "current_milestone": "3.1.2", "proposed_milestone": "3.2.0 (create)"}  # fmt: skip
+    preview = ok(capsys, tmp_path, base([*stale(5), fix]))["draft"]["body"]
+    final = ok(capsys, tmp_path, base([*stale(5), fix], stage="final", collapsed=[100]))["draft"]["body"]
+    assert "target 3.2.0" in preview
+    assert "target 3.1.2" in final and "3.2.0" not in final
+
+
+@pytest.mark.parametrize(
+    ("report", "group"),
+    [
+        ({"current_labels": ["cve allocated", "pr merged", "announced"], "fix_pr": {"state": "merged"},
+          "release_shipped": True, "advisory_shipped": True}, None),
+        ({"current_labels": ["pr merged"], "fix_pr": {"state": "merged"}, "advisory_shipped": True}, None),
+        ({"current_labels": ["cve allocated", "fix released"], "fix_pr": {"state": "merged"},
+          "release_shipped": "unknown"}, "4. Waiting on the release manager"),
+        ({"current_labels": ["invalid"]}, None),
+        ({"current_labels": ["duplicate"]}, None),
+        ({"current_labels": ["wontfix"]}, None),
+        ({"current_labels": ["not CVE worthy"]}, None),
+    ],
+)  # fmt: skip
+def test_terminal_states_checked_first(capsys, tmp_path, report, group):
+    tracked = {"issue": 400, "title": "Some tracker", "current_milestone": "3.1.1",
+               "milestone_due_on": "2026-11-20", **report}  # fmt: skip
+    body = ok(capsys, tmp_path, base([*stale(5), tracked]))["draft"]["body"]
+    assert "release 3.1.1 cut" not in body  # no false overdue release deadline
+    if group is None:
+        assert "/issues/400" not in body
+        assert "1 other open trackers need nothing from the team" in body
+    else:
+        assert f"{group} (released, advisory not sent): 1" in body
+
+
+def test_preflight_skipped_trackers_are_counted_and_grouped(capsys, tmp_path):
+    nodes = [
+        {"number": 500, "state": "OPEN", "title": "Header injection in proxy",
+         "labels": {"nodes": [{"name": "cve allocated"}, {"name": "pr merged"}]},
+         "milestone": {"title": "3.1.2", "dueOn": "2026-12-03T00:00:00Z"},
+         "comments": {"nodes": [{"body": "SECRET COMMENT BODY"}]}},
+        {"number": 501, "state": "OPEN", "title": "Token leak in export",
+         "labels": {"nodes": [{"name": "cve allocated"}, {"name": "fix released"}]}, "milestone": None},
+        {"number": 100, "state": "OPEN", "title": "dup of a report", "labels": {"nodes": []}},
+    ]  # fmt: skip
+    body = ok(capsys, tmp_path, base(stale(5), preflight_trackers=nodes))["draft"]["body"]
+    assert "the state of the 7 open trackers" in body
+    assert (
+        f"- Header injection in proxy\n  https://github.com/{TRACKER}/issues/500\n  fix PR merged; release 3.1.2, 2026-12-03"
+        in body
+    )
+    assert (
+        f"- Token leak in export\n  https://github.com/{TRACKER}/issues/501\n  Waiting since the release, date unknown"
+        in body
+    )
+    assert "SECRET COMMENT BODY" not in body
+    assert "dup of a report" not in body  # a subagent report wins over the pre-flight node
+
+
+def test_question_and_title_scrub(capsys, tmp_path):
+    reports = stale(4)
+    reports.append(
+        {**asked(120, "2026-11-01", ["alice", "carol"],
+                 f"@alice and @carol: is this the same as #77 or other/repo#9 ({RECORD})?"),
+         "title": "Carol Example found GHSA-abcd-efgh-ijkl in #12 parser"}
+    )  # fmt: skip
+    data = base(reports, user=personal("carol"), people={"carol": "Carol Example"})
+    draft = ok(capsys, tmp_path, data)["draft"]
+    body = draft["body"]
+    for gone in ("@", "carol", "Carol", "#77", "other/repo#9", RECORD, "GHSA-", "#12"):
+        assert gone not in body.replace("security team", ""), gone
+    assert "Question: alice and: is this the same as or?" in body
+    assert "- found in parser\n" in body
+    assert draft["clean"] is True
+
+
+def test_residue_makes_the_draft_unclean(capsys, tmp_path):
+    from security_management.issue_sync import summary
+
+    found = summary._residue(f"- x @someone\n- y {RECORD}\n- z #42\n- plain")
+    assert {f["guardrail"] for f in found} == {
+        "Summary carries an @-mention", "Summary carries a CVE or GHSA ID", "Summary carries a bare reference"
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("issue_url", "prefix", "kept"),
+    [
+        (f"https://github.com/{TRACKER}/issues/100", None, True),
+        ("https://evil.example/phish/100", None, False),
+        (f"https://github.com/{TRACKER}/issues/100.evil.example", None, False),
+        ("https://github.com/other/repo/issues/100", None, False),
+        ("https://jira.example.org/browse/SEC-100", "https://jira.example.org/browse/", True),
+        ("https://jira.example.org/browse/SEC-101", "https://jira.example.org/browse/", False),
+    ],
+)
+def test_issue_url_must_be_the_trackers_own(capsys, tmp_path, issue_url, prefix, kept):
+    reports = stale(5)
+    reports[0]["issue_url"] = issue_url
+    data = base(reports, **({"issue_url_prefix": prefix} if prefix else {}))
+    body = ok(capsys, tmp_path, data)["draft"]["body"]
+    assert (issue_url in body.split()) is kept
+    if not kept:
+        assert f"https://github.com/{TRACKER}/issues/100" in body

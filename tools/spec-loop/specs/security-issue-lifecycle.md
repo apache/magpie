@@ -630,7 +630,10 @@ publication, with a human gate and an audit-log entry at every step.
   It goes only to the private `<security-list>` (a missing or public address is refused), as a new thread, never sent;
   it is rendered after the apply and the end-of-sync sweep, confirmed like any other draft, and carries only each tracker's title with its full URL, the one-line question, names without `@`, release titles and dates.
   A handle in the operator's `do_not_ping` (the personal `user.md`, never committed config) is never named, and nothing shows that anyone was left out.
-  `summary:skip` in the bulk reply drops it, and the recap reports how many nudges the draft replaced.
+  Only `all` or an explicit `summary` in the bulk reply keeps it (an empty reply is ambiguous); once kept, the post-apply rendering keeps the collapse even if the apply left fewer candidates.
+  It counts pre-flight-skipped trackers from their pre-flight data, lists no closed, announced or closing-disposition tracker, scrubs record IDs, bare references and `@` from titles and questions, uses only the tracker's own URLs, and is never created while its check is not clean.
+  The single-tracker nudge is a standalone comment behind a `team-nudge` marker, posted at most once per question.
+  The recap reports how many nudges the draft replaced.
   The threshold and `nudge_after_days` live in the `security-issue-sync.md` override file
   ([design](../../../docs/designs/2026-11-26-issue-sync-bulk-summary-email.md)).
 - **Small always-on footprint (#1447).**
