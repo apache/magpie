@@ -549,7 +549,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    Any other outcome (an interrupted run) may or may not have saved: push again, which the idempotence note below makes safe.
 
    For Vulnogram, the push merges into the live record and refuses to rename an affected product or package.
-   The first push after allocation, which replaces Vulnogram's placeholder product while the record is still `RESERVED` or `DRAFT`, needs no override.
+   The first push after allocation needs no override: an allocated record has no `affected[]` yet, and the unfilled entry Vulnogram's web editor adds when someone saves the record first (no product, no package, its default vendor) is exempt while the record is still `RESERVED` or `DRAFT`.
    Two explicit overrides exist; use them only after confirming with the user:
 
    - `--replace-references` — replace `references[]` instead of keeping existing URLs.
