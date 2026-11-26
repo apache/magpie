@@ -736,6 +736,26 @@ The reference model is four layers, layered:
    `setup_preflight/organization_network.py` ignores comments, fences and
    examples, treats anything else as not ASF, and refuses a fragment whose
    grants differ from the reviewed set.
+   Antigravity has no project-scoped rule file, so `agent-iso agy` applies
+   the same selection per session: for an explicit ASF checkout it runs the
+   selector from agy's own installed Magpie plugin
+   (`~/.gemini/config/plugins/magpie/`, its real path inside that directory),
+   whichever wrapper copy is sourced, with a stripped environment
+   and no site-packages, a `python3` whose real path is outside the checkout,
+   the launch directory and the directories above it (home, its parents and
+   system install locations aside), temporary directories and `~/.cache`
+   (never one from the checkout or an agent-writable cache), finds the
+   checkout root by the nearest `.git` without running `git`, accepts only
+   the reviewed host list, fails
+   closed on an unreadable user profile or a rule it cannot anchor, and passes
+   the hosts as `read_url(...)` rules with `agy --settings`, together with the
+   user-scope `allow` / `ask` / `deny` lists and sandbox switches, nothing
+   written to Antigravity's settings. The user approves it once per checkout:
+   the first launch asks on the terminal (default yes) and records the answer
+   in `~/.gemini/config/magpie-agy-asf`, under the directory the shipped
+   profile denies agents writing, outside every checkout; with no
+   terminal and no answer there is no grant. `AGENT_ISO_ASF=1` grants without
+   asking, `AGENT_ISO_ASF=0` or a user-supplied `--settings` skips it (#2003).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,

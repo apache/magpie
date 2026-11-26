@@ -74,6 +74,283 @@
 #   Claude merges into the loaded settings stack at startup,
 #   before the sandbox is initialised.
 
+# ASF hosts for one Antigravity session (#2003).
+#
+# Antigravity keeps its permission rules in one user-scope file, so an ASF
+# project's hosts cannot go there without reaching every repository. Instead
+# `agent-iso agy` passes them for one session with `agy --settings`, which is
+# never saved, when all of these hold:
+#   - the launch starts a session (not `agy plugin …`, `--help`, …) and
+#     carries no --settings of the user's own;
+#   - the launch directory is inside a git checkout (git run with a clean
+#     environment, its reported root checked to contain the launch directory)
+#     whose resolved project.md holds one explicit `organization: ASF`, as
+#     decided by setup_preflight.organization_network from agy's own installed
+#     Magpie plugin, ~/.gemini/config/plugins/magpie/, which the shipped
+#     profile denies agents writing (write_file(~/.gemini/config)) and no
+#     other harness's sandbox can reach: the check runs outside the sandbox,
+#     so it is only ever taken from there, with a stripped environment and no
+#     site-packages, its answer counting only when it is exactly the reviewed
+#     host list below;
+#   - the user approved this checkout (agent_iso_agy_asf_approved).
+# AGENT_ISO_ASF=0 turns it off. Anything unexpected means no grant.
+# The reviewed host list, as a function rather than a variable: a shell that
+# replays this file's functions from a snapshot (`typeset -f`) drops its
+# plain variables.
+_agent_iso_asf_hosts() {
+  printf '%s' "lists.apache.org dist.apache.org repository.apache.org downloads.apache.org archive.apache.org cveprocess.apache.org"
+}
+
+# The real path of the `$1` on PATH, unless it lies somewhere a sandboxed
+# agent can write (the checkout `$2`, the launch directory, temporary
+# directories, ~/.cache): an interpreter or git swapped in there, such as an
+# active virtualenv's python3, would otherwise run outside the sandbox.
+# The resolved path of an existing directory `$1`, or `$1` itself when it does
+# not exist; zsh resolves with :A, since it runs chpwd hooks even on
+# `builtin cd`.
+_agent_iso_realdir() {
+  if [[ -n "${ZSH_VERSION-}" ]]; then
+    # shellcheck disable=SC2296
+    printf '%s' "${1:A}"
+  else
+    (builtin cd -P -- "$1" 2>/dev/null && builtin pwd -P) || printf '%s' "$1"
+  fi
+}
+
+_agent_iso_trusted_bin() {
+  local found real dir here
+  if [[ -n "${ZSH_VERSION-}" ]]; then
+    found="$(whence -p "$1" 2>/dev/null)" || return 1
+    # shellcheck disable=SC2296
+    real="${found:A}"
+    here="${PWD:A}"
+  else
+    found="$(type -P "$1" 2>/dev/null)" || return 1
+    real="$(command -p realpath -- "$found" 2>/dev/null)" || return 1
+    here="$(builtin pwd -P)"
+  fi
+  [[ -n "$real" ]] || return 1
+  # Any directory above the launch directory may be a checkout, up to the
+  # root, apart from home itself, its parents, and system install locations.
+  local home up
+  home="$(_agent_iso_realdir "${HOME%/}")"
+  up="$here"
+  while [[ -n "$up" && "$up" != "/" ]]; do
+    case "$up" in
+      "$home"|/usr|/usr/local|/opt|/opt/homebrew|/opt/local|/nix|/nix/store|/bin|/sbin|/Library|/System|/Applications) ;;
+      *)
+        if [[ "$home" != "$up"/* ]]; then
+          [[ "$real" == "$up"/* ]] && return 1
+        fi
+        ;;
+    esac
+    up="${up%/*}"
+  done
+  for dir in "$2" "$here" "$PWD" "${TMPDIR:-/tmp}" /tmp /private/tmp /var/tmp /private/var/tmp /var/folders /private/var/folders "${HOME%/}/.cache" "${XDG_CACHE_HOME-}"; do
+    [[ -n "$dir" ]] || continue
+    dir="$(_agent_iso_realdir "${dir%/}")"
+    dir="${dir%/}"
+    [[ -n "$dir" ]] || continue
+    [[ "$real" == "$dir" || "$real" == "$dir"/* ]] && return 1
+  done
+  printf '%s' "$real"
+}
+
+# Approval is once per checkout, as Claude Code's setup proposes the same grant
+# once per project. The first launch asks on the terminal, Enter meaning yes,
+# and keeps the answer in ~/.gemini/config/magpie-agy-asf, outside every
+# checkout and under the directory the shipped profile already denies agents
+# writing (write_file(~/.gemini/config)), keyed on the path and the identity
+# of the checkout and its
+# .git, so a later repository at the same path is asked again. With no
+# terminal and no recorded answer there is no grant; an interrupted prompt
+# declines for this launch only. AGENT_ISO_ASF=1 grants without asking.
+agent_iso_agy_asf_approved() {
+  local key="$1" root="$2"
+  [[ "${AGENT_ISO_ASF-}" == "1" ]] && return 0
+  local record="${HOME%/}/.gemini/config/magpie-agy-asf"
+  local line
+  if [[ -f "$record" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" == "approve $key" ]] && return 0
+      [[ "$line" == "decline $key" ]] && return 1
+    done < "$record"
+  fi
+  if [[ ! -t 0 || ! -t 2 ]] || ! { : </dev/tty; } 2>/dev/null; then
+    echo "agy-iso: ASF project; run agent-iso agy once in a terminal to approve the ASF hosts, or set AGENT_ISO_ASF=1." >&2
+    return 1
+  fi
+  local answer=""
+  printf 'agy-iso: %s is an ASF project. Grant its sessions read_url for %s? [Y/n] ' "$root" "$(_agent_iso_asf_hosts)" >&2
+  if ! read -r answer </dev/tty; then
+    printf '\nagy-iso: no answer; starting without ASF hosts this time.\n' >&2
+    return 1
+  fi
+  local verdict="approve"
+  case "$answer" in
+    ""|[Yy]|[Yy][Ee][Ss]) ;;
+    *) verdict="decline" ;;
+  esac
+  # `>|` creates the file even under zsh's noclobber, where `>>` would not.
+  command -p mkdir -p "${record%/*}" || return 1
+  [[ -e "$record" ]] || : >| "$record"
+  printf '%s %s\n' "$verdict" "$key" >> "$record"
+  [[ "$verdict" == "approve" ]]
+}
+
+# Prints the JSON for `agy --settings`, or nothing. Called with the agy argv.
+# The JSON repeats the user-scope allow / ask / deny lists of
+# ~/.gemini/antigravity-cli/settings.json and adds one read_url(<host>) per
+# ASF host, so every user rule still applies whether agy merges or replaces the
+# lists; a file that exists but cannot be read as those lists means no grant.
+# agy refuses a relative file path in --settings, so a relative read_file /
+# write_file path is anchored at the launch directory and its resolved path
+# and, for ask and deny, at the checkout root as well; `~` at the home
+# directory.
+agent_iso_agy_asf_settings() {
+  [[ "${AGENT_ISO_ASF-}" == "0" ]] && return 0
+  case "${1-}" in
+    acp|agent|agents|changelog|help|install|mcp|mic-serve|models|plugin|plugins|remote-control|update) return 0 ;;
+  esac
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --settings|--settings=*|--help|-h|--version|-v) return 0 ;;
+    esac
+  done
+  local home="${HOME%/}"
+  local plugins="$home/.gemini/config/plugins"
+  local checker="$plugins/magpie/plugins/magpie-setup/skills/setup"
+  # The selector must sit at exactly this path with no symlink anywhere in
+  # it (a link could lead out of the protected tree, or to another plugin),
+  # and nothing under setup_preflight/ may be a symlink either.
+  [[ -d "$checker/setup_preflight" && -f "$checker/setup_preflight/organization_network.py" ]] || return 0
+  local real_home
+  real_home="$(_agent_iso_realdir "$home")"
+  [[ "$(_agent_iso_realdir "$checker")" == "$real_home/.gemini/config/plugins/magpie/plugins/magpie-setup/skills/setup" ]] || return 0
+  [[ -z "$(command -p find "$checker/setup_preflight" -type l 2>/dev/null)" ]] || return 0
+  checker="$real_home/.gemini/config/plugins/magpie/plugins/magpie-setup/skills/setup"
+  # The checkout root is the nearest directory holding a .git (a directory,
+  # or a file for a linked worktree), found without running git, so neither
+  # a git on PATH nor its configuration or environment is involved.
+  local py root="" up
+  if [[ -n "${ZSH_VERSION-}" ]]; then
+    # shellcheck disable=SC2296
+    up="${PWD:A}"
+  else
+    up="$(builtin pwd -P)"
+  fi
+  while [[ -n "$up" ]]; do
+    if [[ -e "$up/.git" ]]; then
+      root="$up"
+      break
+    fi
+    [[ "$up" == "/" ]] && break
+    up="${up%/*}"
+    [[ -z "$up" ]] && up="/"
+  done
+  [[ -n "$root" && "$root" != *$'\n'* && "$PWD" != *$'\n'* ]] || return 0
+  if ! py="$(_agent_iso_trusted_bin python3 "$root")"; then
+    echo "agy-iso: the python3 on PATH is inside the checkout or a temporary directory; starting without ASF hosts." >&2
+    return 0
+  fi
+  local selected
+  if ! selected="$(command -p env -i PATH="$PATH" HOME="$HOME" PYTHONPATH="$checker" "$py" -P -S -m setup_preflight.organization_network --project-root "$root" 2>/dev/null)"; then
+    echo "agy-iso: the ASF network check failed; starting without ASF hosts." >&2
+    return 0
+  fi
+  # Three lines back: the approval key, the hosts, then the settings JSON.
+  local out
+  out="$(command -p env -i PATH="$PATH" "$py" -I -S -c '
+import json, os, sys
+selected, path, root, cwd, home, reviewed = sys.argv[1:7]
+home = home.rstrip("/") or "/"
+real_root, real_cwd = os.path.realpath(root), os.path.realpath(cwd)
+if real_cwd != real_root and not real_cwd.startswith(real_root.rstrip("/") + "/"):
+    sys.exit(0)  # git reported a root that does not contain the launch directory
+try:
+    domains = json.loads(selected or "{}").get("sandbox", {}).get("network", {}).get("allowedDomains", [])
+except (ValueError, AttributeError):
+    sys.exit(0)
+if not domains:
+    sys.exit(0)
+if domains != reviewed.split():
+    print("agy-iso: the ASF network check returned unexpected hosts; starting without them.", file=sys.stderr)
+    sys.exit(0)
+try:
+    with open(path, encoding="utf-8-sig") as f:
+        profile = json.load(f)
+    user = profile.get("permissions", {})
+except FileNotFoundError:
+    profile, user = {}, {}
+except (OSError, ValueError, AttributeError):
+    print("agy-iso: %s could not be read; starting without ASF hosts." % path, file=sys.stderr)
+    sys.exit(0)
+if not isinstance(user, dict) or not all(isinstance(user.get(k, []), list) for k in ("allow", "ask", "deny")):
+    print("agy-iso: %s has malformed permissions; starting without ASF hosts." % path, file=sys.stderr)
+    sys.exit(0)
+
+def anchors(rule, bases):
+    for tool in ("read_file(", "write_file("):
+        if rule.startswith(tool) and rule.endswith(")"):
+            p = rule[len(tool):-1]
+            if p == "~" or p.startswith("~/"):
+                return [tool + os.path.normpath(home + p[1:]) + ")"]
+            if p and not p.startswith(("/", "regex:")) and p != "*":
+                if p.startswith("~") or any(c in p for c in "*?[]{}"):
+                    return None  # cannot be anchored without changing what it matches
+                return [tool + os.path.normpath(os.path.join(b, p)) + ")" for b in bases]
+    return [rule]
+
+lists = {}
+for key in ("allow", "ask", "deny"):
+    bases = [cwd, real_cwd] if key == "allow" else [cwd, real_cwd, root, real_root]
+    bases = list(dict.fromkeys(bases))
+    out = []
+    for rule in user.get(key, []):
+        if not isinstance(rule, str):
+            print("agy-iso: %s has a non-text %s rule; starting without ASF hosts." % (path, key), file=sys.stderr)
+            sys.exit(0)
+        anchored = anchors(rule, bases)
+        if anchored is None:
+            print("agy-iso: %s has a %s rule that cannot be made absolute (%s); starting without ASF hosts." % (path, key, rule), file=sys.stderr)
+            sys.exit(0)
+        for r in anchored:
+            if r not in out:
+                out.append(r)
+    lists[key] = out
+for domain in domains:
+    rule = "read_url(%s)" % domain
+    if rule not in lists["allow"]:
+        lists["allow"].append(rule)
+
+def ident(p):
+    st = os.stat(p)
+    born = getattr(st, "st_birthtime", None)
+    return "%d:%d%s" % (st.st_dev, st.st_ino, "" if born is None else ":%r" % born)
+
+git_dir = os.path.join(real_root, ".git")
+print("%s %s %s" % (real_root, ident(real_root), ident(git_dir) if os.path.exists(git_dir) else "-"))
+print(" ".join(domains))
+# The sandbox switches ride along too, in case a session setting replaces
+# rather than overlays the user-scope value.
+session = {k: profile[k] for k in ("enableTerminalSandbox", "toolPermission", "allowNonWorkspaceAccess", "agentMode") if k in profile}
+session["permissions"] = lists
+print(json.dumps(session, separators=(",", ":")))
+' "$selected" "$home/.gemini/antigravity-cli/settings.json" "$root" "$PWD" "$home" "$(_agent_iso_asf_hosts)")" || return 0
+  [[ "$out" == *$'\n'*$'\n'* ]] || return 0
+  local key="${out%%$'\n'*}"
+  local rest="${out#*$'\n'}"
+  local hosts="${rest%%$'\n'*}"
+  agent_iso_agy_asf_approved "$key" "$root" || return 0
+  if [[ -t 2 ]]; then
+    printf '\033[2m[agy-iso] ASF project: read_url for this session only: %s\033[0m\n' "$hosts" >&2
+  else
+    printf '[agy-iso] ASF project: read_url for this session only: %s\n' "$hosts" >&2
+  fi
+  printf '%s' "${rest#*$'\n'}"
+}
+
 # Core: launch agent CLI "$1" (claude / opencode / …) in a clean environment.
 # The env-stripping below is identical for every agent — only the injected
 # settings differ (the `--settings` sandbox grant is Claude-specific). The
@@ -269,6 +546,19 @@ agent_iso_run() {
       printf '\033[2m[claude-iso] added to sandbox allowRead: %s\033[0m\n' "$banner_paths" >&2
     else
       printf '[claude-iso] added to sandbox allowRead: %s\n' "$banner_paths" >&2
+    fi
+  fi
+
+  # Antigravity keeps its permission rules in one user-scope file, so an ASF
+  # project's hosts cannot go there without reaching every repository
+  # (#2003). For a checkout whose resolved project.md declares
+  # `organization: ASF`, pass them for this session only with
+  # `agy --settings`, which never writes them to disk.
+  if [[ "$agent" == "agy" ]]; then
+    local agy_settings
+    agy_settings="$(agent_iso_agy_asf_settings "$@")"
+    if [[ -n "$agy_settings" ]]; then
+      set -- --settings "$agy_settings" "$@"
     fi
   fi
 
