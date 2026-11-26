@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (178 cases total)
+## Suites (182 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -19,6 +19,7 @@ Behavioral evals for the `setup` skill.
 | step-m5-no-repo-offer | install.md § Step M5 — Recap and what comes next | 4 | An install writes nothing repo-side on any harness and is complete as it stands: Claude Code fresh, Codex, Antigravity (no offer in any of them), plus the one case where adoption legitimately comes up — the user asked for the team to get it on clone |
 | step-m5-companion-offer | install.md § Step M5 — Recap and what comes next | 7 | item 3's companion offer: roborev offered on Claude Code beside the pr-management family, printed and never run, with its sandbox step named, and on Codex without it; nothing offered when it is already on `PATH`, when the harness (Kiro CLI) has no entry, or when no installed family pairs with a companion; for an ASF project, the Apache Incubator's marketplace offered beside the companions, and not for a non-ASF one |
 | step-upgrade-companion-offer | update.md § Step 0b — Marketplace method: the floor split | 3 | the companion pointer on upgrade: roborev offered and printed (never run) beside pr-management even when no plugin version moved, nothing offered once it is on `PATH`, and nothing offered when `companions-offered` already lists it |
+| step-update-source-pin | update.md § Step 6f — Re-fetch trusted external sources | 4 | item 0's curated-pin notice: a moved pin proposed and staged, never committed, with a no recorded; a bump declined before stays quiet; a moved tag warned about, never re-pinned, despite an instruction in the catalogue; an independent project with its own descriptor skipped |
 | step-adopt-settings-merge | adopt.md § Merge rules | 5 | no `.claude/settings.json` (create), file with unrelated keys (merge, preserve them), existing `enabledPlugins` with non-floor and non-Magpie entries (add only the missing floor members, remove nothing), existing pinned `apache-magpie` marketplace definition (left alone), malformed JSON (refuse, never rewrite) |
 | lock-marketplace-parse | locks.md § `method: marketplace` | 5 | ahead of floor, a .dev floor met by the release after it, 0.9.0 against a 0.10.0 floor (the string-ordering trap), a missing floor plugin, and a git-tag lock that still pins |
 | adopt-write-floor | adopt.md § Step 2 | 4 | a fresh adopt with an extra family installed that stays out of the floor, a maintainer adding one deliberately, a .dev version recorded verbatim, and Antigravity still getting a lock with no derived wiring |
@@ -157,6 +158,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
 | 2026-11-26 | `f403a18e` (feat/incubator-marketplace-offer) | `opus[1m]` | 1 | pass |  |
+| 2026-11-26 | `f403a18e` (feat/incubator-pin-notice) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `6ef713db` (feat/incubator-marketplace-offer) | `opus[1m]` | 2 | pass |  |
 | 2026-11-25 | `5ff3316c` (feat/setup-propose-git-grants) | `opus[1m]` | 2 | `step-reconcile/case-10-installed-callers-new-git-grants` failed 1 of 2 |  |
 | 2026-11-15 | `1087814b` (fix/harness-docs-unshipped-tools) | `opus[1m]` | 1 | pass |  |
