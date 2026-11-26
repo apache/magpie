@@ -2081,7 +2081,7 @@ framework before they hit a "skill not found" error:
    be more noise than signal.
 
    Never create a `CLAUDE.md`, or a `CLAUDE.md` → `AGENTS.md` symlink.
-   Claude Code reads `AGENTS.md` natively from 2.1.277, the secure setup's floor, and a `CLAUDE.md` in the working directory or above makes it read `CLAUDE.md` files only, so every nested `AGENTS.md` stops loading.
+   Claude Code reads `AGENTS.md` natively in every session from 2.1.281, the secure setup's floor, and a `CLAUDE.md` in the working directory or above makes it read `CLAUDE.md` files only, so every nested `AGENTS.md` stops loading.
    If the repo has a root `CLAUDE.md` that is only a symlink to `AGENTS.md` (or a one-line `@AGENTS.md` import), propose removing it in the same commit, saying why.
    A `CLAUDE.md` with content of its own is the project's choice: leave it, and tell the user that Claude Code reads it instead of `AGENTS.md`, block above included.
 

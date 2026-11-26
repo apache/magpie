@@ -462,11 +462,11 @@ for adopters still on an older runtime — they must upgrade to
 `@latest` (which they should be doing anyway) before the setup will
 verify.
 
-The floor is **2.1.277**, the first release that reads `AGENTS.md` natively.
+The floor is **2.1.281**, the first release that reads `AGENTS.md` natively in every session.
 Magpie keeps its agent instructions in `AGENTS.md` only, with no `CLAUDE.md` beside it.
-Before **2.1.281**, a session on a third-party provider (Amazon Bedrock, Google Vertex, Microsoft Foundry) or with telemetry disabled still read `CLAUDE.md` files only.
-So check 5 applies `min_version_no_telemetry` (2.1.281) instead when `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY`, `DISABLE_TELEMETRY` or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` is set.
-See [Claude Code → AGENTS.md](https://code.claude.com/docs/en/memory#agents-md).
+2.1.277 reads `AGENTS.md` too, except on a third-party provider such as Amazon Bedrock or with telemetry disabled, where it still reads `CLAUDE.md` files only
+([Claude Code → AGENTS.md](https://code.claude.com/docs/en/memory#agents-md)).
+2.1.281 is also the first release whose `claude plugin validate` accepts Magpie's hook modules.
 
 ### Wiring the check script into a weekly routine
 

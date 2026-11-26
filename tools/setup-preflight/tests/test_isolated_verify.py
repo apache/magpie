@@ -37,7 +37,6 @@ version = "1.8.1.3"
 
 [tools.claude-code]
 min_version = "2.1.202"
-min_version_no_telemetry = "2.1.281"
 """
 
 USER_HOOKS = {
@@ -350,36 +349,6 @@ def test_check_5_below_the_floor_under_claude_code_is_a_hard_fail(setup) -> None
 def test_check_5_below_the_floor_under_another_harness_is_a_warning(setup) -> None:
     run = Fake({"claude --version": "2.1.100"})
     assert finding(verifier(setup, env={"CODEX_SANDBOX": "seatbelt"}, run=run), "5")["status"] == "warn"
-
-
-@pytest.mark.parametrize(
-    "variable",
-    [
-        "CLAUDE_CODE_USE_BEDROCK",
-        "CLAUDE_CODE_USE_VERTEX",
-        "DISABLE_TELEMETRY",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-    ],
-)
-def test_check_5_applies_the_stricter_floor_without_telemetry(setup, variable: str) -> None:
-    env = {"CLAUDECODE": "1", variable: "1"}
-    result = finding(verifier(setup, env=env, run=Fake({"claude --version": "2.1.277 (Claude Code)"})), "5")
-    assert result["status"] == "fail"
-    assert f"below the min_version floor 2.1.281 ({variable} is set" in result["evidence"][0]
-
-
-def test_check_5_keeps_the_plain_floor_when_a_provider_variable_is_off(setup) -> None:
-    env = {"CLAUDECODE": "1", "CLAUDE_CODE_USE_BEDROCK": "0"}
-    result = finding(verifier(setup, env=env, run=Fake({"claude --version": "2.1.277 (Claude Code)"})), "5")
-    assert result["status"] == "pass"
-    assert "at or above the min_version floor 2.1.202" in result["evidence"][0]
-
-
-def test_check_5_passes_the_stricter_floor_at_its_release(setup) -> None:
-    env = {"CLAUDECODE": "1", "DISABLE_TELEMETRY": "0"}
-    result = finding(verifier(setup, env=env, run=Fake({"claude --version": "2.1.281 (Claude Code)"})), "5")
-    assert result["status"] == "pass"
-    assert "floor 2.1.281 (DISABLE_TELEMETRY is set" in result["evidence"][0]
 
 
 def test_check_5_compares_versions_numerically(setup) -> None:
