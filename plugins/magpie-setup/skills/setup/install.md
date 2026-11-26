@@ -442,9 +442,10 @@ Tell the user, in this order:
 
    **Apache Incubator skills, for an ASF project.** When the project
    declares `organization: ASF` — ask the pre-flight package,
-   `python3 -P -m setup_preflight.organization_network --project-root . --is-asf`,
-   which prints `true` only for a real declaration (never for the
-   template's examples or a `TODO` value) — also offer the Incubator's own
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`,
+   with `PYTHONPATH` the installed pre-flight checker's parent directory,
+   as every other pre-flight call here; it prints `true` only for a real
+   declaration (never for the template's examples or a `TODO` value) — also offer the Incubator's own
    marketplace. Read the ASF catalogue,
    [`organizations/ASF/skill-sources.md`](../../../../organizations/ASF/skill-sources.md)
    (a marketplace install ships no `organizations/`, so fetch

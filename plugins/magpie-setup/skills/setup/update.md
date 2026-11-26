@@ -145,7 +145,7 @@ the companion page is where they find one.
 The *Apache Incubator skills* offer that closes
 [`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) item 3
 runs here too, by the same rules, which that paragraph spells out: only
-when `python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+when `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
 prints `true`; only on Claude Code, Codex or Copilot; the skills the ASF
 catalogue (`organizations/ASF/skill-sources.md`, fetched from
 `raw.githubusercontent.com/apache/magpie/main/` on a marketplace install)
@@ -1174,7 +1174,7 @@ snapshots are a separate, sibling tree — see
 Nothing happens when the trust list is absent or empty.
 
 **The Apache Incubator, once.** Whatever the trust list holds, when
-`python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
 prints `true` and the trust list names no `apache-incubator-` source, say
 in one line that the ASF curates the Apache Incubator's skills: the new
 snapshot's `organizations/ASF/skill-sources.md` lists them, and a project
