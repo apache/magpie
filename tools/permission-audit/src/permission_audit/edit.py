@@ -143,6 +143,7 @@ def apply_changes(
                     created.write("{}\n")
                 file_was_created = True
             except FileExistsError:
+                # Another writer created it first: keep theirs and lock it below.
                 pass
         try:
             locked_fh = _lock_current(settings_path)
