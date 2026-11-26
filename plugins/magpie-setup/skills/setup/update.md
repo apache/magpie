@@ -289,6 +289,15 @@ new `<local-lock>`:
   HEAD` for git methods; the version for svn-zip.
 - `fetched_at` — current ISO-8601 timestamp.
 
+### Refresh the vetted-operations copy
+
+When the snapshot moved, the copy of `tools/vetted-ops` and `tools/skill-lock`
+under `~/.claude/magpie` is now behind it. Hand the user the copy lines of
+[`install` → Step 6b](install.md#step-6b--copy-the-vetted-operations-out-of-the-snapshot)
+to run in their own terminal, right after this step and before anything
+else works in the tree. A marketplace install skips this: the plugin's hook
+moves its link at the next session start.
+
 ## Step 4b — Overwrite the committed `setup` from the new snapshot + reload in-flight
 
 This step **must run before Steps 5+** so the remainder of

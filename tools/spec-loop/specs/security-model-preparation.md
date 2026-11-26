@@ -52,6 +52,12 @@ triage history back into the document.
   — the create-or-append `AGENTS.md` / `SECURITY.md` scaffold plus the PR
   mechanics, with the pure file-merge core unit-tested in
   `plugins/magpie-security/skills/model-verify/tests/`.
+  Since #2152 it refuses a `--model-name` that is not a relative path inside
+  the clone (absolute, `..`, or resolving outside it), a `--repo` that is not
+  `<owner>/<name>`, and a missing `--model` or `--body-file`, all before
+  cloning; it refuses to reuse an existing clone under `--workdir` without
+  `--overwrite`, and in `--dry-run` creates no fork and falls back to a
+  `<fork-owner>` placeholder when `gh api user` fails.
 - Deep doc: `docs/security/security-model-preparation.md`.
 - Adopter config: `<project-config>/security-model.md` § *Model
   preparation, verification, and update*; the scaffold ships at
@@ -75,6 +81,10 @@ triage history back into the document.
   template's *Scanner threat-model summaries* table
   (`<project-config>/security-model.md`) whose *derived from* model commit
   is not the model file's latest.
+  Its `<upstream>` PR is committed, pushed and opened through the vetted git
+  operations (`vetted-git-publish`, `--caller security-submit-to-oss-scan`),
+  with `gh pr create --web` as the fallback; the `<scanner-repo>` commands
+  stay with the maintainer, outside the policy (#2228).
   Eval suite: `tools/skill-evals/evals/security-submit-to-oss-scan/`
   (Step 5 derivation, 2 cases).
 
@@ -177,7 +187,9 @@ uv run --directory skills --project . python -m pytest security-model-verify/tes
 - The eval suites (35 cases across 7 steps) cover the decision points —
   discoverability remediation split, completeness grading,
   disposition mapping, the known-non-finding entry rules, the regression
-  gate, the consent gate, and provenance tagging. They do not cover the
+  gate, the consent gate, and provenance tagging; `pointer-routing` suites
+  in `security-model-prepare` and `security-model-verify` (2 cases each)
+  check the step pointers. They do not cover the
   composition steps (PR body, mail body), which are prose and would need
   structural fixtures.
 - Delegation to the external Alpha-Omega skill set is by reference, so a

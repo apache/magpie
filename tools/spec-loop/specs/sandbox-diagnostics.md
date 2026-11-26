@@ -47,7 +47,7 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Fourteen entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Eighteen entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
@@ -62,7 +62,11 @@ error, and two skills that probe or verify the setup on demand.
   `uv tool install` failing under `~/.local/share/uv/` (deliberately
   read-only to the sandbox, since hooks and excluded commands run the
   interpreters there outside it; the fix is to run the install from a
-  terminal, #1785), git hooks silently
+  terminal, #1785), a sandboxed `pnpm install` failing with `EPERM` on
+  pnpm's home, a dependency's `.idea/codeStyles` or a not-yet-created
+  per-project `~/.local/share/pnpm-sandbox/<project>` (fixed by that
+  per-project home and an override of the offending package, never by an
+  install outside the sandbox, #2223, #2232, #2242), git hooks silently
   skipped for sandboxed commits (whole-user `core.hooksPath` under the
   read-denied home, #1364), and reads of `/tmp/claude-<uid>` asking for
   approval every time (`permissions.blockReadsOutsideWorkingDirectories`
@@ -71,7 +75,11 @@ error, and two skills that probe or verify the setup on demand.
   `allowRead` parent of an `allowWrite` path makes bubblewrap mount it
   read-only, #1809), and `git status` listing files nobody created
   (`.mcp.json`, `.bash_profile`: the character-device placeholders
-  bubblewrap mounts over denied paths, #1809).
+  bubblewrap mounts over denied paths, #1809), plus `lefthook install`
+  refusing a custom hooks path, CaptainHook's Composer plugin replacing the
+  shared hook directory, and writes to any `tools/vetted-ops` policy
+  directory failing anywhere on disk (the sandbox deny globs match the
+  policy shape wherever it sits, #2136).
   The Docker / Podman entry also covers the container gateway's policy
   refusals (BuildKit, a socket bind-mount):
   a tool that drives the docker CLI may hide the 403 body or report only
@@ -323,14 +331,17 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- The doctor runs 9 probes over the catalog's 16 entries. Probe 5's
+- The doctor runs 9 probes over the catalog's 18 entries. Probe 5's
   `signing-program` half reaches the `cannot exec` wrapper entry, and verify
-  check 10 covers the wrapper's `allowRead` grant statically. Six entries have
-  no live probe: the touch-overlay runtime-state entry, reached only through
-  the hint hook, and the `uv python install`, lefthook, CaptainHook, `bwrap`
-  and `git status` placeholder entries. The lefthook, CaptainHook and
-  `git status` entries have no hint-hook branch either, and are not among the
-  two exceptions acceptance 1 allows.
+  check 10 covers the wrapper's `allowRead` grant statically. Eight entries
+  have no live probe: the touch-overlay runtime-state entry, reached only
+  through the hint hook, and the `uv python install`, pnpm `EPERM`, lefthook,
+  CaptainHook, `bwrap`, `git status` placeholder and vetted-ops policy
+  directory entries. The pnpm, lefthook, CaptainHook, `git status` and
+  vetted-ops policy entries have no hint-hook branch either
+  (`tools/agent-isolation/sandbox-error-hint.sh` names neither `pnpm` nor the
+  policy path), and are not among the two exceptions acceptance 1 allows;
+  verify check 19e covers the pnpm settings statically.
   <!-- gap-closes-when: none (narrative) -->
 - The `uv python install` / `uv tool install` entry (#1785) has no doctor
   probe; its other surfaces are the hint hook's `share/uv/` branch, the

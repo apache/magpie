@@ -45,7 +45,7 @@ def active_repos(
     invalid: list[str] = []
     excluded: list[str] = []
     for raw in names:
-        name = raw.strip().removesuffix(".git").rsplit("/", 1)[-1]
+        name = raw.strip().rstrip("/").removesuffix(".git").rsplit("/", 1)[-1]
         if not name:
             continue
         if not NAME_RE.match(name):

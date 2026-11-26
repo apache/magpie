@@ -106,7 +106,9 @@ class ParamError(ValueError):
 
 
 def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
-    if not pattern.match(value):
+    # fullmatch, not match: ``$`` also matches before a trailing newline, so
+    # ``match`` would let ``"123\n"`` through every anchored pattern in this module.
+    if not pattern.fullmatch(value):
         raise ParamError(f"invalid {what}: {value!r}")
     return value
 

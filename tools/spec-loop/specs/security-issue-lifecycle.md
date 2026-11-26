@@ -140,7 +140,7 @@ publication, with a human gate and an audit-log entry at every step.
   or an unknown canned heading refused), replaces bare names, parses the
   Step 5 reply (nothing posts by default; edits and re-classifications
   are re-drafted before posting) and renders the recap; classification,
-  the Security Model quote, precedent rating, routing candidates and
+  choosing the Security Model passage, precedent rating, routing candidates and
   injection flagging stay with the model.
   For `security-issue-invalidate` it parses the selector (single, list,
   `proposed` with its 1000 cap and batched read), checks team consensus
@@ -475,6 +475,31 @@ publication, with a human gate and an audit-log entry at every step.
   policy-approved labels apply at creation (#1982).
   A failure stops the import and never falls back to raw `gh`, and a
   non-GitHub tracker keeps its backend's `issue-create`.
+- **Security Model quotes in a triage proposal are checked against the model (#2220).**
+  `security-issue-triage` fetches and caches the model once (Step 2.5) and passes that copy to
+  `render-proposal` as `model_file`, with `model_url`.
+  Every quote in the summary that links to `model_url` must appear verbatim in `model_file`,
+  up to inline markup, quote style and whitespace (`[...]` splits a quote into fragments matched in order);
+  a quote the model does not contain, or a model link with no `model_file`, is refused,
+  and the output lists `model_quotes_verified`.
+  Subagents return section names, never quotes, and a sentence an earlier proposal or tracker comment
+  attributed to the model is never a source.
+- **Private-tracker comments go through vetted-ops (#2217).**
+  `security-issue-triage` posts each confirmed proposal, and `security-issue-import` its rejections-ledger
+  record, with `vetted-op --caller <skill> issue-comment <N> <file>`, the body written to the vetted-ops
+  workspace; never raw `gh issue comment` or `gh api …/comments`, which the agent guard blocks.
+  The import adds a new tracker to the board with `board-item`, then `board-add-item` only when it is not
+  already there, and `board-set-status … "Needs triage"`.
+  A refusal naming the caller means the policy lacks that grant: the skill names the grant to add and never
+  borrows another skill's caller (triage stops; import finishes the rest of the run).
+- **Fix PRs are published through the vetted git operations (#2228, #2304).**
+  `security-issue-fix` stages, commits, pushes and opens the `<upstream>` PR with
+  `vetted-op-git` (`--caller security-issue-fix`), following the shared `vetted-git-publish` block,
+  each call confirmed by the user.
+  `git-pr-create` targets the policy's `pr_base` and refuses a title or body holding a never-publish term,
+  a second backstop behind 5c; a PR against another base (a backport branch) or a project with no `[git]`
+  values configured opens with `gh pr create --web` instead
+  ([vetted command surface](vetted-command-surface.md)).
 - **Import dedup searches follow a provisional class.**
   `security-issue-import` Steps 2a and 2c skip their searches for a
   candidate whose provisional class, read from the root message, is
@@ -628,6 +653,12 @@ publication, with a human gate and an audit-log entry at every step.
   A re-rendered hand-off comment keeps the release manager's tick, and a
   ticked box keeps later runs quiet. The reminder links the project's
   pages through the optional `security_pages_url` manifest key (#1355).
+  A project without `security_pages_url` (unset, empty or `TODO`) has no page to update (#2219):
+  the hand-off comment drops the whole security-pages block and its checklist item, and
+  `issue-sync closed-announced`, given `security_pages_configured: false`, reports
+  `security_pages: not_configured` and never proposes the reminder;
+  a caller that omits the flag keeps the reminder.
+  `/magpie-setup:setup config` asks whether the project has a security page.
 - **Sync state markers are read from comments only (#1716).**
   `issue-sync closed-announced` decides "records done", "pages ticked" and
   "reporter notification drafted" from the tracker's comments, never its

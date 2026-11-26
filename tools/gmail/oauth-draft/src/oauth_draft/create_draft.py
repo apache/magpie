@@ -99,6 +99,12 @@ def headers_from_thread(thread: dict) -> tuple[str | None, str | None]:
     headers = {h["name"].lower(): h["value"] for h in last.get("payload", {}).get("headers", [])}
     msg_id = headers.get("message-id")
     existing_refs = headers.get("references", "")
+    if not existing_refs:
+        # RFC 5322 3.6.4: a parent with no References but a single-id In-Reply-To
+        # contributes that id, so the thread root stays first in the chain.
+        parent_of_last = headers.get("in-reply-to", "").split()
+        if len(parent_of_last) == 1:
+            existing_refs = parent_of_last[0]
     if not msg_id:
         return (None, None)
     references = (existing_refs + " " + msg_id).strip() if existing_refs else msg_id

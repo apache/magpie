@@ -132,6 +132,9 @@ unchanged.
   `plugins/magpie-issue/hooks/duplicate-picker.ts`, wired through
   `hooks/hooks.json` with its types in `hooks/types.ts` and `types.d.ts`
   (part 1 of #2075; part 2 wires the candidate-payload session reader and skill integration).
+  The same module also registers the issue sweep progress band from
+  `hooks/issue-sweep-band.ts` (#2272);
+  see *The issue sweep progress band is additive* below.
 
 - Family README: `docs/issue-management/README.md` — family overview,
   mode boundary with `pr-management-*` and `security-issue-*`, and a link
@@ -191,6 +194,20 @@ unchanged.
 - **The duplicate candidate picker pane is additive.**
   Under Claude Code, the mod hydrates candidate duplicates from `.magpie-issue-candidates-<target>.json` into an interactive UI pane, allowing maintainers to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept).
   Staged curation choices are written to `.magpie-issue-decision-<target>.json` with a SHA-256 payload digest before any mutation is proposed.
+
+- **The issue sweep progress band is additive.**
+  Under Claude Code, `hooks/issue-sweep-band.ts` keeps a session atom of sweep progress
+  for `issue-triage`, `issue-stale-sweep` and `issue-backlog-stats`
+  and renders it above the prompt (`ui.render` on `AbovePrompt`) with no model turn (#2272).
+  It reads only the Bash commands the agent runs, never their output:
+  a sweep invocation or `gh issue list` starts it (total from `--limit` / `-L`, default 10),
+  `gh issue view` moves the focus,
+  and `gh issue edit --add-label`, `gh issue close` and `gh issue comment` count a labelled, closed or nudged issue once each;
+  a completed sweep is dismissed after one render.
+  Issue titles shown in the band are stripped of ANSI escapes, bidirectional overrides,
+  control and zero-width characters and markup,
+  and a progress file it accepts must be named `.magpie-issue-sweep-<id>.json` and stay inside the working directory.
+  Runtimes without mods run the sweep unchanged.
 
 ## Out of scope
 

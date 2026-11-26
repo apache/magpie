@@ -92,7 +92,8 @@ parse errors (e.g. a path that does not resolve to a readable `SKILL.md`).
     "clause_1_injection_guard": {"a_present": true, "b_present": false, "diverges": true},
     "clause_2_collaborator_trust": {"a_present": true, "b_present": true, "diverges": false},
     "clause_3_confidentiality_posture": {"a_present": true, "b_present": true, "diverges": false}
-  }
+  },
+  "hard_rules_diff": {"a_present": true, "b_present": true, "body_changed": true}
 }
 ```
 
@@ -107,6 +108,7 @@ Fields:
 | `placeholder_diff` | `<placeholder>` tokens present only in A or only in B. |
 | `support_files_diff` | Sibling `.md` files (support docs) present only in A or only in B. |
 | `safety_baseline_diff` | Per-clause presence comparison for the three safety-baseline clauses. |
+| `hard_rules_diff` | Whether each skill has a `## Hard rules` block, and whether the two blocks' text differs (the block ends at the next heading of the same or a higher level). |
 
 ## Safety-baseline detection
 

@@ -1177,6 +1177,58 @@ def test_main_emits_deny(monkeypatch, capsys):
     assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
+def _magpie_home(tmp_path, vetted_ops_target=None, *, copy=False):
+    """A home whose ~/.claude/magpie/vetted-ops is a link to ``vetted_ops_target`` or a real copy."""
+    home = tmp_path / "home"
+    magpie = home / ".claude" / "magpie"
+    magpie.mkdir(parents=True)
+    if copy:
+        (magpie / "vetted-ops").mkdir()
+    else:
+        vetted_ops_target.mkdir(parents=True, exist_ok=True)
+        (magpie / "vetted-ops").symlink_to(vetted_ops_target)
+    return home
+
+
+READ = "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller x viewer"
+
+
+def test_vetted_ops_from_a_checkout_must_be_confirmed(tmp_path):
+    """A link into a framework checkout runs code the agent can edit, outside the sandbox."""
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    reason = agent_guard.vetted_ops_ask(READ, home=str(home))
+    assert reason and "vetted-ops-source" in reason
+    assert agent_guard.vetted_ops_ask(READ.replace("uvx --from", "uv run --project"), home=str(home))
+
+
+def test_vetted_ops_from_the_plugin_or_a_snapshot_copy_are_not_asked_about(tmp_path):
+    plugin = (
+        tmp_path / "home" / ".claude" / "plugins" / "cache" / "apache-magpie" / "magpie-vetted-ops" / "1.0"
+    )
+    home = _magpie_home(tmp_path, plugin / "tools" / "vetted-ops")
+    assert agent_guard.vetted_ops_ask(READ, home=str(home)) is None
+    other = tmp_path / "other"
+    other.mkdir()
+    assert agent_guard.vetted_ops_ask(READ, home=str(_magpie_home(other, copy=True))) is None
+
+
+def test_vetted_op_checks_and_other_commands_are_never_asked_about(tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    checks = "uvx --from ~/.claude/magpie/vetted-ops vetted-op-checks /wt /ws/p"
+    assert agent_guard.vetted_ops_ask(checks, home=str(home)) is None
+    assert agent_guard.vetted_ops_ask("git status", home=str(home)) is None
+
+
+def test_main_asks_for_vetted_ops_from_a_checkout(monkeypatch, capsys, tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "Bash", "tool_input": {"command": READ}}
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
+    assert agent_guard.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
 def test_main_allows_non_bash(monkeypatch, capsys):
     event = {"tool_name": "Read", "tool_input": {"file_path": "x"}}
     monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
@@ -1828,3 +1880,65 @@ def test_chained_exclusion_names_the_redirection():
 
 def test_chained_exclusion_override():
     assert agent_guard.dispatch(f"MAGPIE_ALLOW_CHAINED_EXCLUSION=1 cd /repo && {READ}") is None
+
+
+def test_an_absolute_stable_path_into_a_checkout_is_asked_about_too(tmp_path):
+    """The expanded spelling Codex's rewrite hook produces must not slip past the check."""
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    command = f"uvx --from {home}/.claude/magpie/vetted-ops vetted-op-read --caller x viewer"
+    assert agent_guard.vetted_ops_ask(command, home=str(home))
+
+
+def test_the_override_lets_a_checkout_launch_through(tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    assert agent_guard.vetted_ops_ask(f"MAGPIE_ALLOW_VETTED_PATH=1 {READ}", home=str(home)) is None
+
+
+def test_codex_refuses_what_claude_would_ask_about(monkeypatch, capsys, tmp_path):
+    """Codex does not honour `ask` from a hook, so the launch is denied there."""
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "Bash", "tool_input": {"command": READ}}
+    assert agent_guard._claude_event(event, "codex") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert "MAGPIE_ALLOW_VETTED_PATH=1" in payload["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_guard_reason_refuses_a_checkout_launch_for_harnesses_that_cannot_ask(monkeypatch, tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    reason = agent_guard.guard_reason(READ)
+    assert reason and "vetted-ops-source" in reason and "MAGPIE_ALLOW_VETTED_PATH=1" in reason
+    assert agent_guard.guard_reason("git status") is None
+
+
+def test_opencode_refuses_a_checkout_launch(monkeypatch, capsys, tmp_path):
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps({"command": READ})))
+    assert agent_guard.opencode_main() == agent_guard.DENY_EXIT
+    assert "vetted-ops-source" in capsys.readouterr().out
+
+
+def test_copilot_refuses_a_checkout_launch_it_would_otherwise_allow(monkeypatch, capsys, tmp_path):
+    """Copilot's read-only allowlist lets vetted-op-read through without a prompt; not from a checkout."""
+    home = _magpie_home(tmp_path, tmp_path / "code" / "magpie" / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "bash", "tool_input": {"command": READ}}
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
+    assert agent_guard.cli(["--copilot"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["permissionDecision"] == "deny"
+
+
+def test_copilot_still_allows_a_plugin_launch(monkeypatch, capsys, tmp_path):
+    plugin = (
+        tmp_path / "home" / ".claude" / "plugins" / "cache" / "apache-magpie" / "magpie-vetted-ops" / "1.0"
+    )
+    home = _magpie_home(tmp_path, plugin / "tools" / "vetted-ops")
+    monkeypatch.setenv("HOME", str(home))
+    event = {"tool_name": "bash", "tool_input": {"command": READ}}
+    monkeypatch.setattr("sys.stdin", _Stdin(json.dumps(event)))
+    assert agent_guard.cli(["--copilot"]) == 0
+    assert json.loads(capsys.readouterr().out)["permissionDecision"] == "allow"

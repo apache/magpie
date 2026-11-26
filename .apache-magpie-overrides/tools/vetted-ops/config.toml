@@ -89,6 +89,18 @@ upstream_labels = [
     "family:setup",
     "family:tools",
     "family:utilities",
+    "kind:adopter-config",
+    "kind:dx",
+    "kind:perf",
+    "kind:policy",
+    "mode:Autonomous",
+    "mode:Drafting",
+    "mode:Mentoring",
+    "mode:Pairing",
+    "mode:Triage",
+    "mode:cross-cutting",
+    "mode:platform",
+    "python:uv",
     "substrate:action-guard",
     "substrate:analytics",
     "substrate:framework-dev",
@@ -103,9 +115,9 @@ close_reasons = ["completed", "not planned"]
 [callers]
 # The reads run through `vetted-op-read`, which refuses writes before it
 # consults this file at all. The three review *submissions*
-# (pr-review-approve / -request-changes / -comment) are deliberately absent —
-# posting a review stays a confirmed action through `vetted-op`. The git
-# operations at the end are the FIXUP disposition's, run through
+# (pr-review-approve / -request-changes / -comment), `run-rerun` and
+# `workflow-approve` are writes, so they run through `vetted-op` and ask every
+# time. The git operations at the end are the FIXUP disposition's, run through
 # `vetted-op-git` and confirmed one by one.
 "pr-management-code-review" = [
     "viewer",
@@ -145,12 +157,19 @@ close_reasons = ["completed", "not planned"]
     # The workflow runs held at the head commit, which `code-review runs` reads
     # before it proposes releasing them.
     "runs-at-head",
+    # Review submissions and run releases, each confirmed through `vetted-op`.
+    "pr-review-approve",
+    "pr-review-request-changes",
+    "pr-review-comment",
+    "run-rerun",
+    "workflow-approve",
     # FIXUP disposition (classifications/disposition-fixup.md): a worktree at
     # the PR head, commit the fixups, fast-forward the PR's head branch.
     "git-worktree-add",
     "git-worktree-remove",
     "git-stage",
     "git-commit",
+    "git-merge-upstream",
     "git-push-pr-head",
 ]
 
@@ -179,6 +198,9 @@ close_reasons = ["completed", "not planned"]
     # of the PR before each write, and the exact comment after a comment write.
     "pr-triage-recovery-state",
     "pr-triage-comment-receipt",
+    "pr-list",
+    "pr-view",
+    "pr-checks",
 ]
 
 # pr-management-stats is a read-only dashboard: its reads are saved with
@@ -265,26 +287,176 @@ close_reasons = ["completed", "not planned"]
 "setup-upstream-fix" = [
     "git-fetch",
     "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
     "git-rebase",
     "git-cherry-pick",
+    "git-merge-upstream",
     "git-switch",
+    "git-switch-create",
     "git-stage",
     "git-commit",
     "git-push-branch",
     "git-pr-create",
     "pr-add-label",
+    "git-delete-fork-branch",
 ]
 "setup-override-upstream" = [
     "git-fetch",
     "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
     "git-rebase",
     "git-cherry-pick",
+    "git-merge-upstream",
     "git-switch",
+    "git-switch-create",
     "git-stage",
     "git-commit",
     "git-push-branch",
     "git-pr-create",
     "pr-add-label",
+    "git-delete-fork-branch",
+]
+
+# Read-only callers (tools/vetted-ops/README.md example). Reads run through
+# `vetted-op-read` and never prompt.
+"contributor-nomination" = ["user-profile", "pr-list", "repo-issue-list"]
+"dependency-vulnerability-audit" = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
+"flaky-test-triage" = ["run-list", "run-view", "pr-view"]
+"issue-backlog-stats" = ["repo-issue-list"]
+"license-compliance-audit" = ["repo-view", "repo-tree", "repo-file"]
+"release-verify-rc" = ["release-list", "release-view", "tags", "repo-file"]
+
+# Callers that write to upstream issues. Each write runs through `vetted-op`
+# and asks every time.
+"issue-triage" = [
+    "repo-issue-view",
+    "repo-issue-comments",
+    "repo-issue-list",
+    "repo-issue-add-label",
+    "repo-issue-remove-label",
+    "repo-issue-comment",
+]
+"issue-stale-sweep" = [
+    "repo-issue-list",
+    "repo-issue-view",
+    "repo-issue-comment",
+    "repo-issue-close",
+    "repo-issue-reopen",
+]
+"mentoring-welcome" = ["repo-issue-view", "repo-issue-comment", "pr-view"]
+
+# The other skills that publish a change through vetted-op-git (each skill's
+# vetted-git-publish.md names its caller and every step granted here). The
+# draft-PR flows open the draft with `gh pr create --web --draft`, so they need
+# no git-pr-create or pr-add-label.
+"audit-finding-fix" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-delete-fork-branch",
+]
+"issue-fix-workflow" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-delete-fork-branch",
+]
+"release-prepare" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-delete-fork-branch",
+]
+"pr-management-shepherd" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+    "git-delete-fork-branch",
+]
+"release-audit-report" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+    "git-delete-fork-branch",
+]
+"committer-onboarding" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+    "git-delete-fork-branch",
+]
+# Only in a policy whose [repos] upstream is the site repository / apache/magpie.
+"release-announce-draft" = [
+    "git-fetch",
+    "git-worktree-add",
+    "git-worktree-sync",
+    "git-worktree-remove",
+    "git-rebase",
+    "git-cherry-pick",
+    "git-switch",
+    "git-switch-create",
+    "git-stage",
+    "git-commit",
+    "git-push-branch",
+    "git-pr-create",
+    "pr-add-label",
+    "git-delete-fork-branch",
 ]
 
 [git]

@@ -43,6 +43,7 @@
   - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
     - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
   - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
+  - [Multi-agent review comparison pane mod (Claude Code plugin / hook)](#multi-agent-review-comparison-pane-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2104,6 +2105,15 @@ The capability surface is strictly scoped to reactive session state, UI pane ren
   Candidates are only marked for closure upon deliberate maintainer action via interactive buttons ("Keep Target" or "Set as Kept").
   Dismissed candidates provide a `Restore` button to undo accidental dismissals, and pressing a kept selection a second time clears the selection back to unselected.
   Pane interactions only stage a local decision file; they never trigger autonomous GitHub API calls or issue closures without explicit maintainer sign-off in the skill workflow.
+
+## Multi-agent review comparison pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pairing` plugin, the multi-agent review comparison pane mod ([`plugins/magpie-pairing/hooks/multi-agent-review-pane.ts`](../../plugins/magpie-pairing/hooks/multi-agent-review-pane.ts)) provides an interactive side pane comparing findings across three independent review axes (`Correctness`, `Security`, `Conventions`) during pre-flight self-reviews.
+The mod integrates with the `multi-agent-review` skill via filesystem IPC (`.magpie-pairing-review-<sha>.json` and `.magpie-pairing-decision-<sha>.json`), `$.ui.open({ component: 'Pane' })`, and `ui.press` event routing for human curation (`[Accept]`, `[Dismiss]`, `[Reset]`).
+
+- **Filesystem IPC and path confinement**: The skill stages `.magpie-pairing-review-<sha>.json` and notifies the mod via a contained `test -f` check. The mod validates path confinement (`isConfinedReviewPath`), verifies write target safety (`classifyWriteTarget` rejects symlinks, non-files, and escapes), verifies payload digest integrity (`computePayloadHash`), hydrates the reactive session atom (`magpie-pairing.multiAgentReviewState`), and writes curated developer decisions to `.magpie-pairing-decision-<sha>.json`.
+- **Threat model and untrusted content boundaries**: External diff content and finding summaries are strictly sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving legitimate quotes and syntax in inert `Text` nodes. Prompt-injection attempts detected by sub-agents are recorded in `injection_attempts` and elevated to blocking security findings in the pane model without duplicate correctness findings.
+- **State boundary and human sign-off**: The mod uses an isolated reactive session atom (`magpie-pairing.multiAgentReviewState`), reset on `session.start` and auto-dismissed on mutating `git` commands (writing an invalidation marker to disk). Findings are curated via interactive buttons (`[Accept]`, `[Dismiss]`, `[Reset]`) and never perform external network or Git writes.
 
 ## Sandbox-error hint hook
 

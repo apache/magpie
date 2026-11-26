@@ -435,6 +435,7 @@ ecosystems = ["PyPI"]
         "$(whoami)",
         "`id`",
         "1\nrm -rf /",
+        "1\n",
         "../../etc/passwd",
         "1|tee /tmp/x",
     ],
@@ -460,7 +461,7 @@ def test_run_operations_take_an_eleven_digit_run_id(policy: config.Config, op_na
     assert any(RUN_ID in a for a in argv)
 
 
-def test_comment_ids_take_an_eleven_digit_id() -> None:
+def test_comment_ids_take_ids_past_ten_digits() -> None:
     assert ops.database_id("3456789012345") == "3456789012345"
 
 
@@ -468,6 +469,23 @@ def test_comment_ids_take_an_eleven_digit_id() -> None:
 def test_database_ids_stay_bounded(too_long: str) -> None:
     with pytest.raises(ops.ParamError, match="invalid id"):
         ops.database_id(too_long)
+
+
+@pytest.mark.parametrize(
+    ("validator", "value"),
+    [
+        (ops.number, "1"),
+        (ops.database_id, RUN_ID),
+        (ops.login, "octocat"),
+        (ops.ref, "main"),
+        (ops.cve_id, "CVE-2026-12345"),
+        (ops.commit_hash, "c6696e8d"),
+    ],
+)
+def test_a_trailing_newline_is_refused(validator: Any, value: str) -> None:
+    assert validator(value) == value
+    with pytest.raises(ops.ParamError):
+        validator(value + "\n")
 
 
 def test_issue_numbers_keep_their_bound() -> None:
@@ -1121,6 +1139,13 @@ def test_repo_cannot_be_influenced_by_a_parameter(policy: config.Config) -> None
 def test_config_rejects_a_malformed_repo(tmp_path: Path) -> None:
     cfg_path = tmp_path / "bad.toml"
     cfg_path.write_text('workspace = "."\n[repos]\ntracker = "not a repo"\nupstream = "a/b"\n')
+    with pytest.raises(config.ConfigError, match="owner/name"):
+        config.load(cfg_path)
+
+
+def test_config_rejects_a_repo_with_a_trailing_newline(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "bad.toml"
+    cfg_path.write_text('workspace = "."\n[repos]\ntracker = "acme/tracker\\n"\nupstream = "a/b"\n')
     with pytest.raises(config.ConfigError, match="owner/name"):
         config.load(cfg_path)
 

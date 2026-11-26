@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# The vetted-ops split and exclusion — four drift checks
+# The vetted-ops split and exclusion — five drift checks
 
 Read from `SKILL.md` § *The vetted-ops split and exclusion* when the adopter uses the `vetted-ops` dispatcher.
 
@@ -47,3 +47,8 @@ Report as a must-fix:
 The reason is the background gatherer agents: they cannot surface a prompt, so each prompt is a silent denial and a bulk sync returns partial results.
 This covers `vetted-op-read` only; `vetted-op-tracker`, `vetted-op-git` and `vetted-op` stay as the first check says.
 The remedy is `setup-isolated-setup-install` Step V.1; shape and rationale: [`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+
+**Fifth, the policy grants what the installed skills now use.**
+A framework update adds vetted operations (the `git-*` publishing steps, `pr-add-label`), and a skill that uses one the policy does not grant falls back to commands the user pastes.
+Run the caller-grant comparison of [`setup reconcile` check 3a](../setup/reconcile.md#the-sweep), with its label discovery for callers that label their pull requests, and report each missing grant or label as a proposal with its TOML diff.
+The policy is `Edit`-denied to the agent: the user applies the diff, then copies the policy into `~/.config/apache-magpie/vetted-ops/` again, since the approved copy is stale after any change.

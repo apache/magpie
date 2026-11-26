@@ -104,13 +104,19 @@ code lands.
   Step 6);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
   and planning-issue comment after a PASS pre-flight, naming the Nexus
-  staging-repository URL when the RC carries JVM artefacts, never sending or
+  staging-repository URL when the RC carries JVM artefacts (read from the
+  planning issue for this RC, else `release-build.md`, and refused unless it
+  is a `<name>-NNNN` id or a URL carrying one, #2150), never sending or
   posting (Step 7); `release-vote-tally` (`mode: Triage`) classifies
   +1/0/-1 binding vs non-binding once the window closes and drafts the
   `[RESULT]` (Step 9); `release-promote` (`mode: Drafting`) emits the
   backend-shaped staging→release promotion command set for a vote-passed
   release (Step 10), with the release manager's close / promote / drop
-  guidance for the Nexus staging repository (#2112); `release-archive-sweep` (`mode: Triage`) scans the
+  guidance for the Nexus staging repository (#2112), its Step 2b
+  (`promote/nexus-staging.md`, JVM releases only, #2150) saying when the RM
+  closes, promotes or drops it, emitting no transition command the project's
+  build does not already declare, and holding the `promoted` label until both
+  the distribution and the Nexus promotion are done; `release-archive-sweep` (`mode: Triage`) scans the
   dist area and proposes the command set to move past-retention releases
   to the archive, read-only on the dist surface (Step 12); and
   `release-audit-report` (`mode: Triage`) assembles the per-release audit
@@ -150,10 +156,20 @@ code lands.
   no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
   date `YYYY-MM-DD` (`2026-10-06`, tagged `2026-10-06-rc1`); an impossible
   date such as `2026-02-30` blocks (#1605).
+  `prepare plan-query --tag-date` refuses an impossible date or time the
+  same way, not only a malformed one (#2291).
   `tools/release-verify` (#1511) runs `release-verify-rc`'s mechanical steps
   offline (`inventory`, `signatures`, `checksums`, `notice-license`,
   `binaries`, `symlinks`, `version`, `verdict`), verifying signatures in a
   throwaway `GNUPGHOME` and refusing a `KEYS` file with private-key material.
+  Its `checksums` step requires the first digest of the configured set:
+  `sha512` by default, `sha256` for a project that declares a SHA-256-only
+  set, as ASF policy accepts either; every other staged digest is checked,
+  and `release-config preflight --skill rc-cut` accepts a set with `sha256`
+  or `sha512` and no `md5` / `sha1` (#2212).
+  A `**/` in a prohibited-binaries glob matches zero or more directories,
+  so `**/gradle-wrapper.jar` matches a jar at the root but not
+  `fake-gradle-wrapper.jar` (#2257).
   Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
   stdlib `unittest` suites have all moved into `tools/release-management`
   beside each skill's renders: the `vote-tally` tally (formerly `tally.py`)
@@ -213,6 +229,10 @@ code lands.
   parsed as an address header: an address written into the display name
   does not count, and a `from` with several addresses or none that parses
   is non-binding and can never supersede another voter's vote (#1530).
+  When a voter's later message carries an earlier date, the tally reports
+  the mismatch by comparing the dates as instants, so the same moment in two
+  time zones is not flagged; dates it cannot parse, or one zoned and one
+  naive, fall back to a text comparison (#2241).
 - **Public release text carries no embargoed security framing.** An
   `--expedited` reason reaches the public `[VOTE]` body and planning-issue
   comment, so until the advisory ships `release-vote-draft` writes it
@@ -231,6 +251,17 @@ code lands.
   checklist of the skill's 13 steps, JVM artefacts and Nexus staging included (#2007).
   The Bash tool-call feed interceptor updates step statuses, details, and the overall
   verdict in real time as `release-config` and `release-verify` subcommands run (#2013).
+  The same module (`verify-rc-pane.ts`, importing `vote-tally-band.ts`) draws a
+  live vote-tally band above the prompt while a `vote-tally` command runs
+  (#2216): binding and non-binding counts, the hours left in the 72-hour
+  window, and a status of voting / passed / closed / failed, where approval
+  needs at least three binding +1 and more binding +1 than -1, and a
+  canonical `PASSED` / `FAILED` from the tally script wins.
+  Voter handles and RC tags are sanitised (escape sequences, bidi and
+  zero-width characters, markup delimiters stripped, length bounded) before
+  display.
+  Both are display only; the tally and the `[RESULT]` draft come from the
+  skill.
 - **The source artefact is a reproducible export of the tag.** With
   `release-build.md § Source archive` at its default
   (`source_archive_method: git-archive`), `release-rc-cut` emits
@@ -365,7 +396,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   values (`project_dist_name: magpie`, ATR for both backends).
   `.apache-magpie-overrides/release-build.md` likewise differs from
   `projects/magpie/release-build.md`.
-- **No `SKILL.md` in the family is over the 500-line cap any more.** After
-  the decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625)
-  the largest are `release-rc-cut` (472) and `release-verify-rc` (469);
-  `release-prepare` fell from 1,208 to 367.
+- **`release-verify-rc` is back over the 500-line cap.** The
+  decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625) brought
+  every `SKILL.md` in the family under it (`release-prepare` fell from 1,208
+  to 367), but later additions grew `verify-rc/SKILL.md` to 517 lines;
+  `rc-cut/SKILL.md` (498) is next.
+  <!-- gap-closes-when: none (narrative) -->

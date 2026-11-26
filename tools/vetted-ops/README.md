@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [Where do the dispatchers start from?](#where-do-the-dispatchers-start-from)
     - [Is the policy approved?](#is-the-policy-approved)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [Searching the upstream repository](#searching-the-upstream-repository)
@@ -237,37 +238,70 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set",
-                           # vetted-op-git: from a change to an open pull request.
+                           # vetted-op-git: from a change to an open pull request. Its
+                           # labels pass the same scrub as the title and body first: they
+                           # are public before the advisory.
                            "git-fetch", "git-worktree-add", "git-worktree-sync",
-                           "git-rebase", "git-worktree-remove", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-# The other skills that publish a change through vetted-op-git
-# (each skill's vetted-git-publish.md names its caller). Grant only the
-# skills the project runs; the draft-PR flows open the draft with
-# `gh pr create --web --draft`, so they need no git-pr-create.
-"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"release-prepare"       = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync", "git-rebase",
-                            "git-stage", "git-commit", "git-push-branch", "git-pr-create"]
-"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                                 "git-push-branch", "git-pr-create"]
-"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+# The other skills that publish a change through vetted-op-git (each skill's
+# vetted-git-publish.md names its caller and every step granted here; a test
+# keeps the two in step). Grant only the skills the project runs; the
+# draft-PR flows open the draft with `gh pr create --web --draft`, so they
+# need no git-pr-create or pr-add-label.
+"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"release-prepare"       = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-switch", "git-switch-create",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                                 "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                                 "git-switch", "git-switch-create",
+                                 "git-stage", "git-commit", "git-push-branch",
+                                 "git-pr-create", "pr-add-label", "git-delete-fork-branch"]
+"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
 # Only in a policy whose [repos] upstream is the site repository / apache/magpie.
-"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                            "git-push-branch", "git-pr-create"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-cherry-pick",
-                           "git-switch", "git-stage", "git-commit", "git-push-branch",
-                           "git-pr-create", "pr-add-label"]
-"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-cherry-pick", "git-switch",
-                             "git-stage", "git-commit", "git-push-branch", "git-pr-create",
-                             "pr-add-label"]
+"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-switch", "git-switch-create",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create", "pr-add-label",
+                           "git-delete-fork-branch"]
+"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                             "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                             "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
+                             "git-push-branch", "git-pr-create", "pr-add-label",
+                             "git-delete-fork-branch"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
                            "board-item", "board-add-item", "board-set-status",
@@ -340,7 +374,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                # FIXUP disposition: a worktree at the PR head, commit the fixups,
                                # fast-forward the PR's head branch.
                                "git-worktree-add", "git-worktree-remove",
-                               "git-stage", "git-commit", "git-push-pr-head"]
+                               "git-stage", "git-commit", "git-merge-upstream",
+                               "git-push-pr-head"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-merge-candidates" = ["viewer",
@@ -490,6 +525,26 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
 underlying command failed.
+
+### Where do the dispatchers start from?
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read source
+# {"stable": "~/.claude/magpie/vetted-ops", "kind": "plugin", "resolves_to": "/Users/me/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/0.9.0/tools/vetted-ops"}
+```
+
+Every skill launches the dispatchers from `~/.claude/magpie/vetted-ops`, and what that path is depends on how Magpie is installed:
+
+| Install | `~/.claude/magpie/vetted-ops` | `kind` |
+|---|---|---|
+| Marketplace | a link into the `magpie-vetted-ops` plugin's cache, kept by its session hook | `plugin` |
+| Pinned snapshot | a real copy of `<snapshot-dir>/tools/vetted-ops`, made by `setup` and refreshed by `setup update` | `copy` |
+| Framework checkout | a link into the main checkout's `tools/vetted-ops`, made by `setup`'s self-adoption | `checkout` |
+
+The plugin cache and a copy sit under `~/.claude`, which the sandbox cannot write.
+A checkout link runs code the agent can edit, outside the sandbox, so agent-guard asks before every launch through one, `vetted-op-read` included.
+The plugin's hook moves only a link into its own cache; a copy or a checkout link is left alone.
+`source` prints that path's `kind` and where it resolves (`missing` when nothing is there); like `approval-status`, it takes no option or parameter and never prompts.
 
 ### Is the policy approved?
 
@@ -869,11 +924,14 @@ command, and every step is still confirmed by the user:
 | Operation | Parameters | What it does |
 |---|---|---|
 | `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
-| `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
+| `git-delete-fork-branch` | `checkout branch expected` | Deletes `branch` on the policy's `fork` (never upstream, never a protected branch) once its pull request has merged: the forge (`gh api repos/<upstream>/pulls?head=<fork owner>:<branch>&state=closed`) must report a merged pull request against the upstream repository whose head is that branch at exactly `expected`. A squash or rebase merge leaves the branch out of the base's history, so the forge's answer is the check. The deletion is leased on `expected`, so a branch pushed to since the merge is kept. |
+| `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge, except one of the upstream `pr_base` (fetched by the operation; see `git-merge-upstream`), whose upstream commits do not count towards the 10 (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-rebase` | `worktree onto expected` | Rebases the clean topic branch checked out in `worktree` (never a protected one) onto `onto`, a full SHA on the upstream `pr_base`: the operation fetches `pr_base` itself, from the policy's URL, and checks `onto` against the commit that fetch returned, never against a remote-tracking ref a sandboxed fetch could also write. `expected` is the branch's current full SHA, so a branch that moved after the user approved the call is refused, and one that moves while the rebase starts is put back where it was. A branch with merge commits over `onto` is refused, since a rebase would flatten them. Signing follows the user's global git configuration, and when that signs commits, every commit replayed must already carry the user's good signature (`%G?` is `G`, verified here, outside the sandbox): one made through `git-commit` or signed by the user, never one the agent committed unsigned in the sandbox. A user who does not sign gets no signature from the rebase and no such check. No recorded resolution (`rerere`), stash, editor or hook takes part. On a conflict it aborts, leaves the branch where it was, and names the conflicting paths: start a fresh branch on `onto`, replay the commits one by one with `git-cherry-pick`, and make the one that conflicts again in the sandbox and commit it with `git-commit`. |
 | `git-cherry-pick` | `worktree commit expected` | Replays one plain (non-merge) `commit` onto the clean topic branch checked out in `worktree` (never a protected one), at `expected`: the way to finish a rebase that conflicted, one commit at a time. Signing follows the user's global git configuration, and when that signs commits, `commit` must already carry the user's good signature, so an unsigned commit the agent made in the sandbox is never signed. No recorded resolution, editor or hook takes part. On a conflict it aborts and names the conflicting paths; a pick that landed on a branch or tip that moved after the checks is taken back off. |
+| `git-merge-upstream` | `worktree onto expected pr` | Merges `onto`, a full SHA on the upstream `pr_base` (fetched by the operation, as for `git-rebase`), into the clean topic branch checked out in `worktree` (never a protected one), at `expected`: for a branch whose history must stay as it is, such as a contributor's pull request. The merge commit has a fixed message (`Merge <upstream> <pr_base> into <branch>`) and is signed per the user's configuration. When that signs commits, the commits the merge vouches for must already carry the user's good signature: with `pr` set to `none` (the user's own branch), every commit not on upstream; with `pr` a pull request number, only the commits on top of that pull request's head, which the forge must report as open against the upstream repository and the branch must build on. The contributor's own commits are theirs, already published, and never carry the user's signature. No recorded resolution, stash, editor, merge log or hook takes part. On a conflict it aborts and names the conflicting paths; a merge that landed on a branch or tip that moved after the checks is taken back off. A contributor's branch then goes back with `git-push-pr-head`. |
 | `git-switch` | `worktree branch` | Switches a clean working tree (the main checkout or a linked worktree) to an existing local `branch`, with no hook. In the sandbox a switch fails half-way: the harness keeps `.claude/` settings, hooks and skills, the other harnesses' skill directories, `.mcp.json`, plugin manifests and the vetted-ops policy read-only (plus the policy's `harness_paths`), so git updates everything else and leaves those as local changes. Out here it can write them, so `branch` must not have changed any of them in its own commits: its version of every such file must be upstream's from where it left `pr_base`. Any branch that left them alone switches, however old. The upstream commit is asked of the policy's upstream URL during the call, never read from a local ref, the fork point must be reached from it through re-hashed parent links, and both trees are walked through objects re-hashed against their names (non-canonical tree modes refused), so neither a moved ref nor a forged object or history in the agent-writable `.git` counts. A branch checked out in another worktree is refused. Paths match at any depth, as a case-insensitive file system sees them (`.Claude/` is `.claude/`), and an entry that replaces a parent directory (a `.github` symlink) counts too. It checks out the commit it checked, detached, requires the index's harness entries to be the verified ones, hashes every harness file it wrote and puts back the verified content of any that differs, and attaches `branch` only if the branch still points there. |
+| `git-switch-create` | `worktree branch` | Creates a new topic `branch` (never a protected or an existing one) at upstream's `pr_base` as the policy's upstream URL reports it during the call, never a local ref, and switches the clean working tree to it with every check of `git-switch`; its harness files are upstream's, so nothing of the branch's own is there to refuse. A branch it could not switch to is deleted again. The way to start a change, or a fresh branch to finish a conflicting rebase on, in the main checkout. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
 | `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |

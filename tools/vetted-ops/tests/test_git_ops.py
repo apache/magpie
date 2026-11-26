@@ -674,6 +674,11 @@ def test_git_policy_defaults_and_protected_branches(tmp_path: Path) -> None:
         pytest.param({"checkouts": ["relative"]}, id="relative-checkout"),
         pytest.param({"checkouts": ["/"], "fork": "not a repo"}, id="bad-fork"),
         pytest.param({"checkouts": ["/"], "transport": "ftp"}, id="bad-transport"),
+        # `$` also matches before a final newline; each value must match whole.
+        pytest.param({"checkouts": ["/"], "fork": "me/project\n"}, id="fork-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "host": "github.com\n"}, id="host-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "upstream_remote": "upstream\n"}, id="remote-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "pr_base": "main\n"}, id="pr-base-trailing-newline"),
     ],
 )
 def test_git_policy_refuses_malformed_tables(table: object) -> None:
@@ -1216,7 +1221,13 @@ class FakePr:
 
 def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
     """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
+    # The operations run git without the test's GIT_* identity, so a commit they
+    # make (a merge) needs one in the repository: Linux CI cannot guess one.
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
     _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
+    # Upstream's pr_base, which a push of an upstream merge fetches to check the merge against.
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
     _git(repo, "checkout", "-q", "-b", "fixup")
     head = _commit(repo, "contribution")
     _git(repo, "push", "-q", policy.push_url("alice/project"), "HEAD:refs/heads/feature")
@@ -1599,7 +1610,13 @@ def test_switch_refuses_a_forged_upstream_history(git: Git, policy: LocalPolicy,
     forged = f"tree {tree}\nparent {topic}\nauthor t <t@example.org> 0 +0000\ncommitter t <t@example.org> 0 +0000\n\nx\n"
     # The upstream commit, as the repository now holds it: a child of the agent's branch.
     _forge_loose_object(repo, base, "commit", forged.encode())
-    assert _git(repo, "merge-base", "topic", base) == topic  # git itself is fooled
+    try:
+        fork = _git(repo, "merge-base", "topic", base)
+    except subprocess.CalledProcessError as refused:
+        # Depending on the release, git re-hashes the commit and refuses it, or trusts it.
+        assert "hash mismatch" in refused.stderr
+    else:
+        assert fork == topic  # git itself is fooled
     with pytest.raises(GitRefused, match="tampered with"):
         _switch(git, policy, repo, "topic")
     assert not (repo / ".claude" / "settings.json").exists()
@@ -2228,3 +2245,421 @@ def test_cherry_pick_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo
     command = _pick(git, policy, repo, tip, onto, dry_run=True)
     assert "cherry-pick" in command and "rerere.enabled=false" in command and tip in command
     assert _git(repo, "rev-parse", "HEAD") == onto
+
+
+# --- git-delete-fork-branch ------------------------------------------------
+
+
+@dataclass
+class FakeMerged:
+    """`gh api repos/<upstream>/pulls?head=…&state=closed`, answering with merged pull requests."""
+
+    prs: list[dict[str, object]]
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, json.dumps(self.prs), "")
+
+
+def _merged_fork_branch(policy: LocalPolicy, repo: Path) -> str:
+    """A topic branch pushed to the fork, as the head of a pull request that has since merged."""
+    _git(repo, "checkout", "-q", "-b", "topic")
+    tip = _commit(repo, "topic-file")
+    _git(repo, "push", "-q", policy.push_url("me/project"), "topic:refs/heads/topic")
+    _git(repo, "checkout", "-q", "main")
+    return tip
+
+
+def _delete(
+    git: Git, policy: GitPolicy, repo: Path, branch: str, expected: str, dry_run: bool = False
+) -> str:
+    return git_ops.delete_fork_branch(
+        git, policy, {"checkout": str(repo), "branch": branch, "expected": expected}, dry_run
+    )
+
+
+def _fork_has(policy: LocalPolicy, branch: str) -> bool:
+    out = _git(
+        Path(policy.push_url("me/project")), "for-each-ref", "--format=%(refname)", f"refs/heads/{branch}"
+    )
+    return bool(out)
+
+
+def test_delete_fork_branch_removes_a_merged_pull_requests_branch(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    fake = FakeMerged([{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": tip}])
+    git.gh_runner = fake
+    out = _delete(git, policy, repo, "topic", tip)
+    assert "head of merged #7" in out
+    assert not _fork_has(policy, "topic")
+    assert "head=me:topic" in fake.calls[0]
+    assert "repos/acme/project/pulls" in fake.calls[0]
+
+
+@pytest.mark.parametrize(
+    "prs",
+    [
+        pytest.param([], id="no-merged-pr"),
+        pytest.param(
+            [{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": "0" * 40}],
+            id="other-head",
+        ),
+        pytest.param(
+            [{"number": 7, "head_repo": "eve/project", "head_ref": "topic", "head_sha": None}],
+            id="other-fork",
+        ),
+        pytest.param(
+            [{"number": 7, "head_repo": "me/project", "head_ref": "other", "head_sha": None}],
+            id="other-branch",
+        ),
+    ],
+)
+def test_delete_fork_branch_refuses_a_branch_no_merged_pull_request_headed(
+    git: Git, policy: LocalPolicy, repo: Path, prs: list[dict[str, object]]
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    for pr in prs:
+        if pr["head_sha"] is None:
+            pr["head_sha"] = tip
+    git.gh_runner = FakeMerged(prs)
+    with pytest.raises(GitRefused, match="only a merged pull request's branch is deleted"):
+        _delete(git, policy, repo, "topic", tip)
+    assert _fork_has(policy, "topic")
+
+
+def test_delete_fork_branch_keeps_a_branch_pushed_to_since_the_merge(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    _git(repo, "checkout", "-q", "topic")
+    later = _commit(repo, "later")
+    _git(repo, "push", "-q", policy.push_url("me/project"), "topic:refs/heads/topic")
+    git.gh_runner = FakeMerged(
+        [{"number": 7, "head_repo": "me/project", "head_ref": "topic", "head_sha": tip}]
+    )
+    with pytest.raises(git_ops.GitFailed):
+        _delete(git, policy, repo, "topic", tip)
+    assert _remote_head(policy, "me/project", "topic") == later
+
+
+def test_delete_fork_branch_refuses_a_protected_branch_and_a_missing_fork(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _git(repo, "rev-parse", "HEAD")
+    git.gh_runner = FakeMerged([])
+    with pytest.raises(GitRefused, match="protected"):
+        _delete(git, policy, repo, "main", tip)
+    with pytest.raises(GitRefused, match="names no \\[git\\] fork"):
+        _delete(git, dataclasses.replace(policy, fork_repo=None), repo, "topic", tip)
+    assert not git.gh_runner.calls
+
+
+def test_delete_fork_branch_dry_run_asks_and_changes_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip = _merged_fork_branch(policy, repo)
+    fake = FakeMerged([])
+    git.gh_runner = fake
+    command = _delete(git, policy, repo, "topic", tip, dry_run=True)
+    assert ":refs/heads/topic" in command and f"--force-with-lease=refs/heads/topic:{tip}" in command
+    assert not fake.calls
+    assert _fork_has(policy, "topic")
+
+
+# --- git-merge-upstream ----------------------------------------------------
+
+
+def _merge(
+    git: Git,
+    policy: GitPolicy,
+    worktree: Path,
+    onto: str,
+    expected: str,
+    dry_run: bool = False,
+    pr: str = "none",
+) -> str:
+    return git_ops.merge_upstream(
+        git, policy, {"worktree": str(worktree), "onto": onto, "expected": expected, "pr": pr}, dry_run
+    )
+
+
+def _upstream_moves_on(policy: LocalPolicy, repo: Path, back_to: str) -> str:
+    """A new commit on upstream main, published; checks `back_to` out again. Returns the new commit."""
+    _git(repo, "checkout", "-q", "main")
+    onto = _commit(repo, "upstream-new")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", back_to)
+    return onto
+
+
+def test_merge_into_a_pull_request_checks_only_the_maintainers_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """The contributor's commits are theirs and unsigned by the user; only the fixup on top must be."""
+    signing, signer = _signing_git(tmp_path)
+    fake, head, _ = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:] == [fixup, onto]
+    assert fake.calls[0][4] == "repos/acme/project/pulls/42"
+    # Without the pull request, the contributor's unsigned commit is one the merge would vouch for.
+    _git(repo, "reset", "-q", "--hard", fixup)
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {head}"):
+        _merge(signing, policy, repo, onto, fixup)
+
+
+def test_merge_into_a_pull_request_still_checks_an_unsigned_fixup(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, _ = _signing_git(tmp_path)
+    fake, _, fixup = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {fixup}"):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        pytest.param({"state": "closed"}, "not open", id="closed"),
+        pytest.param({"base_repo": "other/project"}, "not against", id="other-base"),
+        pytest.param({"head_sha": "0" * 40}, "does not build on", id="unknown-head"),
+        pytest.param({"head_sha": None}, "no head commit", id="no-head"),
+    ],
+)
+def test_merge_into_a_pull_request_refuses_what_the_forge_does_not_back(
+    policy: LocalPolicy, repo: Path, tmp_path: Path, overrides: dict[str, object], message: str
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    fake, _, _ = _contributor_pr(policy, repo, **overrides)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=message):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-parse", "HEAD") == fixup
+
+
+@pytest.mark.parametrize("pr", ["0", "#42", "-1", "all"])
+def test_merge_upstream_pr_must_be_a_number_or_none(
+    git: Git, policy: LocalPolicy, repo: Path, pr: str
+) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match=r"pull request number|may not"):
+        _merge(git, policy, repo, onto, tip, pr=pr)
+
+
+def test_merge_upstream_merges_the_upstream_commit_into_the_topic(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    message = _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", merged).split()[1:] == [tip, onto]
+    assert _git(repo, "log", "-1", "--format=%s") == "Merge acme/project main into topic"
+    assert (repo / "topic-file").exists() and (repo / "upstream-file").exists()
+    assert f"{tip} -> {merged}" in message
+
+
+def test_merge_upstream_keeps_the_branch_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Unlike a rebase, nothing on the branch is rewritten: the contributor's commits stay as they are."""
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    assert _git(repo, "merge-base", "--is-ancestor", tip, "HEAD") == ""
+
+
+def test_merge_upstream_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _merge(git, policy, repo, onto, tip)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {tip}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == tip
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "MERGE_HEAD").exists()
+
+
+def test_merge_upstream_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match="not the expected"):
+        _merge(git, policy, repo, onto, onto)
+    _git(repo, "checkout", "-q", "-b", "local-only", "main")
+    local = _commit(repo, "local")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", local)
+    _git(repo, "checkout", "-q", "topic")
+    with pytest.raises(GitRefused, match="is not on acme/project main"):
+        _merge(git, policy, repo, local, tip)
+    (repo / "topic-file").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _merge(git, policy, repo, onto, tip)
+    _git(repo, "checkout", "-q", "--", "topic-file")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _merge(git, policy, repo, onto, _git(repo, "rev-parse", "HEAD"))
+    assert _git(repo, "rev-parse", "topic") == tip
+
+
+def test_merge_upstream_of_a_branch_already_on_the_base_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert "nothing to merge" in _merge(git, policy, repo, onto, merged)
+    assert _git(repo, "rev-parse", "HEAD") == merged
+
+
+def test_merge_upstream_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _hook(repo, "pre-merge-commit", marker, exit_code=1)
+    _hook(repo, "post-merge", marker)
+    _merge(git, policy, repo, onto, tip)
+    assert not marker.exists()
+
+
+def test_merge_upstream_signs_and_vouches_only_for_signed_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    unsigned = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _merge(signing, policy, repo, onto, unsigned)
+    tip = _sign_tip(repo, signer)
+    _merge(signing, policy, repo, onto, tip)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_merge_upstream_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    command = _merge(git, policy, repo, onto, tip, dry_run=True)
+    assert "merge" in command and "rerere.enabled=false" in command and onto in command
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+def test_push_pr_head_takes_upstream_merged_into_the_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`git-merge-upstream` on a contributor's branch, then the fast-forward of their head."""
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "main")
+    for name in (f"upstream-{n}" for n in range(git_ops.MAX_FIXUP_COMMITS + 1)):
+        _commit(repo, name)
+    onto = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", "fixup")
+    fixup = _git(repo, "rev-parse", "HEAD")
+    _merge(git, policy, repo, onto, fixup)
+    merged = _git(repo, "rev-parse", "HEAD")
+    # More upstream commits than a fixup may add: they are upstream's, not the fixup's.
+    _push_head(git, policy, repo, head)
+    assert _remote_head(policy, "alice/project", "feature") == merged
+
+
+def test_merge_upstream_takes_back_a_merge_onto_a_branch_moved_as_it_started(
+    policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "merge" in argv and "--abort" not in argv and "--is-ancestor" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="taken back off"):
+        _merge(raced, policy, repo, onto, tip)
+    assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"
+
+
+# --- git-switch-create -----------------------------------------------------
+
+
+def _switch_create(git: Git, policy: GitPolicy, worktree: Path, branch: str, dry_run: bool = False) -> str:
+    return git_ops.switch_create(git, policy, {"worktree": str(worktree), "branch": branch}, dry_run)
+
+
+def _upstream_moves_with_settings(repo: Path) -> str:
+    """Upstream main gains a commit that changes the settings; the checkout stays on an older branch."""
+    _git(repo, "checkout", "-q", "-b", "work")
+    _git(repo, "checkout", "-q", "-b", "upstream-next", "main")
+    upstream = _settings(repo, '{"v": 2}', "upstream moves settings")
+    _git(
+        repo,
+        "push",
+        "-q",
+        str(repo.parent / "remotes" / "acme__project.git"),
+        "upstream-next:refs/heads/main",
+    )
+    _git(repo, "checkout", "-q", "work")
+    _git(repo, "branch", "-q", "-D", "upstream-next")
+    return upstream
+
+
+def test_switch_create_starts_a_branch_where_upstream_is_now(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    upstream = _upstream_moves_with_settings(repo)
+    out = _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "fix-thing"
+    # Upstream's own settings arrive with the new branch.
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 2}'
+    assert "created fix-thing at upstream main" in out
+
+
+def test_switch_create_ignores_a_local_ref_naming_another_upstream(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """The start is asked of the policy's URL, never read from `refs/remotes/upstream/main`."""
+    upstream = _upstream_moves_with_settings(repo)
+    planted = _commit(repo, "agent-made")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", planted)
+    _git(repo, "reset", "-q", "--hard", "HEAD~1")
+    _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+
+
+def test_switch_create_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "branch", "existing")
+    with pytest.raises(GitRefused, match="already exists"):
+        _switch_create(git, policy, repo, "existing")
+    with pytest.raises(GitRefused, match="protected"):
+        _switch_create(git, policy, repo, "release-1.0")
+    (repo / "one").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _switch_create(git, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+
+
+def test_switch_create_removes_a_branch_it_could_not_switch_to(policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    plain = _runner(os.devnull)
+
+    def failing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "switch" in argv:
+            return subprocess.CompletedProcess(argv, 1, "", "error: simulated checkout failure\n")
+        return plain(argv, env, cwd_fd)
+
+    broken = Git(runner=failing, protocols=("https", "ssh", "file"))
+    with pytest.raises(git_ops.GitFailed):
+        _switch_create(broken, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "main"
+
+
+def test_switch_create_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    command = _switch_create(git, policy, repo, "fix-thing", dry_run=True)
+    assert "fix-thing" in command and "git-switch" in command
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")

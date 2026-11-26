@@ -418,19 +418,19 @@ def git_policy(config: Config) -> GitPolicy:
             "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
         )
     fork = table.get("fork")
-    if fork is not None and (not isinstance(fork, str) or not _REPO.match(fork)):
+    if fork is not None and (not isinstance(fork, str) or not _REPO.fullmatch(fork)):
         raise ConfigError(f"[git] fork must be an 'owner/name' string, got {fork!r}")
     host = table.get("host", "github.com")
-    if not isinstance(host, str) or not _HOST.match(host):
+    if not isinstance(host, str) or not _HOST.fullmatch(host):
         raise ConfigError(f"[git] host must be a host name, got {host!r}")
     transport = table.get("transport", "ssh")
     if transport not in ("ssh", "https"):
         raise ConfigError(f"[git] transport must be 'ssh' or 'https', got {transport!r}")
     upstream_remote = table.get("upstream_remote", "upstream")
-    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.match(upstream_remote):
+    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.fullmatch(upstream_remote):
         raise ConfigError(f"[git] upstream_remote must be a plain remote name, got {upstream_remote!r}")
     pr_base = table.get("pr_base", "main")
-    if not isinstance(pr_base, str) or not _BRANCH.match(pr_base):
+    if not isinstance(pr_base, str) or not _BRANCH.fullmatch(pr_base):
         raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
     return GitPolicy(
         checkouts=checkouts,
@@ -741,14 +741,14 @@ def _param(raw: str, name: str) -> str:
 
 
 def sha(raw: str, name: str) -> str:
-    if not _SHA.match(_param(raw, name)):
+    if not _SHA.fullmatch(_param(raw, name)):
         raise GitRefused(f"{name} must be a full lowercase commit SHA, got {raw!r}")
     return raw
 
 
 def branch_name(git: Git, directory: Path, raw: str, name: str) -> str:
     _param(raw, name)
-    if not _BRANCH.match(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
+    if not _BRANCH.fullmatch(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
         raise GitRefused(f"{name} is not an acceptable branch name: {raw!r}")
     if not git.ok(directory, "check-ref-format", "--branch", raw):
         raise GitRefused(f"{name} is not a valid branch name: {raw!r}")
@@ -931,7 +931,7 @@ def _check_config_in(git: Git, directory: Path) -> None:
             key
             for scope, key in parse_config_scopes(output)
             # `command` scope is this module's own `-c` pins; `GIT_CONFIG_*` is dropped.
-            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.match(key.lower())
+            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.fullmatch(key.lower())
         }
     )
     if unsafe:
@@ -1026,6 +1026,86 @@ def push_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"pushed {commit} to {repo} {remote_branch} ({was})"
 
 
+#: The merged pull requests `git-delete-fork-branch` reads, as a JSON list.
+_MERGED_PRS_JQ = (
+    "[.[] | select(.merged_at != null) | {number: .number, head_repo: .head.repo.full_name, "
+    "head_ref: .head.ref, head_sha: .head.sha}]"
+)
+
+
+def delete_fork_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Delete a branch on the user's fork once the pull request it headed has merged.
+
+    The cleanup after a merge. Only the policy's fork, never a protected
+    branch, and only a branch the forge reports as the head of a merged pull
+    request against the upstream repository, at exactly ``expected``: a squash
+    or rebase merge leaves no trace of the branch in the base's history, so the
+    forge's word is the check. The deletion is leased on ``expected``, so a
+    branch pushed to since the merge is never removed.
+    """
+    if policy.fork_repo is None:
+        raise GitRefused("the policy names no [git] fork, so no branch can be deleted from one")
+    worktree = resolve_worktree(git, p["checkout"], policy, "checkout")
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; it is never deleted")
+    expected = sha(p["expected"], "expected")
+    fork_owner = policy.fork_repo.split("/", 1)[0]
+    args = [
+        "push",
+        "--no-verify",
+        "--porcelain",
+        f"--force-with-lease=refs/heads/{branch}:{expected}",
+        policy.push_url(policy.fork_repo),
+        f":refs/heads/{branch}",
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    argv = [
+        "gh",
+        "api",
+        "--hostname",
+        policy.host,
+        "--method",
+        "GET",
+        f"repos/{policy.upstream_repo}/pulls",
+        "-f",
+        f"head={fork_owner}:{branch}",
+        "-f",
+        "state=closed",
+        "-f",
+        "per_page=100",
+        "--jq",
+        _MERGED_PRS_JQ,
+    ]
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        merged = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused("the forge's answer about merged pull requests is not JSON") from None
+    matching = [
+        pr
+        for pr in (merged if isinstance(merged, list) else [])
+        if isinstance(pr, dict)
+        and str(pr.get("head_repo") or "").casefold() == policy.fork_repo.casefold()
+        and pr.get("head_ref") == branch
+        and pr.get("head_sha") == expected
+    ]
+    if not matching:
+        raise GitRefused(
+            f"no merged pull request against {policy.upstream_repo} had {policy.fork_repo} {branch} at "
+            f"{expected} as its head; only a merged pull request's branch is deleted, at the commit that merged"
+        )
+    check_repository_config(git, worktree)
+    git.run(worktree.path, *args)
+    return (
+        f"deleted {policy.fork_repo} {branch} (was {expected}, head of merged #{matching[0].get('number')})"
+    )
+
+
 #: A pull request number, as GitHub assigns them.
 _PR_NUMBER = re.compile(r"^[1-9][0-9]{0,9}$")
 
@@ -1082,10 +1162,10 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     check_repository_config(git, worktree)
     local = branch_name(git, worktree.path, p["branch"], "branch")
     number = _param(p["number"], "number")
-    if not _PR_NUMBER.match(number):
+    if not _PR_NUMBER.fullmatch(number):
         raise GitRefused(f"number must be a pull request number, got {number!r}")
     named_repo = _param(p["head_repo"], "head_repo")
-    if not _REPO.match(named_repo):
+    if not _REPO.fullmatch(named_repo):
         raise GitRefused(f"head_repo must be 'owner/name', got {named_repo!r}")
     named_branch = branch_name(git, worktree.path, p["head_branch"], "head_branch")
     expected = sha(p["expected"], "expected")
@@ -1100,16 +1180,29 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             f"{local!r} does not build on the pull request's head {expected}; a fixup adds commits on top "
             "of the contributor's and never rewrites them"
         )
-    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}").strip()
+    # One kind of merge may go along: upstream's pr_base merged in
+    # (`git-merge-upstream`), its other parent on the pr_base fetched here.
+    # Upstream's own commits are then public history, not part of the fixup.
+    merges = git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").split()
+    upstream_tip = _fetch_base(git, worktree, policy) if merges else None
+    excluded = [f"^{upstream_tip}"] if upstream_tip else []
+    for merge in merges:
+        others = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merge).split()[2:]
+        if (
+            not upstream_tip
+            or len(others) != 1
+            or not git.ok(worktree.path, "merge-base", "--is-ancestor", others[0], upstream_tip)
+        ):
+            raise GitRefused(
+                f"{local!r} has a merge commit ({merge}) on top of the pull request's head that does not "
+                f"merge {policy.upstream_repo} {policy.pr_base}; a fixup is plain commits, or upstream "
+                "merged in, so no other branch's history goes with it"
+            )
+    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}", *excluded).strip()
     if int(added) > MAX_FIXUP_COMMITS:
         raise GitRefused(
             f"{local!r} adds {added} commits on top of the pull request's head; a fixup adds at most "
             f"{MAX_FIXUP_COMMITS}"
-        )
-    if git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").strip():
-        raise GitRefused(
-            f"{local!r} has a merge commit on top of the pull request's head; a fixup is plain commits, "
-            "so no other branch's history goes with it"
         )
 
     head = _pull_request_head(git, policy, number)
@@ -1124,7 +1217,7 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             "fetch it again and rebuild the fixup on it"
         )
     repo = head.get("head_repo")
-    if not isinstance(repo, str) or not _REPO.match(repo):
+    if not isinstance(repo, str) or not _REPO.fullmatch(repo):
         raise GitRefused(f"pull request #{number} has no head repository (was its fork deleted?)")
     remote_branch = branch_name(git, worktree.path, str(head.get("head_ref") or ""), "the head branch")
     if (repo.casefold(), remote_branch) != (named_repo.casefold(), named_branch):
@@ -1196,6 +1289,17 @@ REBASE_CONFIG = (
 )
 
 
+#: Pinned on a merge, for the same reasons as `REBASE_CONFIG`: no recorded
+#: resolution, no stash, no editor, and no merge log built from commit text.
+MERGE_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "merge.autoStash=false",
+    "merge.log=false",
+    "core.editor=false",
+)
+
+
 #: Pinned on a cherry-pick, for the same reasons as `REBASE_CONFIG`.
 CHERRY_PICK_CONFIG = (
     "rerere.enabled=false",
@@ -1205,7 +1309,7 @@ CHERRY_PICK_CONFIG = (
 )
 
 
-def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
+def require_signed(git: Git, worktree: Worktree, revisions: str | Sequence[str], operation: str) -> None:
     """Refuse to re-sign a commit that does not already carry the user's good signature.
 
     An operation that replays commits (a rebase, a cherry-pick, a merge) signs
@@ -1221,7 +1325,8 @@ def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str)
     """
     if not git.signs_commits():
         return
-    output = git.run(worktree.path, "log", "--format=%H %G?", revisions)
+    spec = [revisions] if isinstance(revisions, str) else list(revisions)
+    output = git.run(worktree.path, "log", "--format=%H %G?", *spec)
     unsigned = [fields[0] for fields in (line.split() for line in output.splitlines()) if fields[1:] != ["G"]]
     if unsigned:
         shown = ", ".join(unsigned[:10]) + (" …" if len(unsigned) > 10 else "")
@@ -1254,7 +1359,7 @@ def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
     )
     for line in output.splitlines():
         fields = line.split()
-        if len(fields) == 4 and fields[3] == ref and _SHA.match(fields[2]):
+        if len(fields) == 4 and fields[3] == ref and _SHA.fullmatch(fields[2]):
             return fields[2]
     raise GitRefused(f"fetching {policy.upstream_repo} {policy.pr_base} reported no commit for {ref}")
 
@@ -1433,6 +1538,119 @@ def cherry_pick(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"replayed {commit} onto {branch} in {worktree.path}: {previous} -> {picked}"
 
 
+def merge_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Merge an upstream ``pr_base`` commit into a clean topic branch; on a conflict, abort and report it.
+
+    For a branch whose history must not be rewritten (a contributor's pull
+    request), where a rebase would. The merge commit is signed per the user's
+    configuration, so the same rule as for a rebase holds: when the user
+    signs, the commits the merge vouches for must already carry their
+    signature. On the user's own branch (``pr`` is ``none``) that is every
+    commit not on upstream. On a pull request's branch (``pr`` is its number)
+    the contributor's commits are theirs, already published, and never carry
+    the user's signature, so only the commits on top of the head the forge
+    reports for that pull request are checked. The message is fixed, the
+    other parent must be on the upstream ``pr_base`` fetched here, and a
+    conflict is never resolved out here.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    onto = sha(p["onto"], "onto")
+    expected = sha(p["expected"], "expected")
+    pr = _param(p["pr"], "pr")
+    if pr != "none" and not _PR_NUMBER.fullmatch(pr):
+        raise GitRefused(f"pr must be a pull request number, or 'none' for your own branch; got {pr!r}")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; upstream is merged into a topic branch only")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the merge was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    message = f"Merge {policy.upstream_repo} {policy.pr_base} into {branch}"
+    pins = [arg for pin in MERGE_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "merge",
+        "--no-ff",
+        "--no-edit",
+        "--no-autostash",
+        "--no-rerere-autoupdate",
+        "--no-verify",
+        "-m",
+        message,
+        "--end-of-options",
+        onto,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    base = _fetch_base(git, worktree, policy)
+    resolve_commit(git, worktree.path, onto, "onto")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", onto, base):
+        raise GitRefused(
+            f"onto {onto} is not on {policy.upstream_repo} {policy.pr_base} (fetched just now at {base}); "
+            f"merge a commit of {policy.pr_base}"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", onto, previous):
+        return f"{branch} in {worktree.path} already contains {onto}; nothing to merge"
+    # The commits the merge commit vouches for: the branch's own, not upstream's,
+    # and on a pull request's branch not the contributor's either.
+    vouched = [f"{onto}..{previous}"]
+    if pr != "none":
+        head = _pull_request_head(git, policy, pr)
+        if str(head.get("base_repo") or "").casefold() != policy.upstream_repo.casefold():
+            raise GitRefused(f"pull request #{pr} is not against {policy.upstream_repo}")
+        if head.get("state") != "open":
+            raise GitRefused(f"pull request #{pr} is {head.get('state')!r}, not open")
+        head_sha = head.get("head_sha")
+        if not isinstance(head_sha, str) or not _SHA.fullmatch(head_sha):
+            raise GitRefused(f"pull request #{pr}: the forge reports no head commit")
+        if not git.ok(worktree.path, "cat-file", "-e", f"{head_sha}^{{commit}}") or not git.ok(
+            worktree.path, "merge-base", "--is-ancestor", head_sha, previous
+        ):
+            raise GitRefused(
+                f"{branch!r} does not build on pull request #{pr}'s head {head_sha}; fetch the pull request "
+                "and build on its head"
+            )
+        vouched.append(f"^{head_sha}")
+    check_repository_config(git, worktree)
+    require_signed(git, worktree, vouched, "merge")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "merge", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the merge was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git merge --abort` failed too; {str(worktree.path)!r} is mid-merge"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Resolve the conflict in the "
+            "sandbox and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    merged = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    # A merge acts on whatever HEAD is when it starts. If the branch or its tip
+    # changed after the checks, take the merge back off and refuse.
+    parents = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merged).split()[1:]
+    now = git.run(worktree.path, "symbolic-ref", "--quiet", "HEAD").strip()
+    if parents != [expected, onto] or now != f"refs/heads/{branch}":
+        git.run(worktree.path, "reset", "--keep", parents[0])
+        raise GitRefused(
+            f"the merge landed on {now or 'a detached HEAD'} at {parents[0]}, not on {branch!r} at the approved "
+            f"{expected}; it was taken back off. Look at the branch again"
+        )
+    return f"merged {policy.upstream_repo} {policy.pr_base} {onto} into {branch} in {worktree.path}: {previous} -> {merged}"
+
+
 #: Tracked paths that steer an agent harness or this dispatcher: settings,
 #: hooks, skills, agents, MCP servers, plugin manifests and the vetted-ops
 #: policy. Harnesses keep them read-only in the sandbox because what they say
@@ -1496,7 +1714,7 @@ def _upstream_base(git: Git, policy: GitPolicy, worktree: Worktree, fetch: bool 
     # The URL is built from the policy and starts with a scheme or `git@`, never `-`.
     lines = git.run(worktree.path, "ls-remote", url, ref).splitlines()
     found = [line.split("\t", 1)[0] for line in lines if line.endswith(f"\t{ref}")]
-    if len(found) != 1 or not _SHA.match(found[0]):
+    if len(found) != 1 or not _SHA.fullmatch(found[0]):
         raise GitRefused(f"{policy.upstream_repo} has no branch {policy.pr_base!r} to check against")
     base = found[0]
     if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
@@ -1572,7 +1790,7 @@ class _VerifiedObjects:
         return [line.split(" ", 1) for line in head.split("\n") if " " in line]
 
     def parents(self, oid: str) -> list[str]:
-        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.match(value)]
+        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.fullmatch(value)]
 
     def is_ancestor(self, ancestor: str, of: str, hint: Sequence[str] = ()) -> bool:
         """Whether ``ancestor`` is reachable from ``of`` through verified parent links.
@@ -1597,7 +1815,7 @@ class _VerifiedObjects:
     def harness_entries(self, commit: str, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
         """Every harness path in ``commit``'s tree, as ``{path: (mode, oid)}``, walked through verified trees."""
         trees = [value for key, value in self._commit_lines(commit) if key == "tree"]
-        if len(trees) != 1 or not _SHA.match(trees[0]):
+        if len(trees) != 1 or not _SHA.fullmatch(trees[0]):
             raise GitRefused(f"commit {commit} has no single tree line")
         width = 32 if self.git.object_format == "sha256" else 20
         entries: dict[str, tuple[str, str]] = {}
@@ -1819,6 +2037,45 @@ def switch_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     return f"switched {worktree.path} from {previous} to {branch} at {target}{note}"
 
 
+def switch_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Create a branch at the upstream ``pr_base`` and switch a clean working tree to it.
+
+    The start of a new change in the main checkout, which a sandboxed
+    ``git switch -c`` cannot finish: the new branch starts where upstream is
+    now, asked of the policy's URL during this call, never where a local ref
+    says. Its harness files are then upstream's, so `switch_branch`, which
+    does the switch, finds nothing of the branch's own to refuse; every check
+    it makes still runs. A new branch that could not be switched to is
+    deleted again.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; a new topic branch is created only")
+    if git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        raise GitRefused(f"branch {branch!r} already exists; switch to it with git-switch")
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    if dry_run:
+        create = git.argv(
+            worktree.path, "branch", "--no-track", branch, f"<{policy.pr_base} from the policy URL>"
+        )
+        return " ".join(create) + "; then git-switch " + branch
+    base = _upstream_base(git, policy, worktree, fetch=True)
+    if base is None:
+        raise GitRefused(f"upstream {policy.pr_base} could not be read from the policy's URL")
+    check_repository_config(git, worktree)
+    # Created only if absent (the zero old value), so an existing branch is never moved.
+    git.run(worktree.path, "update-ref", f"refs/heads/{branch}", base, "0" * len(base))
+    try:
+        switched = switch_branch(git, policy, {"worktree": p["worktree"], "branch": branch}, False)
+    except (GitRefused, GitFailed):
+        git._call(worktree.path, "update-ref", "-d", f"refs/heads/{branch}", base)
+        raise
+    return f"created {branch} at upstream {policy.pr_base} {base}; {switched}"
+
+
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Create a linked worktree on a new branch, inside a policy worktree root."""
     checkout = resolve_worktree(git, p["checkout"], policy, "checkout")
@@ -1826,7 +2083,7 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
         raise GitRefused("checkout must be the main checkout, not a linked worktree")
     check_repository_config(git, checkout)
     path = _absolute(p["path"], "path")
-    if not _WORKTREE_NAME.match(path.name):
+    if not _WORKTREE_NAME.fullmatch(path.name):
         raise GitRefused(f"the new worktree's directory name is not acceptable: {path.name!r}")
     if not any(
         path.parent == root and str(root) == os.path.realpath(path.parent) for root in policy.worktree_roots
@@ -2098,6 +2355,13 @@ OPS: dict[str, GitOp] = {
             push_branch,
         ),
         GitOp(
+            "git-delete-fork-branch",
+            ("checkout", "branch", "expected"),
+            "delete <branch> on the policy's fork once the forge reports it as the head of a merged pull "
+            "request against upstream at exactly <expected>; never a protected branch, leased on <expected>",
+            delete_fork_branch,
+        ),
+        GitOp(
             "git-push-pr-head",
             ("worktree", "branch", "number", "head_repo", "head_branch", "expected"),
             "fast-forward <head_branch> of <head_repo>, the head of upstream pull request <number>, "
@@ -2130,11 +2394,28 @@ OPS: dict[str, GitOp] = {
             cherry_pick,
         ),
         GitOp(
+            "git-merge-upstream",
+            ("worktree", "onto", "expected", "pr"),
+            "merge <onto>, a full SHA on the upstream pr_base (fetched by the operation), into the clean "
+            "topic branch checked out in <worktree>; <expected> is the branch's current full SHA, <pr> the "
+            "pull request whose branch it is ('none' for your own). A signed merge commit with a fixed "
+            "message; when you sign, only your commits (on top of the pull request's head) must carry "
+            "your signature. On a conflict, aborts and names the conflicting paths",
+            merge_upstream,
+        ),
+        GitOp(
             "git-switch",
             ("worktree", "branch"),
             "switch a clean working tree to an existing local <branch>; refused when the branch's own "
             "commits change a file that steers the agent harness (.claude/, hooks, skills, the policy)",
             switch_branch,
+        ),
+        GitOp(
+            "git-switch-create",
+            ("worktree", "branch"),
+            "create a new topic <branch> at upstream's pr_base, asked of the policy's URL now, and switch "
+            "the clean working tree to it, with git-switch's checks; never a protected or existing branch",
+            switch_create,
         ),
         GitOp(
             "git-worktree-add",

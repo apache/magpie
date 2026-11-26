@@ -30,6 +30,7 @@ from adversarial_review.findings import (
     normalize_path,
     parse_findings,
 )
+from adversarial_review.merge import merge
 
 ONE = {"severity": "high", "file": "app.py", "line": 2, "claim": "wrong value", "evidence": "return 2"}
 
@@ -140,3 +141,38 @@ def test_normalize_keeps_a_real_a_directory(tmp_path: Path):
     (tmp_path / "a" / "x.py").write_text("", encoding="utf-8")
     f = Finding("codex", "low", "a/x.py", 1, "c", "e")
     assert normalize_path(f, tmp_path).file == "a/x.py"
+
+
+@pytest.mark.parametrize("given", ["a/src/gone.py", "b/src/gone.py"])
+def test_normalize_diff_prefix_for_a_deleted_file(tmp_path: Path, given):
+    f = Finding("codex", "low", given, 1, "c", "e")
+    assert normalize_path(f, tmp_path).file == "src/gone.py"
+
+
+def test_normalize_keeps_a_missing_file_under_a_real_a_directory(tmp_path: Path):
+    (tmp_path / "a").mkdir()
+    f = Finding("codex", "low", "a/gone.py", 1, "c", "e")
+    assert normalize_path(f, tmp_path).file == "a/gone.py"
+
+
+def test_normalize_keeps_a_missing_file_under_a_dangling_a_symlink(tmp_path: Path):
+    (tmp_path / "a").symlink_to(tmp_path / "missing-target")
+    f = Finding("codex", "low", "a/gone.py", 1, "c", "e")
+    assert normalize_path(f, tmp_path).file == "a/gone.py"
+
+
+@pytest.mark.parametrize("given", ["b/./src/gone.py", "b//src/gone.py", "b/../gone.py", "b/src/"])
+def test_normalize_keeps_the_prefix_unless_the_rest_is_a_plain_relative_path(tmp_path: Path, given):
+    f = Finding("codex", "low", given, 1, "c", "e")
+    assert normalize_path(f, tmp_path).file == given
+
+
+def test_normalized_deleted_file_findings_merge(tmp_path: Path):
+    claim = "Removing gone.py breaks the import"
+    findings = [
+        normalize_path(Finding("codex", "low", "b/src/gone.py", 1, claim, "e"), tmp_path),
+        normalize_path(Finding("claude", "low", "src/gone.py", 1, claim, "e"), tmp_path),
+    ]
+
+    [group] = merge(findings)
+    assert len(group.reports) == 2

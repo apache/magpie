@@ -172,7 +172,8 @@ does three things, in order:
 
 1. Refreshes a short-lived access token from the stored refresh token.
 2. Reads the chronologically-last message in the thread and extracts
-   its `Message-ID` header (and the existing `References` chain).
+   its `Message-ID` header (and the existing `References` chain, or,
+   when it has none, a single-id `In-Reply-To`).
 3. Builds an RFC822 MIME message with `In-Reply-To: <that-Message-ID>`
    and `References: <existing chain> <that-Message-ID>`, plus sets
    `threadId` in the Gmail API call.

@@ -1103,3 +1103,57 @@ _MSYS_GPG = sys.platform == "win32" and _GPG is not None and Path(_GPG).with_nam
 def test_list_keys_incompatible_homedir_is_an_error_not_a_missing_key(capsys: pytest.CaptureFixture[str]) -> None:
     out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "OTHER.pub"))
     assert out["_rc"] == 2 and "gpg --import failed (exit 2)" in out["error"]
+
+
+@pytest.mark.parametrize("disclaimer", ["DISCLAIMER", "DISCLAIMER-WIP"])
+def test_podling_disclaimer_present(tmp_path: Path, capsys: pytest.CaptureFixture[str], disclaimer: str) -> None:
+    tree = make_tree(tmp_path / "rc")
+    (tree / disclaimer).write_text("Incubation disclaimer\n")
+    out = run(capsys, "notice-license", "--tree", str(tree), "--podling")
+    assert out["status"] == "PASS" and out["disclaimer_present"] is True
+    assert out["_rc"] == 0
+
+
+def test_podling_disclaimer_missing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = make_tree(tmp_path / "rc")
+    previous = make_tree(tmp_path / "previous")
+    (previous / "DISCLAIMER").write_text("Previous disclaimer\n")
+    (tree / "docs").mkdir()
+    (tree / "docs" / "DISCLAIMER").write_text("Nested disclaimer\n")
+    (tree / "DISCLAIMER-WIP").mkdir()
+    out = run(capsys, "notice-license", "--tree", str(tree), "--previous", str(previous), "--podling")
+    assert out["status"] == "FAIL" and out["disclaimer_present"] is False
+    assert "DISCLAIMER or DISCLAIMER-WIP" in out["detail"]
+    assert out["_rc"] == 0  # Findings live in JSON, not the input-error exit code.
+
+
+def test_podling_disclaimer_does_not_hide_missing_notice(tmp_path: Path) -> None:
+    tree = make_tree(tmp_path / "rc", notice=None)
+    out = rv.notice_license(tree, None, podling=True)
+    assert out["status"] == "FAIL"
+    assert "NOTICE absent" in out["detail"] and "DISCLAIMER" in out["detail"]
+    (tree / "DISCLAIMER").write_text("Incubation disclaimer\n")
+    assert rv.notice_license(tree, None, podling=True)["status"] == "FAIL"
+
+
+def test_podling_disclaimer_preserves_review(tmp_path: Path) -> None:
+    tree = make_tree(tmp_path / "rc")
+    previous = make_tree(tmp_path / "previous", notice="Previous notice\n")
+    (tree / "DISCLAIMER").write_text("Incubation disclaimer\n")
+    assert rv.notice_license(tree, previous, podling=True)["status"] == "REVIEW"
+    assert "disclaimer_present" not in rv.notice_license(tree, None)
+
+
+@needs_gpg
+def test_all_podling_missing_disclaimer_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    staged = gpg_staging(tmp_path)
+    write_digests(staged, "artefact.tar.gz", ("sha512",))
+    tree = make_tree(tmp_path / "artefact")
+    (tree / "VERSION").write_text("2.11.0\n")
+    out = run(
+        capsys, "all", "--dir", str(staged), "--tree", str(tree), "--expect", "artefact.tar.gz", "--keys", str(GPG_FIXTURES / "KEYS"),
+        "--rc-tag", "2.11.0-rc1", "--manifest", "VERSION", "--podling",
+    )  # fmt: skip
+    step = next(step for step in out["steps"] if step["step"] == "notice-license")
+    assert step["status"] == "FAIL" and step["disclaimer_present"] is False
+    assert out["verdict"]["overall"] == "FAIL"

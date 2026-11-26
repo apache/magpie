@@ -278,6 +278,28 @@ class TestValidateSpdxHeader:
         assert len(violations) == 1
         assert SPDX_MARKER in violations[0].message
 
+    def test_spdx_only_in_body_flagged(self, tmp_path: Path) -> None:
+        text = _make_spec(spdx=False) + f"\n{SPDX_MARKER}\n"
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        violations = validate_spdx_header(p, text)
+        assert len(violations) == 1
+        assert violations[0].line == 1
+        assert SPDX_MARKER in violations[0].message
+
+    def test_spdx_only_in_frontmatter_flagged(self, tmp_path: Path) -> None:
+        text = _make_spec(spdx=False, title=SPDX_MARKER)
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        violations = validate_spdx_header(p, text)
+        assert len(violations) == 1
+
+    def test_spdx_header_and_body_marker_passes(self, tmp_path: Path) -> None:
+        text = _make_spec() + f"\n{SPDX_MARKER}\n"
+        p = tmp_path / "spec.md"
+        p.write_text(text)
+        assert validate_spdx_header(p, text) == []
+
     def test_readme_without_frontmatter_skipped(self, tmp_path: Path) -> None:
         text = "# README\n\nNo frontmatter, no SPDX required.\n"
         p = tmp_path / "README.md"

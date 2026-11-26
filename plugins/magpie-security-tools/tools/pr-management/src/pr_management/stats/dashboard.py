@@ -1685,10 +1685,15 @@ def render_pressure(pressure, area_prefix):
 
 
 def render_codeowners(rows, total_ready):
+    if rows is None:
+        return (
+            "<h2>Ready-for-review queue by CODEOWNER</h2>"
+            '<div class="caveat">No CODEOWNERS file found (.github/, the root or docs/) — panel skipped per the stats spec.</div>'
+        )
     if not rows:
         return (
             "<h2>Ready-for-review queue by CODEOWNER</h2>"
-            '<div class="caveat">.github/CODEOWNERS not found — panel skipped per the stats spec.</div>'
+            '<div class="caveat">No ready-for-review PR touches a file CODEOWNERS assigns to an owner.</div>'
         )
     out = [
         "<h2>Ready-for-review queue by CODEOWNER</h2>",
@@ -2323,7 +2328,7 @@ def assemble(
     table_open = compute_table_still_open(open_prs, area_prefix)
     ready_split = compute_ready_split(open_prs, ctx)
     attribution = compute_attribution(open_prs, closed_prs, ctx)
-    codeowners_rows = compute_codeowners_panel(open_prs, files_per_pr, codeowners) if codeowners else []
+    codeowners_rows = compute_codeowners_panel(open_prs, files_per_pr, codeowners) if codeowners else None
     recs = compute_recommendations(open_prs, weekly, pressure, hero, ready_trend[1], now)
     health = compute_health_rating(hero, recs)
     recent_drafts = sum(
