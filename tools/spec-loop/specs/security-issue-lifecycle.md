@@ -273,6 +273,11 @@ publication, with a human gate and an audit-log entry at every step.
   succeeded, and `body-field-get` / `body-field-set` replace whole-body
   rewrites that touched one field; sync keeps a whole-body write only
   where it adds sections the body lacks.
+  The CVE JSON block is regenerated without `gh` in the sandbox too
+  (sync's Step 5, cve-allocate's item 4, deduplicate's item 6): vetted
+  `issue-view` and `collaborators` reads saved to the workspace,
+  `generate-cve-json --issue-json … --collaborators … --attach
+  --output-body …` on them, and the vetted `issue-edit-body` write.
   Each skill notes once how to run the same operations without the
   secure setup, through the `github-rollup` and `github-body-field` CLIs.
 - Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),

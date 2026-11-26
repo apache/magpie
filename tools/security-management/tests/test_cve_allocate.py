@@ -782,15 +782,30 @@ def test_apply_plan_runs_the_confirmed_items_in_order(capsys, tmp_path):
          "legacy_comments": [{"comment_id": 11, "action": "Sync"}], "needs_amend": True},
     )  # fmt: skip
     commands = [s["command"] for s in out["steps"]]
-    assert [s["item"] for s in out["steps"]] == [1, 2, 3, 3, 4, 5, 5]
+    assert [s["item"] for s in out["steps"]] == [1, 2, 3, 3, 4, 4, 4, 4, 5, 5]
     assert commands[0].endswith(
         'vetted-op-tracker --caller security-cve-allocate body-field-set 312 "CVE tool link" /s/cve-tool-link-312.md'
     )
     assert commands[1] == f'gh issue edit 312 --repo {TRACKER} --add-label "cve allocated"'
     assert commands[2].endswith('rollup-fold 312 11 "Sync"')
     assert commands[3].endswith('rollup-append 312 "CVE allocated (CVE-2025-44812)" /s/rollup-entry-312.md')
-    assert "generate-cve-json 312 --attach --report-json /s/cve-report-312.json" in commands[4]
-    assert commands[6].endswith(
+    # The JSON refresh never runs `gh` in the sandbox: saved reads, the generator on
+    # the files, then the vetted body write.
+    assert commands[4].endswith(
+        "vetted-op-read --caller security-cve-allocate --save cve-issue-312.json issue-view 312"
+    )
+    assert commands[5].endswith(
+        "vetted-op-read --caller security-cve-allocate --save cve-team.txt collaborators"
+    )
+    assert (
+        "generate-cve-json --issue-json <workspace>/saved/cve-issue-312.json "
+        "--collaborators <workspace>/saved/cve-team.txt --attach --output-body <workspace>/cve-body-312.md "
+        "--report-json /s/cve-report-312.json"
+    ) in commands[6]
+    assert commands[7].endswith(
+        "vetted-op --caller security-cve-allocate issue-edit-body 312 <workspace>/cve-body-312.md"
+    )
+    assert commands[9].endswith(
         'rollup-amend-latest 312 "CVE allocated (CVE-2025-44812)" /s/rollup-entry-312.md'
     )
     assert out["steps"][0]["load_bearing"] is True

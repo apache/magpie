@@ -18,8 +18,9 @@
 
 1 the *CVE tool link* field (`body-field-set`, the one load-bearing write: a
 later sync reads the CVE from it), 2 the label, 3 the legacy folds oldest
-first and then the rollup entry, 4 the CVE JSON (`--attach` on GitHub; the
-saved body, `--stdin` and `issue-attach` elsewhere), 5 the draft, and the
+first and then the rollup entry, 4 the CVE JSON (on GitHub, the saved issue and
+roster, `--attach --output-body` and `issue-edit-body`; the saved body,
+`--stdin` and `issue-attach` elsewhere), 5 the draft, and the
 rollup amend when the entry went out with the `<pending>` draft id. Stop at
 the first failure and ask; never retry silently.
 """
@@ -31,6 +32,7 @@ from typing import Any
 
 from security_management.cve_allocate.gate import CVE_ALLOCATED, CVE_FIELD
 from security_management.cve_allocate.render import _cve, label
+from security_management.shared import cve_json
 from security_management.shell import dq, w
 
 CALLER = "--caller security-cve-allocate"
@@ -89,13 +91,7 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
         )
     if 4 in chosen:
         if platform == "github":
-            steps.append(
-                {
-                    "item": 4,
-                    "command": f"{generator} {ref} --attach --report-json {w(report)}",
-                    "report": report,
-                }
-            )
+            steps += cve_json.github_steps(4, ref, slug, generator, report, data, READ_OP, WRITE_OP)
         else:
             out = f"{scratch}/{cve_id}.json"
             review = " --review" if data.get("review") else ""

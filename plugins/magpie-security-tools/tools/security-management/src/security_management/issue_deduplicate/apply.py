@@ -32,7 +32,7 @@ from typing import Any
 
 from security_management.issue_deduplicate.gate import DUPLICATE
 from security_management.issue_deduplicate.render import labels
-from security_management.shared import selectors
+from security_management.shared import cve_json, selectors
 from security_management.shared.rollup import one_line
 from security_management.shell import dq, w
 
@@ -119,12 +119,15 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     if 6 in chosen:
         report = f"{scratch}/cve-report-{slug_k}.json"
         if github:
-            steps.append(
-                {
-                    "item": 6,
-                    "command": f"uv run --project {generator} generate-cve-json {k} --attach --report-json {w(report)}",
-                    "report": report,
-                }
+            steps += cve_json.github_steps(
+                6,
+                k,
+                slug_k,
+                f"uv run --project {generator} generate-cve-json",
+                report,
+                data,
+                READ_OP,
+                WRITE_OP,
             )
         else:
             out = f"{scratch}/{cve_id or 'cve-' + slug_k}.json"

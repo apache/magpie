@@ -81,8 +81,8 @@ The last two columns are what vetted-ops runs on a non-GitHub tracker.
 | `vetted-op-read body-field-get` | `body-field-get N FIELD` | `field-get N FIELD` |
 | `vetted-op-tracker body-field-set` | `body-field-set N FIELD F` | `field-set N FIELD --value-file -` |
 | `gh api repos/<tracker> --jq .name` (Step 0 access check) | `tracker-doctor` | `doctor` |
-| `generate-cve-json <N> --attach` (reads the issue) | `issue-body N` (saved), then `generate-cve-json --stdin` | `body N` (markdown `###` sections; Jira `h3.` converted) |
-| `generate-cve-json <N> --attach` (attaches the JSON) | `issue-attach N FILE NAME` | `attach N - --name=NAME` |
+| `issue-view N` + `collaborators` (saved), then `generate-cve-json --issue-json … --attach --output-body F` (reads the issue) | `issue-body N` (saved), then `generate-cve-json --stdin` | `body N` (markdown `###` sections; Jira `h3.` converted) |
+| `issue-edit-body N F` after `--output-body F` (attaches the JSON) | `issue-attach N FILE NAME` | `attach N - --name=NAME` |
 | — (end of a session) | `tracker-pending` | `pending` (`local-files` only) |
 | — (end of a session) | `tracker-publish F` | `publish --message-file - --push` (`local-files` only) |
 
