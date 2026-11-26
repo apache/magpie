@@ -160,7 +160,7 @@ The planner cannot see an open pull request, since the base branch does not hold
 |---|---|
 | no `advisory-records v1` comment | looks for a pull request from the configured branch (`gh pr list --repo <site repo> --head <branch> --state all`); open or merged → proposes only the status comment that records it, never a second pull request; none, or only a closed one → runs the planner, and the proposal names the closed one |
 | an `advisory-records v1` comment with a pull-request URL | reads that pull request's state (`gh pr view <url> --json state`) |
-| … still open | notes *"advisory records: <URL> open"*; proposes nothing |
+| … still open | notes *"advisory records: `<URL>` open"*; proposes nothing |
 | … merged | proposes a status comment opening with `<!-- apache-magpie: advisory-records-merged v1 -->` and the ticked security-pages checklist item |
 | … closed without merging | a blocker naming the pull request; nothing is re-proposed until the team decides how to record the CVE (to try again, a team member deletes the status comment, and the operator the branch on the fork and in the working copy) |
 | an `advisory-records-merged v1` comment | done |
