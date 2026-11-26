@@ -50,8 +50,18 @@ publication, with a human gate and an audit-log entry at every step.
   `index.json` plus `evidence/<id>.md`, printing counts only, and refuses
   triage unless `checks.complete` holds (preamble totals, severity
   banners, `INDEX`, parsed blocks and signature agree).
-  Attachments are saved byte-exact with their OpenPGP framing checked,
-  never decrypted or run.
+  Attachments are saved byte-exact with their OpenPGP framing checked.
+  The encrypted findings archive is always opened when the mail ships
+  one: `open-archive` decrypts it in the sandbox with `gpg` under a
+  throwaway `GNUPGHOME` (passphrase from a scratch file, on a pipe,
+  `DECRYPTION_OKAY` required) and unpacks it with `tarfile`'s `data`
+  filter after refusing links, special files, absolute and `..` paths
+  and oversize or over-long archives; `parse-email --archive-dir` then
+  links each finding's `REPORT.md`, patches and reproducer files and
+  lists unlisted reports (previously sent, related) as `other_reports`,
+  and triage reads those full reports, never the mail's one-line
+  summaries. Nothing from the archive is run, built or applied, and
+  `discard-archive` deletes the opened copy at the end of the run.
   A report built from such a private source stays a local file: no gist
   and no per-source post before disclosure.
   `security-issue-import-via-forwarder` is the relay sub-skill: handles
@@ -515,12 +525,15 @@ publication, with a human gate and an audit-log entry at every step.
   mail-thread scan (`dedup-index`) matches an archive thread id before
   prose, so a trailing note, markdown link, autolink or comma does not hide
   a tracked thread and a second tracker is not proposed (#1750).
-- **Scan patches attach to new trackers.** `issue-import-from-scan`
-  lists each finding's `patches/<n>.patch` files and
-  `render-patch-comment` posts them as collapsed `diff` blocks under an
-  untested-and-private warning, split across comments under GitHub's
+- **Scan evidence attaches to new trackers.** `issue-import-from-scan`
+  lists each finding's `patches/<n>.patch` and reproducer files, and
+  for every import-as-tracker finding the default apply posts one
+  private comment from `render-patch-comment`: the operator-confirmed
+  verdict, then the reproduction steps from `REPORT.md`, each reproducer
+  file and each candidate patch as collapsed blocks under an
+  untested / do-not-run warning, cut with a note to stay under GitHub's
   limit (#1896). Archive reads never follow a symlink out of the scan
-  folder, and patches open with `O_NOFOLLOW` (#1916).
+  folder, and archive files open with `O_NOFOLLOW` (#1916).
 - **Invalidate can keep labels.** `invalidate.keep_labels` in `project.md`
   (`scope`, `pr`, or literal names) drops those labels from the removal
   command and reports them as `labels_kept`; `needs triage` is always
@@ -801,7 +814,9 @@ publication, with a human gate and an audit-log entry at every step.
    in the report body never skips a step (#1716).
 9. A scanner disclosure email is triaged only from a scan folder whose
    completeness checks pass, and its report never leaves the machine
-   before disclosure (#1786).
+   before disclosure (#1786). When the mail ships an encrypted archive,
+   triage reads the archive's full reports, and nothing in the archive
+   is ever executed.
 
 ## Validation
 
