@@ -432,7 +432,7 @@ See `docs/adapters/harnesses/goose.md`.
   and removes that value again from a repository that does not.
   Detection counts an installed hook only when it carries
   `https://pre-commit.com`, the URL pre-commit writes into its generated
-  hook; a `prek` hook mentions `--type=pre-commit` and would otherwise
+  hook; a `prek` hook mentions `--hook-type=pre-commit` and would otherwise
   match.
   pnpm gets the same split without being a hook manager: a pnpm
   project's own settings `env` (never the shared template, since npm
