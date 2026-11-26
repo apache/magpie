@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import re
 import textwrap
 from pathlib import Path
 
@@ -194,6 +195,58 @@ class TestParseFrontmatter:
         assert fm is not None
         assert "My" in fm["title"]
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("value\t# note", "value"),
+            ('"a # b"  # note', '"a # b"'),
+            (r'"say \"hi\" # x"  # n', r'"say \"hi\" # x"'),
+            ("'it''s # here'\t# note", "'it''s # here'"),
+            ('"unclosed # x', '"unclosed # x'),
+            ('"a" b # c', '"a" b # c'),
+            ('["a # b", c]  # note', '["a # b", c]  # note'),
+            ("[a, b]  # note", "[a, b]"),
+            ("it's # x", "it's"),
+            ("C# tooling", "C# tooling"),
+            ("a\N{NO-BREAK SPACE}#b", "a\N{NO-BREAK SPACE}#b"),
+            ("# todo", ""),
+        ],
+    )
+    def test_yaml_comment_is_dropped(self, value: str, expected: str) -> None:
+        fm = parse_frontmatter(f"---\ntitle: {value}\n---\n")
+        assert fm is not None
+        assert fm["title"] == expected
+
+    def test_continuation_lines_are_kept_verbatim(self) -> None:
+        fm = parse_frontmatter(
+            """---
+capability:
+  - a  # x
+quoted: "first
+  # literal
+# column zero
+  last"
+description: |2
+  # Heading
+  text
+---
+"""
+        )
+        assert fm is not None
+        assert fm["capability"] == "- a  # x"
+        assert fm["quoted"] == '"first\n# literal\n# column zero\nlast"'
+        assert fm["description"] == "|2\n# Heading\ntext"
+
+    def test_block_scalar_header_comment_is_removed_before_detection(self) -> None:
+        fm = parse_frontmatter("---\nsource: >  # note\n  First line.\n  Second line.\n---\n")
+        assert fm is not None
+        assert fm["source"] == "First line.\nSecond line."
+
+    def test_block_scalar_comment_content_is_kept_verbatim(self) -> None:
+        fm = parse_frontmatter("---\nsource: |\n  # Heading\n  C # sharp\n---\n")
+        assert fm is not None
+        assert fm["source"] == "# Heading\nC # sharp"
+
 
 class TestHasAcceptanceItems:
     def test_has_items(self) -> None:
@@ -339,6 +392,37 @@ class TestValidateFrontmatter:
         p = tmp_path / "spec.md"
         p.write_text(_VALID_SPEC)
         assert validate_frontmatter(p, _VALID_SPEC) == []
+
+    def test_commented_template_values_pass(self, tmp_path: Path) -> None:
+        text = _make_spec(
+            status="experimental   # stable | experimental | proposed | off",
+            kind="feature          # feature | fix | docs | chore",
+            mode="Triage           # Triage | Mentoring | Drafting | Pairing | infra",
+        )
+        assert validate_frontmatter(tmp_path / "spec.md", text) == []
+
+    def test_readme_template_block_passes(self, tmp_path: Path) -> None:
+        """The commented frontmatter template in the spec-loop README validates as written."""
+        start = Path(__file__).resolve()
+        readme = next(
+            (
+                candidate / "tools" / "spec-loop" / "specs" / "README.md"
+                for candidate in start.parents
+                if (candidate / "tools" / "spec-loop" / "specs" / "README.md").is_file()
+            ),
+            None,
+        )
+        if readme is None:
+            pytest.skip("tools/spec-loop/specs/README.md not found")
+        match = re.search(
+            r"^```yaml\n(---\n.*?\n---)\n```",
+            readme.read_text(encoding="utf-8"),
+            re.MULTILINE | re.DOTALL,
+        )
+        assert match is not None, "the spec-loop README has no ```yaml frontmatter template block"
+        template = match.group(1) + "\n"
+        assert "# stable | experimental" in template
+        assert validate_frontmatter(tmp_path / "example.md", template) == []
 
     def test_no_frontmatter_skipped(self, tmp_path: Path) -> None:
         text = "# No frontmatter\n\ncontent\n"
