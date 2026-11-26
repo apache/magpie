@@ -2476,6 +2476,10 @@ def _skill_names(plugin: str, skill_dir: Path) -> set[str]:
     except OSError:
         # An unreadable SKILL.md: the skill is still known by its directory name.
         pass
+    if not plugin:
+        # A ``skills/`` link; snapshot and self-adoption installs expose it to
+        # the harness as ``.claude/skills/magpie-<link name>``.
+        names.add(f"magpie-{skill_dir.name}")
     return names | {f"{plugin}:{n}" for n in names if plugin}
 
 
@@ -2541,16 +2545,39 @@ def _skill_invocation(entry: dict[str, object]) -> str | None:
     return None
 
 
-def running_skill(transcript_path: str | None) -> str | None:
-    """The most recently invoked skill in a Claude Code transcript, or None
-    when there is none or the transcript cannot be read.
+def _is_user_turn(entry: dict[str, object]) -> bool:
+    """A prompt the user sent: a ``user`` entry that is neither a tool result
+    nor an injected (``isMeta``) message."""
+    if entry.get("type") != "user" or entry.get("isMeta"):
+        return False
+    message = entry.get("message")
+    if not isinstance(message, dict):
+        return False
+    content = message.get("content")
+    if isinstance(content, str):
+        return True
+    return isinstance(content, list) and not any(
+        isinstance(item, dict) and item.get("type") == "tool_result" for item in content
+    )
+
+
+def running_skills(transcript_path: str | None) -> list[str]:
+    """The skills that may be running, newest first, from a Claude Code
+    transcript: every skill invoked since the user's last prompt, and the one
+    that was running when they sent it. Empty when there is none or the
+    transcript cannot be read.
+
+    One skill can run another and then carry on (``security-issue-fix`` runs
+    ``security-issue-sync`` first), so the latest invocation alone is not the
+    running skill. A prompt that is itself a slash command naming a skill
+    starts that skill, and nothing before it counts.
 
     A subagent's own transcript (``<session>/subagents/agent-*.jsonl``) holds no
     skill invocation of its own when the skill that started it is its parent's,
     so that parent session's transcript is read next.
     """
     if not transcript_path:
-        return None
+        return []
     path = Path(transcript_path)
     candidates = [path]
     if path.parent.name == "subagents":
@@ -2561,27 +2588,41 @@ def running_skill(transcript_path: str | None) -> str | None:
             lines = _transcript_lines(candidate)
         except OSError:
             continue
+        skills: list[str] = []
+        turn_began = False
         for line in lines:
-            if '"Skill"' not in line and "<command-name>" not in line:
+            if '"Skill"' not in line and "<command-name>" not in line and '"user"' not in line:
                 continue
             try:
                 entry = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(entry, dict) and (skill := _skill_invocation(entry)):
-                return skill
-    return None
+            if not isinstance(entry, dict):
+                continue
+            skill = _skill_invocation(entry)
+            if skill and skill not in skills:
+                skills.append(skill)
+            if turn_began and skill:
+                break  # the skill that was running when the user's prompt came in
+            if _is_user_turn(entry):
+                if skill:
+                    break  # the prompt itself started a skill
+                turn_began = True
+        if skills:
+            return skills
+    return []
 
 
 def guard_vetted_ops_caller(seg: Segment, transcript_path: str | None) -> str | None:
-    """Refuse a ``vetted-op*`` launch whose ``--caller`` is not the running skill's.
+    """Refuse a ``vetted-op*`` launch whose ``--caller`` no running skill uses.
 
     The policy grants operations per caller, but the caller is whatever the
-    agent writes. When the transcript shows which skill is running, and that
-    skill's files name the callers it uses, any other caller is refused. In
-    every other case (no transcript, a format this does not read, no skill
-    invoked, a skill it does not know or that names no caller) it allows, as
-    before.
+    agent writes. When the transcript shows which skills are running (see
+    ``running_skills``) and their files name the callers they use, any other
+    caller is refused. The agent chooses its own Skill calls, so this catches
+    an accidental caller swap, not a deliberate one. In every other case (no
+    transcript, a format this does not read, no skill invoked, or a running
+    skill it does not know or that names no caller) it allows, as before.
     """
     launch = _vetted_launch(seg.argv)
     if launch is None or not launch[2].startswith("vetted-op") or not transcript_path:
@@ -2591,16 +2632,20 @@ def guard_vetted_ops_caller(seg: Segment, transcript_path: str | None) -> str | 
         return None  # the dispatcher itself refuses a launch with no caller
     if _truthy(os.environ.get(GLOBAL_OFF_ENV)) or _truthy(os.environ.get(CALLER_OVERRIDE_ENV)):
         return None
-    skill = running_skill(transcript_path)
-    if skill is None:
+    skills = running_skills(transcript_path)
+    if not skills:
         return None
-    allowed = _skill_callers(skill)
+    per_skill = [_skill_callers(skill) for skill in skills]
+    if not all(per_skill):
+        return None  # a running skill this cannot map to a caller
+    allowed = frozenset().union(*per_skill)
     wrong = [c for c in passed if c not in allowed]
-    if not allowed or not wrong:
+    if not wrong:
         return None
+    running = ", ".join(f"`{skill}`" for skill in skills)
     names = ", ".join(f"`{c}`" for c in sorted(allowed))
     return (
-        f"agent-guard[vetted-ops-caller]: the running skill is `{skill}`, whose caller is {names}, "
+        f"agent-guard[vetted-ops-caller]: this turn runs {running}, whose callers are {names}, "
         f"but this launch passes `--caller {wrong[0]}`. A skill uses only its own caller's grants: "
         "if its caller is refused an operation, stop and tell the user, so they can grant it in "
         "the policy's `[callers]` table, rather than borrowing another skill's caller. "

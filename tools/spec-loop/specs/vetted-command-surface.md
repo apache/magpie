@@ -258,6 +258,17 @@ registered `--stable-path`, else the account's home from the password
 database), since Codex execpolicy cannot match `~`; any other root is one the
 agent could have built and stays refused.
 
+Under Claude Code, agent-guard's `vetted-ops-caller` rule (#2124) checks the
+honest case. It reads the hook's `transcript_path`, takes the skills invoked
+since the user's last prompt plus the one running when it was sent, and
+refuses a `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `vetted-op-git`
+launch whose `--caller` none of their files name. It allows when there is no
+transcript, under another harness, when no skill was invoked, and when a
+running skill is unknown or names no caller. Its override,
+`MAGPIE_ALLOW_ANY_CALLER=1`, is read from the hook's environment only, never
+inline. The agent chooses its own Skill calls, so the rule catches an
+accidental caller swap, not a deliberate one (see Scoping below).
+
 **Project-board operations** (#2179, #2181).
 A GitHub-backed tracker's Projects V2 board is kept through five operations
 whose ids come from the policy (`board_project_id`, `board_status_field_id`,

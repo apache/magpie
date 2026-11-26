@@ -40,7 +40,11 @@ def _clear_env(monkeypatch):
 def skills(monkeypatch, tmp_path):
     """Two skills of one plugin, each naming its own caller in its docs."""
     plugin = tmp_path / "plugins" / "magpie-security" / "skills"
-    for name, caller in (("issue-sync", "security-issue-sync"), ("cve-allocate", "security-cve-allocate")):
+    for name, caller in (
+        ("issue-sync", "security-issue-sync"),
+        ("cve-allocate", "security-cve-allocate"),
+        ("issue-fix", "security-issue-fix"),
+    ):
         d = plugin / name
         d.mkdir(parents=True)
         (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: x\n---\n\nSee steps.md.\n")
@@ -49,6 +53,10 @@ def skills(monkeypatch, tmp_path):
     quiet.mkdir()
     (quiet / "SKILL.md").write_text("---\nname: no-vetted-ops\n---\n")
     dirs = [("magpie-security", d) for d in sorted(plugin.iterdir())]
+    links = tmp_path / "skills"
+    links.mkdir()
+    (links / "security-issue-sync").symlink_to(plugin / "issue-sync")
+    dirs.append(("", links / "security-issue-sync"))
     monkeypatch.setattr(agent_guard, "_skill_dirs", lambda: dirs)
     agent_guard._skill_callers.cache_clear()
     yield
@@ -72,6 +80,20 @@ def skill_call(name):
 def slash(name):
     content = f"<command-name>/{name}</command-name>\n<command-message>{name}</command-message>\n<command-args></command-args>"
     return {"type": "user", "message": {"role": "user", "content": content}}
+
+
+def prompt(text="go on"):
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+def tool_result():
+    return {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "ok"}],
+        },
+    }
 
 
 def write(path: Path, *entries, raw: str = "") -> str:
@@ -114,10 +136,65 @@ def test_the_equals_form_is_read(skills, tmp_path):
     assert agent_guard.dispatch(command, transcript_path=t)
 
 
-def test_the_latest_skill_is_the_running_one(skills, tmp_path):
-    t = write(tmp_path / "s.jsonl", skill_call("issue-sync"), skill_call("cve-allocate"))
+def test_a_skill_from_an_earlier_turn_no_longer_counts(skills, tmp_path):
+    # issue-sync was running when "now allocate the CVE" came in, so it still
+    # counts in that turn; once the next prompt arrives, only cve-allocate does.
+    t = write(
+        tmp_path / "s.jsonl",
+        skill_call("issue-sync"),
+        prompt("now allocate the CVE"),
+        skill_call("cve-allocate"),
+        tool_result(),
+        prompt("thanks, carry on"),
+    )
     assert check(t, "security-cve-allocate") is None
     assert check(t, "security-issue-sync")
+
+
+def test_an_outer_skill_keeps_its_caller_after_running_another(skills, tmp_path):
+    # security-issue-fix runs security-issue-sync first, then carries on with
+    # its own writes.
+    t = write(
+        tmp_path / "s.jsonl",
+        prompt("fix issue 12"),
+        skill_call("issue-fix"),
+        tool_result(),
+        skill_call("issue-sync"),
+        tool_result(),
+    )
+    assert check(t, "security-issue-fix") is None
+    assert check(t, "security-issue-sync") is None
+    assert check(t, "security-cve-allocate")
+
+
+def test_a_skill_keeps_its_caller_across_the_users_answers(skills, tmp_path):
+    # The user answers a question the skill asked: the skill is still running.
+    t = write(tmp_path / "s.jsonl", skill_call("cve-allocate"), tool_result(), prompt("yes, go ahead"))
+    assert check(t, "security-cve-allocate") is None
+    assert check(t, "security-issue-sync")
+
+
+def test_a_tool_result_does_not_start_a_turn(skills, tmp_path):
+    t = write(tmp_path / "s.jsonl", skill_call("issue-fix"), tool_result(), skill_call("issue-sync"))
+    assert check(t, "security-issue-fix") is None
+
+
+def test_a_slash_command_starts_a_turn_with_its_skill(skills, tmp_path):
+    t = write(tmp_path / "s.jsonl", skill_call("cve-allocate"), slash("magpie-security:issue-sync"))
+    assert check(t, "security-issue-sync") is None
+    assert check(t, "security-cve-allocate")
+
+
+def test_an_unknown_skill_in_the_turn_allows(skills, tmp_path):
+    t = write(tmp_path / "s.jsonl", skill_call("cve-allocate"), skill_call("someone-elses:skill"))
+    assert check(t, "security-issue-sync") is None
+
+
+def test_a_skill_is_known_by_its_magpie_link_name(skills, tmp_path):
+    # Snapshot and self-adoption installs expose skills as .claude/skills/magpie-<link>.
+    t = write(tmp_path / "s.jsonl", skill_call("magpie-security-issue-sync"))
+    assert check(t, "security-issue-sync") is None
+    assert check(t, "security-cve-allocate")
 
 
 def test_a_repeated_bookkeeping_copy_is_not_an_invocation(skills, tmp_path):
@@ -246,6 +323,7 @@ def test_the_shipped_skills_name_their_own_callers(tmp_path):
         pytest.skip("not running from a framework tree")
     assert agent_guard._skill_callers("magpie-security:cve-allocate") == {"security-cve-allocate"}
     assert agent_guard._skill_callers("magpie-security:issue-sync") == {"security-issue-sync"}
+    assert agent_guard._skill_callers("magpie-security-issue-sync") == {"security-issue-sync"}
     t = write(tmp_path / "s.jsonl", skill_call("magpie-security:cve-allocate"))
     assert check(t, "security-issue-sync")
     assert check(t, "security-cve-allocate") is None

@@ -148,11 +148,13 @@ written as though it does. Concretely: allowlisting `vetted-op *` on the strengt
 of a read-only caller name grants **every** operation in the catalogue, because
 the next invocation can name a different caller.
 
-Under Claude Code, agent-guard's `vetted-ops-caller` rule narrows this: it reads
-the session transcript and refuses a `--caller` that the running skill's own
-files do not name. It allows whenever it cannot tell which skill is running,
-and other harnesses are not checked, so the policy still limits the agent as a
-whole and the rest of this section stands.
+Under Claude Code, agent-guard's `vetted-ops-caller` rule reads the session
+transcript and refuses a `--caller` that no skill running in the current turn
+names in its own files. The agent chooses its own `Skill` calls, so the rule
+catches an accidental caller swap, not a deliberate one: the per-caller split
+is still not an authorisation boundary. It allows whenever it cannot tell which
+skill is running, and other harnesses are not checked, so the policy still
+limits the agent as a whole and the rest of this section stands.
 
 What *can* be bound is the **entry point**, because a permission rule keys on the
 command and argv cannot change which binary is running. Hence two console
