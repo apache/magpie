@@ -5,7 +5,7 @@ Install method: pinned snapshot, updated in this run to the new framework versio
 Resolved project.md: `organization: ASF`.
 `<project-config>/skill-sources.md` lists one source.
 
-`python3 -P -m setup_preflight.skill_sources pins --project-root . --trust-list .apache-magpie-overrides/skill-sources.md --catalogue .apache-magpie/organizations/ASF/skill-sources.md`:
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.skill_sources pins --project-root . --trust-list .apache-magpie-overrides/skill-sources.md --catalogue .apache-magpie/organizations/ASF/skill-sources.md`:
 
 ```json
 [
@@ -13,9 +13,10 @@ Resolved project.md: `organization: ASF`.
     "id": "apache-incubator-releasecheck",
     "state": "tag-moved",
     "ref": "releasecheck-0.5.1",
-    "commit": "876cf205",
+    "anchor_key": "commit",
+    "anchor": "876cf205",
     "curated_ref": "releasecheck-0.5.1",
-    "curated_commit": "deadbeef"
+    "curated_anchor": "deadbeef"
   }
 ]
 ```

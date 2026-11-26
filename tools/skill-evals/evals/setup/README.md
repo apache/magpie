@@ -157,6 +157,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-26 | `04a99e50` (feat/incubator-pin-notice) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `f403a18e` (feat/incubator-marketplace-offer) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `f403a18e` (feat/incubator-pin-notice) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `6ef713db` (feat/incubator-marketplace-offer) | `opus[1m]` | 2 | pass |  |

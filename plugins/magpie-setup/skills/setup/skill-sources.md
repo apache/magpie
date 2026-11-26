@@ -44,9 +44,10 @@ Invocations (registered in [`SKILL.md`](SKILL.md#sub-actions)):
   The one edit Magpie proposes to it is a pin bump: when the organization
   has moved the curated pin of a source the project trusts,
   [`update` Step 6f](update.md#step-6f--re-fetch-trusted-external-sources)
-  asks, and on a yes stages the new `ref` and `commit` (`git add`, never a
-  commit), so adding a source stays the adopter's act and so does
-  committing the new pin.
+  asks, and on a yes stages the new `ref` and anchor (`git add`, never a
+  commit) and fetches nothing from it; this sub-action fetches and verifies
+  the new version once the adopter has committed the bump. Adding a source
+  stays the adopter's act, and so does committing the new pin.
 
 **Main-checkout only**, like `adopt`/`update` — a worktree picks
 up the source snapshots through the same `<snapshot-dir>` symlink

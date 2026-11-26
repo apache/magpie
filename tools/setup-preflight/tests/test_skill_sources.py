@@ -191,3 +191,67 @@ def test_cli_prints_the_rows(project: Path, tmp_path: Path, capsys: pytest.Captu
     assert code == 0
     [row] = json.loads(capsys.readouterr().out)
     assert row["state"] == "moved" and row["curated_ref"] == "releasecheck-0.6.0"
+
+
+@pytest.mark.parametrize(
+    "fence",
+    [
+        "- id: apache-incubator-releasecheck  # the curated one\n  ref: releasecheck-0.5.1  # pinned 2026-11\n",
+        "  - id: apache-incubator-releasecheck\n    ref: releasecheck-0.5.1\n",
+        "id: apache-incubator-releasecheck\nref: releasecheck-0.5.1\n",
+    ],
+    ids=["inline-comments", "indented-list", "bare-mapping"],
+)
+def test_every_documented_descriptor_form_is_read(project: Path, tmp_path: Path, fence: str) -> None:
+    assert states(project, tmp_path, fence) == {"apache-incubator-releasecheck": "moved"}
+
+
+def test_a_nested_block_never_bleeds_into_the_entry_or_the_next(tmp_path: Path) -> None:
+    text = (
+        "```yaml\n- id: one\n  ref: one-1.0.0\n  layout:\n    ref: nested-9.9.9\n"
+        "  provides:\n    - skill: one\n- id: two\n  ref: two-2.0.0\n```\n"
+    )
+    parsed = skill_sources.parse_descriptors(text)
+    assert parsed["one"]["ref"] == "one-1.0.0"
+    assert parsed["two"] == {"id": "two", "ref": "two-2.0.0"}
+
+
+ARCHIVE_CATALOGUE = """```yaml
+- id: foo-archive
+  method: svn-zip
+  url: https://dist.apache.org/repos/dist/release/foo/foo-skills-1.2.0.zip
+  ref: foo-skills-1.2.0
+  sha512: newhash
+```
+"""
+
+
+@pytest.mark.parametrize(
+    ("entry", "state"),
+    [
+        ("  ref: foo-skills-1.1.0\n  sha512: oldhash\n", "moved"),
+        ("  ref: foo-skills-1.2.0\n  sha512: otherhash\n", "tag-moved"),
+        ("  ref: foo-skills-1.2.0\n  sha512: newhash\n", "same"),
+    ],
+)
+def test_an_archive_pin_compares_its_sha512(project: Path, tmp_path: Path, entry: str, state: str) -> None:
+    cat = tmp_path / "archive.md"
+    cat.write_text(ARCHIVE_CATALOGUE, encoding="utf-8")
+    [row] = skill_sources.pins(project, trust_list(tmp_path, f"- id: foo-archive\n{entry}"), cat)
+    assert row["state"] == state
+    assert row["anchor_key"] == "sha512" and row["curated_anchor"] == "newhash"
+
+
+def test_a_curated_pin_with_no_anchor_is_not_proposed(project: Path, tmp_path: Path) -> None:
+    cat = tmp_path / "bare.md"
+    cat.write_text("```yaml\n- id: x\n  method: git-tag\n  ref: x-2.0.0\n```\n", encoding="utf-8")
+    [row] = skill_sources.pins(
+        project, trust_list(tmp_path, "- id: x\n  ref: x-1.0.0\n  commit: aaaa\n"), cat
+    )
+    assert row["state"] == "not-comparable"
+
+
+def test_a_decline_also_covers_a_lower_curated_version(project: Path, tmp_path: Path) -> None:
+    skill_sources.decline(project, "apache-incubator-releasecheck", "releasecheck-0.7.0")
+    body = "- id: apache-incubator-releasecheck\n  ref: releasecheck-0.5.1\n"
+    assert states(project, tmp_path, body) == {"apache-incubator-releasecheck": "declined"}  # curated 0.6.0

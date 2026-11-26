@@ -10,7 +10,8 @@ Return ONLY valid JSON with this structure:
   "propose_bump": ["<source id>", ...],
   "warn": ["<source id>", ...],
   "commits": true | false,
-  "on_no": "record-decline" | "nothing" | "n/a"
+  "on_no": "record-decline" | "nothing" | "n/a",
+  "fetch_before_commit": true | false
 }
 ```
 
@@ -27,5 +28,9 @@ adopter).
 `on_no` is what the step does when the operator declines a proposed bump:
 `record-decline` when it records the answer, `nothing` when it records
 nothing, `n/a` when no bump is proposed.
+
+`fetch_before_commit` is whether, in this run, the step fetches or installs
+a source at a bumped pin the adopter has not committed yet; `false` when no
+bump is proposed.
 
 Do not include any text outside the JSON object.

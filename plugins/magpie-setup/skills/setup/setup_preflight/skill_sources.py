@@ -26,16 +26,16 @@ comparison needs no network.
 `pins` compares them, per id the trust list names:
 
 - ``moved`` — same skill, the curated version is higher: propose the bump.
-- ``same`` — same ref and commit.
-- ``tag-moved`` — same ref, a different commit: a moved tag is suspicious,
-  never a bump to make.
+- ``same`` — same ref and anchor.
+- ``tag-moved`` — same ref, a different anchor (``commit`` for a git tag,
+  ``sha512`` for an archive): a moved tag is suspicious, never a bump to make.
 - ``adopter-ahead`` — the adopter pins a newer version than the curator.
-- ``not-comparable`` — a ref with no ``<name>-<version>`` shape, or two
-  different names.
+- ``not-comparable`` — a ref with no ``<name>-<version>`` shape, two
+  different names, or a curated pin with no anchor to move to.
 - ``not-curated`` — a full descriptor of the adopter's own, or an id the
   catalogue does not carry.
-- ``declined`` — ``moved``, but the adopter declined this curated ref
-  before; asked again only once the curated ref moves past it.
+- ``declined`` — ``moved``, but the adopter declined a curated version at
+  least this new before; asked again only once the curated ref moves past it.
 
 `decline` records that answer under ``skill_source_pins`` in
 `reconciled.json`, in this checkout's own layer (`layers.stamp_dir`).
@@ -74,30 +74,42 @@ def _yaml_fence_lines(text: str) -> Iterator[str]:
 
 
 def parse_descriptors(text: str) -> dict[str, dict[str, str]]:
-    """The top-level scalar keys of each `- id:` entry in the yaml fences, by id.
+    """The top-level scalar keys of each descriptor in the yaml fences, by id.
 
-    Commented lines declare nothing, so the template's examples are skipped;
-    so is a placeholder id (`<source-id>`).  A later entry with the same id
-    is ignored.  Nested blocks (`layout:`, `provides:`) are recorded as
-    present keys with an empty value.
+    A descriptor starts at an `id:` line, as a list item (`- id:`, at any
+    indent) or a bare mapping key; its scalar keys are the lines at the
+    indent of its first key (the item's indent plus the `- ` for a list
+    item, the same indent for a bare `id:`), so a nested block (`layout:`,
+    `provides:`) never leaks its keys and a later entry never bleeds into
+    an earlier one.  A trailing ` # comment` is dropped.  Commented lines
+    declare nothing, so the template's examples are skipped; so is a
+    placeholder id (`<source-id>`).  A later entry with the same id is
+    ignored.
     """
     found: dict[str, dict[str, str]] = {}
     current: dict[str, str] | None = None
+    key_indent = -1
     for raw in _yaml_fence_lines(text):
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
-        entry = re.match(r"^-\s+id:\s*(\S+)\s*$", raw)
+        entry = re.match(r"^(\s*)(-\s+)?id:\s*([^\s#]+)", raw)
         if entry:
-            source_id = entry.group(1).strip("'\"")
+            source_id = entry.group(3).strip("'\"")
+            key_indent = len(entry.group(1)) + len(entry.group(2) or "")
             current = None
-            if "<" not in source_id and source_id not in found:
+            if "<" not in source_id and ">" not in source_id and source_id not in found:
                 current = found[source_id] = {"id": source_id}
             continue
         if current is None:
             continue
-        pair = re.match(r"^  ([A-Za-z_][\w-]*):\s*(.*)$", raw)
-        if pair:
-            current.setdefault(pair.group(1), pair.group(2).split(" #", 1)[0].strip().strip("'\""))
+        indent = len(raw) - len(raw.lstrip())
+        if indent < key_indent:
+            current = None
+            continue
+        pair = re.match(r"^\s*([A-Za-z_][\w-]*):\s*(.*)$", raw)
+        if indent == key_indent and pair:
+            value = re.split(r"\s#", pair.group(2), maxsplit=1)[0].strip().strip("'\"")
+            current.setdefault(pair.group(1), value)
     return found
 
 
@@ -113,20 +125,28 @@ def _full_descriptor(entry: dict[str, str]) -> bool:
     return "method" in entry or "url" in entry
 
 
-def compare(adopter: dict[str, str], curated: dict[str, str] | None, declined: str | None) -> str:
+def anchor_key(entry: dict[str, str]) -> str:
+    """The verification anchor a pin carries: `sha512` for an archive, else `commit`."""
+    return "sha512" if entry.get("sha512") or entry.get("method") == "svn-zip" else "commit"
+
+
+def compare(
+    adopter: dict[str, str], curated: dict[str, str] | None, declined: str | None, key: str = "commit"
+) -> str:
     if curated is None or _full_descriptor(adopter):
         return "not-curated"
     ours, theirs = adopter.get("ref", ""), curated.get("ref", "")
     if ours == theirs:
-        if adopter.get("commit") and curated.get("commit") and adopter["commit"] != curated["commit"]:
+        if adopter.get(key) and curated.get(key) and adopter[key] != curated[key]:
             return "tag-moved"
         return "same"
     mine, curators = _version(ours), _version(theirs)
-    if mine is None or curators is None or mine[0] != curators[0]:
+    if mine is None or curators is None or mine[0] != curators[0] or not curated.get(key):
         return "not-comparable"
     if curators[1] <= mine[1]:
         return "adopter-ahead"
-    if declined == theirs:
+    refused = _version(declined) if declined else None
+    if refused is not None and refused[0] == curators[0] and curators[1] <= refused[1]:
         return "declined"
     return "moved"
 
@@ -152,14 +172,16 @@ def pins(root: Path, trust_list: Path, catalogue: Path | None) -> list[dict[str,
     rows: list[dict[str, str | None]] = []
     for source_id, entry in trusted.items():
         theirs = curated.get(source_id)
+        key = anchor_key(theirs if theirs else entry)
         rows.append(
             {
                 "id": source_id,
-                "state": compare(entry, theirs, declined.get(source_id)),
+                "state": compare(entry, theirs, declined.get(source_id), key),
                 "ref": entry.get("ref"),
-                "commit": entry.get("commit"),
+                "anchor_key": key,
+                "anchor": entry.get(key),
                 "curated_ref": theirs.get("ref") if theirs else None,
-                "curated_commit": theirs.get("commit") if theirs else None,
+                "curated_anchor": theirs.get(key) if theirs else None,
             }
         )
     return rows

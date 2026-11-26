@@ -1156,19 +1156,28 @@ snapshots are a separate, sibling tree — see
 [Step 3](#step-3--delete-the-old-snapshot), which deletes only
 `.apache-magpie/`):
 
-0. **Curated pins that moved.** The snapshot this run put in place carries
-   the organization's catalogue, `<snapshot-dir>/organizations/<org>/skill-sources.md`
-   (`<org>` from the resolved `project.md`; an `independent` project has
-   none, so skip this item). Compare it with the trust list:
-   `python3 -P -m setup_preflight.skill_sources pins --project-root . --trust-list <project-config>/skill-sources.md --catalogue <snapshot-dir>/organizations/<org>/skill-sources.md`.
+0. **Curated pins that moved.** The organization's catalogue is
+   `<snapshot-dir>/organizations/<org>/skill-sources.md` in the snapshot this
+   run put in place, or, for an organization Magpie does not ship,
+   `<project-config>/.apache-magpie-overrides/organizations/<org>/skill-sources.md`
+   (`<org>` from the resolved `project.md`; when neither file exists, as for
+   `independent`, skip this item). Compare it with the trust list, with
+   `PYTHONPATH` the installed pre-flight checker's parent directory, as for
+   every pre-flight call in this file:
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.skill_sources pins --project-root . --trust-list <project-config>/skill-sources.md --catalogue <catalogue>`.
    For each `moved` row, show the change and ask whether to take it: the
-   trust-list entry's `ref` and `commit` become the row's `curated_ref` and
-   `curated_commit`, and the source's `.apache-magpie.sources.lock` block
-   the same. On a yes, make exactly those edits and `git add` both files;
-   never commit (the adopter's commit is the act of vouching for the new
-   pin), and the re-fetch in item 2 verifies the new tag against the new
-   commit. On a no, run
-   `python3 -P -m setup_preflight.skill_sources decline --project-root . --id <id> --curated-ref <curated_ref>`,
+   trust-list entry's `ref` and its anchor (the row's `anchor_key`: `commit`
+   for a git tag, `sha512` for an archive) become the row's `curated_ref`
+   and `curated_anchor`, and the source's `.apache-magpie.sources.lock`
+   block the same. On a yes, make exactly those edits and `git add` both
+   files; never commit, since the adopter's commit is the act of vouching
+   for the new pin. Then leave that source out of items 1–3 for the rest of
+   this run: nothing is fetched from a pin nobody has committed. Say that
+   `/magpie-setup skill-sources`, run once the bump is committed, fetches the
+   new version and verifies it against the new anchor (and that
+   `git restore --staged` plus `git checkout --` on the two files undo it).
+   On a no, run
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.skill_sources decline --project-root . --id <id> --curated-ref <curated_ref>`,
    so the same bump is not proposed again until the curator moves past it.
    Report a `tag-moved` row as a warning (the source re-pointed a tag the
    project pinned: never re-pin to it without checking why), and say
