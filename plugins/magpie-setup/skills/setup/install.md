@@ -439,6 +439,28 @@ Tell the user, in this order:
    the same line, since the secure setup above is where it gets wired;
    on other agents the step does not apply, so leave it out. None of them is required — say so once, and
    skip this item entirely when nothing matches.
+
+   **Apache Incubator skills, for an ASF project.** When the resolved
+   `project.md` names `organization: ASF`, also offer the Incubator's own
+   marketplace. Read the ASF catalogue,
+   [`organizations/ASF/skill-sources.md`](../../../../organizations/ASF/skill-sources.md)
+   (a marketplace install ships no `organizations/`, so fetch
+   `https://raw.githubusercontent.com/apache/magpie/main/organizations/ASF/skill-sources.md`;
+   if neither can be read, say so in one line and skip), and list the skills
+   whose *Marketplaces* cell names this agent (`claude-code`, `codex`,
+   `copilot`), one line each from its *What it does* cell, leaving out a
+   skill the agent's plugin list already shows. Then print the
+   marketplace's add command from the catalogue's table for this agent, and
+   how to install a skill from it, by the marketplace name the
+   descriptors record (`marketplace: apache-incubator`): Claude Code
+   `/plugin install <skill>@apache-incubator`, Codex its plugin browser
+   after `codex plugin marketplace add apache/incubator`, Copilot its
+   marketplace view. Print them; never run them: the Incubator is a
+   separate trust decision, and it maintains these skills, not Magpie.
+   Record the offer as an `apache-incubator <agent>` line in
+   `~/.cache/apache-magpie/companions-offered` and skip it when that line is
+   there, exactly as for a companion. On an agent with no Incubator
+   marketplace (any other than those three), skip it.
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:

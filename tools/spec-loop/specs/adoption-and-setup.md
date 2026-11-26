@@ -153,6 +153,14 @@ acceptance:
     is offered once, recorded in `~/.cache/apache-magpie/companions-offered`
     outside every repository, so the record never marks a project as
     configured.
+    For an ASF project (the resolved `project.md` names
+    `organization: ASF`) the same recap and upgrade also offer the Apache
+    Incubator's marketplace: the skills the ASF catalogue
+    (`organizations/ASF/skill-sources.md`) lists for the agent, minus those
+    already installed, with the add command and `<skill>@apache-incubator`,
+    printed and never run, recorded as `apache-incubator <agent>`. A
+    pinned-snapshot update points once at that catalogue and
+    `setup skill-sources` instead (`apache-incubator snapshot`).
   - The default-set floor is seeded with four plugins (`magpie-setup`,
     `magpie-utilities`, `magpie-agent-guard`, `magpie-vetted-ops`) and never grows
     automatically — not to match which other families this maintainer

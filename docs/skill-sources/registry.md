@@ -46,7 +46,7 @@ and opens an issue when they disagree, so a new or retagged skill upstream does 
 
 | Organization | Curated sources | File |
 |---|---|---|
-| Apache Software Foundation | `apache-incubator`: [`apache/incubator`](https://github.com/apache/incubator) — pinned: `releasecheck`; also catalogued: the IPMC, mentor and podling skills in `tools/skills/` (graduation, retirement, report review, release-vote review, maturity model, …), with how each installs today ([catalogue](../../organizations/ASF/skill-sources.md#what-the-incubator-ships)) | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
+| Apache Software Foundation | `apache-incubator-releasecheck`: [`apache/incubator`](https://github.com/apache/incubator) — pinned: `releasecheck`; also catalogued: the IPMC, mentor and podling skills in `tools/skills/` (graduation, retirement, report review, release-vote review, maturity model, …), with how each installs today ([catalogue](../../organizations/ASF/skill-sources.md#what-the-incubator-ships)) | [`organizations/ASF/skill-sources.md`](../../organizations/ASF/skill-sources.md) |
 | Independent (no formal governing body) | *(none listed yet)* | [`organizations/independent/skill-sources.md`](../../organizations/independent/skill-sources.md) |
 
 ## Community / external sources

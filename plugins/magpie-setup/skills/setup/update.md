@@ -142,6 +142,9 @@ repeated on every upgrade. If the file cannot be written, skip the record. It co
 marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
 here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
 the companion page is where they find one.
+The *Apache Incubator skills* offer that closes
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) item 3
+runs here too, for an ASF project, under the same once-per-agent record.
 
 Before reconciling, [refresh the pre-flight checker](#refresh-the-pre-flight-checker) from the newly updated, trusted `magpie-setup` plugin. Follow its marketplace source and cache installation rules, including the user-run terminal step when the plugin cache is inaccessible inside the sandbox. Verify that `setup_preflight.organization_network` and its bundled ASF fragment are present in the refreshed checker. If refresh fails, stop the ASF reconciliation rather than falling back to a stale checker.
 
@@ -1159,7 +1162,15 @@ snapshots are a separate, sibling tree — see
    [Step 6](#step-6--refresh-framework-skill-symlinks).
 3. **Update the source local lock** to the new fetch fingerprint.
 
-Nothing happens when the trust list is absent or empty. Because
+Nothing happens when the trust list is absent or empty, with one
+exception for an ASF project (the resolved `project.md` names
+`organization: ASF`): when no listed source has an `apache-incubator-`
+id, point once at the curated Apache Incubator skills, in one line: the
+new snapshot's `organizations/ASF/skill-sources.md` catalogues them, and
+`/magpie-setup:setup skill-sources` adds the ones the project trusts.
+Record it as an `apache-incubator snapshot` line in
+`~/.cache/apache-magpie/companions-offered`, and skip the line when it is
+there. Because
 each worktree shares main's `.apache-magpie-sources/` through the
 snapshot symlink [`worktree-init`](worktree-init.md) seeds
 (alongside `<snapshot-dir>`), the refreshed source **content** is

@@ -118,7 +118,10 @@ identical "ASF default" values in its own `project.md`.
   it.
   The ASF adapter catalogues every skill under `apache/incubator`'s
   `tools/skills/`, and since the Incubator tags each skill on its own, each
-  pinned skill is its own descriptor pinned to its own `<skill>-<version>` tag.
+  pinned skill is its own descriptor pinned to its own `<skill>-<version>` tag,
+  with the id `apache-incubator-<skill>`. A descriptor may record the
+  source's agent marketplace name (`marketplace: apache-incubator`), so a
+  skill installs as `<skill>@<marketplace>`.
   `tools/dev/check-skill-source-drift.py` reads each GitHub source through
   the REST API and reports added, removed or re-laid-out skills, a pin
   whose tag no longer resolves to the recorded commit, a newer or first tag,
