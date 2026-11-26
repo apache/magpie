@@ -354,6 +354,23 @@ export async function invalidateDecisionFile(
   }
 }
 
+const decisionWriteQueues = new Map<number, Promise<void>>();
+
+/**
+ * Serializes decision file writes per target issue so rapid clicks cannot
+ * finish out of order and overwrite newer pane state with an older snapshot.
+ */
+function enqueueDecisionSync(targetIssue: number, task: () => Promise<void>): Promise<void> {
+  const prev = decisionWriteQueues.get(targetIssue) ?? Promise.resolve();
+  const next = prev.then(task, task).finally(() => {
+    if (decisionWriteQueues.get(targetIssue) === next) {
+      decisionWriteQueues.delete(targetIssue);
+    }
+  });
+  decisionWriteQueues.set(targetIssue, next);
+  return next;
+}
+
 /**
  * Atomically updates the duplicatePickerState in the session store, stages
  * decisions to disk via $.fs.write when curated, and invalidates the UI.
@@ -370,34 +387,42 @@ export async function updateDuplicatePickerState(
     });
 
     if (nextState) {
-      const state = nextState as DuplicatePickerState;
-      const decision = serializeDecision(state);
-      const syncResult = await safeWriteDecisionFile(
-        $,
-        state.targetIssue,
-        JSON.stringify(decision, null, 2)
-      );
+      const targetIssue = (nextState as DuplicatePickerState).targetIssue;
+      await enqueueDecisionSync(targetIssue, async () => {
+        // Re-read the latest atom right before writing so rapid clicks write
+        // only the newest state and never an older snapshot.
+        const latest = await getDuplicatePickerState($);
+        if (!latest || latest.targetIssue !== targetIssue) {
+          return;
+        }
+        const decision = serializeDecision(latest);
+        const syncResult = await safeWriteDecisionFile(
+          $,
+          latest.targetIssue,
+          JSON.stringify(decision, null, 2)
+        );
 
-      if (!syncResult.success) {
-        // If write failed, record syncError on state and invalidate file on disk
-        await invalidateDecisionFile($, state.targetIssue);
-        await update($, duplicatePickerState, (prev: any) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            syncError: syncResult.error || 'Failed to write decision file',
-          };
-        });
-      } else if (state.syncError) {
-        // Clear syncError on successful write
-        await update($, duplicatePickerState, (prev: any) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            syncError: null,
-          };
-        });
-      }
+        if (!syncResult.success) {
+          // If write failed, record syncError on state and invalidate file on disk
+          await invalidateDecisionFile($, latest.targetIssue);
+          await update($, duplicatePickerState, (prev: any) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              syncError: syncResult.error || 'Failed to write decision file',
+            };
+          });
+        } else if (latest.syncError) {
+          // Clear syncError on successful write
+          await update($, duplicatePickerState, (prev: any) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              syncError: null,
+            };
+          });
+        }
+      });
     }
 
     try {
@@ -551,7 +576,8 @@ export const MAX_VISIBLE_CANDIDATES = 10;
 /**
  * Derives the decision status dynamically from the current maintainer selection.
  * Single source of truth shared by the serializer, footer, and tests.
- * Restricts the dismissed check strictly to visible rendered candidates.
+ * Returns 'dismissed' only when every candidate (including overflow) is dismissed;
+ * otherwise stays 'reviewing' so the skill falls back to CLI review for overflow.
  */
 export function deriveStatus(
   state: DuplicatePickerState
@@ -560,10 +586,9 @@ export function deriveStatus(
     return 'reviewing';
   }
 
-  const visible = state.candidates.slice(0, MAX_VISIBLE_CANDIDATES);
-  const allDismissed =
-    visible.length > 0 &&
-    visible.every((c) => state.dismissedIssues.includes(c.issue_number));
+  const allDismissed = state.candidates.every((c) =>
+    state.dismissedIssues.includes(c.issue_number)
+  );
   if (allDismissed) {
     return 'dismissed';
   }
@@ -945,6 +970,10 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
     return false;
   }
   try {
+    if ((await classifyWriteTarget($, filePath)) !== 'regular') {
+      return false;
+    }
+
     let content: string | null = null;
     try {
       content = await $.fs.read(filePath);
@@ -980,6 +1009,9 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
       // Content hash and target are identical; skip re-hydration to preserve in-flight curation
       return true;
     }
+
+    // Fresh hydration: invalidate any leftover decision file from a prior or cancelled run
+    await invalidateDecisionFile($, payload.target_issue);
 
     const state: DuplicatePickerState = {
       ...createStateFromPayload(payload),
@@ -1074,8 +1106,60 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
 }
 
 /**
+ * Normalizes an absolute POSIX or Windows drive path, refusing relative paths,
+ * `..` segments, trailing slashes, and non-drive backslashes.
+ */
+export function normalizeAbsolutePath(path: string): string | null {
+  if (path.endsWith('/') || path.endsWith('\\')) return null;
+  if (path.includes('\\') && !/^[A-Za-z]:\\/.test(path)) return null;
+  const p = path.replace(/\\/g, '/');
+  const drive = /^[A-Za-z]:\//.exec(p);
+  const prefix = drive ? drive[0].slice(0, 2) : '';
+  const rest = drive ? p.slice(2) : p;
+  if (!rest.startsWith('/')) return null;
+  const parts = rest.split('/').filter((s) => s !== '' && s !== '.');
+  if (parts.includes('..')) return null;
+  return `${prefix}/${parts.join('/')}`;
+}
+
+/**
+ * Returns the deepest normalized session root that `path` sits under, or null.
+ */
+export function allowedRootFor(
+  path: string,
+  sessionRoots: readonly (string | undefined)[]
+): string | null {
+  const target = normalizeAbsolutePath(path);
+  if (!target) return null;
+  const roots = sessionRoots
+    .map((r) => (r ? normalizeAbsolutePath(r) : null))
+    .filter((r): r is string => Boolean(r) && r !== '/')
+    .filter((r) => target.startsWith(`${r}/`))
+    .sort((a, b) => b.length - a.length);
+  return roots[0] ?? null;
+}
+
+/**
+ * Resolves the session working directory and root, each undefined when unavailable.
+ */
+async function sessionRootsOf($: any): Promise<(string | undefined)[]> {
+  const roots: (string | undefined)[] = [];
+  try {
+    roots.push(await $.session.cwd());
+  } catch {
+    roots.push(undefined);
+  }
+  try {
+    roots.push(await $.session.root());
+  } catch {
+    roots.push(undefined);
+  }
+  return roots;
+}
+
+/**
  * Intercepts Write tool calls that write duplicate candidate session files.
- * Rejects writes outside the workspace root and re-hydrates candidate state.
+ * Ignores writes outside the session root and re-hydrates candidate state.
  */
 export async function handleWriteToolCall($: any, e: any, next: any): Promise<any> {
   let result: any;
@@ -1098,16 +1182,28 @@ export async function handleWriteToolCall($: any, e: any, next: any): Promise<an
         const match = /\.magpie-issue-candidates-(\d+)\.json$/.exec(filePath);
         if (match && match[1]) {
           const targetIssue = parseInt(match[1], 10);
-          if (isWorkspaceCandidatePath(filePath, targetIssue)) {
-            const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
+          const normalized = normalizeAbsolutePath(filePath);
+          let targetPath: string | null = null;
+
+          if (normalized !== null) {
+            const roots = await sessionRootsOf($);
+            const wsRoot = allowedRootFor(normalized, roots);
+            if (wsRoot && isWorkspaceCandidatePath(normalized, targetIssue, wsRoot)) {
+              targetPath = normalized;
+            }
+          } else if (isWorkspaceCandidatePath(filePath, targetIssue)) {
+            targetPath = `.magpie-issue-candidates-${targetIssue}.json`;
+          }
+
+          if (targetPath) {
             let exists = false;
             try {
-              exists = await $.fs.exists(fileName);
+              exists = await $.fs.exists(targetPath);
             } catch {
               exists = false;
             }
             if (exists) {
-              await hydrateCandidatesFromFile($, fileName);
+              await hydrateCandidatesFromFile($, targetPath);
             }
           }
         }

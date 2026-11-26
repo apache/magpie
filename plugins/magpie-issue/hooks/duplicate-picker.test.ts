@@ -417,7 +417,7 @@ describe('deriveStatus', () => {
     }
   });
 
-  test('returns dismissed when all visible candidates (up to MAX_VISIBLE_CANDIDATES) are dismissed, even if more than 10 candidates exist', () => {
+  test('stays reviewing when only the 10 visible candidates are dismissed and overflow candidates exist, returning dismissed only when all candidates are dismissed', () => {
     const candidates = Array.from({ length: 15 }, (_, i) => ({
       issue_number: 101 + i,
       title: `Candidate ${i + 1}`,
@@ -425,15 +425,24 @@ describe('deriveStatus', () => {
     }));
     // Dismiss only the 10 rendered/visible candidates (101 through 110)
     const visibleDismissed = candidates.slice(0, 10).map((c) => c.issue_number);
-    const state: DuplicatePickerState = {
+    const partialState: DuplicatePickerState = {
       targetIssue: 100,
       targetTitle: 'Target',
       candidates,
       selectedKeptIssue: null,
       dismissedIssues: visibleDismissed,
     };
-    if (deriveStatus(state) !== 'dismissed') {
-      throw new Error(`expected dismissed when visible candidates are dismissed, got ${deriveStatus(state)}`);
+    if (deriveStatus(partialState) !== 'reviewing') {
+      throw new Error(`expected reviewing when overflow candidates remain, got ${deriveStatus(partialState)}`);
+    }
+
+    const allDismissed = candidates.map((c) => c.issue_number);
+    const fullState: DuplicatePickerState = {
+      ...partialState,
+      dismissedIssues: allDismissed,
+    };
+    if (deriveStatus(fullState) !== 'dismissed') {
+      throw new Error(`expected dismissed when all 15 candidates are dismissed, got ${deriveStatus(fullState)}`);
     }
   });
 });
@@ -1855,6 +1864,193 @@ describe('computePayloadHash', () => {
     const unicodeHash = computePayloadHash('Café 🚀 汉字');
     if (unicodeHash !== '2e692bd39e25979b0fbdf6563bb8dfae8802f487990755478c69c9e6bc6cbf8c') {
       throw new Error(`unicode hash mismatch: got ${unicodeHash}`);
+    }
+  });
+});
+
+describe('Part 2 review hardening: absolute Write paths, symlink reads, fresh invalidation, serialized writes', () => {
+  test('handleWriteToolCall resolves session root and hydrates absolute file_path under workspace', async () => {
+    const payload = {
+      schema_version: 1,
+      target_issue: 42,
+      target_title: 'Absolute Write Target',
+      target_author: 'alice',
+      candidates: [{ issue_number: 41, title: 'Older duplicate', author: 'bob', score: 0.9 }],
+    };
+    const absPath = '/workspace/repo/.magpie-issue-candidates-42.json';
+    let readPath: string | null = null;
+    let openedId: string | null = null;
+    const test$ = createMockEngine({
+      session: {
+        cwd: async () => '/workspace/repo',
+        root: async () => '/workspace/repo',
+      },
+      fs: {
+        exists: async (p: string) => p === absPath,
+        stat: async (p: string) =>
+          p === absPath
+            ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+            : (() => {
+                throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+              })(),
+        read: async (p: string) => {
+          readPath = p;
+          return JSON.stringify(payload);
+        },
+        write: async () => {},
+      },
+      ui: {
+        open: async (opts: any) => {
+          openedId = opts.id;
+        },
+        invalidate: () => {},
+      },
+    });
+
+    await handleWriteToolCall(
+      test$,
+      { file_path: absPath, content: JSON.stringify(payload) },
+      async () => ({ ok: true })
+    );
+
+    if (readPath !== absPath) {
+      throw new Error(`expected read at ${absPath}, got ${readPath}`);
+    }
+    if (openedId !== 'duplicate-picker') {
+      throw new Error(`expected duplicate-picker pane to open, got ${openedId}`);
+    }
+    const state = await getDuplicatePickerState(test$);
+    if (!state || state.targetIssue !== 42) {
+      throw new Error(`expected hydrated state for issue 42, got ${JSON.stringify(state)}`);
+    }
+  });
+
+  test('hydrateCandidatesFromFile refuses symbolic links and directories before reading', async () => {
+    let readCalled = false;
+    const symlink$ = createMockEngine({
+      fs: {
+        stat: async () => ({ kind: 'file', size: 100, mtimeMs: 0, isLink: true }),
+        read: async () => {
+          readCalled = true;
+          return '{}';
+        },
+      },
+    });
+    if (await hydrateCandidatesFromFile(symlink$, '.magpie-issue-candidates-55.json')) {
+      throw new Error('expected symlink candidate file to be refused');
+    }
+    if (readCalled) {
+      throw new Error('$.fs.read must not be called for symlink candidate file');
+    }
+
+    const dir$ = createMockEngine({
+      fs: {
+        stat: async () => ({ kind: 'directory', size: 0, mtimeMs: 0, isLink: false }),
+        read: async () => {
+          readCalled = true;
+          return '{}';
+        },
+      },
+    });
+    if (await hydrateCandidatesFromFile(dir$, '.magpie-issue-candidates-55.json')) {
+      throw new Error('expected directory candidate path to be refused');
+    }
+    if (readCalled) {
+      throw new Error('$.fs.read must not be called for directory candidate path');
+    }
+  });
+
+  test('hydrateCandidatesFromFile invalidates pre-existing decision file on fresh hydration', async () => {
+    const payload = {
+      schema_version: 1,
+      target_issue: 88,
+      target_title: 'Fresh Hydration Target',
+      target_author: 'alice',
+      candidates: [{ issue_number: 87, title: 'Older', author: 'bob', score: 0.9 }],
+    };
+    const files: Record<string, string> = {
+      '.magpie-issue-candidates-88.json': JSON.stringify(payload),
+      '.magpie-issue-decision-88.json': JSON.stringify({
+        schema_version: 1,
+        target_issue: 88,
+        status: 'curated',
+        kept_issue: 87,
+        dropped_issues: [88],
+        dismissed_issues: [],
+      }),
+    };
+    const test$ = createMockEngine({
+      fs: {
+        exists: async (p: string) => p in files,
+        stat: async (p: string) =>
+          p in files
+            ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+            : (() => {
+                throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+              })(),
+        read: async (p: string) => files[p] ?? '',
+        write: async (p: string, c: string) => {
+          files[p] = c;
+        },
+      },
+    });
+
+    const ok = await hydrateCandidatesFromFile(test$, '.magpie-issue-candidates-88.json');
+    if (!ok) {
+      throw new Error('expected fresh hydration to succeed');
+    }
+    const updatedDecision = JSON.parse(must(files['.magpie-issue-decision-88.json']));
+    if (updatedDecision.invalidated !== true || updatedDecision.status !== 'reviewing') {
+      throw new Error(`expected prior decision file invalidated, got ${JSON.stringify(updatedDecision)}`);
+    }
+  });
+
+  test('updateDuplicatePickerState serializes rapid clicks so disk state matches latest pane state', async () => {
+    const files: Record<string, string> = {
+      '.magpie-issue-candidates-99.json': '{}',
+    };
+    let writeCount = 0;
+    const test$ = createMockEngine({
+      fs: {
+        exists: async (p: string) => p in files,
+        stat: async (p: string) =>
+          p in files
+            ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+            : (() => {
+                throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+              })(),
+        read: async (p: string) => files[p] ?? '',
+        write: async (p: string, c: string) => {
+          writeCount++;
+          // First write resolves slower than second if unserialized
+          const delay = writeCount === 1 ? 30 : 5;
+          await new Promise((r) => setTimeout(r, delay));
+          files[p] = c;
+        },
+      },
+    });
+
+    const initial: DuplicatePickerState = {
+      targetIssue: 99,
+      targetTitle: 'Race Test',
+      candidates: [{ issue_number: 98, title: 'Older', author: 'bob' }],
+      selectedKeptIssue: null,
+      dismissedIssues: [],
+    };
+    await setDuplicatePickerState(test$, initial);
+
+    // Fire two rapid clicks: select 99, then toggle off back to null
+    const p1 = updateDuplicatePickerState(test$, (prev) =>
+      prev ? { ...prev, selectedKeptIssue: 99 } : null
+    );
+    const p2 = updateDuplicatePickerState(test$, (prev) =>
+      prev ? { ...prev, selectedKeptIssue: null } : null
+    );
+    await Promise.all([p1, p2]);
+
+    const onDisk = JSON.parse(must(files['.magpie-issue-decision-99.json']));
+    if (onDisk.status !== 'reviewing' || onDisk.dropped_issues.length !== 0) {
+      throw new Error(`expected latest reviewing state on disk, got ${JSON.stringify(onDisk)}`);
     }
   });
 });
