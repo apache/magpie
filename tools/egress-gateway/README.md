@@ -125,9 +125,7 @@ EGRESS_ALLOW_EXTRA="lists.apache.org,dist.apache.org,repository.apache.org,downl
   uv run --project tools/egress-gateway egress-gateway --port 8900
 ```
 
-Then point only that project at it:
-- Under **Claude Code**, in its project-local `.claude/settings.local.json` `env` block, as in [Point tools at it](#point-tools-at-it).
-- Under **Google Antigravity**, by passing `AGENT_ISO_ALLOW="HTTPS_PROXY HTTP_PROXY NO_PROXY"` when starting `agent-iso agy` (see [Scoped ASF network route for ASF projects](../../docs/adapters/harnesses/antigravity.md#scoped-asf-network-route-for-asf-projects)).
+Then point only that project at it, in its `.claude/settings.local.json` `env` block, as in [Point tools at it](#point-tools-at-it).
 The first six hosts are the ones in `tools/agent-isolation/claude-settings.asf.fragment.json`.
 `issues.apache.org` and `whimsy.apache.org` are for tools that run in containers; drop the ones the project does not use.
 

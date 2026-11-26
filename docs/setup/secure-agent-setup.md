@@ -3623,7 +3623,6 @@ sub-section that follows.
    Show the proposed diff and obtain explicit approval before
    installing it. Preserve existing local settings. Do not copy the
    fragment into user-scope settings or widen the shared egress gateway.
-   For non-Claude runtimes without workspace-level settings files (such as Google Antigravity), see [Scoped ASF network route for ASF projects](../adapters/harnesses/antigravity.md#scoped-asf-network-route-for-asf-projects) to route through a dedicated egress-gateway on a project-specific port.
 
 3. Make `claude-iso` available on your shell — either per-repo
    (sourcing the script from the framework snapshot) or globally

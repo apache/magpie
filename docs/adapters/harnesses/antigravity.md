@@ -12,7 +12,7 @@
   - [Security model](#security-model)
     - [Terminal sandbox boundaries](#terminal-sandbox-boundaries)
     - [What asks and what denies](#what-asks-and-what-denies)
-    - [Scoped ASF network route for ASF projects](#scoped-asf-network-route-for-asf-projects)
+    - [ASF host access limitation](#asf-host-access-limitation)
     - [Deterministic guard rules](#deterministic-guard-rules)
   - [Reuse framework MCP servers](#reuse-framework-mcp-servers)
   - [Spec-loop runner](#spec-loop-runner)
@@ -98,8 +98,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
    If the operator retains any, report that the permissions remain
    globally effective across repositories. Do not automatically add
    ASF project-specific permissions to this user-scope profile.
-   Antigravity has no workspace-level permission file, so ASF hosts are not pre-approved in the global user-scope profile ([#2003](https://github.com/apache/magpie/issues/2003)).
-   For commands approved to run outside the sandbox, an ASF project can route traffic through a dedicated `egress-gateway` forward proxy (see [Scoped ASF network route for ASF projects](#scoped-asf-network-route-for-asf-projects)).
+   Antigravity has no workspace-level permission file in the repository, so ASF hosts are not pre-approved in the global user-scope profile ([#2003](https://github.com/apache/magpie/issues/2003)).
    Leave `agentMode` unset (or `plan`): `accept-edits` and `auto` approve edits or commands without review.
 4. **Register the guard.** Merge the `magpie-agent-guard` entry from the shipped `hooks.json`, with the path resolved in step 1.
    Keep exactly one effective guard registration; propose correcting a stale or duplicate entry instead of appending another.
@@ -145,7 +144,6 @@ A probe on macOS (CLI 1.3.6, `--sandbox`) observed:
 | `test -r ~/.gitconfig` | Readable. |
 | `ls ~/.ssh` | Blocked. |
 | `curl https://example.com` | Blocked (no name resolution). |
-| `curl -x http://127.0.0.1:8900 https://lists.apache.org` | Blocked (connection refused / loopback blocked by sandbox). |
 | `touch ~/probe` | Blocked. |
 
 Unlike the Claude Code reference, the sandbox does **not** deny reads of the whole home directory: only sensitive paths are hidden.
@@ -177,39 +175,11 @@ Command rules match word by word as a literal prefix.
 Command substitution, redirection and similar constructs force an exact full-line match, so they fall back to the default ask.
 Prefix rules are a friction layer, not a shell parser; the guard and the sandbox are the enforcement layers.
 
-### Scoped ASF network route for ASF projects
+### ASF host access limitation
 
-Antigravity has no workspace-level permission mechanism (its permissions configuration is user-scoped in `~/.gemini/antigravity-cli/settings.json`), so the neutral user-scope profile deliberately does not pre-approve ASF hosts (`lists.apache.org`, `dist.apache.org`, `repository.apache.org`, `downloads.apache.org`, `archive.apache.org`, `cveprocess.apache.org`) to prevent granting global network access across unrelated repositories ([#2003](https://github.com/apache/magpie/issues/2003)).
-
-An ASF project reaches these hosts without widening global permissions by using a project-scoped [`egress-gateway`](../../../tools/egress-gateway/README.md#asf-projects) forward-proxy process running on a dedicated loopback port (e.g. `8900`):
-
-1. **Start the scoped gateway** for the ASF project on a separate port with the required ASF hosts:
-
-   ```bash
-   EGRESS_ALLOW_EXTRA="lists.apache.org,dist.apache.org,repository.apache.org,downloads.apache.org,archive.apache.org,cveprocess.apache.org" \
-     uv run --project "<framework>/tools/egress-gateway" egress-gateway --port 8900
-   ```
-
-2. **Launch through the clean-environment wrapper** with proxy variables forwarded via `AGENT_ISO_ALLOW`:
-
-   ```bash
-   AGENT_ISO_ALLOW="HTTPS_PROXY HTTP_PROXY NO_PROXY" \
-   HTTPS_PROXY=http://127.0.0.1:8900 \
-   HTTP_PROXY=http://127.0.0.1:8900 \
-   NO_PROXY=localhost,127.0.0.1 \
-   agent-iso agy
-   ```
-
-Framework tools that use Python `urllib` (ponymail, whimsy, cve-tool, dist) automatically honour these proxy variables when permitted to reach loopback.
-The gateway extends the default allowlist (GitHub, Google APIs, PyPI, and vulnerability registries) with the declared ASF hosts on that port.
-Native URL reads in Antigravity ask for operator confirmation on the first access per turn, keeping operator visibility and human-in-the-loop control intact.
-
-> [!WARNING]
-> **Terminal sandbox boundary:** Antigravity's terminal sandbox grants no network access to sandboxed commands.
-> Unlike harnesses with workspace-level sandbox configuration (such as Claude Code's `sandbox.network.allowedDomains`), Antigravity has no project-scoped mechanism to allow loopback connections to `127.0.0.1:8900`.
-> Commands executed inside the sandbox cannot reach the loopback gateway.
-> This route is therefore effective only for commands approved to run outside the sandbox (via an approval rule or interactive prompt).
-> Full project-scoped sandboxed access remains unsupported until Antigravity introduces workspace-level network grants ([#2003](https://github.com/apache/magpie/issues/2003)).
+The neutral user-scope profile (`~/.gemini/antigravity-cli/settings.json`) deliberately does not pre-approve ASF hosts (`lists.apache.org`, `dist.apache.org`, `repository.apache.org`, `downloads.apache.org`, `archive.apache.org`, `cveprocess.apache.org`) because user-scope `read_url(...)` rules apply globally across unrelated repositories ([#2003](https://github.com/apache/magpie/issues/2003)).
+Antigravity CLI stores per-project permission grants under `~/.gemini/config/projects/<project-id>.json` rather than a committed workspace file, and the terminal sandbox grants no network access by default (see [Terminal sandbox boundaries](#terminal-sandbox-boundaries)).
+Project-scoped in-sandbox access to ASF hosts remains an open limitation under [#2003](https://github.com/apache/magpie/issues/2003) until a project-scoped `read_url(...)` rule or workspace-level grant is verified to extend the sandbox allowlist for a single project without widening global permissions.
 
 ### Deterministic guard rules
 
