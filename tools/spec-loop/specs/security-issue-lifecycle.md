@@ -110,6 +110,9 @@ publication, with a human gate and an audit-log entry at every step.
   at 30 hits), and renders the title, body (sentinels, bot author left
   `_No response_`), labels, rollup entry and recap; the milestone
   choice, title paraphrase and *Affected versions* stay with the model.
+  For `security-issue-import` its `title` command strips the mail prefixes
+  and returns the title's `length`; over 100 characters the skill proposes
+  a shorter title instead.
   For `security-issue-import-from-md` it parses the findings file
   (`not-a-findings-file` on another shape, `UNKNOWN` severity and
   `<upstream>` fallback with warnings), cleans the search keyword, and
@@ -163,7 +166,9 @@ publication, with a human gate and an audit-log entry at every step.
   label unless it is the override already wired in, `duplicate`, not
   exactly one scope label, an undecided field; `needs triage` warns only
   when nothing blocks), strips the title by the project's names and
-  tracker prefixes (an over-strip warning under 3 words), maps the API
+  tracker prefixes (an over-strip warning under 3 words, and a length
+  warning over the title's budget: 100 characters, less when the CVE tool's
+  product prefix leaves less of the record's 256), maps the API
   pre-flight and allocation exits to the next step (never re-running an
   allocation on its own), renders the API proposal, the self-service
   recipe or a non-member's terse relay, takes the one CVE ID from the
@@ -230,8 +235,11 @@ publication, with a human gate and an audit-log entry at every step.
   sync (every advisory comment copied into the tracker; only comments the
   team marks for the reporter proposed for the advisory), and walks the
   Step 5b push flow,
-  checking the title, upgrade-target and CWE gates itself and taking the
-  four judged gates as the model's verdicts. A state fetch that fails after
+  checking the title, title-length, upgrade-target and CWE gates itself and
+  taking the four judged gates as the model's verdicts; the title-length
+  gate reads the record generator's `--report-json` and the JSON's own
+  title, blocks over 256 characters (bare or posted with the product
+  prefix), and returns a title over 100 in `warnings` on every answer. A state fetch that fails after
   the push is a recap blocker that posts nothing about the hand-off that run.
   The stage-specific Step 2b bullets live in `release-manager-comments.md`
   and `post-advisory-records.md`, read when `signals-to-actions.md` says so.

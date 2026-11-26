@@ -240,7 +240,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            # Step 1b: upstream PRs that mention the tracker.
                            "repo-pr-search"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
-                           "collaborators", "issue-edit-body",
+                           "collaborators", "issue-edit-body", "issue-edit-title",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]

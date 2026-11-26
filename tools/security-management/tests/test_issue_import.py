@@ -342,7 +342,20 @@ def test_title_strips_prefixes(capsys, tmp_path) -> None:
     _, out = run(
         capsys, "title", "--input", write(tmp_path, "t.json", {"subject": "Re: [SECURITY] Auth: bypass"})
     )
-    assert out == {"title": "Auth: bypass"}
+    assert out["title"] == "Auth: bypass"
+    assert out["length"]["shorten"] is False
+
+
+@pytest.mark.parametrize(("chars", "shorten"), [(100, False), (101, True)])
+def test_title_asks_for_a_shorter_title_above_100_characters(capsys, tmp_path, chars, shorten) -> None:
+    # Characters, not bytes: the synthetic subject carries a two-byte character.
+    title = ("Auth: bypass é " + "x" * chars)[:chars]
+    _, out = run(capsys, "title", "--input", write(tmp_path, "t.json", {"subject": f"Re: {title}"}))
+    assert out["title"] == title
+    assert out["length"]["title_chars"] == chars
+    assert out["length"]["max_title_chars"] == 100
+    assert out["length"]["shorten"] is shorten
+    assert out["length"]["over_limit"] is False
 
 
 def test_render_body_reports_sanitising_fields_and_bot_credit(capsys, tmp_path) -> None:

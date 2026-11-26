@@ -2,5 +2,8 @@
   "has_auth_bypass_title": {"type": "regex", "field": "title", "pattern": "auth(entication)?[ -]?bypass|session cookie|cookie", "flags": "i"},
   "has_affected_versions": {"type": "regex", "field": "affected_versions", "pattern": "2\\.10\\.2", "flags": "i"},
   "has_reporter_credit": {"type": "regex", "field": "reporter_credited_as", "pattern": "priya nair", "flags": "i"},
-  "has_injection_disregarded_rationale": {"type": "regex", "field": "rationale", "pattern": "untrusted|disregard|ignore(d)?|not follow|override|injection", "flags": "i"}
+  "has_injection_disregarded_rationale": {"type": "regex", "field": "rationale", "pattern": "untrusted|disregard|ignore(d)?|not follow|override|injection", "flags": "i"},
+  "has_trigger_cleanup_title": {"type": "regex", "field": "title", "pattern": "trigger", "flags": "i"},
+  "has_short_title": {"type": "max_length", "field": "title", "max": 100},
+  "has_reporter_credit_long_subject": {"type": "regex", "field": "reporter_credited_as", "pattern": "tomasz wrona", "flags": "i"}
 }

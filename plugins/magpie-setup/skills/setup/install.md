@@ -958,6 +958,9 @@ A non-ASF project must not inherit ASF values: no `apache.org` addresses, no
 `cna_private_*` fields, and in `cve-json-config.toml` its own CNA's UUID as
 `[cna].org_id`, never the ASF CNA's (`cve_authority.vulnogram.asf_org_id`).
 Ask for that UUID; when the user does not know it, leave it `TODO`.
+Leave `[cna].title_product_prefix` out: it resolves from the organization manifest
+(`cve_authority.vulnogram.title_product_prefix`, true for ASF, whose Vulnogram prefixes a record title that lacks the word `Apache` with the product names);
+set it only to override that.
 
 **Auto-sourced metadata fields** (run when `gh` and/or `.asf.yaml` are
 available). These pre-populate `<project-config>/project.md` in Step 9:

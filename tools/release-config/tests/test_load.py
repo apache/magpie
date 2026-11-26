@@ -471,3 +471,19 @@ def test_org_manifest_found_in_the_marketplace_framework_copy(tmp_path, monkeypa
 
     chain = config.org_manifest_chain(md.Resolver(adopter, None), "ASF")
     assert [path for path, _ in chain] == [manifest]
+
+
+def test_dotted_value_reads_a_three_level_nested_key() -> None:
+    text = "```yaml\nauthority:\n  tool: editor\n  editor:\n    # a comment line\n    org_id: abc\n    prefix: true   # trailing comment\n  other: x\n```\n"
+    assert md.dotted_value(text, "authority.editor.prefix") == "true"
+    assert md.dotted_value(text, "authority.editor.org_id") == "abc"
+    assert md.dotted_value(text, "authority.tool") == "editor"
+    assert md.dotted_value(text, "authority.editor.missing") is None
+    assert md.dotted_value(text, "authority.nothere.prefix") is None
+
+
+def test_the_asf_manifest_declares_the_title_product_prefix() -> None:
+    manifest = Path(__file__).resolve().parents[3] / "organizations" / "ASF" / "organization.md"
+    text = manifest.read_text(encoding="utf-8")
+    assert md.dotted_value(text, "cve_authority.vulnogram.title_product_prefix") == "true"
+    assert md.dotted_value(text, "cve_authority.tool") == "vulnogram"

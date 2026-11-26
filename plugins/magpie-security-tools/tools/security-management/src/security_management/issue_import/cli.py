@@ -177,7 +177,8 @@ def dispatch(args: argparse.Namespace) -> int:
 
     data = read_object(args.input)
     if command == "title":
-        emit({"title": titles.strip_mail_prefixes(str(data["subject"]))})
+        title = titles.strip_mail_prefixes(str(data["subject"]))
+        emit({"title": title, "length": titles.length_check(title)})
         return 0
     if command == "linkify":
         text = str(data["text"])

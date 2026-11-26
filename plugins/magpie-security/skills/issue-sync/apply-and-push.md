@@ -7,7 +7,7 @@
 > this slice can load just this file. Loaded automatically when the
 > orchestrator (or a subagent) is in the matching step.
 
-This subdoc carries the apply loop (Step 4), CVE JSON regen mechanics (Step 5/5a), the OAuth API push including the seven pre-push hygiene gates (Step 5b), and the release-manager hand-off comment reconciliation (Step 5c).
+This subdoc carries the apply loop (Step 4), CVE JSON regen mechanics (Step 5/5a), the OAuth API push including the eight pre-push hygiene gates (Step 5b), and the release-manager hand-off comment reconciliation (Step 5c).
 
 ---
 
@@ -308,7 +308,7 @@ Otherwise write the body back:
 uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync issue-edit-body <N> <workspace>/cve-body-<N>.md
 ```
 
-When any of the report's `normalisation_changes`, `missing_required` or `needs_decision` is non-empty (`needs_decision` exits 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
+When any of the report's `normalisation_changes`, `missing_required`, `needs_decision` or `title_length` is non-empty (`needs_decision` and a `title_length` error exit 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
 
 ### A record that is already public
 
@@ -463,9 +463,12 @@ The remaining transitions stay separate:
 ### Decision flow
 
 `<sm> push-decision` (`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites)) walks this flow:
-write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file}`, act on its `action`,
+write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
 and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
-It checks the title cascade, the upgrade-target version and the CWE long form on the JSON itself;
+It checks the title cascade, the title length, the upgrade-target version and the CWE long form on the JSON itself;
+for the title length pass `report_json`, the generator's `--report-json` file (`<scratch>/cve-report-<N>.json`); its `title_product_prefix` is the resolved value (the project's config, else its organization: true for ASF), so do not pass one.
+A title over the record's 256-character limit, bare or as the CVE tool posts it, blocks the push;
+a title over 100 characters comes back in `warnings` on every answer: show each to the user in the proposal and the Step 6 recap, and propose a shorter title through the Step 1d title row of [`gather.md`](gather.md).
 the four gates that need judgement (trigger conditions, the incomplete-fix clause, the private-finder anonymisation, the conservative range) are your verdicts in `judged`, and one not given is asked for, never assumed.
 Its `reason` says what to do and surface in the Step 6 recap, and `handoff_variant` picks the Step 5c variant.
 When the state fetch fails, pass `fetched_state: "unknown"`.

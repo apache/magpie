@@ -20,8 +20,12 @@ The decision flow of `apply-and-push.md`, in order, each call fed what the
 previous one printed (`next` names the command to run and pass back):
 
 1. no regeneration (no CVE) — `skip`;
-2. the seven pre-push gates, first failure — `block`. Three are checked
-   here on the JSON: the title through the cve-allocate strip cascade, an
+2. the eight pre-push gates, first failure — `block`. Four are checked
+   here on the JSON: the title through the cve-allocate strip cascade, the
+   title's length (the record generator's `title_length` report entries
+   when `report_json` names its `--report-json` file, plus the bare and
+   posted length of the JSON's own title; an `error` blocks, a `warning`
+   over 100 characters is returned in `warnings` on every answer), an
    upgrade-target version in the summary, the `CWE-NNN: <Title>` long form.
    Four need judgement and come in as the model's verdicts (`judged`):
    trigger conditions, the incomplete-fix clause, the private-finder
@@ -43,16 +47,20 @@ previous one printed (`next` names the command to run and pass back):
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from security_management.cve_allocate.title import TRACKER_PREFIXES, strip
 from security_management.shared import cve_tool, selectors
 from security_management.shared.rollup import one_line
+from security_management.shared.titles import TITLE_WARN_CHARS, length_check, title_product_prefix
 
 GATES = (
     "title_strip_cascade",
+    "title_length",
     "upgrade_target_version",
     "trigger_conditions",
     "incomplete_fix_clause",
@@ -91,6 +99,78 @@ def mechanical(record: Mapping[str, Any], names: list[str], short: list[str]) ->
     }
 
 
+def _budget(value: object) -> int | None:
+    """A report's `max_title_chars`: an int, or None when absent or not a number."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def title_length(data: Mapping[str, Any], record: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    """Why the record title does not fit (None when it does), and the length warnings to surface.
+
+    Two sources, both counted in characters on the strings exactly as posted
+    (no whitespace folding): the record generator's report (`report_json`,
+    its `title_length` entries), and the JSON's own title checked here, with
+    the product prefix when `title_product_prefix` says so (explicit, else the
+    report's resolved value, else the configuration chain).
+    """
+    findings: list[Mapping[str, Any]] = []
+    report: Mapping[str, Any] | None = None
+    path = one_line(data.get("report_json"))
+    if path:
+        loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(loaded, Mapping):
+            raise ValueError(f"{path} is not a JSON object")
+        report = loaded
+        findings = [f for f in report.get("title_length") or [] if isinstance(f, Mapping)]
+    cna = _cna(record)
+    title = str(cna.get("title") or "")
+    products = [
+        str(a["product"]) for a in cna.get("affected") or [] if isinstance(a, Mapping) and a.get("product")
+    ]
+    prefix = bool(products) and title_product_prefix(data, report)
+    own = length_check(title, products, prefix)
+    too_long = bool(own["products_too_long"]) or any(
+        f.get("kind") == "product-prefix-over-limit" and f.get("severity") == "error" for f in findings
+    )
+    budgets = [
+        b
+        for b in (_budget(own["max_title_chars"]), *(_budget(f.get("max_title_chars")) for f in findings))
+        if b is not None
+    ]
+    budget = min(budgets) if budgets else TITLE_WARN_CHARS
+    length = int(own["title_chars"] or 0)
+    shorten = (
+        f"propose a shorter record title of at most {budget} characters through the title row of "
+        "Step 1d (the title, not a body field; never add the product name or the word Apache to it), "
+        "re-regenerate and re-scan; do not push"
+    )
+    blocked = None
+    if too_long and (own["over_limit"] or any(f.get("severity") == "error" for f in findings)):
+        blocked = (
+            f"the affected product names alone take {own['prefix_chars']} characters of the posted title, "
+            "leaving no room within the record's 256: a products problem (too many or too long product names), "
+            "so merge or shorten the affected product entries first; do not push"
+        )
+    elif own["over_limit"] or any(f.get("severity") == "error" for f in findings):
+        posted = int(own["posted_chars"] or 0)
+        blocked = (
+            f"the record title is {length} characters"
+            + (f", {posted} as the CVE tool posts it with the product names" if posted > length else "")
+            + f", over the record's 256: {shorten}"
+        )
+    warnings = []
+    longest = max(
+        [length, *(int(f["title_chars"]) for f in findings if _budget(f.get("title_chars")) is not None)]
+    )
+    if longest > TITLE_WARN_CHARS:
+        warnings.append(
+            f"the record title is {longest} characters, over {TITLE_WARN_CHARS}: it is reused in the "
+            f"announcement mail subject, so propose a shorter title of at most {budget} characters "
+            "(shorten it; never add the product name or the word Apache to it)"
+        )
+    return blocked, warnings
+
+
 def _state(value: object) -> str | None:
     text = one_line(value)
     return NATIVE.get(text.upper(), text.lower() or None) if text else None
@@ -99,8 +179,11 @@ def _state(value: object) -> str | None:
 def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = one_line(data.get("cve_id"))
 
+    warnings: list[str] = []
+
     def out(action: str, why: str, **extra: Any) -> dict[str, Any]:
         return {
+            "warnings": warnings,
             "ok": True,
             "action": action,
             "gate_failed": extra.pop("gate_failed", None),
@@ -123,6 +206,12 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     if not names:
         return {"ok": False, "refused": "project_names is empty: read them from title-normalization.md"}
     checks = mechanical(data.get("record") or {}, names, [one_line(n) for n in data.get("short_names") or []])
+    try:
+        title_blocked, found = title_length(data, data.get("record") or {})
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "refused": f"report_json could not be read: {exc}"}
+    checks["title_length"] = title_blocked is None
+    warnings.extend(found)
     judged = data.get("judged") or {}
     for gate in GATES:
         if gate in checks:
@@ -138,7 +227,9 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
         if not passed:
             return out(
                 "block",
-                f"the {gate} gate fails: fix the body field, re-regenerate and re-scan; do not push",
+                f"the {gate} gate fails: {title_blocked}"
+                if gate == "title_length"
+                else f"the {gate} gate fails: fix the body field, re-regenerate and re-scan; do not push",
                 gate_failed=gate,
             )
     before = _state(data.get("record_state"))
