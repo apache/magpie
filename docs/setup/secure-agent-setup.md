@@ -685,7 +685,10 @@ The full block below is the two merged, annotated.
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",                 // GraphQL fetches (PR-triage paginated loop). Every GraphQL call sends `-f query=…`, so the write-shaped `gh api * -f*` ask below still prompts for it (ask beats allow); this rule only matters in a config without that ask. Bounded GraphQL reads go through vetted-ops instead.
+      // No `gh api graphql` allow: a GraphQL call can write (a mutation) and a
+      // command prefix cannot tell a query from one, so raw `gh api graphql`
+      // always prompts. Bounded GraphQL reads belong in vetted-ops reads, which
+      // run without a prompt; a skill's direct GraphQL read prompts each time.
       // Two read-only REST `gh api` GETs the skills need for read-only
       // analysis (security-team / reviewer roster lookup; release-tag ↔
       // fix-commit ancestry when verifying a fix shipped). Without these,

@@ -1007,6 +1007,17 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
             )
             if bare or (inner is not None and _runs_anything(inner, writable)):
                 errors.append(f"permissions.allow: {rule!r} approves every shell command without a prompt")
+            if (
+                inner is not None
+                and inner.split()
+                and inner.split()[:2] == ["gh", "api"]
+                and (len(inner.split()) == 2 or inner.split()[2] in ("*", "graphql"))
+            ):
+                errors.append(
+                    f"permissions.allow: {rule!r} approves `gh api` calls that can write "
+                    "(a GraphQL mutation, or any REST method) without a prompt; "
+                    "route reads through vetted-ops instead"
+                )
             if isinstance(rule, str) and rule.startswith("Bash(") and "*" in rule[:-2]:
                 errors.append(
                     f"permissions.allow: {rule!r} has a '*' before the end of the command, "
