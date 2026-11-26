@@ -25,7 +25,12 @@ from typing import Any, cast
 
 import pytest
 
-from setup_preflight.organization_network import declares_asf, is_asf_project, selected_asf_network_settings
+from setup_preflight.organization_network import (
+    declares_asf,
+    is_asf_project,
+    main,
+    selected_asf_network_settings,
+)
 
 
 @pytest.mark.parametrize(
@@ -277,3 +282,19 @@ def test_cli_uses_bundled_fragment_by_default(tmp_path: Path, capsys: pytest.Cap
         "archive.apache.org",
         "cveprocess.apache.org",
     }
+
+
+@pytest.mark.parametrize(
+    ("content", "printed"),
+    [("| organization | ASF |\n", "true"), ("| organization | `TODO` |\n", "false"), (None, "false")],
+)
+def test_is_asf_prints_the_same_answer(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], content: str | None, printed: str
+) -> None:
+    """The skills ask with `--is-asf`; a template's TODO and a missing file both read as not ASF."""
+    if content is not None:
+        config = tmp_path / ".apache-magpie-overrides"
+        config.mkdir()
+        (config / "project.md").write_text(content)
+    assert main(["--project-root", str(tmp_path), "--is-asf"]) == 0
+    assert capsys.readouterr().out.strip() == printed

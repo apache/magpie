@@ -439,6 +439,38 @@ Tell the user, in this order:
    the same line, since the secure setup above is where it gets wired;
    on other agents the step does not apply, so leave it out. None of them is required — say so once, and
    skip this item entirely when nothing matches.
+
+   **Apache Incubator skills, for an ASF project.** When the project
+   declares `organization: ASF` — ask the pre-flight package,
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`,
+   with `PYTHONPATH` the installed pre-flight checker's parent directory,
+   as every other pre-flight call here; it prints `true` only for a real
+   declaration (never for the template's examples or a `TODO` value) — also offer the Incubator's own
+   marketplace. Read the ASF catalogue,
+   [`organizations/ASF/skill-sources.md`](../../../../organizations/ASF/skill-sources.md)
+   (a marketplace install ships no `organizations/`, so fetch
+   `https://raw.githubusercontent.com/apache/magpie/main/organizations/ASF/skill-sources.md`;
+   if neither can be read, say so in one line and skip), and list the skills
+   whose *Marketplaces* cell names this agent (`claude-code`, `codex`,
+   `copilot`), one line each from its *What it does* cell, leaving out a
+   skill the agent's plugin list already shows (when the list cannot be
+   read, keep them all and say the list was unreadable). If no skill is
+   left, offer nothing and record nothing. Otherwise print the
+   marketplace's add command from the catalogue's table for this agent, and
+   how to install a skill from it, by the marketplace name the
+   descriptors record (`marketplace: apache-incubator`): Claude Code
+   `/plugin install <skill>@apache-incubator`, Codex its plugin browser
+   after `codex plugin marketplace add apache/incubator`, Copilot its
+   marketplace view. Say, on the same lines, that these install and update
+   from whatever is on `apache/incubator`'s main branch: no tag, no
+   commit pin, nothing Magpie verified, unlike a source pinned through
+   `setup skill-sources`. Print them; never run them: the Incubator is a
+   separate trust decision, and it maintains these skills, not Magpie.
+   Record the offer as an `apache-incubator <agent>` line in
+   `~/.cache/apache-magpie/companions-offered` and skip it when that line is
+   there, exactly as for a companion; if the file cannot be written, skip
+   the record and say nothing. On an agent with no Incubator marketplace
+   (any other than those three), skip it.
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:

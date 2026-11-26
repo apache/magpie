@@ -208,8 +208,15 @@ The `tools:` line is not trusted alone: a `PreToolUse` hook in the agent's own f
 Claude Code only, and only after Step V.1 passes: without it every gatherer read is a silent denial.
 On another harness, report **n/a**.
 
-1. Propose copying it to the user scope, `~/.claude/agents/magpie-gatherer.md`:
-   `mkdir -p ~/.claude/agents && cp <framework>/tools/agent-isolation/agents/magpie-gatherer.md ~/.claude/agents/`.
+1. Propose copying it to the user scope, `~/.claude/agents/magpie-gatherer.md`,
+   from a copy no sandboxed agent can have changed, since its hook runs outside the sandbox:
+   on a marketplace install, the installed `magpie-security-tools` plugin, through its stable link
+   (`mkdir -p ~/.claude/agents && cp ~/.claude/magpie/security-tools/agent-isolation/agents/magpie-gatherer.md ~/.claude/agents/`;
+   the plugin cache it resolves to is not writable from the sandbox, and the tamper rules above deny `Edit(~/.claude/magpie/**)`);
+   in the framework checkout, `tools/agent-isolation/agents/magpie-gatherer.md`, once `git status` and
+   `git diff origin/main -- tools/agent-isolation/agents/` show it unmodified.
+   Never copy it from `<framework>` on a marketplace install: that tree under `~/.cache/apache-magpie/framework/`
+   is writable from the sandbox.
    It must be a user-scope agent, not a plugin agent: Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook matching the agent's name would match any agent that takes the name.
    The operator runs the copy; never write it yourself.
 2. **Tamper protection.** Propose `Edit(~/.claude/agents/**)` in the user-scope `permissions.deny`.

@@ -142,6 +142,18 @@ repeated on every upgrade. If the file cannot be written, skip the record. It co
 marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
 here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
 the companion page is where they find one.
+The *Apache Incubator skills* offer that closes
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) item 3
+runs here too, by the same rules, which that paragraph spells out: only
+when `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+prints `true`; only on Claude Code, Codex or Copilot; the skills the ASF
+catalogue (`organizations/ASF/skill-sources.md`, fetched from
+`raw.githubusercontent.com/apache/magpie/main/` on a marketplace install)
+lists for this agent, minus those its plugin list shows, and nothing at all
+when none is left; the marketplace's add command and
+`<skill>@apache-incubator`, printed and never run, saying that they track
+`apache/incubator`'s main branch with no pin Magpie verified; recorded once as
+`apache-incubator <agent>` in the same file, skipped when that line is there.
 
 Before reconciling, [refresh the pre-flight checker](#refresh-the-pre-flight-checker) from the newly updated, trusted `magpie-setup` plugin. Follow its marketplace source and cache installation rules, including the user-run terminal step when the plugin cache is inaccessible inside the sandbox. Verify that `setup_preflight.organization_network` and its bundled ASF fragment are present in the refreshed checker. If refresh fails, stop the ASF reconciliation rather than falling back to a stale checker.
 
@@ -1159,7 +1171,20 @@ snapshots are a separate, sibling tree — see
    [Step 6](#step-6--refresh-framework-skill-symlinks).
 3. **Update the source local lock** to the new fetch fingerprint.
 
-Nothing happens when the trust list is absent or empty. Because
+Nothing happens when the trust list is absent or empty.
+
+**The Apache Incubator, once.** Whatever the trust list holds, when
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+prints `true` and the trust list names no `apache-incubator-` source, say
+in one line that the ASF curates the Apache Incubator's skills: the new
+snapshot's `organizations/ASF/skill-sources.md` lists them, and a project
+that trusts one adds it to `<project-config>/skill-sources.md` and runs
+`/magpie-setup skill-sources`. Record it as an `apache-incubator snapshot`
+line in `~/.cache/apache-magpie/companions-offered`, skip it when that line
+is there, and if the file cannot be written, skip the record and say
+nothing.
+
+Because
 each worktree shares main's `.apache-magpie-sources/` through the
 snapshot symlink [`worktree-init`](worktree-init.md) seeds
 (alongside `<snapshot-dir>`), the refreshed source **content** is
