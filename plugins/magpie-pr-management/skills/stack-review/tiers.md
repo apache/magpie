@@ -67,7 +67,8 @@ When more than three layers are planned `full`, read them in parallel with backg
 
 - the prompt inlines the layer's title, body, commit messages, class histogram, declared floor and the hunks to read; subagents never call `gh` or `git`;
 - the output is the per-layer notes in the format above, nothing else;
-- subagents are read-only: no `Write`, no `Edit`, no posting, no nested agents.
+- subagents are read-only: no `Write`, no `Edit`, no posting, no nested agents;
+- dispatch each as the `magpie-gatherer` agent where it is installed (Claude Code, `setup-isolated-setup-install` Step V.2), which has no write tool to begin with, else as `general-purpose` under the rules above.
 
 Without an Agent tool, read the layers sequentially and record *read sequentially (no background readers)* in the coverage lines.
 The parent folds the notes into the report and keeps the verdict decision for itself.

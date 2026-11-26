@@ -16,9 +16,9 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:7e0d11345084066f
+surface_hash: sha256:3b9f2a6489ad6989
 license: Apache-2.0
-measured_tokens: 6360
+measured_tokens: 6517
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -293,6 +293,16 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
       project's sessions could write them.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
+
+20. **cve-tool exclusion, if installed.** Optional (step C of `setup-isolated-setup-install`).
+    **n/a** when the `magpie-security-tools` plugin is not installed.
+    Otherwise:
+    [`conditional-checks.md`](conditional-checks.md#check-20--cve-tool-exclusion-if-installed).
+
+21. **The read-only gatherer agent.** Claude Code only, and the same n/a condition as check 16.
+    Bulk skills fan out into it, so it must stay read-only: no write tool, no Bash beyond `vetted-op-read`.
+    Three sub-checks:
+    [`conditional-checks.md`](conditional-checks.md#check-21--the-read-only-gatherer-agent).
 
 ## After the report
 

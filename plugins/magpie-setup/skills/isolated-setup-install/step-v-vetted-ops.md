@@ -193,3 +193,24 @@ operator applies it; never write a settings file on your own.
 
 This covers the read dispatcher only. `vetted-op-tracker`, `vetted-op-git` and `vetted-op`
 are excluded but stay in `ask`, never in `allow`.
+
+## Step V.2 — The read-only gatherer agent (Claude Code)
+
+Bulk skills fan out one background agent per item.
+A general-purpose agent has `Bash`, `Edit` and `Write`, and reads content written by outsiders:
+the read-then-act exposure Step V.1's unprompted reads should not widen.
+The framework ships a narrower agent, which `pr-management-code-review`'s prefetch and `pr-management-stack-review`'s layer readers use where it is installed,
+[`tools/agent-isolation/agents/magpie-gatherer.md`](../../../../tools/agent-isolation/agents/magpie-gatherer.md):
+`Read`, `Grep`, `Glob`, `vetted-op-read` as its only Bash, and the four PonyMail reads, which its own `PreToolUse` hook approves (a background agent cannot answer a prompt).
+It has no `Edit`, `Write`, general Bash or write tool.
+
+Claude Code only, and only after Step V.1 passes: without it every gatherer read is a silent denial.
+On another harness, report **n/a**.
+
+1. Propose copying it to the user scope, `~/.claude/agents/magpie-gatherer.md`
+   (`cp <framework>/tools/agent-isolation/agents/magpie-gatherer.md ~/.claude/agents/`).
+   It must be a user-scope agent, not a plugin agent: Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook matching the agent's name would match any agent that takes the name.
+   The operator runs the copy; never write it yourself.
+2. If a file is already there and differs, show the diff and let the operator choose;
+   a local edit that adds a tool to its `tools:` line widens what the fan-out can do and is theirs to keep or drop knowingly.
+3. Say that a session started before the copy does not see the agent: it takes effect in the next session.

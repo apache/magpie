@@ -17,6 +17,7 @@
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
   - [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt)
+    - [The read-only gatherer agent](#the-read-only-gatherer-agent)
   - [Host-only uv state](#host-only-uv-state)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
     - [Why project-local, not user-scope and not committed-project](#why-project-local-not-user-scope-and-not-committed-project)
@@ -1106,6 +1107,24 @@ An agent definition that narrows its tools, such as a read-only gatherer's `tool
 
 The imperative covers the read dispatcher only.
 `vetted-op-tracker` and `vetted-op` write: they keep their `ask` rule and never go in `allow` ([why](#the-frameworks-own-claudesettingsjson)), so a skill runs them from the foreground session, never from a background agent.
+
+### The read-only gatherer agent
+
+Unprompted reads are safe in a background agent only if that agent cannot act on what it reads.
+A general-purpose agent can: it has `Bash`, `Edit` and `Write`, and it reads private mail and tracker text written by outsiders, any of which may carry a prompt injection.
+For Claude Code the framework ships a narrower agent,
+[`tools/agent-isolation/agents/magpie-gatherer.md`](../../tools/agent-isolation/agents/magpie-gatherer.md).
+`pr-management-code-review`'s prefetch and `pr-management-stack-review`'s layer readers dispatch it where it is installed, and fall back to `general-purpose` where it is not.
+The `security-issue-sync` and `security-issue-triage` bulk agents are not on it yet: they still run raw `gh`, Gmail reads and file writes, which it does not allow.
+The agent:
+
+- **Tools:** `Read`, `Grep`, `Glob`, `Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)` and the PonyMail reads, nothing that writes.
+  `vetted-op-read` refuses every write operation before it reads the policy, so no argument turns a call into a mutation.
+- **Its own hook:** a `PreToolUse` hook in the agent's frontmatter approves the four PonyMail reads (`search_list`, `get_thread`, `get_email`, `get_source`) for this agent only, so they need no session-wide `allow` rule that every other agent and the foreground session would share.
+- **User scope, not a plugin:** Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook would have to match the agent's name, which any agent can take.
+  So install Step V.2 copies it to `~/.claude/agents/`, verify check 21 checks that it stays read-only, and update reports drift from the framework's copy.
+
+The agent returns a report; the orchestrator applies every change, sequentially, after the operator confirms it.
 
 ## Host-only uv state
 

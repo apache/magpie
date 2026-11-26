@@ -218,6 +218,17 @@ read block off in every scope, and the three vetted-ops `Edit` deny rules presen
 The install skill applies it (Step V.1), verify checks it (check 16), update
 reports drift as must-fix, and sandbox-lint enforces it on the committed
 settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
+Under Claude Code, `pr-management-code-review`'s prefetch and
+`pr-management-stack-review`'s layer readers fan out into a dedicated
+read-only agent where it is installed (else `general-purpose`),
+`tools/agent-isolation/agents/magpie-gatherer.md`: `Read`, `Grep`, `Glob`,
+`vetted-op-read` as its only Bash and the PonyMail reads, which a
+`PreToolUse` hook in its own frontmatter approves for it alone. It is a
+user-scope agent (`~/.claude/agents/`), since Claude Code ignores a plugin
+agent's hooks; install Step V.2 copies it, verify check 21 keeps it
+read-only, update diffs it, and the secure-setup fingerprint counts it.
+The `security-issue-sync` and `security-issue-triage` bulk agents stay
+`general-purpose`: they still need raw `gh`, Gmail and file writes.
 Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
 the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
 `$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,

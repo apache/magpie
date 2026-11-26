@@ -643,3 +643,29 @@ reading this file; read the section for a check whose condition holds.
       it. A real file or directory at the path, or a link anywhere else, is
       ✗: the exclusion would run that code outside the sandbox, and the hook
       refuses to replace anything that is not a symlink.
+
+## Check 21 — the read-only gatherer agent
+
+21. **The read-only gatherer agent.** Claude Code only, and the same n/a
+    condition as check 16 (no vetted-ops policy, or the sandbox off).
+    Install Step V.2 copies
+    [`tools/agent-isolation/agents/magpie-gatherer.md`](../../../../tools/agent-isolation/agents/magpie-gatherer.md)
+    to `~/.claude/agents/magpie-gatherer.md`. Read that copy:
+
+    - **21a — installed.** The file exists. Missing is ⚠, not ✗: nothing is
+      exposed, but bulk skills fall back to a general-purpose agent with
+      `Bash`, `Edit` and `Write`.
+    - **21b — read-only.** Its frontmatter `tools:` names no `Edit`,
+      `Write`, `NotebookEdit` or unrestricted `Bash`, and its only `Bash(…)`
+      entry is `Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)`.
+      Any other is ✗: that agent reads content written by outsiders and
+      runs unattended, so a write tool there is the read-then-act path the
+      fan-out exists to avoid. Only an `mcp__ponymail__*` read (`search_list`,
+      `get_thread`, `get_email`, `get_source`, `auth_status`) may be added.
+    - **21c — its hook approves only reads.** Its `PreToolUse` hook matcher
+      names only those four PonyMail reads. A matcher that also covers a
+      write tool, or a broader pattern (`mcp__ponymail__.*`, `.*`), is ✗:
+      the hook answers `allow`, so it would approve that tool unprompted.
+
+    A copy that differs from the framework's otherwise is a note for
+    `setup-isolated-setup-update`, not a failure here.
