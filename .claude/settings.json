@@ -122,6 +122,7 @@
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-security-tools/**)",
       "Edit(~/.claude/scripts/**)",
+      "Edit(~/.claude/agent-isolation/**)",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(aws *)",

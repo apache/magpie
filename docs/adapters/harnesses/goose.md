@@ -65,7 +65,7 @@ The second installs the sandbox runtime from the committed [`package-lock.json`]
 Then start every session through the clean-environment wrapper, passing the provider's key explicitly:
 
 ```bash
-source "<framework>/tools/agent-isolation/agent-iso.sh"
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 AGENT_ISO_ALLOW="ANTHROPIC_API_KEY" agent-iso goose session
 ```
 

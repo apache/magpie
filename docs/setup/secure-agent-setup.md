@@ -230,8 +230,10 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    blocks into your tracker repo's `.claude/settings.json`.
 #    Section: "The framework's own .claude/settings.json" below.
 
-# 3. The clean-env wrapper. Source `agent-iso.sh` from your rc
-#    file, optionally alias `claude=claude-iso`. Section: "The
+# 3. The clean-env wrapper. Copy `agent-iso.sh` once into
+#    `~/.claude/agent-isolation/` and source that copy from your rc
+#    file (never a checkout or `~/.cache/apache-magpie/`, which agents
+#    can write), optionally alias `claude=claude-iso`. Section: "The
 #    clean-env wrapper" below.
 
 # 4. User-scope hooks. Copy `sandbox-bypass-warn.sh`,
@@ -1706,9 +1708,24 @@ Layer 0 — strip credential-shaped env vars from the parent shell
 before invoking `claude` — is implemented by
 [`tools/agent-isolation/agent-iso.sh`](../../tools/agent-isolation/agent-iso.sh).
 
-There are two valid ways to make `claude-iso` available on your
-shell. Pick whichever matches how you use Claude Code; the wrapper
-behaviour is identical either way.
+There are two ways to make `claude-iso` available on your shell; the
+wrapper behaviour is identical either way. **Under the secure setup, use
+the global install.** Your shell rc file sources the script outside every
+sandbox, at each login, so the copy it reads must be one no agent can
+change: a framework checkout, a pinned snapshot inside your tracker repo
+and `~/.cache/apache-magpie/framework/` are all writable to the agents
+you run there. The global copy sits in `~/.claude/agent-isolation/`,
+outside every workspace. Claude Code's sandboxed commands cannot write
+it, and the `Edit(~/.claude/agent-isolation/**)` deny rule keeps it out
+of Claude Code's file tools. That rule is Claude Code's own: Codex,
+Goose, Antigravity, OpenCode and Kiro keep their writes inside the
+workspace with their own sandboxes, while Pi asks before a native write
+outside the working folder, and Cursor, Copilot and Aider rely on their
+per-write approval prompt, so never approve a write to that folder
+there. Copy it once, from a
+checkout whose `tools/agent-isolation/agent-iso.sh` you have checked
+against upstream (`git diff origin/main -- tools/agent-isolation/agent-iso.sh`
+shows nothing).
 
 Both take the script from a directory that holds the framework's `tools/agent-isolation/`:
 a framework checkout, a pinned snapshot (`<your-tracker>/.apache-magpie/`),
@@ -1721,7 +1738,10 @@ The [`setup-isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-
 **Per-repo install** — source the script directly from the
 framework checkout. Simplest, always tracks the wrapper version in
 the repo (so a `git pull` of the framework updates the wrapper),
-but only works on hosts where the framework path resolves.
+but only works on hosts where the framework path resolves, and only
+for a checkout no agent works in: whatever an agent writes to that
+file runs in your next login shell, outside the sandbox. Not for the
+secure setup.
 
 ```bash
 # ~/.bashrc or ~/.zshrc
@@ -3534,10 +3554,14 @@ the agent's own rules:
     "Edit(~/.claude/CLAUDE.md)", "Edit(~/.claude-config/CLAUDE.md)",
     "Edit(~/.claude/settings.json)", "Edit(~/.claude-config/settings.json)",
     "Edit(~/.claude/scripts/**)", "Edit(~/.claude-config/scripts/**)",
-    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)"
+    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)",
+    "Edit(~/.claude/agent-isolation/**)"
   ]
 }
 ```
+
+`~/.claude/agent-isolation/` holds the global copy of the clean-env
+wrapper, which your shell rc file sources outside the sandbox.
 
 Name both the `~/.claude/` path and the sync-repo path it links to.
 Hook scripts and git hooks run outside the sandbox, so an edit to them

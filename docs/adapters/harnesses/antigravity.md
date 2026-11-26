@@ -106,7 +106,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
 5. **Validate and launch.** Lint the merged files, then start a new session through the wrapper and complete [Verify](#verify).
 
 ```bash
-source "<framework>/tools/agent-isolation/agent-iso.sh"
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
   --antigravity ~/.gemini/antigravity-cli/settings.json \
   --antigravity-hooks ~/.gemini/config/hooks.json

@@ -108,7 +108,7 @@ See the [spec-loop guide](../../../tools/spec-loop/README.md) for full options.
 To isolate sensitive tokens and run Cursor under the standard Magpie credential policy:
 
 ```bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso cursor .
 ```
 

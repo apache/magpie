@@ -125,7 +125,7 @@ is Magpie-owned; hand edits are shown before replacement.
 For the clean-environment layer on Linux or macOS:
 
 ~~~bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso codex
 ~~~
 

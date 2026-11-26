@@ -237,7 +237,7 @@ For deployments requiring absolute privacy or air-gapped isolation:
 To ensure local LLM execution does not inadvertently access ambient environment secrets:
 
 ```bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso opencode --model llama3.3:70b
 ```
 
