@@ -290,8 +290,13 @@ def _under(path: str, prefixes: Sequence[str]) -> bool:
 
 
 #: The forge's compare of the pull request's base and head: every changed file
-#: and the head commit it compared.
-_COMPARE_JQ = "{files: [.files[]?.filename], head: (.commits | last | .sha), total: .files | length}"
+#: and the head commit it compared. A renamed or copied file contributes its old
+#: path too, so moving a file out of a path outside `published_paths` counts as
+#: changing that path.
+_COMPARE_JQ = (
+    "{files: [.files[]? | .filename, (.previous_filename // empty)], "
+    "head: (.commits | last | .sha), total: .files | length}"
+)
 #: GitHub's compare lists at most this many files; a longer list is incomplete.
 _COMPARE_FILE_LIMIT = 300
 

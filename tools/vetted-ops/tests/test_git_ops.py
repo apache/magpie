@@ -1402,6 +1402,10 @@ def test_pr_create_lets_a_published_records_identifier_through_where_the_policy_
         _pr(git, wpolicy, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
     assert [any("/compare/" in a for a in call) for call in fake.calls] == [True, False]
     assert "repos/acme/project/compare/main...me:topic" in fake.calls[0]
+    # A renamed file's old path counts as changed too, so a move out of a path
+    # outside `published_paths` is caught.
+    jq = fake.calls[0][fake.calls[0].index("--jq") + 1]
+    assert ".previous_filename" in jq
 
 
 @pytest.mark.parametrize(
