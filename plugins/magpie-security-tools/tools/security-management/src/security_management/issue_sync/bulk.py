@@ -27,10 +27,15 @@ a tracker that is also CVE-affecting for a content change.
 
 `parse_reply` reads the merged confirmation: `all`, `<N>:all`,
 `<N>:1,3,5`, `<N>:skip`, `<N>:edit <item>: <value>`, `force-sync <N>` (a
-pre-flight-skipped tracker only), `cancel` / `none`. Clauses split on `;`
-and new lines. A tracker or item the proposal does not carry, two
-dispositions for one tracker, or free text makes the reply `ambiguous`:
-nothing applies.
+pre-flight-skipped tracker only), `summary` / `summary:skip` (approve or drop
+the state-summary email that replaced the nudges; only when `summary` is
+true), `cancel` / `none`. Clauses split on `;` and new lines. A tracker or item the proposal
+does not carry, two dispositions for one tracker, `summary:…` with no
+summary in the proposal, or free text makes the reply `ambiguous`: nothing
+applies, and so does an empty reply. `summary` comes back `draft` only when
+the reply approved it (`all`, or an explicit `summary`), to be shown for its
+own confirmation after the apply and the end-of-sync sweep; any other reply
+gives `skip`, and there is null when the proposal carried none.
 """
 
 from __future__ import annotations
@@ -86,6 +91,7 @@ _TRACKER = re.compile(r"^#?(?P<n>\d+)\s*:\s*(?P<rest>.+)$", re.DOTALL)
 _FORCE = re.compile(r"^force-sync\s+(?P<list>#?\d+(?:(?:\s*,\s*|\s+)#?\d+)*)$", re.IGNORECASE)
 _ITEMS = re.compile(r"^\d+(?:(?:\s*,\s*|\s+)\d+)*$")
 _EDIT = re.compile(r"^edit\s+(?P<item>\d+)\s*:\s*(?P<value>.+)$", re.IGNORECASE | re.DOTALL)
+_SUMMARY = re.compile(r"^summary\s*(?::\s*(?P<rest>.*))?$", re.IGNORECASE)
 
 
 def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -98,6 +104,20 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
     skip: list[int] = []
     ambiguous: list[str] = []
     everything = False
+    has_summary = bool(data.get("summary"))
+    summary: str | None = None
+    summary_set = False
+    if not reply:
+        return {
+            "ok": True,
+            "action": "ambiguous",
+            "apply": {},
+            "edits": [],
+            "force_sync": [],
+            "skip": [],
+            "ambiguous": [""],
+            "summary": None,
+        }
 
     def take(number: int, items: list[int], token: str) -> None:
         if number in plan or number in skip:
@@ -115,7 +135,16 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
                 "force_sync": [],
                 "skip": [],
                 "ambiguous": [],
+                "summary": "skip" if has_summary else None,
             }
+        wanted = _SUMMARY.match(clause)
+        if wanted:
+            rest = (wanted.group("rest") or "all").strip().lower()
+            if not has_summary or summary_set or rest not in {"all", "skip"}:
+                ambiguous.append(clause)
+            else:
+                summary, summary_set = ("skip" if rest == "skip" else "draft"), True
+            continue
         if _ALL.match(clause):
             everything = True
             continue
@@ -160,6 +189,7 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
             "force_sync": [],
             "skip": [],
             "ambiguous": ambiguous,
+            "summary": None,
         }
     if everything:
         for number, items in proposal.items():
@@ -167,6 +197,8 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
                 plan.setdefault(number, items)
     for change in edits:
         plan.setdefault(int(change["tracker"]), proposal[int(change["tracker"])])
+    if has_summary and not summary_set:
+        summary = "draft" if everything else "skip"
     action = "apply" if plan else ("force_sync" if force else "none")
     return {
         "ok": True,
@@ -176,4 +208,5 @@ def parse_reply(data: Mapping[str, Any]) -> dict[str, Any]:
         "force_sync": sorted(force),
         "skip": sorted(skip),
         "ambiguous": [],
+        "summary": summary,
     }

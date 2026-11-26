@@ -212,7 +212,8 @@ publication, with a human gate and an audit-log entry at every step.
   lists flagged), writes the batched pre-flight read and applies the
   no-op rule table (never skipping an explicitly named tracker), sorts
   the subagent reports into the CVE-affecting and non-CVE-affecting
-  buckets (the `allocated → review-ready` push riding the latter), parses
+  buckets (the `allocated → review-ready` push riding the latter), collapses
+  many team nudges into one state-summary email to the private list, parses
   the single and bulk confirmation forms, checks the proposal's surfaces
   against the Guardrails (reporter CVSS, other ASF projects, link forms)
   and renders the recap. It also resolves the security CC through the
@@ -622,6 +623,19 @@ publication, with a human gate and an audit-log entry at every step.
   (to drop a reference that must no longer appear) and
   `--allow-product-change` (only while the record is still `DRAFT`) are
   used only after the user confirms.
+- **Many team nudges become one state summary.**
+  A team nudge is the per-tracker comment `security-issue-sync` proposes when a triage proposal or a question to named team members has gone unanswered for `nudge_after_days` (default 7).
+  In bulk mode, when at least `nudge_summary_threshold` trackers (default 5; `off` never) would get one, none does:
+  `issue-sync nudge-summary` collapses them and the run proposes one plain-text state-summary email instead, grouped as needs a decision, fix work needed, in flight, waiting on the release manager, and upcoming deadlines.
+  It goes only to the private `<security-list>` (a missing or public address is refused), as a new thread, never sent;
+  it is rendered after the apply and the end-of-sync sweep, confirmed like any other draft, and carries only each tracker's title with its full URL, the one-line question, names without `@`, release titles and dates.
+  A handle in the operator's `do_not_ping` (the personal `user.md`, never committed config) is never named, and nothing shows that anyone was left out.
+  Only `all` or an explicit `summary` in the bulk reply keeps it (an empty reply is ambiguous); once kept, the post-apply rendering keeps the collapse even if the apply left fewer candidates.
+  It counts pre-flight-skipped trackers from their pre-flight data, lists no closed, announced or closing-disposition tracker, scrubs record IDs, bare references and `@` from titles and questions, uses only the tracker's own URLs, and is never created while its check is not clean.
+  The single-tracker nudge is a standalone comment behind a `team-nudge` marker, posted at most once per question.
+  The recap reports how many nudges the draft replaced.
+  The threshold and `nudge_after_days` live in the `security-issue-sync.md` override file
+  ([design](../../../docs/designs/2026-11-26-issue-sync-bulk-summary-email.md)).
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where

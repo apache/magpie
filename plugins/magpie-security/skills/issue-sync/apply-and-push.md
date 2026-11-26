@@ -110,6 +110,9 @@ Use:
 
   Capture the comment URL (POST or PATCH) for the Step 6 recap.
   Before posting or PATCHing, apply the rollup entry's bare-name → `@`-handle scrub to the resolved body, so the `RM_HANDLE` substitution notifies the release manager.
+- **Team nudge comment:** write the body (first line `<!-- apache-magpie: team-nudge v1 -->`, then the one-line question, the link to the question comment and the `@`-mentions, minus `do_not_ping`) to a temp file and POST it:
+  `gh issue comment <N> --repo <tracker> --body-file <tmpfile>`.
+  Never PATCH an earlier nudge; a new question gets a new nudge. Add a one-line rollup entry linking the posted comment.
 - **Publication-ready notification comment:** same recipe as the hand-off comment above (same variant decision, same POST-vs-PATCH logic, same scrub), but loading
   `tools/<cve-tool>/release-manager-publication-comment-oauth-pushed.md`
   or `tools/<cve-tool>/release-manager-publication-comment.md`.
@@ -654,5 +657,9 @@ is the confirmed end-of-sync behaviour and does **not** need separate per-item c
 Anything that **creates** state (a new milestone, an ambiguous release-date choice) or posts an outbound message (the guard note `@`-mentioning the RM)
 still follows the skill's propose-before-apply rule (Golden rule 1).
 The Step 6 recap always lists what the sweep moved (column, milestone, assignee) per tracker.
+
+**Then, in bulk mode, the state summary.** When the bulk confirmation kept a state summary in place of the team nudges,
+it is rendered from the state this sweep leaves, confirmed and drafted to `<security-list>` as a new thread now, before the recap:
+[`bulk-mode.md` step 6](bulk-mode.md#orchestrator-responsibilities).
 
 ---
