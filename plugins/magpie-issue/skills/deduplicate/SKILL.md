@@ -356,6 +356,9 @@ If `.magpie-issue-decision-<target>.json` is present with `status: "curated"` or
      outside the two invocation arguments, do **not** close unverified
      issues; surface them separately as candidates for their own
      `issue-deduplicate` run.
+   - Otherwise (the decision does not drop the other argument issue), do
+     not use it: say so and fall back to the CLI arguments, or stop and
+     ask the maintainer.
 4. If no decision file is present or it was bypassed, fall back to the CLI arguments `<kept>` and `<duplicate>`.
 
 **Closing comment for the dropped issue.** This comment must:

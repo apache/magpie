@@ -283,16 +283,30 @@ export async function classifyWriteTarget($: any, path: string): Promise<WriteTa
 }
 
 /**
+ * Derives the sibling decision file path from a candidates file path.
+ */
+export function getDecisionPath(candidatesPath: string, targetIssue: number): string {
+  if (/\.magpie-issue-candidates-\d+\.json$/.test(candidatesPath)) {
+    return candidatesPath.replace(
+      /\.magpie-issue-candidates-\d+\.json$/,
+      `.magpie-issue-decision-${targetIssue}.json`
+    );
+  }
+  return `.magpie-issue-decision-${targetIssue}.json`;
+}
+
+/**
  * Safely writes a decision file to disk, refusing to follow symlinks or non-regular files,
  * and ensuring the source candidates file exists.
  */
 export async function safeWriteDecisionFile(
   $: any,
   targetIssue: number,
-  content: string
+  content: string,
+  candidatesPath?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const candidatePath = `.magpie-issue-candidates-${targetIssue}.json`;
-  const decisionPath = `.magpie-issue-decision-${targetIssue}.json`;
+  const candidatePath = candidatesPath || `.magpie-issue-candidates-${targetIssue}.json`;
+  const decisionPath = getDecisionPath(candidatePath, targetIssue);
 
   try {
     let candidateExists = false;
@@ -330,9 +344,12 @@ export async function safeWriteDecisionFile(
  */
 export async function invalidateDecisionFile(
   $: any,
-  targetIssue: number
+  targetIssue: number,
+  candidatesPath?: string
 ): Promise<void> {
-  const decisionPath = `.magpie-issue-decision-${targetIssue}.json`;
+  const decisionPath = candidatesPath
+    ? getDecisionPath(candidatesPath, targetIssue)
+    : `.magpie-issue-decision-${targetIssue}.json`;
   try {
     // Only an existing regular file is overwritten; a missing path needs no
     // invalidation, and a link or anything else is left alone.
@@ -399,12 +416,13 @@ export async function updateDuplicatePickerState(
         const syncResult = await safeWriteDecisionFile(
           $,
           latest.targetIssue,
-          JSON.stringify(decision, null, 2)
+          JSON.stringify(decision, null, 2),
+          latest.candidatesPath
         );
 
         if (!syncResult.success) {
           // If write failed, record syncError on state and invalidate file on disk
-          await invalidateDecisionFile($, latest.targetIssue);
+          await invalidateDecisionFile($, latest.targetIssue, latest.candidatesPath);
           await update($, duplicatePickerState, (prev: any) => {
             if (!prev) return null;
             return {
@@ -1006,16 +1024,25 @@ export async function hydrateCandidatesFromFile($: any, filePath: string): Promi
       currentState.candidates &&
       currentState.candidates.length > 0
     ) {
-      // Content hash and target are identical; skip re-hydration to preserve in-flight curation
+      // Same-hash re-hydration still starts a new run: invalidate any leftover
+      // decision file on disk so Step 2 cannot reuse it without a new click.
+      await invalidateDecisionFile($, payload.target_issue, filePath);
+      if (currentState.candidatesPath !== filePath) {
+        await setDuplicatePickerState($, {
+          ...currentState,
+          candidatesPath: filePath,
+        });
+      }
       return true;
     }
 
     // Fresh hydration: invalidate any leftover decision file from a prior or cancelled run
-    await invalidateDecisionFile($, payload.target_issue);
+    await invalidateDecisionFile($, payload.target_issue, filePath);
 
     const state: DuplicatePickerState = {
       ...createStateFromPayload(payload),
       candidatesSha256,
+      candidatesPath: filePath,
     };
     await setDuplicatePickerState($, state);
 
@@ -1087,14 +1114,27 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
       if (match && match[1]) {
         const targetIssue = parseInt(match[1], 10);
         const fileName = `.magpie-issue-candidates-${targetIssue}.json`;
+        let targetPath = fileName;
+        try {
+          const cwd = await $.session.cwd();
+          const cwdNorm = typeof cwd === 'string' ? normalizeAbsolutePath(cwd) : null;
+          if (cwdNorm && cwdNorm !== '/') {
+            const absPath = `${cwdNorm}/${fileName}`;
+            if (await $.fs.exists(absPath)) {
+              targetPath = absPath;
+            }
+          }
+        } catch {
+          // Fall back to relative path when $.session.cwd() is unavailable
+        }
         let exists = false;
         try {
-          exists = await $.fs.exists(fileName);
+          exists = await $.fs.exists(targetPath);
         } catch {
           exists = false;
         }
         if (exists) {
-          await hydrateCandidatesFromFile($, fileName);
+          await hydrateCandidatesFromFile($, targetPath);
         }
       }
     } catch {

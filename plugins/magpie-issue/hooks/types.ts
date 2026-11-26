@@ -67,6 +67,7 @@ export interface DuplicatePickerState {
   selectedKeptIssue: number | null;
   dismissedIssues: number[];
   candidatesSha256?: string | null;
+  candidatesPath?: string;
   syncError?: string | null;
 }
 

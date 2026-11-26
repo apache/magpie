@@ -2055,4 +2055,114 @@ describe('Part 2 review hardening: absolute Write paths, symlink reads, fresh in
       throw new Error(`expected latest reviewing state on disk, got ${JSON.stringify(onDisk)}`);
     }
   });
+
+  test('hydrateCandidatesFromFile invalidates leftover decision file on same-hash early return', async () => {
+    const candidatePayload = JSON.stringify({
+      schema_version: 1,
+      target_issue: 101,
+      target_title: 'Same Hash Stale Test',
+      candidates: [{ issue_number: 100, title: 'Earlier', author: 'alice' }],
+    });
+    const files: Record<string, string> = {
+      '.magpie-issue-candidates-101.json': candidatePayload,
+    };
+    const test$ = createMockEngine({
+      fs: {
+        exists: async (p: string) => p in files,
+        stat: async (p: string) =>
+          p in files
+            ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+            : (() => {
+                throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+              })(),
+        read: async (p: string) => files[p] ?? '',
+        write: async (p: string, c: string) => {
+          files[p] = c;
+        },
+      },
+    });
+
+    const firstOk = await hydrateCandidatesFromFile(test$, '.magpie-issue-candidates-101.json');
+    if (!firstOk) {
+      throw new Error('expected initial hydration to succeed');
+    }
+    // Simulate a prior run's decision left on disk before cleanup
+    files['.magpie-issue-decision-101.json'] = JSON.stringify({
+      schema_version: 1,
+      target_issue: 101,
+      status: 'curated',
+      kept_issue: 101,
+      dropped_issues: [100],
+      dismissed_issues: [],
+    });
+
+    const secondOk = await hydrateCandidatesFromFile(test$, '.magpie-issue-candidates-101.json');
+    if (!secondOk) {
+      throw new Error('expected same-hash re-hydration to succeed');
+    }
+    const afterRehydrate = JSON.parse(must(files['.magpie-issue-decision-101.json']));
+    if (afterRehydrate.invalidated !== true || afterRehydrate.status !== 'reviewing') {
+      throw new Error(
+        `expected same-hash re-hydration to invalidate leftover decision file, got ${JSON.stringify(afterRehydrate)}`
+      );
+    }
+  });
+
+  test('Write hook from session.root() writes and invalidates decision beside absolute candidatesPath when cwd is a subdir', async () => {
+    const candidatePayload = JSON.stringify({
+      schema_version: 1,
+      target_issue: 102,
+      target_title: 'Root vs Cwd Test',
+      candidates: [{ issue_number: 99, title: 'Original', author: 'bob' }],
+    });
+    const absCandidates = '/repo/.magpie-issue-candidates-102.json';
+    const absDecision = '/repo/.magpie-issue-decision-102.json';
+    const files: Record<string, string> = {
+      [absCandidates]: candidatePayload,
+    };
+    const test$ = createMockEngine({
+      session: {
+        cwd: async () => '/repo/subdir',
+        root: async () => '/repo',
+      },
+      fs: {
+        exists: async (p: string) => p in files,
+        stat: async (p: string) =>
+          p in files
+            ? { kind: 'file', size: 100, mtimeMs: 0, isLink: false }
+            : (() => {
+                throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+              })(),
+        read: async (p: string) => files[p] ?? '',
+        write: async (p: string, c: string) => {
+          files[p] = c;
+        },
+      },
+    });
+
+    await handleWriteToolCall(test$, { file_path: absCandidates }, async () => ({ ok: true }));
+    const hydrated = await getDuplicatePickerState(test$);
+    if (!hydrated || hydrated.candidatesPath !== absCandidates) {
+      throw new Error(`expected candidatesPath ${absCandidates}, got ${hydrated?.candidatesPath}`);
+    }
+
+    await updateDuplicatePickerState(test$, (prev) =>
+      prev ? { ...prev, selectedKeptIssue: 102 } : null
+    );
+
+    const written = JSON.parse(must(files[absDecision]));
+    if (written.status !== 'curated' || written.kept_issue !== 102) {
+      throw new Error(`expected decision written beside ${absCandidates}, got ${JSON.stringify(written)}`);
+    }
+    if ('.magpie-issue-decision-102.json' in files) {
+      throw new Error('did not expect relative decision file in cwd');
+    }
+
+    // Same-hash re-hydration should invalidate the decision file at absDecision
+    await hydrateCandidatesFromFile(test$, absCandidates);
+    const invalidated = JSON.parse(must(files[absDecision]));
+    if (invalidated.invalidated !== true || invalidated.status !== 'reviewing') {
+      throw new Error(`expected ${absDecision} invalidated, got ${JSON.stringify(invalidated)}`);
+    }
+  });
 });
