@@ -537,7 +537,62 @@ up to date:
    - in any project, the MCP tools from
      [`family-mcp-allows.json`](family-mcp-allows.json) for each family
      installed on this machine **but not** in the lock's `plugins`
-     (an adopted family's tools are already committed).
+     (an adopted family's tools are already committed), and not hidden here:
+     leave out a family whose project settings already set it `false`,
+     and one the next part hides.
+
+   **Families enabled for the user but not adopted here** (projects adopted with a marketplace floor, Claude Code).
+   A family enabled in the user-scope `~/.claude/settings.json` loads in every project, floor or not.
+   Absence from the floor never means *disable*: a maintainer may run a family here on purpose
+   (see [`adopt.md` → `magpie-contributor-growth` is not adoptable by default](adopt.md#magpie-contributor-growth-is-not-adoptable-by-default)).
+   So ask, once per family:
+
+   ```bash
+   PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.local_families candidates --project-root "$(git rev-parse --show-toplevel)"
+   ```
+
+   - `"reason": "not-adopted"` → skip this part in silence.
+   - `"reason": "lock-unreadable"` → say in one line that the lock at `path` cannot be parsed, so this check could not run.
+   - `"reason": "user-settings-unreadable"` → **never skip it in silence.**
+     The sandbox usually hides the user-scope settings file at `path` (`$CLAUDE_CONFIG_DIR/settings.json` when that is set),
+     as denied or as missing.
+     Read that file with the harness's own file-read tool (from `setup-upgrade`, a `[bypass]` *Check* item).
+     Never copy it anywhere: it can hold credentials in `env`, hooks and MCP server settings.
+     Pass only its `enabledPlugins` object, wrapped as `{"enabledPlugins": {…}}` (a bare object is refused), on stdin, to `candidates` again:
+     `printf '%s' '{"enabledPlugins": {…}}' | … candidates --project-root … --user-settings -`.
+     If the file does not exist, nothing is enabled at user scope: pass `{"enabledPlugins": {}}` the same way,
+     so nothing is asked but a hide the project has since adopted is still offered under `restore`.
+     If `path` is `null` or the file cannot be read either, say in one line that this check could not run, and why.
+   - `"reason": "project-settings-unreadable"` → say in one line that the project settings file at `path` could not be read,
+     so this check could not run.
+     In a linked worktree it may be the main checkout's: the worktree is granted a read of it only by
+     `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` run from the main checkout,
+     so a denied read there means that run is still due; give the user that command for their own terminal.
+   - Each plugin in `ask` → **keep it here**, or **hide it here**.
+     A hide adds `"<plugin>@apache-magpie": false` under `enabledPlugins` to the proposed local entries.
+     With `"main_checkout": true`, say that the hide also covers this checkout's linked worktrees,
+     which load the main checkout's settings first.
+     Otherwise say that it covers this worktree only: the answer is recorded here, and other worktrees inherit only what the main checkout records.
+   - Each plugin in `apply` was already hidden in another worktree.
+     Add the same `false` entry without asking again, and say so in one line.
+   - Each plugin in `restore` was hidden by Magpie and has been adopted since: that `false` now outranks the committed floor.
+     Propose removing the `"<plugin>@apache-magpie": false` entry from the file `restore_files` names
+     (this checkout's own `.claude/settings.local.json`), and say why in one line.
+   - Each plugin in `restore_in_main` is the same case, but the hide is in the main checkout's settings file (`restore_in_main_files`).
+     Say in one line that it is restored by running this step from the main checkout, where the hide is recorded; propose nothing here.
+     If the main checkout's branch has not adopted the family yet, that run will not offer it either:
+     name the `"<plugin>@apache-magpie": false` entry and the file, for the user to remove by hand if they want it in this worktree now.
+   - Leave each family that is hidden, or that the user chose to hide, out of the MCP allows above.
+   - Record each answer with
+     `python3 -P -m setup_preflight.local_families record --plugin <plugin> --choice keep|disable|restored`
+     (same `PYTHONPATH`, same `--project-root`):
+     a `keep` as soon as the user gives it, since it changes no file;
+     a `disable` (asked or carried over) or a `restored` only once the user confirms the copy in step 4.
+     A `keep` is never asked again; a `disable` is carried to new worktrees;
+     after a `restored`, a family the floor drops again is asked about anew.
+     Answers are written to this checkout's own personal layer and inherited from the main checkout's, never written there.
+   - Never propose a family the checker did not list: it already leaves out the floor, substrate plugins,
+     and every `enabledPlugins` entry a project settings file already sets.
 
 2. **Compare with `.claude/settings.local.json`.** Drop any proposed
    entry the committed `.claude/settings.json` already contains (in the

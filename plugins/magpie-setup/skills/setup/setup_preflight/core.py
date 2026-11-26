@@ -443,6 +443,23 @@ def welcome_findings(root: Path, skill: str) -> list[Finding]:
     return [Finding("family", "welcome", section, facts)]
 
 
+def family_not_adopted_findings(root: Path, skill: str, harness: str | None) -> list[Finding]:
+    """A one-time hint: this skill's family is enabled for the user but not adopted here.
+
+    Claude Code only: the settings the hint is about are Claude Code's.
+    """
+    from . import local_families, welcome
+
+    try:
+        plugin = local_families.hint_due(root, welcome.family_of(skill), harness)
+    except (OSError, ValueError):
+        # An optional hint must not hide the actual setup findings.
+        return []
+    if plugin is None:
+        return []
+    return [Finding("family", "family-not-adopted", "family-not-adopted", {"plugin": plugin})]
+
+
 #: What a linked worktree inherits from its main checkout, and may be granted a read of.
 INHERITED_PATHS = (".apache-magpie-local", ".claude/settings.json", ".claude/settings.local.json")
 

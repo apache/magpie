@@ -223,6 +223,48 @@ python3 -m setup_preflight.welcome enable --family security
 The [`welcome-guide`](../../plugins/magpie-setup/skills/welcome-guide/SKILL.md) skill
 (`/magpie-setup:welcome-guide [<family>]`) is the user-facing way to run `show` and `enable`.
 
+The other `family` finding is `family-not-adopted`, with its rules in the section of the same name.
+It is due once, under Claude Code only, when the invoking skill's family is enabled in the user-scope Claude Code settings
+(`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR/settings.json`) as `magpie-<family>@apache-magpie`,
+the project has adopted Magpie with a marketplace floor (`method: marketplace`) that lacks that family,
+no project settings file names the plugin, and nothing is recorded for it yet.
+`facts.plugin` names the plugin; the agent says so in one line and records `hinted`.
+The hint is best-effort: inside a sandbox that denies the user-scope settings it stays silent,
+and the reconcile step below is what asks.
+The keep-or-hide question itself is asked by
+[`setup update` → Reconcile the local agent settings](../../plugins/magpie-setup/skills/setup/update.md#reconcile-the-local-agent-settings),
+which reads `candidates`:
+
+```bash
+python3 -m setup_preflight.local_families candidates --project-root <worktree> [--user-settings <file>|-]
+python3 -m setup_preflight.local_families record --project-root <worktree> --plugin <plugin> --choice keep|disable|hinted|restored
+```
+
+`candidates` prints `ask` (no decision yet), `apply` (hidden in another worktree, not yet in this one),
+`restore` (hidden here, adopted since: its local `false` would outrank the floor), `restore_in_main` (the same, hidden in the main checkout's settings)
+and `main_checkout` (whether a hide here also reaches this checkout's linked worktrees, which load its settings first),
+or `"applicable": false` with `reason` `not-adopted` (no marketplace floor),
+`lock-unreadable`, `project-settings-unreadable` or `user-settings-unreadable`, each with the file's `path`.
+For the user-scope file the caller reads `path` with its own file-read tool
+and passes back only `{"enabledPlugins": {…}}` on stdin with `--user-settings -`, never a copy of the whole file;
+a bare `enabledPlugins` object is refused.
+A missing user-scope file is unknown too, since a sandbox can make it look missing (masked, or a symlink into a denied directory);
+the caller's own read settles it.
+Settings files are read as regular files only (non-blocking on POSIX), and undecodable bytes or a non-object `enabledPlugins` count as unreadable.
+Only skill families from `families.py` are candidates, so a substrate plugin
+(`magpie-agent-guard`, `magpie-vetted-ops`, `magpie-security-tools`) is never offered for hiding,
+and neither is a plugin a project settings file already names.
+Answers are kept under `local_families.<plugin>` in `reconciled.json`,
+written to this checkout's own layer (`layers.stamp_dir`) and read merged across the personal layers, so a linked worktree also sees its main checkout's:
+`keep` is never asked again, `disable` lists the worktrees it was applied in, and `hinted`, in any layer, never replaces either.
+`record` refuses to rewrite a `reconciled.json` it cannot parse.
+`restore` is offered only for a `false` Magpie applied: the file the effective entry comes from is a `settings.local.json`,
+and a `disable` listing that checkout is recorded in **that checkout's own** stamp.
+A record in a linked worktree's stamp, which its sandbox can write, never vouches for a `false` in the main checkout's settings.
+`restore_files` names the file; `record --choice restored` closes the `disable` once the removal is copied.
+`restore` lists only hides in this checkout's own settings: a hide in the main checkout's, seen from a linked worktree, is listed in `restore_in_main` (file in `restore_in_main_files`)
+and restored by reconciling from the main checkout, so the `restored` record lands in the stamp that holds the `disable`.
+
 Every `reconciled.json` reader merges the personal layers (`layers.merged_stamp`):
 each top-level key, and each entry of a block (a welcome family, say), comes from the first layer holding it,
 so a linked worktree's own stamp adds to its main checkout's instead of hiding it.
