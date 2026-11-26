@@ -682,6 +682,9 @@ def test_the_tools_plugin_ships_every_framework_tool_any_skill_names():
         named |= _framework_tools_named_by(family)
     shipped = {Path(dest).relative_to("tools").as_posix() for dest in mod.SECURITY_TOOLS} | {
         "security-tracker-stats-dashboard/run",
+        # Not a package: the gatherer agent, shipped as a file and copied from the
+        # installed plugin, never from `<framework>` (install Step V.2).
+        "agent-isolation/agents",
     }
     assert named - CHECKOUT_ONLY_TOOLS <= shipped, sorted(named - CHECKOUT_ONLY_TOOLS - shipped)
     assert not CHECKOUT_ONLY_TOOLS & shipped, (
