@@ -77,24 +77,38 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 - **Advisory-records check after cve.org** — Step 1g returned `recheck`: the record went to the site earlier
   (an `advisory-records-merged v1` comment, or a direct-mode `advisory-records v1` comment) and cve.org now lists the CVE `PUBLISHED`.
   Read the site's copy of the record (`gh api repos/<site repo>/contents/<path>?ref=<base> -H 'Accept: application/vnd.github.raw+json'`, or the file in a direct-mode working copy),
-  write it at its path under a scratch directory, and run the planner (no `--apply`) with `--working-copy <that directory> --vcs git`
-  and the record regenerated now: pass `site_recheck: unchanged` for `unchanged`, `differs` for a proposed change, and `failed` when the read fails.
+  write each file the record touches at its path under a scratch directory, and run the planner (no `--apply`) with `--recheck --working-copy <that directory> --vcs git`
+  and the record regenerated now. `--recheck` compares contents, not presence: a JSON file must equal the rendered record,
+  and a page entry must match the entry rendered from it, or the planner reports `unverified`, since a hand-kept page entry cannot be replaced safely.
+  Pass `site_recheck: unchanged` for `unchanged`, `differs` for a proposed change, `unverified` for `unverified`, and `failed` when the read fails.
+  `recheck_unverified` is a blocker: the team compares the entry by hand and records the result with the closing comment below; it is never reported as matching.
   `recheck_unchanged` (*"advisory records: the site record matches the published record"*) proposes one closing status comment, so the site is read once:
   line 1 is the marker
   ```html
   <!-- apache-magpie: advisory-records-recheck v1 -->
   ```
   then `unchanged:` and one sentence saying the site's record matches the published one.
-  **Guard.** Once per tracker: that marker, like the refresh marker below, ends the check, and `closed-announced` returns `done`.
+  **Guard.** Once per tracker: that marker, like the refresh-merged marker below, ends the check, and `closed-announced` returns `done`.
 
-- **Advisory-records refresh** — Step 1g returned `refresh`: the site's record differs from the published one.
+- **Advisory-records refresh** — Step 1g returned `refresh`: the site's record differs from the published one
+  (with `refresh_pr_closed_url` when an earlier refresh pull request was closed without merging: name it in the item).
   **Proposed action.** The same publication as the update above, on the branch `advisory-records/<CVE-ID>-refresh`
-  (`--pr-branch 'advisory-records/{cve_id}-refresh' --pr-title 'Update {cve_id} in the security pages'`), against the real site checkout.
+  (`--pr-branch 'advisory-records/{cve_id}-refresh' --pr-title 'Update {cve_id} in the security pages'`), against the real site checkout;
+  for `refresh_attempt` 2 and later the branch is `advisory-records/<CVE-ID>-refresh-<refresh_attempt>`, since the earlier branch is still on the fork.
   After it succeeds, post a status comment whose line 1 is the marker
   ```html
   <!-- apache-magpie: advisory-records-refresh v1 -->
   ```
-  then one sentence naming the pull request (or the commit). **Guard.** That marker ends the check: never re-propose while a team comment opens with it.
+  then one sentence naming the pull request's full URL (or, in the direct mode, the commit, which ends the check).
+
+- **Advisory-records refresh pull request** — Step 1g follows the latest refresh comment's pull request as it follows the first one:
+  `check_refresh_pr` asks for `gh pr view <refresh_pr_url> --json state,url` (pass `state` as `refresh_pr_state`, or `refresh_pr_lookup_failed: true`);
+  `refresh_pr_open` is an observed-state line, `retry_refresh_lookup` is *"try again next sync"*,
+  a closed unmerged one returns to `refresh` above, and `refresh_pr_merged` proposes a short status comment whose line 1 is the marker
+  ```html
+  <!-- apache-magpie: advisory-records-refresh-merged v1 -->
+  ```
+  then one sentence naming the merged pull request. **Guard.** That marker ends the check: never re-propose while a team comment opens with it.
 
 - **Advisory-records pull request open or closed** — `pr_open` is an observed-state line (*"advisory records: <URL> open"*), not a proposal.
   `pr_closed` is a blocker naming the pull request: propose nothing, neither a new pull request nor a reopen;

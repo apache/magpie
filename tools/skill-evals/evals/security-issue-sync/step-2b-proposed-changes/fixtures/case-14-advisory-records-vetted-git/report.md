@@ -23,7 +23,7 @@ The *CVE-published* reporter notification was already sent on 2026-06-03 (status
 **Advisory records (Step 1g):**
 - `advisory_records` is configured in `projects/myproject/project.md`: `layout: cve-json-file`, `vcs: git`, `branch: main`, `path: security/cves/{cve_id}.json`, `publish: pull-request`, `pull_request.repo: myproject/myproject-site`
 - `user.md → environment.advisory_records_clone` = `~/code/myproject-site`, `advisory_records_fork` = `maya/myproject-site`
-- The secure agent setup is in use; `vetted-op-git --policy-from ~/code/myproject-site policy` reports `upstream = myproject/myproject-site`, `worktree_roots = ['~/.cache/apache-magpie/worktrees/myproject-site']`, `published_terms = ['CVE id', 'CVE']`, and grants `security-issue-sync` the git steps
+- The secure agent setup is in use; `vetted-op-git --policy-from ~/code/myproject-site policy` reports `upstream = myproject/myproject-site`, `worktree_roots = ['~/.cache/apache-magpie/worktrees/myproject-site']`, `published_terms = ['CVE id', 'CVE']`, `published_paths = ['security/cves']`, and grants `security-issue-sync` the git steps
 - No comment carries `<!-- apache-magpie: advisory-records v1 -->` (the project configured `advisory_records` after this advisory was announced)
 - Branch lookup: `gh pr list --repo myproject/myproject-site --head advisory-records/CVE-2026-00006 --state all` returned no pull request (`records_pr_state: NONE`)
 - The `advisory-records` planner (run with `--vetted-git`, without `--apply`) exited `0` with status `proposed`:

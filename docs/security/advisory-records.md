@@ -175,8 +175,9 @@ The planner cannot see an open pull request, since the base branch does not hold
 | … merged | proposes a status comment opening with `<!-- apache-magpie: advisory-records-merged v1 -->` and the ticked security-pages checklist item |
 | … closed without merging | a blocker naming the pull request; nothing is re-proposed until the team decides how to record the CVE (to try again, a team member deletes the status comment, and the operator the branch on the fork and in the working copy) |
 | an `advisory-records-merged v1` comment (or a direct-mode `advisory-records v1` comment), cve.org not `PUBLISHED` yet | done for now |
-| … and cve.org lists the CVE `PUBLISHED` | reads the site's copy of the record (`gh api repos/<site repo>/contents/<path>?ref=<base>`) and runs the planner against it with the record regenerated now: `unchanged` → one closing `advisory-records-recheck v1` comment, so the site is read once; a difference → proposes a refresh, the same publication on a `advisory-records/<CVE-ID>-refresh` branch; a failed read → try again next sync |
-| an `advisory-records-recheck v1` or `advisory-records-refresh v1` comment | done |
+| … and cve.org lists the CVE `PUBLISHED` | reads the site's copy of the record (`gh api repos/<site repo>/contents/<path>?ref=<base>`) and runs the planner against it with `--recheck` and the record regenerated now, which compares contents (a JSON file with the rendered record, a page entry with the entry rendered from it): `unchanged` → one closing `advisory-records-recheck v1` comment, so the site is read once; a difference → proposes a refresh, the same publication on a `advisory-records/<CVE-ID>-refresh` branch; a page entry that does not match → a blocker for the team to compare by hand, never reported as matching; a failed read → try again next sync |
+| an `advisory-records-refresh v1` comment naming a pull request | follows it like the first one: open → waits; merged → proposes the `advisory-records-refresh-merged v1` comment; closed without merging → proposes the refresh again, on `advisory-records/<CVE-ID>-refresh-<N>` |
+| an `advisory-records-recheck v1` or `advisory-records-refresh-merged v1` comment | done |
 
 Both lookups are read-only `gh` calls; a failed lookup proposes nothing and is retried on the next sync.
 
@@ -226,6 +227,9 @@ What makes it possible, and what it keeps apart:
 - **The published identifier passes `git-pr-create`'s scan, nothing else does.** That scan refuses every term the publication guard keeps back before disclosure.
   The site policy sets `[git] published_terms = ["CVE id", "CVE"]`, which only a policy can set and which names nothing beyond the record's identifier,
   so the title and body may name the published CVE while every other term stays refused.
+  The exemption is bound to the records: the policy must also set `[git] published_paths` (the records directory, e.g. `content/security/json`),
+  and `git-pr-create` applies it only when the forge reports that every file the pushed branch changes against the base lies under one of those paths.
+  A branch that touches anything else, as a source-repository change would, gets the normal scan.
 
 `setup config` proposes the operator table, the site policy and the read grant
 ([Step 3a.3](../../plugins/magpie-setup/skills/setup/config.md#step-3a3--your-git-values-for-publishing-secure-setup-only)),

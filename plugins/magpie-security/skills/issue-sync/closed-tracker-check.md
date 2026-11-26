@@ -19,7 +19,7 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason, site_recheck}`
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason, site_recheck, refresh_pr_state, refresh_pr_lookup_failed}`
    and run `<sm> closed-announced`. `comments` are the 1a comments with their `author` and `authorAssociation`;
    `collaborators` is the tracker's collaborator list, for a backend whose comments carry no association.
    Only a comment by the team (`OWNER` / `COLLABORATOR`, or a login in `collaborators`) can carry the state markers below; pass the full collaborator list, since team members with access through a GitHub team show as `MEMBER`.
@@ -51,8 +51,9 @@ With it, `security_pages_reminder_pending` is always `false`: sync proposes the 
 The record normally went to the site already, in the pass that recorded the advisory's announcement ([`post-advisory-records.md`](post-advisory-records.md)); this scan follows it up and catches the trackers that pass did not record.
 `closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists and cve.org has not listed the CVE yet, or the check below is finished), `waiting_for_cve_org` (no record yet and not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`.
 Once cve.org lists a CVE the site already records, it prints `recheck`: compare the site's record with the one regenerated now, as [`post-advisory-records.md`](post-advisory-records.md) describes,
-and pass the result back as `site_recheck` (`unchanged`, `differs`, `failed`), which yields `recheck_unchanged` (propose the closing `advisory-records-recheck v1` comment), `refresh` (propose the refresh) or `retry_recheck` (*"try again next sync"*);
-an `advisory-records-recheck v1` or `advisory-records-refresh v1` comment ends the check, so the site's record is read once.
+and pass the result back as `site_recheck` (`unchanged`, `differs`, `unverified`, `failed`), which yields `recheck_unchanged` (propose the closing `advisory-records-recheck v1` comment), `refresh` (propose the refresh), `recheck_unverified` (a blocker: the entry cannot be compared) or `retry_recheck` (*"try again next sync"*).
+A refresh comment's pull request is then followed like the first one: `check_refresh_pr` (pass `refresh_pr_state`, or `refresh_pr_lookup_failed: true`), then `refresh_pr_open`, `refresh_pr_merged` (propose the `advisory-records-refresh-merged v1` comment), or, closed unmerged, `refresh` again with `refresh_pr_closed_url` and `refresh_attempt`.
+An `advisory-records-recheck v1` or `advisory-records-refresh-merged v1` comment (or a direct-mode refresh comment) ends the check, so the site's record is read once.
 With `advisory_records.publish: pull-request`, pass `advisory_records_publish: pull-request` too; the record then goes through a pull request,
 and the `advisory-records v1` comment names it, so `done` waits for an `advisory-records-merged v1` comment instead.
 `closed-announced` may first ask for that pull request's state, as two plain read-only commands (`<site repo>` is `pull_request.repo`, or the `owner/name` of a GitHub `repository` URL):

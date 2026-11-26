@@ -1257,29 +1257,108 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
         _pr(git, dataclasses.replace(wpolicy, fork_repo=None), repo, workspace, "t", "b")
 
 
+@dataclass
+class FakeForge:
+    """Answers the compare of the pull request's branch, then opens the pull request."""
+
+    files: list[str]
+    head: str
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        if any("/compare/" in a for a in argv):
+            out = json.dumps({"files": self.files, "head": self.head, "total": len(self.files)})
+            return subprocess.CompletedProcess(argv, 0, out, "")
+        return subprocess.CompletedProcess(argv, 0, "https://github.com/acme/project/pull/7\n", "")
+
+
+def _site(wpolicy: LocalPolicy, repo: Path) -> LocalPolicy:
+    _git(repo, "branch", "-f", "topic", "HEAD")
+    return dataclasses.replace(wpolicy, published_terms=("CVE id", "CVE"), published_paths=("security/json",))
+
+
 def test_pr_create_lets_a_published_records_identifier_through_where_the_policy_says(
     git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
 ) -> None:
     """A site policy names `published_terms`: the record's identifier passes, every other term stays refused."""
-    fake = FakeGh()
+    site = _site(wpolicy, repo)
+    fake = FakeForge(["security/json/CVE-2026-1234.json"], _git(repo, "rev-parse", "topic"))
     git.gh_runner = fake
-    site = dataclasses.replace(wpolicy, published_terms=("CVE id", "CVE"))
     body = "Adds the published record of CVE-2026-1234:\n\n- `security/json/CVE-2026-1234.json`\n"
     assert "pull/7" in _pr(git, site, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
     with pytest.raises(GitRefused, match=r"never published.*advisory"):
         _pr(git, site, repo, workspace, "Add CVE-2026-1234", "the advisory")
     with pytest.raises(GitRefused, match="never published"):
         _pr(git, wpolicy, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
+    assert [any("/compare/" in a for a in call) for call in fake.calls] == [True, False]
+    assert "repos/acme/project/compare/main...me:topic" in fake.calls[0]
+
+
+@pytest.mark.parametrize(
+    ("files", "head", "reason"),
+    [
+        pytest.param(
+            ["security/json/a.json", "src/app.py"], None, "also changes src/app.py", id="outside-file"
+        ),
+        pytest.param(["security/jsonx/a.json"], None, "also changes", id="prefix-is-a-directory"),
+        pytest.param([], None, "no changed file", id="no-files"),
+        pytest.param(["security/json/a.json"], "0" * 40, "not at the local branch", id="other-head"),
+    ],
+)
+def test_pr_create_binds_the_exemption_to_the_records_paths(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    files: list[str],
+    head: str | None,
+    reason: str,
+) -> None:
+    """A branch that changes anything else gets the normal scan: a source repository cannot use the exemption."""
+    site = _site(wpolicy, repo)
+    fake = FakeForge(files, head or _git(repo, "rev-parse", "topic"))
+    git.gh_runner = fake
+    with pytest.raises(GitRefused, match=f"exemption does not apply.*{reason}"):
+        _pr(git, site, repo, workspace, "Add CVE-2026-1234 to the security pages", "Adds a record.\n")
+    assert len(fake.calls) == 1  # the compare only; nothing opened
+
+
+def test_pr_create_without_an_exempted_term_asks_the_forge_nothing(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    site = _site(wpolicy, repo)
+    fake = FakeForge(["src/app.py"], "x")
+    git.gh_runner = fake
+    assert "pull/7" in _pr(git, site, repo, workspace, "feat: neat thing", "Does a neat thing.\n")
     assert len(fake.calls) == 1
 
 
 def test_published_terms_name_only_a_records_identifier(tmp_path: Path, approved: Path) -> None:
     checkout = str(Path(os.path.realpath(tmp_path)))
-    policy = git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["CVE id", "CVE"]}))
+    table = {
+        "checkouts": [checkout],
+        "published_terms": ["CVE id", "CVE"],
+        "published_paths": ["security/json/"],
+    }
+    policy = git_ops.git_policy(_config(table))
     assert policy.published_terms == ("CVE id", "CVE")
+    assert policy.published_paths == ("security/json",)
     assert git_ops.git_policy(_config({"checkouts": [checkout]})).published_terms == ()
     with pytest.raises(ConfigError, match="published_terms may name only"):
-        git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["advisory"]}))
+        git_ops.git_policy(_config({**table, "published_terms": ["advisory"]}))
+    with pytest.raises(ConfigError, match="needs published_paths"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["CVE"]}))
+    with pytest.raises(ConfigError, match="only with published_terms"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "published_paths": ["security"]}))
+
+
+@pytest.mark.parametrize("raw", ["/abs", "a/../b", "./a", "a/*", "a/[b]", "", "a//b"])
+def test_published_paths_are_relative_glob_free_prefixes(tmp_path: Path, approved: Path, raw: str) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    table = {"checkouts": [checkout], "published_terms": ["CVE"], "published_paths": [raw]}
+    with pytest.raises(ConfigError, match=r"published_paths (entries|must)"):
+        git_ops.git_policy(_config(table))
 
 
 def test_the_operator_file_cannot_let_terms_through(tmp_path: Path, approved: Path) -> None:

@@ -73,7 +73,9 @@ RECORDS_REFRESH = "<!-- apache-magpie: advisory-records-refresh v1 -->"
 RECORDS_RECHECKED = "<!-- apache-magpie: advisory-records-recheck v1 -->"
 #: What the caller found comparing the site's copy of the record with the
 #: regenerated one, once cve.org lists the CVE (`site_recheck`).
-RECHECK_RESULTS = frozenset({"unchanged", "differs", "failed"})
+RECHECK_RESULTS = frozenset({"unchanged", "differs", "unverified", "failed"})
+RECORDS_REFRESH_MERGED = "<!-- apache-magpie: advisory-records-refresh-merged v1 -->"
+REFRESH_PR_STATES = frozenset({"OPEN", "MERGED", "CLOSED"})
 _PULL_URL = re.compile(r"https://[^\s<>()\[\]`]+/pull/\d+")
 PR_STATES = frozenset({"OPEN", "MERGED", "CLOSED", "NONE"})
 NOTIFIED = re.compile(r"CVE-published reporter notification drafted", re.IGNORECASE)
@@ -260,13 +262,44 @@ def _records_recheck(data: Mapping[str, Any], comments: list[str], out: dict[str
     """Once cve.org lists the CVE, compare the site's record with the regenerated one, once.
 
     The record went to the site when the advisory was announced; what cve.org
-    publishes can still differ from it. A refresh is proposed only when the
-    contents differ, and its status comment (`advisory-records-refresh v1`)
-    ends the check; a matching record is recorded once with the
-    `advisory-records-recheck v1` comment (`recheck_unchanged`), which ends it
-    too. Returns a refusal for input it cannot act on.
+    publishes can still differ from it. A matching record is recorded once with
+    the `advisory-records-recheck v1` comment (`recheck_unchanged`), which ends
+    the check. A differing one is refreshed: the refresh's status comment
+    (`advisory-records-refresh v1`) names its pull request, which is followed
+    like the first one: open waits, merged asks for the
+    `advisory-records-refresh-merged v1` comment that ends the check, closed
+    unmerged proposes the refresh again. A page entry the check cannot compare
+    (`unverified`) is a blocker, never "unchanged". Returns a refusal for input
+    it cannot act on.
     """
-    if any(t.lstrip().startswith((RECORDS_REFRESH, RECORDS_RECHECKED)) for t in comments):
+    if any(t.lstrip().startswith((RECORDS_RECHECKED, RECORDS_REFRESH_MERGED)) for t in comments):
+        return None
+    refreshes = [t for t in comments if t.lstrip().startswith(RECORDS_REFRESH)]
+    if refreshes:
+        recorded = _PULL_URL.search(refreshes[-1])
+        if recorded is None:
+            return None  # a direct-mode refresh: committed, done
+        url = recorded.group(0)
+        if data.get("refresh_pr_lookup_failed"):
+            out["advisory_records"] = "retry_refresh_lookup"
+            out["refresh_pr_url"] = url
+            out["note"] = "advisory records: refresh pull-request lookup failed — try again next sync"
+            return None
+        raw = one_line(data.get("refresh_pr_state")).upper()
+        if not raw:
+            out["advisory_records"] = "check_refresh_pr"
+            out["refresh_pr_url"] = url
+            return None
+        if raw not in REFRESH_PR_STATES:
+            return f"refresh_pr_state {raw!r} is none of {', '.join(sorted(REFRESH_PR_STATES))}"
+        if raw == "CLOSED":
+            # Closed without merging: the site still holds the old record.
+            out["advisory_records"] = "refresh"
+            out["refresh_pr_closed_url"] = url
+            out["refresh_attempt"] = len(refreshes) + 1
+        else:
+            out["advisory_records"] = "refresh_pr_open" if raw == "OPEN" else "refresh_pr_merged"
+            out["refresh_pr_url"] = url
         return None
     raw = one_line(data.get("site_recheck")).lower()
     if not raw:
@@ -279,6 +312,14 @@ def _records_recheck(data: Mapping[str, Any], comments: list[str], out: dict[str
         out["note"] = "advisory records: the site record could not be read — try again next sync"
     elif raw == "differs":
         out["advisory_records"] = "refresh"
+        out["refresh_attempt"] = 1
+    elif raw == "unverified":
+        out["advisory_records"] = "recheck_unverified"
+        out["blockers"].append(
+            "advisory records: the site's entry differs from the one rendered from the published record "
+            "and cannot be replaced automatically; compare it by hand, then record the result with an "
+            "advisory-records-recheck v1 comment"
+        )
     else:
         out["advisory_records"] = "recheck_unchanged"
         out["note"] = "advisory records: the site record matches the published record"

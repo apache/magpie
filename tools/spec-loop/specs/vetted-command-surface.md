@@ -475,7 +475,11 @@ title on the command line so the confirmation shows it, the body from a
 workspace file, both refused when they hold a never-publish term from
 `forbidden_terms.py`, except the ones the policy's `[git] published_terms`
 names: only `CVE id` and `CVE`, a project key the operator file cannot set, for
-the policy of a site repository whose pull requests add records already public).
+the policy of a site repository whose pull requests add records already public;
+it requires `[git] published_paths`, relative glob-free path prefixes, and
+applies only when the forge's compare of the pushed branch against `pr_base`
+lists every changed file under one of them, with the branch's head at the local
+branch's commit, so a source-repository change never gets it).
 `--policy-from <absolute dir>` discovers the policy from that directory instead
 of the working directory; only an approved policy acts either way, so it lets a
 tracker session reach a site repository's own policy without a `cd` that would

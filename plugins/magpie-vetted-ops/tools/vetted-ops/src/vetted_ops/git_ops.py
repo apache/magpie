@@ -245,6 +245,9 @@ class GitPolicy:
     #: from `PUBLISHABLE_TERMS` only: a site repository whose pull requests add
     #: records that are public by the time they are opened.
     published_terms: tuple[str, ...] = ()
+    #: Relative path prefixes the `published_terms` exemption is bound to: it
+    #: applies only to a branch whose every changed file lies under one of them.
+    published_paths: tuple[str, ...] = ()
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
@@ -257,6 +260,77 @@ class GitPolicy:
 #: that names one is for a repository whose pull requests carry records already
 #: public (the project's security records site), never for its source repository.
 PUBLISHABLE_TERMS = frozenset({"CVE id", "CVE"})
+
+
+_GLOB_CHARS = frozenset("*?[]{}\\")
+
+
+def _published_path(raw: str) -> str:
+    """A relative, glob-free path prefix, without ``.``/``..`` parts, normalised without its trailing ``/``."""
+    path = raw.strip().rstrip("/")
+    parts = path.split("/")
+    if (
+        not path
+        or path.startswith("/")
+        or any(part in ("", ".", "..") for part in parts)
+        or any(c in _GLOB_CHARS or unicodedata.category(c).startswith("C") for c in path)
+    ):
+        raise ConfigError(
+            f"[git] published_paths entries must be relative path prefixes without globs or '..', got {raw!r}"
+        )
+    return path
+
+
+def _under(path: str, prefixes: Sequence[str]) -> bool:
+    return any(path == prefix or path.startswith(prefix + "/") for prefix in prefixes)
+
+
+#: The forge's compare of the pull request's base and head: every changed file
+#: and the head commit it compared.
+_COMPARE_JQ = "{files: [.files[]?.filename], head: (.commits | last | .sha), total: .files | length}"
+#: GitHub's compare lists at most this many files; a longer list is incomplete.
+_COMPARE_FILE_LIMIT = 300
+
+
+def _published_paths_only(git: Git, policy: GitPolicy, worktree: Path, branch: str) -> None:
+    """Refuse unless every file the branch changes against ``pr_base`` is under ``published_paths``.
+
+    The forge answers, for the branch as pushed to the fork, and its head must
+    be the local branch's: the exemption follows what the pull request will
+    show, never a ref the agent can move.
+    """
+    assert policy.fork_repo is not None
+    local = git.run(worktree, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}").strip()
+    fork_owner = policy.fork_repo.split("/", 1)[0]
+    argv = [
+        "gh", "api", "--hostname", policy.host, "--method", "GET",
+        f"repos/{policy.upstream_repo}/compare/{policy.pr_base}...{fork_owner}:{branch}",
+        "--jq", _COMPARE_JQ,
+    ]  # fmt: skip
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        answer = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused("the forge's compare of the branch is not JSON") from None
+    files = answer.get("files") if isinstance(answer, dict) else None
+    if not isinstance(files, list) or not files or not all(isinstance(f, str) for f in files):
+        raise GitRefused(
+            "the forge lists no changed file for the branch; the published_terms exemption needs them"
+        )
+    if answer.get("head") != local:
+        raise GitRefused(
+            f"the fork's {branch} is not at the local branch's {local}; push it first, then open the pull request"
+        )
+    if len(files) >= _COMPARE_FILE_LIMIT:
+        raise GitRefused("the branch changes too many files for the forge to list them all")
+    outside = sorted(f for f in files if not _under(f, policy.published_paths))
+    if outside:
+        raise GitRefused(
+            "the published_terms exemption covers only branches that change files under "
+            f"{', '.join(policy.published_paths)}; this one also changes {', '.join(outside[:5])}"
+        )
 
 
 def _absolute_real_dir(raw: object, key: str) -> Path:
@@ -394,6 +468,7 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("pr_base", policy.pr_base),
         ("harness_paths", list(policy.harness_paths)),
         ("published_terms", list(policy.published_terms)),
+        ("published_paths", list(policy.published_paths)),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -450,6 +525,13 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
     if not isinstance(pr_base, str) or not _BRANCH.fullmatch(pr_base):
         raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
     published_terms = _str_list(table, "published_terms")
+    published_paths = [_published_path(raw) for raw in _str_list(table, "published_paths")]
+    if published_terms and not published_paths:
+        raise ConfigError(
+            "[git] published_terms needs published_paths: the records directories the exemption is bound to"
+        )
+    if published_paths and not published_terms:
+        raise ConfigError("[git] published_paths applies only with published_terms")
     unknown_terms = sorted(set(published_terms) - PUBLISHABLE_TERMS)
     if unknown_terms:
         raise ConfigError(
@@ -473,6 +555,7 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
         pr_base=pr_base,
         harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
         published_terms=tuple(published_terms),
+        published_paths=tuple(published_paths),
     )
 
 
@@ -2335,13 +2418,24 @@ def pr_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> 
     # any public text are refused here, so a security detail cannot reach the
     # upstream repository through a file the guard does not read. A policy for a
     # repository of published records lets the record's identifier through
-    # (`published_terms`, from `PUBLISHABLE_TERMS` only); every other term stays.
-    hits = sorted(set(_forbidden_hits(title) + _forbidden_hits(body)) - set(policy.published_terms))
+    # (`published_terms`, from `PUBLISHABLE_TERMS` only), and only for a branch
+    # that changes nothing outside `published_paths`; every other term stays.
+    found = set(_forbidden_hits(title) + _forbidden_hits(body))
+    hits = sorted(found - set(policy.published_terms))
     if hits:
         raise GitRefused(
             "the pull request text contains terms that are never published before disclosure: "
             f"{', '.join(hits)}; describe the change in neutral functional terms"
         )
+    exempted = sorted(found & set(policy.published_terms))
+    if exempted and not dry_run:
+        try:
+            _published_paths_only(git, policy, worktree.path, branch)
+        except GitRefused as exc:
+            raise GitRefused(
+                "the pull request text contains terms that are never published before disclosure: "
+                f"{', '.join(exempted)}, and the policy's exemption does not apply: {exc}"
+            ) from None
     head = f"{policy.fork_repo.split('/', 1)[0]}:{branch}"
     argv = [
         "gh",

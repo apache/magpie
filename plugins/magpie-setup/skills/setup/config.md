@@ -425,7 +425,8 @@ The project-wide `[git]` keys and the publishing skills' grants stay in the shar
      (`environment.advisory_records_fork`), and `worktree_roots` a directory the sandbox can write, such as
      `~/.cache/apache-magpie/worktrees/<site name>` (the default `~/.cache/` grant covers it), created first with `mkdir -m 700`;
   2. the site policy, drafted from the README's [second-policy example](../../../../tools/vetted-ops/README.md#configuration)
-     with the site repository as `[repos] upstream` and the project's `workspace`, saved by the user at
+     with the site repository as `[repos] upstream`, the project's `workspace`, and `[git] published_paths` set to the records directory
+     (the directory of `cve_json_file.path`, or of `release_page.path`), saved by the user at
      `<site checkout>/.git/apache-magpie/tools/vetted-ops/config.toml` and approved with a copy into `~/.config/apache-magpie/vetted-ops/`
      (the policy is `Edit`-denied to the agent, as above);
   3. the site checkout in the tracker session's `sandbox.filesystem.allowRead` (in `.claude/settings.local.json`), read-only:

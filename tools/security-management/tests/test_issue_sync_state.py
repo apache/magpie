@@ -511,17 +511,6 @@ _MERGED = team("<!-- apache-magpie: advisory-records-merged v1 -->\ndone")
         ({"site_recheck": "unchanged"}, "recheck_unchanged", "matches"),
         ({"site_recheck": "differs"}, "refresh", None),
         ({"site_recheck": "failed"}, "retry_recheck", "could not be read"),
-        (
-            {
-                "comments": [
-                    team(_RECORDED),
-                    _MERGED,
-                    team("<!-- apache-magpie: advisory-records-refresh v1 -->"),
-                ]
-            },
-            "done",
-            None,
-        ),
     ],
 )
 def test_the_site_record_is_checked_once_cve_org_publishes(capsys, tmp_path, extra, step, noted):
@@ -543,6 +532,65 @@ def test_the_recheck_marker_ends_the_check(capsys, tmp_path):
     )
     data = pr_mode(comments=[team(_RECORDED), _MERGED, outsider])
     assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "recheck"
+
+
+def test_an_entry_the_check_cannot_compare_is_never_unchanged(capsys, tmp_path):
+    data = pr_mode(comments=[team(_RECORDED), _MERGED], site_recheck="unverified")
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == "recheck_unverified"
+    assert any("compare it by hand" in b for b in out["blockers"])
+
+
+_REFRESH_PR = "https://github.com/example/server-site/pull/31"
+_REFRESHED = team(f"<!-- apache-magpie: advisory-records-refresh v1 -->\nOpened {_REFRESH_PR}.")
+
+
+@pytest.mark.parametrize(
+    ("extra", "step", "url_key"),
+    [
+        ({}, "check_refresh_pr", "refresh_pr_url"),
+        ({"refresh_pr_state": "OPEN"}, "refresh_pr_open", "refresh_pr_url"),
+        ({"refresh_pr_state": "merged"}, "refresh_pr_merged", "refresh_pr_url"),
+        ({"refresh_pr_state": "CLOSED"}, "refresh", "refresh_pr_closed_url"),
+        ({"refresh_pr_lookup_failed": True}, "retry_refresh_lookup", "refresh_pr_url"),
+    ],
+)
+def test_a_refresh_pull_request_is_followed_until_it_merges(capsys, tmp_path, extra, step, url_key):
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, _REFRESHED], **extra)
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["advisory_records"] == step
+    assert out[url_key] == _REFRESH_PR
+    if step == "refresh":
+        assert out["refresh_attempt"] == 2
+
+
+def test_the_refresh_merged_marker_or_a_direct_refresh_ends_the_check(capsys, tmp_path):
+    merged = team("<!-- apache-magpie: advisory-records-refresh-merged v1 -->\ndone")
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, _REFRESHED, merged], refresh_pr_state="OPEN")
+    assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "done"
+    direct = team("<!-- apache-magpie: advisory-records-refresh v1 -->\nCommitted.")
+    data = closed(
+        advisory_records_configured=True,
+        comments=[team("<!-- apache-magpie: advisory-records v1 -->"), direct],
+    )
+    assert ok(capsys, tmp_path, "closed-announced", data)["advisory_records"] == "done"
+
+
+def test_the_latest_refresh_is_the_one_followed(capsys, tmp_path):
+    second = "https://github.com/example/server-site/pull/32"
+    again = team(f"<!-- apache-magpie: advisory-records-refresh v1 -->\nOpened {second}.")
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, _REFRESHED, again], refresh_pr_state="CLOSED")
+    out = ok(capsys, tmp_path, "closed-announced", data)
+    assert out["refresh_pr_closed_url"] == second
+    assert out["refresh_attempt"] == 3
+
+
+def test_an_unknown_refresh_state_is_refused(capsys, tmp_path):
+    path = tmp_path / "in.json"
+    data = pr_mode(comments=[team(_RECORDED), _MERGED, _REFRESHED], refresh_pr_state="DRAFT")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert main(["issue-sync", "closed-announced", "--input", str(path)]) == 2
+    assert "refresh_pr_state" in json.loads(capsys.readouterr().out)["refused"]
 
 
 def test_an_unknown_recheck_result_is_refused(capsys, tmp_path):

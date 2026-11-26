@@ -706,9 +706,15 @@ publication, with a human gate and an audit-log entry at every step.
   Step 1g pass then catches trackers announced without it, and, once cve.org
   lists a CVE the site already records, reads the site's copy, re-runs the
   planner against it and proposes a refresh only when the content differs
-  (`recheck` → `site_recheck` → `recheck_unchanged`, `refresh` or `retry_recheck`; an
-  `advisory-records-recheck` comment for a matching record or an
-  `advisory-records-refresh` comment ends the check).
+  (`recheck` → `site_recheck` → `recheck_unchanged`, `refresh`,
+  `recheck_unverified` or `retry_recheck`). The planner's `--recheck`
+  compares contents: a JSON file must equal the rendered record and a page
+  entry the rendered entry, else `unverified`, a blocker never reported as
+  matching. A refresh pull request is followed like the first one (open
+  waits, merged asks for an `advisory-records-refresh-merged` comment, closed
+  unmerged proposes the refresh again on a numbered branch); an
+  `advisory-records-recheck` or `advisory-records-refresh-merged` comment ends
+  the check.
   Under the secure setup, pull-request mode publishes through `vetted-op-git`
   (`--vetted-git`): `git-fetch`, `git-worktree-add` into a sandbox-writable
   worktree root, the planner's `--apply` and `vetted-op-checks` in the
