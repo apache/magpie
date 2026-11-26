@@ -82,9 +82,7 @@ In priority order, first match wins:
 5. **Project-scope `AGENTS.md`** at the repo root, if it has a
    `## Review preferences` (or equivalent) section that names a slash
    command → the slash path.
-6. **Harness-specific project file** (e.g. `.claude/CLAUDE.md`) under
-   the working directory, same convention.
-7. **User-scope harness file** (e.g. `~/.claude/CLAUDE.md`), same
+6. **The maintainer's personal agent instructions** (user scope), same
    convention.
 
 The tool path needs the `magpie-adversarial-review` plugin. When it was

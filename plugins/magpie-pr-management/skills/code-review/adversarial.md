@@ -69,9 +69,10 @@ share a checkout).
 If the maintainer wants the same reviewer to be the default
 across sessions, they put the slash command under a "Review
 preferences" heading in their agent-instructions file —
-project-scope `AGENTS.md` is the agent-agnostic canonical
-location; harness-specific files (`.claude/CLAUDE.md`,
-`~/.claude/CLAUDE.md`) work too. The skill picks the command up
+project-scope `AGENTS.md` for the project, or their personal agent
+instructions for a personal default. Never add a project `CLAUDE.md`
+for it: with one present, Claude Code reads `CLAUDE.md` files instead
+of `AGENTS.md`. The skill picks the command up
 from there at session start. The skill does **not** auto-discover
 plugins or scan installed extensions.
 
