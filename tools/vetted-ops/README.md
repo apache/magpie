@@ -223,6 +223,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 
 [callers]                        # caller -> operations it may run
 "security-issue-sync"   = ["issue-view", "issue-comments", "issue-add-label",
+                           # Step 5: the saved issue and roster the generator reads,
+                           # and the body it writes back.
+                           "collaborators", "issue-edit-body",
                            "issue-set-milestone", "issue-comment", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
@@ -233,6 +236,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "board-item", "board-items", "board-add-item", "board-set-status",
                            "board-archive-item"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
+                           "collaborators", "issue-edit-body",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
@@ -347,7 +351,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-triage" = ["issue-view", "issue-comments",
                            # Step 6: the confirmed triage-proposal comment.
                            "issue-comment"]
-"security-issue-deduplicate" = ["rollup-append", "rollup-fold"]
+"security-issue-deduplicate" = ["rollup-append", "rollup-fold",
+                                # item 6: regenerate the kept tracker's JSON block.
+                                "issue-view", "collaborators", "issue-edit-body"]
 "dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",

@@ -246,7 +246,9 @@ If any command fails, stop the apply loop, report the failure, and ask the user 
 After the apply loop finishes — **every time**, not as a proposal — regenerate the CVE artifact via the project's declared CVE tool.
 For `cve_tool: vulnogram` (see [`<project-config>/project.md`](../../../../<project-config>/project.md#cve-tooling)) that means running the
 [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md) script with `--attach`
-to refresh the CVE JSON attachment on the tracking issue.
+to refresh the CVE JSON attachment on the tracking issue:
+from saved vetted reads, writing the new body to a file that the vetted `issue-edit-body` operation then writes back,
+so no `gh` runs inside the sandbox.
 The Vulnogram record mechanics (DRAFT / REVIEW / PUBLIC state machine, `#source` paste flow) are in
 [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md).
 The attachment is **embedded in the issue body** (at the very end, right after the *CVE tool link* field), not a separate comment.
@@ -271,13 +273,32 @@ In every other case — including already-published CVEs — regenerate.
 
 ### How to run it
 
-The minimum command, from the `<tracker>` clone root:
+Three steps, from the `<tracker>` clone root (the generator reads its config from there); run each vetted command bare.
+First save the issue and the roster:
 
 ```bash
-uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-issue-<N>.json issue-view <N>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-team.txt collaborators
 ```
 
-That alone is enough: the script reads every template field from the issue body, emits the full CVE 5.x record, and patches (or appends to) the tracking issue body in place.
+Then run the generator in the sandbox on the saved files; it never calls `gh` and writes the new body to a workspace file:
+
+```bash
+uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json \
+  --issue-json <workspace>/saved/cve-issue-<N>.json --collaborators <workspace>/saved/cve-team.txt \
+  --attach --output-body <workspace>/cve-body-<N>.md --report-json <scratch>/cve-report-<N>.json
+```
+
+It reads every template field from the saved body, emits the full CVE 5.x record, and splices the block in place (or appends it after the template).
+It refuses (exit 2, nothing written) a body whose CVE JSON markers are not one clean begin/end pair for this CVE, or a splice that would change any text outside the block:
+show the user, never retry or edit the markers yourself.
+When it prints `already current`, there is nothing to write; stop here.
+Otherwise write the body back:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync issue-edit-body <N> <workspace>/cve-body-<N>.md
+```
+
 When any of the report's `normalisation_changes`, `missing_required` or `needs_decision` is non-empty (`needs_decision` exits 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
 
 ### A record that is already public
@@ -288,12 +309,13 @@ When the *Public advisory URL* field is set, read the record's state before rege
 uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
 ```
 
-If the state is `public`, save the live record and pass it as the baseline:
+If the state is `public`, save the live record and add it as the baseline to the generator run above:
 
 ```bash
-uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> > <scratch>/cve-live-<N>.json
-uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json --baseline <scratch>/cve-live-<N>.json
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <CVE-ID>
 ```
+
+and pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
 
 The body still wins for every value it owns; everything else keeps its published value.
 If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
@@ -315,14 +337,10 @@ and a naive `grep | head` against the whole body picked the wrong PR.
 The Step 1d row scopes the URL extraction to the *"PR with the fix"* section only (`awk` between the section heading and the next `### ` heading);
 apply the same scoping if you resolve the author by hand.
 
-```bash
-uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach
-```
-
 If the *"Remediation developer"* field is empty at regeneration time (e.g. the Step 1d PR-author lookup has not yet run on a freshly-set *PR with the fix* field),
 the regen succeeds but the embedded JSON carries no remediation-developer credit.
 Either run a follow-up sync to populate the field,
-or pass `--remediation-developer "<Name>"` once on the command line and let the next sync fold the name into the body field.
+or pass `--remediation-developer "<Name>"` once on the Step 5 generator command line and let the next sync fold the name into the body field.
 
 ### Don't override `--version-start`
 
@@ -333,13 +351,14 @@ and the reviewer can tighten it later with a manual `--version-start 3.0.0` invo
 
 ### Report the result
 
-The script prints one of two lines on success:
+The generator prints one of three lines on success:
 
-- `Embedded CVE JSON in issue body on <tracker>#<N>` — first
+- `Embedded CVE JSON in the body written to <file>` — first
   run (or first run after the legacy comment-based attachment was
   cleaned up).
-- `Replaced CVE JSON in issue body on <tracker>#<N>` —
+- `Replaced CVE JSON in the body written to <file>` —
   subsequent run; the existing embedded block was replaced in place.
+- `CVE JSON in the issue body is already current; nothing written, no edit needed` — skip the `issue-edit-body` write.
 
 Capture the printed URL — it deep-links to the `## CVE JSON — paste-ready for <CVE>` heading anchor inside the body — and include it in the Step 6 recap.
 

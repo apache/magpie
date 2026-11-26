@@ -125,6 +125,11 @@ On stdout, `body-field-get` prints the one value and `rollup-append` /
 so a caller can link to the entry without reading the rollup (#1451).
 The security skills are the first callers (#1451), and the policy example
 grants each security caller exactly the tracker operations it uses.
+The CVE JSON refresh needs no operation of its own: the skills save the issue and the roster
+with `vetted-op-read --save … issue-view` / `collaborators`, run `generate-cve-json` in the sandbox on those files
+(`--issue-json`, `--collaborators`, `--attach --output-body`, which never call `gh`),
+and write the body back with `issue-edit-body`;
+the policy example grants those to `security-issue-sync`, `security-cve-allocate` and `security-issue-deduplicate`.
 
 A third entry point, `vetted-op-tracker`, refuses every operation except the
 procedure ones before it reads the policy — the same shape as
