@@ -271,6 +271,14 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     parser = argparse.ArgumentParser(prog=prog, description=description, allow_abbrev=False)
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
+    parser.add_argument(
+        "--policy-from",
+        metavar="DIR",
+        type=Path,
+        default=None,
+        help="discover the policy from this absolute directory instead of the working directory "
+        "(only an approved policy is accepted from there, reads included)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")
     parser.add_argument(
         "--save",
@@ -316,11 +324,36 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         )
         return EXIT_POLICY
 
+    # `--policy-from` lets a session in one repository use another repository's
+    # policy (a site repository's) without a `cd`, which would put the call back
+    # in the sandbox. A directory the caller names could be one the agent can
+    # write, so a policy found there acts only when it is an approved copy, for
+    # the read entry point too: the working directory's own policy paths are
+    # write-protected, a named directory's need not be.
+    base: Path | None = None
+    if args.policy_from is not None:
+        if sum(1 for a in raw if a == "--policy-from" or a.startswith("--policy-from=")) > 1:
+            print(f"{prog}: refused: --policy-from given more than once", file=sys.stderr)
+            return EXIT_POLICY
+        if args.config is not None:
+            print(f"{prog}: refused: --policy-from and --config exclude each other", file=sys.stderr)
+            return EXIT_POLICY
+        if not args.policy_from.is_absolute() or not args.policy_from.is_dir():
+            print(f"{prog}: refused: --policy-from must be an absolute directory", file=sys.stderr)
+            return EXIT_POLICY
+        base = args.policy_from
+
     try:
         # The write entry points act only on a policy the user approved (see
         # `config.approved_dir`); dry runs and `policy` publish nothing.
-        approved_only = not read_only and not args.dry_run and args.operation != "policy"
-        config = load(args.config, approved_only=approved_only)
+        approved_only = (
+            not read_only and not args.dry_run and args.operation != "policy"
+        ) or base is not None
+        config = (
+            load(args.config, approved_only=approved_only)
+            if base is None
+            else load(args.config, cwd=base, approved_only=approved_only)
+        )
     except ConfigError as exc:
         print(f"vetted-op: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY

@@ -716,9 +716,13 @@ publication, with a human gate and an audit-log entry at every step.
   `advisory-records-recheck` or `advisory-records-refresh-merged` comment ends
   the check.
   Under the secure setup, pull-request mode publishes through `vetted-op-git`
-  (`--vetted-git`): `git-fetch`, `git-worktree-add` into a sandbox-writable
-  worktree root, the planner's `--apply` and `vetted-op-checks` in the
-  sandbox, `git-stage`, `git-commit`, `git-push-branch` to the fork and
+  (`--vetted-git`), planned from the forge (`vetted-op-read --policy-from
+  <site checkout> repo-file|repo-tree --save`, then `--from-saved` /
+  `--site-listing`), never from the site checkout, which the sandbox cannot
+  read: `git-fetch` (its printed commit is the start SHA), `git-worktree-add`
+  into a sandbox-writable worktree root, the planner's `--apply` and
+  `vetted-op-checks` in the sandbox (blob ids computed in-process; a site
+  with a hook configuration falls back to the hand-over), `git-stage`, `git-commit`, `git-push-branch` to the fork and
   `git-pr-create`, each with `--caller security-issue-sync --policy-from
   <site checkout>`, acting on the site repository's own approved policy; the
   `magpie-vcs` and `gh pr create` commands remain the fallback. The commit

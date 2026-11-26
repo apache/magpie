@@ -484,7 +484,10 @@ published_paths = ["content/security/json"]
 
 [callers]
 # Only in a policy whose [repos] upstream is the advisory_records site repository.
-"security-issue-sync" = ["git-fetch", "git-worktree-add", "git-worktree-remove",
+"security-issue-sync" = [# The site's current records at the base branch, read from the forge
+                         # (the sandbox cannot read the site checkout).
+                         "repo-file", "repo-tree",
+                         "git-fetch", "git-worktree-add", "git-worktree-remove",
                          "git-stage", "git-commit", "git-push-branch", "git-pr-create",
                          "git-delete-fork-branch"]
 ```
@@ -1007,6 +1010,18 @@ From a change to an open pull request, then, with each step confirmed:
 the sandbox, `vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox,
 `git-stage` with the same paths file, `git-commit`,
 `git-push-branch … fork <branch> new`, `git-pr-create`.
+
+In a linked worktree whose git directory the sandbox cannot read (a worktree
+under `~/.cache/` of a checkout the sandbox denies), `vetted-op-checks` computes
+the blob ids itself, as `git hash-object --no-filters` would in a SHA-1
+repository (a SHA-256 one never matches, so `git-commit` refuses), and refuses
+when the worktree has a hook configuration: the hook manager runs git, which
+cannot open that git directory.
+
+The read and write dispatchers take `--policy-from <absolute dir>` too, so
+`vetted-op-read --policy-from <site checkout> --save <name> repo-file <path> <base>`
+reads a site repository's file from the forge through its own policy; from a
+named directory even a read acts only on an approved policy.
 
 `vetted-op-checks` is the one vetted-ops command that runs *inside* the
 sandbox (no `excludedCommands` entry names it, and a test keeps it that way):

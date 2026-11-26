@@ -43,10 +43,14 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   When Step 1g found only a closed pull request (`records_pr_closed_url`), name it in the item: the team removed its status comment to try again.
 
   - **Through `vetted-op-git`**, under the secure agent setup: when `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --policy-from <site checkout> policy`
-    reports the site repository as `upstream` with `worktree_roots`, run the planner with `--vetted-git --worktree-root <one of them> --workspace <its workspace>`
+    reports the site repository as `upstream` with `worktree_roots`, plan from the forge, never from the checkout (the sandbox cannot read it):
+    save each file the record touches at the base branch with `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`
+    (a 404 means the file is new; for `--backfill`, save `repo-tree <base>` and pass it as `--site-listing`),
+    then run the planner with `--vetted-git --from-saved <path>=<saved file> --worktree-root <one of them> --workspace <its workspace>`
     (and `--upstream-remote`), and the commit's attribution trailer resolved per [`docs/setup/commit-attribution.md`](../../../../docs/setup/commit-attribution.md): the project's convention as `--commit-trailer <Key: value>` (or `--no-commit-trailer` when the convention is none), else `--agent '<agent name and version>'`, which writes the framework's own `Generated-by: <agent name and version>`; the planner refuses `--vetted-git` without one of the three.
-    Its nine commands: `git-fetch`, the sandboxed `git rev-parse` whose SHA replaces `<start-sha>`, `git-worktree-add`,
+    Its eight commands: `git-fetch`, whose printed commit replaces `<start-sha>`, `git-worktree-add`,
     the planner re-run with `--apply` into the worktree, `vetted-op-checks`, `git-stage`, `git-commit`, `git-push-branch` to the operator's fork, and `git-pr-create`.
+    When `vetted-op-checks` refuses because the site configures hooks it cannot run without the checkout's git directory, stop and hand over the `magpie-vcs` commands below.
     Each `vetted-op-git` call is a write the user confirms in the harness; run them as printed, with the literal `~`.
   - **Otherwise**, the eleven `magpie-vcs` and `gh` commands of the site working copy: the clean check, the branch check (the base branch), `update`, `new-branch`,
     the planner re-run with `--apply` (it also writes the pull-request body file), `stage`, `diff`, `commit`, `push` to the operator's fork,
@@ -76,9 +80,9 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 
 - **Advisory-records check after cve.org** — Step 1g returned `recheck`: the record went to the site earlier
   (an `advisory-records-merged v1` comment, or a direct-mode `advisory-records v1` comment) and cve.org now lists the CVE `PUBLISHED`.
-  Read the site's copy of the record (`gh api repos/<site repo>/contents/<path>?ref=<base> -H 'Accept: application/vnd.github.raw+json'`, or the file in a direct-mode working copy),
-  write each file the record touches at its path under a scratch directory, and run the planner (no `--apply`) with `--recheck --working-copy <that directory> --vcs git`
-  and the record regenerated now. `--recheck` compares contents, not presence: a JSON file must equal the rendered record,
+  Read the site's copy of each file the record touches from the forge, never the checkout: `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`
+  (a direct-mode project without a site policy reads it with `gh api repos/<site repo>/contents/<path>?ref=<base>` and saves the `.content` it prints),
+  and run the planner (no `--apply`) with `--recheck --from-saved <path>=<saved file>` and the record regenerated now. `--recheck` compares contents, not presence: a JSON file must equal the rendered record,
   and a page entry must match the entry rendered from it, or the planner reports `unverified`, since a hand-kept page entry cannot be replaced safely.
   Pass `site_recheck: unchanged` for `unchanged`, `differs` for a proposed change, `unverified` for `unverified`, and `failed` when the read fails.
   `recheck_unverified` is a blocker: the team compares the entry by hand and records the result with the closing comment below; it is never reported as matching.

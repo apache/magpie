@@ -2077,3 +2077,61 @@ def test_triage_recovery_reads_are_scoped_and_read_only(policy: config.Config, n
         assert argv == ["gh", "api", "repos/acme/product/issues/comments/123456"]
     with pytest.raises(ops.ParamError):
         cli._validate_params(op, ["../other-repo"], policy)
+
+
+# --- --policy-from: another repository's policy, approved copies only ---------
+
+_SITE_POLICY = """workspace = "{workspace}"
+
+[repos]
+upstream = "acme/product-site"
+
+[callers]
+"security-issue-sync" = ["repo-file", "repo-tree"]
+"""
+
+
+def _site_policy(tmp_path: Path) -> tuple[Path, Path]:
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(mode=0o700)
+    site = tmp_path / "site"
+    policy = site / ".apache-magpie-overrides" / "tools" / "vetted-ops" / "config.toml"
+    policy.parent.mkdir(parents=True)
+    policy.write_text(_SITE_POLICY.format(workspace=workspace))
+    return site, policy
+
+
+def test_policy_from_reads_through_an_approved_site_policy(
+    tmp_path: Path, approved: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    site, policy = _site_policy(tmp_path)
+    (approved / "site.toml").write_bytes(policy.read_bytes())
+    argv = ["--caller", "security-issue-sync", "--policy-from", str(site), "--dry-run"]
+    rc = cli.main([*argv, "repo-file", "content/security/json/a.json", "main"], read_only=True)
+    assert rc == cli.EXIT_OK
+    assert "repos/acme/product-site/contents/content/security/json/a.json" in capsys.readouterr().out
+
+
+def test_policy_from_refuses_an_unapproved_policy_even_for_a_read(
+    tmp_path: Path, approved: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A named directory may be agent-writable: only an approved copy acts from there."""
+    site, _policy = _site_policy(tmp_path)
+    argv = ["--caller", "security-issue-sync", "--policy-from", str(site), "--dry-run"]
+    rc = cli.main([*argv, "repo-tree", "main"], read_only=True)
+    assert rc == cli.EXIT_POLICY
+    assert "not an approved copy" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        pytest.param(["--policy-from", "relative"], id="relative"),
+        pytest.param(["--policy-from", "/", "--policy-from=/tmp"], id="twice"),
+        pytest.param(["--policy-from", "/", "--config", "/x.toml"], id="with-config"),
+    ],
+)
+def test_policy_from_refusals(spelling: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    rc = cli.main(["--caller", "security-issue-sync", *spelling, "repo-tree", "main"], read_only=True)
+    assert rc == cli.EXIT_POLICY
+    assert "--policy-from" in capsys.readouterr().err

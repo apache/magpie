@@ -162,7 +162,7 @@ Use:
   A failed command posts nothing; report it in the recap with the command's output.
   If the push succeeded but `gh pr create` failed, say so and offer only that command again, on the user's confirmation:
   the branch is already on the fork, so re-running the earlier commands would stop at `new-branch`.
-  Through `vetted-op-git` the same order holds: run each call as printed, with the literal `~`, put the SHA the sandboxed `git rev-parse` printed in place of `<start-sha>`,
+  Through `vetted-op-git` the same order holds: run each call as printed, with the literal `~`, put the commit `git-fetch` printed in place of `<start-sha>`,
   stop when `vetted-op-checks` reports a failure, and give the adversarial review the worktree as `--repo-dir`;
   the status comment names the URL `git-pr-create` printed, and a failed `git-pr-create` after a successful push is offered again on its own.
   In the *Advisory archived on `<users-list>`* combined apply, this item runs after the CVE JSON has been regenerated and pushed:

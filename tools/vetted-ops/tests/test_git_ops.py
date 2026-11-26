@@ -1175,6 +1175,49 @@ def test_failing_checks_record_nothing(
     assert not checks.stamp_path(workspace, wt).exists()
 
 
+def _unreadable_git_dir(tmp_path: Path) -> Path:
+    """A worktree whose `.git` points where nothing can be read, as a site checkout the sandbox denies."""
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {tmp_path / 'denied' / '.git' / 'worktrees' / '-'}\n")
+    return wt
+
+
+def test_checks_without_a_readable_git_dir_record_git_s_own_blob_ids(
+    tmp_path: Path, workspace: Path, repo: Path
+) -> None:
+    """No hooks configured: the record's ids are computed in-process and equal git's."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / "content").mkdir()
+    (wt / "content" / "a.json").write_text('{"a": 1}\n')
+    assert checks.unreadable_git_dir(wt) is not None
+    record = json.loads(
+        checks.record(wt, Path(_file(workspace, "p", "content/a.json\ngone.txt"))).read_text()
+    )
+    assert record["checks"] == "none"
+    (repo / "probe.json").write_text('{"a": 1}\n')
+    assert record["files"]["content/a.json"] == _git(repo, "hash-object", "--no-filters", "probe.json")
+    assert record["files"]["gone.txt"] == checks.DELETED
+
+
+def test_configured_checks_refuse_without_a_readable_git_dir(
+    tmp_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hook manager runs git: with the git directory out of reach the checks refuse, never pass unchecked."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1
+    assert not ran.exists()
+    assert not checks.stamp_path(workspace, wt).exists()
+
+
+def test_a_readable_linked_worktree_still_uses_git(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
+    assert checks.unreadable_git_dir(_linked(git, wpolicy, repo)) is None
+
+
 def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
     """It runs the working tree's hooks; out of the sandbox it would be the very escape it prevents."""
     settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())

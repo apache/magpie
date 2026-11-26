@@ -480,7 +480,9 @@ it requires `[git] published_paths`, relative glob-free path prefixes, and
 applies only when the forge's compare of the pushed branch against `pr_base`
 lists every changed file under one of them, with the branch's head at the local
 branch's commit, so a source-repository change never gets it).
-`--policy-from <absolute dir>` discovers the policy from that directory instead
+`--policy-from <absolute dir>` (on `vetted-op-git`, and on `vetted-op`,
+`vetted-op-read` and `vetted-op-tracker`, where it makes even a read require an
+approved policy) discovers the policy from that directory instead
 of the working directory; only an approved policy acts either way, so it lets a
 tracker session reach a site repository's own policy without a `cd` that would
 put the call back in the sandbox. `security-issue-sync` uses it to publish its
@@ -516,7 +518,9 @@ readable per-version copy the plugin's session hook keeps at
 `~/.cache/apache-magpie/vetted-ops/current` (the sandbox cannot read
 `~/.claude/magpie/`), runs the worktree's
 hooks on the listed paths and records the content they passed in
-`<workspace>/checks/`; `git-commit` refuses a staged path missing from that
+`<workspace>/checks/` (in a linked worktree whose git directory the sandbox
+cannot read, it computes SHA-1 blob ids itself and refuses when a hook
+configuration is present, since the hook manager runs git); `git-commit` refuses a staged path missing from that
 record or staged with other content. The record is sandbox-writable, so it
 holds an agent to the checks the way CI does, not against a forgery.
 
