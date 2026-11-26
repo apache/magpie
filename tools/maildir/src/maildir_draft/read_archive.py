@@ -52,7 +52,7 @@ import re
 import sys
 import urllib.parse
 from email.errors import HeaderParseError
-from email.header import decode_header, make_header
+from email.header import decode_header
 from email.message import Message
 from pathlib import Path
 from typing import Any
@@ -175,9 +175,17 @@ def _header_text(msg: Message, name: str) -> str:
     if raw is None:
         return ""
     text = str(raw)
-    if "=?" in text:
-        with contextlib.suppress(HeaderParseError, LookupError, UnicodeDecodeError):
-            text = str(make_header(decode_header(text)))
+    # Encoded words are ASCII by definition. A raw 8-bit header is kept as it
+    # is: ``decode_header`` would hand its unencoded runs back escaped.
+    if "=?" in text and text.isascii():
+        with contextlib.suppress(HeaderParseError, LookupError, UnicodeError):
+            # Each part is decoded with its own charset. ``make_header`` would
+            # re-encode Japanese charsets as ISO-2022-JP, which has no
+            # half-width katakana, and raise on a Shift_JIS or EUC-JP header.
+            text = "".join(
+                part.decode(charset or "ascii") if isinstance(part, bytes) else part
+                for part, charset in decode_header(text)
+            )
     # A folded header keeps its CRLF and continuation space, so flatten it: a
     # subject carrying "\r\n " never matches a `[SECURITY]` prefix test.
     return " ".join(text.split())
