@@ -457,6 +457,38 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 and PRs, which the issue and PR families already cover. A family earns new
 operations only when it has a shape the catalogue lacks.
 
+**A second policy, for the security records site.** A project that publishes its
+security records to a site repository through pull requests
+([`advisory_records`](https://github.com/apache/magpie/blob/main/docs/security/advisory-records.md#publishing-through-a-pull-request))
+gives that repository its own policy, so the project's policy never names a second
+repository to push to. It lives in the site checkout's personal layer
+(`<site checkout>/.git/apache-magpie/tools/vetted-ops/config.toml`), is approved
+like any other (a copy in `~/.config/apache-magpie/vetted-ops/`), and grants
+`security-issue-sync` the git steps of the records pull request and nothing else;
+`security-issue-sync` names it with `--policy-from <site checkout>` on every call.
+Only in a policy whose `[repos] upstream` is that site repository:
+
+```toml
+workspace = "/tmp/agent-scratch"
+
+[repos]
+upstream = "acme/product-site"
+
+[git]
+pr_base = "main"
+# The pull request adds a published record, which names its identifier: the one
+# term git-pr-create lets through here. Never in the source repository's policy.
+published_terms = ["CVE id", "CVE"]
+# ...and only for a branch that changes nothing outside the records directory.
+published_paths = ["content/security/json"]
+
+[callers]
+# Only in a policy whose [repos] upstream is the advisory_records site repository.
+"security-issue-sync" = ["git-fetch", "git-worktree-add", "git-worktree-remove",
+                         "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                         "git-delete-fork-branch"]
+```
+
 **Patterns for milestones a project mints on a schedule.** `milestones` can
 gain a sibling `milestones_patterns` list of regular expressions. A milestone
 parameter then accepts a listed value or one that a pattern matches *in full*
@@ -967,7 +999,7 @@ command, and every step is still confirmed by the user:
 | `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |
 | `git-commit` | `worktree message_file` | Commits what is staged on the current branch (never a protected one, never `--amend`), message from `message_file` (a workspace file), with `--no-verify`. Signing follows the user's global git configuration. Refused unless `vetted-op-checks` passed every staged path, with the content it is staged with, in the sandbox: no hook runs out here, and nothing goes in unchecked. |
 | `git-fetch` | `checkout branch` | Fetches upstream `branch` into `refs/remotes/<upstream_remote>/<branch>` from the URL built from the policy, never from a remote the repository configures; no tags, no submodules. |
-| `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`). |
+| `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`), except those the policy's `[git] published_terms` names: only a published record's identifier (`CVE id`, `CVE`), in a site repository's policy, and only when the forge's compare of the pushed branch against `pr_base` (`gh api …/compare/<pr_base>...<fork owner>:<branch>`, its head the local branch's commit) lists every changed file under `[git] published_paths`; otherwise the normal scan applies. |
 
 From a change to an open pull request, then, with each step confirmed:
 `git-worktree-add` (or `git-fetch` + `git-worktree-sync` to refresh one, or
@@ -1021,7 +1053,21 @@ host = "github.com"
 # list (.claude, .agents, .codex, .gemini, .github/skills, .mcp.json, .claude-plugin,
 # the vetted-ops policy layers): git-switch writes only upstream's version of them.
 harness_paths = ["tools/agent-settings.template.json"]
+# Never-publish terms git-pr-create lets through: only "CVE id" and "CVE", and only in the
+# policy of a site repository whose pull requests add records already public. Default: none.
+# published_terms = ["CVE id", "CVE"]
+# Required with published_terms: relative path prefixes (no globs, no ..) the exemption is
+# bound to. It applies only to a branch whose every changed file, as the forge lists it, is under one.
+# published_paths = ["content/security/json"]
 ```
+
+The policy is discovered from the working directory, or from the absolute
+directory `--policy-from <dir>` names (`vetted-op-git --caller <skill>
+--policy-from <dir> <operation> …`). Either way only an approved policy acts, so
+the option widens nothing; it lets a session in the tracker repository reach the
+site repository's own policy without leaving its working directory (a `cd` into
+the site checkout would put the command back in the sandbox), and the confirmation
+shows which policy the call uses.
 
 Where your clones, worktrees and fork are differs per person, so it does not belong in a policy everyone commits and approves.
 Each operator keeps those values in `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository, picked by the policy's `[repos] upstream`:
@@ -1043,7 +1089,7 @@ protected = ["my-wip-*"]
 ```
 
 That directory is outside every repository and every sandbox-writable root, and `Edit`-denied, so the file needs no separate approval step: only you put it there.
-Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`, `harness_paths`) is refused, so nothing in it widens what the shared policy allows.
+Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`, `harness_paths`, `published_terms`, `published_paths`) is refused, so nothing in it widens what the shared policy allows.
 Its values win over the same keys in the policy, which keeps an older policy that still carries them working.
 The file is never one of the approved policies, even byte-for-byte.
 With neither source naming a value for the upstream, every git operation refuses, and skills fall back to handing over the commands.

@@ -473,7 +473,19 @@ branch from the policy's URL into `refs/remotes/<upstream_remote>/<branch>`) and
 `git-pr-create` (a pull request from `<fork>:<branch>` against `pr_base`, the
 title on the command line so the confirmation shows it, the body from a
 workspace file, both refused when they hold a never-publish term from
-`forbidden_terms.py`).
+`forbidden_terms.py`, except the ones the policy's `[git] published_terms`
+names: only `CVE id` and `CVE`, a project key the operator file cannot set, for
+the policy of a site repository whose pull requests add records already public;
+it requires `[git] published_paths`, relative glob-free path prefixes, and
+applies only when the forge's compare of the pushed branch against `pr_base`
+lists every changed file under one of them, with the branch's head at the local
+branch's commit, so a source-repository change never gets it).
+`--policy-from <absolute dir>` discovers the policy from that directory instead
+of the working directory; only an approved policy acts either way, so it lets a
+tracker session reach a site repository's own policy without a `cd` that would
+put the call back in the sandbox. `security-issue-sync` uses it to publish its
+records pull request, granted only in a policy whose `[repos] upstream` is the
+site repository (the README's second-policy example).
 `[git]` values bound them: the project's (`upstream_push`, `protected`,
 `pr_base`, `host`) from the policy's `[git]` table, and each operator's
 (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, more

@@ -698,6 +698,35 @@ publication, with a human gate and an audit-log entry at every step.
   request's URL, an open or merged one found by its branch is never opened
   twice, and a later sync posts an `advisory-records-merged` comment with the
   ticked checklist item once it merges (a closed one is a blocker).
+  The record goes to the site when the advisory is announced, not when
+  cve.org lists it: the *advisory archived* combined apply gains a step that
+  runs the planner with `--announced-url <archive URL>` (the gate: the record
+  carries that URL as its `vendor-advisory` reference) on the record the
+  apply has just regenerated and pushed, confirmed with that batch. The
+  Step 1g pass then catches trackers announced without it, and, once cve.org
+  lists a CVE the site already records, reads the site's copy, re-runs the
+  planner against it and proposes a refresh only when the content differs
+  (`recheck` → `site_recheck` → `recheck_unchanged`, `refresh`,
+  `recheck_unverified` or `retry_recheck`). The planner's `--recheck`
+  compares contents: a JSON file must equal the rendered record and a page
+  entry the rendered entry, else `unverified`, a blocker never reported as
+  matching. A refresh pull request is followed like the first one (open
+  waits, merged asks for an `advisory-records-refresh-merged` comment, closed
+  unmerged proposes the refresh again on a numbered branch); an
+  `advisory-records-recheck` or `advisory-records-refresh-merged` comment ends
+  the check.
+  Under the secure setup, pull-request mode publishes through `vetted-op-git`
+  (`--vetted-git`): `git-fetch`, `git-worktree-add` into a sandbox-writable
+  worktree root, the planner's `--apply` and `vetted-op-checks` in the
+  sandbox, `git-stage`, `git-commit`, `git-push-branch` to the fork and
+  `git-pr-create`, each with `--caller security-issue-sync --policy-from
+  <site checkout>`, acting on the site repository's own approved policy; the
+  `magpie-vcs` and `gh pr create` commands remain the fallback. The commit
+  message ends with the project's commit-attribution trailer
+  (`--commit-trailer`, or `--no-commit-trailer`), else the framework's
+  `Generated-by: <agent name and version>` (`--agent`); one is required.
+  `--backfill DIR` proposes one change, and one pull request, adding every
+  published record in `DIR` that the site does not hold yet (`cve-json-file`).
 - **The CVE record is published only after the advisory ships (#1795).**
   Sync's `REVIEW → PUBLIC` move through `vulnogram-api-record-publish`
   runs only in the *advisory archived* combined apply, and the CLI refuses

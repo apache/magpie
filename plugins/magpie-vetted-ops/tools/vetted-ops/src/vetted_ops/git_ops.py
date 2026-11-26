@@ -241,11 +241,96 @@ class GitPolicy:
     pr_base: str = "main"
     #: Paths `git-switch` treats as steering the harness, beyond `HARNESS_PATHS`.
     harness_paths: tuple[str, ...] = ()
+    #: Never-publish terms `git-pr-create` lets through for this repository,
+    #: from `PUBLISHABLE_TERMS` only: a site repository whose pull requests add
+    #: records that are public by the time they are opened.
+    published_terms: tuple[str, ...] = ()
+    #: Relative path prefixes the `published_terms` exemption is bound to: it
+    #: applies only to a branch whose every changed file lies under one of them.
+    published_paths: tuple[str, ...] = ()
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
             return f"https://{self.host}/{repo}.git"
         return f"git@{self.host}:{repo}.git"
+
+
+#: The never-publish terms a policy may let through in `git-pr-create`'s text
+#: (``[git] published_terms``): only a published record's identifier. A policy
+#: that names one is for a repository whose pull requests carry records already
+#: public (the project's security records site), never for its source repository.
+PUBLISHABLE_TERMS = frozenset({"CVE id", "CVE"})
+
+
+_GLOB_CHARS = frozenset("*?[]{}\\")
+
+
+def _published_path(raw: str) -> str:
+    """A relative, glob-free path prefix, without ``.``/``..`` parts, normalised without its trailing ``/``."""
+    path = raw.strip().rstrip("/")
+    parts = path.split("/")
+    if (
+        not path
+        or path.startswith("/")
+        or any(part in ("", ".", "..") for part in parts)
+        or any(c in _GLOB_CHARS or unicodedata.category(c).startswith("C") for c in path)
+    ):
+        raise ConfigError(
+            f"[git] published_paths entries must be relative path prefixes without globs or '..', got {raw!r}"
+        )
+    return path
+
+
+def _under(path: str, prefixes: Sequence[str]) -> bool:
+    return any(path == prefix or path.startswith(prefix + "/") for prefix in prefixes)
+
+
+#: The forge's compare of the pull request's base and head: every changed file
+#: and the head commit it compared.
+_COMPARE_JQ = "{files: [.files[]?.filename], head: (.commits | last | .sha), total: .files | length}"
+#: GitHub's compare lists at most this many files; a longer list is incomplete.
+_COMPARE_FILE_LIMIT = 300
+
+
+def _published_paths_only(git: Git, policy: GitPolicy, worktree: Path, branch: str) -> None:
+    """Refuse unless every file the branch changes against ``pr_base`` is under ``published_paths``.
+
+    The forge answers, for the branch as pushed to the fork, and its head must
+    be the local branch's: the exemption follows what the pull request will
+    show, never a ref the agent can move.
+    """
+    assert policy.fork_repo is not None
+    local = git.run(worktree, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}").strip()
+    fork_owner = policy.fork_repo.split("/", 1)[0]
+    argv = [
+        "gh", "api", "--hostname", policy.host, "--method", "GET",
+        f"repos/{policy.upstream_repo}/compare/{policy.pr_base}...{fork_owner}:{branch}",
+        "--jq", _COMPARE_JQ,
+    ]  # fmt: skip
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        answer = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused("the forge's compare of the branch is not JSON") from None
+    files = answer.get("files") if isinstance(answer, dict) else None
+    if not isinstance(files, list) or not files or not all(isinstance(f, str) for f in files):
+        raise GitRefused(
+            "the forge lists no changed file for the branch; the published_terms exemption needs them"
+        )
+    if answer.get("head") != local:
+        raise GitRefused(
+            f"the fork's {branch} is not at the local branch's {local}; push it first, then open the pull request"
+        )
+    if len(files) >= _COMPARE_FILE_LIMIT:
+        raise GitRefused("the branch changes too many files for the forge to list them all")
+    outside = sorted(f for f in files if not _under(f, policy.published_paths))
+    if outside:
+        raise GitRefused(
+            "the published_terms exemption covers only branches that change files under "
+            f"{', '.join(policy.published_paths)}; this one also changes {', '.join(outside[:5])}"
+        )
 
 
 def _absolute_real_dir(raw: object, key: str) -> Path:
@@ -342,7 +427,7 @@ def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
     )
 
 
-def _git_table(config: Config) -> dict[str, object]:
+def _git_table(config: Config, base: Path | None = None) -> dict[str, object]:
     """The shared policy's ``[git]`` table with the operator's own values over it."""
     project = config.git
     if project is not None and not isinstance(project, dict):
@@ -352,7 +437,7 @@ def _git_table(config: Config) -> dict[str, object]:
         raise ConfigError(
             f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
             f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
-            + operator_git_draft(config.upstream_repo)
+            + operator_git_draft(config.upstream_repo, base)
         )
     merged = dict(project or {})
     if operator is not None:
@@ -382,6 +467,8 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("upstream_push", list(policy.upstream_push)),
         ("pr_base", policy.pr_base),
         ("harness_paths", list(policy.harness_paths)),
+        ("published_terms", list(policy.published_terms)),
+        ("published_paths", list(policy.published_paths)),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -409,13 +496,18 @@ def _owned_private_dir(path: Path, key: str) -> Path:
     return path
 
 
-def git_policy(config: Config) -> GitPolicy:
-    """Validate the ``[git]`` values; without any, every operation refuses."""
-    table = _git_table(config)
+def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
+    """Validate the ``[git]`` values; without any, every operation refuses.
+
+    ``base`` is the directory the policy was discovered from, for the draft a
+    refusal shows (default: the working directory).
+    """
+    table = _git_table(config, base)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
         raise ConfigError(
-            "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
+            "[git] checkouts must name at least one main checkout"
+            + operator_git_draft(config.upstream_repo, base)
         )
     fork = table.get("fork")
     if fork is not None and (not isinstance(fork, str) or not _REPO.fullmatch(fork)):
@@ -432,6 +524,20 @@ def git_policy(config: Config) -> GitPolicy:
     pr_base = table.get("pr_base", "main")
     if not isinstance(pr_base, str) or not _BRANCH.fullmatch(pr_base):
         raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
+    published_terms = _str_list(table, "published_terms")
+    published_paths = [_published_path(raw) for raw in _str_list(table, "published_paths")]
+    if published_terms and not published_paths:
+        raise ConfigError(
+            "[git] published_terms needs published_paths: the records directories the exemption is bound to"
+        )
+    if published_paths and not published_terms:
+        raise ConfigError("[git] published_paths applies only with published_terms")
+    unknown_terms = sorted(set(published_terms) - PUBLISHABLE_TERMS)
+    if unknown_terms:
+        raise ConfigError(
+            f"[git] published_terms may name only {', '.join(sorted(PUBLISHABLE_TERMS))}, "
+            f"got {', '.join(unknown_terms)}"
+        )
     return GitPolicy(
         checkouts=checkouts,
         upstream_repo=config.upstream_repo,
@@ -448,6 +554,8 @@ def git_policy(config: Config) -> GitPolicy:
         upstream_remote=upstream_remote,
         pr_base=pr_base,
         harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
+        published_terms=tuple(published_terms),
+        published_paths=tuple(published_paths),
     )
 
 
@@ -2308,13 +2416,26 @@ def pr_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> 
     body = _workspace_text(policy, p["body_file"], "body_file")
     # A pull request is public. The same terms the publication guard refuses in
     # any public text are refused here, so a security detail cannot reach the
-    # upstream repository through a file the guard does not read.
-    hits = sorted(set(_forbidden_hits(title) + _forbidden_hits(body)))
+    # upstream repository through a file the guard does not read. A policy for a
+    # repository of published records lets the record's identifier through
+    # (`published_terms`, from `PUBLISHABLE_TERMS` only), and only for a branch
+    # that changes nothing outside `published_paths`; every other term stays.
+    found = set(_forbidden_hits(title) + _forbidden_hits(body))
+    hits = sorted(found - set(policy.published_terms))
     if hits:
         raise GitRefused(
             "the pull request text contains terms that are never published before disclosure: "
             f"{', '.join(hits)}; describe the change in neutral functional terms"
         )
+    exempted = sorted(found & set(policy.published_terms))
+    if exempted and not dry_run:
+        try:
+            _published_paths_only(git, policy, worktree.path, branch)
+        except GitRefused as exc:
+            raise GitRefused(
+                "the pull request text contains terms that are never published before disclosure: "
+                f"{', '.join(exempted)}, and the policy's exemption does not apply: {exc}"
+            ) from None
     head = f"{policy.fork_repo.split('/', 1)[0]}:{branch}"
     argv = [
         "gh",
@@ -2475,6 +2596,13 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     )
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--dry-run", action="store_true", help="validate, print the git command, run nothing")
+    parser.add_argument(
+        "--policy-from",
+        metavar="DIR",
+        type=Path,
+        default=None,
+        help="discover the policy from this absolute directory instead of the working directory",
+    )
     parser.add_argument("operation", nargs="?", help="operation name, or 'list-ops' / 'policy'")
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(raw)
@@ -2484,9 +2612,22 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
             print(f"write  {name:<22} {' '.join(entry.params)}\n        {entry.summary}")
         return EXIT_OK
 
-    if sum(1 for a in raw if a == "--caller" or a.startswith("--caller=")) > 1:
-        print(f"{PROG}: refused: --caller given more than once", file=sys.stderr)
-        return EXIT_POLICY
+    for option in ("--caller", "--policy-from"):
+        if sum(1 for a in raw if a == option or a.startswith(f"{option}=")) > 1:
+            print(f"{PROG}: refused: {option} given more than once", file=sys.stderr)
+            return EXIT_POLICY
+
+    # Where the policy is discovered: the working directory, or the directory
+    # `--policy-from` names. Either is the caller's choice, and either way only
+    # a policy the user approved acts (`load`'s ``approved_only``), so naming it
+    # widens nothing; it lets a session in one repository reach the policy of
+    # another (a site repository) and shows that choice in the confirmed command.
+    base: Path | None = None
+    if args.policy_from is not None:
+        if not args.policy_from.is_absolute() or not args.policy_from.is_dir():
+            print(f"{PROG}: refused: --policy-from must be an absolute directory", file=sys.stderr)
+            return EXIT_POLICY
+        base = args.policy_from
 
     # Like every entry point that runs outside the sandbox: only a policy the user
     # placed in the approved directory themselves drives git. A dry run against
@@ -2495,13 +2636,13 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     approved = True
     try:
         try:
-            config = load(approved_only=args.operation != "policy")
+            config = load(cwd=base, approved_only=args.operation != "policy")
         except ConfigError:
             if not args.dry_run:
                 raise
-            config = load(approved_only=False)
+            config = load(cwd=base, approved_only=False)
             approved = False
-        policy = git_policy(config)
+        policy = git_policy(config) if base is None else git_policy(config, base)
     except ConfigError as exc:
         print(f"{PROG}: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY

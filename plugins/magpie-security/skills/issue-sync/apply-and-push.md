@@ -162,6 +162,12 @@ Use:
   A failed command posts nothing; report it in the recap with the command's output.
   If the push succeeded but `gh pr create` failed, say so and offer only that command again, on the user's confirmation:
   the branch is already on the fork, so re-running the earlier commands would stop at `new-branch`.
+  Through `vetted-op-git` the same order holds: run each call as printed, with the literal `~`, put the SHA the sandboxed `git rev-parse` printed in place of `<start-sha>`,
+  stop when `vetted-op-checks` reports a failure, and give the adversarial review the worktree as `--repo-dir`;
+  the status comment names the URL `git-pr-create` printed, and a failed `git-pr-create` after a successful push is offered again on its own.
+  In the *Advisory archived on `<users-list>`* combined apply, this item runs after the CVE JSON has been regenerated and pushed:
+  regenerate `<scratch>/<CVE-ID>.json` from the updated tracker first, so the `--apply` run writes the record the CVE tool now holds.
+  A refresh posts the `advisory-records-refresh v1` comment instead, naming its pull request (or commit).
 - **CVE record state transition (`review-ready → public`):** run the CVE-tool interface's `publish` operation
   ([`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md); for Vulnogram it flips the record's `CNA_private.state` from `REVIEW` to `PUBLIC` over the OAuth API).
   It refuses the transition unless the current state is `review-ready` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);

@@ -302,6 +302,9 @@ committed one.
    That directory is sandbox-denied, so when it cannot be read, report the check as unchecked and show the draft from
    [`config.md` Step 3a.3](config.md#step-3a3--your-git-values-for-publishing-secure-setup-only) as the line to run; never
    write the file. Without the secure setup this check does not apply.
+   When `advisory_records` publishes through a pull request and `security-issue-sync` is installed, check the site repository the same way:
+   its `["<site repo>"]` table, and the site policy `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --policy-from <site checkout> policy` reports
+   (it runs outside the sandbox, so it can say what the sandbox cannot read); a missing one is a finding with the Step 3a.3 drafts.
 
 4. **Sandboxed sessions cover what they can reach.** Resolving a
    skill's anchors (check 2) needs that skill's `SKILL.md` **and its
