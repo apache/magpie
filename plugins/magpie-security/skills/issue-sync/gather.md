@@ -83,6 +83,12 @@ gh search prs "<tracker>#<N>" --repo <upstream>         --json number,title,stat
 gh search prs "#<N>"          --repo <tracker>    --json number,title,state,url,milestone,mergedAt
 ```
 
+A gatherer limited to vetted reads runs the upstream search under this skill's own caller (open and closed in one call; its hits carry no milestone or merge state, so report them as candidates for the orchestrator to read):
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync repo-pr-search "<tracker>#<N>"
+```
+
 If the issue body contains a PR URL (the report template's "PR with the fix" field), fetch that PR directly and trust it over the search:
 
 ```bash

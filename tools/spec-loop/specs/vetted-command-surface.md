@@ -338,8 +338,15 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    searches trackers (`issue-search`) and upstream (`repo-pr-search`,
    `repo-code-search`); `security-issue-import` reads a relayed GHSA
    (`advisory-view`, `advisory-comments`) and runs its duplicate search
-   (`issue-search`, `issue-view`); `security-issue-invalidate` posts the
-   closing GHSA comment (`advisory-comment`).
+   (`issue-search`, `issue-view`) and its Step 2c upstream search
+   (`repo-pr-search`, which `security-issue-sync` also runs in Step 1b);
+   `security-issue-invalidate` posts the closing GHSA comment
+   (`advisory-comment`).
+   `security-issue-import-from-scan` has its own caller for the import and
+   triage steps it reuses: the open-tracker list (`issue-list-with-bodies`),
+   the duplicate and precedent searches (`issue-search`, `issue-view`), the
+   fixed-since-the-scan check (`repo-pr-search`, `pr-view`, `pr-diff`,
+   `compare`) and the patch comment on a new tracker (`issue-comment`).
    `test_caller_grants.py` checks every `--caller` call in the repository's
    Markdown against that example.
 
