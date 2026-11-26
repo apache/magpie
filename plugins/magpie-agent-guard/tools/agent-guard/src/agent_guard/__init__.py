@@ -2474,6 +2474,7 @@ def _skill_names(plugin: str, skill_dir: Path) -> set[str]:
             if line.startswith("name:"):
                 names.add(line[len("name:") :].strip().strip("\"'"))
     except OSError:
+        # An unreadable SKILL.md: the skill is still known by its directory name.
         pass
     return names | {f"{plugin}:{n}" for n in names if plugin}
 
