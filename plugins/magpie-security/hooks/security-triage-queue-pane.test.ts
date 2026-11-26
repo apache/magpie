@@ -401,7 +401,9 @@ describe('security-triage-queue-pane mod (family:security)', () => {
           },
         },
       });
-      const res = await handlers['command.run'](mock$, { command: SECURITY_QUEUE_COMMAND }, () => {});
+      const commandRun = handlers['command.run'];
+      assert(commandRun);
+      const res = await commandRun(mock$, { command: SECURITY_QUEUE_COMMAND }, () => {});
       assert(typeof res?.text === 'string' && res.text.includes('No local queue file found'));
       assertStrictEqual(res?.output, undefined);
     });
