@@ -2022,9 +2022,11 @@ describe('Part 2 review hardening: absolute Write paths, symlink reads, fresh in
         read: async (p: string) => files[p] ?? '',
         write: async (p: string, c: string) => {
           writeCount++;
-          // First write resolves slower than second if unserialized
-          const delay = writeCount === 1 ? 30 : 5;
-          await new Promise((r) => setTimeout(r, delay));
+          // First write yields more microtasks than second to verify serialization
+          const turns = writeCount === 1 ? 5 : 1;
+          for (let i = 0; i < turns; i++) {
+            await Promise.resolve();
+          }
           files[p] = c;
         },
       },
