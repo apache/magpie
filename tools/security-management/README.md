@@ -53,6 +53,7 @@ The agent keeps the judgement: classification, field extraction, third-party PII
 
 **It runs nothing.**
 No command invokes `gh`, a mail backend, `pii-redact` or `pii-reveal`, posts, drafts or touches the network.
+The one subprocess is `issue-import-from-scan open-archive`, which runs the local `gpg` binary to decrypt a scanner's archive, offline, under a throwaway `GNUPGHOME`; nothing from the archive is ever run.
 Report text arrives already redacted, and redaction tokens (`N-…`, `E-…`) pass through unchanged.
 A render that would emit something the skill must refuse (a malformed report body, a rollup label holding `<`, `>` or `·`, a ledger record missing a key)
 exits `2` with `{"ok": false, "refused": "<why>"}`.
@@ -64,7 +65,7 @@ exits `2` with `{"ok": false, "refused": "<why>"}`.
   [`github-body-field`](../github-body-field/README.md) (what a `### Field` section is) and
   [`generate-cve-json`](../cve-tool-vulnogram/generate-cve-json/README.md) (the bot/AI credit policy) and
   [`magpie-vcs`](../vcs/README.md) (the embargo scrub of public text).
-- **CLIs:** None.
+- **CLIs:** `gpg` (GnuPG 2.x), for `issue-import-from-scan open-archive` only.
 - **Credentials / auth:** None.
 - **Network:** None.
 
@@ -161,6 +162,10 @@ Every command prints one JSON object; rendered text is in its `text` field.
 
 | Command | Prints |
 |---|---|
+| `parse-email --source F --out-dir D [--archive-dir D] [--attachments-dir D]` | Counts only: `findings`, `by_severity`, `not_security`, completeness `checks`, `attachments` (sha256, OpenPGP framing); with `--archive-dir`, an `archive` tally (`reports`, `missing_reports`, `patches`, `reproducer_files`, `other_reports`). The scan folder's `index.json` links each finding's, ordinary bug's and unlisted report's `report_md`, `patches` and `reproducers`, and lists the archive's reports for ids the mail does not list as findings or ordinary bugs in `other_reports`. |
+| `open-archive --archive F --passphrase-file F --out-dir D [--max-bytes N] [--max-members N]` | Decrypts a passphrase-encrypted `.gpg` archive with `gpg` under a throwaway `GNUPGHOME`, the passphrase on a pipe, and unpacks it into the new folder `D` (owner-only, no execute bits): `archive_dir` (pass it to `--archive-dir`), `folder`, `members`, `files`, `bytes`, `sections`. Refuses an encrypted file over the cap before reading it, anything but session-key packets then one encrypted-data packet, a wrong passphrase or modified file (no `DECRYPTION_OKAY`), a plaintext that is not a tar archive, an absolute path, a `..` component, a link, a device or other special file, a member named like its marker, an extended tar header over 64 KiB (1 MiB in total), a corrupt compressed stream, and more members or bytes than the caps; nothing is unpacked until every member passed. |
+| `discard-archive --dir D` | Deletes a folder `open-archive` wrote, and refuses any other. |
+| `render-patch-comment --index F --finding ID --out-dir D [--verdict F]` | Writes `<id>.md`, the one private-tracker comment: an untested / do-not-run warning, the operator's triage verdict, then a folded `<details>` block each for the reproduction steps from `REPORT.md`, every reproducer file and every candidate patch (binary or non-UTF-8 ones listed, not quoted). The id may be a finding, an ordinary bug or an `other_reports` entry. Under 65,000 characters: larger items are cut at a line with a note, and those past the limit listed as omitted. Refuses a scan folder parsed without `--archive-dir`. |
 | `bucket-action --bucket B` | `creates_tracker` (true only for `import-as-tracker`: Golden rule 3), `action` (`tracker`, `pr-or-skip`, `none`), `route`. |
 | `render-report --findings F --buckets F [--title T]` | The report `text` (distribution line, a section per bucket, a row per finding; for several scans the outcome table, percentages and severity vs disposition), `distribution`, `trackers_possible`; a by-design, duplicate or already-fixed row without grounding is refused. |
 | `parse-decision --input F` | `action` (`apply`, `skip`, `cancel`, `ambiguous`), `confirmed` (each with its bucket's `creates_tracker` and `action`), `skipped`, `ambiguous_tokens`; an ambiguous reply holds everything. |

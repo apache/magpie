@@ -14,10 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""`security-management issue-import-from-scan …` — reads files, prints JSON, runs nothing.
+"""`security-management issue-import-from-scan …` — reads files, prints JSON, runs nothing from the scan.
 
 Scan text (titles, evidence, the operator-facing report) is attacker-influenced
 and reaches a command only in files the agent wrote with its Write tool.
+`open-archive` runs the `gpg` binary to decrypt the scanner's archive, and
+nothing else: no reproducer, build file or patch from it is ever run.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from security_management.cli import emit, read_json, read_object, refuse
-from security_management.issue_import_from_scan import oss_scanner, scan
+from security_management.issue_import_from_scan import archive, oss_scanner, scan
 
 FAMILY = "issue-import-from-scan"
 
@@ -45,17 +47,37 @@ def add_parsers(sub: Any) -> None:
         "--source", required=True, help="the email: an .eml file, its plain-text body, or a saved Gmail JSON"
     )
     e.add_argument("--out-dir", required=True, help="the scan folder to write (index.json + evidence/)")
-    e.add_argument("--archive-dir", help="an operator-decrypted findings archive, to link each REPORT.md")
+    e.add_argument(
+        "--archive-dir",
+        help="the opened findings archive (open-archive's archive_dir), to link each REPORT.md",
+    )
     e.add_argument(
         "--attachments-dir", help="save the .eml's attachments here (byte-exact; never decrypted or opened)"
     )
 
+    o = commands.add_parser(
+        "open-archive",
+        help="Step A: decrypt the scanner's .gpg archive and unpack it into a new private folder",
+    )
+    o.add_argument("--archive", required=True, help="the saved .tar.gz.gpg attachment")
+    o.add_argument(
+        "--passphrase-file", required=True, help="a file holding the passphrase alone, on one line"
+    )
+    o.add_argument("--out-dir", required=True, help="a folder that does not exist yet")
+    o.add_argument("--max-bytes", type=int, default=archive.MAX_EXTRACTED_BYTES, help="cap on unpacked bytes")
+    o.add_argument("--max-members", type=int, default=archive.MAX_MEMBERS, help="cap on archive members")
+
+    x = commands.add_parser("discard-archive", help="end of run: delete a folder open-archive wrote")
+    x.add_argument("--dir", required=True, help="open-archive's folder")
+
     p = commands.add_parser(
-        "render-patch-comment", help="Step F: a tracker comment quoting a finding's candidate patches"
+        "render-patch-comment",
+        help="Step F: the tracker comment quoting a finding's reproduction steps, reproducers and patches",
     )
     p.add_argument("--index", required=True, help="the scan folder's index.json (parsed with --archive-dir)")
     p.add_argument("--finding", required=True, help="the finding id")
-    p.add_argument("--out-dir", required=True, help="write the comment body files here")
+    p.add_argument("--out-dir", required=True, help="write the comment body file here")
+    p.add_argument("--verdict", help="a file holding the operator-confirmed triage verdict, stated first")
 
     b = commands.add_parser("bucket-action", help="Step C: what a disposition bucket allows")
     b.add_argument("--bucket", required=True, help=f"one of {', '.join(scan.BUCKETS)}")
@@ -107,14 +129,36 @@ def dispatch(args: argparse.Namespace) -> int:
                 Path(args.source), Path(args.attachments_dir)
             )
         emit(summary)
+    elif command == "open-archive":
+        try:
+            emit(
+                archive.open_archive(
+                    Path(args.archive),
+                    Path(args.passphrase_file),
+                    Path(args.out_dir),
+                    max_extracted=args.max_bytes,
+                    max_members=args.max_members,
+                )
+            )
+        except archive.ArchiveError as exc:
+            return refuse(str(exc))
+    elif command == "discard-archive":
+        try:
+            emit(archive.discard_archive(Path(args.dir)))
+        except archive.ArchiveError as exc:
+            return refuse(str(exc))
     elif command == "render-patch-comment":
         index = read_object(args.index)
-        found = [f for f in index.get("findings") or [] if f.get("id") == args.finding]
-        if not found:
-            return refuse(f"no finding {args.finding!r} in {args.index}")
-        if "patches" not in found[0]:
+        # A promoted ordinary bug or unlisted archive report gets its evidence comment too.
+        entry = oss_scanner.find_entry(index, args.finding)
+        if entry is None:
+            return refuse(f"no finding, ordinary bug or archive report {args.finding!r} in {args.index}")
+        if "patches" not in entry:
             return refuse("the scan folder was parsed without --archive-dir, so no patches are linked")
-        bodies = oss_scanner.write_patch_comments(found[0], index.get("scan") or {}, Path(args.out_dir))
+        verdict = Path(args.verdict).read_text(encoding="utf-8") if args.verdict else None
+        bodies = oss_scanner.write_patch_comments(
+            entry, index.get("scan") or {}, Path(args.out_dir), verdict=verdict
+        )
         emit({"finding": args.finding, "bodies": bodies})
     elif command == "bucket-action":
         emit(scan.bucket_action(args.bucket))
