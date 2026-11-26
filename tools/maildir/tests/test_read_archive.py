@@ -15,19 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import base64
 import datetime as dt
 import email
 import email.utils
 import json
 import mailbox
 import time
-from email.message import EmailMessage
+from email.message import EmailMessage, Message
 
 import pytest
 
 from maildir_draft.read_archive import (
     KEYLESS_THREAD_ID_KIND,
     THREAD_ID_KIND,
+    _header_text,
     detect_format,
     group_threads,
     iter_messages,
@@ -368,6 +370,33 @@ def test_encoded_headers_are_decoded(tmp_path):
     assert thread["subject"] == "[SECURITY] Café parser overflow"
     assert thread["messages"][0]["from"] == "Jöhn Döe <jdoe@example.org>"
     assert thread["messages"][0]["subject"] == "[SECURITY] Café parser overflow"
+
+
+@pytest.mark.parametrize("charset", ["shift_jis", "euc-jp", "utf-8"])
+def test_header_text_keeps_half_width_katakana(charset):
+    # make_header() re-encodes Japanese charsets as ISO-2022-JP, which has no
+    # half-width katakana, so these headers used to raise UnicodeEncodeError.
+    text = "[SECURITY] \uff76\uff80\uff76\uff85 RCE"
+    msg = Message()
+    msg["Subject"] = f"=?{charset}?b?{base64.b64encode(text.encode(charset)).decode()}?="
+    assert _header_text(msg, "Subject") == text
+
+
+def test_header_text_keeps_undecodable_bytes_as_raw_text():
+    msg = Message()
+    msg["Subject"] = "=?utf-8?b?/w==?="
+    assert _header_text(msg, "Subject") == "=?utf-8?b?/w==?="
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["Z\u00fcrich =?utf-8?q?x?=", "=?utf-8?q?a?=\u4e2db", "Re: \u4e2d\u6587 =?utf-8?q?=C3=BC?="],
+)
+def test_header_text_keeps_a_raw_8bit_header_with_an_encoded_word(raw):
+    # Decoding it would turn the raw characters into literal \uXXXX escapes.
+    msg = Message()
+    msg["Subject"] = raw
+    assert _header_text(msg, "Subject") == raw
 
 
 def test_an_html_only_message_still_yields_its_body(tmp_path):
