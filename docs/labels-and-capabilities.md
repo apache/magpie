@@ -22,6 +22,8 @@
     - [A new tool under `tools/`](#a-new-tool-under-tools)
     - [A new skill under `.claude/skills/`](#a-new-skill-under-claudeskills)
     - [A new doc under `docs/`](#a-new-doc-under-docs)
+    - [Organization membership](#organization-membership)
+    - [An adopter's tracker](#an-adopters-tracker)
   - [Why this exists](#why-this-exists)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -526,6 +528,7 @@ capability: capability:NAME
 ---
 ```
 
+The value is a string, or a YAML list for multi-capability skills.
 The [`write-skill`](../skills/write-skill/SKILL.md) skill
 prompts for this on every new-skill scaffold.
 
@@ -535,6 +538,21 @@ Capability-specific docs (e.g. a guide for a single skill family)
 should link to this page and name the capability in their first
 paragraph. Cross-cutting docs (`MISSION.md`, top-level READMEs) need
 no capability marker.
+
+### Organization membership
+
+Optional. An entity that *belongs to* one organization declares it
+(skills: `organization:` frontmatter; families: the scope banner in `docs/<family>/README.md`; tools: an `**Organization:** <org>` README line).
+The value must
+name an organization under [`organizations/`](../organizations/); omit it
+for organization-agnostic entities.
+
+### An adopter's tracker
+
+The taxonomy applies to *this framework repository*. Skills that create
+issues or PRs on an **adopter's tracker** (e.g. `security-issue-import`,
+`security-issue-fix`, `issue-fix-workflow`) use the adopter's own label
+scheme — adopters may mirror this taxonomy but are not required to.
 
 ---
 

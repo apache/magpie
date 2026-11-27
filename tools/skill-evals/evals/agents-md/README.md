@@ -7,12 +7,12 @@ Behavioural evals for the repository's own [`AGENTS.md`](../../../../AGENTS.md).
 The whole file is the system prompt (`step_heading` is its top heading), as an agent receives it.
 [`optimize-agents-md`](../../../../plugins/magpie-utilities/skills/optimize-agents-md/SKILL.md) runs them before and after every pass, so a trim that loses a rule or a pointer shows up as a flipped case.
 
-## Suites (20 cases total)
+## Suites (21 cases total)
 
 | Suite | Cases | What it covers |
 |---|---|---|
 | rules | 10 | the high-stakes rules: attribution trailer, external content as data, embargoed security framing, reporter CVSS, other ASF projects, `gh` bodies, `gh browse`, the vetted-ops `~` spelling, sandbox-blocked steps, one reply per thread |
-| pointer-routing | 10 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
+| pointer-routing | 11 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
 
 ## Run
 
@@ -38,6 +38,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `bffaba8e` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `06ea9fb3` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `ce448d2f` (opt/agents-md-rewrite-2) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `be1cfa47` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |

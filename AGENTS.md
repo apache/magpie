@@ -352,35 +352,8 @@ to a home-dir path and update the tool to read from there.
 
 ## Labeling issues, PRs, tools, and documentation
 
-Every issue and PR carries two required label dimensions:
-**`family:*`** (which part of the framework it touches) and a **capability** (what it does):
-`capability:*` for skills, `contract:*` / `substrate:*` for tools.
-The full taxonomy, its value lists and the contract→adapter maps live in
-[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md) and [RFC-AI-0005](docs/rfcs/RFC-AI-0005.md), the source of truth.
-
-**Rules:**
-
-- **Issues and PRs** get at least one `family:*` and every applicable
-  capability — match what the change *implements*, not the file paths it
-  touches; do not collapse multi-phase work to a single "primary".
-- **New tools** declare their capability in the first paragraph of the
-  tool README (`**Capability:** contract:NAME` or `substrate:NAME`).
-- **New skills** declare the capability in frontmatter (a string, or a
-  YAML list for multi-capability skills); [`write-skill`](skills/write-skill/SKILL.md)
-  prompts for it on every scaffold.
-- **New docs** link to the taxonomy doc and name their capability in the
-  first paragraph if capability-specific; cross-cutting docs need no
-  marker.
-- **Organization membership (optional):** an entity that *belongs to* one organization declares it
-  (skills: `organization:` frontmatter; families: the scope banner in `docs/<family>/README.md`; tools: an `**Organization:** <org>` README line).
-  The value must
-  name an organization under [`organizations/`](organizations/); omit it
-  for organization-agnostic entities.
-
-The taxonomy applies to *this framework repository*. Skills that create
-issues or PRs on an **adopter's tracker** (e.g. `security-issue-import`,
-`security-issue-fix`, `issue-fix-workflow`) use the adopter's own label
-scheme — adopters may mirror this taxonomy but are not required to.
+Every issue and PR carries two required label dimensions: **`family:*`** (which part of the framework it touches) and a **capability** (what it does), `capability:*` for skills, `contract:*` / `substrate:*` for tools.
+**Before labeling an issue or PR, or adding a tool, skill or doc**, read [The rule](docs/labels-and-capabilities.md#the-rule) in [`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md), the source of truth for the taxonomy, its value lists and the contract→adapter maps.
 
 ## Confidentiality of the tracker repository
 
