@@ -416,6 +416,21 @@ security_inbox:
   reporter_response_timeout_days: 21   # only if your project differs from its organization
 ```
 
+**Optional override — `bcc_private_list`.** When the project has no
+dedicated security list (`security_list` unset, or the organization's
+foundation address), reporter-facing drafts carry `private_list` in
+**Bcc** so the governance body sees what reporters are told; it never goes
+in To or Cc, since reporters are never given that address. `ASF` turns this
+on and `independent` leaves it off; set it here only to depart from your
+organization. A dedicated security list already reaches the team, so no Bcc
+is added then. Consumed by the shared
+[security draft CC resolution](../../../tools/mail-source/contract.md#security-draft-cc-resolution).
+
+```yaml
+security_inbox:
+  bcc_private_list: false   # only if your project differs from its organization
+```
+
 ### Forwarders
 
 Org-level — inherited from your organization's `forwarders` block (which
@@ -645,10 +660,13 @@ scope_detection:
 
 ### Invalidate
 
-Per-project — labels `security-issue-invalidate` leaves on a tracker it
-closes as invalid. By default it removes `needs triage`, the scope label
-and `pr created` / `pr merged`; list here the ones to keep (e.g. so
-archived invalid trackers stay filterable by component):
+Per-project — labels `security-issue-invalidate` adds and leaves on a
+tracker it closes. It closes with one of three reasons (`invalid`, the
+default; `defense-in-depth`; `info-only`), each adding its own labels;
+`reason_labels` overrides them per reason. By default it removes
+`needs triage`, the scope label and `pr created` / `pr merged`; list in
+`keep_labels` the ones to keep (e.g. so archived closed trackers stay
+filterable by component):
 
 ```yaml
 invalidate:
@@ -659,6 +677,13 @@ invalidate:
   # Consumed by: security-issue-invalidate (Step 5a).
   keep_labels: []
   # keep_labels: [scope, pr]
+  # Labels added per close reason. A reason left out keeps its default
+  # below; an empty list is refused (a close always adds a label).
+  # Consumed by: security-issue-invalidate (Step 5a).
+  reason_labels:
+    invalid: [invalid]
+    defense-in-depth: [defense-in-depth, wontfix]
+    info-only: [info-only]
 ```
 
 ### Release process

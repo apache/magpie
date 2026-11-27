@@ -66,8 +66,13 @@ The table below is an **illustrative example** of one adopting project's heading
 | Image / video reproducer instead of a written report | *When someone submits a media report* (or *Or an alternative response*). |
 
 If multiple canned sections apply, pick the most specific one and note the others to the user;
-if none fits, default to the project's generic negative-assessment section (*Negative Assessment response* in the example),
-with the team's reasoning filling the placeholder.
+if none fits, the default depends on the close reason (`<sm> draft-plan` prints it as `canned_default`):
+
+| Reason | Default canned response |
+|---|---|
+| `invalid` | The project's generic negative-assessment section (*Negative Assessment response* in the example), with the team's reasoning filling the placeholder. |
+| `defense-in-depth` | The same generic section, its augmentation saying the hardening is welcome as a public PR and is not a CVE. |
+| `info-only` | The heading the `INFO-ONLY` triage proposal named, verbatim: that proposal had to name a real `canned-responses.md` heading. |
 
 Never invent a canned response or paraphrase one into the file.
 If the project lacks a fitting template, surface the gap to the user: adding one is a separate `canned-responses.md` PR, not part of this run.

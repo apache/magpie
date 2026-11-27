@@ -186,6 +186,16 @@ class Config:
     #: SHA-256 of the policy file's bytes: binds a checked batch to the very
     #: policy (and so the approved copy) it was checked against.
     policy_sha256: str = ""
+    #: The policy file this was loaded from (the discovered one, not its approved copy).
+    policy_path: Path | None = None
+    #: The directory discovery started from; names the approved copy (`approved_copy`).
+    base: Path | None = None
+
+    def approved_copy(self) -> Path | None:
+        """Where the user's approval command copies this policy to, slug filled in."""
+        if self.base is None:
+            return None
+        return approved_dir() / approved_copy_name(self.base)
 
     def as_mapping(self) -> dict[str, object]:
         """The mapping handed to an operation's ``build`` callable."""
@@ -530,6 +540,8 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
         git=raw.get("git"),
         private_tracker_writes=_approval(raw.get("approval")),
         policy_sha256=hashlib.sha256(data).hexdigest(),
+        policy_path=Path(os.path.abspath(resolved)),
+        base=base,
     )
 
 

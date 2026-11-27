@@ -51,7 +51,9 @@ no approved policy, hand the user the equivalent `git` and
 `gh pr create --web` commands to run themselves, as before. When it
 refuses the caller (`not permitted to run`), name the `git-*` grant
 `setup-override-upstream` needs in the policy's `[callers]` table and hand over the
-same commands; never retry with another skill's `--caller`. What the
+same commands; never retry with another skill's `--caller`. When
+`pr-add-label` exits `5` (a label `[values] upstream_labels` does not list),
+follow [unlisted-value-ask.md](unlisted-value-ask.md). What the
 operations do not cover keeps its current route: a draft pull request or a
 base other than `pr_base` opens with `gh pr create --web`, which the user
 submits from the browser, and a push to a repository other than the

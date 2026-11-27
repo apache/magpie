@@ -89,6 +89,7 @@ governance:
 security_inbox:
   kind: ghsa-inbox                    # GitHub Security Advisories private reports
   foundation_security_address: null
+  bcc_private_list: false
   has_forwarder_relay: false
   list_filter_query: null
   reporter_response_timeout_days: 14  # days of reporter silence before sync proposes proceeding

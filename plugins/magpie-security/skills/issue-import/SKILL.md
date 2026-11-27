@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8942
+measured_tokens: 8965
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -221,8 +221,9 @@ Scratch files this skill writes (Steps 2a, 2c, 7) live under `<scratch>/`.
 
 **Security draft recipients.** Run the shared
 [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
-before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
-in the observed-state bag; a missing address blocks drafting, while
+before mail probes or draft proposals. Keep `security_cc`, `cc_fallback`
+and `security_bcc` (the private list, Bcc only, when there is no dedicated
+security list) in the observed-state bag; a missing address blocks drafting, while
 read-only work remains subject to its own prerequisites.
 
 Before touching any candidate thread, verify:

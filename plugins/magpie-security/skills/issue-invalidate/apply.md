@@ -14,8 +14,10 @@ Write the Step 5e entry body to `<workspace>/invalidate-<N>-rollup.md` with the 
 [`status-rollup.md`](../../../../tools/github/status-rollup.md):
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as <reason>" <workspace>/invalidate-<N>-rollup.md
 ```
+
+The action label is the Step 5e `label` (`Closed as invalid`, `Closed as defense-in-depth` or `Closed as info-only`); `<sm> apply-plan` prints the command with it filled in.
 
 This runs through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
 Without the secure setup, the same operations are
@@ -40,13 +42,14 @@ Body is the Step 5b shape with comment IDs substituted.
 
 ```bash
 gh issue edit <N> --repo <tracker> \
-  --add-label 'invalid' \
+  --add-label '<reason-label>' \
   --remove-label '<scope-label>' \
   --remove-label 'needs triage' \
   --remove-label 'pr created' \
   --remove-label 'pr merged'
 ```
 
+One `--add-label` per label of the close reason (`invalid`; `defense-in-depth` and `wontfix`; `info-only`; or the reason's `invalidate.reason_labels` entry).
 `gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent;
 `<sm> labels` prints the command with only the labels actually set, minus those `invalidate.keep_labels` in `<project-config>/project.md` keeps (Step 5a).
 
@@ -56,7 +59,7 @@ gh issue edit <N> --repo <tracker> \
 gh issue close <N> --repo <tracker> --reason 'not planned'
 ```
 
-Use `not planned`, never `completed`: an invalid report was not resolved.
+Use `not planned`, never `completed`, for every reason: the report was not resolved as a security fix.
 
 ### 6e — Archive the project-board item
 
@@ -74,18 +77,20 @@ Use the backend chosen in Step 5d:
   the chronologically-last message's `id`, and call
   `mcp__claude_ai_Gmail__create_draft` with `to=<reporterEmail>`,
   `cc=security_cc`, `subject='Re: <root subject>'`,
-  `body=<file>`, and `replyToMessageId=<that message id>`. The
+  `body=<file>`, and `replyToMessageId=<that message id>`
+  (a non-empty plan `bcc` is named in the proposal for the human to add). The
   draft lands attached to the inbound thread.
 - **`oauth_curl`** (preferred): call the `oauth_curl drafts:create` script
   per [`draft-backends.md`](../../../../tools/gmail/draft-backends.md)
   with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
-  `cc=security_cc`, `subject='Re: <root subject>'`,
+  `cc=security_cc`, `bcc=<the plan's bcc>`, `subject='Re: <root subject>'`,
   `body=<file>`. The draft lands attached to the inbound thread.
 - **`maildir`** (when the drafting backend resolves to it): call
   `maildir-draft-create` per [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend)
   with `--in-reply-to` the inbound report's `Message-ID`,
   `--to <reporterEmail>`, `--cc security_cc`,
-  `--subject 'Re: <root subject>'` and `--body-file <file>`. The printed
+  `--subject 'Re: <root subject>'` and `--body-file <file>`
+  (it takes no Bcc: a non-empty plan `bcc` is named in the proposal for the human to add). The printed
   draft path stands in for the `draftId`.
 
 Capture the returned `draftId`.
@@ -93,7 +98,7 @@ If 6a ran with a placeholder draft ID in the *Reporter notification* line,
 rewrite `<workspace>/invalidate-<N>-rollup.md` with the real ID and run
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as <reason>" <workspace>/invalidate-<N>-rollup.md
 ```
 
 It keeps the entry's date and author, and refuses if someone else's entry has landed after it.

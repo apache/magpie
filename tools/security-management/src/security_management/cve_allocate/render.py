@@ -168,7 +168,9 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
         return {"ok": False, "refused": str(exc)}
     allocated = str(data.get("cve_allocated_label") or CVE_ALLOCATED)
     source = one_line(data.get("source_tab_url_template"))
-    push = f"push it to the record with `cve-tool push --cve-id {cve_id} --json-file <path>`"
+    pmc = one_line(data.get("pmc"))
+    pmc_flag = f" --pmc {pmc}" if pmc else ""
+    push = f"push it to the record with `cve-tool push{pmc_flag} --cve-id {cve_id} --json-file <path>`"
     if source:
         push += f" or, as a fallback, paste it into the record's [`source` tab]({record_url(source, cve_id)})"
     scope = one_line(data.get("scope_label"))

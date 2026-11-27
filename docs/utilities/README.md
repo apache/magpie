@@ -50,6 +50,7 @@ the files to configure before the first run, and the skills to try first.
 |---|---|---|
 | [`write-skill`](../../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defenses, Privacy-LLM gate-check, and validator sign-off. | stable |
 | [`optimize-skill`](../../skills/optimize-skill/SKILL.md) | Optimize an existing skill by applying restructuring patterns — split an oversized `SKILL.md` into linked sibling docs, trim frontmatter, and improve eval alignment. | stable |
+| [`optimize-agents-md`](../../skills/optimize-agents-md/SKILL.md) | Make an agent-instruction file (`AGENTS.md`, `CLAUDE.md`) cheaper to load without losing a rule: measure its always-on cost, move task-only and subtree-only sections behind triggered pointers, and prove every normative sentence survived. | stable |
 | [`list-skills`](../../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository, grouped by family, with each skill's name and first-sentence description. | stable |
 | [`skill-reconciler`](../../skills/skill-reconciler/SKILL.md) | Reconcile a skill's declared state (frontmatter, sibling docs, symlinks) against the framework's conventions and surface discrepancies with proposed fixes. | stable |
 

@@ -16,6 +16,11 @@
 # under the License.
 """Steps 5b, 5e and 7: the closing comment, the rollup entry and the recap.
 
+Each takes the close `reason` (`invalid` by default, `defense-in-depth`,
+`info-only`): it names the reason in the closing comment, the rollup action
+label `Closed as <reason>` and the recap, and a `defense-in-depth` close ends
+on the next step *file the public hardening PR* instead of a terminal one.
+
 The closing comment is brief and process-shaped: it links the deciding
 comment and the rollup, and says where the reporter reply is (never the
 reasoning). The rollup entry carries at most 5 verbatim quotes, the canned
@@ -30,11 +35,12 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from security_management.issue_invalidate import reasons
 from security_management.shared import body, refs, rollup
 from security_management.shared.rollup import code, one_line
 from security_management.shell import dq
 
-LABEL = "Closed as invalid"
+LABEL = reasons.action_label(reasons.INVALID)
 MAX_QUOTES = 5
 POLICY = (
     "[Reporter credit policy](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/"
@@ -45,9 +51,16 @@ HANDOFF = (
     "> `{tracker}#{number}`. If the team later changes its mind, re-open\n"
     "> the tracker manually and re-run the discussion at Step 5;\n"
     "> there is no `un-invalidate` skill (and there should not be —\n"
-    "> reversing an invalid close is a deliberate team action that\n"
+    "> reversing {close} is a deliberate team action that\n"
     "> deserves a fresh discussion)."
 )
+HARDENING = "The hardening is welcome as a public PR; it is not a CVE."
+
+
+def _close_phrase(reason: str) -> str:
+    return "an invalid close" if reason == reasons.INVALID else f"a `{reason}` close"
+
+
 _COMMENT_ID = re.compile(r"(?:#issuecomment-)?(\d+)$")
 
 
@@ -66,7 +79,10 @@ def close_comment(data: Mapping[str, Any]) -> dict[str, Any]:
     decided = comment_id(data["decision_comment"])
     rollup_id = comment_id(data["rollup_comment"])
     case = str(data.get("notification_case") or "")
-    first = f"Closing as `invalid` per team consensus in [this discussion](#issuecomment-{decided})."
+    reason = reasons.normalise(data.get("reason"))
+    first = f"Closing as `{reason}` per team consensus in [this discussion](#issuecomment-{decided})."
+    if reason == reasons.DEFENSE_IN_DEPTH:
+        first += f" {HARDENING}"
     summary = f"Reasoning summary in the [status rollup](#issuecomment-{rollup_id})"
     if case.startswith(("direct", "via_forwarder", "ghsa_forwarder")):
         who = "the reporter" if case.startswith("direct") else "the forwarder"
@@ -79,7 +95,7 @@ def close_comment(data: Mapping[str, Any]) -> dict[str, Any]:
         second = f"{summary}; no reporter notification (internal audit finding)."
     else:
         second = f"{summary}."
-    return {"ok": True, "text": f"{first}\n\n{second}\n"}
+    return {"ok": True, "reason": reason, "text": f"{first}\n\n{second}\n"}
 
 
 def _anchor(heading: str) -> str:
@@ -133,6 +149,8 @@ def _notification(n: Mapping[str, Any], upstream: str) -> str | None:
 
 def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
+    reason = reasons.normalise(data.get("reason"))
+    label = reasons.action_label(reason)
     note = _notification(data.get("notification") or {}, str(data.get("upstream") or "<upstream>"))
     if note is None:
         return {
@@ -152,7 +170,7 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
     config = one_line(data.get("project_config") or ".apache-magpie-overrides").strip("/")
     canned_url = f"https://github.com/{tracker}/blob/{branch}/{config}/canned-responses.md#{_anchor(canned)}"
     lines = [
-        f"**Closed as `invalid` on {one_line(data['date'])}** (decided in "
+        f"**Closed as `{reason}` on {one_line(data['date'])}** (decided in "
         f"[comment](#issuecomment-{comment_id(data['decision_comment'])})).",
         "",
         "**Reasoning** (verbatim from the team's discussion, capped at ~5 quotes):",
@@ -178,14 +196,15 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
         "",
         f"**Project board:** {board_line}",
         "",
-        "**Next:** none — terminal disposition.",
+        f"**Next:** {reasons.NEXT[reason]}",
     ]
     text = rollup.column_zero(refs.linkify("\n".join(lines), tracker)) + "\n"
     notification = data.get("notification") or {}
     return {
         "ok": True,
-        "label": LABEL,
-        "label_shell": dq(LABEL),
+        "reason": reason,
+        "label": label,
+        "label_shell": dq(label),
         "text": text,
         "quotes_dropped": max(0, len(quotes) - MAX_QUOTES),
         "needs_amend": "<pending>" in text
@@ -199,11 +218,13 @@ def recap(data: Mapping[str, Any]) -> dict[str, Any]:
     lines: list[str] = []
     for item in data.get("closed") or []:
         number = int(item["number"])
+        reason = reasons.normalise(item.get("reason") or data.get("reason"))
+        added = item.get("labels_added") or list(reasons.DEFAULT_LABELS[reason])
         board = item.get("board") or {}
         draft = item.get("draft") or {}
         lines += [
-            f"**Closed as invalid:** {refs.tracker_link(tracker, number)} — new state `closed - not planned`.",
-            f"- Labels: added {', '.join(code(x) for x in item.get('labels_added') or ['invalid'])}; "
+            f"**Closed as {reason}:** {refs.tracker_link(tracker, number)} — new state `closed - not planned`.",
+            f"- Labels: added {', '.join(code(x) for x in added)}; "
             f"removed {', '.join(code(x) for x in item.get('labels_removed') or []) or 'none'}.",
             f"- Rollup entry: [permalink]({one_line(item['rollup_url'])})",
             f"- Closing comment: [permalink]({one_line(item['close_url'])})",
@@ -215,10 +236,10 @@ def recap(data: Mapping[str, Any]) -> dict[str, Any]:
                 if draft.get("id")
                 else f"none — {one_line(draft.get('reason') or 'no draft owed')}"
             ),
-            "",
-            HANDOFF.format(tracker=tracker, number=number),
-            "",
         ]
+        if reasons.NEXT[reason] != reasons.TERMINAL:
+            lines.append(f"- Next: {reasons.NEXT[reason]}")
+        lines += ["", HANDOFF.format(tracker=tracker, number=number, close=_close_phrase(reason)), ""]
     for item in data.get("awaiting") or []:
         lines.append(f"- {refs.tracker_link(tracker, item['number'])}: awaiting consensus — skipped.")
     failed = data.get("failed")

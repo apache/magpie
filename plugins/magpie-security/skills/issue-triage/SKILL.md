@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 7028
+measured_tokens: 7112
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -139,7 +139,7 @@ Validity is the team's decision; this skill opens the discussion that reaches it
 
 It composes with [`security-issue-import`](../issue-import/SKILL.md) (the on-ramp creating `Needs triage` trackers),
 the skills the user invokes by hand once the team agrees — [`security-cve-allocate`](../cve-allocate/SKILL.md) (**VALID**),
-[`security-issue-invalidate`](../issue-invalidate/SKILL.md) (**INVALID**, **INFO-ONLY**), [`security-issue-deduplicate`](../issue-deduplicate/SKILL.md) (**PROBABLE-DUP**) —
+[`security-issue-invalidate`](../issue-invalidate/SKILL.md) (**INVALID**, **DEFENSE-IN-DEPTH**, **INFO-ONLY**, each with its own close reason), [`security-issue-deduplicate`](../issue-deduplicate/SKILL.md) (**PROBABLE-DUP**) —
 and [`security-issue-sync`](../issue-sync/SKILL.md), which then flips `needs triage` to the scope label, records the disposition in the rollup and moves the board.
 
 ---
@@ -165,8 +165,8 @@ Propose exactly one class per tracker; a two-class proposal stalls the discussio
 | Class | When to propose | Sibling skill to invoke after team consensus |
 |---|---|---|
 | `VALID` | Clear Security Model violation; in-scope attack vector | [`security-cve-allocate`](../cve-allocate/SKILL.md) |
-| `DEFENSE-IN-DEPTH` | Real issue, but outside the Security Model boundary (local-user attacks on an operator-trusted worker; old-browser-only XSS) | close as wontfix + file a public PR for the hardening |
-| `INFO-ONLY` | Fact-correct but violates nothing; a canned-response shape covers it (educational reply) | close + reporter-reply via the matching canned response |
+| `DEFENSE-IN-DEPTH` | Real issue, but outside the Security Model boundary (local-user attacks on an operator-trusted worker; old-browser-only XSS) | [`security-issue-invalidate <N> as defense-in-depth`](../issue-invalidate/SKILL.md), then file the public hardening PR |
+| `INFO-ONLY` | Fact-correct but violates nothing; a canned-response shape covers it (educational reply) | [`security-issue-invalidate <N> as info-only`](../issue-invalidate/SKILL.md) (reporter reply via the named canned response) |
 | `INVALID` | Misframed, circular, by-design, or out-of-scope per the canned-responses precedents | [`security-issue-invalidate`](../issue-invalidate/SKILL.md) |
 | `PROBABLE-DUP` | Same root cause as an existing tracker or closed advisory, or a sibling vector with the same fix shape | [`security-issue-deduplicate`](../issue-deduplicate/SKILL.md) |
 | `FIX-ALREADY-PUBLIC` | A public `<upstream>` PR (open or merged) already appears to fix it, and the reporter wrote independently of it: thanked, not credited ([policy](../issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports)), asked to verify the PR | [`security-issue-invalidate`](../issue-invalidate/SKILL.md) once the reporter confirms (else `--retriage`) |
@@ -407,7 +407,7 @@ If an `issue-comment` call fails, stop and report it; do not retry blindly: the 
 
 After the post loop, write `{tracker, posted: [{number, class, comment_url, kept}], skipped, failed, remaining}` and run `<sm> render-recap`; print its `text`.
 It carries the six-class distribution, one linked line per tracker with its comment URL, the *"Pre-flight skipped (awaiting reaction)"* group (never omitted when non-empty),
-the next command per class — for FIX-ALREADY-PUBLIC `security-issue-invalidate` *only after the reporter confirms the PR fixes their report* (else `--retriage`), none for DEFENSE-IN-DEPTH —
+the next command per class — `security-issue-invalidate <N> as defense-in-depth` *then file the public hardening PR* for DEFENSE-IN-DEPTH, `… as info-only` for INFO-ONLY, and for FIX-ALREADY-PUBLIC `security-issue-invalidate` *only after the reporter confirms the PR fixes their report* (else `--retriage`) —
 and the note that label flips and board moves stay with `security-issue-sync`. Its `bare_refs` must be empty (the Golden rule 5 self-check).
 
 ---

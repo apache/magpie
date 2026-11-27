@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [A value the policy does not list](#a-value-the-policy-does-not-list)
     - [Where do the dispatchers start from?](#where-do-the-dispatchers-start-from)
     - [Is the policy approved?](#is-the-policy-approved)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
@@ -216,6 +217,8 @@ issue_states  = ["open", "closed", "all"]
 pr_states     = ["open", "closed", "merged", "all"]
 close_reasons = ["completed", "not planned"]
 ecosystems    = ["PyPI", "Maven", "npm", "Go"]
+# The PMC(s) whose Vulnogram tokens this project may use: a session can then never use another PMC's stored token.
+pmcs          = ["<pmc>"]
 
 board_project_id      = "PVT_kwDO…"   # ProjectV2 node id
 board_status_field_id = "PVTSSF_…"    # its Status field id
@@ -247,6 +250,10 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set",
+                           # Step 10: assignee, milestone and labels on the tracker.
+                           "issue-add-assignee", "milestone-list", "milestone-create",
+                           "issue-set-milestone", "label-list",
+                           "issue-add-label", "issue-remove-label",
                            # vetted-op-git: from a change to an open pull request. Its
                            # labels pass the same scrub as the title and body first: they
                            # are public before the advisory.
@@ -516,6 +523,10 @@ other list takes patterns, and the policy refuses one that tries: labels reach
 `gh` list flags and search qualifiers, and logins have their own format check,
 so both stay listed by name.
 
+A value missing from a list is refused with exit `5` and a JSON line naming the
+key to add it to; see
+[A value the policy does not list](#a-value-the-policy-does-not-list).
+
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a
 prompt-injection payload in a PR title cannot talk it into one.
@@ -606,7 +617,33 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 ```
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
-underlying command failed.
+underlying command failed, `5` a value the policy's `[values]` does not list
+(see [A value the policy does not list](#a-value-the-policy-does-not-list)).
+
+### A value the policy does not list
+
+An enum-gated parameter (a label, milestone, assignee, state, close reason, board column or ecosystem)
+that is a plain name but not in its `[values]` list is refused with exit `5`, on every entry point,
+reads and dry runs included, before anything runs.
+The value never reaches `gh`, the HTTP client or a tracker backend; on a non-GitHub tracker the check runs before the translation.
+stderr carries the usual human line, then **one JSON object line per refused value**:
+
+```text
+vetted-op: refused: value 'family:tools' is not in [values] upstream_labels (parameter 'label' of 'pr-add-label'): …
+{"refused": "unlisted-value", "operation": "pr-add-label", "caller": "setup-upstream-fix", "parameter": "label", "value": "family:tools", "key": "upstream_labels", "policy": "/…/.apache-magpie-overrides/tools/vetted-ops/config.toml", "approved_copy": "/…/.config/apache-magpie/vetted-ops/<project>.toml"}
+```
+
+- `key` is the `[values]` key a reviewed policy change would add the value to; `policy` is the discovered policy file, and `approved_copy` the path the re-approval `cp` writes.
+- `issue-create-labeled` prints one line per unlisted label in its `labels` array (key `labels`), all of them in one refusal.
+- A batch (`batch-check`, `vetted-op-tracker-batch`, `…-unprompted`) checks the whole manifest, then prints one line per unlisted value with an extra `"entry": <index>`; any other fault in the manifest refuses at once with exit `3`.
+- A milestone that matches neither `milestones` nor `milestones_patterns` gets the same shape, with key `milestones`.
+- Exit `3` stays for everything else and prints no JSON line: an unknown operation, a caller not granted it,
+  a malformed value (a leading `-`, or an unlisted value that is not a plain name: control or format characters, `,` `"` `\`, over 100 characters),
+  and a policy that declares **no** list for the key at all, which is a configuration error, not one missing value.
+
+The allowlist is unchanged: only the user widens it, by editing the policy and re-approving the copy.
+Skills handle exit `5` with the shared
+[`unlisted-value-ask`](../dev/blocks/unlisted-value-ask.md) block.
 
 ### Where do the dispatchers start from?
 
@@ -706,8 +743,10 @@ vetted-op-read --caller security-issue-triage repo-code-search "IMAP_SOURCE_SSL"
 Free-text search is otherwise kept out of the catalogue. These three, like the
 tracker's `issue-search`, are bounded: the repository comes from policy, and the
 `query` is plain words — one line, at most 200 characters, no `:` (so no
-`repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no leading `-`, and
-passed after `--`. They let a read-only gatherer check whether something was
+`repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no `(` or `)` and
+no uppercase `OR` / `AND` / `NOT` word (GitHub reads only those as operators; `gh` appends the pinned `repo:` after the
+words, and a group or operator could set a clause apart from it), no leading `-`,
+and passed after `--`. They let a read-only gatherer check whether something was
 already fixed upstream without a raw `gh search` outside the dispatcher.
 Grant them per caller like any other operation.
 
@@ -724,13 +763,20 @@ overrides. Three operations run it instead, outside the sandbox through
 
 | Operation | Parameters | Runs |
 |---|---|---|
-| `cve-record-fetch` (read) | `cve_id` | `vulnogram-api-record-fetch --cve-id <id>` |
-| `cve-record-update` (write) | `cve_id body` | `vulnogram-api-record-update --cve-id <id> --json-file -`, the record on stdin |
+| `cve-record-fetch` (read) | `pmc cve_id` | `vulnogram-api-record-fetch --pmc <pmc> --cve-id <id>` |
+| `cve-record-update` (write) | `pmc cve_id body` | `vulnogram-api-record-update --pmc <pmc> --cve-id <id> --json-file -`, the record on stdin |
 | `cve-allocate` (write) | `pmc title` (title a workspace file) | `vulnogram-api-allocate --pmc <pmc> --title <title>`; the client refuses a token held for another PMC |
 
 - The client is the copy shipped in this plugin beside vetted-ops
   (`tools/cve-tool-vulnogram/oauth-api`, resolved like the tracker backends),
   never a path the agent can write.
+- Every operation names the PMC (`cna_private_owner` in `project.md`), so a
+  user who holds tokens for several PMCs always acts with the token of the PMC
+  they approved; the client refuses when it holds none for that PMC.
+- The PMC must be one the policy lists in `[values] pmcs`, so a session working
+  on one project can never use a token the user holds for another PMC.
+  A policy without `pmcs` refuses all three operations and names the key;
+  adopters upgrading add `pmcs = ["<pmc>"]` (their `cna_private_owner`).
 - The record travels on stdin as the bytes vetted-ops read from the workspace,
   so no second open can swap them. None of the override flags is reachable, so
   the record commands' merge-mode guards always apply.

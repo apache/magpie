@@ -1,1 +1,1 @@
-{"route": "brief-to-user", "clone_in_this_sandbox": false, "confirm_with_user_first": true, "reason": "No session works in the framework clone, so the brief goes to a file for the user to paste into one there; cloning inside the adopter sandbox is ruled out."}
+{"route": "scratch-clone", "confirm_with_user_first": true, "brief_file_dir": null, "reason": "No session works in the framework clone and the sandbox can reach github.com and write its scratch directory, so the first offer is a sparse scratch clone that excludes the harness's read-only paths."}

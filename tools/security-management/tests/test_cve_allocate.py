@@ -309,6 +309,14 @@ def test_preflight_picks_the_step_3_path(capsys, tmp_path, data, path, setup):
         )
 
 
+def test_preflight_allocate_check_names_the_pmc(capsys, tmp_path):
+    data = {"governance_member": True, "server_exit": 0}
+    out = ok(capsys, tmp_path, "preflight", {"pmc": "airflow", **data})
+    assert out["command"].endswith("cve-tool check --allocate --pmc airflow")
+    out = ok(capsys, tmp_path, "preflight", data)
+    assert out["command"].endswith("cve-tool check --allocate")
+
+
 def test_preflight_exit_20_names_the_missing_key(capsys, tmp_path):
     out = ok(capsys, tmp_path, "preflight", {"pmc": "airflow", "governance_member": True, "server_exit": 20})
     assert out["path"] == "recipe"
@@ -763,6 +771,27 @@ def test_check_draft_wants_the_cve_id_and_never_the_tool_url(capsys, tmp_path):
     assert {h["kind"] for h in dirty["hits"]} >= {"cve-tool-url", "tracker-reference"}
     missing = ok(capsys, tmp_path, "check-draft", {**base, "body": "We allocated an ID."})
     assert {h["kind"] for h in missing["hits"]} == {"missing-cve-id"}
+    private = {**base, "body": "We allocated CVE-2025-44812.", "private_list": "private@airflow.apache.org"}
+    leaked = ok(capsys, tmp_path, "check-draft", {**private, "cc": ["private@airflow.apache.org"]})
+    assert leaked["hits"] == [
+        {"kind": "private-list-recipient", "line": None, "text": "private@airflow.apache.org"}
+    ]
+    bcc_only = ok(capsys, tmp_path, "check-draft", {**private, "cc": ["security@apache.org"]})
+    assert bcc_only == {"clean": True, "hits": []}
+
+
+def test_the_status_draft_bccs_the_private_list_never_ccs_it(capsys, tmp_path):
+    private = "private@airflow.apache.org"
+    plan = draft_plan(capsys, tmp_path, GMAIL, security_bcc=[private], private_list=private)
+    assert (plan["action"], plan["cc"], plan["bcc"]) == ("create", "security@airflow.apache.org", [private])
+    assert draft_plan(capsys, tmp_path, GMAIL)["bcc"] == []
+    blocked = draft_plan(capsys, tmp_path, GMAIL, security_cc=private, private_list=private)
+    assert blocked["action"] == "blocked" and "Bcc" in blocked["reason"]
+
+
+def test_the_rollup_push_hint_names_the_pmc_when_given(capsys, tmp_path):
+    text = rollup(capsys, tmp_path, {"case": "omitted"}, pmc="airflow")["text"]
+    assert "`cve-tool push --pmc airflow --cve-id CVE-2025-44812 --json-file <path>`" in text
 
 
 def test_the_rollup_entry_links_and_lists_the_record_state(capsys, tmp_path):

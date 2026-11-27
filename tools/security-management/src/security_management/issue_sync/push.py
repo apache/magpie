@@ -43,6 +43,11 @@ previous one printed (`next` names the command to run and pass back):
    confirmed with `fetch_current_state`; `allocated` after it is a blocker
    that fires the fill-fields comment, and a fetch that failed or came back
    `unknown` is a blocker that posts nothing about the hand-off this run.
+
+Every `cve-tool` command it names carries `--pmc <pmc>` when `pmc` is given
+(`cna_private_owner` from project.md), so a user holding Vulnogram tokens for
+several PMCs uses this project's; without it the flag is left out, which still
+works for a user with tokens for one PMC only.
 """
 
 from __future__ import annotations
@@ -176,8 +181,15 @@ def _state(value: object) -> str | None:
     return NATIVE.get(text.upper(), text.lower() or None) if text else None
 
 
+def _pmc_args(data: Mapping[str, Any]) -> tuple[str, ...]:
+    """`--pmc <pmc>` for the CVE-tool commands, or nothing when no PMC is given."""
+    pmc = one_line(data.get("pmc"))
+    return ("--pmc", pmc) if pmc else ()
+
+
 def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = one_line(data.get("cve_id"))
+    pmc = _pmc_args(data)
 
     warnings: list[str] = []
 
@@ -250,7 +262,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
     stuck = transition and before == "allocated"
     probe = one_line(data.get("session")).lower() or None
     if probe is None:
-        return out("pending", "probe the CVE tool session", next=cve_tool.command(data, "check"))
+        return out("pending", "probe the CVE tool session", next=cve_tool.command(data, "check", *pmc))
     if probe in ("expired", "not-configured"):
         why = (
             "the session expired: remind the operator to re-run cve-tool setup --pmc <project>; manual-paste hand-off this run"
@@ -267,7 +279,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
         return out(
             "pending",
             "push the regenerated JSON",
-            next=cve_tool.command(data, "push", "--cve-id", cve_id, "--json-file", json_file),
+            next=cve_tool.command(data, "push", "--cve-id", cve_id, "--json-file", json_file, *pmc),
         )
     if int(data["push_exit"]) != 0:
         return out(
@@ -282,7 +294,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             return out(
                 "pending",
                 "verify the state advance",
-                next=cve_tool.command(data, "fetch", "--cve-id", cve_id, "--state-only"),
+                next=cve_tool.command(data, "fetch", "--cve-id", cve_id, "--state-only", *pmc),
             )
         if fetched in LATER:
             return out(

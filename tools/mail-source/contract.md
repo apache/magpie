@@ -121,6 +121,8 @@ backend.
 1. Read `security_list` from the resolved project configuration. Trim
    surrounding whitespace. Treat missing, null, blank, or an unresolved
    template value (`TODO` or a literal placeholder) as unconfigured.
+   A `security_list` that is the project's `private_list` is unconfigured
+   for the CC too (never a CC; see below), with a warning naming it.
 2. If configured, record `security_cc` as that address and reset
    `cc_fallback` to null, including when a previous run used a fallback.
 3. Otherwise select `security_inbox.foundation_security_address` from the
@@ -141,15 +143,33 @@ backend.
    may continue if its own prerequisites pass; never produce a draft with
    a blank recipient or a literal template value.
 
+5. Resolve the **private-list Bcc** (`security_bcc`). The project has no
+   dedicated security list when `security_list` is unconfigured (including
+   naming `private_list`, per step 1) or equals the resolved
+   `security_inbox.foundation_security_address`. Then, when `security_inbox.bcc_private_list` resolves true
+   (the ASF organization sets it; `independent` and the framework default
+   leave it false) and `private_list` is configured, `security_bcc` is
+   that address; otherwise it is empty. Reports then reach the governance
+   body on the private list, and the Bcc gives it a copy of what reporters
+   are told.
+
+**The private list is never a To or Cc recipient.** Reporters are never
+given that address, and a reply-all would put governance business in front
+of them. It rides in Bcc only, on every reporter-facing draft (direct or via
+a forwarder): drop it from any CC array, block a draft plan that addresses
+it, and treat it in To or Cc as a guardrail violation. A drafting backend
+with no Bcc field must not move it to Cc: show the Bcc address in the
+proposal for the human to add before sending.
+
 Every security draft must include `security_cc` in its CC array, preserving
 other required recipients and removing duplicate CC entries. This applies
 also to forwarder relays and advisory-admin hand-offs. Show the resolved
 recipient and any fallback warning in the proposal before the usual human
 confirmation. This rule does not authorize sending mail or changing an
 existing draft.
-The security skills apply this rule in code: `uv run --project <framework>/tools/security-management security-management issue-sync security-cc` reads the layers from a JSON file and prints `security_cc`, `cc_fallback`, the warning, `draft_blocked`, the CC array and `search_list`.
+The security skills apply this rule in code: `uv run --project <framework>/tools/security-management security-management issue-sync security-cc` reads the layers from a JSON file and prints `security_cc`, `cc_fallback`, the warning, `draft_blocked`, the CC array, the Bcc array (`bcc`, kept as `security_bcc`), `private_list` and `search_list`.
 
-`security_cc` and `cc_fallback` are run-state fields, not new placeholders
+`security_cc`, `cc_fallback` and `security_bcc` are run-state fields, not new placeholders
 or persisted configuration. **Do not redefine `<security-list>`**, rewrite
 `security_list`, or substitute the fallback into mailbox searches, list
 filters, subscriptions, or archive URLs. When a list read has no configured

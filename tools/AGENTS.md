@@ -1,13 +1,3 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
-- [AGENTS — conventions for `tools/`](#agents--conventions-for-tools)
-  - [Every tool is a directory with a README](#every-tool-is-a-directory-with-a-readme)
-  - [Refresh the cross-references when tools change](#refresh-the-cross-references-when-tools-change)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 

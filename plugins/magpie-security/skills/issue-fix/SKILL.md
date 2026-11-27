@@ -21,9 +21,9 @@ argument-hint: "[issue-number]"
 capability:
   - capability:fix
   - capability:resolve
-surface_hash: sha256:550eabe3b9bb3689
+surface_hash: sha256:2a75797e813d8c7e
 license: Apache-2.0
-measured_tokens: 7060
+measured_tokens: 7121
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -249,6 +249,8 @@ On the `patch-then-commit` flow, items 1–4 are replaced by [Step 0 (Subversion
 6. the Privacy-LLM gate-check passes.
 
 How to run each, and what each failure means: [`outcomes/preflight.md`](outcomes/preflight.md).
+On the `pull-request` flow, a clone this session cannot reach is not a stop: Steps 7–9 go to a session in it through a publication-neutral brief, per [`handoff.md`](handoff.md).
+On the `patch-then-commit` flow it still stops.
 
 Only after **every** check is green, proceed to Step 1.
 

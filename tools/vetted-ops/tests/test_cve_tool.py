@@ -37,6 +37,9 @@ workspace = '{workspace}'
 tracker = "acme/tracker"
 upstream = "acme/product"
 
+[values]
+pmcs = ["airflow"]
+
 [callers]
 "security-cve-allocate" = ["cve-record-fetch", "cve-record-update", "cve-allocate"]
 """
@@ -75,12 +78,19 @@ def test_the_client_is_the_one_shipped_beside_vetted_ops() -> None:
     assert (cve_tool.tool_dir() / "pyproject.toml").is_file()
 
 
-def test_fetch_runs_the_record_fetch_command_with_only_the_id(policy: config.Config) -> None:
+def test_fetch_runs_the_record_fetch_command_with_only_the_pmc_and_id(policy: config.Config) -> None:
     op = ops.resolve("cve-record-fetch")
     assert not op.writes
-    params, body = cli._validate_params(op, [CVE], policy)
+    params, body = cli._validate_params(op, ["airflow", CVE], policy)
     assert body is None
-    assert cli.build_argv(op, params, policy) == [*_prefix(), "vulnogram-api-record-fetch", "--cve-id", CVE]
+    assert cli.build_argv(op, params, policy) == [
+        *_prefix(),
+        "vulnogram-api-record-fetch",
+        "--pmc",
+        "airflow",
+        "--cve-id",
+        CVE,
+    ]
 
 
 def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, workspace: Path) -> None:
@@ -90,11 +100,13 @@ def test_update_pipes_the_validated_record_on_stdin(policy: config.Config, works
     record.write_text(content)
     op = ops.resolve("cve-record-update")
     assert op.writes
-    params, body = cli._validate_params(op, [CVE, str(record)], policy)
+    params, body = cli._validate_params(op, ["airflow", CVE, str(record)], policy)
     assert body == content.encode()
     assert cli.build_argv(op, params, policy) == [
         *_prefix(),
         "vulnogram-api-record-update",
+        "--pmc",
+        "airflow",
         "--cve-id",
         CVE,
         "--json-file",
@@ -121,7 +133,7 @@ def test_update_refuses_a_record_for_another_id_or_a_request_envelope(
     record = workspace / "cve.json"
     record.write_text(content)
     with pytest.raises(ops.ParamError, match=message):
-        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
+        cli._validate_params(ops.resolve("cve-record-update"), ["airflow", CVE, str(record)], policy)
 
 
 @pytest.mark.parametrize("variant", [CVE.lower(), f" {CVE}", f"{CVE} ", f"{CVE}\n"])
@@ -130,14 +142,14 @@ def test_the_record_id_must_match_exactly(policy: config.Config, workspace: Path
     record = workspace / "cve.json"
     record.write_text(json.dumps({"cveMetadata": {"cveId": variant}}))
     with pytest.raises(ops.ParamError, match="not the target"):
-        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(record)], policy)
+        cli._validate_params(ops.resolve("cve-record-update"), ["airflow", CVE, str(record)], policy)
 
 
 def test_update_refuses_a_record_outside_the_workspace(policy: config.Config, tmp_path: Path) -> None:
     outside = tmp_path / "elsewhere.json"
     outside.write_text("{}")
     with pytest.raises(ops.ParamError):
-        cli._validate_params(ops.resolve("cve-record-update"), [CVE, str(outside)], policy)
+        cli._validate_params(ops.resolve("cve-record-update"), ["airflow", CVE, str(outside)], policy)
 
 
 def test_allocate_reads_its_title_from_a_workspace_file(policy: config.Config, workspace: Path) -> None:
@@ -161,15 +173,87 @@ def test_allocate_reads_its_title_from_a_workspace_file(policy: config.Config, w
 )
 def test_a_malformed_cve_id_never_reaches_the_client(policy: config.Config, bad: str) -> None:
     with pytest.raises(ops.ParamError):
-        cli._validate_params(ops.resolve("cve-record-fetch"), [bad], policy)
+        cli._validate_params(ops.resolve("cve-record-fetch"), ["airflow", bad], policy)
 
 
 @pytest.mark.parametrize("bad", ["Airflow", "airflow --credentials", "--credentials", "../x", ""])
-def test_a_malformed_pmc_never_reaches_the_client(policy: config.Config, workspace: Path, bad: str) -> None:
+@pytest.mark.parametrize("name", ["cve-allocate", "cve-record-fetch", "cve-record-update"])
+def test_a_malformed_pmc_never_reaches_the_client(
+    policy: config.Config, workspace: Path, bad: str, name: str
+) -> None:
     title = workspace / "title.txt"
     title.write_text("A title\n")
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": CVE}}))
+    rest = {"cve-allocate": [str(title)], "cve-record-fetch": [CVE], "cve-record-update": [CVE, str(record)]}[
+        name
+    ]
     with pytest.raises(ops.ParamError):
-        cli._validate_params(ops.resolve("cve-allocate"), [bad, str(title)], policy)
+        cli._validate_params(ops.resolve(name), [bad, *rest], policy)
+
+
+def _pmc_args(name: str, workspace: Path) -> list[str]:
+    """The arguments after the PMC for one of the three Vulnogram operations."""
+    title = workspace / "title.txt"
+    title.write_text("A title\n")
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": CVE}}))
+    return {"cve-allocate": [str(title)], "cve-record-fetch": [CVE], "cve-record-update": [CVE, str(record)]}[
+        name
+    ]
+
+
+_PMC_OPS = ["cve-allocate", "cve-record-fetch", "cve-record-update"]
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_pmc_the_policy_does_not_list_is_refused(policy: config.Config, workspace: Path, name: str) -> None:
+    """A session can never use another PMC's stored token, however well-formed its name."""
+    with pytest.raises(ops.ParamError, match="not one of the configured values"):
+        cli._validate_params(ops.resolve(name), ["magpie", *_pmc_args(name, workspace)], policy)
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_listed_pmc_is_accepted(policy: config.Config, workspace: Path, name: str) -> None:
+    params, _ = cli._validate_params(ops.resolve(name), ["airflow", *_pmc_args(name, workspace)], policy)
+    assert params["pmc"] == "airflow"
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_policy_without_pmcs_refuses_the_vulnogram_operations(
+    tmp_path: Path, workspace: Path, name: str
+) -> None:
+    path = tmp_path / "no-pmcs.toml"
+    path.write_text(POLICY.format(workspace=workspace).replace('[values]\npmcs = ["airflow"]\n', ""))
+    bare = config.load(path)
+    with pytest.raises(config.ConfigError, match="'pmcs'"):
+        cli._validate_params(ops.resolve(name), ["airflow", *_pmc_args(name, workspace)], bare)
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_listed_value_that_is_no_pmc_name_is_still_refused(
+    tmp_path: Path, workspace: Path, name: str
+) -> None:
+    path = tmp_path / "odd-pmcs.toml"
+    path.write_text(
+        POLICY.format(workspace=workspace).replace('pmcs = ["airflow"]', 'pmcs = ["Airflow", "../x"]')
+    )
+    odd = config.load(path)
+    for bad in ("Airflow", "../x"):
+        with pytest.raises(ops.ParamError, match="PMC"):
+            cli._validate_params(ops.resolve(name), [bad, *_pmc_args(name, workspace)], odd)
+
+
+@pytest.mark.parametrize("name", ["cve-record-fetch", "cve-record-update"])
+def test_a_record_operation_without_a_pmc_is_refused(
+    policy: config.Config, workspace: Path, name: str
+) -> None:
+    """A user may hold record tokens for several PMCs; the token is never picked by guess."""
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": CVE}}))
+    args = [CVE] if name == "cve-record-fetch" else [CVE, str(record)]
+    with pytest.raises(ops.ParamError):
+        cli._validate_params(ops.resolve(name), args, policy)
 
 
 def test_no_override_flag_is_reachable() -> None:
@@ -244,10 +328,18 @@ def test_the_read_runs_with_the_scrubbed_env_and_no_shell(
     monkeypatch.setenv("VULNOGRAM_SESSION", "/tmp/agent-session.json")
     monkeypatch.setattr(cli.subprocess, "run", fake_run)
     code = cli.main_read(
-        ["--caller", "security-cve-allocate", "cve-record-fetch", CVE, "--config", str(policy_path)]
+        [
+            "--caller",
+            "security-cve-allocate",
+            "cve-record-fetch",
+            "airflow",
+            CVE,
+            "--config",
+            str(policy_path),
+        ]
     )
     assert code == 0
-    assert seen["command"] == [*_prefix(), "vulnogram-api-record-fetch", "--cve-id", CVE]
+    assert seen["command"] == [*_prefix(), "vulnogram-api-record-fetch", "--pmc", "airflow", "--cve-id", CVE]
     assert "VULNOGRAM_SESSION" not in seen["env"]
     assert "shell" not in seen
 

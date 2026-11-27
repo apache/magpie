@@ -1,0 +1,1 @@
+{"hand_off": false, "route": "stop", "brief_file_dir": null, "resume_here_at": null, "reason": "On the patch-then-commit (Subversion) flow nothing is handed over: an unreachable working copy stops the run, so the private-patch review and the team's clearance are not skipped."}

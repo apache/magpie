@@ -95,8 +95,8 @@ def registry_errors(floor: dict[str, Any], registry: dict[str, Any]) -> list[str
 # threat-model review.
 
 # allowRead must not contain any path that resolves to a credential
-# store. Each entry is matched with normalised trailing-slash so that
-# "~/.aws" and "~/.aws/" both fail.
+# store. Each entry is matched after dropping trailing and repeated slashes
+# and ``.`` segments, so that "~/.aws" and "~/.aws/" both fail.
 FORBIDDEN_ALLOW_READ = {
     "~/",
     "/",
@@ -622,13 +622,17 @@ def _runs_anything(command: str, writable: tuple[str, ...] = ()) -> bool:
 
 
 def _normalise(path: str) -> str:
-    """Strip all trailing slashes so '~/.aws' and '~/.aws//' compare equal.
+    """Make equivalent path spellings compare the same.
 
-    The sandbox treats every trailing-slash count as the same directory;
-    the validator must too, otherwise the forbidden-list could be bypassed
-    by a multi-slash variant.
+    Trailing and repeated slashes and ``.`` segments name the same path, so
+    they are dropped. ``..`` segments are left as written: resolving them
+    lexically would be wrong across symlinks and could cancel ``~``.
     """
-    return path.rstrip("/") or "/"
+    head, *rest = path.split("/")
+    parts = [part for part in rest if part not in ("", ".")]
+    if not head:
+        return "/" + "/".join(parts)
+    return "/".join([head, *parts])
 
 
 def _normalised_set(paths: list[str]) -> set[str]:

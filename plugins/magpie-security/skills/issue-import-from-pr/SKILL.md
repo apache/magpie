@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:26be912ca52168e5
 license: Apache-2.0
-measured_tokens: 6969
+measured_tokens: 6999
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -416,6 +416,7 @@ The labels come from configuration, so they are written in the command.
 Keep the command bare, with no `$(…)`, or it runs inside the sandbox and fails.
 The report body travels through stdin.
 All labels must be approved by the vetted-ops policy and are applied at creation.
+On exit `5` (a label the policy does not list), follow [unlisted-value-ask.md](unlisted-value-ask.md).
 
 Capture `number`, `node_id`, and `url` from the JSON response.
 

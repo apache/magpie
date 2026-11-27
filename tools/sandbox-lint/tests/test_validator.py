@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 from sandbox_lint import (
+    _normalise,
     check_invariants,
     deep_diff,
     main,
@@ -572,6 +573,43 @@ def test_invariant_allow_read_rejects_credential_paths(baseline: dict[str, Any],
     assert any("allowRead" in e and forbidden.rstrip("/") in e for e in errors)
 
 
+@pytest.mark.parametrize(
+    ("spelling", "canonical"),
+    [
+        ("~/.ssh/.", "~/.ssh"),
+        ("~/./.ssh", "~/.ssh"),
+        ("~//.ssh", "~/.ssh"),
+        ("~/.ssh/./", "~/.ssh"),
+        ("~/.config/./gh", "~/.config/gh"),
+        ("~/.ssh//", "~/.ssh"),
+    ],
+)
+def test_invariant_allow_read_normalises_credential_paths(
+    baseline: dict[str, Any], spelling: str, canonical: str
+) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"].append(spelling)
+    errors = check_invariants(settings)
+    assert any("allowRead" in e and f"{canonical!r}" in e for e in errors)
+
+
+@pytest.mark.parametrize("allowed", ["~/.sshx/.", "~/.ssh-backup"])
+def test_invariant_allow_read_does_not_reject_credential_path_lookalikes(
+    baseline: dict[str, Any], allowed: str
+) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"].append(allowed)
+    assert check_invariants(settings) == []
+
+
+@pytest.mark.parametrize("spelling", ["//.", "/./"])
+def test_invariant_allow_read_rejects_root_dot_spellings(baseline: dict[str, Any], spelling: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"].append(spelling)
+    errors = check_invariants(settings)
+    assert "sandbox.filesystem.allowRead: must not contain '/' (credential/root path)" in errors
+
+
 def test_baseline_allows_docker_desktop_cli_without_credentials(baseline: dict[str, Any]) -> None:
     # Docker Desktop installs `docker` and its compose/buildx plugins under
     # ~/.docker; without these the CLI cannot even start inside the sandbox.
@@ -606,6 +644,67 @@ def test_invariant_allow_write_rejects_credential_paths(baseline: dict[str, Any]
     assert any("allowWrite" in e and forbidden.rstrip("/") in e for e in errors)
 
 
+@pytest.mark.parametrize(
+    ("spelling", "canonical"),
+    [("~/.gnupg/.", "~/.gnupg"), ("~//.ssh", "~/.ssh")],
+)
+def test_invariant_allow_write_normalises_credential_paths(
+    baseline: dict[str, Any], spelling: str, canonical: str
+) -> None:
+    settings = copy.deepcopy(baseline)
+    fs = settings["sandbox"]["filesystem"]
+    fs["allowRead"].append(spelling)
+    fs["allowWrite"].append(spelling)
+    errors = check_invariants(settings)
+    assert any("allowWrite" in e and f"{canonical!r}" in e for e in errors)
+
+
+@pytest.mark.parametrize("spelling", ["~/./", "~//"])
+def test_invariant_deny_read_normalises_required_root(baseline: dict[str, Any], spelling: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["denyRead"] = [spelling]
+    errors = check_invariants(settings)
+    assert not any("sandbox.filesystem.denyRead: must contain" in e for e in errors)
+
+
+@pytest.mark.parametrize("spelling", ["./~", "a/../~/"])
+def test_invariant_deny_read_does_not_resolve_relative_home_spellings(
+    baseline: dict[str, Any], spelling: str
+) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["denyRead"] = [spelling]
+    errors = check_invariants(settings)
+    assert any("sandbox.filesystem.denyRead: must contain '~/'" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/", "/"),
+        ("//", "/"),
+        ("///", "/"),
+        ("//.", "/"),
+        ("/./", "/"),
+        ("/./etc", "/etc"),
+        ("~/", "~"),
+        ("~/.aws//", "~/.aws"),
+        ("~/.ssh/.", "~/.ssh"),
+        ("~/./.ssh", "~/.ssh"),
+        ("~//.ssh", "~/.ssh"),
+        ("~/.ssh/./", "~/.ssh"),
+        ("./~", "./~"),
+        (".", "."),
+        ("./", "."),
+        ("~/.ssh/..", "~/.ssh/.."),
+        ("~/..", "~/.."),
+        ("a/../~/", "a/../~"),
+        ("~/a/./b/../c", "~/a/b/../c"),
+    ],
+)
+def test_normalise(path: str, expected: str) -> None:
+    assert _normalise(path) == expected
+
+
 def test_invariant_allow_write_must_be_subset_of_allow_read(
     baseline: dict[str, Any],
 ) -> None:
@@ -613,6 +712,15 @@ def test_invariant_allow_write_must_be_subset_of_allow_read(
     settings["sandbox"]["filesystem"]["allowWrite"].append("~/.local/share/uv-extra/")
     errors = check_invariants(settings)
     assert any("subset" in e for e in errors)
+
+
+def test_invariant_allow_write_does_not_resolve_parent_segments(
+    baseline: dict[str, Any],
+) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowWrite"].append("~/..")
+    errors = check_invariants(settings)
+    assert any("contains '~/..' which is not in allowRead" in error for error in errors)
 
 
 @pytest.mark.parametrize(

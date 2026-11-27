@@ -22,6 +22,7 @@ Relative links are rooted one level deeper than in `SKILL.md`.
      `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync issue-create-labeled <title-file> <body-file> '["<scope>", "security issue"]'`
      (the label array is JSON; add `cve allocated` when the CVE is shared, per item 3).
      The caller needs `issue-create-labeled` in the adopter's vetted-ops policy ([canonical grants](../../../../../tools/vetted-ops/README.md#configuration)).
+     On exit `5` (a label the policy does not list), follow [unlisted-value-ask.md](../unlisted-value-ask.md).
   3. Apply to each split issue:
      - exactly one scope label (see
        [`<project-config>/scope-labels.md`](../../../../../<project-config>/scope-labels.md));

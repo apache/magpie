@@ -28,8 +28,10 @@ gives one of the rollup's *Reporter notification* cases:
 
 The draft fires in direct-reporter and via-forwarder mode alike (the
 forwarder-routing policy leaves CVE allocation out), to the primary thread
-the field records, `Re: <root subject>`, with `security_cc` in CC; a missing
-CC, recipient or subject blocks it. An indeterminate field, or one whose every
+the field records, `Re: <root subject>`, with `security_cc` in CC and the
+resolved `security_bcc` (the private list, when the project has no dedicated
+security list) in Bcc; a missing CC, recipient or subject blocks it, and so
+does a recipient or CC that is the `private_list`. An indeterminate field, or one whose every
 thread is a relay, is the user's call.
 
 One reply, one thread: a tracker that merged several independent reporters
@@ -42,7 +44,8 @@ primary thread.
 
 `check` greps a composed body: it must carry the CVE ID and never the
 CVE-tool URL (a reporter cannot open it), a `<tracker>` reference, a bare
-`#NNN`, a CVSS score or another ASF project's name.
+`#NNN`, a CVSS score or another ASF project's name; given `to`, `cc` and
+`private_list`, it also flags the private list in To or Cc.
 """
 
 from __future__ import annotations
@@ -50,7 +53,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from security_management.shared import drafting, threads
+from security_management.shared import drafting, recipients, threads
 from security_management.shared.rollup import one_line
 from security_management.shared.titles import strip_mail_prefixes
 
@@ -139,6 +142,11 @@ def _plan_thread(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str
     to = one_line(data.get("forwarder_contact") if via else data.get("reporter_email"))
     if not to:
         return _out("blocked", None, "no recipient resolved")
+    if recipients.private_in_recipients(data.get("private_list"), to, cc):
+        return _out(
+            "blocked", None, "the private list is never a To or Cc recipient: it may only ride in Bcc"
+        )
+    bcc = [one_line(b) for b in data.get("security_bcc") or [] if one_line(b)]
     subject = one_line(data.get("root_subject"))
     if not subject:
         return _out("blocked", None, "the inbound root subject is needed: never a fresh subject")
@@ -162,6 +170,7 @@ def _plan_thread(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str
         mode="via_forwarder" if via else "direct",
         to=to,
         cc=cc,
+        bcc=bcc,
         subject=f"Re: {strip_mail_prefixes(subject)}",
         backend=backend,
         backend_note=note,
@@ -182,6 +191,8 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
     record = one_line(data.get("record_url"))
     if record and record in text and not any(h["kind"] == "cve-tool-url" for h in hits):
         hits.append({"kind": "cve-tool-url", "line": None, "text": record})
+    for address in recipients.private_in_recipients(data.get("private_list"), data.get("to"), data.get("cc")):
+        hits.append({"kind": "private-list-recipient", "line": None, "text": address})
     cve_id = one_line(data.get("cve_id"))
     if not cve_id or cve_id not in text:
         hits.append({"kind": "missing-cve-id", "line": None, "text": cve_id or "<CVE-ID>"})

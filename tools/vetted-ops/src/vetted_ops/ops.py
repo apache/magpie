@@ -105,6 +105,63 @@ class ParamError(ValueError):
     """Raised when a parameter fails validation."""
 
 
+#: The ``refused`` value of the JSON line an unlisted-value refusal prints.
+UNLISTED_VALUE = "unlisted-value"
+
+
+class UnlistedValue(ParamError):
+    """
+    A well-formed value that the policy's ``[values]`` allowlist does not list.
+
+    It is the one refusal a skill can recover from with the user: the value is
+    not malformed, the policy just never approved it. The dispatchers report it
+    with an exit code of its own and one JSON line per value (see `records`),
+    naming the ``[values]`` key a reviewed policy change would add it to. The
+    allowlist itself is unchanged: the value never reaches ``gh``, and only the
+    user can widen the policy (edit it, then re-approve the copy).
+    """
+
+    def __init__(
+        self, *, operation: str, parameter: str, key: str, values: Sequence[str], detail: str
+    ) -> None:
+        self.operation = operation
+        self.parameter = parameter
+        self.key = key
+        self.values = tuple(values)
+        shown = ", ".join(repr(v) for v in self.values)
+        noun, verb = ("value", "is") if len(self.values) == 1 else ("values", "are")
+        super().__init__(
+            f"{noun} {shown} {verb} not in [values] {key} "
+            f"(parameter {parameter!r} of {operation!r}): {detail}"
+        )
+
+    def records(
+        self,
+        *,
+        caller: str | None,
+        policy: str | None,
+        approved_copy: str | None,
+        entry: int | None = None,
+    ) -> list[dict[str, object]]:
+        """One JSON-ready object per refused value, in the order given."""
+        out: list[dict[str, object]] = []
+        for value in self.values:
+            record: dict[str, object] = {
+                "refused": UNLISTED_VALUE,
+                "operation": self.operation,
+                "caller": caller,
+                "parameter": self.parameter,
+                "value": value,
+                "key": self.key,
+                "policy": policy,
+                "approved_copy": approved_copy,
+            }
+            if entry is not None:
+                record["entry"] = entry
+            out.append(record)
+        return out
+
+
 def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
     # fullmatch, not match: ``$`` also matches before a trailing newline, so
     # ``match`` would let ``"123\n"`` through every anchored pattern in this module.
@@ -322,6 +379,9 @@ def attachment_name(value: str) -> str:
 
 
 _QUERY_MAX = 200
+#: GitHub search operators. Only the uppercase whole word is one: GitHub searches
+#: a lowercase `or` / `and` / `not` as a plain word, so those stay allowed.
+_QUERY_OPERATORS = frozenset({"OR", "AND", "NOT"})
 
 
 def query(value: str) -> str:
@@ -346,6 +406,14 @@ def query(value: str) -> str:
     # become a flag.
     if stripped.startswith("-"):
         raise ParamError(f"query may not start with '-': {value!r}")
+    # `gh` appends the pinned `repo:` qualifier after the words, so a boolean
+    # operator or a group in the words could set a clause apart from it and
+    # search beyond the pinned repository. Plain words cannot.
+    if "(" in value or ")" in value:
+        raise ParamError(f"query may not contain '(' or ')' (search grouping): {value!r}")
+    operators = {word for word in stripped.split() if word in _QUERY_OPERATORS}
+    if operators:
+        raise ParamError(f"query may not use the search operators {sorted(operators)}: {value!r}")
     return stripped
 
 
@@ -589,6 +657,11 @@ def read_body(value: str, *, workspace: Path) -> bytes:
 #: says: `,` splits `gh`'s list flags, `"` and `\` break out of a quoted search
 #: qualifier.
 _PATTERN_VALUE_FORBIDDEN = frozenset(',"\\')
+
+
+def plain_value(value: str) -> bool:
+    """Whether an unlisted value is a plain name, so a refusal may offer it for the policy."""
+    return _pattern_value_ok(value)
 
 
 def _pattern_value_ok(value: str) -> bool:
@@ -1288,8 +1361,18 @@ def _issue_create_labeled(cfg: dict[str, str], title: str, body: str, labels: st
     if len(selected) != len(set(selected)):
         raise ParamError("duplicate labels are not allowed")
 
-    if any(label not in allowed for label in selected):
-        raise ParamError("labels contain a value not approved by policy")
+    # Every offending label at once, so the user decides about all of them in one ask.
+    unlisted = [label for label in selected if label not in allowed]
+    if unlisted and not all(plain_value(label) for label in unlisted):
+        raise ParamError("labels contain a value not approved by policy, and not a plain name")
+    if unlisted:
+        raise UnlistedValue(
+            operation="issue-create-labeled",
+            parameter="labels",
+            key="labels",
+            values=unlisted,
+            detail="labels contain a value not approved by policy",
+        )
 
     argv = [
         "gh",
@@ -2453,8 +2536,9 @@ _register(
 #     from policy and takes one `query`
 #     that the `query()` validator reduces to plain words: one line, at most
 #     200 characters, no `:` (so no `repo:` / `org:` / `is:` qualifier can
-#     re-aim or reshape it), no leading `-`, and passed after `--` so it is
-#     never read as a flag. Such a query can only narrow a search of the pinned
+#     re-aim or reshape it), no `(` `)` or uppercase `OR` / `AND` / `NOT` (so no
+#     clause can be set apart from the pinned `repo:`), no leading `-`, and
+#     passed after `--` so it is never read as a flag. Such a query can only narrow a search of the pinned
 #     repository. They exist so a read-only gatherer can answer "was this
 #     already fixed upstream?" without falling back to a raw `gh search`
 #     outside the dispatcher.
@@ -3033,23 +3117,37 @@ _register(
 _register(
     Op(
         name="cve-record-fetch",
-        params=("cve_id",),
+        params=("pmc", "cve_id"),
         backend="cve-tool",
         summary="Read one record from the Vulnogram CVE tool.",
-        build=lambda cfg, cve_id: cve_tool.argv("vulnogram-api-record-fetch", "--cve-id", cve_id),
+        # `--pmc` picks that PMC's record token, so a user who holds tokens for
+        # several PMCs reads with the one the user approved, never a guess. The
+        # policy's `[values] pmcs` lists the PMCs this project may use at all.
+        enums={"pmc": "pmcs"},
+        build=lambda cfg, pmc, cve_id: cve_tool.argv(
+            "vulnogram-api-record-fetch", "--pmc", pmc, "--cve-id", cve_id
+        ),
     )
 )
 
 _register(
     Op(
         name="cve-record-update",
-        params=("cve_id", "body"),
+        params=("pmc", "cve_id", "body"),
         backend="cve-tool",
         writes=True,
         summary="Push a CVE JSON record to the Vulnogram CVE tool (merge-mode guards on).",
+        enums={"pmc": "pmcs"},
         body_files=("body",),
-        build=lambda cfg, cve_id, body: cve_tool.argv(
-            "vulnogram-api-record-update", "--cve-id", cve_id, "--json-file", body, "--no-promote-to-public"
+        build=lambda cfg, pmc, cve_id, body: cve_tool.argv(
+            "vulnogram-api-record-update",
+            "--pmc",
+            pmc,
+            "--cve-id",
+            cve_id,
+            "--json-file",
+            body,
+            "--no-promote-to-public",
         ),
     )
 )
@@ -3061,6 +3159,7 @@ _register(
         backend="cve-tool",
         writes=True,
         summary="Allocate a CVE id for a title through the Vulnogram CVE tool.",
+        enums={"pmc": "pmcs"},
         title_files=("title",),
         # `--pmc` lets the client refuse a token held for any other PMC, so the
         # id is reserved for the PMC the user approved, whatever session is current.

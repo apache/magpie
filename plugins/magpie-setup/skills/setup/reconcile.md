@@ -256,6 +256,14 @@ committed one.
    Missing labels are findings even when all caller grants exist.
    Propose only the missing labels, preserving existing policy values.
 
+   For a caller granted `cve-record-fetch`, `cve-record-update` or
+   `cve-allocate`, check `[values] pmcs` holds the project's
+   `cna_private_owner` from `<project-config>/project.md`: those operations
+   refuse every PMC the policy does not list, and a policy without `pmcs`
+   refuses them all.
+   A missing key or a missing PMC is a finding; propose
+   `pmcs = ["<pmc>"]`, never a PMC the project does not own.
+
    For a caller that opens pull requests (it holds, or this check proposes,
    `git-pr-create`) and labels them (`pr-add-label`, held or proposed),
    discover the labels it would set; other callers that hold `pr-add-label`
@@ -275,7 +283,7 @@ committed one.
    When the labels cannot be listed (no network, `gh` not authenticated),
    report this part as unchecked.
 
-   A missing caller, missing operation or missing label is a finding.
+   A missing caller, missing operation, missing label or missing PMC is a finding.
    Name the caller, what is missing, and the policy path.
    Show the exact minimal TOML diff: merge missing operations into the
    caller's existing array rather than creating a duplicate key, add an

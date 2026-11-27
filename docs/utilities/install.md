@@ -14,7 +14,7 @@
 
 # Install & first runs
 
-Install just this family — one plugin, 6 skills. Discover, author, and maintain skills, and report framework bugs.
+Install just this family — one plugin, 7 skills. Discover, author, and maintain skills, and report framework bugs.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -45,7 +45,7 @@ it does not.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `list-skills`, `optimize-skill`, `report-framework-issue`, `skill-reconciler`, `write-skill` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `list-skills`, `optimize-agents-md`, `optimize-skill`, `report-framework-issue`, `skill-reconciler`, `write-skill` |
 
 <!-- END generated: skill-config -->
 

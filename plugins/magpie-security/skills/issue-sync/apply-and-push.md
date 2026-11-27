@@ -177,8 +177,11 @@ Use:
   `--allow-state review-ready --allow-state publish-ready` also accepts a record moved to `publish-ready` manually, and no earlier state can be published:
 
   ```bash
-  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
+  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN> --pmc <pmc>
   ```
+
+  Every `cve-tool` record command in this file takes `--pmc <pmc>`, with `<pmc>` the project's `cna_private_owner` from `<project-config>/project.md`,
+  so a user holding tokens for several PMCs always uses this project's.
 
   Use it only as part of the *Advisory archived on `<users-list>`* combined apply in [Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet):
   the trigger is *"the advisory has provably shipped on `<users-list>`"*, the signal a human would use before clicking the Vulnogram `REVIEW → PUBLIC` button.
@@ -205,7 +208,8 @@ Use:
   — otherwise a reopened tracker resurfaces on its old column and board sweeps still see it.
   Archive on every close, whatever the reason (terminal Step 15, or `invalid` / `duplicate` / `wontfix`); the mutation is idempotent.
 - **Project-board column:** `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-set-status <item_id> "<Column>"`,
-  with the `item_id` from Step 1a's `board-item` read and a column the policy declares.
+  with the `item_id` from Step 1a's `board-item` read and a column the policy declares
+  (on exit `5`, a column or other value the policy does not list, follow [unlisted-value-ask.md](unlisted-value-ask.md)).
   For a tracker with no item yet, first `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-add-item <node_id>` (it prints the new item id), then set its column.
   Without vetted-ops, the `updateProjectV2ItemFieldValue` and orphan-issue recipes in
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column) do the same,
@@ -213,6 +217,8 @@ Use:
 - **Gmail draft:** include `security_cc` from the shared
   [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
   in every draft's CC; block creation if unresolved.
+  On a reporter-facing draft (status, credit and advisory notices, direct or via a forwarder) put `security_bcc` in Bcc:
+  the private list, when the project has no dedicated security list; never in To or Cc.
   Create it through the configured drafting backend per [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
   The draft is **plain text**; the **preferred** backend is `oauth_curl`, which preserves URLs in the body verbatim:
 
@@ -220,7 +226,7 @@ Use:
     `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — call
     `mcp__gmail-plaintext__create_draft`, never a shell command
     (see [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend))
-    with `thread_id` from Step 1c, the standard `to` / `cc` lists,
+    with `thread_id` from Step 1c, the standard `to` / `cc` lists, `bcc=security_bcc`,
     `subject="Re: <root subject>"`, and the plain-text `body`.
     When Step 1c found no Gmail thread but the inbound `Message-ID` is known
     (PonyMail, or the tracker's recorded root `Message-ID`), pass it as `in_reply_to`
@@ -232,7 +238,7 @@ Use:
     [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
   - **`maildir`** (when the drafting backend resolves to it) — `maildir-draft-create` per
     [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend),
-    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc`,
+    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc` (it takes no Bcc: name a non-empty `security_bcc` in the proposal for the human to add),
     `--subject "Re: <root subject>"`, and a `--body-file`.
 
   **Before drafting, check for an existing pending draft on the thread** with **both** detection paths
@@ -315,16 +321,16 @@ When any of the report's `normalisation_changes`, `missing_required`, `needs_dec
 When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change:
 
 ```bash
-uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only --pmc <pmc>
 ```
 
 If the state is `public`, save the live record and add it as the baseline to the generator run above:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <CVE-ID>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <pmc> <CVE-ID>
 ```
 
-and pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
+Then pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
 
 The body still wins for every value it owns; everything else keeps its published value.
 If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
@@ -463,8 +469,9 @@ The remaining transitions stay separate:
 ### Decision flow
 
 `<sm> push-decision` (`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites)) walks this flow:
-write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
+write `{regenerated, cve_id, pmc, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
 and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
+`pmc` is `cna_private_owner`; every `cve-tool` command in `next` then carries `--pmc <pmc>`.
 It checks the title cascade, the title length, the upgrade-target version and the CWE long form on the JSON itself;
 for the title length pass `report_json`, the generator's `--report-json` file (`<scratch>/cve-report-<N>.json`); its `title_product_prefix` is the resolved value (the project's config, else its organization: true for ASF), so do not pass one.
 A title over the record's 256-character limit, bare or as the CVE tool posts it, blocks the push;
@@ -527,15 +534,17 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
 
    ```bash
    uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push \
-     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
+     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json --pmc <pmc>
    ```
 
    **Under the secure setup**, when the vetted-ops policy grants `security-issue-sync` the `cve-record-update` operation,
    push through it instead, with the JSON at `<workspace>/cve-<CVE-ID>-<N>.json` (the vetted-ops policy's `workspace`):
 
    ```bash
-   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <pmc> <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
    ```
+
+   The client uses that PMC's record token and refuses when it holds none; `vetted-op` refuses a PMC the policy's `[values] pmcs` does not list.
 
    It runs the same Vulnogram push with a fixed argv and no override flag
    ([vetted-ops § *The Vulnogram CVE-tool operations*](../../../../tools/vetted-ops/README.md#the-vulnogram-cve-tool-operations)),

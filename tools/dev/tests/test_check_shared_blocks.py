@@ -27,6 +27,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[3]
 
 
@@ -638,3 +640,161 @@ def test_live_adopter_overrides_copies_use_their_skills_entry_name() -> None:
             assert f"`.apache-magpie-overrides/{name}.md`" in text, path
     finally:
         os.chdir(old)
+
+
+# --- the hand-off block ---------------------------------------------------------------
+
+HANDOFF_SOURCE = REPO / "tools" / "dev" / "blocks" / "handoff-to-another-checkout.md"
+HANDOFF_PATH = "~/.cache/apache-magpie/handoff/"
+HANDOFF_INCLUDERS = ("setup-upstream-fix", "setup-override-upstream", "security-issue-fix")
+
+
+def _file_route(text: str) -> str:
+    start = text.index("*(c) The file route*")
+    end = text.index("**4. The receiving session**", start)
+    return text[start:end]
+
+
+def test_handoff_file_route_names_a_path_the_receiver_can_read() -> None:
+    """The brief file must sit where another session's sandbox can read it:
+    the shared `~/.cache/apache-magpie/handoff/` directory, never this
+    session's scratch directory, which no other session can reach."""
+    route = _file_route(HANDOFF_SOURCE.read_text())
+    assert HANDOFF_PATH in route
+    first_step = route.split("\n2. ", 1)[0]
+    assert "writes the brief to `~/.cache/apache-magpie/handoff/" in first_step
+    # The scratch directory may only be named to rule it out.
+    for line in route.splitlines():
+        if "scratch" in line or "scratchpad" in line or "$TMPDIR" in line:
+            assert line.lstrip().startswith("Never the session scratch directory"), line
+    assert f"Read {HANDOFF_PATH}" in route
+
+
+def test_handoff_block_is_rendered_where_each_skill_points() -> None:
+    begin = "<!-- BEGIN MAGPIE BLOCK: handoff-to-another-checkout"
+    end = "<!-- END MAGPIE BLOCK: handoff-to-another-checkout -->"
+    for name in HANDOFF_INCLUDERS:
+        subdoc = REPO / "skills" / name / "handoff.md"
+        text = subdoc.read_text()
+        assert begin in text, subdoc
+        assert HANDOFF_PATH in _file_route(text), subdoc
+        # The block defers to a per-skill section after it on what the receiver does.
+        assert "## What the receiver does" in text.split(end, 1)[1], subdoc
+        skill_md = (REPO / "skills" / name / "SKILL.md").read_text()
+        assert "](handoff.md)" in skill_md, name
+
+
+def test_handoff_receiver_prompt_names_no_skill() -> None:
+    """`~/.cache/` is readable by every sandboxed session, and a security
+    hand-off must not say where it came from, so the pasted prompt names no
+    skill: the brief's own receiver steps say what to do."""
+    source = HANDOFF_SOURCE.read_text()
+    assert "{override_name}" not in source
+    prompt = next(line for line in _file_route(source).splitlines() if f"`Read {HANDOFF_PATH}" in line)
+    for name in HANDOFF_INCLUDERS:
+        assert name not in prompt
+    assert "security" not in prompt
+
+
+def test_handoff_brief_file_is_private_from_creation_and_never_overwritten() -> None:
+    route = _file_route(HANDOFF_SOURCE.read_text())
+    assert (
+        "umask 077 && mkdir -p ~/.cache/apache-magpie/handoff && chmod 700 ~/.cache/apache-magpie/handoff"
+        in route
+    )
+    assert "set -C && : > ~/.cache/apache-magpie/handoff/<file>" in route
+    assert "never overwrite" in route
+    assert "can read and write `~/.cache/`" in route
+
+
+def test_handoff_scratch_clone_is_never_run_outside_the_sandbox() -> None:
+    """The scratch clone is agent-writable: a planted hook or repository
+    setting would run with the user's keys, so the user only ever fetches a
+    bundle of it into a clone of their own."""
+    source = HANDOFF_SOURCE.read_text()
+    start = source.index("*(b) A scratch clone")
+    route = source[start : source.index("*(c) The file route*", start)]
+    assert "bundle create <scratch>/<name>.bundle" in route
+    assert "fetch <scratch>/<name>.bundle <branch>:<branch>" in route
+    for line in route.splitlines():
+        assert "git -C <scratch>/<name> push" not in line, line
+    assert "operator-git.toml" not in route
+
+
+def test_security_handoff_is_publication_neutral_and_pull_request_only() -> None:
+    source = HANDOFF_SOURCE.read_text()
+    assert "**publication-neutral**" in source
+    assert "never carries the symptom, the evidence, a reproducer" in source
+    text = (REPO / "skills" / "security-issue-fix" / "handoff.md").read_text()
+    receiver = text.split("<!-- END MAGPIE BLOCK: handoff-to-another-checkout -->", 1)[1]
+    assert "Only on the `pull-request` flow." in receiver
+    assert "runs no security skill" in receiver
+    assert "Step 10" in receiver
+
+
+def test_upstream_fix_no_longer_sends_the_brief_to_the_scratch_directory() -> None:
+    text = (REPO / "skills" / "setup-upstream-fix" / "SKILL.md").read_text()
+    assert "brief to a file in the session scratch directory" not in text
+
+
+# ---- unlisted-value-ask: the recovery path for a vetted-ops exit 5 ----------------
+
+#: Skills whose tracker writes (label, milestone, assignee, board column) can exit 5,
+#: besides every skill that labels its pull request through vetted-git-publish.
+UNLISTED_VALUE_SKILLS = (
+    "security-issue-sync",
+    "security-cve-allocate",
+    "security-issue-fix",
+    "security-issue-import",
+    "security-issue-import-from-md",
+    "security-issue-import-from-pr",
+)
+
+UNLISTED_VALUE_MARKER = (
+    "<!-- BEGIN MAGPIE BLOCK: unlisted-value-ask — generated from tools/dev/blocks/unlisted-value-ask.md -->"
+)
+
+
+def _unlisted_value_targets() -> list[str]:
+    publishing = {p.parent.name for p in (REPO / "skills").glob("*/vetted-git-publish.md")}
+    assert publishing, "no skill carries vetted-git-publish.md"
+    return sorted(publishing | set(UNLISTED_VALUE_SKILLS))
+
+
+def test_unlisted_value_ask_is_rendered_in_every_skill_that_needs_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(REPO)
+    for skill in _unlisted_value_targets():
+        target = Path("skills") / skill / "unlisted-value-ask.md"
+        assert target.is_file(), f"{skill} lacks unlisted-value-ask.md"
+        text = target.read_text()
+        assert UNLISTED_VALUE_MARKER in text, target
+        override, _ = MOD.resolve_override_name(target)
+        filled, errors = MOD.fill_declared(text, override_name=override)
+        assert errors == []
+        assert filled == text, f"{target} is out of sync with its block; run check-shared-blocks.py --fix"
+        assert "**A value the policy does not list (exit `5`).**" in text
+
+
+def test_unlisted_value_ask_never_lets_the_agent_write_the_policy() -> None:
+    body = (REPO / "tools" / "dev" / "blocks" / "unlisted-value-ask.md").read_text()
+    assert "never write the policy or its approved copy yourself" in body
+    assert "never a pattern" in body
+    assert "add it to the policy permanently" in body
+    assert "skip it" in body
+    assert "never the prose" in body
+
+
+def test_each_write_site_points_at_unlisted_value_ask() -> None:
+    pointer = "unlisted-value-ask.md"
+    assert pointer in (REPO / "tools" / "dev" / "blocks" / "vetted-git-publish.md").read_text()
+    sites = {
+        "security-issue-sync": ["apply-and-push.md", "outcomes/scope-split.md"],
+        "security-cve-allocate": ["SKILL.md"],
+        "security-issue-fix": ["tracker-update.md"],
+        "security-issue-import": ["apply.md"],
+        "security-issue-import-from-md": ["SKILL.md"],
+        "security-issue-import-from-pr": ["SKILL.md"],
+    }
+    for skill, files in sites.items():
+        for name in files:
+            assert pointer in (REPO / "skills" / skill / name).read_text(), f"{skill}/{name}"

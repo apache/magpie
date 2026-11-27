@@ -6,9 +6,11 @@
 Bulk mode aggregates each tracker's closing comment, reporter draft, labels, close and board archive into one combined proposal.
 The user confirms once with `all`; Step 6 then applies one tracker fully before the next starts.
 
-`invalidate proposed` serves the "please proceed the agreed INVALID ones in bulk" pattern.
-Team consensus is *necessary but not sufficient*: the user still sees the full list in the proposal and can override per item before confirming.
-An INVALID triage proposal without a second roster member's ack is **excluded** from the resolved set, with an explicit *"awaiting consensus on #NNN — skipped"* note in the recap.
+`invalidate proposed` serves the "please proceed the agreed closes in bulk" pattern:
+every tracker whose latest roster triage proposal is INVALID, DEFENSE-IN-DEPTH or INFO-ONLY, each closed with the reason its class maps to (`invalid`, `defense-in-depth`, `info-only`).
+Team consensus is *necessary but not sufficient*: the user still sees the full list, with each tracker's reason, in the proposal and can override per item before confirming.
+A triage proposal without a second roster member's ack is **excluded** from the resolved set, with an explicit *"awaiting consensus on #NNN — skipped"* note in the recap;
+so is a tracker whose latest proposal (after a re-triage) is another class, with a note naming that class.
 
 **Bulk-mode `all` confirmation does not pre-authorise reporter drafts.** Each draft body is still surfaced in the combined proposal, per the "draft before send" rule in
 [`AGENTS.md`](../../../../AGENTS.md).
@@ -19,12 +21,14 @@ per the [one-reply-one-thread golden rule](../../../../tools/gmail/threading.md#
 **Resolution recipe for `invalidate proposed`:**
 
 ```bash
-# Find open trackers with a INVALID triage proposal
+# Find open trackers with an INVALID, DEFENSE-IN-DEPTH or INFO-ONLY triage proposal
 gh issue list --repo <tracker> --state open --label "needs triage" \
   --limit 1000 \
   --json number,title,comments \
   --jq '{fetched: length, matches: [.[] | select(.comments | map(.body) | any(
-    startswith("**Triage proposal**") and contains("**Proposed disposition: INVALID.**")
+    startswith("**Triage proposal**") and (contains("**Proposed disposition: INVALID.**")
+      or contains("**Proposed disposition: DEFENSE-IN-DEPTH.**")
+      or contains("**Proposed disposition: INFO-ONLY.**"))
   )) | .number]}'
 ```
 
@@ -57,6 +61,7 @@ query {
 
 The same query serves an explicit-list selector (`invalidate #N1, #N2, …`), minus the consensus check.
 Check each triage-proposal comment's thumbs-up reactions and follow-up comments in this result for the team-consensus marker:
-`<sm> consensus` (`{tracker, roster, fetched, responses}`) does it — only a roster member's INVALID proposal counts, and the thumbs-up or acknowledgement must come from another roster member.
+`<sm> consensus` (`{tracker, roster, fetched, responses}`) does it — only a roster member's latest proposal counts, and the thumbs-up or acknowledgement must come from another roster member;
+each `agreed` entry carries the `reason` its `proposed_class` maps to, which every later step of that tracker takes.
 Drop trackers that fail the consensus check (`awaiting`), and surface them in the recap as awaiting consensus.
 The result is also each remaining tracker's Step 1 state: Step 1 reads its fields from here instead of running `gh issue view` per tracker.

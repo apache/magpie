@@ -14,6 +14,9 @@ Relative links are rooted one level deeper than in `SKILL.md`.
    Verify its `origin` remote points at `<upstream>` and `git status --porcelain` is empty.
    On uncommitted work, stop and ask the user to stash / commit / clean first.
    Do not probe hard-coded filesystem paths.
+   On the `pull-request` flow, when there is no `environment.upstream_clone` or this sandbox cannot reach it, this check does not stop the run, whatever `[git]` values the vetted-ops policy has:
+   Steps 7–9 are handed to a session in the clone per [`handoff.md`](../handoff.md) (Step 4 says when), and checks 3–5 run in that session.
+   On the `patch-then-commit` flow an unreachable working copy stops the run, as before.
 4. **Base branch is current** — `git fetch origin` and make sure the base (default `<default-branch>`, or the branch the user specified) is a fast-forward of `origin/<base>`.
 5. **Toolchain probe** — run the tool-version checks named in [`<project-config>/fix-workflow.md`](../../../../../<project-config>/fix-workflow.md#toolchain).
    Any missing tool stops the skill; installing tools mid-run is out of scope.

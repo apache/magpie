@@ -22,6 +22,8 @@
     - [A new tool under `tools/`](#a-new-tool-under-tools)
     - [A new skill under `.claude/skills/`](#a-new-skill-under-claudeskills)
     - [A new doc under `docs/`](#a-new-doc-under-docs)
+    - [Organization membership](#organization-membership)
+    - [An adopter's tracker](#an-adopters-tracker)
   - [Why this exists](#why-this-exists)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -72,7 +74,7 @@ every install; the other eight are opt-in (see
 | Label | Type | Covers |
 |---|---|---|
 | `family:setup` | always-on | `setup` plus the `setup-*` skills — framework adoption / upgrade / verify, isolated-agent sandbox setup, shared-config sync ([`docs/setup/`](setup/README.md)) |
-| `family:utilities` | always-on | Framework meta-skills: `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills`, `pre-release-sweep` ([`docs/utilities/`](utilities/README.md)) |
+| `family:utilities` | always-on | Framework meta-skills: `write-skill`, `optimize-skill`, `optimize-agents-md`, `skill-reconciler`, `report-framework-issue`, `list-skills`, `pre-release-sweep` ([`docs/utilities/`](utilities/README.md)) |
 | `family:security` | opt-in | `security-issue-*`, `security-cve-allocate`, `security-model-*`, `security-tracker-stats-dashboard` ([`docs/security/`](security/README.md)) |
 | `family:issue` | opt-in | `issue-*` skills (`issue-triage`, `issue-reproducer`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) ([`docs/issue-management/`](issue-management/README.md)) |
 | `family:pr-management` | opt-in | `pr-management-*` skills plus `pr-stale-sweep`, `pre-first-pr-check`, `reviewer-routing` ([`docs/pr-management/`](pr-management/README.md)) |
@@ -122,7 +124,7 @@ phase a skill performs:
 | `capability:reassess` | Re-run resolved or end-of-life issues against current code to verify still-fixed / still-broken. |
 | `capability:stats` | Read-only dashboards, metrics, governance evidence, contributor nomination briefs. |
 | `capability:platform` | Framework / agent substrate skills: install, verify, update, doctor, override-upstream, status, shared-config-sync, the `setup` bootstrap. |
-| `capability:authoring` | Skills that author or maintain a durable framework artefact rather than acting on a queue item: other skills (`write-skill`, `optimize-skill`) and the project's own security model (`security-model-prepare`, `security-model-update`). |
+| `capability:authoring` | Skills that author or maintain a durable framework artefact rather than acting on a queue item: other skills (`write-skill`, `optimize-skill`), the agent-instruction file (`optimize-agents-md`) and the project's own security model (`security-model-prepare`, `security-model-update`). |
 
 **Axis 2 — tool capability** (`contract:*` / `substrate:*`) — the
 interface a tool/adapter provides. `contract:<name>` implements a
@@ -313,6 +315,7 @@ Capabilities for every skill currently in
 | `security-model-prepare` | `capability:authoring` *(produces the project's first security model in draft-first mode and lands it, plus its discoverability chain, as one reviewable PR per repository)* |
 | `write-skill` | `capability:authoring` |
 | `optimize-skill` | `capability:authoring` |
+| `optimize-agents-md` | `capability:authoring` |
 | `pre-release-sweep` | `capability:reconciliation` + `capability:triage` *(checks specs, docs, principles, tool shipping and evals against the code — reconciliation; finds open issues already resolved on `main` — triage)* |
 | `skill-reconciler` | `capability:reconciliation` *(compares two near-duplicate skill copies and classifies every difference as ALLOWED, DRIFT, or SAFETY-BASELINE; proposes convergence; never writes either copy)* |
 
@@ -525,6 +528,7 @@ capability: capability:NAME
 ---
 ```
 
+The value is a string, or a YAML list for multi-capability skills.
 The [`write-skill`](../skills/write-skill/SKILL.md) skill
 prompts for this on every new-skill scaffold.
 
@@ -534,6 +538,21 @@ Capability-specific docs (e.g. a guide for a single skill family)
 should link to this page and name the capability in their first
 paragraph. Cross-cutting docs (`MISSION.md`, top-level READMEs) need
 no capability marker.
+
+### Organization membership
+
+Optional. An entity that *belongs to* one organization declares it
+(skills: `organization:` frontmatter; families: the scope banner in `docs/<family>/README.md`; tools: an `**Organization:** <org>` README line).
+The value must
+name an organization under [`organizations/`](../organizations/); omit it
+for organization-agnostic entities.
+
+### An adopter's tracker
+
+The taxonomy applies to *this framework repository*. Skills that create
+issues or PRs on an **adopter's tracker** (e.g. `security-issue-import`,
+`security-issue-fix`, `issue-fix-workflow`) use the adopter's own label
+scheme — adopters may mirror this taxonomy but are not required to.
 
 ---
 

@@ -1,0 +1,1 @@
+{"route": "scratch-clone", "confirm_with_user_first": true, "brief_file_dir": null, "reason": "The framework-clone session is busy, so the brief is not just queued; a sub-agent worktree of a checkout outside this sandbox cannot be written, so the next route offered is a sparse scratch clone."}

@@ -163,9 +163,11 @@ publication, with a human gate and an audit-log entry at every step.
   tool link* field and the generic CVE state, reads the import path and
   reply thread from the mailing-thread field (relay threads excluded),
   plans the reporter draft (skip, surface an existing draft, block
-  without `security_cc`, or recipients, `Re:` subject, thread anchor and
-  backend), greps the composed reply for tracker references, the CVE-tool
-  URL, CVSS and other ASF projects, and renders the labels, board
+  without `security_cc` or with the private list as a To/Cc recipient, or
+  recipients (the private list in Bcc only, when the project has no dedicated
+  security list), `Re:` subject, thread anchor and backend), greps the
+  composed reply for tracker references, the CVE-tool URL, CVSS, other ASF
+  projects and the private list in To/Cc, and renders the labels, board
   queries, closing comment, rollup entry (exactly one Reporter-notification
   line or a refusal), confirmation forms, apply order and recap; mining
   the reasoning, choosing the canned section and writing the reply stay
@@ -560,6 +562,16 @@ publication, with a human gate and an audit-log entry at every step.
   (`scope`, `pr`, or literal names) drops those labels from the removal
   command and reports them as `labels_kept`; `needs triage` is always
   removed (#1909).
+- **Invalidate closes with a reason.** `invalidate <N> [as <reason>]` takes
+  `invalid` (the default, unchanged), `defense-in-depth` or `info-only`;
+  `invalidate proposed` derives each tracker's reason from its latest roster
+  triage proposal. The reason picks the labels added (defaults `invalid`;
+  `defense-in-depth` + `wontfix`; `info-only`; overridden per reason by
+  `invalidate.reason_labels`), the closing comment, the rollup action label
+  `Closed as <reason>`, the default canned response and the recap; a
+  `defense-in-depth` close ends on *file the public hardening PR*. The close
+  state stays `not planned`. Triage's recap routes DEFENSE-IN-DEPTH and
+  INFO-ONLY to `security-issue-invalidate <N> as <reason>`.
 - **Zero-day issue-sync settings hold.** An explicit `0` for
   `grace_period_days` or `timeout_days` is honoured; only a missing value
   takes the default, and a non-positive `window_days` stays at 90 (#1911).

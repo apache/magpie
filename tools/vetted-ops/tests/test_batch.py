@@ -198,13 +198,14 @@ def test_the_summary_shows_bodies_and_file_titles_by_size_only(cfg: config.Confi
 
 
 @pytest.mark.parametrize(
-    "bad",
+    ("bad", "code"),
     [
-        {"op": "issue-add-label", "params": ["12", "not-a-policy-label"]},
-        {"op": "issue-add-label", "params": ["12"]},
-        {"op": "issue-add-label", "params": ["-R", "acme/product"]},
-        {"op": "no-such-op", "params": []},
-        {"op": "issue-view", "params": ["12"]},
+        # Unlisted, not malformed: its own exit code, so the skill can ask the user.
+        ({"op": "issue-add-label", "params": ["12", "not-a-policy-label"]}, batch.EXIT_UNLISTED),
+        ({"op": "issue-add-label", "params": ["12"]}, 3),
+        ({"op": "issue-add-label", "params": ["-R", "acme/product"]}, 3),
+        ({"op": "no-such-op", "params": []}, 3),
+        ({"op": "issue-view", "params": ["12"]}, 3),
     ],
 )
 def test_one_invalid_entry_refuses_the_whole_batch(
@@ -214,12 +215,15 @@ def test_one_invalid_entry_refuses_the_whole_batch(
     monkeypatch: pytest.MonkeyPatch,
     capsys: Any,
     bad: dict[str, object],
+    code: int,
 ) -> None:
     manifest = _manifest(workspace, [{"op": "issue-add-label", "params": ["12", "needs triage"]}, bad])
     _nothing_writes(monkeypatch)
     with pytest.raises(batch.BatchRefused, match="entry 2"):
         _check(cfg, "security-issue-import", manifest)
-    assert _main(cfg, monkeypatch, ["--caller", "security-issue-import", "--expect", "0" * 16, manifest]) == 3
+    assert (
+        _main(cfg, monkeypatch, ["--caller", "security-issue-import", "--expect", "0" * 16, manifest]) == code
+    )
     assert "entry 2" in capsys.readouterr().err
     assert gh.writes == []
 

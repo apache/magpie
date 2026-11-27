@@ -16,12 +16,14 @@
 # under the License.
 """Step 7 recap: distribution, one linked line per posted proposal, skipped group, next commands.
 
-Next steps by class: VALID → `security-cve-allocate N`; INVALID and INFO-ONLY
-→ `security-issue-invalidate N`; PROBABLE-DUP → `security-issue-deduplicate
-KEPT N`; FIX-ALREADY-PUBLIC → `security-issue-invalidate N` only after the
-reporter confirms the PR fixes their report (else `--retriage`);
-DEFENSE-IN-DEPTH has none. The recap always says label flips and board moves
-are `security-issue-sync`'s, never this skill's.
+Next steps by class: VALID → `security-cve-allocate N`; INVALID →
+`security-issue-invalidate N`; DEFENSE-IN-DEPTH → `security-issue-invalidate N
+as defense-in-depth`, then the public hardening PR; INFO-ONLY →
+`security-issue-invalidate N as info-only`; PROBABLE-DUP →
+`security-issue-deduplicate KEPT N`; FIX-ALREADY-PUBLIC →
+`security-issue-invalidate N` only after the reporter confirms the PR fixes
+their report (else `--retriage`). The recap always says label flips and board
+moves are `security-issue-sync`'s, never this skill's.
 """
 
 from __future__ import annotations
@@ -35,7 +37,8 @@ from security_management.shared.rollup import one_line
 NEXT = {
     "VALID": "/security-cve-allocate {n}",
     "INVALID": "/security-issue-invalidate {n}",
-    "INFO-ONLY": "/security-issue-invalidate {n}",
+    "DEFENSE-IN-DEPTH": "/security-issue-invalidate {n} as defense-in-depth",
+    "INFO-ONLY": "/security-issue-invalidate {n} as info-only",
     "PROBABLE-DUP": "/security-issue-deduplicate {kept} {n}",
     "FIX-ALREADY-PUBLIC": "/security-issue-invalidate {n}",
 }
@@ -43,6 +46,7 @@ FIX_PUBLIC_NOTE = (
     "only after the reporter confirms the public PR fixes their report; "
     "if they say it does not, re-triage with --retriage"
 )
+HARDENING_NOTE = "then file the public hardening PR"
 SYNC_NOTE = (
     "Label flips and project-board moves stay with `security-issue-sync` once the team's decision lands, "
     "not with this skill."
@@ -73,6 +77,8 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
             next_steps.append(step)
             if klass == "FIX-ALREADY-PUBLIC":
                 notes.append({"step": step, "note": FIX_PUBLIC_NOTE})
+            elif klass == "DEFENSE-IN-DEPTH":
+                notes.append({"step": step, "note": HARDENING_NOTE})
     skipped = [
         {
             "number": int(s["number"]),

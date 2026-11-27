@@ -35,3 +35,14 @@ The `step-8-recap` scenario is pinned there too, against `render-recap`; that su
 ## Steps not covered
 
 Steps 0–1 (pre-flight, PR fetch), 4 (duplicate guard), 5 (body construction), and 7 (apply) are procedural steps with shell commands and API calls; the reference parsing, duplicate query, title, body, labels and rollup they rely on are pytest-tested in `tools/security-management`.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `51a6a7cd` (feat/vetted-ops-unlisted-value-refusal) | `opus[1m]` | 1 | pass |  |

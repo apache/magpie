@@ -134,6 +134,15 @@ Before touching any files:
 1. Resolve the clone path from the resolved `user.md` (`$APACHE_MAGPIE_USER_CONFIG`, else `~/.config/apache-magpie/user.md` — [order](../../../../AGENTS.md#usermd-resolution-order)) → `environment.upstream_clone` (see [`AGENTS.md` § Per-project and per-user configuration](../../../../AGENTS.md#per-project-and-per-user-configuration)).
    If the file is missing, the key is unset, or the path is not a git repo with a remote pointing at `<upstream>` or the user's fork, **ask the user for the path** and offer to save the answer into `~/.config/apache-magpie/user.md` (or `$APACHE_MAGPIE_USER_CONFIG`) so the next run is silent — never into `.apache-magpie-overrides/`, which is committed and project-wide.
    Do **not** probe hard-coded paths like `~/code/<upstream-repo-name>` — a wrong guess masks a misconfigured clone.
+   **When this session cannot work in the clone** — there is no `environment.upstream_clone`, or this tracker session's sandbox can write neither the clone nor a worktree of it —
+   do not stop and do not widen the sandbox, on the `pull-request` flow only (with no working copy to read, `fix-flow` takes the flow from the declared source control).
+   A worktree counts: when the vetted-ops policy lists the clone among its `[git]` checkouts and names a `worktree_roots` directory this sandbox can write, work here, in a worktree `git-worktree-add` creates there.
+   `[git]` values alone do not: with no writable worktree root they still publish from the clone, but the edits and tests need a sandbox that can write them.
+   Finish Steps 1–3 and the Step 5 plan here, then hand Steps 7–9 over as [handoff.md](handoff.md) describes, with `<upstream>` as the target repository and the agreed base branch.
+   The brief is publication-neutral: the desired behaviour, the files, the tests, and the neutral 5c commit message, PR title and PR body.
+   It never carries the symptom, evidence, reproducer or how the flaw is triggered, any CVE ID, tracker reference or reporter, or the name of this skill.
+   When the receiver reports the PR URL back, verify it and carry on at Step 10 here.
+   On the `patch-then-commit` flow, an unreachable working copy stops the run: tell the user, since [`subversion-flow.md`](subversion-flow.md) needs its private-patch review and the team's clearance.
 
 2. Check `git remote -v` and identify the **user's fork** and the upstream `<upstream>` remote.
    Per [`<upstream>/AGENTS.md`](https://github.com/<upstream>/blob/main/AGENTS.md), push only to the user's fork, never to `<upstream>` directly.

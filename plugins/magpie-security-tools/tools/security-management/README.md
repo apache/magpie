@@ -90,7 +90,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `rollup` | Entry bodies at column 0, one-line values, the action label refused when it holds `<`, `>` or `·`, and handed back shell-quoted. |
 | `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code spans (any backtick run), fences, links, autolinks and URLs, ported from `pr-management`'s `_BARE_REF`; `tracker_link` for a GitHub, Jira or local-files reference. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |
-| `recipients` | `security_cc`: the security CC of every draft, each key from the first layer that declares it. |
+| `recipients` | `security_cc`: the security CC and private-list Bcc of every draft, each key from the first layer that declares it. |
 | `drafting` | `choose`: Gmail or Maildir (the person over the project), then `backend`: `maildir` when configured, else `oauth_curl`, and `claude_ai_mcp` only without OAuth credentials and with no link in the body; `anchor`: what each backend attaches the draft by; `scan`: tracker references, the CVE-tool URL, bare references, re-opening phrases, CVSS and other ASF projects (when `organization` is `ASF`) in a composed reporter draft. The CVE-tool URL comes from `cve_tool_url`; a bare host is accepted, with `https://` assumed. |
 | `grammar` | `parse_reply`: the confirmation grammar; anything unplaceable goes to `ambiguous_tokens` for the agent to ask back, conflicting dispositions hold their candidate out of every list, unscoped free text holds everything, and a negation confirms nothing. |
 | `keyword` | The `tr -cd` allowlist for search keywords, read from a file, never starting with `-`. |
@@ -193,19 +193,19 @@ Every command takes `--input F`, a JSON file.
 
 | Command | Prints |
 |---|---|
-| `selector` | `mode` (`single`, `bulk`, `proposed`), `numbers`, the `gh issue view` / `invalidate proposed` list `command`, and for bulk the aliased `batches` with thumbs-up reactions; another repository exits `2`. |
-| `consensus` | `agreed` (a roster member's INVALID proposal with a thumbs-up or acknowledgement from another roster member), `awaiting` with the recap note, `stop` at the 1000 cap. |
+| `selector` | `mode` (`single`, `bulk`, `proposed`), `numbers`, the close `reason` from a trailing `as <reason>` (`invalid` by default, `defense-in-depth`, `info-only`) and its `reason_source`, the `gh issue view` / `invalidate proposed` list `command`, and for bulk the aliased `batches` with thumbs-up reactions; another repository, an unknown reason or `proposed as …` exits `2`. |
+| `consensus` | `agreed` (a roster member's latest proposal, INVALID, DEFENSE-IN-DEPTH or INFO-ONLY, with a thumbs-up or acknowledgement from another roster member, and the `reason` its `proposed_class` maps to), `awaiting` with the recap note, `stop` at the 1000 cap. |
 | `hard-stops` | `verdict` (`proceed`, `noop`, `stop`, `escalate`, `probe`, `ask`), `cve_id`, `message` from state, labels, the *CVE tool link* field and the generic CVE state. |
 | `import-path` | `import_path`, `email_draft_step`, `thread_id` (field, else the rollup provenance), `thread_source`, `secondary_threads`, `root_message_id`, `reporter_credit`; an ambiguous field exits `2`. |
-| `labels` | `labels_to_add` (`invalid`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
+| `labels` | `reason`, `labels_to_add` (the reason's `reason_labels` entry, else `invalid`; `defense-in-depth`, `wontfix`; `info-only`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
 | `board` | The introspection query `file` and `command`; given `items`, the `archiveProjectV2Item` mutation or the *not on the board* note. |
-| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `subject` (`Re: <root subject>`), `backend`, `anchor`; links without OAuth credentials exit `2`. |
-| `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects when `organization` is `ASF`, a duplicate's missing canonical CVE. |
-| `render-close` | The brief closing comment `text`. |
-| `render-rollup` | `label`, `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
-| `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`. |
-| `apply-plan` | The 6a-6g `steps` in order, with file paths and commands, and the label plan. |
-| `render-recap` | The recap `text` with the hand-off line, `bare_refs`. |
+| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `bcc` (from `security_bcc`), `subject` (`Re: <root subject>`), `backend`, `anchor`, `close_reason` and its `canned_default`; the `private_list` as To or Cc blocks it; links without OAuth credentials exit `2`. |
+| `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects when `organization` is `ASF`, a duplicate's missing canonical CVE, the `private_list` in `to` / `cc`. |
+| `render-close` | The brief closing comment `text`, naming the `reason`. |
+| `render-rollup` | `reason`, `label` (`Closed as <reason>`), `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
+| `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `change_reason`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`, `reason_override`. |
+| `apply-plan` | The 6a-6g `steps` in order, with file paths and commands (the rollup action label `Closed as <reason>`), and the label plan. |
+| `render-recap` | The recap `text` with each tracker's reason, the *file the public hardening PR* next step for `defense-in-depth`, the hand-off line, `bare_refs`. |
 
 ### `cve-allocate`
 
@@ -220,8 +220,8 @@ Every command takes `--input F`, a JSON file.
 | `recipe` | `path` (`api`, `recipe`, `relay`), `text`, the `cve-tool allocate` `command` with the title shell-quoted, `bare_refs`; an unanswered authorisation question exits `2`. |
 | `allocate-result` | `next` (`step-4`, `stop`, `setup`, `check-records`, `recipe`), `cve_id`, `message`, `rerun_allocate` (true only after an expired token). |
 | `cve` | `cve_id` and `record_url` from the user's paste-back; none, a malformed token or two IDs exit `2`. |
-| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification` (`omitted`, `team_member`, `notified`, `draft_pending`) and for a draft `to`, `cc`, `subject`, `backend`, `anchor`, `secondary_threads`. |
-| `check-draft` | `clean` and `hits`: a missing CVE ID, the CVE-tool URL, a tracker reference, a bare reference, CVSS, other ASF projects when `organization` is `ASF`. |
+| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification` (`omitted`, `team_member`, `notified`, `draft_pending`) and for a draft `to`, `cc`, `bcc` (from `security_bcc`), `subject`, `backend`, `anchor`, `secondary_threads`; the `private_list` as To or Cc blocks it. |
+| `check-draft` | `clean` and `hits`: a missing CVE ID, the CVE-tool URL, a tracker reference, a bare reference, CVSS, other ASF projects when `organization` is `ASF`, the `private_list` in `to` / `cc`. |
 | `proposal` | The numbered `items` (5 only when a draft is created), `proposal_items_count`, the `cve_tool_link_value`, `notes`, `text`. |
 | `render-rollup` | `label` (`CVE allocated (<CVE-ID>)`), `label_shell`, `text`, `needs_amend`, `bare_refs`; a draft id not checked against Drafts exits `2`. |
 | `parse-reply` | `action` (`apply`, `cancel`, `edit`, `ambiguous`), `items_applied`, `items_skipped`. |
@@ -258,8 +258,8 @@ Every command takes `--input F`, a JSON file.
 | `parse-bulk-reply` | `action` (`apply`, `force_sync`, `cancel`, `none`, `ambiguous`), `apply` per tracker, `edits`, `force_sync`, `skip`, and `summary` (`draft` only after `all` or an explicit `summary`, else `skip`; null with no summary in the proposal); an empty reply is `ambiguous`. |
 | `nudge-summary` | `stage` (`preview`, or `final` with Step 4b's `collapsed`: the collapse is kept, only applied values are read), `nudge_candidates` (a `pending_team_question` at least `nudge_after_days` old, default 7), `collapse` (at least `nudge_summary_threshold`, default 5, `off` never), `collapsed` or `per_tracker_nudges`, and when collapsed the plain-text `draft` (`to` the private `security_list` only, a public list or a missing one exits `2`; `subject`, `body` in five groups with each tracker's scrubbed title over its own URL (a reported `issue_url` only when it is the tracker's; pre-flight-skipped trackers come from `preflight_trackers`), `new_thread`, the Guardrails `clean` / `violations`); given the created `draft` id, the `recap_line`. Handles in `user.do_not_ping` (`user`: the `security_issue_sync` block of the personal `user.md`, the only place it is read) are never named, with no trace in the body. |
 | `parse-reply` | The single-tracker form through `shared.numbered`. |
-| `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects when `organization` is `ASF`, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
-| `security-cc` | `security_cc`, `cc_fallback`, `warning` and `warning_text`, `draft_blocked`, `cc`, `search_list`, through the project / organization / framework layers. |
+| `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects when `organization` is `ASF`, bare CVE IDs or the CVE-tool URL in an email, bare `#NNN`, and the `private_list` in an email surface's `to` / `cc`. |
+| `security-cc` | `security_cc`, `cc_fallback`, `warning` and `warning_text`, `draft_blocked`, `cc`, `bcc` (the `private_list` when there is no dedicated security list and `security_inbox.bcc_private_list` is true; never in `cc`), `private_list`, `search_list`, through the project / organization / framework layers. |
 | `draft-backend` | `backend` (`maildir`, `oauth_curl`, `claude_ai_mcp`), `decided_by` (`user.md`, `project.md`, `default`); no credential with links in the body exits `2`. |
 | `ghsa-route` | `access_tier`, `action` (`direct-write`, `api-post`, `relay-draft`, `browser-paste`), `channel`, for a reporter reply through the comments API its `visibility` and `claims_reply_posted_on` (`201`), and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
 | `ghsa-fields` | The minimal advisory `patch` (`cve_id`, `severity`, `cwe_ids`, `vulnerabilities`, `credits`, `summary`, and with `resolution` the *Resolution* block in `description`) with `changes` and `skipped`; `conflicts`, `drift`, `tracker_proposals` (advisory values for empty tracker fields, never severity), `observed`, `bots_not_credited`; never `state` or collaborators. |

@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6379
+measured_tokens: 6407
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -280,7 +280,7 @@ gh issue view <drop>  --repo <tracker> --json number,title,state,body,labels,mil
 `comments` stays in the field set: Step 2's CVE-JSON-attachment check reads it, and so does the legacy-bot-comment detection behind Step 5's fold-legacy sub-step; `createdAt` orders the mailing threads in Step 3, earliest report first.
 
 Write `{tracker, scope_labels, keep, drop}` — each side `{number, state, labels, cve_link, cve_state}`, the *CVE tool link* read from its body — and run `<sm> classify`.
-Its `verdict` is `proceed`, `blocked` (show every `blockers` entry) or `probe` (run `cve-tool fetch --cve-id <CVE-ID> --state-only` for each `probe` CVE, pass the state it prints as `cve_state`, and classify again).
+Its `verdict` is `proceed`, `blocked` (show every `blockers` entry) or `probe` (run `cve-tool fetch --cve-id <CVE-ID> --state-only --pmc <pmc>` for each `probe` CVE, with `<pmc>` the project's `cna_private_owner` from `<project-config>/project.md`, pass the state it prints as `cve_state`, and classify again).
 It checks:
 
 - Both trackers are in state `open`.

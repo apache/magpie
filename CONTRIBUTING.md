@@ -28,6 +28,7 @@
   - [Bumping the dev version](#bumping-the-dev-version)
     - [Why the PR is a draft](#why-the-pr-is-a-draft)
   - [Opening a pull request](#opening-a-pull-request)
+    - [Stacking dependent pull requests](#stacking-dependent-pull-requests)
   - [Your first contribution](#your-first-contribution)
   - [Confidentiality](#confidentiality)
   - [Authoritative references](#authoritative-references)
@@ -272,7 +273,7 @@ is loaded only after the decision.
 | Repository maintenance (`repo-health-*`) | Audits and `audit-finding-fix` | Audits and fixes for dependency, workflow, license, runner, and test-maintenance findings. See [`docs/repo-health/`](docs/repo-health/README.md). |
 | Local code review (`pairing-*`) | `pairing-self-review`, `pairing-multi-agent-review` | Developer-side self-review and multi-agent review before opening a pull request. See [`docs/pairing/`](docs/pairing/README.md). |
 | Committer readiness and onboarding (`contributor-growth-*`) | `contributor-*`, `committer-onboarding`, `onboarding-concierge` | Readiness signals, nomination support, and onboarding. ASF-specific. See [`docs/contributor-growth/`](docs/contributor-growth/README.md). |
-| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
+| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `optimize-agents-md`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
 | Releases (`release-*`) | `release-*` | ASF release lifecycle and records. ASF-specific. See [`docs/release-management/`](docs/release-management/README.md). |
 
 Each skill's frontmatter `description` is the agent-router contract.
@@ -1090,6 +1091,27 @@ change.
   prek run workspace-pytest --from-ref origin/main --to-ref HEAD
   git push
   ```
+
+### Stacking dependent pull requests
+
+The rule the agent instructions in [`AGENTS.md`](AGENTS.md#commit-and-pr-conventions) point to before one change is split into several PRs that build on each other.
+
+- **Stack a series of dependent PRs with GitHub's stacked PRs — only with write access to `<upstream>`.**
+  A stacked PR's base is the previous PR's branch, and a PR can only target a branch in the repository
+  it is opened against, so every branch of a stack must be pushed to `<upstream>` itself, never to a fork.
+  When one change is split into several PRs that each build on the previous one:
+  - Check write access with a plain `gh api repos/<upstream> --jq .permissions.push`.
+  - **`true`:** check for the [`github/gh-stack`](https://gh.io/stacks) extension with a plain `gh extension list`;
+    if it is missing, suggest the user install it themselves with `! gh extension install github/gh-stack` —
+    the secure setup denies extension installs from the agent, and installing one is the user's call.
+    Push every branch of the stack to `<upstream>` (its URL, not the fork's remote),
+    create each PR from its approved body file with `gh pr create --repo <upstream> --base <previous branch> --web`,
+    then join them bottom to top with `gh stack link --remote <upstream URL> <bottom-PR> … <top-PR>`.
+  - **Anything else:** do not suggest the extension. Push the branches to the fork and open each PR
+    against `<upstream>`'s default branch, one at a time or with a *"Depends on #N"* line naming the PR below it.
+  Never use `gh stack submit --auto`, or let `gh stack link` create a PR for a bare branch:
+  both post auto-generated titles and bodies nobody approved.
+  If the repository does not have stacks enabled, the base-chained PRs still work; say so and carry on.
 
 ## Your first contribution
 

@@ -19,16 +19,21 @@
 `plan` maps the import path and the reporter channel onto one of the
 *Reporter notification* cases of the Step 5e rollup entry, and for a draft
 the recipients (reporter, or the forwarder contact in via-forwarder mode),
-the `security_cc` copy, the `Re: <root subject>` subject, the inbound-thread
+the `security_cc` copy, the `security_bcc` copy (the private list, when the
+project has no dedicated security list), the `Re: <root subject>` subject, the inbound-thread
 anchor per backend, and the backend (`oauth_curl` preferred; the discouraged
 `claude_ai_mcp` only without credentials and with no link in the body). A
 pending draft on the thread is surfaced, never shadowed; a missing
-`security_cc` blocks drafting.
+`security_cc`, or the `private_list` as a To or Cc recipient, blocks drafting.
+A `create` also names the `close_reason` and
+its `canned_default`, the canned response to start from when no more specific
+section fits.
 
 `check` greps a composed body before it is drafted: any `<tracker>`
 reference (the reporter cannot open it), the CVE-tool URL, a bare `#NNN`, a
 re-opening phrase, a CVSS score, a missing canonical CVE for a duplicate,
-and the AGENTS.md list of other ASF project names. Writing the body (the
+the AGENTS.md list of other ASF project names, and (given `to`, `cc` and
+`private_list`) the private list in To or Cc. Writing the body (the
 canned spine and its augmentation) stays the agent's job.
 """
 
@@ -38,7 +43,8 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from security_management.shared import drafting
+from security_management.issue_invalidate import reasons
+from security_management.shared import drafting, recipients
 from security_management.shared.rollup import one_line
 from security_management.shared.titles import strip_mail_prefixes
 
@@ -94,6 +100,12 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     to = one_line(data.get("forwarder_contact") if via else data.get("reporter_email"))
     if not to:
         return {"action": "blocked", "notification_case": None, "reason": "no recipient resolved"}
+    if recipients.private_in_recipients(data.get("private_list"), to, cc):
+        return {
+            "action": "blocked",
+            "notification_case": None,
+            "reason": "the private list is never a To or Cc recipient: it may only ride in Bcc",
+        }
     subject = one_line(data.get("root_subject"))
     if not subject:
         return {
@@ -108,11 +120,15 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     case = "ghsa_forwarder" if ghsa.get("only_channel") else "via_forwarder" if via else "direct"
     if str(data.get("disposition") or "invalid") == "duplicate":
         case += "_duplicate"
+    reason = reasons.normalise(data.get("reason"))
     return {
         "action": "create",
         "notification_case": case,
+        "close_reason": reason,
+        "canned_default": reasons.CANNED_DEFAULT[reason],
         "to": to,
         "cc": cc,
+        "bcc": [one_line(b) for b in data.get("security_bcc") or [] if one_line(b)],
         "subject": f"Re: {strip_mail_prefixes(subject)}",
         "backend": backend,
         "backend_note": backend_note,
@@ -131,6 +147,8 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
         data.get("organization"),
         data.get("cve_tool_url"),
     )
+    for address in recipients.private_in_recipients(data.get("private_list"), data.get("to"), data.get("cc")):
+        hits.append({"kind": "private-list-recipient", "line": None, "text": address})
     if str(data.get("disposition") or "invalid") == "duplicate":
         canonical = one_line(data.get("canonical_cve"))
         if not canonical or canonical not in _CVE.findall(text):

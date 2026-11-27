@@ -35,3 +35,14 @@ states and field values, never the report text.
 ## Steps not covered
 
 Step 0 (pre-flight check) is a simple guardrail; the apply order (`apply-plan`) is pytest-tested in the same file.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `7ba04297` (fix/vulnogram-pmc-followups) | `opus[1m]` | 1 | pass |  |

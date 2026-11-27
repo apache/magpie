@@ -1,1 +1,1 @@
-{"route": "brief-to-user", "clone_in_this_sandbox": false, "confirm_with_user_first": true, "reason": "A clone inside the adopter sandbox fails part way on paths the harness keeps read-only, so the user is told to clone and open a session outside it, and given the brief to paste."}
+{"route": "scratch-clone", "confirm_with_user_first": true, "brief_file_dir": null, "reason": "The change touches no harness-protected path, so a sparse clone of apache/magpie in the scratch directory that excludes /.claude/ is a valid route, confirmed with the user first."}

@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/optimize-agents-md/SKILL.md",
+  "step_heading": "## Step 1 — Measure and diagnose",
+  "also_include": [
+    "plugins/magpie-utilities/skills/optimize-agents-md/passes.md"
+  ]
+}
