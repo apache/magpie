@@ -29,10 +29,11 @@ When `vetted-op-read approval-status` reports `"approved": false`, or a grant ch
 
 ```text
 • review the policy's diff since your last approval first, then:
-  mkdir -p ~/.config/apache-magpie/vetted-ops && cp '<policy>' ~/.config/apache-magpie/vetted-ops/<name>.toml   (stale approved copy: writes are refused until you re-approve)
+  mkdir -p ~/.config/apache-magpie/vetted-ops && cp '<policy>' ~/.config/apache-magpie/vetted-ops/<project>.toml   (stale approved copy: writes are refused until you re-approve)
 ```
 
-`<name>` is the earlier approved copy's name, `<project>.toml` by convention.
+Render `<project>` as the concrete name, never the placeholder: the project's slug, `short_name` in `project.md` lowercased, else the main checkout's basename ([the naming rule](../../../../tools/vetted-ops/README.md#configuration)).
+Add one line: an earlier approved copy under another name approves nothing now, so the user may delete it.
 A missing operator `[git]` table is not this skill's finding: `vetted-op-git` reports it in its own refusal.
 
 ### 2. Never edit a committed file

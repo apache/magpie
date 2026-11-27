@@ -1086,11 +1086,16 @@ else ([the subcommand](../../../../tools/vetted-ops/README.md#is-the-policy-appr
   directory):
 
   ```text
-  mkdir -p <approved_dir> && cp '<policy>' <approved_dir>/<name>.toml
+  mkdir -p <approved_dir> && cp '<policy>' <approved_dir>/<project>.toml
   ```
 
-  `<name>` is the name the earlier approved copy has, `<project>.toml`
-  by convention, so the stale copy is replaced rather than kept beside it.
+  Render `<project>` as the concrete name, never the placeholder: the
+  project's slug, `short_name` in `project.md` lowercased, else the main
+  checkout's basename
+  ([the naming rule](../../../../tools/vetted-ops/README.md#configuration)),
+  so the stale copy is replaced rather than kept beside it.
+  An earlier approved copy under another name approves nothing now; say
+  the user may delete it.
   Quote `<policy>` as shown: the path is the checkout's, not a value to
   trust.
 - `?` unchecked: `vetted-op-read` refuses `approval-status` as an
