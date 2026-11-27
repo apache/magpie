@@ -120,6 +120,10 @@ CODEX_HOOKS_FILE = Path("hooks/codex-hooks.json")  # relative to the plugin root
 # hook: its file exists so Codex does not fall back to the Claude-only
 # `hooks/hooks.json` and warn about it on every start.
 CODEX_FAMILY_HOOKS = {
+    "magpie-contributor-growth": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
     "magpie-setup": {
         "description": "Apache Magpie — the upgrade check, for Codex. Claude Code reads hooks.json.",
         "hooks": {

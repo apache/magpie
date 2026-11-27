@@ -131,3 +131,7 @@ tools/spec-loop/.lock.*
 # Local security triage queue pane staging files (may carry embargoed advisory titles).
 .magpie-security-triage-queue.json
 .magpie-security-triage-action.json
+
+# Local contributor activity sweep pane staging files (may carry private candidate assessments).
+.magpie-contributor-sweep-queue.json
+.magpie-contributor-sweep-action.json
