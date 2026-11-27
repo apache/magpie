@@ -54,9 +54,10 @@ For every `.md` file that carries a YAML frontmatter block:
 The frontmatter block must be at the very top of the file — YAML
 frontmatter placed lower in the document is not detected. Files without
 a top-of-file frontmatter block (e.g. README files) are silently
-skipped. `docs/pilot-report-template.md` ships with placeholder
-frontmatter values, so running the validator on the unedited template
-reports those placeholders until you fill them in.
+skipped. A `#` comment line at column 0 and a trailing ` # comment` on a
+`key:` line are ignored, as in YAML. `docs/pilot-report-template.md`
+ships with placeholder frontmatter values, so running the validator on
+the unedited template reports those placeholders until you fill them in.
 
 ## Usage
 

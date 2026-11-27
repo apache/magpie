@@ -136,6 +136,8 @@ trustworthy as it grows.
   The `date` value must name a real calendar day, parsed with
   `datetime.date.fromisoformat`, so `2026-02-30` or `2026-13-01` is a violation,
   not only a value off the `YYYY-MM-DD` shape (#2286).
+  A `#` comment line at column 0 and a trailing ` # comment` on a `key:` line
+  are ignored, as in YAML, so a report keeps the template's frontmatter comments.
   Pilot reports are the primary
   evidence source for advancing a skill from `experimental` to `stable`.
   Capability: `substrate:framework-dev`. Stdlib-only, offline.

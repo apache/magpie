@@ -137,6 +137,62 @@ class TestParseFrontmatter:
         assert fm is not None
         assert fm.get("reporter") == "jdoe"
 
+    @pytest.mark.parametrize(
+        ("frontmatter", "expected"),
+        [
+            (
+                "skill: pairing\n# explanatory text\ndate: 2026-06-29",
+                {"skill": "pairing", "date": "2026-06-29"},
+            ),
+            (
+                "skill: pairing\n# NOTE: use <owner>/<repo>\ndate: 2026-06-29",
+                {"skill": "pairing", "date": "2026-06-29"},
+            ),
+            ("profile: asf   # asf | non-asf | custom", {"profile": "asf"}),
+            ("date: 2026-06-29\t# x", {"date": "2026-06-29"}),
+            ("notes: C# tooling", {"notes": "C# tooling"}),
+            ("notes: a\N{NO-BREAK SPACE}#b", {"notes": "a\N{NO-BREAK SPACE}#b"}),
+            ('notes: "quoted" # comment', {"notes": '"quoted"'}),
+            ('notes: "an escaped \\" quote" # comment', {"notes": '"an escaped \\" quote"'}),
+            ("notes: 'a doubled '' quote' # comment", {"notes": "'a doubled '' quote'"}),
+            ('notes: "unclosed # kept', {"notes": '"unclosed # kept'}),
+            ('notes: "closed" trailing text', {"notes": '"closed" trailing text'}),
+            ("notes: |  # block\n  first\n  # kept", {"notes": "first\n# kept"}),
+            (
+                "notes: |\n  first\n# dropped\ndate: 2026-06-29",
+                {"notes": "first", "date": "2026-06-29"},
+            ),
+            (
+                'notes: "first\n  second"\n# NOTE: use <owner>/<repo>\ndate: 2026-06-29',
+                {"notes": '"first\nsecond"', "date": "2026-06-29"},
+            ),
+            ('notes: "first\n# y"', {"notes": '"first\n# y"'}),
+        ],
+        ids=[
+            "column-zero-comment-without-colon",
+            "column-zero-comment-with-colon",
+            "inline-unquoted-profile",
+            "inline-unquoted-date-tab",
+            "hash-inside-word",
+            "nbsp-before-hash",
+            "quoted-comment",
+            "double-quoted-escaped-quote",
+            "single-quoted-doubled-quote",
+            "unclosed-quote",
+            "text-after-closing-quote",
+            "block-header-comment",
+            "column-zero-comment-after-block-scalar",
+            "column-zero-comment-after-closed-multiline-quote",
+            "open-multiline-quote-column-zero-comment",
+        ],
+    )
+    def test_yaml_comment_handling(self, frontmatter: str, expected: dict[str, str]) -> None:
+        assert parse_frontmatter(f"---\n{frontmatter}\n---\n") == expected
+
+    def test_comment_with_colon_does_not_create_placeholder_violation(self, tmp_path: Path) -> None:
+        text = _make_report(extra_keys="# NOTE: use <owner>/<repo>")
+        assert validate_frontmatter(tmp_path / "report.md", text) == []
+
 
 # ---------------------------------------------------------------------------
 # extract_section_headings
@@ -313,6 +369,32 @@ class TestRunValidation:
         (subdir / "report.md").write_text(_VALID_REPORT)
         assert run_validation(tmp_path) == []
 
+    def test_report_with_frontmatter_comments_validates(self, tmp_path: Path) -> None:
+        text = textwrap.dedent("""\
+            ---
+            # SPDX-License-Identifier: Apache-2.0
+            # https://www.apache.org/licenses/LICENSE-2.0
+            skill: pr-management-triage
+            date: 2026-06-29
+            # second pilot run, same week
+            target_repo: apache/airflow
+            profile: asf
+            # Fill target_repo as <owner>/<repo> before submitting.
+            reporter: someone
+            ---
+
+            ## Skill or family
+            ## Target repo and profile
+            ## Blocked preflights
+            ## False positives
+            ## Confirmation points
+            ## Privacy and adapter notes
+            ## Proposed spec changes
+            """)
+        report = tmp_path / "r1.md"
+        report.write_text(text, encoding="utf-8")
+        assert run_validation(report) == []
+
 
 # ---------------------------------------------------------------------------
 # collect_report_files
@@ -402,10 +484,9 @@ class TestTemplate:
             template = candidate / "docs" / "pilot-report-template.md"
             if template.is_file():
                 return template
-        # pytest.skip() raises Skipped, so control never falls through; the explicit
-        # raise keeps every path either returning a Path or raising (no implicit None).
-        pytest.skip("docs/pilot-report-template.md not found — skipping template smoke test")
-        raise AssertionError("unreachable")  # pragma: no cover
+        # Fail loudly if the template moves so this smoke test cannot silently disappear.
+        # Raising also keeps every path returning a Path or raising (no implicit None).
+        raise AssertionError(f"docs/pilot-report-template.md not found above {start}")
 
     def test_template_frontmatter_is_detected_at_top(self) -> None:
         text = self._find_template().read_text(encoding="utf-8")
@@ -445,3 +526,18 @@ class TestTemplate:
         report.write_text(filled, encoding="utf-8")
         violations = [str(v) for v in run_validation(report)]
         assert violations == [], f"filled report should validate clean, got: {violations}"
+
+    def test_filled_template_with_frontmatter_comments_validates(self, tmp_path: Path) -> None:
+        text = self._find_template().read_text(encoding="utf-8")
+        filled = (
+            text.replace("<skill-name>", "pairing-self-review")
+            .replace("YYYY-MM-DD", "2026-06-29\n# second pilot run, same week")
+            .replace("<owner>/<repo>", "example/myproject")
+            .replace("profile: asf", "profile: asf\n# valid for this ASF repository")
+            .replace("<github-handle>", "jdoe")
+        )
+        assert "# second pilot run, same week" in filled
+        assert "# valid for this ASF repository" in filled
+        report = tmp_path / "filled-commented-report.md"
+        report.write_text(filled, encoding="utf-8")
+        assert run_validation(report) == []
