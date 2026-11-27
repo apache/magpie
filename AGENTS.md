@@ -189,41 +189,16 @@ reviewed PR authored by a tracker-repo collaborator.
 
 Two configuration layers tell the skills how this working tree is set up.
 
-**Project layer — shared, checked in.** Each adopting project keeps its
-project-specific configuration in a `<project-config>/` directory in its
-tracker repository, alongside the gitignored framework snapshot at
-`.apache-magpie/`. The concrete path is the adopter's choice; the
-[`projects/_template/`](plugins/magpie-setup/templates/) scaffold is the starting
-point an adopter copies in. The directory contains:
-
-```text
-<project-config>/                # adopter chooses path; committed
-├── project.md                   # manifest — identity, repos, mailing
-│                                # lists, CVE tooling, links to siblings
-├── canned-responses.md          # reporter-facing reply templates
-├── release-trains.md            # release-manager + security-team rosters
-├── security-model.md            # project's security policy
-├── milestones.md                # milestone-format conventions
-├── scope-labels.md              # scope label set + CVE product mapping
-├── naming-conventions.md
-├── title-normalization.md
-├── fix-workflow.md
-├── user.md.example              # template for the user layer below
-└── user.md                      # gitignored — per-user
-```
-
+**Project layer — shared, checked in.** Each adopting project keeps its project-specific configuration
+in a `<project-config>/` directory in its tracker repository (the path is the adopter's choice),
+copied from the [`projects/_template/`](plugins/magpie-setup/templates/) scaffold, which shows every file.
 `<project-config>/project.md` is the load-bearing file: identity,
 repositories, mailing lists, tools enabled, CVE-tooling references, and
-pointers to the other files. Use
-[`projects/_template/`](plugins/magpie-setup/templates/) as the bootstrap scaffold.
+pointers to the other files.
 
-**User layer — personal, gitignored.** Each triager keeps their own
-`user.md` (copied from `user.md.example`) declaring identity, PMC
-status, per-capability tool picks, and local paths (e.g. the local
-`<upstream>` clone). Skills read it at Step 0 pre-flight and skip the
-matching prompts when a field is set; unset fields fall back to runtime
-prompts, so a missing `user.md` breaks nothing — it is opt-in
-convenience.
+**User layer — personal, gitignored.** Each triager keeps their own `user.md` (copied from `user.md.example`):
+identity, PMC status, per-capability tool picks, and local paths such as the `<upstream>` clone.
+Skills read it at pre-flight and skip the matching prompts; unset fields fall back to prompts, so a missing `user.md` breaks nothing.
 
 ### `user.md` resolution order
 
