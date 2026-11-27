@@ -516,19 +516,8 @@ not.
 
 ## Privacy-LLM — what data goes through which model
 
-The confidentiality rules above govern *human-visible* surfaces
-(public PRs, public issue comments, public mailing-list replies).
-A second, layered set of rules governs *machine-routed* surfaces
-— the LLM context the agent operates in, any LLM API call a
-skill makes, any delegated-summarisation hop a future skill might
-add. Both apply.
-
-The framework's privacy-LLM contract is enforced via
-[`tools/privacy-llm/`](tools/privacy-llm/tool.md) and configured
-per-adopter in `<project-config>/privacy-llm.md` (template at
-[`projects/_template/privacy-llm.md`](plugins/magpie-setup/templates/privacy-llm.md)).
-Setup recipes for the supported variants are in
-[`docs/setup/privacy-llm.md`](docs/setup/privacy-llm.md).
+The confidentiality rules above govern *human-visible* surfaces; these govern *machine-routed* ones (the LLM context the agent operates in, any LLM API call a skill makes, any delegated-summarisation hop), and both apply.
+The contract is enforced via [`tools/privacy-llm/`](tools/privacy-llm/tool.md) and configured per adopter in `<project-config>/privacy-llm.md` (template at [`projects/_template/privacy-llm.md`](plugins/magpie-setup/templates/privacy-llm.md)); setup recipes for the supported variants are in [`docs/setup/privacy-llm.md`](docs/setup/privacy-llm.md).
 
 Three rules every skill follows:
 
@@ -569,14 +558,8 @@ outbound moderation step), the adopter wires the endpoint per
 [`docs/setup/privacy-llm.md`](docs/setup/privacy-llm.md) **before** the
 skill that uses it runs.
 
-**Status — provisional pending ASF Legal.** The default-approved
-list above reflects the framework maintainer's working position;
-ASF Legal Affairs has not yet ratified an authoritative
-approved-LLM list for foundation private data. When such a list
-lands, the registry will be updated to point at it as
-source-of-truth. Until then,
-[`tools/privacy-llm/models.md`](tools/privacy-llm/models.md) is
-the framework's source-of-truth and the rationale-of-record.
+**Status — provisional pending ASF Legal.** The default-approved list above is the framework maintainer's working position, not yet ratified by ASF Legal Affairs;
+until an authoritative list lands, [`tools/privacy-llm/models.md`](tools/privacy-llm/models.md) is the framework's source-of-truth and the rationale-of-record.
 
 ## Assessing reports
 
@@ -592,13 +575,9 @@ informational background only.** Do not:
   status update to the reporter;
 - repeat it in an email reply, even to confirm it.
 
-The adopting project's security team scores every accepted vulnerability independently,
-as part of the CVE-allocation step, using the same CVSS version and vector
-conventions for every CVE the project ships. The independent score is the **only**
-score that ends up in the CVE record and the public advisory. (Reporter scores
-are frequently inflated, often misjudge what is in scope under the project's
-security model, and propagating one creates an implicit contract that makes any
-later downward revision a negotiation rather than an assessment.)
+The adopting project's security team rates every accepted vulnerability independently, as part of the CVE-allocation step.
+ASF projects do not use CVSS scores: they rate severity on the [ASF severity rating](https://security.apache.org/blog/severityrating) scale, as [`docs/security/process.md`](docs/security/process.md) describes; other projects use the rubric named in `<project-config>/security-model.md`.
+The independent rating is the **only** severity that ends up in the CVE record and the public advisory.
 
 Practical consequences:
 
@@ -632,16 +611,8 @@ URLs that look identical but 404 for everyone outside the team and must
 [`<project-config>/project.md → Mailing lists`](<project-config>/project.md#mailing-lists)
 for the public / private marking.
 
-The issue template separates the two cleanly: the *"Security mailing list
-thread"* field is the team's internal back-reference (expected to 404
-externally — **do not scrub it during sync**), while the *"Public
-advisory URL"* field holds the public users-list archive URL that becomes
-the `vendor-advisory` reference once the advisory ships.
-`generate-cve-json` enforces the split automatically — it never pulls the
-internal field into `references[]` and does pull the public-advisory
-field; mechanics in
-[`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/). A
-`vendor-advisory` link that 404s is a broken CVE record.
+The issue template keeps the two apart: the *"Security mailing list thread"* field is the team's internal back-reference (expected to 404 externally; **do not scrub it during sync**), and the *"Public advisory URL"* field holds the public users-list archive URL that becomes the `vendor-advisory` reference once the advisory ships.
+`generate-cve-json` enforces the split ([mechanics](tools/cve-tool-vulnogram/)); a `vendor-advisory` link that 404s is a broken CVE record.
 
 ## Writing and editing documentation
 

@@ -36,6 +36,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `ce448d2f` (opt/agents-md-rewrite-2) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `be1cfa47` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `8e462469` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `6aafa271` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |
