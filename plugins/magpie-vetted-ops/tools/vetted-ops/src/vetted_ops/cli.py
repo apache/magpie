@@ -74,6 +74,9 @@ EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_POLICY = 3
 EXIT_COMMAND = 4
+#: A well-formed value the policy's [values] allowlist does not list: the one
+#: refusal a skill recovers from by asking the user (see `report_unlisted`).
+EXIT_UNLISTED = 5
 
 #: The `vetted-op-read` subcommand that reports whether the discovered policy is approved.
 APPROVAL_STATUS = "approval-status"
@@ -102,7 +105,19 @@ def _validate_params(
 
         if name in op.enums:
             key = op.enums[name]
-            resolved[name] = ops_mod.enum(config.enum_values(key), config.enum_patterns(key))(raw)
+            # A missing [values] key stays a ConfigError (exit 3): the policy is
+            # incomplete, which is not something one approved value fixes.
+            allowed, patterns = config.enum_values(key), config.enum_patterns(key)
+            try:
+                resolved[name] = ops_mod.enum(allowed, patterns)(raw)
+            except ops_mod.ParamError as exc:
+                # Only a plain name is a candidate for the policy; anything else
+                # (a control character, a quote, 101 characters) stays malformed.
+                if not ops_mod.plain_value(raw):
+                    raise
+                raise ops_mod.UnlistedValue(
+                    operation=op.name, parameter=name, key=key, values=[raw], detail=str(exc)
+                ) from None
             if name == "pmc":
                 # A listed PMC still has to be a PMC name: it becomes a token file name.
                 resolved[name] = ops_mod.pmc(resolved[name])
@@ -177,6 +192,27 @@ def _validate_params(
         # that one, so content written for one record never lands on another.
         ops_mod.check_cve_record(body, resolved["cve_id"])
     return resolved, body
+
+
+def report_unlisted(
+    exc: ops_mod.UnlistedValue, caller: str | None, config: Config, *, entry: int | None = None
+) -> None:
+    """Print an unlisted-value refusal: the human line, then one JSON object line per value.
+
+    Both go to stderr. A skill parses the JSON lines (each starts with ``{``),
+    never the prose, and asks the user whether to add the value to the named
+    ``[values]`` key or skip the write; it never edits the policy itself.
+    """
+    where = f"entry {entry} ({exc.operation}): " if entry is not None else ""
+    print(f"vetted-op: refused: {where}{exc}", file=sys.stderr)
+    approved = config.approved_copy()
+    for record in exc.records(
+        caller=caller,
+        policy=str(config.policy_path) if config.policy_path is not None else None,
+        approved_copy=str(approved) if approved is not None else None,
+        entry=entry,
+    ):
+        print(json.dumps(record), file=sys.stderr)
 
 
 def _without_file_titles(op: ops_mod.Op, params: dict[str, str], command: list[str]) -> list[str]:
@@ -423,6 +459,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         # already keeps its bodies out of the caller's context.
         if args.save is not None and (op.writes or op.backend == "procedure"):
             raise ops_mod.ParamError(f"--save applies to read operations only, and {op.name!r} is not one")
+    except ops_mod.UnlistedValue as exc:
+        report_unlisted(exc, args.caller, config)
+        return EXIT_UNLISTED
     except (ops_mod.ParamError, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -810,6 +849,7 @@ BATCH_SINGLE = batch_mod.SingleCall(
     dispatch=_dispatch,
     consume=_consume,
     reject_repeated_caller=_reject_repeated_caller,
+    report_unlisted=report_unlisted,
 )
 
 

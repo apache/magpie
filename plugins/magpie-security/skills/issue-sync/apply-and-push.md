@@ -208,7 +208,8 @@ Use:
   — otherwise a reopened tracker resurfaces on its old column and board sweeps still see it.
   Archive on every close, whatever the reason (terminal Step 15, or `invalid` / `duplicate` / `wontfix`); the mutation is idempotent.
 - **Project-board column:** `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-set-status <item_id> "<Column>"`,
-  with the `item_id` from Step 1a's `board-item` read and a column the policy declares.
+  with the `item_id` from Step 1a's `board-item` read and a column the policy declares
+  (on exit `5`, a column or other value the policy does not list, follow [unlisted-value-ask.md](unlisted-value-ask.md)).
   For a tracker with no item yet, first `uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync board-add-item <node_id>` (it prints the new item id), then set its column.
   Without vetted-ops, the `updateProjectV2ItemFieldValue` and orphan-issue recipes in
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column) do the same,

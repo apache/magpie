@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 6357
+measured_tokens: 6387
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -379,6 +379,7 @@ The finding title is attacker-controlled, so it travels as a file: the dispatche
 Keep the command bare, with no `$(…)`, or it runs inside the sandbox and fails.
 The body travels through stdin.
 The configured security labels are validated and applied atomically at creation.
+On exit `5` (a label the policy does not list), follow [unlisted-value-ask.md](unlisted-value-ask.md).
 
 Capture `number`, `node_id`, and `url` from the JSON response.
 

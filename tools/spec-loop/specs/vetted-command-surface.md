@@ -624,6 +624,20 @@ The example grants only what a skill runs: the unused OSV grants for
 `security-issue-triage` and `security-issue-deduplicate` were dropped, with a
 test that every OSV grant those callers hold is named in the skill (#2250).
 
+**A value the policy does not list** (#2404).
+The dispatchers' exit codes are `0` ok, `2` usage, `3` refused, `4` the command failed, and `5` an unlisted value:
+a plain-name value of an enum-gated parameter that its `[values]` list (and, for milestones, `milestones_patterns`) does not admit.
+Exit `5` prints the human refusal line and then one JSON object line per value on stderr
+(`refused: "unlisted-value"`, `operation`, `caller`, `parameter`, `value`, `key`, `policy`, `approved_copy`, plus `entry` in a batch),
+on every entry point, reads, dry runs and both batch scripts included, before anything runs;
+on a non-GitHub tracker the check precedes the translation.
+`issue-create-labeled` reports every unlisted label of its array, and a batch every unlisted value of its manifest.
+Everything else keeps exit `3` with no JSON line: an unknown operation, a caller not granted it,
+a malformed value (an unlisted value that is not a plain name included), and a policy with no list for the key at all.
+The allowlist is unchanged; skills recover through the shared `unlisted-value-ask` block,
+which asks the user to add the value permanently (a minimal diff the user applies and re-approves; the agent never writes the policy or its approved copy) or to skip that one write.
+`tests/test_unlisted_value.py` pins the shape for every enum-gated operation.
+
 Every install method provides the stable path the dispatchers start from,
 `~/.claude/magpie/vetted-ops`. A marketplace install links it into the
 plugin cache (the plugin's session hook keeps it current). A pinned snapshot

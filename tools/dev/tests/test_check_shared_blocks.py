@@ -27,6 +27,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[3]
 
 
@@ -733,3 +735,66 @@ def test_security_handoff_is_publication_neutral_and_pull_request_only() -> None
 def test_upstream_fix_no_longer_sends_the_brief_to_the_scratch_directory() -> None:
     text = (REPO / "skills" / "setup-upstream-fix" / "SKILL.md").read_text()
     assert "brief to a file in the session scratch directory" not in text
+
+
+# ---- unlisted-value-ask: the recovery path for a vetted-ops exit 5 ----------------
+
+#: Skills whose tracker writes (label, milestone, assignee, board column) can exit 5,
+#: besides every skill that labels its pull request through vetted-git-publish.
+UNLISTED_VALUE_SKILLS = (
+    "security-issue-sync",
+    "security-cve-allocate",
+    "security-issue-fix",
+    "security-issue-import",
+    "security-issue-import-from-md",
+    "security-issue-import-from-pr",
+)
+
+UNLISTED_VALUE_MARKER = (
+    "<!-- BEGIN MAGPIE BLOCK: unlisted-value-ask — generated from tools/dev/blocks/unlisted-value-ask.md -->"
+)
+
+
+def _unlisted_value_targets() -> list[str]:
+    publishing = {p.parent.name for p in (REPO / "skills").glob("*/vetted-git-publish.md")}
+    assert publishing, "no skill carries vetted-git-publish.md"
+    return sorted(publishing | set(UNLISTED_VALUE_SKILLS))
+
+
+def test_unlisted_value_ask_is_rendered_in_every_skill_that_needs_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(REPO)
+    for skill in _unlisted_value_targets():
+        target = Path("skills") / skill / "unlisted-value-ask.md"
+        assert target.is_file(), f"{skill} lacks unlisted-value-ask.md"
+        text = target.read_text()
+        assert UNLISTED_VALUE_MARKER in text, target
+        override, _ = MOD.resolve_override_name(target)
+        filled, errors = MOD.fill_declared(text, override_name=override)
+        assert errors == []
+        assert filled == text, f"{target} is out of sync with its block; run check-shared-blocks.py --fix"
+        assert "**A value the policy does not list (exit `5`).**" in text
+
+
+def test_unlisted_value_ask_never_lets_the_agent_write_the_policy() -> None:
+    body = (REPO / "tools" / "dev" / "blocks" / "unlisted-value-ask.md").read_text()
+    assert "never write the policy or its approved copy yourself" in body
+    assert "never a pattern" in body
+    assert "add it to the policy permanently" in body
+    assert "skip it" in body
+    assert "never the prose" in body
+
+
+def test_each_write_site_points_at_unlisted_value_ask() -> None:
+    pointer = "unlisted-value-ask.md"
+    assert pointer in (REPO / "tools" / "dev" / "blocks" / "vetted-git-publish.md").read_text()
+    sites = {
+        "security-issue-sync": ["apply-and-push.md", "outcomes/scope-split.md"],
+        "security-cve-allocate": ["SKILL.md"],
+        "security-issue-fix": ["tracker-update.md"],
+        "security-issue-import": ["apply.md"],
+        "security-issue-import-from-md": ["SKILL.md"],
+        "security-issue-import-from-pr": ["SKILL.md"],
+    }
+    for skill, files in sites.items():
+        for name in files:
+            assert pointer in (REPO / "skills" / skill / name).read_text(), f"{skill}/{name}"

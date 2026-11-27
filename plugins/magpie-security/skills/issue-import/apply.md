@@ -25,6 +25,7 @@ A batch cannot use a number an earlier entry of the same batch creates, so each 
 4. **The rest.** One manifest with, per tracker, `board-set-status <item_id> "Needs triage"` and the item 5 `rollup-append`.
 
 Every manifest is checked, shown and confirmed before it runs: two or three prompts for the whole import.
+A `batch-check` or create that exits `5` names labels the policy does not list: follow [unlisted-value-ask.md](unlisted-value-ask.md).
 
 On a `stopped` report, the `unknown` entry may or may not have taken effect.
 Before anything else, read the tracker for it (`issue-list-with-bodies` or `issue-view` for a create, `board-item` for a board move, `issue-comments` for a rollup entry) and tell the user which entries succeeded, what the unknown one turned out to be, and which did not run.
