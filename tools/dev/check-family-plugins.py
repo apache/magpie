@@ -656,6 +656,29 @@ def check_setup_templates() -> list[str]:
     return errors
 
 
+def _root_exclude_newer() -> str:
+    data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    value = data["tool"]["uv"]["exclude-newer"]
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{PYPROJECT}: [tool.uv] exclude-newer must be a non-empty string")
+    return value
+
+
+def _with_exclude_newer(text: str) -> str:
+    key = f"exclude-newer = {json.dumps(_root_exclude_newer())}"
+    table = re.search(r"(?ms)^\[tool\.uv\][ \t]*\n(.*?)(?=^\[|\Z)", text)
+    if table:
+        block = table.group(0)
+        if re.search(r"(?m)^exclude-newer[ \t]*=", block):
+            block = re.sub(r"(?m)^exclude-newer[ \t]*=.*$", key, block, count=1)
+        else:
+            block = block.replace("\n", f"\n{key}\n", 1)
+        return text[: table.start()] + block + text[table.end() :]
+    if re.search(r"(?m)^\[tool\.uv\.", text):
+        return re.sub(r"(?m)^(?=\[tool\.uv\.)", f"[tool.uv]\n{key}\n\n", text, count=1)
+    return text.rstrip("\n") + f"\n\n[tool.uv]\n{key}\n"
+
+
 def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
     """A copied tool's pyproject, made to resolve inside the plugin.
 
@@ -689,6 +712,7 @@ def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
             )
         else:
             text += "\n[tool.uv.sources]\n" + lines
+    text = _with_exclude_newer(text)
     return text.encode()
 
 

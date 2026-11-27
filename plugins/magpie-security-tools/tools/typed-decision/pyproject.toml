@@ -30,6 +30,9 @@ dependencies = [
   "checker",
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.uv.sources]
 checker = { path = "../privacy-llm/checker" }
 

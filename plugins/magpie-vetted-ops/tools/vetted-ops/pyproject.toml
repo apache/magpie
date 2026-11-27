@@ -94,3 +94,6 @@ testpaths = ["tests"]
 # does not ship, so a `dev` group makes every plugin invocation fail. The
 # shared toolchain still reaches this project's tests: CI and the workspace
 # checks sync the root `dev` group, which names `magpie-dev`.
+
+[tool.uv]
+exclude-newer = "7 days"

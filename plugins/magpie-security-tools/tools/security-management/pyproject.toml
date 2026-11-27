@@ -76,6 +76,9 @@ minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.uv.sources]
 generate-cve-json = { path = "../cve-tool-vulnogram/generate-cve-json" }
 github-body-field = { path = "../github-body-field" }

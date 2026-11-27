@@ -34,6 +34,9 @@ adversarial-review = "adversarial_review:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/adversarial_review"]
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.ruff]
 line-length = 110
 target-version = "py311"
