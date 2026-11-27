@@ -402,7 +402,7 @@ export function renderSecurityQueuePane(
       })
     );
   }
-  if (state.lastLaunchedAction) {
+  if (state.lastLaunchedAction && !state.syncError) {
     footerChildren.push(
       Text({
         color: 'success',
@@ -626,6 +626,8 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
                 } else {
                   await $.fs.write(actionPath, JSON.stringify(action, null, 2) + '\n');
                 }
+              } else {
+                syncError = `Could not write ${QUEUE_ACTION_FILENAME}; run command manually.`;
               }
             } catch {
               syncError = `Could not write ${QUEUE_ACTION_FILENAME}; run command manually.`;
