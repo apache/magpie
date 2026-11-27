@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:594e276d2b0a7906
 license: Apache-2.0
-measured_tokens: 7386
+measured_tokens: 6397
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -264,33 +264,8 @@ Return ONLY valid JSON with this structure:
 
 ## Commands
 
-Save the configuration once, then let it write every `release-verify` invocation
-(`<framework>` is `.apache-magpie` in an adopting project, `.` in the framework checkout):
-
-```bash
-uv run --project <framework>/tools/release-config release-config load \
-  --skill verify-rc <version>-rcN > <scratch>/verify-rc-load.json
-uv run --project <framework>/tools/release-management release-management verify-rc args \
-  --load <scratch>/verify-rc-load.json --staging-copy <staging-copy> --keys-file <keys-file> \
-  [--previous-dir <previous-dir>]
-```
-
-`commands` holds one resolved [`release-verify`](../../../../tools/release-verify/README.md) command per step (`all` runs Steps 1–3 and 5–8 at once),
-built from `§ Expected artefact list` (`--expect` / `--expect-optional` by its `required` / `optional` marking, in order),
-`§ Digest set`, `§ Binary-exclude list`, `§ Source-tree validators` and `version_manifest_files`.
-`args` adds `--podling` by itself when `project_stage` in `release-management-config.md` is `incubating`:
-read the stage from that key or from `args`' own `project_stage` (never from a disclaimer file —
-the missing file is what the podling check must detect), and carry its `podling` value into the report.
-When the key is unset for an ASF project, `args` warns and no disclaimer check runs:
-ask the RM once whether the project is incubating (as `committer-onboarding` asks for organization facts),
-record `project_stage: incubating` or `top-level` in `<project-config>/release-management-config.md`,
-and re-run `release-config load` — the stage is a config fact, not a per-RC decision.
-Run them as printed; surface `warnings`.
-
-`<verify-rc>` below is `uv run --project <framework>/tools/release-management release-management verify-rc <command> --load <scratch>/verify-rc-load.json`:
-it reads files you saved, prints JSON, and runs nothing.
-`status: null` with `pending` is never a result: supply what `pending` names.
-Surface `notes`, `skip_reason` and `warning` in the report, not in a step's returned JSON.
+Before Step 1 runs its first command, read [`commands.md`](commands.md):
+it saves the configuration, builds `commands` (one resolved command per step) and defines `<verify-rc>`, which every later step uses.
 
 ---
 
@@ -423,24 +398,7 @@ When Step 6b did not run, report Step 6c as `SKIP` (no JVM artefacts) without lo
 
 ## Step 7 — Source-tree integrity (dangling symlinks + broken references)
 
-A signed, checksummed, licence-clean archive can still be broken:
-a symlink whose target `export-ignore` stripped, a symlink pointing out of the archive,
-or a shipped file linking to a path the release no longer contains.
-Catch that **in the unpacked archive**, before the `[VOTE]`, with `commands.symlinks`
-(each command of `release-build.md § Source-tree validators`, the adopter's own, is a `--validator`; the framework assumes none).
-
-A symlink in `dangling_symlinks` (target missing) or `outside_symlinks` (an absolute path, `..` past the root, or a chain through either, even to an existing target) is a final `FAIL`.
-`PASS` means no validators are declared; `SKIP` (no symlinks, no validators) is stated explicitly.
-On `REVIEW`, run each validator in `paste_recipe` from `<unpacked-dir>` (or, when it is not shippable, from a checkout of the *same tag* against the unpacked dir, and say so),
-then resolve it, one `--validator-result` per validator in `validators_to_run` order:
-
-```bash
-<verify-rc> source-tree --symlinks <symlinks.json> --validator-result <exit-code>[:<broken link / missing target>] …
-```
-
-A non-zero exit is one `validator_failures` entry and `FAIL`s the step; all zero is `PASS`.
-
-Return ONLY its JSON (`step`: `source-tree-integrity`, `status`, `dangling_symlinks`, `outside_symlinks`, `validator_failures` of `{validator, detail}`, `paste_recipe`).
+Read [`source-tree.md`](source-tree.md) for this step.
 
 ---
 
@@ -472,18 +430,6 @@ The report carries the voter-obligation reminder in every outcome, `FAIL` includ
    > `+1`.*
 
 The `--post-to` comment is a proposal, posted only after the RM confirms it (Golden rule 2).
-🪶 ASF-specific: under `automated_release_signing: enabled`,
-when Step 9 is `PASS` with every artefact `identical` **and** `--trusted-hardware` was passed,
-the comment carries the attestation block `release-promote` Step 0 looks for:
-
-   > **Reproducibility validated on trusted hardware** — `<rc-tag>` at
-   > commit `<sha>`, `SOURCE_DATE_EPOCH <epoch>`; every staged artefact
-   > rebuilt on `@<committer>`'s own hardware and confirmed bit-by-bit
-   > identical (`repro-archive compare --require-identical`). Per
-   > [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing).
-
-Without `--trusted-hardware`, or with any non-`identical` result, the
-comment carries no attestation and says why.
 
 ---
 
