@@ -14,8 +14,10 @@ Write the Step 5e entry body to `<workspace>/invalidate-<N>-rollup.md` with the 
 [`status-rollup.md`](../../../../tools/github/status-rollup.md):
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-append <N> "Closed as <reason>" <workspace>/invalidate-<N>-rollup.md
 ```
+
+The action label is the Step 5e `label` (`Closed as invalid`, `Closed as defense-in-depth` or `Closed as info-only`); `<sm> apply-plan` prints the command with it filled in.
 
 This runs through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
 Without the secure setup, the same operations are
@@ -40,13 +42,14 @@ Body is the Step 5b shape with comment IDs substituted.
 
 ```bash
 gh issue edit <N> --repo <tracker> \
-  --add-label 'invalid' \
+  --add-label '<reason-label>' \
   --remove-label '<scope-label>' \
   --remove-label 'needs triage' \
   --remove-label 'pr created' \
   --remove-label 'pr merged'
 ```
 
+One `--add-label` per label of the close reason (`invalid`; `defense-in-depth` and `wontfix`; `info-only`; or the reason's `invalidate.reason_labels` entry).
 `gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent;
 `<sm> labels` prints the command with only the labels actually set, minus those `invalidate.keep_labels` in `<project-config>/project.md` keeps (Step 5a).
 
@@ -56,7 +59,7 @@ gh issue edit <N> --repo <tracker> \
 gh issue close <N> --repo <tracker> --reason 'not planned'
 ```
 
-Use `not planned`, never `completed`: an invalid report was not resolved.
+Use `not planned`, never `completed`, for every reason: the report was not resolved as a security fix.
 
 ### 6e — Archive the project-board item
 
@@ -95,7 +98,7 @@ If 6a ran with a placeholder draft ID in the *Reporter notification* line,
 rewrite `<workspace>/invalidate-<N>-rollup.md` with the real ID and run
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as invalid" <workspace>/invalidate-<N>-rollup.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate rollup-amend-latest <N> "Closed as <reason>" <workspace>/invalidate-<N>-rollup.md
 ```
 
 It keeps the entry's date and author, and refuses if someone else's entry has landed after it.

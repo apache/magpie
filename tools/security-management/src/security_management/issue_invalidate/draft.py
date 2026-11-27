@@ -25,6 +25,9 @@ anchor per backend, and the backend (`oauth_curl` preferred; the discouraged
 `claude_ai_mcp` only without credentials and with no link in the body). A
 pending draft on the thread is surfaced, never shadowed; a missing
 `security_cc`, or the `private_list` as a To or Cc recipient, blocks drafting.
+A `create` also names the `close_reason` and
+its `canned_default`, the canned response to start from when no more specific
+section fits.
 
 `check` greps a composed body before it is drafted: any `<tracker>`
 reference (the reporter cannot open it), the CVE-tool URL, a bare `#NNN`, a
@@ -40,6 +43,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from security_management.issue_invalidate import reasons
 from security_management.shared import drafting, recipients
 from security_management.shared.rollup import one_line
 from security_management.shared.titles import strip_mail_prefixes
@@ -116,9 +120,12 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     case = "ghsa_forwarder" if ghsa.get("only_channel") else "via_forwarder" if via else "direct"
     if str(data.get("disposition") or "invalid") == "duplicate":
         case += "_duplicate"
+    reason = reasons.normalise(data.get("reason"))
     return {
         "action": "create",
         "notification_case": case,
+        "close_reason": reason,
+        "canned_default": reasons.CANNED_DEFAULT[reason],
         "to": to,
         "cc": cc,
         "bcc": [one_line(b) for b in data.get("security_bcc") or [] if one_line(b)],

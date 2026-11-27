@@ -673,3 +673,271 @@ def test_step7_case_2_pr_imported_no_draft(capsys, tmp_path):
     )
     assert recap_properties(out["text"], out["bare_refs"]) == EXPECTED_RECAP
     assert "Reporter draft: none — PR-imported tracker" in out["text"]
+
+
+# --- close reasons: invalid (default), defense-in-depth, info-only ---------------------
+
+
+REASON_LABELS = {
+    "invalid": ["invalid"],
+    "defense-in-depth": ["defense-in-depth", "wontfix"],
+    "info-only": ["info-only"],
+}
+REASONS = list(REASON_LABELS)
+
+
+@pytest.mark.parametrize(
+    ("invocation", "numbers", "reason", "source"),
+    [
+        ("invalidate 240", [240], "invalid", "default"),
+        ("invalidate #240 as invalid", [240], "invalid", "selector"),
+        ("invalidate 240 as defense-in-depth", [240], "defense-in-depth", "selector"),
+        ("invalidate 240 as defense in depth", [240], "defense-in-depth", "selector"),
+        (f"invalidate {TRACKER}#240 as INFO-ONLY", [240], "info-only", "selector"),
+        ("/security-issue-invalidate #1-#3 as info-only", [1, 2, 3], "info-only", "selector"),
+    ],
+)
+def test_selector_reason(capsys, tmp_path, invocation, numbers, reason, source):
+    code, out = run(capsys, tmp_path, "selector", {"invocation": invocation, "tracker": TRACKER})
+    assert code == 0
+    assert (out["numbers"], out["reason"], out["reason_source"]) == (numbers, reason, source)
+
+
+def test_selector_refuses_unknown_reason_and_a_reason_on_proposed(capsys, tmp_path):
+    code, out = run(
+        capsys, tmp_path, "selector", {"invocation": "invalidate 240 as duplicate", "tracker": TRACKER}
+    )
+    assert code == 2 and "not a close reason" in out["refused"]
+    code, out = run(
+        capsys, tmp_path, "selector", {"invocation": "invalidate proposed as info-only", "tracker": TRACKER}
+    )
+    assert code == 2 and "takes each reason from its triage proposal" in out["refused"]
+
+
+def test_proposed_lists_the_three_closing_classes(capsys, tmp_path):
+    _, out = run(capsys, tmp_path, "selector", {"invocation": "invalidate proposed", "tracker": TRACKER})
+    for klass in ("INVALID", "DEFENSE-IN-DEPTH", "INFO-ONLY"):
+        assert f'contains("**Proposed disposition: {klass}.**")' in out["command"]
+    for klass in ("VALID.", "PROBABLE-DUP", "FIX-ALREADY-PUBLIC"):
+        assert f"Proposed disposition: {klass}" not in out["command"]
+
+
+def proposal_of(klass: str) -> str:
+    return f"**Triage proposal**\n\nx\n\n**Proposed disposition: {klass}.**\n"
+
+
+def test_proposed_derives_the_reason_from_the_triage_proposal(capsys, tmp_path):
+    data = {
+        "tracker": TRACKER,
+        "roster": ROSTER,
+        "fetched": 5,
+        "trackers": [
+            issue(1, [comment("triager-a", proposal_of("INVALID"), ("triager-b",))]),
+            issue(2, [comment("triager-a", proposal_of("DEFENSE-IN-DEPTH"), ("triager-b",))]),
+            issue(3, [comment("triager-a", proposal_of("INFO-ONLY")), comment("triager-c", "+1")]),
+            # a re-triage replaced the agreed INVALID proposal: the latest one decides
+            issue(
+                4,
+                [
+                    comment("triager-a", proposal_of("INVALID"), ("triager-b",)),
+                    comment("triager-b", proposal_of("INFO-ONLY"), ("triager-c",)),
+                ],
+            ),
+            issue(
+                5,
+                [
+                    comment("triager-a", proposal_of("INVALID"), ("triager-b",)),
+                    comment("triager-b", proposal_of("VALID"), ("triager-c",)),
+                ],
+            ),
+            # an outsider's later proposal-shaped comment does not replace the roster's
+            issue(
+                6,
+                [
+                    comment("triager-a", proposal_of("DEFENSE-IN-DEPTH"), ("triager-b",)),
+                    comment("outsider", proposal_of("INVALID")),
+                ],
+            ),
+        ],
+    }
+    _, out = run(capsys, tmp_path, "consensus", data)
+    assert [(a["number"], a["reason"]) for a in out["agreed"]] == [
+        (1, "invalid"),
+        (2, "defense-in-depth"),
+        (3, "info-only"),
+        (4, "info-only"),
+        (6, "defense-in-depth"),
+    ]
+    assert out["agreed"][1]["proposed_class"] == "DEFENSE-IN-DEPTH"
+    assert [a["number"] for a in out["awaiting"]] == [5]
+    assert "is VALID, not a close" in out["awaiting"][0]["note"]
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_labels_per_reason(capsys, tmp_path, reason):
+    out = label_plan(capsys, tmp_path, FULL, 7, reason=reason)
+    assert out["reason"] == reason
+    assert out["labels_to_add"] == REASON_LABELS[reason]
+    assert out["labels_to_remove"] == ["needs triage", "providers", "pr created", "pr merged"]
+    adds = " ".join(f'--add-label "{lbl}"' for lbl in REASON_LABELS[reason])
+    assert out["command"].startswith(f"gh issue edit 7 --repo airflow-s/airflow-s {adds} --remove-label")
+
+
+def test_labels_default_reason_is_invalid_regression(capsys, tmp_path):
+    assert label_plan(capsys, tmp_path, FULL, 7) == label_plan(capsys, tmp_path, FULL, 7, reason="invalid")
+    assert label_plan(capsys, tmp_path, FULL, 7)["command"].startswith(EDIT_7)
+
+
+def test_labels_reason_labels_override_and_keep_labels(capsys, tmp_path):
+    overrides = {"defense-in-depth": ["hardening"], "info-only": "not a cve"}
+    out = label_plan(capsys, tmp_path, FULL, 7, reason="defense-in-depth", reason_labels=overrides)
+    assert out["labels_to_add"] == ["hardening"]
+    out = label_plan(
+        capsys, tmp_path, FULL, 7, reason="info-only", reason_labels=overrides, keep_labels=["scope"]
+    )
+    assert out["labels_to_add"] == ["not a cve"]
+    assert out["labels_to_remove"] == ["needs triage", "pr created", "pr merged"]
+    assert out["labels_kept"] == ["providers"]
+    # an unset reason keeps its default
+    assert label_plan(capsys, tmp_path, FULL, 7, reason_labels=overrides)["labels_to_add"] == ["invalid"]
+    # needs triage is removed even when keep_labels lists it
+    out = label_plan(capsys, tmp_path, FULL, 7, reason="info-only", keep_labels=["needs triage"])
+    assert "needs triage" in out["labels_to_remove"] and out["warnings"]
+
+
+def test_labels_refuse_an_empty_reason_label_list_and_an_unknown_reason(capsys, tmp_path):
+    code, out = run(
+        capsys,
+        tmp_path,
+        "labels",
+        {"labels": FULL, "scope_labels": SCOPES, "reason": "info-only", "reason_labels": {"info-only": []}},
+    )
+    assert code == 2 and "reason_labels.info-only is empty" in out["refused"]
+    code, out = run(capsys, tmp_path, "labels", {"labels": FULL, "scope_labels": SCOPES, "reason": "wontfix"})
+    assert code == 2 and "not a close reason" in out["refused"]
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_render_close_per_reason(capsys, tmp_path, reason):
+    data = {
+        "decision_comment": "1004",
+        "rollup_comment": "9001",
+        "notification_case": "direct",
+        "reason": reason,
+    }
+    _, out = run(capsys, tmp_path, "render-close", data)
+    assert out["text"].startswith(f"Closing as `{reason}` per team consensus in [this discussion]")
+    assert ("public PR" in out["text"]) is (reason == "defense-in-depth")
+    assert len(out["text"].split("\n\n")) == 2
+
+
+def test_render_close_default_is_invalid_regression(capsys, tmp_path):
+    base = {"decision_comment": "1004", "rollup_comment": "9001", "notification_case": "direct"}
+    _, default = run(capsys, tmp_path, "render-close", base)
+    _, explicit = run(capsys, tmp_path, "render-close", {**base, "reason": "invalid"})
+    assert default == explicit
+    assert default["text"] == (
+        "Closing as `invalid` per team consensus in [this discussion](#issuecomment-1004).\n\n"
+        "Reasoning summary in the [status rollup](#issuecomment-9001); "
+        "a draft reply to the reporter is in Gmail awaiting review.\n"
+    )
+
+
+def rollup_for(capsys, tmp_path, **extra: Any) -> tuple[int, dict[str, Any]]:
+    data = {
+        "tracker": TRACKER,
+        "date": "2025-05-16",
+        "decision_comment": "1004",
+        "quotes": [{"author": "triager-a", "quote": "q", "comment": 1001}],
+        "canned_section": "Negative Assessment response",
+        "notification": {"case": "pr_imported"},
+        "board": {},
+        **extra,
+    }
+    return run(capsys, tmp_path, "render-rollup", data)
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_render_rollup_per_reason(capsys, tmp_path, reason):
+    code, out = rollup_for(capsys, tmp_path, reason=reason)
+    assert code == 0
+    assert out["label"] == f"Closed as {reason}" and out["label_shell"] == f'"Closed as {reason}"'
+    assert out["text"].startswith(f"**Closed as `{reason}` on 2025-05-16**")
+    next_line = (
+        "**Next:** file the public hardening PR (normal-process work, no CVE)."
+        if reason == "defense-in-depth"
+        else "**Next:** none — terminal disposition."
+    )
+    assert next_line in out["text"]
+
+
+def test_render_rollup_default_is_invalid_regression(capsys, tmp_path):
+    _, default = rollup_for(capsys, tmp_path)
+    _, explicit = rollup_for(capsys, tmp_path, reason="invalid")
+    assert default == explicit and default["label"] == "Closed as invalid"
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_apply_plan_rollup_label_per_reason(capsys, tmp_path, reason):
+    _, out = run(
+        capsys,
+        tmp_path,
+        "apply-plan",
+        {"tracker": TRACKER, "number": 9, "scratch": "/s", "labels": ["needs triage"], "reason": reason},
+    )
+    steps = {s["step"]: s["command"] for s in out["steps"]}
+    assert steps["6a"].endswith(f'rollup-append 9 "Closed as {reason}" /s/invalidate-9-rollup.md')
+    assert steps["6f-amend"].endswith(f'rollup-amend-latest 9 "Closed as {reason}" /s/invalidate-9-rollup.md')
+    assert steps["6d"] == "gh issue close 9 --repo airflow-s/airflow-s --reason 'not planned'"
+    assert out["labels"]["labels_to_add"] == REASON_LABELS[reason]
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_recap_per_reason(capsys, tmp_path, reason):
+    item = closed(312, 9001, 9050, "airflow", {"id": "r1"}) | {"reason": reason}
+    item.pop("labels_added")
+    _, out = run(capsys, tmp_path, "render-recap", {"tracker": TRACKER, "closed": [item]})
+    text = out["text"]
+    assert text.startswith(f"**Closed as {reason}:** [")
+    assert "added " + ", ".join(f"`{lbl}`" for lbl in REASON_LABELS[reason]) + ";" in text
+    assert ("- Next: file the public hardening PR" in text) is (reason == "defense-in-depth")
+    assert "> Terminal disposition." in text and out["bare_refs"] == []
+
+
+def test_recap_default_is_invalid_regression(capsys, tmp_path):
+    item = closed(312, 9001, 9050, "airflow", {"id": "r1"})
+    _, default = run(capsys, tmp_path, "render-recap", {"tracker": TRACKER, "closed": [item]})
+    _, explicit = run(
+        capsys, tmp_path, "render-recap", {"tracker": TRACKER, "closed": [item | {"reason": "invalid"}]}
+    )
+    assert default == explicit
+    assert "reversing an invalid close is a deliberate team action" in default["text"]
+    assert "- Next:" not in default["text"]
+
+
+@pytest.mark.parametrize(
+    ("reply", "current", "action", "override"),
+    [
+        ("as: defense-in-depth", "invalid", "change_reason", "defense-in-depth"),
+        ("reason: info only", "invalid", "change_reason", "info-only"),
+        ("as: invalid", "info-only", "change_reason", "invalid"),
+        ("as: invalid", "invalid", "ambiguous", None),
+        ("as: duplicate", "invalid", "ambiguous", None),
+        ("go", "defense-in-depth", "apply", None),
+    ],
+)
+def test_parse_reply_reason_forms(capsys, tmp_path, reply, current, action, override):
+    _, out = run(capsys, tmp_path, "parse-reply", {"reply": reply, "reason": current})
+    assert (out["action"], out["reason_override"]) == (action, override)
+
+
+@pytest.mark.parametrize("reason", REASONS)
+def test_draft_plan_names_the_reason_and_its_canned_default(capsys, tmp_path, reason):
+    _, out = run(capsys, tmp_path, "draft-plan", draft_input(existing_drafts=[], reason=reason))
+    assert out["action"] == "create" and out["close_reason"] == reason
+    expected = {
+        "invalid": "generic negative-assessment section",
+        "defense-in-depth": "hardening is welcome as a public PR",
+        "info-only": "heading the triage proposal named",
+    }[reason]
+    assert expected in out["canned_default"]
