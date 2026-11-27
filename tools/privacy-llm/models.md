@@ -124,6 +124,7 @@ Any skill that reads `<private-list>` content sends private data to an xAI endpo
 Neither is in the default-approved set.
 
 Because the privacy-LLM gate inspects the project's declared configuration rather than detecting the running harness process at runtime, adopters running under Grok must declare it in both the `Currently configured LLM stack` and `Approved third-party endpoints (opt-in)` sections of `<project-config>/privacy-llm.md` with a verified data-residency link and PMC sign-off.
+An opt-in entry that names a URL covers that host only, so declare the direct API and the session proxy as separate opt-in entries.
 Once Grok is declared in the configured LLM stack, the Step 0 gate stops skills that read private lists until a matching opt-in approval is present.
 
 ## The pre-flight check
