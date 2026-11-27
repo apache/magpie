@@ -46,15 +46,6 @@ REGISTRY = {
     }
 }
 
-SHIPPED_REGISTRY = (
-    Path(__file__).resolve().parents[3]
-    / "plugins"
-    / "magpie-setup"
-    / "skills"
-    / "setup"
-    / "family-mcp-allows.json"
-)
-
 
 def paths(tmp_path: Path) -> tuple[Path, Path, Path]:
     return (
@@ -66,6 +57,11 @@ def paths(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 def write_registry(path: Path, registry: dict = REGISTRY) -> None:
     path.write_text(json.dumps(registry), encoding="utf-8")
+
+
+def test_default_registry_is_shipped_inside_the_package() -> None:
+    assert settings_merge.DEFAULT_REGISTRY == settings_merge.HERE / "family-mcp-allows.json"
+    assert settings_merge.DEFAULT_REGISTRY.is_file()
 
 
 def test_creates_the_file_when_absent(tmp_path: Path) -> None:
@@ -106,7 +102,7 @@ def test_omits_permissions_when_the_shipped_registry_derives_no_allows(tmp_path:
     settings_path, lock_path, _ = paths(tmp_path)
     write_lock(tmp_path, FLOOR)
 
-    report = settings_merge.run(settings_path, lock_path, SHIPPED_REGISTRY, write=True)
+    report = settings_merge.run(settings_path, lock_path, settings_merge.DEFAULT_REGISTRY, write=True)
 
     assert report["allows_added"] == []
     written = json.loads(settings_path.read_text(encoding="utf-8"))
@@ -121,7 +117,7 @@ def test_does_not_add_permissions_to_an_existing_file_when_no_allows_are_derived
     settings_path.parent.mkdir(parents=True)
     settings_path.write_text('{"sandbox": {"enabled": true}}', encoding="utf-8")
 
-    settings_merge.run(settings_path, lock_path, SHIPPED_REGISTRY, write=True)
+    settings_merge.run(settings_path, lock_path, settings_merge.DEFAULT_REGISTRY, write=True)
 
     written = json.loads(settings_path.read_text(encoding="utf-8"))
     assert written["sandbox"] == {"enabled": True}

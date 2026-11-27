@@ -160,13 +160,17 @@ uv run --project tools/setup-preflight setup-settings-merge --write    # apply
 ```
 
 `--settings`, `--lock` and `--registry` default to `.claude/settings.json`,
-`.apache-magpie.lock` and the `family-mcp-allows.json` shipped beside this
-package.
+`.apache-magpie.lock` and the `family-mcp-allows.json` shipped inside this
+package, so the default still resolves after `config` or `update` copies
+`setup_preflight/` to the per-user checker directory.
 The command adds the missing marketplace definition, the floor's missing
 plugin entries (plus `magpie-vetted-ops@apache-magpie` when an older lock
 omits it) and the derived `mcp__…` allows, in that order.
 It never removes an entry and never rewrites an existing `apache-magpie`
 marketplace definition, so a pinned one stays pinned.
+The report lists both `plugins_added` and `allows_added`; when no MCP allows
+are derived, it leaves an absent `permissions` block absent.
+A write preserves an existing file's mode and non-ASCII values.
 A file that does not parse, or a block of the wrong JSON type, is refused:
 the command prints the `refuse` report, exits non-zero and leaves the file
 alone.

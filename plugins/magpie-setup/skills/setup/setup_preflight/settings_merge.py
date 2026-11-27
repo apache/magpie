@@ -56,7 +56,7 @@ from .lockfile import Lock, MalformedLock, load
 HERE = Path(__file__).resolve().parent
 DEFAULT_SETTINGS = Path(".claude/settings.json")
 DEFAULT_LOCK = Path(".apache-magpie.lock")
-DEFAULT_REGISTRY = HERE.parent / "family-mcp-allows.json"
+DEFAULT_REGISTRY = HERE / "family-mcp-allows.json"
 MARKETPLACE = "apache-magpie"
 DEFAULT_REPO = "apache/magpie"
 VETTED_OPS = "magpie-vetted-ops"
