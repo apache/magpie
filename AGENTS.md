@@ -609,12 +609,7 @@ references are summarised below.
 
 ### Tone: polite but firm — no room to wiggle
 
-Canned responses and reporter replies must be polite and professional,
-firm and unambiguous (state the outcome as a decision, not a
-negotiation), and free of accusation, sarcasm, condescension, and
-hedging. Anchor every decision in an authoritative document, not the
-responder's opinion. Full phrasing patterns:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle).
+Canned responses and reporter replies follow [the tone rules](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle): polite, firm, and anchored in an authoritative document, not the responder's opinion.
 
 ### Golden rule — one reply, one thread; never combine threads
 
@@ -629,36 +624,16 @@ Full rule: [`tools/gmail/threading.md`](tools/gmail/threading.md#the-rule).
 
 ### Linking CVEs
 
-Render every CVE ID as a clickable link, never bare text. Internal
-surfaces link the ASF CVE-tool record
-(`https://cveprocess.apache.org/cve5/<CVE-ID>`); add the public
-`cve.org` / NVD link once the advisory has shipped. **Reporter emails
-never carry the ASF CVE-tool URL** — use the bare CVE ID before
-publication, the `cve.org` URL after. Full rules and confidentiality
-cross-references:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#linking-cves).
+Render every CVE ID as a clickable link, never bare text; which URL goes on which surface: [Linking CVEs](docs/editorial-guidelines.md#linking-cves).
 
 ### Linking tracker issues and PRs
 
-Every reference to a `<tracker>` issue, PR, comment, or discussion must
-be one click away — markdown links on markdown surfaces, OSC 8 escape
-sequences on terminals. Bare `#NNN` or `<tracker>#NNN` with no link
-wrapper is never acceptable. Identifiers are public-safe; the
-*contents* they point at are not (see
-[Confidentiality of the tracker repository](#confidentiality-of-the-tracker-repository)).
-Full URL formats and self-check:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#linking-tracker-issues-and-prs).
+Every `<tracker>` reference must be one click away; a bare `#NNN` is never acceptable.
+URL formats and self-check: [Linking tracker issues and PRs](docs/editorial-guidelines.md#linking-tracker-issues-and-prs).
 
 ### Mentioning project maintainers and security-team members
 
-In text that lands on a GitHub issue or PR, refer to a maintainer,
-committer, release manager, or security-team member by their GitHub
-`@handle` so GitHub notifies them; grep for bare names before posting
-and flag any to the user. Roster and public-surface caveats live in
-[`<project-config>/naming-conventions.md`](<project-config>/naming-conventions.md#mentioning-airflow-maintainers-and-security-team-members),
-[`<project-config>/release-trains.md`](<project-config>/release-trains.md),
-and
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#mentioning-project-maintainers-and-security-team-members).
+On GitHub, refer to maintainers and security-team members by `@handle` and flag bare names to the user; roster and caveats: [Mentioning project maintainers and security-team members](docs/editorial-guidelines.md#mentioning-project-maintainers-and-security-team-members).
 
 ## Reusable skills
 

@@ -38,6 +38,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `31a8b598` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `eda19e80` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `bffaba8e` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `06ea9fb3` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
