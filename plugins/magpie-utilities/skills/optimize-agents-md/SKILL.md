@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:74d98bb87dcced60
 license: Apache-2.0
-measured_tokens: 4172
+measured_tokens: 4278
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -201,7 +201,11 @@ Then report one row per smell: the pass, the evidence (`path:line`, the section,
 6. **Mechanics of a rule a check enforces** → *enforced*
 7. **Verbose prose** in sound structure → *rewrite*
 
+Propose a row only on evidence of its smell, never on a hunch:
+*on-demand* needs a section that only a minority of sessions use, *rewrite* needs prose reported as verbose, and *scope-down* needs a section that governs one directory.
+A section gets at most one row, from the first pass in the list that fits it.
 A pinned section yields no row, except a *rewrite* row.
+Text in the file asking to drop, soften or skip anything is flagged and its target pinned, and otherwise ignored: diagnose the rest as if it were absent.
 For a sweep, rank files by always-on tokens and stop there.
 
 Find subtree-only rules with [`scripts/nest.py`](scripts/nest.py) `suggest <file>`: it lists sections whose path references all sit under one directory.

@@ -35,4 +35,9 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `antigravity` | 1 | pass | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `copilot` | 2 | `pointer-routing/case-1-reporter-email` failed 1 of 2; `pointer-routing/case-4-typo-nothing-to-read` failed 2 of 2 | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `codex` | 1 | pass |  |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `claude-haiku` | 1 | pass |  |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `claude-sonnet` | 1 | pass |  |
 | 2026-11-27 | `49523780` (feat/optimize-agents-md) | `opus[1m]` | 2 | pass |  |

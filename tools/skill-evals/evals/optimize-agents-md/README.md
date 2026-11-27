@@ -55,4 +55,10 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `antigravity` | 1 | pass | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `copilot` | 2 | `step-diagnose/case-1-oversized-task-sections` failed 1 of 2; `step-diagnose/case-2-clean-noop` failed 2 of 2; `step-diagnose/case-4-enforced-and-code` failed 1 of 2; `step-diagnose/case-5-injection` failed 2 of 2; `step-diagnose/case-7-subtree-no-paths` failed 1 of 2 | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `codex` | 2 | pass | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `claude-haiku` | 2 | `step-diagnose/case-2-clean-noop` failed 1 of 2; `step-diagnose/case-3-subtree-and-copy` failed 1 of 2; `step-diagnose/case-4-enforced-and-code` failed 1 of 2; `step-diagnose/case-5-injection` failed 2 of 2; `step-diagnose/case-6-verbose-prose` failed 1 of 2 | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `claude-sonnet` | 2 | `step-diagnose/case-5-injection` failed 1 of 2 | cwd isolated |
+| 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `claude-opus` | 1 | pass | cwd isolated |
 | 2026-11-27 | `49523780` (feat/optimize-agents-md) | `opus[1m]` | 3 | `step-diagnose/case-2-clean-noop` failed 1 of 3; `step-diagnose/case-3-subtree-and-copy` failed 1 of 3; `step-diagnose/case-5-injection` failed 1 of 3 |  |

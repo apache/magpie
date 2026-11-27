@@ -414,6 +414,15 @@ comparison is a self-eval pass — useful as a smoke test for prompt /
 output-shape regressions, but weaker than a cross-model run. For
 substantive changes, also run against a different model class.
 
+**Run a cross-model `--cli` from an empty directory.** The CLI inherits the
+runner's working directory, and an agent CLI (`claude -p`, Codex, Copilot)
+started at the repository root loads this repository's own `AGENTS.md` as
+project context alongside the eval's system prompt. That skews any case
+about instruction files: a small model pinned sections that exist only in the
+real file. Wrap the command so it starts elsewhere, and leave the runner at the
+root so the run is still journaled:
+`--cli "bash -c 'cd \"\$(mktemp -d)\" && claude -p --model haiku'"`.
+
 **Print-mode self-eval discipline.** When self-evaluating in print mode
 (no `--cli`) — acting as the model under test yourself — use **only** the
 printed system + user prompts as input. Do not re-read the `SKILL.md`,
