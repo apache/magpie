@@ -384,24 +384,14 @@ scheme — adopters may mirror this taxonomy but are not required to.
 
 ## Confidentiality of the tracker repository
 
-The tracker repository (`<tracker>`) is private — only security-team
-members can read its issue bodies, comments, labels, milestones, and
-project-board state. The repository's existence and the issue
-**identifiers** are not secret, however; URLs and `#NNN` numbers are
-treated as stable references the security team and downstream
-consumers can use to pin work to a specific tracker without
-round-tripping through ASF tooling.
+The tracker repository (`<tracker>`) is private: only security-team members can read its issue bodies, comments, labels, milestones and project-board state.
+Its existence and its issue **identifiers** are not secret; URLs and `#NNN` numbers are stable references the security team and downstream consumers can use to pin work to a specific tracker.
 
 **Three layers, three rules:**
 
-1. **Tracker URLs and `#NNN` identifiers are public-safe.** A URL of
-   the form `https://github.com/<tracker>/issues/NNN`, a
-   `#issuecomment-<C>` anchor, or a `<tracker>#NNN` reference may
-   appear on any surface — public `<upstream>` PR descriptions,
-   public mailing-list posts, reporter emails, eventual public
-   advisories, public commit messages. They are identifiers; the
-   page they point at remains access-gated to the security team, so
-   sharing the link does not leak the contents.
+1. **Tracker URLs and `#NNN` identifiers are public-safe.** A `https://github.com/<tracker>/issues/NNN` URL, a `#issuecomment-<C>` anchor or a `<tracker>#NNN` reference may appear on any surface:
+   public `<upstream>` PR descriptions and commit messages, public mailing-list posts, reporter emails, eventual public advisories.
+   The page they point at stays access-gated to the security team, so sharing the link does not leak the contents.
 
 2. **Tracker *contents* are private** — never reproduced on a
    public surface verbatim. This includes:
@@ -448,35 +438,17 @@ round-tripping through ASF tooling.
 - **Other ASF projects' vulnerabilities** — see the dedicated
   subsection further down.
 
-When drafting reporter-facing or public text, the two how-to
-elaborations — how to pair an unreachable tracker URL with the
-identifier-only note, and exactly which surfaces the tracker URL is
-routinely OK on (reporter emails, public PR cross-references, shipped
-advisory `references[]`, internal team channels) — live in
-[`docs/confidentiality.md`](docs/confidentiality.md).
+When drafting reporter-facing or public text, read [`docs/confidentiality.md`](docs/confidentiality.md):
+how to pair an unreachable tracker URL with the identifier-only note, and which surfaces the tracker URL is routinely OK on.
 
-When editing or generating any text destined for a public audience,
-the load-bearing scrub is for **content** that came from the
-tracker (severity scores, CWE assignments, label transitions, comment
-quotes), not for the URL itself. The
-`security-issue-fix` skill's pre-push grep follows this convention
-— it warns on `CVE-`, *"security fix"*, *"vulnerability"*,
-*"advisory"*, and verbatim-content patterns, but it does **not**
-flag a bare `<tracker>` URL or `#NNN` reference on its own.
+When editing or generating any text destined for a public audience, the load-bearing scrub is for **content** that came from the tracker (severity scores, CWE assignments, label transitions, comment quotes), not for the URL itself.
+The `security-issue-fix` skill's pre-push grep follows this convention: it warns on `CVE-`, *"security fix"*, *"vulnerability"*, *"advisory"*, and verbatim-content patterns, but does **not** flag a bare `<tracker>` URL or `#NNN` reference on its own.
 
 ### Other ASF projects — never name or describe their vulnerabilities
 
-While triaging a report, you may learn about vulnerabilities in
-**other ASF projects** through the same channels that surface our
-own reports: the reporter's mail thread mentions that they filed a
-similar issue against Superset or Allura; a cross-project digest on
-`<foundation-security-list>` summarises active reports across several
-projects; a Gmail search for a CVE ID or a vulnerability pattern
-returns hits on threads belonging to unrelated projects; your own
-deduction from a reporter's résumé or prior disclosures correlates
-them with work against another project. **None of that content may
-appear in the tracker.** Specifically, these surfaces must not name,
-reference, describe, or hint at another ASF project's vulnerability:
+While triaging a report, you may learn about vulnerabilities in **other ASF projects** through the channels that surface our own reports:
+a reporter's thread mentioning a similar issue filed against another project, a cross-project digest on `<foundation-security-list>`, a Gmail search that returns other projects' threads, or your own correlation of a reporter's prior disclosures.
+**None of that content may appear in the tracker.** Specifically, these surfaces must not name, reference, describe, or hint at another ASF project's vulnerability:
 
 - **Tracker issue bodies**, rollup comment entries, status comments,
   labels, milestone descriptions, per-field values (*Short public
@@ -506,14 +478,8 @@ This applies **even when**:
 - the reporter themselves linked to the other project's advisory in
   their mail.
 
-**Why:** every ASF project runs its own CNA process; content about
-project X's vulnerability is project X's private information, and copying
-it into our tracker effectively re-publishes it (via screenshots,
-excerpts pasted into advisories, timeline clippings, or future scrapes)
-and reveals cross-project investigation patterns the other team may not
-have chosen to share. Learning something via a shared channel
-(`security@apache.org`, a cross-project Gmail thread) grants no licence to
-broadcast it beyond the conversation it arrived in.
+**Why:** every ASF project runs its own CNA process, so content about another project's vulnerability is that project's private information:
+copying it into our tracker effectively re-publishes it, and learning something via a shared channel (`security@apache.org`, a cross-project Gmail thread) grants no licence to broadcast it beyond the conversation it arrived in.
 
 **What to do instead.** Keep cross-project observations in the
 channel they arrived on:
