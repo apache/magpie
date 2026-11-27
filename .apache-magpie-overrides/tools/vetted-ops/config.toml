@@ -288,6 +288,8 @@ close_reasons = ["completed", "not planned"]
     # Step 3: the duplicate search of apache/magpie.
     "repo-issue-search",
     "repo-pr-search",
+    "repo-issue-view",
+    "pr-view",
     "git-fetch",
     "git-worktree-add",
     "git-worktree-sync",

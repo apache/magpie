@@ -39,6 +39,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `493c5161` (fix/upstream-fix-vetted-dedup-search) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `160b4de7` (fix/upstream-fix-vetted-dedup-search) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `95a76395` (fix/upstream-fix-session-handoff) | `opus[1m]` | 5 | pass |  |
 | 2026-11-22 | `8c9d7fe6` (fix/upstream-fix-session-handoff) | `opus[1m]` | 2 | pass |  |

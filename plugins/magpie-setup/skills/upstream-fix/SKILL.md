@@ -19,7 +19,7 @@ argument-hint: "[quirk description]"
 capability: capability:platform
 surface_hash: sha256:ac2752440081dd6c
 license: Apache-2.0
-measured_tokens: 5619
+measured_tokens: 5778
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -189,17 +189,24 @@ a wrongly filed framework PR wastes maintainer time; a local fix or a question d
 
 For each quirk that survived Step 2 as **framework-bug**, search `apache/magpie` for prior art **before** proposing anything.
 Build 2–3 queries from the quirk's distinctive tokens (a file name, a symbol or function name, a fragment of the error string) and run both an issue and a PR search for each, open and closed.
-Run them as vetted reads, each as a command of its own, through `apache/magpie`'s own policy: from `<framework-clone>`, or from anywhere with `--policy-from <framework-clone>` (a `checkouts` entry of your `operator-git.toml`, as Step 5 already needs):
+Run them as vetted reads, each as a command of its own, through `apache/magpie`'s own policy. From `<framework-clone>`:
 
 ```bash
 uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller setup-upstream-fix repo-issue-search "<distinctive token>"
 uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller setup-upstream-fix repo-pr-search "<distinctive token>"
 ```
 
-A query is plain words: no `:` (so no `repo:` or `is:` qualifier, and no `path:line`), at most 200 characters; the reads refuse anything else.
-Never run them with the adopter's own policy: its `[repos] upstream` is the adopter's project, not `apache/magpie`.
+From an adopter repo, add `--policy-from <framework-clone>`, the clone's absolute path, which must be a `checkouts` entry of your `operator-git.toml` (as Step 5 already needs):
 
-Where neither route exists (no framework clone, or one not yet listed in `operator-git.toml`), run `gh search issues --repo apache/magpie "<token>"` and `gh search prs --repo apache/magpie "<token>"` where `gh` has its credentials, without `--state` (it takes only `open` or `closed`, and `--state all` fails the call, so every quirk looks novel).
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller setup-upstream-fix --policy-from <framework-clone> repo-issue-search "<distinctive token>"
+```
+
+Never run them with the adopter's own policy: its `[repos] upstream` is the adopter's project, not `apache/magpie`.
+A query is plain words: no `:` (so no `repo:` or `is:` qualifier, and no `path:line`), no leading `-` (lead a flag name with another word: `option --state`), at most 200 characters; the reads refuse anything else.
+To tell a fix from an unrelated or *not planned* close, open a candidate hit with `repo-issue-view <N>` or `pr-view <N>`, under the same caller and policy.
+
+Where neither route exists (no framework clone, one not yet listed in `operator-git.toml`, or a framework-clone policy whose approved copy is missing or stale, as it is right after a policy change merges: `--policy-from` acts only on an approved copy, so the read is refused), run `gh search issues --repo apache/magpie "<token>"` and `gh search prs --repo apache/magpie "<token>"` where `gh` has its credentials, without `--state` (it takes only `open` or `closed`, and `--state all` fails the call, so every quirk looks novel).
 From an adopter session that has neither, do not skip the step: hand it over unrun in the Step 0 brief, saying so, and the receiving session runs it.
 
 Classify the best match and act:

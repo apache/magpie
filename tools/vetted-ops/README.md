@@ -301,7 +301,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                             "git-switch", "git-switch-create",
                             "git-stage", "git-commit", "git-push-branch", "git-pr-create",
                             "pr-add-label", "git-delete-fork-branch"]
-"setup-upstream-fix"    = ["repo-issue-search", "repo-pr-search",
+"setup-upstream-fix"    = ["repo-issue-search", "repo-pr-search", "repo-issue-view", "pr-view",
                            "git-fetch", "git-worktree-add", "git-worktree-sync",
                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
                            "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
