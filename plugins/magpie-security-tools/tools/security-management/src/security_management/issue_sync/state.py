@@ -33,7 +33,9 @@
   association `OWNER` / `COLLABORATOR`, or a login in `collaborators`), and
   the advisory-records step, including the planner's exit code and, when
   the records are published through a pull request, that pull request's
-  state.
+  state. Records are first written when the advisory is announced, so once
+  cve.org lists the CVE `PUBLISHED` the site's copy is checked once more
+  against the regenerated record (`recheck`) and refreshed only if it differs.
 - `release_vote` (1h): an open `[VOTE]` thread on the dev list whose first
   version matches the fix-PR milestone, for a tracker in the `pr merged`
   window; a `[RESULT]` message closes a vote.
@@ -65,6 +67,15 @@ CHECKLIST_DONE = re.compile(
 REMINDER = "<!-- apache-magpie: security-pages-reminder v1 -->"
 RECORDS = "<!-- apache-magpie: advisory-records v1 -->"
 RECORDS_MERGED = "<!-- apache-magpie: advisory-records-merged v1 -->"
+RECORDS_REFRESH = "<!-- apache-magpie: advisory-records-refresh v1 -->"
+#: Posted once when the re-check found the site's record matching: it ends the
+#: check, so the site is read once, not on every pass.
+RECORDS_RECHECKED = "<!-- apache-magpie: advisory-records-recheck v1 -->"
+#: What the caller found comparing the site's copy of the record with the
+#: regenerated one, once cve.org lists the CVE (`site_recheck`).
+RECHECK_RESULTS = frozenset({"unchanged", "differs", "unverified", "failed"})
+RECORDS_REFRESH_MERGED = "<!-- apache-magpie: advisory-records-refresh-merged v1 -->"
+REFRESH_PR_STATES = frozenset({"OPEN", "MERGED", "CLOSED"})
 _PULL_URL = re.compile(r"https://[^\s<>()\[\]`]+/pull/\d+")
 PR_STATES = frozenset({"OPEN", "MERGED", "CLOSED", "NONE"})
 NOTIFIED = re.compile(r"CVE-published reporter notification drafted", re.IGNORECASE)
@@ -247,6 +258,74 @@ def _records_pull_request(
     return None
 
 
+def _records_recheck(data: Mapping[str, Any], comments: list[str], out: dict[str, Any]) -> str | None:
+    """Once cve.org lists the CVE, compare the site's record with the regenerated one, once.
+
+    The record went to the site when the advisory was announced; what cve.org
+    publishes can still differ from it. A matching record is recorded once with
+    the `advisory-records-recheck v1` comment (`recheck_unchanged`), which ends
+    the check. A differing one is refreshed: the refresh's status comment
+    (`advisory-records-refresh v1`) names its pull request, which is followed
+    like the first one: open waits, merged asks for the
+    `advisory-records-refresh-merged v1` comment that ends the check, closed
+    unmerged proposes the refresh again. A page entry the check cannot compare
+    (`unverified`) is a blocker, never "unchanged". Returns a refusal for input
+    it cannot act on.
+    """
+    if any(t.lstrip().startswith((RECORDS_RECHECKED, RECORDS_REFRESH_MERGED)) for t in comments):
+        return None
+    refreshes = [t for t in comments if t.lstrip().startswith(RECORDS_REFRESH)]
+    if refreshes:
+        recorded = _PULL_URL.search(refreshes[-1])
+        if recorded is None:
+            return None  # a direct-mode refresh: committed, done
+        url = recorded.group(0)
+        if data.get("refresh_pr_lookup_failed"):
+            out["advisory_records"] = "retry_refresh_lookup"
+            out["refresh_pr_url"] = url
+            out["note"] = "advisory records: refresh pull-request lookup failed — try again next sync"
+            return None
+        raw = one_line(data.get("refresh_pr_state")).upper()
+        if not raw:
+            out["advisory_records"] = "check_refresh_pr"
+            out["refresh_pr_url"] = url
+            return None
+        if raw not in REFRESH_PR_STATES:
+            return f"refresh_pr_state {raw!r} is none of {', '.join(sorted(REFRESH_PR_STATES))}"
+        if raw == "CLOSED":
+            # Closed without merging: the site still holds the old record.
+            out["advisory_records"] = "refresh"
+            out["refresh_pr_closed_url"] = url
+            out["refresh_attempt"] = len(refreshes) + 1
+        else:
+            out["advisory_records"] = "refresh_pr_open" if raw == "OPEN" else "refresh_pr_merged"
+            out["refresh_pr_url"] = url
+        return None
+    raw = one_line(data.get("site_recheck")).lower()
+    if not raw:
+        out["advisory_records"] = "recheck"
+        return None
+    if raw not in RECHECK_RESULTS:
+        return f"site_recheck {raw!r} is none of {', '.join(sorted(RECHECK_RESULTS))}"
+    if raw == "failed":
+        out["advisory_records"] = "retry_recheck"
+        out["note"] = "advisory records: the site record could not be read — try again next sync"
+    elif raw == "differs":
+        out["advisory_records"] = "refresh"
+        out["refresh_attempt"] = 1
+    elif raw == "unverified":
+        out["advisory_records"] = "recheck_unverified"
+        out["blockers"].append(
+            "advisory records: the site's entry differs from the one rendered from the published record "
+            "and cannot be replaced automatically; compare it by hand, then record the result with an "
+            "advisory-records-recheck v1 comment"
+        )
+    else:
+        out["advisory_records"] = "recheck_unchanged"
+        out["note"] = "advisory records: the site record matches the published record"
+    return None
+
+
 def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     # The state markers below are written in the team's comments, never in
     # the body or anyone else's comment: those carry report text, which must
@@ -281,7 +360,11 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
         refused = _records_pull_request(data, comments, state, out)
         if refused:
             return {"ok": False, "refused": refused}
-        if "advisory_records" in out:
+        if out.get("advisory_records") == "done" and state == "PUBLISHED":
+            refused = _records_recheck(data, comments, out)
+            if refused:
+                return {"ok": False, "refused": refused}
+        elif "advisory_records" in out:
             pass  # decided by a marker comment or the pull-request lookup
         elif state != "PUBLISHED":
             out["advisory_records"] = "waiting_for_cve_org"

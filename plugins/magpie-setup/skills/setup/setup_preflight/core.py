@@ -56,11 +56,16 @@ from . import sections
 from .layers import (
     LOCK_NAME,
     OVERRIDES_DIR,
+    adopted,
     git_common_dir,
     legacy_local_dir,
+    main_worktree,
+    merged_stamp,
     personal_dir,
     personal_layers,
     resolve,
+    stamp_dir,
+    write_atomic,
 )
 from .lockfile import Lock, MalformedLock, load, parse_local
 from .version import InvalidVersion, below
@@ -290,17 +295,8 @@ def project_findings(
 
 
 def _read_stamp(root: Path) -> dict[str, object]:
-    """The stamp from the personal layer, else the legacy in-tree directory."""
-    path = next(
-        (layer / STAMP_NAME for layer in personal_layers(root) if (layer / STAMP_NAME).exists()), None
-    )
-    if path is None:
-        return {}
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
+    """The stamp merged across the personal layers (`layers.merged_stamp`)."""
+    return merged_stamp(root)
 
 
 def _merged_personal_map(root: Path, *keys: str) -> dict[str, str]:
@@ -445,6 +441,52 @@ def welcome_findings(root: Path, skill: str) -> list[Finding]:
         return []
     section, facts = due
     return [Finding("family", "welcome", section, facts)]
+
+
+def family_not_adopted_findings(root: Path, skill: str, harness: str | None) -> list[Finding]:
+    """A one-time hint: this skill's family is enabled for the user but not adopted here.
+
+    Claude Code only: the settings the hint is about are Claude Code's.
+    """
+    from . import local_families, welcome
+
+    try:
+        plugin = local_families.hint_due(root, welcome.family_of(skill), harness)
+    except (OSError, ValueError):
+        # An optional hint must not hide the actual setup findings.
+        return []
+    if plugin is None:
+        return []
+    return [Finding("family", "family-not-adopted", "family-not-adopted", {"plugin": plugin})]
+
+
+#: What a linked worktree inherits from its main checkout, and may be granted a read of.
+INHERITED_PATHS = (".apache-magpie-local", ".claude/settings.json", ".claude/settings.local.json")
+
+
+def inherited_path_findings(root: Path) -> list[Finding]:
+    """In a linked worktree of an adopted project: an inherited main-checkout path that is a symlink.
+
+    `sandbox-add-project-root.sh` grants a linked worktree a read of these
+    paths, never of a symlink; the main checkout's own sandbox can swap one
+    for a symlink later, which could point the existing grant elsewhere.
+    Checked at every skill start, the earliest point after a swap.
+    """
+    main = main_worktree(root)
+    if main is None or not adopted(root):
+        return []
+    found: list[Finding] = []
+    for rel in INHERITED_PATHS:
+        path = main / rel
+        try:
+            swapped = path.is_symlink() or (rel.startswith(".claude/") and path.parent.is_symlink())
+        except OSError:
+            continue
+        if swapped:
+            found.append(
+                Finding("machine", "inherited-path-symlink", "inherited-path-symlink", {"path": str(path)})
+            )
+    return found
 
 
 # --- end-of-run scope ---------------------------------------------------------------
@@ -601,16 +643,16 @@ def cached_project_findings(
 ) -> tuple[list[Finding], bool]:
     """Project findings, reusing a recent verdict computed from the same inputs.
 
-    Returns `(findings, was_cached)`.  The cache lives in the personal
-    layer (`layers.personal_dir`, which in a linked worktree of an adopted
-    repository may be its main checkout's), is keyed on the checkout, the lock files' identity,
+    Returns `(findings, was_cached)`.  The cache lives in this checkout's
+    own layer (`layers.stamp_dir`, never a linked worktree's main
+    checkout's), is written through `layers.write_atomic`, is keyed on the checkout, the lock files' identity,
     the plugin listing and the harness the listing came from, and expires
     so that a plugin installed mid-session is picked up by the next skill
     rather than at the end of the day.  A project whose personal layer
     does not exist is not cached at all — creating it would create the
     very state whose absence the skill scope reads as "never configured".
     """
-    local_dir = personal_dir(root)
+    local_dir = stamp_dir(root)
     if not local_dir.is_dir():
         return project_findings(root, installed, harness), False
 
@@ -634,7 +676,5 @@ def cached_project_findings(
 
     findings = project_findings(root, installed, harness)
     payload = {"key": key, "at": stamp_now, "findings": [asdict(f) for f in findings]}
-    tmp = cache_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload), encoding="utf-8")
-    tmp.replace(cache_path)
+    write_atomic(local_dir, CACHE_NAME, json.dumps(payload))
     return findings, False

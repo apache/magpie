@@ -165,7 +165,10 @@ def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str
         assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
+@pytest.mark.parametrize(
+    "dispatcher",
+    ["vetted-op-tracker", "vetted-op-tracker-batch", "vetted-op-tracker-batch-unprompted", "vetted-op"],
+)
 @pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
 def test_baseline_excludes_and_asks_the_vetted_op_write_dispatchers(
     baseline: dict[str, Any], form: str, dispatcher: str
@@ -181,7 +184,10 @@ def test_baseline_excludes_and_asks_the_vetted_op_write_dispatchers(
     assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
+@pytest.mark.parametrize(
+    "dispatcher",
+    ["vetted-op-tracker", "vetted-op-tracker-batch", "vetted-op-tracker-batch-unprompted", "vetted-op"],
+)
 def test_excluded_write_dispatcher_without_ask_is_an_invariant_error(
     baseline: dict[str, Any], dispatcher: str
 ) -> None:
@@ -202,6 +208,32 @@ def test_allowed_write_dispatcher_is_an_invariant_error(baseline: dict[str, Any]
     weakened = copy.deepcopy(baseline)
     write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
     rule = f"Bash(uv run --project {write})"
+    weakened["permissions"]["ask"].remove(rule)
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.allow" in e for e in errors), errors
+
+
+def test_the_unprompted_batch_dispatcher_alone_may_be_allowed(baseline: dict[str, Any]) -> None:
+    # An adopter whose policy sets [approval] private_tracker_writes = "none"
+    # moves the unprompted batch dispatcher, which refuses every other policy,
+    # from ask to allow; nothing else.
+    relaxed = copy.deepcopy(baseline)
+    for form in ("uv run --project", "uvx --from"):
+        rule = (
+            f"Bash({form} {VETTED_OP_READ.replace('vetted-op-read', 'vetted-op-tracker-batch-unprompted')})"
+        )
+        relaxed["permissions"]["ask"].remove(rule)
+        relaxed["permissions"]["allow"].append(rule)
+    errors = check_invariants(relaxed)
+    assert not [e for e in errors if "vetted-op-tracker-batch" in e], errors
+
+
+def test_the_prompted_batch_dispatcher_may_not_be_allowed(baseline: dict[str, Any]) -> None:
+    # vetted-op-tracker-batch also runs `batch` policies, whose adopters asked
+    # for a prompt per batch: an allow on it would skip that prompt.
+    weakened = copy.deepcopy(baseline)
+    rule = f"Bash(uvx --from {VETTED_OP_READ.replace('vetted-op-read', 'vetted-op-tracker-batch')})"
     weakened["permissions"]["ask"].remove(rule)
     weakened["permissions"]["allow"].append(rule)
     errors = check_invariants(weakened)
@@ -395,6 +427,20 @@ def test_mid_rule_wildcard_in_allow_is_an_invariant_error(baseline: dict[str, An
     weakened["permissions"]["allow"].append(rule)
     errors = check_invariants(weakened)
     assert any(rule in e for e in errors), errors
+
+
+@pytest.mark.parametrize("rule", ["Bash(gh api graphql *)", "Bash(gh api *)", "Bash(gh api)"])
+def test_gh_api_allow_that_can_write_is_an_invariant_error(baseline: dict[str, Any], rule: str) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "can write" in e for e in errors), errors
+
+
+def test_a_specific_gh_api_get_allow_is_not_flagged_as_writing(baseline: dict[str, Any]) -> None:
+    allowed = copy.deepcopy(baseline)
+    allowed["permissions"]["allow"].append("Bash(gh api repos/o/r/pulls)")
+    assert not any("can write" in e for e in check_invariants(allowed))
 
 
 def test_mid_entry_wildcard_in_excluded_commands_is_an_invariant_error(
@@ -1059,6 +1105,54 @@ def test_settings_need_no_prek_home_for_a_project_without_prek(
     (repo / ".pre-commit-config.yaml").write_text("")
     errors = check_invariants(settings, project_root=repo)
     assert any(e.startswith("env.PREK_HOME: missing") for e in errors), errors
+
+
+PRE_COMMIT_FILES = (".pre-commit-config.yaml", ".pre-commit-config.yml")
+
+
+def _pre_commit_repo(tmp_path: Path) -> Path:
+    repo = _git_repo(tmp_path / "pre-commit-repo")
+    (repo / ".pre-commit-config.yaml").write_text("")
+    return repo
+
+
+def test_the_default_pre_commit_home_is_denied(baseline: dict[str, Any]) -> None:
+    assert "Edit(~/.cache/pre-commit/**)" in baseline["permissions"]["deny"]
+
+
+def test_a_literal_tilde_is_refused_for_a_home_the_tool_does_not_expand(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    """pre-commit runs os.path.realpath, so `~` would resolve under the working directory."""
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": "~/.cache/pre-commit-sandbox"}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert any("PRE_COMMIT_HOME" in e and "absolute" in e for e in errors), errors
+
+
+def test_an_absent_pre_commit_home_is_not_an_error(baseline: dict[str, Any], tmp_path: Path) -> None:
+    """The helper writes it per machine; without it a sandboxed run hits the denied default home."""
+    settings = copy.deepcopy(baseline)
+    settings.pop("env", None)
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert not [e for e in errors if "PRE_COMMIT_HOME" in e], errors
+
+
+def test_a_pre_commit_home_inside_the_default_home_is_refused(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    default_home = Path(os.path.expanduser("~/.cache/pre-commit"))
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": str(default_home / "sandbox")}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert any(e.startswith("env.PRE_COMMIT_HOME:") for e in errors), errors
+
+
+def test_an_absolute_pre_commit_home_is_accepted(baseline: dict[str, Any], tmp_path: Path) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["env"] = {"PRE_COMMIT_HOME": str(tmp_path / "home" / ".cache" / "pre-commit-sandbox")}
+    errors = check_invariants(settings, project_root=_pre_commit_repo(tmp_path))
+    assert not [e for e in errors if "PRE_COMMIT_HOME" in e], errors
 
 
 def test_the_default_prek_home_is_denied_even_without_prek(baseline: dict[str, Any], tmp_path: Path) -> None:

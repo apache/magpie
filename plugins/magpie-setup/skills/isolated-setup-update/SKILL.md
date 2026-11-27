@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:51ecb7683ea269cf
 license: Apache-2.0
-measured_tokens: 6128
+measured_tokens: 6169
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -209,9 +209,9 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check five things.
 
-The four checks: [`vetted-ops-drift.md`](vetted-ops-drift.md).
+The five checks: [`vetted-ops-drift.md`](vetted-ops-drift.md).
 
 **The adversarial-review exclusion has the same must-fix.**
 A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
@@ -229,7 +229,7 @@ Every skill's pre-flight proposes this one when the isolated setup is used on th
   Set `isolated_setup_update_interval_days` in `project.md` in the personal layer or in `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
 
 "Used on this machine" means this skill or `setup-isolated-setup-install` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
-To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -P -m setup_preflight.layers` prints).
+To silence both reasons, set `"isolated_setup": {"enabled": false}` in the `reconciled.json` of the `stamp_dir` that `python3 -P -m setup_preflight.layers` prints (in a linked worktree, its own; `"enabled": true` there undoes an opt-out it inherits from the main checkout).
 The proposal never runs this skill by itself.
 To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 
@@ -242,7 +242,7 @@ PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight.isolated record-update
 ```
 
-This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.
+This writes the current fingerprint and today's date into the `isolated_setup` block of this checkout's `reconciled.json` (in `stamp_dir`), which resets both pre-flight reasons and ends an `"enabled": false` opt-out here.
 Do not write the block by hand.
 Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup:setup config` installs the checker.
 

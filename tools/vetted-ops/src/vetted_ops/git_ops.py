@@ -241,11 +241,105 @@ class GitPolicy:
     pr_base: str = "main"
     #: Paths `git-switch` treats as steering the harness, beyond `HARNESS_PATHS`.
     harness_paths: tuple[str, ...] = ()
+    #: Never-publish terms `git-pr-create` lets through for this repository,
+    #: from `PUBLISHABLE_TERMS` only: a site repository whose pull requests add
+    #: records that are public by the time they are opened.
+    published_terms: tuple[str, ...] = ()
+    #: Relative path prefixes the `published_terms` exemption is bound to: it
+    #: applies only to a branch whose every changed file lies under one of them.
+    published_paths: tuple[str, ...] = ()
+    #: `"skip"`: a records site's own hooks may be recorded as skipped by
+    #: `vetted-op-checks` (they need the checkout's git directory, which the
+    #: sandbox cannot read); the site's CI runs them on the pull request.
+    site_hooks: str | None = None
 
     def push_url(self, repo: str) -> str:
         if self.transport == "https":
             return f"https://{self.host}/{repo}.git"
         return f"git@{self.host}:{repo}.git"
+
+
+#: The never-publish terms a policy may let through in `git-pr-create`'s text
+#: (``[git] published_terms``): only a published record's identifier. A policy
+#: that names one is for a repository whose pull requests carry records already
+#: public (the project's security records site), never for its source repository.
+PUBLISHABLE_TERMS = frozenset({"CVE id", "CVE"})
+
+
+_GLOB_CHARS = frozenset("*?[]{}\\")
+
+
+def _published_path(raw: str) -> str:
+    """A relative, glob-free path prefix, without ``.``/``..`` parts, normalised without its trailing ``/``."""
+    path = raw.strip().rstrip("/")
+    parts = path.split("/")
+    if (
+        not path
+        or path.startswith("/")
+        or any(part in ("", ".", "..") for part in parts)
+        or any(c in _GLOB_CHARS or unicodedata.category(c).startswith("C") for c in path)
+    ):
+        raise ConfigError(
+            f"[git] published_paths entries must be relative path prefixes without globs or '..', got {raw!r}"
+        )
+    return path
+
+
+def _under(path: str, prefixes: Sequence[str]) -> bool:
+    return any(path == prefix or path.startswith(prefix + "/") for prefix in prefixes)
+
+
+#: The forge's compare of the pull request's base and head: every changed file
+#: and the head commit it compared. A renamed or copied file contributes its old
+#: path too, so moving a file out of a path outside `published_paths` counts as
+#: changing that path.
+_COMPARE_JQ = (
+    "{files: [.files[]? | .filename, (.previous_filename // empty)], "
+    "head: (.commits | last | .sha), total: .files | length}"
+)
+#: GitHub's compare lists at most this many files; a longer list is incomplete.
+_COMPARE_FILE_LIMIT = 300
+
+
+def _published_paths_only(git: Git, policy: GitPolicy, worktree: Path, branch: str) -> None:
+    """Refuse unless every file the branch changes against ``pr_base`` is under ``published_paths``.
+
+    The forge answers, for the branch as pushed to the fork, and its head must
+    be the local branch's: the exemption follows what the pull request will
+    show, never a ref the agent can move.
+    """
+    assert policy.fork_repo is not None
+    local = git.run(worktree, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}").strip()
+    fork_owner = policy.fork_repo.split("/", 1)[0]
+    argv = [
+        "gh", "api", "--hostname", policy.host, "--method", "GET",
+        f"repos/{policy.upstream_repo}/compare/{policy.pr_base}...{fork_owner}:{branch}",
+        "--jq", _COMPARE_JQ,
+    ]  # fmt: skip
+    completed = git.gh_runner(argv, clean_env(), "")
+    if completed.returncode != 0:
+        raise GitFailed(argv, completed.returncode, completed.stderr or "", completed.stdout or "")
+    try:
+        answer = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        raise GitRefused("the forge's compare of the branch is not JSON") from None
+    files = answer.get("files") if isinstance(answer, dict) else None
+    if not isinstance(files, list) or not files or not all(isinstance(f, str) for f in files):
+        raise GitRefused(
+            "the forge lists no changed file for the branch; the published_terms exemption needs them"
+        )
+    if answer.get("head") != local:
+        raise GitRefused(
+            f"the fork's {branch} is not at the local branch's {local}; push it first, then open the pull request"
+        )
+    if len(files) >= _COMPARE_FILE_LIMIT:
+        raise GitRefused("the branch changes too many files for the forge to list them all")
+    outside = sorted(f for f in files if not _under(f, policy.published_paths))
+    if outside:
+        raise GitRefused(
+            "the published_terms exemption covers only branches that change files under "
+            f"{', '.join(policy.published_paths)}; this one also changes {', '.join(outside[:5])}"
+        )
 
 
 def _absolute_real_dir(raw: object, key: str) -> Path:
@@ -313,6 +407,57 @@ def operator_git_table(upstream_repo: str) -> dict[str, object] | None:
     return table
 
 
+def _operator_checkouts() -> dict[str, set[str]]:
+    """Each upstream's checkouts in the operator file, as absolute paths (no file-system access)."""
+    path = operator_git_path()
+    try:
+        data = read_regular_file(path)
+    except TamperedPath as exc:
+        raise ConfigError(str(exc)) from None
+    if data is None:
+        return {}
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"{path} is not valid TOML: {exc}") from None
+    found: dict[str, set[str]] = {}
+    for repo, table in raw.items():
+        entries = table.get("checkouts", []) if isinstance(table, dict) else []
+        if isinstance(entries, list):
+            found[repo] = {os.path.abspath(_expand_home(e)) for e in entries if isinstance(e, str) and e}
+    return found
+
+
+def policy_from_checkout(raw: Path) -> Path:
+    """The directory ``--policy-from`` names, refused unless it is a checkout the operator listed.
+
+    The read dispatcher runs outside the sandbox without a prompt, so a free
+    choice of directory would let an agent probe the host for directories and
+    approved policies, or read through another project's policy unseen. Only a
+    ``checkouts`` entry of the operator's own `OPERATOR_GIT_FILE` (which only
+    they write) is accepted, and the check runs before anything on disk is
+    looked at, so an unlisted path learns nothing about the file system.
+    """
+    if not raw.is_absolute():
+        raise ConfigError("--policy-from must be an absolute directory")
+    wanted = os.path.abspath(raw)
+    if not any(wanted in paths for paths in _operator_checkouts().values()):
+        raise ConfigError(
+            f"--policy-from {wanted} is not a checkout your {operator_git_path().name} lists; "
+            "name the main checkout of a repository you configured there"
+        )
+    return Path(wanted)
+
+
+def check_policy_from_upstream(config: Config, base: Path) -> None:
+    """Refuse a policy found in ``base`` whose upstream's operator table does not list ``base``."""
+    if os.path.abspath(base) not in _operator_checkouts().get(config.upstream_repo, set()):
+        raise ConfigError(
+            f"the policy in {base} is for {config.upstream_repo}, whose table in "
+            f"{operator_git_path().name} does not list {base} as a checkout"
+        )
+
+
 def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
     """A ready-to-save ``["<upstream>"]`` table for the operator file, for a refusal to show.
 
@@ -342,7 +487,7 @@ def operator_git_draft(upstream_repo: str, base: Path | None = None) -> str:
     )
 
 
-def _git_table(config: Config) -> dict[str, object]:
+def _git_table(config: Config, base: Path | None = None) -> dict[str, object]:
     """The shared policy's ``[git]`` table with the operator's own values over it."""
     project = config.git
     if project is not None and not isinstance(project, dict):
@@ -352,7 +497,7 @@ def _git_table(config: Config) -> dict[str, object]:
         raise ConfigError(
             f"no [git] values for {config.upstream_repo}: the policy has no [git] table and "
             f'{operator_git_path()} has no ["{config.upstream_repo}"] table, so no git operation may run'
-            + operator_git_draft(config.upstream_repo)
+            + operator_git_draft(config.upstream_repo, base)
         )
     merged = dict(project or {})
     if operator is not None:
@@ -382,6 +527,9 @@ def describe_git(config: Config, policy: GitPolicy) -> str:
         ("upstream_push", list(policy.upstream_push)),
         ("pr_base", policy.pr_base),
         ("harness_paths", list(policy.harness_paths)),
+        ("published_terms", list(policy.published_terms)),
+        ("published_paths", list(policy.published_paths)),
+        ("site_hooks", policy.site_hooks),
     ]
     lines = ["[git] (effective)"]
     lines += [f"  {key} = {value!r}  # {source(key)}" for key, value in values]
@@ -409,29 +557,56 @@ def _owned_private_dir(path: Path, key: str) -> Path:
     return path
 
 
-def git_policy(config: Config) -> GitPolicy:
-    """Validate the ``[git]`` values; without any, every operation refuses."""
-    table = _git_table(config)
+def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
+    """Validate the ``[git]`` values; without any, every operation refuses.
+
+    ``base`` is the directory the policy was discovered from, for the draft a
+    refusal shows (default: the working directory).
+    """
+    table = _git_table(config, base)
     checkouts = tuple(_absolute_real_dir(raw, "checkouts") for raw in _str_list(table, "checkouts"))
     if not checkouts:
         raise ConfigError(
-            "[git] checkouts must name at least one main checkout" + operator_git_draft(config.upstream_repo)
+            "[git] checkouts must name at least one main checkout"
+            + operator_git_draft(config.upstream_repo, base)
         )
     fork = table.get("fork")
-    if fork is not None and (not isinstance(fork, str) or not _REPO.match(fork)):
+    if fork is not None and (not isinstance(fork, str) or not _REPO.fullmatch(fork)):
         raise ConfigError(f"[git] fork must be an 'owner/name' string, got {fork!r}")
     host = table.get("host", "github.com")
-    if not isinstance(host, str) or not _HOST.match(host):
+    if not isinstance(host, str) or not _HOST.fullmatch(host):
         raise ConfigError(f"[git] host must be a host name, got {host!r}")
     transport = table.get("transport", "ssh")
     if transport not in ("ssh", "https"):
         raise ConfigError(f"[git] transport must be 'ssh' or 'https', got {transport!r}")
     upstream_remote = table.get("upstream_remote", "upstream")
-    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.match(upstream_remote):
+    if not isinstance(upstream_remote, str) or not _REMOTE_NAME.fullmatch(upstream_remote):
         raise ConfigError(f"[git] upstream_remote must be a plain remote name, got {upstream_remote!r}")
     pr_base = table.get("pr_base", "main")
-    if not isinstance(pr_base, str) or not _BRANCH.match(pr_base):
+    if not isinstance(pr_base, str) or not _BRANCH.fullmatch(pr_base):
         raise ConfigError(f"[git] pr_base must be a branch name, got {pr_base!r}")
+    published_terms = _str_list(table, "published_terms")
+    published_paths = [_published_path(raw) for raw in _str_list(table, "published_paths")]
+    if published_terms and not published_paths:
+        raise ConfigError(
+            "[git] published_terms needs published_paths: the records directories the exemption is bound to"
+        )
+    if published_paths and not published_terms:
+        raise ConfigError("[git] published_paths applies only with published_terms")
+    site_hooks = table.get("site_hooks")
+    if site_hooks is not None:
+        if site_hooks != "skip":
+            raise ConfigError(f'[git] site_hooks may only be "skip", got {site_hooks!r}')
+        if not published_paths:
+            raise ConfigError(
+                "[git] site_hooks applies only in a records-site policy, one that sets published_paths"
+            )
+    unknown_terms = sorted(set(published_terms) - PUBLISHABLE_TERMS)
+    if unknown_terms:
+        raise ConfigError(
+            f"[git] published_terms may name only {', '.join(sorted(PUBLISHABLE_TERMS))}, "
+            f"got {', '.join(unknown_terms)}"
+        )
     return GitPolicy(
         checkouts=checkouts,
         upstream_repo=config.upstream_repo,
@@ -448,6 +623,9 @@ def git_policy(config: Config) -> GitPolicy:
         upstream_remote=upstream_remote,
         pr_base=pr_base,
         harness_paths=tuple(path.removeprefix("./").strip("/") for path in _str_list(table, "harness_paths")),
+        published_terms=tuple(published_terms),
+        published_paths=tuple(published_paths),
+        site_hooks=site_hooks,
     )
 
 
@@ -741,14 +919,14 @@ def _param(raw: str, name: str) -> str:
 
 
 def sha(raw: str, name: str) -> str:
-    if not _SHA.match(_param(raw, name)):
+    if not _SHA.fullmatch(_param(raw, name)):
         raise GitRefused(f"{name} must be a full lowercase commit SHA, got {raw!r}")
     return raw
 
 
 def branch_name(git: Git, directory: Path, raw: str, name: str) -> str:
     _param(raw, name)
-    if not _BRANCH.match(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
+    if not _BRANCH.fullmatch(raw) or ".." in raw or raw.endswith((".lock", "/", ".")):
         raise GitRefused(f"{name} is not an acceptable branch name: {raw!r}")
     if not git.ok(directory, "check-ref-format", "--branch", raw):
         raise GitRefused(f"{name} is not a valid branch name: {raw!r}")
@@ -931,7 +1109,7 @@ def _check_config_in(git: Git, directory: Path) -> None:
             key
             for scope, key in parse_config_scopes(output)
             # `command` scope is this module's own `-c` pins; `GIT_CONFIG_*` is dropped.
-            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.match(key.lower())
+            if scope in ("local", "worktree") and not SAFE_LOCAL_KEY.fullmatch(key.lower())
         }
     )
     if unsafe:
@@ -1162,10 +1340,10 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
     check_repository_config(git, worktree)
     local = branch_name(git, worktree.path, p["branch"], "branch")
     number = _param(p["number"], "number")
-    if not _PR_NUMBER.match(number):
+    if not _PR_NUMBER.fullmatch(number):
         raise GitRefused(f"number must be a pull request number, got {number!r}")
     named_repo = _param(p["head_repo"], "head_repo")
-    if not _REPO.match(named_repo):
+    if not _REPO.fullmatch(named_repo):
         raise GitRefused(f"head_repo must be 'owner/name', got {named_repo!r}")
     named_branch = branch_name(git, worktree.path, p["head_branch"], "head_branch")
     expected = sha(p["expected"], "expected")
@@ -1180,16 +1358,29 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             f"{local!r} does not build on the pull request's head {expected}; a fixup adds commits on top "
             "of the contributor's and never rewrites them"
         )
-    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}").strip()
+    # One kind of merge may go along: upstream's pr_base merged in
+    # (`git-merge-upstream`), its other parent on the pr_base fetched here.
+    # Upstream's own commits are then public history, not part of the fixup.
+    merges = git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").split()
+    upstream_tip = _fetch_base(git, worktree, policy) if merges else None
+    excluded = [f"^{upstream_tip}"] if upstream_tip else []
+    for merge in merges:
+        others = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merge).split()[2:]
+        if (
+            not upstream_tip
+            or len(others) != 1
+            or not git.ok(worktree.path, "merge-base", "--is-ancestor", others[0], upstream_tip)
+        ):
+            raise GitRefused(
+                f"{local!r} has a merge commit ({merge}) on top of the pull request's head that does not "
+                f"merge {policy.upstream_repo} {policy.pr_base}; a fixup is plain commits, or upstream "
+                "merged in, so no other branch's history goes with it"
+            )
+    added = git.run(worktree.path, "rev-list", "--count", f"{expected}..{commit}", *excluded).strip()
     if int(added) > MAX_FIXUP_COMMITS:
         raise GitRefused(
             f"{local!r} adds {added} commits on top of the pull request's head; a fixup adds at most "
             f"{MAX_FIXUP_COMMITS}"
-        )
-    if git.run(worktree.path, "rev-list", "--merges", f"{expected}..{commit}").strip():
-        raise GitRefused(
-            f"{local!r} has a merge commit on top of the pull request's head; a fixup is plain commits, "
-            "so no other branch's history goes with it"
         )
 
     head = _pull_request_head(git, policy, number)
@@ -1204,7 +1395,7 @@ def push_pr_head(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
             "fetch it again and rebuild the fixup on it"
         )
     repo = head.get("head_repo")
-    if not isinstance(repo, str) or not _REPO.match(repo):
+    if not isinstance(repo, str) or not _REPO.fullmatch(repo):
         raise GitRefused(f"pull request #{number} has no head repository (was its fork deleted?)")
     remote_branch = branch_name(git, worktree.path, str(head.get("head_ref") or ""), "the head branch")
     if (repo.casefold(), remote_branch) != (named_repo.casefold(), named_branch):
@@ -1276,6 +1467,17 @@ REBASE_CONFIG = (
 )
 
 
+#: Pinned on a merge, for the same reasons as `REBASE_CONFIG`: no recorded
+#: resolution, no stash, no editor, and no merge log built from commit text.
+MERGE_CONFIG = (
+    "rerere.enabled=false",
+    "rerere.autoUpdate=false",
+    "merge.autoStash=false",
+    "merge.log=false",
+    "core.editor=false",
+)
+
+
 #: Pinned on a cherry-pick, for the same reasons as `REBASE_CONFIG`.
 CHERRY_PICK_CONFIG = (
     "rerere.enabled=false",
@@ -1285,7 +1487,7 @@ CHERRY_PICK_CONFIG = (
 )
 
 
-def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str) -> None:
+def require_signed(git: Git, worktree: Worktree, revisions: str | Sequence[str], operation: str) -> None:
     """Refuse to re-sign a commit that does not already carry the user's good signature.
 
     An operation that replays commits (a rebase, a cherry-pick, a merge) signs
@@ -1301,7 +1503,8 @@ def require_signed(git: Git, worktree: Worktree, revisions: str, operation: str)
     """
     if not git.signs_commits():
         return
-    output = git.run(worktree.path, "log", "--format=%H %G?", revisions)
+    spec = [revisions] if isinstance(revisions, str) else list(revisions)
+    output = git.run(worktree.path, "log", "--format=%H %G?", *spec)
     unsigned = [fields[0] for fields in (line.split() for line in output.splitlines()) if fields[1:] != ["G"]]
     if unsigned:
         shown = ", ".join(unsigned[:10]) + (" …" if len(unsigned) > 10 else "")
@@ -1334,7 +1537,7 @@ def _fetch_base(git: Git, worktree: Worktree, policy: GitPolicy) -> str:
     )
     for line in output.splitlines():
         fields = line.split()
-        if len(fields) == 4 and fields[3] == ref and _SHA.match(fields[2]):
+        if len(fields) == 4 and fields[3] == ref and _SHA.fullmatch(fields[2]):
             return fields[2]
     raise GitRefused(f"fetching {policy.upstream_repo} {policy.pr_base} reported no commit for {ref}")
 
@@ -1513,6 +1716,119 @@ def cherry_pick(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -
     return f"replayed {commit} onto {branch} in {worktree.path}: {previous} -> {picked}"
 
 
+def merge_upstream(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Merge an upstream ``pr_base`` commit into a clean topic branch; on a conflict, abort and report it.
+
+    For a branch whose history must not be rewritten (a contributor's pull
+    request), where a rebase would. The merge commit is signed per the user's
+    configuration, so the same rule as for a rebase holds: when the user
+    signs, the commits the merge vouches for must already carry their
+    signature. On the user's own branch (``pr`` is ``none``) that is every
+    commit not on upstream. On a pull request's branch (``pr`` is its number)
+    the contributor's commits are theirs, already published, and never carry
+    the user's signature, so only the commits on top of the head the forge
+    reports for that pull request are checked. The message is fixed, the
+    other parent must be on the upstream ``pr_base`` fetched here, and a
+    conflict is never resolved out here.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    onto = sha(p["onto"], "onto")
+    expected = sha(p["expected"], "expected")
+    pr = _param(p["pr"], "pr")
+    if pr != "none" and not _PR_NUMBER.fullmatch(pr):
+        raise GitRefused(f"pr must be a pull request number, or 'none' for your own branch; got {pr!r}")
+    branch = current_branch(git, worktree)
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; upstream is merged into a topic branch only")
+    previous = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    if previous != expected:
+        raise GitRefused(
+            f"{branch!r} is at {previous}, not the expected {expected}; it moved since the merge was "
+            "approved, so look at it again"
+        )
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    message = f"Merge {policy.upstream_repo} {policy.pr_base} into {branch}"
+    pins = [arg for pin in MERGE_CONFIG for arg in ("-c", pin)]
+    args = [
+        *pins,
+        "merge",
+        "--no-ff",
+        "--no-edit",
+        "--no-autostash",
+        "--no-rerere-autoupdate",
+        "--no-verify",
+        "-m",
+        message,
+        "--end-of-options",
+        onto,
+    ]
+    if dry_run:
+        return " ".join(git.argv(worktree.path, *args))
+    base = _fetch_base(git, worktree, policy)
+    resolve_commit(git, worktree.path, onto, "onto")
+    if not git.ok(worktree.path, "merge-base", "--is-ancestor", onto, base):
+        raise GitRefused(
+            f"onto {onto} is not on {policy.upstream_repo} {policy.pr_base} (fetched just now at {base}); "
+            f"merge a commit of {policy.pr_base}"
+        )
+    if git.ok(worktree.path, "merge-base", "--is-ancestor", onto, previous):
+        return f"{branch} in {worktree.path} already contains {onto}; nothing to merge"
+    # The commits the merge commit vouches for: the branch's own, not upstream's,
+    # and on a pull request's branch not the contributor's either.
+    vouched = [f"{onto}..{previous}"]
+    if pr != "none":
+        head = _pull_request_head(git, policy, pr)
+        if str(head.get("base_repo") or "").casefold() != policy.upstream_repo.casefold():
+            raise GitRefused(f"pull request #{pr} is not against {policy.upstream_repo}")
+        if head.get("state") != "open":
+            raise GitRefused(f"pull request #{pr} is {head.get('state')!r}, not open")
+        head_sha = head.get("head_sha")
+        if not isinstance(head_sha, str) or not _SHA.fullmatch(head_sha):
+            raise GitRefused(f"pull request #{pr}: the forge reports no head commit")
+        if not git.ok(worktree.path, "cat-file", "-e", f"{head_sha}^{{commit}}") or not git.ok(
+            worktree.path, "merge-base", "--is-ancestor", head_sha, previous
+        ):
+            raise GitRefused(
+                f"{branch!r} does not build on pull request #{pr}'s head {head_sha}; fetch the pull request "
+                "and build on its head"
+            )
+        vouched.append(f"^{head_sha}")
+    check_repository_config(git, worktree)
+    require_signed(git, worktree, vouched, "merge")
+    argv, completed = git._call(worktree.path, *args)
+    if completed.returncode != 0:
+        conflicts = git._call(worktree.path, "diff", "--name-only", "--diff-filter=U", "-z")[1].stdout or ""
+        aborted = git._call(worktree.path, "merge", "--abort")[1].returncode == 0
+        paths = [path for path in conflicts.split("\0") if path]
+        shown = ", ".join(paths[:20]) + (" …" if len(paths) > 20 else "") if paths else "none reported"
+        state = (
+            f"the merge was aborted and {branch} is still at {previous}"
+            if aborted
+            else f"`git merge --abort` failed too; {str(worktree.path)!r} is mid-merge"
+        )
+        raise GitFailed(
+            argv,
+            completed.returncode,
+            f"{completed.stderr or ''}conflicting paths: {shown}; {state}. Resolve the conflict in the "
+            "sandbox and commit it with git-commit\n",
+            completed.stdout or "",
+        )
+    merged = git.run(worktree.path, "rev-parse", "HEAD").strip()
+    # A merge acts on whatever HEAD is when it starts. If the branch or its tip
+    # changed after the checks, take the merge back off and refuse.
+    parents = git.run(worktree.path, "rev-list", "--parents", "-n", "1", merged).split()[1:]
+    now = git.run(worktree.path, "symbolic-ref", "--quiet", "HEAD").strip()
+    if parents != [expected, onto] or now != f"refs/heads/{branch}":
+        git.run(worktree.path, "reset", "--keep", parents[0])
+        raise GitRefused(
+            f"the merge landed on {now or 'a detached HEAD'} at {parents[0]}, not on {branch!r} at the approved "
+            f"{expected}; it was taken back off. Look at the branch again"
+        )
+    return f"merged {policy.upstream_repo} {policy.pr_base} {onto} into {branch} in {worktree.path}: {previous} -> {merged}"
+
+
 #: Tracked paths that steer an agent harness or this dispatcher: settings,
 #: hooks, skills, agents, MCP servers, plugin manifests and the vetted-ops
 #: policy. Harnesses keep them read-only in the sandbox because what they say
@@ -1576,7 +1892,7 @@ def _upstream_base(git: Git, policy: GitPolicy, worktree: Worktree, fetch: bool 
     # The URL is built from the policy and starts with a scheme or `git@`, never `-`.
     lines = git.run(worktree.path, "ls-remote", url, ref).splitlines()
     found = [line.split("\t", 1)[0] for line in lines if line.endswith(f"\t{ref}")]
-    if len(found) != 1 or not _SHA.match(found[0]):
+    if len(found) != 1 or not _SHA.fullmatch(found[0]):
         raise GitRefused(f"{policy.upstream_repo} has no branch {policy.pr_base!r} to check against")
     base = found[0]
     if not git.ok(worktree.path, "cat-file", "-e", f"{base}^{{commit}}"):
@@ -1652,7 +1968,7 @@ class _VerifiedObjects:
         return [line.split(" ", 1) for line in head.split("\n") if " " in line]
 
     def parents(self, oid: str) -> list[str]:
-        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.match(value)]
+        return [value for key, value in self._commit_lines(oid) if key == "parent" and _SHA.fullmatch(value)]
 
     def is_ancestor(self, ancestor: str, of: str, hint: Sequence[str] = ()) -> bool:
         """Whether ``ancestor`` is reachable from ``of`` through verified parent links.
@@ -1677,7 +1993,7 @@ class _VerifiedObjects:
     def harness_entries(self, commit: str, extra: Sequence[str]) -> dict[str, tuple[str, str]]:
         """Every harness path in ``commit``'s tree, as ``{path: (mode, oid)}``, walked through verified trees."""
         trees = [value for key, value in self._commit_lines(commit) if key == "tree"]
-        if len(trees) != 1 or not _SHA.match(trees[0]):
+        if len(trees) != 1 or not _SHA.fullmatch(trees[0]):
             raise GitRefused(f"commit {commit} has no single tree line")
         width = 32 if self.git.object_format == "sha256" else 20
         entries: dict[str, tuple[str, str]] = {}
@@ -1899,6 +2215,45 @@ def switch_branch(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     return f"switched {worktree.path} from {previous} to {branch} at {target}{note}"
 
 
+def switch_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
+    """Create a branch at the upstream ``pr_base`` and switch a clean working tree to it.
+
+    The start of a new change in the main checkout, which a sandboxed
+    ``git switch -c`` cannot finish: the new branch starts where upstream is
+    now, asked of the policy's URL during this call, never where a local ref
+    says. Its harness files are then upstream's, so `switch_branch`, which
+    does the switch, finds nothing of the branch's own to refuse; every check
+    it makes still runs. A new branch that could not be switched to is
+    deleted again.
+    """
+    worktree = resolve_worktree(git, p["worktree"], policy)
+    check_repository_config(git, worktree)
+    branch = branch_name(git, worktree.path, p["branch"], "branch")
+    if is_protected(branch, policy):
+        raise GitRefused(f"{branch!r} is a protected branch; a new topic branch is created only")
+    if git.ok(worktree.path, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"):
+        raise GitRefused(f"branch {branch!r} already exists; switch to it with git-switch")
+    if git.run(worktree.path, "status", "--porcelain", "--untracked-files=no").strip():
+        raise GitRefused(f"{str(worktree.path)!r} has uncommitted changes; commit or set them aside first")
+    if dry_run:
+        create = git.argv(
+            worktree.path, "branch", "--no-track", branch, f"<{policy.pr_base} from the policy URL>"
+        )
+        return " ".join(create) + "; then git-switch " + branch
+    base = _upstream_base(git, policy, worktree, fetch=True)
+    if base is None:
+        raise GitRefused(f"upstream {policy.pr_base} could not be read from the policy's URL")
+    check_repository_config(git, worktree)
+    # Created only if absent (the zero old value), so an existing branch is never moved.
+    git.run(worktree.path, "update-ref", f"refs/heads/{branch}", base, "0" * len(base))
+    try:
+        switched = switch_branch(git, policy, {"worktree": p["worktree"], "branch": branch}, False)
+    except (GitRefused, GitFailed):
+        git._call(worktree.path, "update-ref", "-d", f"refs/heads/{branch}", base)
+        raise
+    return f"created {branch} at upstream {policy.pr_base} {base}; {switched}"
+
+
 def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> str:
     """Create a linked worktree on a new branch, inside a policy worktree root."""
     checkout = resolve_worktree(git, p["checkout"], policy, "checkout")
@@ -1906,7 +2261,7 @@ def worktree_add(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) 
         raise GitRefused("checkout must be the main checkout, not a linked worktree")
     check_repository_config(git, checkout)
     path = _absolute(p["path"], "path")
-    if not _WORKTREE_NAME.match(path.name):
+    if not _WORKTREE_NAME.fullmatch(path.name):
         raise GitRefused(f"the new worktree's directory name is not acceptable: {path.name!r}")
     if not any(
         path.parent == root and str(root) == os.path.realpath(path.parent) for root in policy.worktree_roots
@@ -2021,7 +2376,7 @@ def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
     workspace, which sandboxed commands can write, so this keeps an agent
     honest the way CI does; it is not a proof against one forging it.
     """
-    from .checks import DELETED, stamp_path
+    from .checks import DELETED, SITE_HOOKS_SKIPPED, stamp_path
     from .checks import PROG as CHECKS
 
     assert policy.workspace is not None  # the message file was read from it
@@ -2040,6 +2395,11 @@ def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
     files = record.get("files") if isinstance(record, dict) else None
     if not isinstance(files, dict):
         raise GitRefused(f"the checks record {str(path)!r} lists no files: {hint}")
+    if record.get("checks") == SITE_HOOKS_SKIPPED and policy.site_hooks != "skip":
+        raise GitRefused(
+            "the checks record says the site's hooks were skipped, and this policy does not allow that "
+            '([git] site_hooks = "skip", in a records-site policy only); run the checks with the hooks instead'
+        )
     staged = [
         p
         for p in git.run(worktree.path, "diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
@@ -2131,13 +2491,26 @@ def pr_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool) -> 
     body = _workspace_text(policy, p["body_file"], "body_file")
     # A pull request is public. The same terms the publication guard refuses in
     # any public text are refused here, so a security detail cannot reach the
-    # upstream repository through a file the guard does not read.
-    hits = sorted(set(_forbidden_hits(title) + _forbidden_hits(body)))
+    # upstream repository through a file the guard does not read. A policy for a
+    # repository of published records lets the record's identifier through
+    # (`published_terms`, from `PUBLISHABLE_TERMS` only), and only for a branch
+    # that changes nothing outside `published_paths`; every other term stays.
+    found = set(_forbidden_hits(title) + _forbidden_hits(body))
+    hits = sorted(found - set(policy.published_terms))
     if hits:
         raise GitRefused(
             "the pull request text contains terms that are never published before disclosure: "
             f"{', '.join(hits)}; describe the change in neutral functional terms"
         )
+    exempted = sorted(found & set(policy.published_terms))
+    if exempted and not dry_run:
+        try:
+            _published_paths_only(git, policy, worktree.path, branch)
+        except GitRefused as exc:
+            raise GitRefused(
+                "the pull request text contains terms that are never published before disclosure: "
+                f"{', '.join(exempted)}, and the policy's exemption does not apply: {exc}"
+            ) from None
     head = f"{policy.fork_repo.split('/', 1)[0]}:{branch}"
     argv = [
         "gh",
@@ -2217,11 +2590,28 @@ OPS: dict[str, GitOp] = {
             cherry_pick,
         ),
         GitOp(
+            "git-merge-upstream",
+            ("worktree", "onto", "expected", "pr"),
+            "merge <onto>, a full SHA on the upstream pr_base (fetched by the operation), into the clean "
+            "topic branch checked out in <worktree>; <expected> is the branch's current full SHA, <pr> the "
+            "pull request whose branch it is ('none' for your own). A signed merge commit with a fixed "
+            "message; when you sign, only your commits (on top of the pull request's head) must carry "
+            "your signature. On a conflict, aborts and names the conflicting paths",
+            merge_upstream,
+        ),
+        GitOp(
             "git-switch",
             ("worktree", "branch"),
             "switch a clean working tree to an existing local <branch>; refused when the branch's own "
             "commits change a file that steers the agent harness (.claude/, hooks, skills, the policy)",
             switch_branch,
+        ),
+        GitOp(
+            "git-switch-create",
+            ("worktree", "branch"),
+            "create a new topic <branch> at upstream's pr_base, asked of the policy's URL now, and switch "
+            "the clean working tree to it, with git-switch's checks; never a protected or existing branch",
+            switch_create,
         ),
         GitOp(
             "git-worktree-add",
@@ -2272,12 +2662,22 @@ OPS: dict[str, GitOp] = {
 def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     """The ``vetted-op-git`` console script."""
     raw = list(sys.argv[1:] if argv is None else argv)
+    # allow_abbrev=False: every long option is matched exactly, as the `--caller`
+    # count below assumes; a prefix such as `--call` is an argparse error.
     parser = argparse.ArgumentParser(
         prog=PROG,
         description="Run one fixed, policy-scoped git operation outside the sandbox. No pass-through arguments.",
+        allow_abbrev=False,
     )
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--dry-run", action="store_true", help="validate, print the git command, run nothing")
+    parser.add_argument(
+        "--policy-from",
+        metavar="DIR",
+        type=Path,
+        default=None,
+        help="discover the policy from this absolute directory instead of the working directory",
+    )
     parser.add_argument("operation", nargs="?", help="operation name, or 'list-ops' / 'policy'")
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(raw)
@@ -2287,9 +2687,23 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
             print(f"write  {name:<22} {' '.join(entry.params)}\n        {entry.summary}")
         return EXIT_OK
 
-    if sum(1 for a in raw if a == "--caller" or a.startswith("--caller=")) > 1:
-        print(f"{PROG}: refused: --caller given more than once", file=sys.stderr)
-        return EXIT_POLICY
+    for option in ("--caller", "--policy-from"):
+        if sum(1 for a in raw if a == option or a.startswith(f"{option}=")) > 1:
+            print(f"{PROG}: refused: {option} given more than once", file=sys.stderr)
+            return EXIT_POLICY
+
+    # Where the policy is discovered: the working directory, or the directory
+    # `--policy-from` names. Either is the caller's choice, and either way only
+    # a policy the user approved acts (`load`'s ``approved_only``), so naming it
+    # widens nothing; it lets a session in one repository reach the policy of
+    # another (a site repository) and shows that choice in the confirmed command.
+    base: Path | None = None
+    if args.policy_from is not None:
+        try:
+            base = policy_from_checkout(args.policy_from)
+        except ConfigError as exc:
+            print(f"{PROG}: refused: {exc}", file=sys.stderr)
+            return EXIT_POLICY
 
     # Like every entry point that runs outside the sandbox: only a policy the user
     # placed in the approved directory themselves drives git. A dry run against
@@ -2298,13 +2712,15 @@ def main(argv: list[str] | None = None, *, git: Git | None = None) -> int:
     approved = True
     try:
         try:
-            config = load(approved_only=args.operation != "policy")
+            config = load(cwd=base, approved_only=args.operation != "policy")
         except ConfigError:
             if not args.dry_run:
                 raise
-            config = load(approved_only=False)
+            config = load(cwd=base, approved_only=False)
             approved = False
-        policy = git_policy(config)
+        if base is not None:
+            check_policy_from_upstream(config, base)
+        policy = git_policy(config) if base is None else git_policy(config, base)
     except ConfigError as exc:
         print(f"{PROG}: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY

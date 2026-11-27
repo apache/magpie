@@ -66,6 +66,22 @@ def test_lock_lives_in_the_personal_layer_never_the_tree(adopted: Path) -> None:
     assert path == adopted / ".apache-magpie-local" / "run" / "locks" / "issue-triage@apache__example.lock"
 
 
+def test_a_linked_worktree_locks_in_its_own_layer(tmp_path: Path) -> None:
+    """Never in the main checkout's layer, which a worktree's sandbox may only read."""
+    main = tmp_path / "main"
+    gitdir = main / ".git" / "worktrees" / "wt"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n")
+    (main / ".apache-magpie-local").mkdir()
+    (main / ".apache-magpie-local" / "project.md").write_text("x\n")
+    wt = tmp_path / "wt"
+    (wt / ".apache-magpie-local" / "run").mkdir(parents=True)  # bookkeeping only, e.g. the gateway's
+    (wt / ".git").write_text(f"gitdir: {gitdir}\n")
+    (wt / ".apache-magpie.lock").write_text("method: local\n")
+    path = lock_path(wt, "issue-triage", "apache/example")
+    assert path.parent == wt / ".apache-magpie-local" / "run" / "locks"
+
+
 def test_acquire_then_contend_then_release(adopted: Path) -> None:
     first = acquire(adopted, "issue-triage", "apache/example", now=NOW)
     assert first["status"] == "acquired"

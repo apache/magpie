@@ -54,7 +54,17 @@ from pathlib import Path
 
 from .core import LOCAL_METHOD, SNAPSHOT_METHODS, STAMP_NAME, Finding, configured_at_all, project_findings
 from .installed import read_installed
-from .layers import FRAMEWORK_ROOTS, LOCK_NAME, OVERRIDES_DIR, describe, personal_dir, personal_layers
+from .layers import (
+    FRAMEWORK_ROOTS,
+    LOCK_NAME,
+    OVERRIDES_DIR,
+    describe,
+    merged_stamp,
+    own_stamp,
+    personal_layers,
+    stamp_dir,
+    write_stamp,
+)
 from .lockfile import MalformedLock, load
 from .version import InvalidVersion, compare
 
@@ -67,16 +77,8 @@ MARKER = "magpie-plugin-version"
 
 
 def _load_stamp(root: Path) -> dict[str, object]:
-    """The stamp as read: personal layer first, then the legacy in-tree one."""
-    for layer in personal_layers(root):
-        try:
-            loaded = json.loads((layer / STAMP_NAME).read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            continue
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return loaded if isinstance(loaded, dict) else {}
-    return {}
+    """The stamp merged across the personal layers (`layers.merged_stamp`)."""
+    return merged_stamp(root)
 
 
 def _marker_paths(env: Mapping[str, str], home: Path) -> list[Path]:
@@ -247,14 +249,10 @@ def record(
     resolved = _valid(version) if version is not None else running_version(None, None, env, home, skill_dir)
     if resolved is None:
         raise ValueError("the running Magpie version cannot be read; pass --version")
-    stamp = _load_stamp(root)
+    stamp = own_stamp(root)
     block: dict[str, object] = {"version": resolved, "at": (today or date.today()).isoformat()}
     stamp[BLOCK] = block
-    path = personal_dir(root) / STAMP_NAME
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    write_stamp(stamp_dir(root), stamp)
     return block
 
 
@@ -389,6 +387,21 @@ def gather(
     }
 
 
+def _listing_needed(root: Path) -> bool:
+    """Whether `gather` has to run the harness plugin listing.
+
+    Only the marketplace branch reads it (the adoption floor), and a repo with
+    no lock may still be a marketplace install.  A framework checkout or a
+    pinned snapshot never consults it, and running it there reaches for the
+    harness's API, which the sandbox denies, for nothing.
+    """
+    try:
+        lock = load(root / LOCK_NAME)
+    except MalformedLock:
+        return False
+    return _install(lock.method if lock else None) not in {"local", "snapshot"}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.upgrade", description=__doc__.split("\n")[0])
     parser.add_argument("action", choices=["status", "record", "gather"])
@@ -406,7 +419,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root: Path = args.project_root
     if args.action == "gather":
-        harness, installed = read_installed(args.plugin_list)
+        if args.plugin_list is not None or _listing_needed(root):
+            harness, installed = read_installed(args.plugin_list)
+        else:
+            harness, installed = None, None
         print(json.dumps(gather(root, installed, harness), indent=2, sort_keys=True))
         return 0
     if args.action == "status":

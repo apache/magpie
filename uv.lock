@@ -145,7 +145,7 @@ wheels = [
 
 [[package]]
 name = "apache-magpie"
-version = "0.9.0.dev202611221021"
+version = "0.9.0.dev202611262347"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -674,6 +674,7 @@ version = "0.1.0"
 source = { editable = "tools/cve-tool-vulnogram/generate-cve-json" }
 dependencies = [
     { name = "github-body-field" },
+    { name = "release-config" },
 ]
 
 [package.dev-dependencies]
@@ -682,7 +683,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "github-body-field", editable = "tools/github-body-field" }]
+requires-dist = [
+    { name = "github-body-field", editable = "tools/github-body-field" },
+    { name = "release-config", editable = "tools/release-config" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]

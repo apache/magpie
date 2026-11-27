@@ -218,6 +218,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   repository of the project, merging items with repository-prefixed ids.
   `active-repos` keeps the `<slug>` / `<slug>-*` names from a candidate
   list that had a PR merged or an issue or PR opened in the window.
+  A candidate given as a URL may end in `/` or `.git` (#2312).
   `score` applies weights and the penalty and returns per-area shares
   (with an `(unlabelled)` row), merge rate, a monthly timeline, and
   which streams hit their search cap; `--since` scores a sub-window

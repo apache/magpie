@@ -85,7 +85,7 @@ class Verdict:
 def _approve_by_default_rules(entry: LLMEntry) -> Verdict | None:
     """Return a verdict if the entry matches a default-approved rule;
     otherwise ``None`` (the caller falls back to the opt-in match)."""
-    if _CLAUDE_CODE_MATCH in entry.raw.lower():
+    if entry.url is None and _CLAUDE_CODE_MATCH in entry.raw.lower():
         return Verdict(entry, True, "Claude Code itself (default-approved)")
     if entry.url is not None:
         host = host_of(entry.url)
@@ -110,26 +110,28 @@ def _approve_by_opt_in(entry: LLMEntry, opt_in: list[OptInEntry]) -> Verdict:
     """Match ``entry`` against the adopter's opt-in registry.
 
     A match requires either:
-    - the entry's URL appears in the opt-in entry's ``name`` (free-text), OR
-    - the entry's first non-URL token sequence matches the opt-in entry's name
-      (case-insensitive substring on either side).
+    - the opt-in entry's ``name`` carries a URL or a leading hostname, and
+      that host equals the host of the entry's URL exactly, OR
+    - the opt-in entry's ``name`` carries no host, and it (or its short
+      name) appears in the entry's raw text (case-insensitive).
+
+    An opt-in entry that names a host never matches an entry without a URL.
 
     A *valid* match additionally requires the opt-in entry to carry
     a non-empty ``Data-residency contract`` and ``Approved-by`` line.
     """
     raw_lc = entry.raw.lower()
-    url_lc = entry.url.lower() if entry.url else ""
+    entry_host = host_of(entry.url) if entry.url else None
     for opt in opt_in:
-        name_lc = opt.name.lower()
-        # Match if either the bullet's raw text contains the opt-in
-        # name, or vice versa, or the URL is a substring of the
-        # opt-in name (or vice versa).
-        if not (
-            name_lc in raw_lc
-            or _shortname(name_lc) in raw_lc
-            or (url_lc and (url_lc in name_lc or name_lc in url_lc))
-        ):
-            continue
+        opt_host = _extract_opt_in_host(opt.name)
+        if opt_host is not None:
+            # Host-bound opt-in: the same exact-host rule check_endpoint() applies.
+            if entry_host is None or entry_host != opt_host:
+                continue
+        else:
+            name_lc = opt.name.lower()
+            if not (name_lc in raw_lc or _shortname(name_lc) in raw_lc):
+                continue
         if not opt.data_residency:
             return Verdict(
                 entry,
@@ -158,8 +160,10 @@ def _approve_by_opt_in(entry: LLMEntry, opt_in: list[OptInEntry]) -> Verdict:
 def _shortname(name_lc: str) -> str:
     """Heuristic: take the leading word(s) before the first ``—`` /
     ``-`` / ``,`` / ``(`` so that ``aws bedrock — eu-central-1``
-    matches a stack bullet that just says ``aws bedrock``."""
-    for sep in (" — ", " - ", ",", "(", ":"):
+    matches a stack bullet that just says ``aws bedrock``.
+
+    ``:`` is not a separator, so a URL-shaped name is kept whole."""
+    for sep in (" — ", " - ", ",", "("):
         if sep in name_lc:
             return name_lc.split(sep, 1)[0].strip()
     return name_lc

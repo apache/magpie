@@ -162,10 +162,10 @@ def unreadable(path: Path) -> None:
 def test_a_complete_install_passes_every_mechanical_check(setup) -> None:
     report = verifier(setup).run()
     statuses = {f["check"]: f["status"] for f in report["findings"]}
-    assert [f["check"] for f in report["findings"]] == [str(n) for n in range(1, 20)]
+    assert [f["check"] for f in report["findings"]] == [str(n) for n in range(1, 22)]
     for n in ("1", "2", "3", "4", "5", "6", "8", "11"):
         assert statuses[n] == "pass", (n, finding(verifier(setup), n))
-    assert statuses["7"] == statuses["18"] == statuses["14"] == "manual"
+    assert statuses["7"] == statuses["18"] == statuses["14"] == statuses["20"] == statuses["21"] == "manual"
     assert report["facts"]["framework_found_via"] == "this repository"
 
 
@@ -174,7 +174,7 @@ def test_cli_prints_the_report(setup, capsys, monkeypatch) -> None:
     monkeypatch.setattr(isolated_verify, "_run", Fake())
     assert isolated_verify.main(["check", "--project-root", str(root)]) == 0
     printed = json.loads(capsys.readouterr().out)
-    assert len(printed["findings"]) == 19
+    assert len(printed["findings"]) == 21
 
 
 # -- check 1 ----------------------------------------------------------------

@@ -58,6 +58,33 @@ def test_claude_code_match_is_case_insensitive():
     assert v.approved is True
 
 
+def test_claude_code_framework_skills_bullet_is_approved():
+    [v] = check.check_stack(
+        _cfg([LLMEntry(raw="Claude Code (the agent running framework skills)", url=None)])
+    )
+    assert v.approved is True
+    assert "Claude Code" in v.reason
+
+
+def test_claude_code_bullet_with_third_party_url_needs_opt_in():
+    stack = [
+        LLMEntry(
+            raw="Claude Code via gateway at https://gateway.vendor-a.example/v1",
+            url="https://gateway.vendor-a.example/v1",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack))
+    assert v.approved is False
+    assert "no default-approval rule matches" in v.reason
+
+
+def test_claude_code_bullet_with_local_url_is_approved_as_local():
+    stack = [LLMEntry(raw="Claude Code via http://127.0.0.1:8080/", url="http://127.0.0.1:8080/")]
+    [v] = check.check_stack(_cfg(stack))
+    assert v.approved is True
+    assert "local-only inference" in v.reason
+
+
 def test_localhost_is_approved():
     for host in ("http://127.0.0.1:11434/", "http://localhost:8000/v1/", "http://[::1]:8080/"):
         [v] = check.check_stack(_cfg([LLMEntry(raw=f"Local at {host}", url=host)]))
@@ -242,27 +269,98 @@ def test_grok_harness_rejected_with_placeholder_approved_by():
     assert "placeholder" in v.reason.lower()
 
 
-def test_grok_proxy_stack_matches_api_opt_in_by_provider_name():
-    """Pin existing matching granularity: _shortname() matches 'grok', so the
-    PMC's approval note is the authority defining which endpoint/auth path is covered.
-    """
+def test_grok_proxy_stack_needs_its_own_host_opt_in():
+    """An opt-in naming a URL covers that URL's host only: the API opt-in does not
+    cover the session proxy, and an opt-in for the proxy host does."""
     stack = [
         LLMEntry(
             raw="Grok (session proxy at https://cli-chat-proxy.grok.com)",
             url="https://cli-chat-proxy.grok.com",
         )
     ]
-    opt_in = [
-        OptInEntry(
-            name="Grok — xAI API (https://api.x.ai/v1)",
-            data_residency="https://docs.x.ai/ (ZDR confirmed in xAI console)",
-            approved_by="JP 2026-11-16",
+    api_opt_in = OptInEntry(
+        name="Grok — xAI API (https://api.x.ai/v1)",
+        data_residency="https://docs.x.ai/ (ZDR confirmed in xAI console)",
+        approved_by="JP 2026-11-16",
+    )
+    [v] = check.check_stack(_cfg(stack, [api_opt_in]))
+    assert v.approved is False
+    assert "no default-approval rule matches" in v.reason
+
+    proxy_opt_in = OptInEntry(
+        name="Grok — session proxy (https://cli-chat-proxy.grok.com)",
+        data_residency="https://docs.x.ai/ (ZDR confirmed in xAI console)",
+        approved_by="JP 2026-11-16",
+    )
+    [v] = check.check_stack(_cfg(stack, [api_opt_in, proxy_opt_in]))
+    assert v.approved is True
+    assert "session proxy" in v.reason
+
+
+def _vendor_a_opt_in(name: str = "https://api.vendor-a.example") -> OptInEntry:
+    return OptInEntry(name=name, data_residency="Vendor A DPA", approved_by="ABC 2026-04-01")
+
+
+def test_bare_url_opt_in_approves_its_own_host():
+    stack = [
+        LLMEntry(
+            raw="Vendor A at https://api.vendor-a.example/v1",
+            url="https://api.vendor-a.example/v1",
         )
+    ]
+    [v] = check.check_stack(_cfg(stack, [_vendor_a_opt_in()]))
+    assert v.approved is True
+    assert "opt-in entry" in v.reason
+
+
+def test_bare_url_opt_in_does_not_approve_another_https_host():
+    stack = [
+        LLMEntry(
+            raw="Vendor B at https://api.vendor-b.example/v1",
+            url="https://api.vendor-b.example/v1",
+        )
+    ]
+    [v] = check.check_stack(_cfg(stack, [_vendor_a_opt_in()]))
+    assert v.approved is False
+    assert "no default-approval rule matches" in v.reason
+
+
+def test_url_opt_in_does_not_approve_host_sharing_its_prefix():
+    stack = [
+        LLMEntry(
+            raw="Vendor A mirror at https://api.vendor-a.example.other.test/v1",
+            url="https://api.vendor-a.example.other.test/v1",
+        )
+    ]
+    for name in ("https://api.vendor-a.example", "Vendor A (https://api.vendor-a.example)"):
+        [v] = check.check_stack(_cfg(stack, [_vendor_a_opt_in(name)]))
+        assert v.approved is False, name
+
+
+def test_url_opt_in_does_not_approve_entry_without_url():
+    stack = [LLMEntry(raw="Vendor A", url=None)]
+    [v] = check.check_stack(_cfg(stack, [_vendor_a_opt_in("Vendor A (https://api.vendor-a.example)")]))
+    assert v.approved is False
+
+
+def test_name_only_opt_in_still_matches_entry_with_url():
+    stack = [
+        LLMEntry(
+            raw="AWS Bedrock at https://bedrock-runtime.eu-central-1.amazonaws.com/",
+            url="https://bedrock-runtime.eu-central-1.amazonaws.com/",
+        )
+    ]
+    opt_in = [
+        OptInEntry(name="AWS Bedrock — eu-central-1", data_residency="AWS DPA", approved_by="ABC 2026-04-01")
     ]
     [v] = check.check_stack(_cfg(stack, opt_in))
     assert v.approved is True
-    assert "opt-in entry" in v.reason
-    assert "Grok" in v.reason
+    assert "AWS Bedrock" in v.reason
+
+
+def test_shortname_keeps_url_shaped_name_whole():
+    assert check._shortname("https://api.vendor-a.example") == "https://api.vendor-a.example"
+    assert check._shortname("aws bedrock — eu-central-1") == "aws bedrock"
 
 
 # -- CLI exit codes ---------------------------------------------------

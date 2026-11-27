@@ -142,6 +142,18 @@ repeated on every upgrade. If the file cannot be written, skip the record. It co
 marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
 here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
 the companion page is where they find one.
+The *Apache Incubator skills* offer that closes
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) item 3
+runs here too, by the same rules, which that paragraph spells out: only
+when `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+prints `true`; only on Claude Code, Codex or Copilot; the skills the ASF
+catalogue (`organizations/ASF/skill-sources.md`, fetched from
+`raw.githubusercontent.com/apache/magpie/main/` on a marketplace install)
+lists for this agent, minus those its plugin list shows, and nothing at all
+when none is left; the marketplace's add command and
+`<skill>@apache-incubator`, printed and never run, saying that they track
+`apache/incubator`'s main branch with no pin Magpie verified; recorded once as
+`apache-incubator <agent>` in the same file, skipped when that line is there.
 
 Before reconciling, [refresh the pre-flight checker](#refresh-the-pre-flight-checker) from the newly updated, trusted `magpie-setup` plugin. Follow its marketplace source and cache installation rules, including the user-run terminal step when the plugin cache is inaccessible inside the sandbox. Verify that `setup_preflight.organization_network` and its bundled ASF fragment are present in the refreshed checker. If refresh fails, stop the ASF reconciliation rather than falling back to a stale checker.
 
@@ -537,7 +549,62 @@ up to date:
    - in any project, the MCP tools from
      [`family-mcp-allows.json`](setup_preflight/family-mcp-allows.json) for each family
      installed on this machine **but not** in the lock's `plugins`
-     (an adopted family's tools are already committed).
+     (an adopted family's tools are already committed), and not hidden here:
+     leave out a family whose project settings already set it `false`,
+     and one the next part hides.
+
+   **Families enabled for the user but not adopted here** (projects adopted with a marketplace floor, Claude Code).
+   A family enabled in the user-scope `~/.claude/settings.json` loads in every project, floor or not.
+   Absence from the floor never means *disable*: a maintainer may run a family here on purpose
+   (see [`adopt.md` → `magpie-contributor-growth` is not adoptable by default](adopt.md#magpie-contributor-growth-is-not-adoptable-by-default)).
+   So ask, once per family:
+
+   ```bash
+   PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.local_families candidates --project-root "$(git rev-parse --show-toplevel)"
+   ```
+
+   - `"reason": "not-adopted"` → skip this part in silence.
+   - `"reason": "lock-unreadable"` → say in one line that the lock at `path` cannot be parsed, so this check could not run.
+   - `"reason": "user-settings-unreadable"` → **never skip it in silence.**
+     The sandbox usually hides the user-scope settings file at `path` (`$CLAUDE_CONFIG_DIR/settings.json` when that is set),
+     as denied or as missing.
+     Read that file with the harness's own file-read tool (from `setup-upgrade`, a `[bypass]` *Check* item).
+     Never copy it anywhere: it can hold credentials in `env`, hooks and MCP server settings.
+     Pass only its `enabledPlugins` object, wrapped as `{"enabledPlugins": {…}}` (a bare object is refused), on stdin, to `candidates` again:
+     `printf '%s' '{"enabledPlugins": {…}}' | … candidates --project-root … --user-settings -`.
+     If the file does not exist, nothing is enabled at user scope: pass `{"enabledPlugins": {}}` the same way,
+     so nothing is asked but a hide the project has since adopted is still offered under `restore`.
+     If `path` is `null` or the file cannot be read either, say in one line that this check could not run, and why.
+   - `"reason": "project-settings-unreadable"` → say in one line that the project settings file at `path` could not be read,
+     so this check could not run.
+     In a linked worktree it may be the main checkout's: the worktree is granted a read of it only by
+     `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` run from the main checkout,
+     so a denied read there means that run is still due; give the user that command for their own terminal.
+   - Each plugin in `ask` → **keep it here**, or **hide it here**.
+     A hide adds `"<plugin>@apache-magpie": false` under `enabledPlugins` to the proposed local entries.
+     With `"main_checkout": true`, say that the hide also covers this checkout's linked worktrees,
+     which load the main checkout's settings first.
+     Otherwise say that it covers this worktree only: the answer is recorded here, and other worktrees inherit only what the main checkout records.
+   - Each plugin in `apply` was already hidden in another worktree.
+     Add the same `false` entry without asking again, and say so in one line.
+   - Each plugin in `restore` was hidden by Magpie and has been adopted since: that `false` now outranks the committed floor.
+     Propose removing the `"<plugin>@apache-magpie": false` entry from the file `restore_files` names
+     (this checkout's own `.claude/settings.local.json`), and say why in one line.
+   - Each plugin in `restore_in_main` is the same case, but the hide is in the main checkout's settings file (`restore_in_main_files`).
+     Say in one line that it is restored by running this step from the main checkout, where the hide is recorded; propose nothing here.
+     If the main checkout's branch has not adopted the family yet, that run will not offer it either:
+     name the `"<plugin>@apache-magpie": false` entry and the file, for the user to remove by hand if they want it in this worktree now.
+   - Leave each family that is hidden, or that the user chose to hide, out of the MCP allows above.
+   - Record each answer with
+     `python3 -P -m setup_preflight.local_families record --plugin <plugin> --choice keep|disable|restored`
+     (same `PYTHONPATH`, same `--project-root`):
+     a `keep` as soon as the user gives it, since it changes no file;
+     a `disable` (asked or carried over) or a `restored` only once the user confirms the copy in step 4.
+     A `keep` is never asked again; a `disable` is carried to new worktrees;
+     after a `restored`, a family the floor drops again is asked about anew.
+     Answers are written to this checkout's own personal layer and inherited from the main checkout's, never written there.
+   - Never propose a family the checker did not list: it already leaves out the floor, substrate plugins,
+     and every `enabledPlugins` entry a project settings file already sets.
 
 2. **Compare with `.claude/settings.local.json`.** Drop any proposed
    entry the committed `.claude/settings.json` already contains (in the
@@ -547,8 +614,11 @@ up to date:
    for existing entries as well as new ones. Once the user confirms the copy,
    record the template, selected ASF fragment and registry entries under
    `local_settings`, keyed by this worktree's root
-   (`git rev-parse --show-toplevel`), in the personal layer's
-   `reconciled.json`; an entry recorded there that
+   (`git rev-parse --show-toplevel`), in the `reconciled.json` of this
+   checkout's own stamp directory (`stamp_dir`, which
+   `python3 -P -m setup_preflight.layers` prints; never `personal_dir`,
+   which in a linked worktree is the main checkout's, read-only from here);
+   an entry recorded there that
    the current template and registry no longer propose was dropped
    upstream, so ask before removing it. An entry that was never recorded
    is the user's own: never touch it.
@@ -1086,6 +1156,33 @@ snapshots are a separate, sibling tree — see
 [Step 3](#step-3--delete-the-old-snapshot), which deletes only
 `.apache-magpie/`):
 
+0. **Curated pins that moved.** The organization's catalogue is
+   `<snapshot-dir>/organizations/<org>/skill-sources.md` in the snapshot this
+   run put in place, or, for an organization Magpie does not ship,
+   `<project-config>/.apache-magpie-overrides/organizations/<org>/skill-sources.md`
+   (`<org>` from the resolved `project.md`; when neither file exists, as for
+   `independent`, skip this item). Compare it with the trust list, with
+   `PYTHONPATH` the installed pre-flight checker's parent directory, as for
+   every pre-flight call in this file:
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.skill_sources pins --project-root . --trust-list <project-config>/skill-sources.md --catalogue <catalogue>`.
+   For each `moved` row, show the change and ask whether to take it: the
+   trust-list entry's `ref` and its anchor (the row's `anchor_key`: `commit`
+   for a git tag, `sha512` for an archive) become the row's `curated_ref`
+   and `curated_anchor`, and the source's `.apache-magpie.sources.lock`
+   block the same. On a yes, make exactly those edits and `git add` both
+   files; never commit, since the adopter's commit is the act of vouching
+   for the new pin. Then leave that source out of items 1–3 for the rest of
+   this run: nothing is fetched from a pin nobody has committed. Say that
+   `/magpie-setup skill-sources`, run once the bump is committed, fetches the
+   new version and verifies it against the new anchor (and that
+   `git restore --staged` plus `git checkout --` on the two files undo it).
+   On a no, run
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.skill_sources decline --project-root . --id <id> --curated-ref <curated_ref>`,
+   so the same bump is not proposed again until the curator moves past it.
+   Report a `tag-moved` row as a warning (the source re-pointed a tag the
+   project pinned: never re-pin to it without checking why), and say
+   nothing for `same`, `adopter-ahead`, `declined`, `not-curated` and
+   `not-comparable`.
 1. **Source drift.** For each source, compare its
    `.apache-magpie.sources.lock` block (committed pin) against its
    `.apache-magpie.sources.local.lock` block (what this machine
@@ -1101,7 +1198,20 @@ snapshots are a separate, sibling tree — see
    [Step 6](#step-6--refresh-framework-skill-symlinks).
 3. **Update the source local lock** to the new fetch fingerprint.
 
-Nothing happens when the trust list is absent or empty. Because
+Nothing happens when the trust list is absent or empty.
+
+**The Apache Incubator, once.** Whatever the trust list holds, when
+`PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`
+prints `true` and the trust list names no `apache-incubator-` source, say
+in one line that the ASF curates the Apache Incubator's skills: the new
+snapshot's `organizations/ASF/skill-sources.md` lists them, and a project
+that trusts one adds it to `<project-config>/skill-sources.md` and runs
+`/magpie-setup skill-sources`. Record it as an `apache-incubator snapshot`
+line in `~/.cache/apache-magpie/companions-offered`, skip it when that line
+is there, and if the file cannot be written, skip the record and say
+nothing.
+
+Because
 each worktree shares main's `.apache-magpie-sources/` through the
 snapshot symlink [`worktree-init`](worktree-init.md) seeds
 (alongside `<snapshot-dir>`), the refreshed source **content** is

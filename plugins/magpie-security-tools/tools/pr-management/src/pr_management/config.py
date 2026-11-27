@@ -73,6 +73,8 @@ DEFAULT_MARKER = "Pull Request quality criteria"
 CONFIRMATION_MARKER = "ready for maintainer review confirmation"
 FOLD_OPEN = "pr-triage-fold"
 FOLD_CLOSE = "/pr-triage-fold"
+#: The first line of every triage comment: what the agent-guard `mention` guard keys on.
+COMMENT_MARKER = "<!-- pr-triage -->"
 
 
 @dataclass(frozen=True)

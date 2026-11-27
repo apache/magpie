@@ -18,6 +18,7 @@
 // under the License.
 
 import { CANONICAL_FORBIDDEN_TERMS, type CanonicalForbiddenTerm } from './forbidden-terms.js';
+import { register as registerSecurityTriageQueuePane } from './security-triage-queue-pane.js';
 
 /**
  * Single canonical forbidden-term regexes for public surfaces, derived directly
@@ -2223,7 +2224,7 @@ export function vettedRouteHint(parsed: ParsedSubcommand): string | undefined {
   const grant =
     'The calling skill needs that operation in its `[callers]` list in ' +
     '`.apache-magpie-overrides/tools/vetted-ops/config.toml`, and adding it is a maintainer\'s change. ' +
-    'The body file goes under `~/.cache/apache-magpie/vetted-ops-bodies/` (see tools/vetted-ops/README.md).';
+    'The body file goes under the policy\'s `workspace` (`vetted-op-read policy` prints it; see tools/vetted-ops/README.md).';
 
   const advisoryComments = endpoint.match(
     /^repos\/[^/]+\/[^/]+\/security-advisories\/(GHSA-[0-9a-z-]+)\/comments(\/\d+)?\/?$/i,
@@ -2878,6 +2879,8 @@ export function register(on: any): void {
       return next(e);
     }
   });
+
+  registerSecurityTriageQueuePane(on);
 }
 
 export default register;

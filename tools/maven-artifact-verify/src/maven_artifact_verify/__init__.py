@@ -964,7 +964,11 @@ def main(argv: list[str] | None = None) -> int:
         "Stdlib-only and offline; prints one JSON report.",
     )
     parser.add_argument("staged_dir", type=Path, help="directory holding the staged .pom / .jar artefacts")
-    parser.add_argument("--digests", default="sha512", help="comma-separated digest types companions must carry (default: sha512)")
+    parser.add_argument(
+        "--digests",
+        default="sha512",
+        help="comma-separated digest types companions must carry; at least one type is required (default: sha512)",
+    )
     parser.add_argument("--podling", action="store_true", help="project is incubating: check 2 requires the incubation disclaimer in every <description>")
     args = parser.parse_args(argv)
 
@@ -982,6 +986,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     digests = [d.strip() for d in args.digests.split(",") if d.strip()]
+    if not digests:
+        print(
+            json.dumps(
+                {
+                    "tool": "maven-artifact-verify",
+                    "status": "FAIL",
+                    "artefact_dir": str(args.staged_dir),
+                    "findings": ["--digests names no digest type: companions must carry at least one checksum (e.g. --digests sha512)"],
+                }
+            )
+        )
+        return 2
+
     report = verify_staged_dir(args.staged_dir, digests, args.podling)
     print(json.dumps(report, indent=2))
     return 0 if report["status"] != "FAIL" else 1

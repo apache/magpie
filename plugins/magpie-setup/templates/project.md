@@ -559,7 +559,10 @@ ledger issue from all tracker classification. Closes handled by
 
 Optional, per-project — where the project records each published CVE in its own published security records
 (the site repository its security pages are built from),
-so that `security-issue-sync` can propose the change once cve.org shows the CVE published.
+so that `security-issue-sync` can propose the change in the pass that records the advisory's public announcement
+(and check it again once cve.org shows the CVE published).
+Under the secure agent setup, pull-request mode publishes through `vetted-op-git` with the site repository's own policy;
+`/magpie-setup:setup config` proposes what that needs.
 Leave the block out and the step is skipped with a one-line note; the security-pages checklist reminder stays as it is
 when `security_pages_url` is set, and there is no reminder at all when it is not.
 The deterministic part is `advisory-records` in

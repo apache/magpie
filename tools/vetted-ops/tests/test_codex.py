@@ -37,7 +37,9 @@ def test_rules_keep_stable_path_and_never_allow_writes(tmp_path: Path) -> None:
     text = render_rules(stable)
     assert str(target) not in text
     assert text.count('decision = "allow"') == 2
-    assert text.count('decision = "prompt"') == 6
+    assert text.count('decision = "prompt"') == 10
+    assert '"vetted-op-tracker-batch-unprompted"], decision = "prompt"' in text
+    assert '"vetted-op-tracker-batch"], decision = "prompt"' in text
     assert '"vetted-op-git"], decision = "prompt"' in text
     assert str(stable) in text
 
@@ -52,6 +54,12 @@ def test_cli_prints_without_installing(tmp_path: Path, capsys: pytest.CaptureFix
     assert main(["--tool-root", str(absent)]) == 0
     assert str(absent) in capsys.readouterr().out
     assert not absent.exists()
+
+
+def test_cli_refuses_abbreviated_options(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--tool", str(tmp_path)])
+    assert exc.value.code == 2
 
 
 @pytest.mark.skipif(shutil.which("codex") is None, reason="native Codex evaluator unavailable")

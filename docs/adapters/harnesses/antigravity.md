@@ -12,6 +12,7 @@
   - [Security model](#security-model)
     - [Terminal sandbox boundaries](#terminal-sandbox-boundaries)
     - [What asks and what denies](#what-asks-and-what-denies)
+    - [ASF hosts for ASF projects](#asf-hosts-for-asf-projects)
     - [Deterministic guard rules](#deterministic-guard-rules)
   - [Reuse framework MCP servers](#reuse-framework-mcp-servers)
   - [Spec-loop runner](#spec-loop-runner)
@@ -97,7 +98,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
    If the operator retains any, report that the permissions remain
    globally effective across repositories. Do not automatically add
    ASF project-specific permissions to this user-scope profile.
-   Antigravity has no project-level grant yet, so ASF hosts are not pre-approved on this harness, even for an ASF project ([#2003](https://github.com/apache/magpie/issues/2003)).
+   User-scope rules apply to every repository, so ASF hosts are never pre-approved here; `agent-iso agy` passes them for one session instead ([ASF hosts for ASF projects](#asf-hosts-for-asf-projects)).
    Leave `agentMode` unset (or `plan`): `accept-edits` and `auto` approve edits or commands without review.
 4. **Register the guard.** Merge the `magpie-agent-guard` entry from the shipped `hooks.json`, with the path resolved in step 1.
    Keep exactly one effective guard registration; propose correcting a stale or duplicate entry instead of appending another.
@@ -105,7 +106,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
 5. **Validate and launch.** Lint the merged files, then start a new session through the wrapper and complete [Verify](#verify).
 
 ```bash
-source "<framework>/tools/agent-isolation/agent-iso.sh"
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 uv run --project "<framework>/tools/sandbox-lint" sandbox-lint \
   --antigravity ~/.gemini/antigravity-cli/settings.json \
   --antigravity-hooks ~/.gemini/config/hooks.json
@@ -173,6 +174,35 @@ Rules apply with **Deny > Ask > Allow** precedence, on top of the account's perm
 Command rules match word by word as a literal prefix.
 Command substitution, redirection and similar constructs force an exact full-line match, so they fall back to the default ask.
 Prefix rules are a friction layer, not a shell parser; the guard and the sandbox are the enforcement layers.
+
+### ASF hosts for ASF projects
+
+Antigravity keeps its permission rules in one user-scope file, `~/.gemini/antigravity-cli/settings.json`, so a `read_url(...)` rule there applies to every repository.
+The neutral profile therefore grants no ASF host ([#2003](https://github.com/apache/magpie/issues/2003)).
+
+Instead, `agent-iso agy` passes the hosts for one session with `agy --settings`, which applies settings to that session only and never saves them.
+It does so only when the launch is inside a git checkout whose resolved `project.md` holds one explicit `organization: ASF` declaration, the same check and the same reviewed host list Claude Code's project-local settings use (`setup_preflight.organization_network` and its bundled fragment).
+The check runs outside the sandbox, so it is taken only from the Magpie plugin that Antigravity installed, `~/.gemini/config/plugins/magpie/`, which the shipped profile's `write_file(~/.gemini/config)` deny protects and no other harness's sandbox can reach, whichever wrapper copy you source; the selector must sit at exactly that path, with no symlink in it or anywhere under its `setup_preflight/` package.
+Without that plugin, no ASF host is granted.
+The checkout root is the nearest directory above the launch directory holding a `.git`, found without running `git`, so no `git` on `PATH`, no `GIT_*` variable and no `core.worktree` setting is involved.
+For the check, `python3` is taken from `PATH` only when its real path is outside the checkout, the launch directory and every directory above it (home, its parents and system install locations such as `/usr` and `/opt/homebrew` aside), temporary directories and `~/.cache`, so an active virtualenv's interpreter is never run outside the sandbox; sourcing the wrapper runs no Python at all.
+The check never runs code from the checkout being opened or from a cache an agent can write, and runs with a stripped environment and without site-packages, so an active virtualenv's startup code does not run either.
+Its answer counts only when it is exactly the reviewed host list; with no plugin, an error, or any other answer, the session starts without the hosts.
+A launch that does not start a session (`agy plugin …`, `agy mcp …`, `--version`, `--help`) is left alone.
+A `read_url(...)` domain opens the terminal sandbox's network to that host, so sandboxed commands in that session reach the ASF hosts and nothing more.
+The session settings repeat the `allow`, `ask` and `deny` lists and the sandbox switches (`enableTerminalSandbox`, `toolPermission`, `allowNonWorkspaceAccess`, `agentMode`) of the user-scope file and add one `read_url(<host>)` per ASF host, so every user rule still applies whether Antigravity merges or replaces them; a user-scope file that exists but cannot be read as those lists means no grant.
+Antigravity refuses a relative file path in `--settings` (`non-absolute file path`), so a workspace-relative `read_file(...)` or `write_file(...)` path such as `.env` is anchored at the launch directory and its real path and, for `ask` and `deny` rules, at the checkout root as well; `~` is anchored at the home directory.
+A relative path with glob characters, or a `~user` path, cannot be anchored without changing what it matches, so such a rule means no grant.
+A banner on stderr names the hosts.
+
+You approve it once per checkout, as Claude Code's setup proposes the same grant once per project.
+The first `agent-iso agy` in an ASF checkout asks on the terminal (Enter means yes) and records the answer in `~/.gemini/config/magpie-agy-asf`, outside every checkout and under the directory the shipped profile already denies agents writing, so nothing a session writes can approve it; the answer is keyed on the path and the identity of the checkout and its `.git` directory, so another repository cloned to the same path later is asked again; edit or delete a line there to change the answer.
+An interrupted prompt (Ctrl-D) declines for that launch only, without recording an answer.
+A launch with no terminal and no recorded answer starts without the hosts and says how to approve them.
+
+- `AGENT_ISO_ASF=1 agent-iso agy` grants them without asking, for an ASF checkout only.
+- `AGENT_ISO_ASF=0 agent-iso agy` starts without them.
+- A `--settings` of your own on the command line is passed through unchanged, with no ASF hosts added.
 
 ### Deterministic guard rules
 

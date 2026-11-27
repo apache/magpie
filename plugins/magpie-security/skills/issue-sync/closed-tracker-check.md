@@ -19,7 +19,7 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason}`
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, collaborators, public_advisory_url, advisory_records_configured, security_pages_configured, planner_exit, planner_result, planner_reason, site_recheck, refresh_pr_state, refresh_pr_lookup_failed}`
    and run `<sm> closed-announced`. `comments` are the 1a comments with their `author` and `authorAssociation`;
    `collaborators` is the tracker's collaborator list, for a backend whose comments carry no association.
    Only a comment by the team (`OWNER` / `COLLABORATOR`, or a login in `collaborators`) can carry the state markers below; pass the full collaborator list, since team members with access through a GitHub team show as `MEMBER`.
@@ -48,7 +48,12 @@ sync also records the CVE in the project's own security records — a site repos
 ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
 Without the block, record *"advisory records: not configured — skipped"* in the observed state and do nothing else.
 With it, `security_pages_reminder_pending` is always `false`: sync proposes the edit itself instead of reminding the release manager.
-`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists), `waiting_for_cve_org` (not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`.
+The record normally went to the site already, in the pass that recorded the advisory's announcement ([`post-advisory-records.md`](post-advisory-records.md)); this scan follows it up and catches the trackers that pass did not record.
+`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists and cve.org has not listed the CVE yet, or the check below is finished), `waiting_for_cve_org` (no record yet and not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`.
+Once cve.org lists a CVE the site already records, it prints `recheck`: compare the site's record with the one regenerated now, as [`post-advisory-records.md`](post-advisory-records.md) describes,
+and pass the result back as `site_recheck` (`unchanged`, `differs`, `unverified`, `failed`), which yields `recheck_unchanged` (propose the closing `advisory-records-recheck v1` comment), `refresh` (propose the refresh), `recheck_unverified` (a blocker: the entry cannot be compared) or `retry_recheck` (*"try again next sync"*).
+A refresh comment's pull request is then followed like the first one: `check_refresh_pr` (pass `refresh_pr_state`, or `refresh_pr_lookup_failed: true`), then `refresh_pr_open`, `refresh_pr_merged` (propose the `advisory-records-refresh-merged v1` comment), or, closed unmerged, `refresh` again with `refresh_pr_closed_url` and `refresh_attempt`.
+An `advisory-records-recheck v1` or `advisory-records-refresh-merged v1` comment (or a direct-mode refresh comment) ends the check, so the site's record is read once.
 With `advisory_records.publish: pull-request`, pass `advisory_records_publish: pull-request` too; the record then goes through a pull request,
 and the `advisory-records v1` comment names it, so `done` waits for an `advisory-records-merged v1` comment instead.
 `closed-announced` may first ask for that pull request's state, as two plain read-only commands (`<site repo>` is `pull_request.repo`, or the `owner/name` of a GitHub `repository` URL):
@@ -73,6 +78,12 @@ or the planner steps below, with `records_pr_closed_url` when only a closed pull
    ```bash
    uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json advisory-records --layout <layout> --working-copy <path> --path '<path template>' --record <scratch>/<CVE-ID>.json --cve-org-state PUBLISHED --date-published <datePublished> [--reported-date <date>] [layout flags]
    ```
+   In pull-request mode under the secure setup, add `--vetted-git --worktree-root <dir> --workspace <dir>` when the site policy is in place
+   (`uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --policy-from <site checkout> policy` prints its `worktree_roots` and `workspace`);
+   the commands are then `vetted-op-git` operations ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md#publishing-through-vetted-op-git)).
+   The plan then comes from the forge, never the site checkout: first save each file the record touches at the base branch with
+   `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --policy-from <site checkout> --save <name> repo-file <path> <base>`,
+   and pass `--from-saved <path>=<saved file>`, or `--site-absent <path>` for a 404; the planner refuses a path answered by neither.
    For `release-page`, pass `--reported-date` (the date of the first message on the *Security mailing list thread*).
    When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
    in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.

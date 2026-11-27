@@ -27,3 +27,10 @@ from security_management.shared import cve_tool
 def _plugin_link_present(monkeypatch: pytest.MonkeyPatch) -> None:
     """Render cve-tool commands as a plugin install would, whatever this host has."""
     monkeypatch.setattr(cve_tool, "stable_installed", lambda: True)
+
+
+@pytest.fixture(autouse=True)
+def _no_project_config(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Run each test from an empty directory, so `title_product_prefix`, when no
+    input names it, never resolves through the project the suite is run from."""
+    monkeypatch.chdir(tmp_path_factory.mktemp("cwd"))

@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "team_nudge",
+      "action": "Post a short status comment restating the open question (in scope of the Security Model, or hardening only?) and @-mentioning asmith; bwong is on do_not_ping and is not mentioned.",
+      "reason": "The triage proposal's question to asmith and bwong has had no answer for 13 days, past nudge_after_days (7), and no nudge for it is on the tracker yet."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "team_nudge_proposed": true
+}

@@ -674,6 +674,11 @@ def test_git_policy_defaults_and_protected_branches(tmp_path: Path) -> None:
         pytest.param({"checkouts": ["relative"]}, id="relative-checkout"),
         pytest.param({"checkouts": ["/"], "fork": "not a repo"}, id="bad-fork"),
         pytest.param({"checkouts": ["/"], "transport": "ftp"}, id="bad-transport"),
+        # `$` also matches before a final newline; each value must match whole.
+        pytest.param({"checkouts": ["/"], "fork": "me/project\n"}, id="fork-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "host": "github.com\n"}, id="host-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "upstream_remote": "upstream\n"}, id="remote-trailing-newline"),
+        pytest.param({"checkouts": ["/"], "pr_base": "main\n"}, id="pr-base-trailing-newline"),
     ],
 )
 def test_git_policy_refuses_malformed_tables(table: object) -> None:
@@ -818,6 +823,56 @@ def test_a_dry_run_against_an_unapproved_policy_runs_no_git(
     assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
     assert loads == [True, False]  # the approved policy is always tried first
     assert "no git command was run" in capsys.readouterr().out
+
+
+# The longest prefix of `--caller`, spelled by slicing so the spell checker passes it.
+CALLER_ONE_SHORT = "--caller"[:-1]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        ["--ca", "skill"],
+        ["--call", "skill"],
+        [CALLER_ONE_SHORT, "skill"],
+        ["--call=skill"],
+        ["--caller", "skill", "--call=other"],
+        ["--caller", "skill", CALLER_ONE_SHORT, "other"],
+        ["--caller", "skill", "--dry"],
+    ],
+)
+def test_abbreviated_long_options_are_not_accepted(
+    spelling: list[str], repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every long option is matched exactly, as the `--caller` count assumes; argparse refuses a prefix."""
+    argv = [*spelling, "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    with pytest.raises(SystemExit) as exc:
+        git_ops.main(argv, git=_ExplodingGit())
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("caller", [["--caller", "skill"], ["--caller=skill"]])
+def test_exact_caller_spellings_still_parse(
+    caller: list[str], policy: LocalPolicy, repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
+
+    def fake_load(*, approved_only: bool = False, **_: object) -> Config:
+        if approved_only:
+            raise ConfigError("the policy is not an approved copy")
+        return config
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    monkeypatch.setattr(git_ops, "git_policy", lambda _config: policy)
+    argv = [*caller, "--dry-run", "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
+
+
+def test_checks_refuses_abbreviated_options(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        checks.main(["--h", str(tmp_path), str(tmp_path / "paths")])
+    assert exc.value.code == 2
 
 
 def test_a_real_run_against_an_unapproved_policy_is_refused(
@@ -1120,6 +1175,115 @@ def test_failing_checks_record_nothing(
     assert not checks.stamp_path(workspace, wt).exists()
 
 
+def _unreadable_git_dir(tmp_path: Path) -> Path:
+    """A worktree whose `.git` points where nothing can be read, as a site checkout the sandbox denies."""
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {tmp_path / 'denied' / '.git' / 'worktrees' / '-'}\n")
+    return wt
+
+
+def test_checks_without_a_readable_git_dir_record_git_s_own_blob_ids(
+    tmp_path: Path, workspace: Path, repo: Path
+) -> None:
+    """No hooks configured: the record's ids are computed in-process and equal git's."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / "content").mkdir()
+    (wt / "content" / "a.json").write_text('{"a": 1}\n')
+    assert checks.unreadable_git_dir(wt) is not None
+    record = json.loads(
+        checks.record(wt, Path(_file(workspace, "p", "content/a.json\ngone.txt"))).read_text()
+    )
+    assert record["checks"] == "none"
+    (repo / "probe.json").write_text('{"a": 1}\n')
+    assert record["files"]["content/a.json"] == _git(repo, "hash-object", "--no-filters", "probe.json")
+    assert record["files"]["gone.txt"] == checks.DELETED
+
+
+def test_configured_checks_refuse_without_a_readable_git_dir(
+    tmp_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hook manager runs git: with the git directory out of reach the checks refuse, never pass unchecked."""
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1
+    assert not ran.exists()
+    assert not checks.stamp_path(workspace, wt).exists()
+
+
+def test_site_hooks_are_recorded_as_skipped_only_when_asked(
+    tmp_path: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wt = _unreadable_git_dir(tmp_path)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "a.txt").write_text("a")
+    ran = _fake_prek(tmp_path, monkeypatch, 0)
+    paths = _file(workspace, "p", "a.txt")
+    assert checks.main([str(wt), paths]) == 1  # without the opt-in: refused
+    assert checks.main([str(wt), paths, "--skip-site-hooks"]) == 0
+    assert not ran.exists()
+    record = json.loads(checks.stamp_path(workspace, wt).read_text())
+    assert record["checks"] == checks.SITE_HOOKS_SKIPPED
+    assert record["files"]["a.txt"] == checks.blob_id(b"a")
+
+
+def _skipped_hooks_commit(
+    git: Git, policy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> str:
+    """Stage and commit a change whose checks record says the site's hooks were skipped."""
+    wt = _linked(git, policy, repo)
+    (wt / ".pre-commit-config.yaml").write_text("repos: []\n")
+    (wt / "security").mkdir()
+    (wt / "security" / "a.json").write_text("{}\n")
+    paths = _file(workspace, "p", "security/a.json\n")
+    # As in a ~/.cache worktree of a checkout the sandbox denies.
+    monkeypatch.setattr(checks, "unreadable_git_dir", lambda _wt: tmp_git_dir)
+    checks.record(wt, Path(paths), skip_site_hooks=True)
+    git_ops.stage_paths(git, policy, {"worktree": str(wt), "paths_file": paths}, False)
+    message = _file(workspace, "m", "Add a record\n")
+    return git_ops.commit_staged(git, policy, {"worktree": str(wt), "message_file": message}, False)
+
+
+tmp_git_dir = Path("/nonexistent/.git/worktrees/-")
+
+
+def test_commit_accepts_skipped_site_hooks_under_a_site_policy_that_opts_in(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site = dataclasses.replace(
+        wpolicy, published_terms=("CVE",), published_paths=("security",), site_hooks="skip"
+    )
+    assert _skipped_hooks_commit(git, site, repo, workspace, monkeypatch).startswith("committed ")
+
+
+def test_commit_refuses_skipped_site_hooks_without_the_opt_in(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(GitRefused, match="site's hooks were skipped"):
+        _skipped_hooks_commit(git, wpolicy, repo, workspace, monkeypatch)
+
+
+def test_site_hooks_belong_to_a_records_site_policy_only(tmp_path: Path, approved: Path) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    site = {"checkouts": [checkout], "published_terms": ["CVE"], "published_paths": ["security"]}
+    assert git_ops.git_policy(_config({**site, "site_hooks": "skip"})).site_hooks == "skip"
+    assert git_ops.git_policy(_config(site)).site_hooks is None
+    with pytest.raises(ConfigError, match="records-site policy"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "site_hooks": "skip"}))
+    with pytest.raises(ConfigError, match='may only be "skip"'):
+        git_ops.git_policy(_config({**site, "site_hooks": "off"}))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\nsite_hooks = "skip"\n')
+    with pytest.raises(ConfigError, match="may not set site_hooks"):
+        git_ops.git_policy(_config(site))
+
+
+def test_a_readable_linked_worktree_still_uses_git(git: Git, wpolicy: LocalPolicy, repo: Path) -> None:
+    assert checks.unreadable_git_dir(_linked(git, wpolicy, repo)) is None
+
+
 def test_the_checks_command_is_never_excluded_from_the_sandbox() -> None:
     """It runs the working tree's hooks; out of the sandbox it would be the very escape it prevents."""
     settings = json.loads((REPO_ROOT / ".claude" / "settings.json").read_text())
@@ -1203,6 +1367,187 @@ def test_pr_create_refuses_a_protected_head_and_a_missing_fork(
 
 
 @dataclass
+class FakeForge:
+    """Answers the compare of the pull request's branch, then opens the pull request."""
+
+    files: list[str]
+    head: str
+    calls: list[list[str]] = dataclasses.field(default_factory=list)
+
+    def __call__(self, argv: list[str], env: dict[str, str], stdin: str) -> subprocess.CompletedProcess[str]:
+        self.calls.append(argv)
+        if any("/compare/" in a for a in argv):
+            out = json.dumps({"files": self.files, "head": self.head, "total": len(self.files)})
+            return subprocess.CompletedProcess(argv, 0, out, "")
+        return subprocess.CompletedProcess(argv, 0, "https://github.com/acme/project/pull/7\n", "")
+
+
+def _site(wpolicy: LocalPolicy, repo: Path) -> LocalPolicy:
+    _git(repo, "branch", "-f", "topic", "HEAD")
+    return dataclasses.replace(wpolicy, published_terms=("CVE id", "CVE"), published_paths=("security/json",))
+
+
+def test_pr_create_lets_a_published_records_identifier_through_where_the_policy_says(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    """A site policy names `published_terms`: the record's identifier passes, every other term stays refused."""
+    site = _site(wpolicy, repo)
+    fake = FakeForge(["security/json/CVE-2026-1234.json"], _git(repo, "rev-parse", "topic"))
+    git.gh_runner = fake
+    body = "Adds the published record of CVE-2026-1234:\n\n- `security/json/CVE-2026-1234.json`\n"
+    assert "pull/7" in _pr(git, site, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
+    with pytest.raises(GitRefused, match=r"never published.*advisory"):
+        _pr(git, site, repo, workspace, "Add CVE-2026-1234", "the advisory")
+    with pytest.raises(GitRefused, match="never published"):
+        _pr(git, wpolicy, repo, workspace, "Add CVE-2026-1234 to the security pages", body)
+    assert [any("/compare/" in a for a in call) for call in fake.calls] == [True, False]
+    assert "repos/acme/project/compare/main...me:topic" in fake.calls[0]
+    # A renamed file's old path counts as changed too, so a move out of a path
+    # outside `published_paths` is caught.
+    jq = fake.calls[0][fake.calls[0].index("--jq") + 1]
+    assert ".previous_filename" in jq
+
+
+@pytest.mark.parametrize(
+    ("files", "head", "reason"),
+    [
+        pytest.param(
+            ["security/json/a.json", "src/app.py"], None, "also changes src/app.py", id="outside-file"
+        ),
+        pytest.param(["security/jsonx/a.json"], None, "also changes", id="prefix-is-a-directory"),
+        pytest.param([], None, "no changed file", id="no-files"),
+        pytest.param(["security/json/a.json"], "0" * 40, "not at the local branch", id="other-head"),
+    ],
+)
+def test_pr_create_binds_the_exemption_to_the_records_paths(
+    git: Git,
+    wpolicy: LocalPolicy,
+    repo: Path,
+    workspace: Path,
+    files: list[str],
+    head: str | None,
+    reason: str,
+) -> None:
+    """A branch that changes anything else gets the normal scan: a source repository cannot use the exemption."""
+    site = _site(wpolicy, repo)
+    fake = FakeForge(files, head or _git(repo, "rev-parse", "topic"))
+    git.gh_runner = fake
+    with pytest.raises(GitRefused, match=f"exemption does not apply.*{reason}"):
+        _pr(git, site, repo, workspace, "Add CVE-2026-1234 to the security pages", "Adds a record.\n")
+    assert len(fake.calls) == 1  # the compare only; nothing opened
+
+
+def test_pr_create_without_an_exempted_term_asks_the_forge_nothing(
+    git: Git, wpolicy: LocalPolicy, repo: Path, workspace: Path
+) -> None:
+    site = _site(wpolicy, repo)
+    fake = FakeForge(["src/app.py"], "x")
+    git.gh_runner = fake
+    assert "pull/7" in _pr(git, site, repo, workspace, "feat: neat thing", "Does a neat thing.\n")
+    assert len(fake.calls) == 1
+
+
+def test_published_terms_name_only_a_records_identifier(tmp_path: Path, approved: Path) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    table = {
+        "checkouts": [checkout],
+        "published_terms": ["CVE id", "CVE"],
+        "published_paths": ["security/json/"],
+    }
+    policy = git_ops.git_policy(_config(table))
+    assert policy.published_terms == ("CVE id", "CVE")
+    assert policy.published_paths == ("security/json",)
+    assert git_ops.git_policy(_config({"checkouts": [checkout]})).published_terms == ()
+    with pytest.raises(ConfigError, match="published_terms may name only"):
+        git_ops.git_policy(_config({**table, "published_terms": ["advisory"]}))
+    with pytest.raises(ConfigError, match="needs published_paths"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "published_terms": ["CVE"]}))
+    with pytest.raises(ConfigError, match="only with published_terms"):
+        git_ops.git_policy(_config({"checkouts": [checkout], "published_paths": ["security"]}))
+
+
+@pytest.mark.parametrize("raw", ["/abs", "a/../b", "./a", "a/*", "a/[b]", "", "a//b"])
+def test_published_paths_are_relative_glob_free_prefixes(tmp_path: Path, approved: Path, raw: str) -> None:
+    checkout = str(Path(os.path.realpath(tmp_path)))
+    table = {"checkouts": [checkout], "published_terms": ["CVE"], "published_paths": [raw]}
+    with pytest.raises(ConfigError, match=r"published_paths (entries|must)"):
+        git_ops.git_policy(_config(table))
+
+
+def test_the_operator_file_cannot_let_terms_through(tmp_path: Path, approved: Path) -> None:
+    """`published_terms` is the project's decision, in the shared policy everyone approves."""
+    checkout = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{checkout}"]\npublished_terms = ["CVE"]\n')
+    with pytest.raises(ConfigError, match="may not set published_terms"):
+        git_ops.git_policy(_config(None))
+
+
+def test_policy_from_discovers_the_policy_in_the_named_directory(
+    policy: LocalPolicy, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, approved: Path
+) -> None:
+    config = dataclasses.replace(_config({}), callers={"skill": frozenset({"git-push-branch"})})
+    seen: list[object] = []
+
+    def fake_load(*, approved_only: bool = False, cwd: Path | None = None, **_: object) -> Config:
+        seen.append(cwd)
+        if approved_only:
+            raise ConfigError("the policy is not an approved copy")
+        return config
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    monkeypatch.setattr(git_ops, "git_policy", lambda _config, _base=None: policy)
+    site = Path(os.path.realpath(tmp_path))
+    _operator(approved, f'["acme/project"]\ncheckouts = ["{site}"]\n')
+    argv = ["--caller", "skill", "--policy-from", str(site), "--dry-run"]
+    argv += ["git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_OK
+    assert seen == [site, site]
+
+
+def test_policy_from_takes_only_a_checkout_the_operator_listed(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    approved: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An unlisted directory is refused before anything on disk is looked at: no probing of the host."""
+    looked: list[object] = []
+
+    def fake_load(**kw: object) -> Config:
+        looked.append(kw)
+        return _config({})
+
+    monkeypatch.setattr(git_ops, "load", fake_load)
+    listed = Path(os.path.realpath(tmp_path)) / "site"
+    _operator(approved, f'["acme/other"]\ncheckouts = ["{listed}"]\n')
+    argv = ["--caller", "skill", "--policy-from", str(tmp_path / "elsewhere"), "--dry-run"]
+    argv += ["git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+    assert "is not a checkout your" in capsys.readouterr().err
+    assert not looked
+    # Listed, but under another repository than the policy found there names.
+    argv[argv.index("--policy-from") + 1] = str(listed)
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+    assert "does not list" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        pytest.param(["--policy-from", "relative/dir"], id="relative"),
+        pytest.param(["--policy-from", "/does/not/exist"], id="missing"),
+        pytest.param(["--policy-from", "/", "--policy-from=/tmp"], id="twice"),
+    ],
+)
+def test_policy_from_refuses_a_relative_missing_or_repeated_directory(
+    spelling: list[str], repo: Path
+) -> None:
+    argv = ["--caller", "skill", *spelling, "git-push-branch", str(repo), "topic", "fork", "topic", "new"]
+    assert git_ops.main(argv, git=_ExplodingGit()) == git_ops.EXIT_POLICY
+
+
+@dataclass
 class FakePr:
     """`gh api repos/<upstream>/pulls/<N>`, answering with one pull request's head."""
 
@@ -1216,7 +1561,13 @@ class FakePr:
 
 def _contributor_pr(policy: LocalPolicy, repo: Path, **overrides: object) -> tuple[FakePr, str, str]:
     """A contributor's branch in their fork with one commit, and a local fixup on top of it."""
+    # The operations run git without the test's GIT_* identity, so a commit they
+    # make (a merge) needs one in the repository: Linux CI cannot guess one.
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
     _git(Path(policy.remotes), "init", "-q", "--bare", "alice__project.git")
+    # Upstream's pr_base, which a push of an upstream merge fetches to check the merge against.
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
     _git(repo, "checkout", "-q", "-b", "fixup")
     head = _commit(repo, "contribution")
     _git(repo, "push", "-q", policy.push_url("alice/project"), "HEAD:refs/heads/feature")
@@ -1599,7 +1950,13 @@ def test_switch_refuses_a_forged_upstream_history(git: Git, policy: LocalPolicy,
     forged = f"tree {tree}\nparent {topic}\nauthor t <t@example.org> 0 +0000\ncommitter t <t@example.org> 0 +0000\n\nx\n"
     # The upstream commit, as the repository now holds it: a child of the agent's branch.
     _forge_loose_object(repo, base, "commit", forged.encode())
-    assert _git(repo, "merge-base", "topic", base) == topic  # git itself is fooled
+    try:
+        fork = _git(repo, "merge-base", "topic", base)
+    except subprocess.CalledProcessError as refused:
+        # Depending on the release, git re-hashes the commit and refuses it, or trusts it.
+        assert "hash mismatch" in refused.stderr
+    else:
+        assert fork == topic  # git itself is fooled
     with pytest.raises(GitRefused, match="tampered with"):
         _switch(git, policy, repo, "topic")
     assert not (repo / ".claude" / "settings.json").exists()
@@ -2350,3 +2707,299 @@ def test_delete_fork_branch_dry_run_asks_and_changes_nothing(
     assert ":refs/heads/topic" in command and f"--force-with-lease=refs/heads/topic:{tip}" in command
     assert not fake.calls
     assert _fork_has(policy, "topic")
+
+
+# --- git-merge-upstream ----------------------------------------------------
+
+
+def _merge(
+    git: Git,
+    policy: GitPolicy,
+    worktree: Path,
+    onto: str,
+    expected: str,
+    dry_run: bool = False,
+    pr: str = "none",
+) -> str:
+    return git_ops.merge_upstream(
+        git, policy, {"worktree": str(worktree), "onto": onto, "expected": expected, "pr": pr}, dry_run
+    )
+
+
+def _upstream_moves_on(policy: LocalPolicy, repo: Path, back_to: str) -> str:
+    """A new commit on upstream main, published; checks `back_to` out again. Returns the new commit."""
+    _git(repo, "checkout", "-q", "main")
+    onto = _commit(repo, "upstream-new")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", back_to)
+    return onto
+
+
+def test_merge_into_a_pull_request_checks_only_the_maintainers_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    """The contributor's commits are theirs and unsigned by the user; only the fixup on top must be."""
+    signing, signer = _signing_git(tmp_path)
+    fake, head, _ = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:] == [fixup, onto]
+    assert fake.calls[0][4] == "repos/acme/project/pulls/42"
+    # Without the pull request, the contributor's unsigned commit is one the merge would vouch for.
+    _git(repo, "reset", "-q", "--hard", fixup)
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {head}"):
+        _merge(signing, policy, repo, onto, fixup)
+
+
+def test_merge_into_a_pull_request_still_checks_an_unsigned_fixup(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, _ = _signing_git(tmp_path)
+    fake, _, fixup = _contributor_pr(policy, repo)
+    signing.gh_runner = fake
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {fixup}"):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        pytest.param({"state": "closed"}, "not open", id="closed"),
+        pytest.param({"base_repo": "other/project"}, "not against", id="other-base"),
+        pytest.param({"head_sha": "0" * 40}, "does not build on", id="unknown-head"),
+        pytest.param({"head_sha": None}, "no head commit", id="no-head"),
+    ],
+)
+def test_merge_into_a_pull_request_refuses_what_the_forge_does_not_back(
+    policy: LocalPolicy, repo: Path, tmp_path: Path, overrides: dict[str, object], message: str
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    fake, _, _ = _contributor_pr(policy, repo, **overrides)
+    signing.gh_runner = fake
+    fixup = _sign_tip(repo, signer)
+    onto = _upstream_moves_on(policy, repo, "fixup")
+    with pytest.raises(GitRefused, match=message):
+        _merge(signing, policy, repo, onto, fixup, pr="42")
+    assert _git(repo, "rev-parse", "HEAD") == fixup
+
+
+@pytest.mark.parametrize("pr", ["0", "#42", "-1", "all"])
+def test_merge_upstream_pr_must_be_a_number_or_none(
+    git: Git, policy: LocalPolicy, repo: Path, pr: str
+) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match=r"pull request number|may not"):
+        _merge(git, policy, repo, onto, tip, pr=pr)
+
+
+def test_merge_upstream_merges_the_upstream_commit_into_the_topic(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    message = _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert _git(repo, "rev-list", "--parents", "-n", "1", merged).split()[1:] == [tip, onto]
+    assert _git(repo, "log", "-1", "--format=%s") == "Merge acme/project main into topic"
+    assert (repo / "topic-file").exists() and (repo / "upstream-file").exists()
+    assert f"{tip} -> {merged}" in message
+
+
+def test_merge_upstream_keeps_the_branch_history(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """Unlike a rebase, nothing on the branch is rewritten: the contributor's commits stay as they are."""
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    assert _git(repo, "merge-base", "--is-ancestor", tip, "HEAD") == ""
+
+
+def test_merge_upstream_conflict_is_aborted_and_named(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo, conflict=True)
+    with pytest.raises(git_ops.GitFailed) as caught:
+        _merge(git, policy, repo, onto, tip)
+    assert "conflicting paths: one" in caught.value.stderr
+    assert f"still at {tip}" in caught.value.stderr
+    assert _git(repo, "rev-parse", "HEAD") == tip
+    assert _git(repo, "status", "--porcelain") == ""
+    assert not (repo / ".git" / "MERGE_HEAD").exists()
+
+
+def test_merge_upstream_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    with pytest.raises(GitRefused, match="not the expected"):
+        _merge(git, policy, repo, onto, onto)
+    _git(repo, "checkout", "-q", "-b", "local-only", "main")
+    local = _commit(repo, "local")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", local)
+    _git(repo, "checkout", "-q", "topic")
+    with pytest.raises(GitRefused, match="is not on acme/project main"):
+        _merge(git, policy, repo, local, tip)
+    (repo / "topic-file").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _merge(git, policy, repo, onto, tip)
+    _git(repo, "checkout", "-q", "--", "topic-file")
+    _git(repo, "checkout", "-q", "main")
+    with pytest.raises(GitRefused, match="protected"):
+        _merge(git, policy, repo, onto, _git(repo, "rev-parse", "HEAD"))
+    assert _git(repo, "rev-parse", "topic") == tip
+
+
+def test_merge_upstream_of_a_branch_already_on_the_base_does_nothing(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    _merge(git, policy, repo, onto, tip)
+    merged = _git(repo, "rev-parse", "HEAD")
+    assert "nothing to merge" in _merge(git, policy, repo, onto, merged)
+    assert _git(repo, "rev-parse", "HEAD") == merged
+
+
+def test_merge_upstream_never_runs_hooks(git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "hook-ran"
+    tip, onto = _diverged(repo)
+    _hook(repo, "pre-merge-commit", marker, exit_code=1)
+    _hook(repo, "post-merge", marker)
+    _merge(git, policy, repo, onto, tip)
+    assert not marker.exists()
+
+
+def test_merge_upstream_signs_and_vouches_only_for_signed_commits(
+    policy: LocalPolicy, repo: Path, tmp_path: Path
+) -> None:
+    signing, signer = _signing_git(tmp_path)
+    _, onto = _diverged(repo)
+    unsigned = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(GitRefused, match=f"carry no good signature of yours: {unsigned}"):
+        _merge(signing, policy, repo, onto, unsigned)
+    tip = _sign_tip(repo, signer)
+    _merge(signing, policy, repo, onto, tip)
+    assert "fake" in _git(repo, "cat-file", "commit", "HEAD")
+
+
+def test_merge_upstream_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    tip, onto = _diverged(repo)
+    command = _merge(git, policy, repo, onto, tip, dry_run=True)
+    assert "merge" in command and "rerere.enabled=false" in command and onto in command
+    assert _git(repo, "rev-parse", "HEAD") == tip
+
+
+def test_push_pr_head_takes_upstream_merged_into_the_fixup(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    """`git-merge-upstream` on a contributor's branch, then the fast-forward of their head."""
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@example.org")
+    fake, head, _ = _contributor_pr(policy, repo)
+    git.gh_runner = fake
+    _git(repo, "checkout", "-q", "main")
+    for name in (f"upstream-{n}" for n in range(git_ops.MAX_FIXUP_COMMITS + 1)):
+        _commit(repo, name)
+    onto = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "push", "-q", policy.push_url("acme/project"), "main:refs/heads/main")
+    _git(repo, "checkout", "-q", "fixup")
+    fixup = _git(repo, "rev-parse", "HEAD")
+    _merge(git, policy, repo, onto, fixup)
+    merged = _git(repo, "rev-parse", "HEAD")
+    # More upstream commits than a fixup may add: they are upstream's, not the fixup's.
+    _push_head(git, policy, repo, head)
+    assert _remote_head(policy, "alice/project", "feature") == merged
+
+
+def test_merge_upstream_takes_back_a_merge_onto_a_branch_moved_as_it_started(
+    policy: LocalPolicy, repo: Path
+) -> None:
+    tip, onto = _diverged(repo)
+    plain = _runner(os.devnull)
+
+    def racing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "merge" in argv and "--abort" not in argv and "--is-ancestor" not in argv:
+            _commit(repo, "sneaked-in")
+        return plain(argv, env, cwd_fd)
+
+    raced = Git(runner=racing, protocols=("https", "ssh", "file"))
+    with pytest.raises(GitRefused, match="taken back off"):
+        _merge(raced, policy, repo, onto, tip)
+    assert _git(repo, "log", "-1", "--format=%s") == "sneaked-in"
+
+
+# --- git-switch-create -----------------------------------------------------
+
+
+def _switch_create(git: Git, policy: GitPolicy, worktree: Path, branch: str, dry_run: bool = False) -> str:
+    return git_ops.switch_create(git, policy, {"worktree": str(worktree), "branch": branch}, dry_run)
+
+
+def _upstream_moves_with_settings(repo: Path) -> str:
+    """Upstream main gains a commit that changes the settings; the checkout stays on an older branch."""
+    _git(repo, "checkout", "-q", "-b", "work")
+    _git(repo, "checkout", "-q", "-b", "upstream-next", "main")
+    upstream = _settings(repo, '{"v": 2}', "upstream moves settings")
+    _git(
+        repo,
+        "push",
+        "-q",
+        str(repo.parent / "remotes" / "acme__project.git"),
+        "upstream-next:refs/heads/main",
+    )
+    _git(repo, "checkout", "-q", "work")
+    _git(repo, "branch", "-q", "-D", "upstream-next")
+    return upstream
+
+
+def test_switch_create_starts_a_branch_where_upstream_is_now(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    upstream = _upstream_moves_with_settings(repo)
+    out = _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "fix-thing"
+    # Upstream's own settings arrive with the new branch.
+    assert (repo / ".claude" / "settings.json").read_text() == '{"v": 2}'
+    assert "created fix-thing at upstream main" in out
+
+
+def test_switch_create_ignores_a_local_ref_naming_another_upstream(
+    git: Git, policy: LocalPolicy, repo: Path
+) -> None:
+    """The start is asked of the policy's URL, never read from `refs/remotes/upstream/main`."""
+    upstream = _upstream_moves_with_settings(repo)
+    planted = _commit(repo, "agent-made")
+    _git(repo, "update-ref", "refs/remotes/upstream/main", planted)
+    _git(repo, "reset", "-q", "--hard", "HEAD~1")
+    _switch_create(git, policy, repo, "fix-thing")
+    assert _git(repo, "rev-parse", "HEAD") == upstream
+
+
+def test_switch_create_refusals(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    _git(repo, "branch", "existing")
+    with pytest.raises(GitRefused, match="already exists"):
+        _switch_create(git, policy, repo, "existing")
+    with pytest.raises(GitRefused, match="protected"):
+        _switch_create(git, policy, repo, "release-1.0")
+    (repo / "one").write_text("changed")
+    with pytest.raises(GitRefused, match="uncommitted"):
+        _switch_create(git, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+
+
+def test_switch_create_removes_a_branch_it_could_not_switch_to(policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    plain = _runner(os.devnull)
+
+    def failing(argv: list[str], env: dict[str, str], cwd_fd: int | None) -> subprocess.CompletedProcess[str]:
+        if "switch" in argv:
+            return subprocess.CompletedProcess(argv, 1, "", "error: simulated checkout failure\n")
+        return plain(argv, env, cwd_fd)
+
+    broken = Git(runner=failing, protocols=("https", "ssh", "file"))
+    with pytest.raises(git_ops.GitFailed):
+        _switch_create(broken, policy, repo, "fix-thing")
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")
+    assert _git(repo, "symbolic-ref", "--short", "HEAD") == "main"
+
+
+def test_switch_create_dry_run_changes_nothing(git: Git, policy: LocalPolicy, repo: Path) -> None:
+    _upstream_main(repo)
+    command = _switch_create(git, policy, repo, "fix-thing", dry_run=True)
+    assert "fix-thing" in command and "git-switch" in command
+    assert not _git(repo, "for-each-ref", "refs/heads/fix-thing")

@@ -43,6 +43,12 @@ _FENCED_CODE_RE = re.compile(r"^ {0,3}```(?:\w+)?\n([\s\S]*?)^ {0,3}```", re.MUL
 _HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 _SCRIPT_RE = re.compile(r"^\s*([A-Za-z0-9_.-]+)\s*=\s*\"([^\"]+)\"", re.MULTILINE)
 _SECTION_RE = re.compile(r"^\[([^\]]+)\]\s*$")
+# A YAML comment starts at a `#` that opens the value or follows a space or tab;
+# a `#` inside a word (`C# tooling`) is part of the value.
+_INLINE_COMMENT_RE = re.compile(r"(?:^|[ \t])#.*$")
+# A quoted scalar ends at its closing quote: `\"` escapes inside double quotes,
+# `''` inside single quotes. A comment may follow it after a space or tab.
+_QUOTED_RE = re.compile(r"""^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*')(?:[ \t]+#.*)?$""")
 _YAML_BLOCK_SCALAR_HEADERS = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
 
 # Scope-map patterns — used by the spec-scope entry point.
@@ -111,7 +117,11 @@ def _frontmatter_bounds(text: str) -> tuple[int, int] | None:
 
 
 def parse_frontmatter(text: str) -> dict[str, str]:
-    """Parse top-level YAML-ish frontmatter without external dependencies."""
+    """Parse top-level YAML-ish frontmatter without external dependencies.
+
+    A trailing ``# comment`` on a ``key:`` line is dropped as YAML does; a quoted
+    value keeps its quotes and loses only a comment after its closing quote.
+    """
     bounds = _frontmatter_bounds(text)
     if bounds is None:
         return {}
@@ -131,7 +141,7 @@ def parse_frontmatter(text: str) -> dict[str, str]:
                 result[current_key] = "\n".join(current_value_lines).strip()
             key, _, value = line.partition(":")
             current_key = key.strip()
-            inline = value.strip()
+            inline = _drop_yaml_comment(value.strip())
             current_value_lines = [inline] if inline and inline not in _YAML_BLOCK_SCALAR_HEADERS else []
             continue
         if current_key is not None:
@@ -141,6 +151,21 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     if current_key is not None:
         result[current_key] = "\n".join(current_value_lines).strip()
     return result
+
+
+def _drop_yaml_comment(text: str) -> str:
+    if not text.startswith(('"', "'")):
+        match = _INLINE_COMMENT_RE.search(text)
+        if (
+            match is not None
+            and text.startswith(("[", "{"))
+            and any(quote in text[: match.start()] for quote in ('"', "'"))
+        ):
+            return text
+        return _INLINE_COMMENT_RE.sub("", text).strip()
+    elif quoted := _QUOTED_RE.match(text):
+        return quoted.group(1)
+    return text
 
 
 def _body_after_frontmatter(text: str) -> str:

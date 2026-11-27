@@ -23,6 +23,7 @@ The dispatcher.
 ``vetted-op-tracker --caller <name> <operation> [param …]``  (tracker procedures only, by construction)
 ``vetted-op-read approval-status``  (whether the discovered policy is an approved copy; JSON)
 ``vetted-op-read source``  (what ~/.claude/magpie/vetted-ops is: plugin, copy or checkout; JSON)
+``vetted-op-read --caller <name> batch-check <manifest.json>``  (check a tracker-write batch; runs nothing)
 
 Everything the caller supplies is a *parameter*, never a fragment of a command.
 The operation name selects a builder from the closed catalogue; the builder
@@ -63,6 +64,7 @@ import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import batch as batch_mod
 from . import cve_tool, procedures, tracker_backends
 from . import ops as ops_mod
 from .config import Config, ConfigError, approval_status, describe, load
@@ -76,6 +78,8 @@ EXIT_COMMAND = 4
 #: The `vetted-op-read` subcommand that reports whether the discovered policy is approved.
 APPROVAL_STATUS = "approval-status"
 SOURCE = "source"
+#: The `vetted-op-read` subcommand that checks a tracker-write batch (see batch.py).
+BATCH_CHECK = "batch-check"
 
 
 def _validate_params(
@@ -229,6 +233,9 @@ def _reject_repeated_caller(argv: Sequence[str]) -> None:
     permission rule written against the read-only prefix. That turns a
     prefix-matched allow rule into a bypass, so repetition is an error rather
     than a last-wins convenience.
+
+    Counting the exact spelling is enough because the parser is built with
+    ``allow_abbrev=False``: a prefix such as ``--call`` never parses at all.
     """
     seen = sum(1 for a in argv if a == "--caller" or a.startswith("--caller="))
     if seen > 1:
@@ -263,9 +270,19 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     else:
         prog = "vetted-op"
         description = "Run one fixed, policy-scoped GitHub operation. No pass-through arguments."
-    parser = argparse.ArgumentParser(prog=prog, description=description)
+    # allow_abbrev=False: every long option is matched exactly, as the checks on
+    # the raw argv (a single `--caller`) assume; a prefix such as `--call` is an error.
+    parser = argparse.ArgumentParser(prog=prog, description=description, allow_abbrev=False)
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
+    parser.add_argument(
+        "--policy-from",
+        metavar="DIR",
+        type=Path,
+        default=None,
+        help="discover the policy from this absolute directory instead of the working directory "
+        "(only an approved policy is accepted from there, reads included)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")
     parser.add_argument(
         "--save",
@@ -277,7 +294,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         "operation",
         nargs="?",
         help="operation name, or 'list-ops' / 'policy'"
-        + (" / 'approval-status' / 'source'" if read_only else ""),
+        + (" / 'approval-status' / 'source' / 'batch-check'" if read_only else ""),
     )
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
@@ -290,6 +307,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             print(f"{kind}  {name:<22} {' '.join(op.params)}\n        {op.summary}")
         return EXIT_OK
 
+    if args.policy_from is not None and args.operation in (APPROVAL_STATUS, SOURCE):
+        print(f"{prog}: refused: {args.operation} takes no --policy-from", file=sys.stderr)
+        return EXIT_USAGE
     if read_only and args.operation == APPROVAL_STATUS:
         return _approval_status(args, prog)
     if read_only and args.operation == SOURCE:
@@ -311,11 +331,50 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         )
         return EXIT_POLICY
 
+    # `--policy-from` lets a session in one repository use another repository's
+    # policy (a site repository's) without a `cd`, which would put the call back
+    # in the sandbox. The read entry point runs unprompted, so the directory may
+    # only be a checkout the operator listed in their own operator-git.toml
+    # (checked before anything on disk is touched: no probing of the host), and
+    # the policy found there acts only when it is an approved copy whose
+    # upstream's table lists that checkout.
+    base: Path | None = None
+    if args.policy_from is not None:
+        if sum(1 for a in raw if a == "--policy-from" or a.startswith("--policy-from=")) > 1:
+            print(f"{prog}: refused: --policy-from given more than once", file=sys.stderr)
+            return EXIT_POLICY
+        if args.config is not None:
+            print(f"{prog}: refused: --policy-from and --config exclude each other", file=sys.stderr)
+            return EXIT_POLICY
+        from .git_ops import policy_from_checkout
+
+        try:
+            base = policy_from_checkout(args.policy_from)
+        except ConfigError as exc:
+            print(f"{prog}: refused: {exc}", file=sys.stderr)
+            return EXIT_POLICY
+
+    # After the --policy-from checks above (once, no --config, a listed
+    # checkout): the batch check loads the approved policy the same way the
+    # batch scripts do, including the upstream check.
+    if read_only and args.operation == BATCH_CHECK:
+        return _batch_check(args, prog)
+
     try:
         # The write entry points act only on a policy the user approved (see
         # `config.approved_dir`); dry runs and `policy` publish nothing.
-        approved_only = not read_only and not args.dry_run and args.operation != "policy"
-        config = load(args.config, approved_only=approved_only)
+        approved_only = (
+            not read_only and not args.dry_run and args.operation != "policy"
+        ) or base is not None
+        config = (
+            load(args.config, approved_only=approved_only)
+            if base is None
+            else load(args.config, cwd=base, approved_only=approved_only)
+        )
+        if base is not None:
+            from .git_ops import check_policy_from_upstream
+
+            check_policy_from_upstream(config, base)
     except ConfigError as exc:
         print(f"vetted-op: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -413,6 +472,33 @@ def _source(args: argparse.Namespace, prog: str) -> int:
         return EXIT_USAGE
     print(json.dumps(stable_source()))
     return EXIT_OK
+
+
+def _batch_check(args: argparse.Namespace, prog: str) -> int:
+    """Check a tracker-write manifest against the approved policy and print its summary.
+
+    It runs nothing, so it lives on the read entry point and never prompts. It
+    takes the approved policy only (`--config` is refused): the summary it
+    prints, and the digest the batch run is held to, are about the policy the
+    run will act on. Body and title files show by size, never by content.
+    """
+    extra = [
+        flag
+        for flag, given in (
+            ("--config", args.config is not None),
+            ("--save", args.save is not None),
+            ("--dry-run", args.dry_run),
+        )
+        if given
+    ]
+    if extra or not args.caller or len(args.params) != 1:
+        print(
+            f"{prog}: refused: usage: {prog} --caller <name> [--policy-from DIR] {BATCH_CHECK} <manifest.json>"
+            + (f" (takes no {', '.join(extra)})" if extra else ""),
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    return batch_mod.check_main(args.caller, args.params[0], args.policy_from, BATCH_SINGLE)
 
 
 def _approval_status(args: argparse.Namespace, prog: str) -> int:
@@ -710,3 +796,25 @@ def main_tracker(argv: list[str] | None = None) -> int:
     in `ask`, never in `allow`.
     """
     return main(argv, tracker_only=True)
+
+
+#: The single-call machinery a batch reuses, handed to `batch` so that the
+#: dependency runs one way (`cli` imports `batch`; `batch` imports nothing from
+#: `cli`) while every batch entry still goes through exactly this code.
+BATCH_SINGLE = batch_mod.SingleCall(
+    validate=_validate_params,
+    build=build_argv,
+    dispatch=_dispatch,
+    consume=_consume,
+    reject_repeated_caller=_reject_repeated_caller,
+)
+
+
+def main_batch(argv: list[str] | None = None) -> int:
+    """The `vetted-op-tracker-batch` console script: a checked batch under a `batch` or `none` policy (see batch.py)."""
+    return batch_mod.main(argv, single=BATCH_SINGLE)
+
+
+def main_batch_unprompted(argv: list[str] | None = None) -> int:
+    """The `vetted-op-tracker-batch-unprompted` console script: the same, for a `none` policy only."""
+    return batch_mod.main(argv, single=BATCH_SINGLE, unprompted=True)

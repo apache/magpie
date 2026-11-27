@@ -33,6 +33,7 @@ from magpie_bitbucket.client import (
     quote_path,
     require,
     write_request,
+    write_request_with_metadata,
 )
 
 
@@ -219,6 +220,198 @@ def create_pull_request(
         payload["description"] = body
 
     return post_json(url, config, payload)
+
+
+def edit_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    title: str | None,
+    description: str | None,
+    expected_version: int,
+) -> dict[str, Any]:
+    """Edit Data Center PR metadata using its optimistic version check.
+
+    ``expected_version`` is the version the caller read with ``pr get`` when it
+    built the confirmed preview. A pull request changed since then is refused
+    before the PUT, so the edit never overwrites a change the maintainer did
+    not see.
+    """
+    if not pull_request_id.isascii() or not pull_request_id.isdecimal() or int(pull_request_id) <= 0:
+        raise BitbucketError("Pull request ID must be a positive decimal integer")
+
+    if title is None and description is None:
+        raise BitbucketError("Pull request edit requires title and/or description")
+    if title is not None and not title.strip():
+        raise BitbucketError("Pull request title must not be empty")
+
+    raw = get_pull_request(config, pull_request_id)
+
+    if type(raw.get("id")) is not int or raw["id"] != int(pull_request_id):
+        raise BitbucketError("Data Center PR preflight returned an unexpected ID")
+
+    if raw.get("state") != "OPEN":
+        raise BitbucketError("Only OPEN Data Center pull requests can be edited")
+
+    version = raw.get("version")
+    if type(version) is not int or version < 0:
+        raise BitbucketError("Data Center PR requires a valid nonnegative version")
+    if version != expected_version:
+        raise BitbucketError(
+            f"Data Center PR changed since it was previewed (version {version}, "
+            f"expected {expected_version}); re-read it with `pr get {pull_request_id}` "
+            "and confirm the edit again"
+        )
+
+    old_title = raw.get("title")
+    if not isinstance(old_title, str) or not old_title.strip():
+        raise BitbucketError("Data Center PR preflight has no valid title")
+
+    old_description = raw.get("description")
+    if old_description is not None and not isinstance(old_description, str):
+        raise BitbucketError("Data Center PR preflight has invalid description")
+
+    reviewers = raw.get("reviewers")
+    if not isinstance(reviewers, list):
+        raise BitbucketError("Data Center PR preflight has no valid reviewers list")
+
+    preserved_reviewers: list[dict[str, Any]] = []
+    for reviewer in reviewers:
+        if not isinstance(reviewer, dict):
+            raise BitbucketError("Data Center PR has malformed reviewer metadata")
+        user = reviewer.get("user")
+        if not isinstance(user, dict):
+            raise BitbucketError("Data Center PR reviewer has no valid user")
+        username = user.get("name")
+        if not isinstance(username, str) or not username.strip():
+            raise BitbucketError("Data Center PR reviewer has no valid username")
+        preserved_reviewers.append({"user": {"name": username}})
+
+    destination = raw.get("toRef")
+    if not isinstance(destination, dict):
+        raise BitbucketError("Data Center PR has no valid destination")
+
+    destination_id = destination.get("id")
+    repository = destination.get("repository")
+    if not isinstance(destination_id, str) or not destination_id.startswith("refs/heads/"):
+        raise BitbucketError("Data Center PR destination has no valid branch ref")
+    if not isinstance(repository, dict):
+        raise BitbucketError("Data Center PR destination has no valid repository")
+
+    repo_slug = repository.get("slug")
+    project = repository.get("project")
+    if not isinstance(repo_slug, str) or not repo_slug.strip():
+        raise BitbucketError("Data Center PR destination has no repository slug")
+    if not isinstance(project, dict):
+        raise BitbucketError("Data Center PR destination has no project")
+    project_key = project.get("key")
+    if not isinstance(project_key, str) or not project_key.strip():
+        raise BitbucketError("Data Center PR destination has no project key")
+
+    new_title = title.strip() if title is not None else old_title
+    new_description = description if description is not None else old_description
+
+    # Data Center may leave out an empty description, so None and "" are the same.
+    if new_title == old_title and (new_description or "") == (old_description or ""):
+        raise BitbucketError("Pull request edit would not change any metadata")
+
+    payload: dict[str, Any] = {
+        "version": version,
+        "title": new_title,
+        "description": new_description,
+        "reviewers": preserved_reviewers,
+        "toRef": {
+            "id": destination_id,
+            "repository": {
+                "slug": repo_slug,
+                "project": {"key": project_key},
+            },
+        },
+    }
+
+    draft = raw.get("draft")
+    if "draft" in raw:
+        if type(draft) is not bool:
+            raise BitbucketError("Data Center PR has invalid draft metadata")
+        payload["draft"] = draft
+
+    configured_project = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    configured_repo = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{_api_base(config)}/projects/{configured_project}/repos/{configured_repo}/pull-requests/{pr_id}"
+
+    try:
+        response = write_request_with_metadata(
+            url,
+            config,
+            method="PUT",
+            payload=payload,
+        )
+    except BitbucketError as exc:
+        message = str(exc)
+        if exc.status is not None and 400 <= exc.status < 500 and exc.status != 408:
+            # Definite client-side rejection, including version 409.
+            raise
+
+        # Timeout, transport failure, malformed response, or server error:
+        # the PUT may already have been applied. Never retry automatically.
+        raise BitbucketError(
+            "Data Center PR edit outcome unknown; inspect "
+            f"`pr get {pull_request_id}` before retrying: {message}"
+        ) from exc
+
+    updated = response.body
+
+    if response.status != 200 or updated is None:
+        raise BitbucketError(
+            "Data Center PR edit outcome unknown: unexpected or empty response; "
+            f"inspect `pr get {pull_request_id}` before retrying"
+        )
+
+    if (
+        type(updated.get("id")) is not int
+        or updated["id"] != int(pull_request_id)
+        or updated.get("title") != new_title
+        or (updated.get("description") or "") != (new_description or "")
+    ):
+        raise BitbucketError(
+            "Data Center PR edit outcome unknown: response does not match "
+            f"the requested change; inspect `pr get {pull_request_id}` before retrying"
+        )
+
+    returned_reviewers = updated.get("reviewers")
+    if not isinstance(returned_reviewers, list):
+        raise BitbucketError(
+            "Data Center PR edit outcome unknown: response lacks reviewer metadata; "
+            f"inspect `pr get {pull_request_id}` before retrying"
+        )
+
+    returned_names: list[str] = []
+    for reviewer in returned_reviewers:
+        if not isinstance(reviewer, dict):
+            break
+        user = reviewer.get("user")
+        if not isinstance(user, dict):
+            break
+        name = user.get("name")
+        if not isinstance(name, str) or not name.strip():
+            break
+        returned_names.append(name)
+    else:
+        if sorted(returned_names) == sorted(reviewer["user"]["name"] for reviewer in preserved_reviewers):
+            returned_destination = updated.get("toRef")
+            if (
+                isinstance(returned_destination, dict)
+                and returned_destination.get("id") == destination_id
+                and returned_destination.get("repository") is not None
+                and ("draft" not in raw or updated.get("draft") == raw["draft"])
+            ):
+                return updated
+
+    raise BitbucketError(
+        "Data Center PR edit outcome unknown: returned reviewer, destination, "
+        "or draft metadata could not be verified as preserved; "
+        f"inspect `pr get {pull_request_id}` before retrying"
+    )
 
 
 def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:

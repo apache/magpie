@@ -6,8 +6,8 @@ method: local
 source: skills/
 
 reconciled:
-  version: 0.9.0.dev202611221021
-  at:      2026-11-22
+  version: 0.9.0.dev202611262347
+  at:      2026-11-26
   skills:
     activity-sweep:             sha256:a39919af92a37e2d
     announce-draft:             sha256:edffafcd9d9948ab
@@ -18,7 +18,7 @@ reconciled:
     calibrate:                  sha256:9c623c35a58589e5
     candidate-screen:           sha256:0d00099fe9910caa
     ci-runner-audit:            sha256:c6da72e64ac4808d
-    code-review:                sha256:5540df0191ad8033
+    code-review:                sha256:0411b3fbfc2061d9
     committer-onboarding:       sha256:fc0108bae9d7b687
     contributor-to-committer:   sha256:bdf92c88a304ddea
     deduplicate:                sha256:10a3cb1b8a2892e2
@@ -30,9 +30,9 @@ reconciled:
     good-first-issue-sweep:     sha256:591ae352325ca83d
     identity-map:               sha256:78eccfcead182fca
     isolated-setup-doctor:      sha256:f8a5db3da24024cb
-    isolated-setup-install:     sha256:cb0c81b693d9aa76
+    isolated-setup-install:     sha256:c311b3e3fb82c31d
     isolated-setup-update:      sha256:51ecb7683ea269cf
-    isolated-setup-verify:      sha256:7e0d11345084066f
+    isolated-setup-verify:      sha256:3b9f2a6489ad6989
     issue-fix:                  sha256:550eabe3b9bb3689
     issue-import-from-scan:     sha256:7adfbe73f79606b1
     issue-import-via-forwarder: sha256:43894008501eb56d
@@ -55,8 +55,8 @@ reconciled:
     pre-release-sweep:          sha256:52048f763e3f5742
     prepare:                    sha256:9380580d6421d8b4
     privacy-llm:                sha256:49a65c36a0dc49ab
-    promote:                    sha256:ecfb43e47fa5905e
-    rc-cut:                     sha256:60623e456e72bbf6
+    promote:                    sha256:ab771c43c0ecf0d6
+    rc-cut:                     sha256:70b271e91a4ee44a
     reassess:                   sha256:cb023dff6e95a57a
     reassess-stats:             sha256:44c7826660a3ae71
     report-framework-issue:     sha256:f14640fa1249c172
@@ -64,7 +64,7 @@ reconciled:
     reviewer-routing:           sha256:159e840396b7a667
     self-review:                sha256:ea0a2e29bb2aa0e0
     sentiment:                  sha256:c325db1d99634a51
-    setup:                      sha256:ab519be6d5dc816b
+    setup:                      sha256:1c6f918a9dc3d71f
     shared-config-sync:         sha256:bbd7ee552b42915f
     shepherd:                   sha256:cd4c424406623b33
     skill-reconciler:           sha256:964dbda42cb402ce

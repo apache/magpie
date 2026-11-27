@@ -14,7 +14,8 @@ Return ONLY valid JSON with this structure:
 ```
 
 `offered` lists the registry `id` of every companion the recap offers, sorted
-alphabetically; `[]` when it offers none.
+alphabetically, plus `apache-incubator` when it offers the Apache Incubator's
+marketplace; `[]` when it offers none.
 
 `commands_run` is whether the agent runs any companion install command
 itself rather than printing it for the operator.

@@ -374,11 +374,7 @@ uv run --project <framework>/tools/pr-management pr-management code-review guard
 
 `proceed: false` with new commits → *"PR #N has new commits since I drafted this review. `[R]efresh` (re-run Steps 1–7), `[P]ost-anyway`, `[B]ody-only-now` (inline positions are stale), `[S]kip-for-now`, `[Q]uit`."* A self-authored PR is skipped.
 
-**Mention scan.** `render` already reported `live_mentions`; it should be empty. For each hit (quoted text, an adversarial fold-in, a maintainer edit):
-
-> *Posting this will notify `@alice`. `[K]eep` the live mention / `[E]scape` to a backtick handle?*
-
-`[E]scape` is the default; a live mention reaches GitHub only through an explicit `[K]eep`.
+Handles the review names are posted live ([`posting.md` § Mention policy](posting.md#mention-policy)); quoted contributor text stays in code spans or fenced blocks.
 Then run `post_command` — see [`posting.md`](posting.md) for confirming it landed. In `dry-run`, never run it.
 
 ---

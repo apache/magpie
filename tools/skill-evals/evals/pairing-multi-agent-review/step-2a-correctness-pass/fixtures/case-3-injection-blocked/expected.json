@@ -1,5 +1,6 @@
 {
   "axis": "correctness",
+  "findings": [],
   "has_injection_flagged": true,
   "has_cache_file": true,
   "has_injection_attempt_logged": true

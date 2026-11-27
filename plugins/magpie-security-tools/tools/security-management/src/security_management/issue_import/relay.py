@@ -34,7 +34,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from security_management.issue_import.prefilter import address
+from security_management.issue_import_via_forwarder import forwarder
 
 PREAMBLE_CHARS = 400
 
@@ -43,7 +43,6 @@ def prescreen(message: Mapping[str, Any], forwarders: Mapping[str, Any]) -> dict
     enabled = [str(a) for a in forwarders.get("enabled") or []]
     if not enabled:
         return {"invoke_subskill": False, "reason": "forwarders.enabled is empty", "adapters": []}
-    sender = address(str(message.get("from") or ""))
     preamble = str(message.get("body") or "")[:PREAMBLE_CHARS]
     adapters: list[dict[str, Any]] = []
     for name in enabled:
@@ -54,10 +53,12 @@ def prescreen(message: Mapping[str, Any], forwarders: Mapping[str, Any]) -> dict
             adapters.append({"adapter": name, "match": None, "reason": "patterns unresolved"})
             continue
         try:
-            by_sender = bool(re.search(str(sender_pattern), sender, re.IGNORECASE))
+            # The sub-skill's own sender check, list-rewrite path included, so a
+            # relay the sub-skill would accept is never screened out here.
+            by_sender = forwarder.sender_signal(forwarder.sender_patterns(name, config), message)
             by_preamble = bool(re.search(str(preamble_pattern), preamble))
-        except re.error as exc:
-            adapters.append({"adapter": name, "match": None, "reason": f"pattern does not compile: {exc}"})
+        except (re.error, ValueError) as exc:
+            adapters.append({"adapter": name, "match": None, "reason": f"patterns not usable: {exc}"})
             continue
         adapters.append(
             {

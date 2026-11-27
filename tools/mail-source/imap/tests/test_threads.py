@@ -18,9 +18,19 @@
 
 from __future__ import annotations
 
+import base64
+
+import pytest
+
 from conftest import build_message
 from imap_source.searching import Message, parse_message, thread_root_of
-from imap_source.threads import canonical_thread_id, draft_subject, normalise_message_id, summarise
+from imap_source.threads import (
+    canonical_thread_id,
+    decode_subject,
+    draft_subject,
+    normalise_message_id,
+    summarise,
+)
 
 ROOT = "<report-1@lists.example.org>"
 REPLY = "<reply-1a@example.org>"
@@ -93,3 +103,50 @@ def test_draft_subject_collapses_existing_reply_prefixes() -> None:
     assert draft_subject("Re: Re[2]: FWD: report") == "Re: report"
     assert draft_subject("report") == "Re: report"
     assert draft_subject("") == "Re: (no subject)"
+
+
+def _with_subject(subject_line: str) -> bytes:
+    return (
+        f"Message-ID: {ROOT}\r\nFrom: reporter@example.org\r\n{subject_line}\r\n"
+        "Date: Mon, 23 Nov 2026 12:00:00 +0000\r\n\r\nbody\r\n"
+    ).encode()
+
+
+def test_summarise_decodes_an_encoded_subject() -> None:
+    raw = _with_subject("Subject: =?utf-8?q?=5BSECURITY=5D_Z=C3=BCrich_RCE?=")
+    assert summarise(parse_message(raw)).subject == "[SECURITY] Z\u00fcrich RCE"
+
+
+def test_summarise_unfolds_a_folded_subject() -> None:
+    raw = _with_subject("Subject: [SECURITY] a long report subject\r\n that a client folded")
+    assert summarise(parse_message(raw)).subject == "[SECURITY] a long report subject that a client folded"
+
+
+@pytest.mark.parametrize("charset", ["shift_jis", "euc-jp", "utf-8"])
+def test_decode_subject_keeps_half_width_katakana(charset: str) -> None:
+    # make_header() re-encodes Japanese charsets as ISO-2022-JP, which has no
+    # half-width katakana, so these subjects used to raise UnicodeEncodeError.
+    text = "[SECURITY] \uff76\uff80\uff76\uff85 RCE"
+    encoded = f"=?{charset}?b?{base64.b64encode(text.encode(charset)).decode()}?="
+    assert decode_subject(encoded) == text
+
+
+def test_decode_subject_keeps_spacing_around_encoded_words() -> None:
+    assert decode_subject("Re: =?utf-8?q?Z=C3=BCrich?= and more") == "Re: Z\u00fcrich and more"
+    assert decode_subject("=?utf-8?q?a?= =?utf-8?q?b?=") == "ab"
+
+
+def test_decode_subject_keeps_undecodable_bytes_as_raw_text() -> None:
+    assert decode_subject("=?utf-8?b?/w==?=") == "=?utf-8?b?/w==?="
+
+
+def test_decode_subject_keeps_a_raw_8bit_subject_with_an_encoded_word() -> None:
+    # Decoding it would turn the raw characters into literal escapes.
+    assert decode_subject("café =?utf-8?q?x?=") == "café =?utf-8?q?x?="
+    assert decode_subject("=?utf-8?q?a?=中b") == "=?utf-8?q?a?=中b"
+    assert "\\u" not in decode_subject("menu �� =?utf-8?q?x?=\r\n tail")
+
+
+def test_decode_subject_keeps_undecodable_text() -> None:
+    assert decode_subject("=?bogus-charset?q?x?=") == "=?bogus-charset?q?x?="
+    assert decode_subject(None) == ""

@@ -66,6 +66,7 @@ from typing import TextIO
 
 from . import sections
 from .isolated import _load_stamp, _stamp_path
+from .layers import legacy_local_dir, own_stamp, personal_layers, stamp_dir, stamp_in, write_stamp
 
 HERE = Path(__file__).resolve().parent
 GUIDES_DIR = HERE / "guides"
@@ -292,11 +293,7 @@ def due_answer(root: Path, skill: str) -> dict[str, object]:
 
 
 def _write_stamp(root: Path, stamp: dict[str, object]) -> None:
-    path = _stamp_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    write_stamp(_stamp_path(root).parent, stamp)
 
 
 def record(root: Path, family: str, choice: str, today: date | None = None) -> dict[str, object]:
@@ -308,10 +305,10 @@ def record(root: Path, family: str, choice: str, today: date | None = None) -> d
     """
     if choice not in CHOICES:
         raise ValueError(f"unknown choice {choice!r}; expected one of {CHOICES}")
-    stamp = _load_stamp(root)
+    previous = _state(root, family)
+    stamp = own_stamp(root)
     raw = stamp.get(BLOCK)
     block: dict[str, object] = dict(raw) if isinstance(raw, dict) else {}
-    previous = block.get(family)
     shown = _shown(previous if isinstance(previous, dict) else None)
     entry: dict[str, object] = {
         "choice": choice,
@@ -325,18 +322,37 @@ def record(root: Path, family: str, choice: str, today: date | None = None) -> d
     return entry
 
 
+def _inherited(root: Path, family: str) -> bool:
+    """Whether a personal layer other than this one's own holds an answer for `family`.
+
+    The legacy in-tree layer is never merged (`layers.merged_stamp`), so it is
+    never masked either.
+    """
+    skip = {stamp_dir(root), legacy_local_dir(root)}
+    for layer in personal_layers(root):
+        block = (stamp_in(layer) or {}).get(BLOCK) if layer not in skip else None
+        if isinstance(block, dict) and family in block:
+            return True
+    return False
+
+
 def enable(root: Path, family: str) -> bool:
     """Forget the choice, so the guide shows on the next run.  `True` if one existed."""
-    stamp = _load_stamp(root)
-    raw = stamp.get(BLOCK)
-    if not isinstance(raw, dict) or family not in raw:
+    state = _state(root, family)
+    if state is None or state.get("choice") == "enabled":
+        # Nothing to forget: no answer, or only this command's own mask.
         return False
-    block = dict(raw)
-    del block[family]
+    stamp = own_stamp(root)
+    raw = stamp.get(BLOCK)
+    block: dict[str, object] = dict(raw) if isinstance(raw, dict) else {}
+    block.pop(family, None)
+    if _inherited(root, family):
+        # Masks the main checkout's answer here; any unknown choice reads as never shown.
+        block[family] = {"choice": "enabled", "at": date.today().isoformat()}
     if block:
         stamp[BLOCK] = block
     else:
-        del stamp[BLOCK]
+        stamp.pop(BLOCK, None)
     _write_stamp(root, stamp)
     return True
 

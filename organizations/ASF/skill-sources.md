@@ -49,13 +49,22 @@ There are two ways to install them, and they do not conflict:
   | `codex` | `codex plugin marketplace add apache/incubator` | `.agents/plugins/marketplace.json` |
   | `copilot` | add `apache/incubator` as a VS Code / GitHub Copilot plugin marketplace | `marketplace.json` |
 
+  All three catalogs name the marketplace `apache-incubator` (the descriptors'
+  `marketplace` field), so a skill installs as `<skill>@apache-incubator`,
+  for example `/plugin install releasecheck@apache-incubator`.
   Updates then arrive through the agent's own plugin update.
+  The catalogs point at directories on `apache/incubator`'s default branch,
+  so a marketplace install tracks that branch: no tag, no commit pin, and
+  nothing Magpie verified. Through Magpie, by contrast, a skill is fetched
+  at a pinned tag and checked against its recorded commit; only a skill the
+  Incubator has tagged (`pinned` below) can be installed that way.
 
 **Pinning and updates.**
 The Incubator versions each skill on its own, tagging it `<skill>-<version>`
 (for example `releasecheck-0.5.1`), so each skill is curated as its own
-descriptor pinned to its own tag: `apache-incubator` for `releasecheck`, and
-`apache-incubator-<skill>` for each skill pinned after it.
+descriptor pinned to its own tag, `apache-incubator-<skill>` (`apache-incubator-releasecheck`
+for `releasecheck`; it was `apache-incubator` until it was renamed to free that
+name for the marketplace).
 A skill kept as a plugin directory (`tools/skills/<skill>/skills/<skill>/SKILL.md`,
 the layout Codex needs to find it) is pinned with
 `skills_root: tools/skills/<skill>/skills`; the drift check still scans
@@ -72,22 +81,22 @@ health, mail archives); each skill names the ones it needs, and the
 [Incubator skills README](https://github.com/apache/incubator/blob/HEAD/tools/skills/README.md)
 says how to set them up.
 
-<!-- BEGIN SKILL-SOURCE CATALOGUE: apache-incubator -->
+<!-- BEGIN SKILL-SOURCE CATALOGUE: apache-incubator-releasecheck -->
 | Skill | What it does | Install through Magpie | Marketplaces |
 |---|---|---|---|
-| `releasecheck` | Checks a podling release candidate before or during its vote; findings for a person to review, never a vote. | `pinned` | `claude-code`, `codex` |
-| `maturity-model-assessment` | Builds an evidence pack against the 38 items of the Apache Project Maturity Model, marking each evidenced, proxy or human; never a score. | `untagged` | — |
-| `graduation-self-assessment` | Compares the `ipmc` MCP's graduation-readiness verdict with what the podling says in its own reports, checked against the mail archives. | `single-file` | — |
-| `graduation-packet-builder` | Assembles a podling's graduation case and drafts the DISCUSS email and the board resolution. | `single-file` | — |
-| `retirement-shepherd` | Assesses whether a stalled podling should retire and drafts the discussion, the announcement and the shutdown checklist. | `single-file` | — |
-| `monthly-report-review` | The monthly IPMC report review: who has not filed, narratives against health data, draft shepherd comments. | `single-file` | — |
-| `release-vote-reviewer` | Walks a release vote thread on general@ and drafts the +1 or the -1 with reasons. | `single-file` | — |
-| `board-report` | Drafts the VP Incubator's quarterly report to the ASF board. | `single-file` | — |
-| `branding-sweep` | Trademark and branding check across all current podlings, as a ranked fix list. | `single-file` | — |
-| `podling-onboarding` | Reviews a new podling's proposal against the checklist and bootstraps its tracking. | `single-file` | — |
-| `podling-name-clearance` | Runs the podling name search end to end and writes it up in the required format. | `single-file` | — |
+| `releasecheck` | Checks a podling release candidate before or during its vote; findings for a person to review, never a vote. | `pinned` | `claude-code`, `codex`, `copilot` |
+| `maturity-model-assessment` | Builds an evidence pack against the 38 items of the Apache Project Maturity Model, marking each evidenced, proxy or human; never a score. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `graduation-self-assessment` | Compares the `ipmc` MCP's graduation-readiness verdict with what the podling says in its own reports, checked against the mail archives. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `graduation-packet-builder` | Assembles a podling's graduation case and drafts the DISCUSS email and the board resolution. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `retirement-shepherd` | Assesses whether a stalled podling should retire and drafts the discussion, the announcement and the shutdown checklist. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `monthly-report-review` | The monthly IPMC report review: who has not filed, narratives against health data, draft shepherd comments. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `release-vote-reviewer` | Walks a release vote thread on general@ and drafts the +1 or the -1 with reasons. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `board-report` | Drafts the VP Incubator's quarterly report to the ASF board. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `branding-sweep` | Trademark and branding check across all current podlings, as a ranked fix list. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `podling-onboarding` | Reviews a new podling's proposal against the checklist and bootstraps its tracking. | `untagged` | `claude-code`, `codex`, `copilot` |
+| `podling-name-clearance` | Runs the podling name search end to end and writes it up in the required format. | `untagged` | `claude-code`, `codex`, `copilot` |
 | `asf-list-archaeology` | Not yet published (kept in `tools/skills/draft/`). | `draft` | — |
-<!-- END SKILL-SOURCE CATALOGUE: apache-incubator -->
+<!-- END SKILL-SOURCE CATALOGUE: apache-incubator-releasecheck -->
 
 What *Install through Magpie* means:
 
@@ -100,11 +109,10 @@ What *Install through Magpie* means:
 - **`single-file`** — a single `<skill>.md` with its supporting files kept in
   shared `scripts/`, `templates/` and `references/` directories.
   Magpie wires a skill directory, and a marketplace installs one, so neither
-  can install these as they are; moving each into its own directory, as
-  `releasecheck` already is, is proposed to the Incubator.
-  Until then, build one with the Incubator's own packager and unpack it:
-  `python3 tools/skills/package-skills.py <skill>` in an `apache/incubator`
-  checkout, then `unzip dist/<skill>.skill -d ~/.claude/skills/`.
+  can install these as they are.
+  No Incubator skill is single-file any more: each now sits in its own
+  directory and is listed in all three of the Incubator's marketplaces.
+  The status stays for a source that still ships one.
 - **`draft`** — not published by the Incubator; listed so it is not missed
   when it is.
 
@@ -117,9 +125,10 @@ when a marketplace catalog gained or lost it, or when a newer tag exists for a
 pin — which is when a maintainer moves the pin here.
 
 **Podlings: prefer `releasecheck` over `release-verify-rc`.** Magpie's
-`release-verify-rc` does not distinguish a podling release from a TLP one, so
-it does not check the things that make a podling RC valid — `incubating` in
-the archive names, a present `DISCLAIMER`, the two-stage PPMC-then-IPMC vote.
+`release-verify-rc` checks a present `DISCLAIMER` / `DISCLAIMER-WIP` only when
+`release-management-config.md` records `project_stage: incubating`, and it does
+not check the rest of what makes a podling RC valid — `incubating` in the
+archive names, the two-stage PPMC-then-IPMC vote.
 `releasecheck` is the IPMC's own check, maintained by the body that sets those
 rules. A podling verifying an RC should run it instead; a TLP has no reason to.
 This is a recommendation, not wiring — nothing resolves it automatically today.
@@ -128,12 +137,13 @@ Making the choice follow from `stage: podling` is part of
 which is proposed and not built.
 
 ```yaml
-- id: apache-incubator
+- id: apache-incubator-releasecheck
   organization: ASF
   name: "Apache Incubator skills"
   maintainer: "Apache Incubator PMC"
   method: git-tag
   url: https://github.com/apache/incubator
+  marketplace: apache-incubator
   ref: releasecheck-0.5.1
   commit: 876cf205869a9e12aa55ad070efae65658c8a34e
   layout:

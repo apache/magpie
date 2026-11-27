@@ -141,6 +141,10 @@ CODEX_FAMILY_HOOKS = {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
     },
+    "magpie-pairing": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
     "magpie-pr-management": {
         "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
         "hooks": {},
@@ -398,6 +402,11 @@ def _security_tool_copies() -> dict[str, str]:
         "tools/forwarder-relay/README.md",
         "tools/gmail/asf-relay.md",
         "tools/scan-format/README.md",
+        # The read-only gatherer agent `setup-isolated-setup-install` Step V.2
+        # copies into ~/.claude/agents/. On a marketplace install it is copied
+        # from the installed plugin (~/.claude/magpie/security-tools/...), never
+        # from the sandbox-writable `<framework>` tree: its hook runs unsandboxed.
+        "tools/agent-isolation/agents/magpie-gatherer.md",
         # audit-report's default schema, read framework-relative
         # (release_management/audit_report/record.py DEFAULT_SCHEMA).
         "plugins/magpie-release-management/skills/audit-report/audit-record-schema.md",

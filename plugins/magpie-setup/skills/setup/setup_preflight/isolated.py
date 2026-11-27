@@ -76,9 +76,11 @@ from .layers import (
     OVERRIDES_DIR,
     adopted,
     config_layers,
-    personal_dir,
-    personal_layers,
+    merged_stamp,
+    own_stamp,
     project_settings,
+    stamp_dir,
+    write_stamp,
 )
 
 #: The files a secure-setup install copies or mirrors, relative to the
@@ -94,6 +96,10 @@ SOURCES: tuple[str, ...] = (
 _SKIP_DIRS = frozenset({"__pycache__", "tests", ".pytest_cache", ".mypy_cache", ".ruff_cache"})
 _SKIP_SUFFIXES = (".md", ".pyc")
 _SKIP_NAMES = frozenset({".DS_Store"})
+#: Markdown that is installed rather than read: an agent definition's body
+#: is its prompt and its frontmatter its tools, so a change is a change on
+#: the user's machine.
+_COUNTED_MARKDOWN = ("tools/agent-isolation/agents/",)
 
 #: The directory whose presence marks a tree as carrying the framework source.
 _MARKER = "tools/agent-isolation"
@@ -120,7 +126,10 @@ def _files(base: Path) -> list[Path]:
             relative = candidate.relative_to(base)
             if not candidate.is_file() or _SKIP_DIRS.intersection(relative.parts):
                 continue
-            if candidate.name in _SKIP_NAMES or candidate.name.endswith(_SKIP_SUFFIXES):
+            if candidate.name in _SKIP_NAMES:
+                continue
+            counted = relative.as_posix().startswith(_COUNTED_MARKDOWN) and candidate.suffix == ".md"
+            if candidate.name.endswith(_SKIP_SUFFIXES) and not counted:
                 continue
             found.append(candidate)
     return sorted(found, key=lambda p: p.relative_to(base).as_posix())
@@ -807,20 +816,12 @@ def interval_days(root: Path) -> int:
 
 
 def _stamp_path(root: Path) -> Path:
-    return personal_dir(root) / STAMP_NAME
+    return stamp_dir(root) / STAMP_NAME
 
 
 def _load_stamp(root: Path) -> dict[str, object]:
-    """The stamp as read: personal layer first, then the legacy in-tree one."""
-    for layer in personal_layers(root):
-        try:
-            loaded = json.loads((layer / STAMP_NAME).read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            continue
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return loaded if isinstance(loaded, dict) else {}
-    return {}
+    """The stamp merged across the personal layers (`layers.merged_stamp`)."""
+    return merged_stamp(root)
 
 
 def record(root: Path, event: str, today: date | None = None) -> dict[str, object]:
@@ -835,12 +836,19 @@ def record(root: Path, event: str, today: date | None = None) -> dict[str, objec
     repository, never the working tree).  A stamp still in the legacy
     in-tree directory is read and carried over, not deleted.
     """
-    stamp = _load_stamp(root)
+    stamp = own_stamp(root)
     raw = stamp.get(BLOCK)
+    if not isinstance(raw, dict):
+        # The block is inherited whole (`layers.WHOLE_BLOCKS`), so a checkout's
+        # first record starts from the one it inherits, opt-out included.
+        raw = _load_stamp(root).get(BLOCK)
     block: dict[str, object] = dict(raw) if isinstance(raw, dict) else {}
     day = (today or date.today()).isoformat()
     fingerprint = current(root)
     if event == "update":
+        # The install or update skill ran here: an opt-out, own or inherited, no longer holds.
+        if block.get("enabled") is False:
+            del block["enabled"]
         block["updated_at"] = day
         if fingerprint:
             block["fingerprint"] = fingerprint
@@ -851,11 +859,7 @@ def record(root: Path, event: str, today: date | None = None) -> dict[str, objec
     if fingerprint:
         block["acknowledged"] = fingerprint
     stamp[BLOCK] = block
-    path = _stamp_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    write_stamp(stamp_dir(root), stamp)
     return block
 
 

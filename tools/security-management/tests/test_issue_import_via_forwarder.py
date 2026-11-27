@@ -27,12 +27,14 @@ pinned here too.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from security_management.cli import main
+from security_management.issue_import import relay
 
 REPO = Path(__file__).resolve().parents[3]
 ASF = {
@@ -357,3 +359,184 @@ def test_route_picks_the_first_handle_and_needs_a_sync_milestone(capsys, tmp_pat
         write(tmp_path, "a.json", adapter),
     )
     assert out["negative_space_suppressed"] is False
+
+
+# --- The shipped ASF values, read from the files adopters inherit them from -------------------
+
+_PATTERN_KEYS = (
+    "sender_pattern",
+    "list_sender_pattern",
+    "list_cc_pattern",
+    "list_message_id_pattern",
+    "preamble_match",
+)
+_PATTERN_LINE = re.compile(r"^\s+(" + "|".join(_PATTERN_KEYS) + r"): '(.*)'\s*$", re.M)
+
+
+def _shipped(rel: str) -> dict[str, str]:
+    """The asf-security patterns as a single-quoted YAML block in `rel` writes them."""
+    text = (REPO / rel).read_text(encoding="utf-8")
+    return {key: value.replace("''", "'") for key, value in _PATTERN_LINE.findall(text)}
+
+
+SHIPPED = {"name": "asf-security", **_shipped("organizations/ASF/organization.md")}
+CURRENT_BODY = (
+    "Dear Apache Foo PMC,\n\n"
+    "The following security vulnerability report has been received by the Apache\n"
+    "Security Team and is being passed to you for action.\n"
+)
+OLDER_BODY = (
+    "Dear PMC,\n\n"
+    "The security vulnerability report has been received by the Apache Security Team "
+    "and is being passed to you for action.\n"
+)
+LIST_FROM = '"Jane Doe via private" <private@foo.apache.org>'
+LIST_HEADERS = {"cc": "ASF Security <security@apache.org>", "message_id": "<abc123.xyz@security.apache.org>"}
+
+
+def test_the_org_and_readme_defaults_ship_the_same_asf_patterns() -> None:
+    assert set(SHIPPED) - {"name"} == set(_PATTERN_KEYS)
+    assert _shipped("tools/forwarder-relay/README.md") == {k: v for k, v in SHIPPED.items() if k != "name"}
+
+
+@pytest.mark.parametrize("body", [CURRENT_BODY, OLDER_BODY], ids=["current", "older"])
+def test_a_direct_relay_matches_both_preamble_shapes(capsys, tmp_path, body: str) -> None:
+    out = detect(capsys, tmp_path, {"from": "ASF Security <security@apache.org>", "body": body}, SHIPPED)
+    assert (out["match"], out["sender_matched"]) == ("asf-security", "security@apache.org")
+
+
+def test_a_list_rewritten_relay_matches_with_cc_and_message_id(capsys, tmp_path) -> None:
+    message = {"from": LIST_FROM, "body": CURRENT_BODY, **LIST_HEADERS}
+    out = detect(capsys, tmp_path, message, SHIPPED)
+    assert (out["match"], out["sender_matched"]) == ("asf-security", "private@foo.apache.org")
+
+
+@pytest.mark.parametrize("missing", ["cc", "message_id"])
+def test_a_list_rewritten_sender_without_both_headers_is_only_a_preamble_match(
+    capsys, tmp_path, missing: str
+) -> None:
+    """The list rewrites every poster's From:, so that alone is no sender signal."""
+    headers = {k: v for k, v in LIST_HEADERS.items() if k != missing}
+    out = detect(capsys, tmp_path, {"from": LIST_FROM, "body": CURRENT_BODY, **headers}, SHIPPED)
+    assert out["match"] is None
+    assert out["partial_matches"] == [{"adapter": "asf-security", "signal": "preamble"}]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {"from": "security@apache.org.other.test"},
+        {"from": "private@foo.apache.org"},  # a list address is not a direct sender
+        {"from": LIST_FROM, **LIST_HEADERS, "message_id": "<abc@security.apache.org.other.test>"},
+        {"from": LIST_FROM, **LIST_HEADERS, "cc": "security@apache.org.other.test"},
+        {"from": '"Jane via private" <private@foo.apache.org.other.test>', **LIST_HEADERS},
+    ],
+    ids=[
+        "other-domain-sender",
+        "list-address",
+        "other-domain-message-id",
+        "other-domain-cc",
+        "other-domain-list",
+    ],
+)
+def test_only_the_configured_domains_complete_the_sender_signal(
+    capsys, tmp_path, message: dict[str, str]
+) -> None:
+    out = detect(capsys, tmp_path, {**message, "body": CURRENT_BODY}, SHIPPED)
+    assert out["match"] is None
+
+
+@pytest.mark.parametrize(
+    "sender",
+    [LIST_FROM, "ASF Security <security@apache.org>"],
+    ids=["list-sender", "direct-sender"],
+)
+def test_a_half_configured_list_rewrite_path_is_refused(capsys, tmp_path, sender: str) -> None:
+    """Refused on every message, also one the direct sender pattern already matches."""
+    adapter = {**ASF, "list_sender_pattern": " via private"}
+    message = {"from": sender, "body": ASF_BODY, **LIST_HEADERS}
+    code, _ = run(
+        capsys,
+        "detect",
+        "--message",
+        write(tmp_path, "m.json", message),
+        "--forwarders",
+        write(tmp_path, "f.json", forwarders(adapter)),
+    )
+    assert code == 2
+
+
+@pytest.mark.parametrize(
+    "sender",
+    [LIST_FROM, '"Jane Doe via security" <security@foo.apache.org>'],
+    ids=["private-list", "security-list"],
+)
+def test_the_prescreen_lets_a_list_rewritten_relay_through(sender: str) -> None:
+    """`relay-prescreen` gates the sub-skill, so it must accept what `detect` accepts."""
+    message = {"from": sender, "body": CURRENT_BODY, **LIST_HEADERS}
+    out = relay.prescreen(message, forwarders(SHIPPED))
+    assert out["invoke_subskill"] is True
+    without = relay.prescreen({"from": sender, "body": CURRENT_BODY}, forwarders(SHIPPED))
+    assert (without["invoke_subskill"], without["partial"]) == (False, ["asf-security"])
+
+
+def test_a_preamble_wrapped_at_72_columns_still_matches(capsys, tmp_path) -> None:
+    body = (
+        "Dear Apache Foo PMC,\n\nThe following security vulnerability report has been received by the\n"
+        "Apache Security Team and is being passed to you for action.\n"
+    )
+    out = detect(capsys, tmp_path, {"from": "security@apache.org", "body": body}, SHIPPED)
+    assert out["match"] == "asf-security"
+
+
+@pytest.mark.parametrize(
+    "cc",
+    [
+        '"Security Team, ASF" <security@apache.org>, other@example.org',
+        ["Other <o@example.org>", "security@apache.org"],
+    ],
+    ids=["comma-in-display-name", "list-of-headers"],
+)
+def test_cc_is_parsed_as_addresses(capsys, tmp_path, cc: object) -> None:
+    message = {"from": LIST_FROM, "body": CURRENT_BODY, "cc": cc, "message_id": LIST_HEADERS["message_id"]}
+    out = detect(capsys, tmp_path, message, SHIPPED)  # type: ignore[arg-type]
+    assert out["match"] == "asf-security"
+
+
+@pytest.mark.parametrize(
+    "sender",
+    [
+        "=?utf-8?q?Jan_Nov=C3=A1k_via_private?= <private@foo.apache.org>",
+        '"Jane Doe\n via private" <private@foo.apache.org>',
+        '"Jane Doe via private" <private@sub.foo.apache.org>',
+    ],
+    ids=["rfc2047-name", "folded-name", "multi-label-subdomain"],
+)
+def test_list_rewritten_senders_in_their_other_valid_shapes_match(capsys, tmp_path, sender: str) -> None:
+    out = detect(capsys, tmp_path, {"from": sender, "body": CURRENT_BODY, **LIST_HEADERS}, SHIPPED)
+    assert out["match"] == "asf-security"
+
+
+@pytest.mark.parametrize(
+    "sender",
+    [
+        'someone@other.test, "x via private" <private@foo.apache.org>',
+        '"Jane via private" <security@foo.apache.org>',
+    ],
+    ids=["two-mailboxes", "list-name-and-address-disagree"],
+)
+def test_a_list_sender_must_be_one_consistent_mailbox(capsys, tmp_path, sender: str) -> None:
+    out = detect(capsys, tmp_path, {"from": sender, "body": CURRENT_BODY, **LIST_HEADERS}, SHIPPED)
+    assert out["match"] is None
+
+
+def test_the_preamble_must_open_the_body(capsys, tmp_path) -> None:
+    quoted = "Hi team, see the relay below.\n\n> " + CURRENT_BODY
+    out = detect(capsys, tmp_path, {"from": "security@apache.org", "body": quoted}, SHIPPED)
+    assert (out["match"], out["partial_matches"]) == (None, [{"adapter": "asf-security", "signal": "sender"}])
+
+
+def test_a_project_name_that_wraps_still_matches(capsys, tmp_path) -> None:
+    body = "Dear Apache Commons\nCollections PMC,\n\n" + CURRENT_BODY.split("\n\n", 1)[1]
+    out = detect(capsys, tmp_path, {"from": "security@apache.org", "body": body}, SHIPPED)
+    assert out["match"] == "asf-security"

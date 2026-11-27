@@ -181,6 +181,25 @@ def test_zip_applies_every_rule(repo: Path) -> None:
     assert all(r.status != "FAIL" for r in ra.check_zip(data, EPOCH))
 
 
+@pytest.mark.parametrize(
+    ("comment", "fails"),
+    [
+        (b"a" * 40, False),
+        (b"a" * 64, False),
+        (b"a" * 50, True),
+        (b"a" * 64 + b"\n", True),
+        (b"not a commit id", True),
+    ],
+)
+def test_zip_comment_accepts_sha1_and_sha256_commit_ids(repo: Path, comment: bytes, fails: bool) -> None:
+    data, _ = ra.build("1.0.0-rc1", repo, "zip", "p")
+    buf = io.BytesIO(data)
+    with zipfile.ZipFile(buf, "a") as zf:
+        zf.comment = comment
+    failed = {r.name for r in ra.check_zip(buf.getvalue(), EPOCH) if r.status == "FAIL"}
+    assert ("zip-extra-fields" in failed) is fails
+
+
 def test_zip_rejects_pre_1980_epoch(repo: Path) -> None:
     with pytest.raises(ra.ReproError, match="1980"):
         ra.build("1.0.0-rc1", repo, "zip", "p", epoch=1)
@@ -349,6 +368,71 @@ def test_compare_differs_across_formats_and_lists_changes(repo: Path, tmp_path: 
     assert result.added == ["p/NEW"]
     assert result.removed == ["p/z-first", "p/z-first/x"]  # the now-empty dir goes too
     assert result.changed == ["p/src/a.txt"]
+
+
+def _write_tar_with_duplicate_members(path: Path, contents: list[bytes], mtime: int = EPOCH) -> None:
+    with tarfile.open(path, "w:gz") as tf:
+        for content in contents:
+            info = tarfile.TarInfo("p/x")
+            info.size, info.mtime, info.mode = len(content), mtime, 0o644
+            tf.addfile(info, io.BytesIO(content))
+
+
+def _write_zip_with_duplicate_members(path: Path, contents: list[bytes]) -> None:
+    with zipfile.ZipFile(path, "w") as zf:
+        for content in contents:
+            zf.writestr("p/x", content)
+
+
+def _assert_only_x_changed(result: ra.Comparison) -> None:
+    assert result.verdict == "differs"
+    assert result.changed == ["p/x"]
+    assert not result.added
+    assert not result.removed
+
+
+def test_compare_tar_detects_removed_duplicate_member(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.tar.gz", tmp_path / "b.tar.gz"
+    _write_tar_with_duplicate_members(a, [b"bad", b"good"])
+    _write_tar_with_duplicate_members(b, [b"good"])
+
+    _assert_only_x_changed(ra.compare(a, b))
+
+
+def test_compare_zip_detects_removed_duplicate_member(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.zip", tmp_path / "b.zip"
+    with pytest.warns(UserWarning, match="Duplicate name"):
+        _write_zip_with_duplicate_members(a, [b"bad", b"good"])
+    _write_zip_with_duplicate_members(b, [b"good"])
+
+    _assert_only_x_changed(ra.compare(a, b))
+
+
+def test_compare_same_duplicate_sequence_is_content_identical(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.tar.gz", tmp_path / "b.tar.gz"
+    _write_tar_with_duplicate_members(a, [b"bad", b"good"])
+    _write_tar_with_duplicate_members(b, [b"bad", b"good"], mtime=EPOCH + 1)
+
+    result = ra.compare(a, b)
+    assert result.verdict == "content-identical"
+    assert not (result.added or result.removed or result.changed)
+
+
+def test_compare_detects_swapped_duplicate_member_order(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.tar.gz", tmp_path / "b.tar.gz"
+    # The last copy is the same on both sides, so only the earlier ones differ.
+    _write_tar_with_duplicate_members(a, [b"bad", b"good", b"good"])
+    _write_tar_with_duplicate_members(b, [b"good", b"bad", b"good"])
+
+    _assert_only_x_changed(ra.compare(a, b))
+
+
+def test_compare_detects_repeated_identical_member(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.tar.gz", tmp_path / "b.tar.gz"
+    _write_tar_with_duplicate_members(a, [b"good"])
+    _write_tar_with_duplicate_members(b, [b"good", b"good"])
+
+    _assert_only_x_changed(ra.compare(a, b))
 
 
 # ---------------------------------------------------------------- recipe + CLI

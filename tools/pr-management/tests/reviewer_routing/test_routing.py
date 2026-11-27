@@ -280,3 +280,49 @@ def test_propose_asks_for_reads_then_scores(tmp_path: Path) -> None:
     r = cli.propose(args)
     assert r["primary"]["handle"] == "bob" and r["classification"] == "primary-only"
     assert r["next_step"] == "gh pr edit 42 --repo apache/example --add-reviewer bob"
+
+
+def test_propose_reads_codeowners_from_each_location_github_uses(tmp_path: Path) -> None:
+    """`.github/`, then the root, then `docs/`, the order GitHub (and code-review) use."""
+    cfg = _cfg(tmp_path, [("bob", [], 5)])
+    saved = tmp_path / "saved"
+    saved.mkdir()
+    (saved / "routing-pr-42.json").write_text(
+        json.dumps({"title": "fix", "labels": [], "files": [{"path": "a/b.py"}]})
+    )
+    (saved / "routing-commits-0.txt").write_text("")
+    (saved / "routing-load-bob.json").write_text("[]")
+    args = _args(tmp_path, cfg, target="pr:42", saved_dir=saved, area=[], no_codeowners=False, injection=None)
+    args.codeowners_missing = []
+
+    def asked() -> list[str]:
+        return [n["params"][0] for n in cli.propose(args).get("needs", []) if n["op"] == "repo-file"]
+
+    assert asked() == [".github/CODEOWNERS"]
+    args.codeowners_missing = [".github/CODEOWNERS"]
+    assert asked() == ["CODEOWNERS"]
+    (saved / "routing-codeowners-root.txt").write_text("* @bob\n")
+    r = cli.propose(args)
+    assert "needs" not in r
+    assert r["primary"]["handle"] == "bob" and r["primary"]["codeowner_paths"] == 1
+    args.codeowners_missing = [".github/CODEOWNERS", "CODEOWNERS"]
+    assert asked() == ["docs/CODEOWNERS"]
+    args.codeowners_missing = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"]
+    assert asked() == []
+
+
+def test_propose_prefers_the_github_directory_when_it_exists(tmp_path: Path) -> None:
+    """GitHub uses the first file it finds, so a root file is never read when `.github/` has one."""
+    cfg = _cfg(tmp_path, [("bob", [], 5)])
+    saved = tmp_path / "saved"
+    saved.mkdir()
+    (saved / "routing-pr-42.json").write_text(
+        json.dumps({"title": "fix", "labels": [], "files": [{"path": "a/b.py"}]})
+    )
+    (saved / "routing-commits-0.txt").write_text("")
+    (saved / "routing-load-bob.json").write_text("[]")
+    (saved / "routing-codeowners.txt").write_text("* @bob\n")
+    args = _args(tmp_path, cfg, target="pr:42", saved_dir=saved, area=[], no_codeowners=False, injection=None)
+    args.codeowners_missing = []
+    r = cli.propose(args)
+    assert "needs" not in r and r["primary"]["codeowner_paths"] == 1

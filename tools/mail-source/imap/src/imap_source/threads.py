@@ -28,11 +28,14 @@ headers are only parsed into identifiers and dates, never interpreted.
 
 from __future__ import annotations
 
+import contextlib
 import email.message
 import email.utils
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.errors import HeaderParseError
+from email.header import decode_header
 
 _MSG_ID = re.compile(r"<[^<>\s]+>")
 _BARE_MSG_ID = re.compile(r"[^<>\s]+@[^<>\s]+")
@@ -44,6 +47,28 @@ def normalise_message_id(value: str | None) -> str | None:
         return None
     match = _MSG_ID.search(value)
     return match.group(0) if match else None
+
+
+def decode_subject(value: object) -> str:
+    """A ``Subject`` header as display text: RFC 2047 decoded and unfolded.
+
+    Messages are parsed with the ``compat32`` policy, which keeps encoded
+    words and the folding CRLF in the value. A folded subject would otherwise
+    reach the draft's ``Subject`` header with a line break in it.
+    """
+    text = str(value or "")
+    # Encoded words are ASCII by definition. A raw 8-bit subject is kept as it
+    # is: ``decode_header`` would hand its unencoded runs back escaped.
+    if "=?" in text and text.isascii():
+        with contextlib.suppress(HeaderParseError, LookupError, UnicodeError):
+            # Each part is decoded with its own charset. ``make_header`` would
+            # re-encode Japanese charsets as ISO-2022-JP, which has no
+            # half-width katakana, and raise on a Shift_JIS or EUC-JP subject.
+            text = "".join(
+                part.decode(charset or "ascii") if isinstance(part, bytes) else part
+                for part, charset in decode_header(text)
+            )
+    return " ".join(text.split())
 
 
 def canonical_thread_id(value: str | None) -> str | None:
@@ -96,7 +121,7 @@ def summarise(message: email.message.Message) -> ThreadPosition:
     if from_header:
         display, address = email.utils.parseaddr(str(from_header))
         from_address = address or display or None
-    subject = str(message.get("Subject", "") or "")
+    subject = decode_subject(message.get("Subject"))
     return ThreadPosition(
         message_id=normalise_message_id(message.get("Message-ID")),
         references=tuple(chain),

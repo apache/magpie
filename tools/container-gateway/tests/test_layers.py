@@ -673,6 +673,7 @@ def test_vector_adopted_worktree_with_its_own_dir_writes_there(tmp_path: Path) -
     main, wt = _linked_worktree(tmp_path)
     (main / LOCAL).mkdir()
     (wt / LOCAL).mkdir()
+    (wt / LOCAL / "user.md").write_text("own configuration")
     assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
     assert layers.personal_dir(wt) == wt / LOCAL
 

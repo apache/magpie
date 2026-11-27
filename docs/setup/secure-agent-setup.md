@@ -17,6 +17,7 @@
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
   - [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt)
+    - [The read-only gatherer agent](#the-read-only-gatherer-agent)
   - [Host-only uv state](#host-only-uv-state)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
     - [Why project-local, not user-scope and not committed-project](#why-project-local-not-user-scope-and-not-committed-project)
@@ -43,6 +44,8 @@
   - [Review findings curation mod (Claude Code plugin / hook)](#review-findings-curation-mod-claude-code-plugin--hook)
     - [Unsandboxed filesystem writes (`$.fs.write`)](#unsandboxed-filesystem-writes-fswrite)
   - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
+  - [Multi-agent review comparison pane mod (Claude Code plugin / hook)](#multi-agent-review-comparison-pane-mod-claude-code-plugin--hook)
+  - [Local security triage queue pane mod (Claude Code plugin / hook)](#local-security-triage-queue-pane-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -227,8 +230,10 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 #    blocks into your tracker repo's `.claude/settings.json`.
 #    Section: "The framework's own .claude/settings.json" below.
 
-# 3. The clean-env wrapper. Source `agent-iso.sh` from your rc
-#    file, optionally alias `claude=claude-iso`. Section: "The
+# 3. The clean-env wrapper. Copy `agent-iso.sh` once into
+#    `~/.claude/agent-isolation/` and source that copy from your rc
+#    file (never a checkout or `~/.cache/apache-magpie/`, which agents
+#    can write), optionally alias `claude=claude-iso`. Section: "The
 #    clean-env wrapper" below.
 
 # 4. User-scope hooks. Copy `sandbox-bypass-warn.sh`,
@@ -461,6 +466,12 @@ for adopters still on an older runtime — they must upgrade to
 `@latest` (which they should be doing anyway) before the setup will
 verify.
 
+The floor is **2.1.281**, the first release that reads `AGENTS.md` natively in every session.
+Magpie keeps its agent instructions in `AGENTS.md` only, with no `CLAUDE.md` beside it.
+2.1.277 reads `AGENTS.md` too, except on a third-party provider such as Amazon Bedrock or with telemetry disabled, where it still reads `CLAUDE.md` files only
+([Claude Code → AGENTS.md](https://code.claude.com/docs/en/memory#agents-md)).
+2.1.281 is also the first release whose `claude plugin validate` accepts Magpie's hook modules.
+
 ### Wiring the check script into a weekly routine
 
 The framework's `/schedule` slash-command lets you wire the check
@@ -521,7 +532,7 @@ The full block below is the two merged, annotated.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
-    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, `vetted-op`) are
+    // The vetted-ops WRITE dispatchers (`vetted-op-tracker`, the two batch entry points, `vetted-op`) are
     // excluded for the same reason: their writes need a gh that can verify
     // TLS, and a sandboxed `vetted-op` cannot even read ~/.claude/magpie to
     // start. Each operation is a fixed gh argv built from the catalogue, with
@@ -549,6 +560,10 @@ The full block below is the two merged, annotated.
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
@@ -677,7 +692,10 @@ The full block below is the two merged, annotated.
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",                 // GraphQL fetches (PR-triage paginated loop). Every GraphQL call sends `-f query=…`, so the write-shaped `gh api * -f*` ask below still prompts for it (ask beats allow); this rule only matters in a config without that ask. Bounded GraphQL reads go through vetted-ops instead.
+      // No `gh api graphql` allow: a GraphQL call can write (a mutation) and a
+      // command prefix cannot tell a query from one, so raw `gh api graphql`
+      // always prompts. Bounded GraphQL reads belong in vetted-ops reads, which
+      // run without a prompt; a skill's direct GraphQL read prompts each time.
       // Two read-only REST `gh api` GETs the skills need for read-only
       // analysis (security-team / reviewer roster lookup; release-tag ↔
       // fix-commit ancestry when verifying a fix shipped). Without these,
@@ -784,6 +802,10 @@ The full block below is the two merged, annotated.
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",  // checked batches of private-tracker writes: one prompt per batch, never `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",  // runs only a policy set to private_tracker_writes = "none"; the one batch rule an adopter on `none` may move to `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
       "Bash(uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool *)",  // cve-tool: excluded from the sandbox above, and it changes CVE records, so every call asks
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",  // push / worktree moves outside the sandbox: never `allow`
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)",
@@ -981,6 +1003,10 @@ policy in a path the sandbox does not grant write to and point
 each bounded by the approved policy's `[git]` table and the operator's own `operator-git.toml`.
 `vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
 and their runner refuses any `gh` call outside `repos/<tracker>/`.
+`vetted-op-tracker-batch` runs only a manifest of private-tracker writes that `vetted-op-read batch-check` printed for the user, on a tracker the forge confirms is private,
+and only when the approved policy turns batching on; it always keeps its `ask`.
+Its twin `vetted-op-tracker-batch-unprompted` refuses every policy not set to `[approval] private_tracker_writes = "none"`, and is the only write entry point an adopter on `none` may move to `allow`
+([batch design note](../designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts)).
 `vetted-op` runs the whole write catalogue, but each operation is a fixed `gh` argv with no shell,
 parameters that may not start with `-`, and a body read only from the owner-only workspace,
 so unsandboxed it reaches less than the bare `gh *` the framework already excludes.
@@ -1046,7 +1072,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
-5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker`, `vetted-op-git` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
+5. `sandbox.excludedCommands` keeps the `vetted-op-read`, `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted`, `vetted-op-git` and `vetted-op` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
    Without them, an allowed call runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
 6. The agent-guard plugin is installed, so the `vetted-ops-spelling` guard turns an expanded spelling into a refusal instead of a sandboxed call that fails silently.
 
@@ -1056,7 +1082,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "excludedCommands": [
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
-    // ...plus the two vetted-op-tracker, two vetted-op-git and two vetted-op entries
+    // ...plus the two vetted-op-tracker, two vetted-op-tracker-batch, two vetted-op-tracker-batch-unprompted, two vetted-op-git and two vetted-op entries
   ]
 },
 "permissions": {
@@ -1083,6 +1109,27 @@ An agent definition that narrows its tools, such as a read-only gatherer's `tool
 
 The imperative covers the read dispatcher only.
 `vetted-op-tracker` and `vetted-op` write: they keep their `ask` rule and never go in `allow` ([why](#the-frameworks-own-claudesettingsjson)), so a skill runs them from the foreground session, never from a background agent.
+
+### The read-only gatherer agent
+
+Unprompted reads are safe in a background agent only if that agent cannot act on what it reads.
+A general-purpose agent can: it has `Bash`, `Edit` and `Write`, and it reads private mail and tracker text written by outsiders, any of which may carry a prompt injection.
+For Claude Code the framework ships a narrower agent,
+[`tools/agent-isolation/agents/magpie-gatherer.md`](../../tools/agent-isolation/agents/magpie-gatherer.md).
+`pr-management-code-review`'s prefetch and `pr-management-stack-review`'s layer readers dispatch it where it is installed, and fall back to `general-purpose` where it is not.
+The `security-issue-sync` and `security-issue-triage` bulk agents are not on it yet: they still run raw `gh`, Gmail reads and file writes, which it does not allow.
+The agent:
+
+- **Tools:** `Read`, `Grep`, `Glob` and `Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)`; no MCP tool, nothing that writes.
+  It runs on the session's model.
+- **Its own hook enforces the Bash limit:** the `tools:` line is not trusted alone, so a `PreToolUse` hook in the agent's frontmatter denies every Bash command except that exact read, with no chaining, redirection, `--config` (another policy) or `--save` (a file write).
+  It fails closed: if the guard itself cannot run (no `python3`, unreadable input), it exits 2, the one exit code Claude Code treats as a block; any other failure would let the command through.
+  `vetted-op-read` itself refuses every forge or tracker write before it reads the policy.
+- **No mail reads:** a list-wide search such as PonyMail's `search_list` stays behind the harness prompt ([`family-mcp-allows.json`](../../plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json)), which a background agent cannot answer, and the skills that use the agent read PRs, not mail.
+- **User scope, not a plugin:** Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook would have to match the agent's name, which any agent can take.
+  So install Step V.2 copies it to `~/.claude/agents/` and proposes `Edit(~/.claude/agents/**)` in the user-scope deny list, since the hook runs outside the sandbox; verify check 21 checks the tools, the hook and that deny rule; update reports drift from the framework's copy.
+
+The agent returns a report; the orchestrator applies every change, sequentially, after the operator confirms it.
 
 ## Host-only uv state
 
@@ -1320,6 +1367,18 @@ The helper:
   into **each worktree's** own `.claude/settings.local.json`.
 - Without the flag, writes only the current worktree's path
   into the current worktree's `.claude/settings.local.json`.
+- With `--all-worktrees` run from a main checkout, also adds that
+  checkout's `.apache-magpie-local/`, `.claude/settings.json` and
+  `.claude/settings.local.json` to each linked worktree's `allowRead`
+  only, never to `allowWrite`: the worktree inherits that personal layer
+  and loads those settings first, so the skills must be able to read
+  them. Only from there: a worktree's `.git` file is writable from inside
+  the sandbox, so the main checkout is never derived from it, and
+  without the flag nothing is added. A path that is a symlink, or does
+  not exist yet, is not granted, and every run, with or without the flag,
+  drops an inherited grant whose path has since become a symlink. Between
+  runs, the setup pre-flight reports such a swap at the next skill start
+  (`inherited-path-symlink`).
 - Also adds the [working directory](#working-directories-under-the-read-outside-working-directories-block)
   `/tmp/claude-<uid>`, resolved, to `permissions.additionalDirectories`;
   `--no-working-dirs` skips it. It removes `$HOME/.claude/magpie` from
@@ -1649,9 +1708,24 @@ Layer 0 — strip credential-shaped env vars from the parent shell
 before invoking `claude` — is implemented by
 [`tools/agent-isolation/agent-iso.sh`](../../tools/agent-isolation/agent-iso.sh).
 
-There are two valid ways to make `claude-iso` available on your
-shell. Pick whichever matches how you use Claude Code; the wrapper
-behaviour is identical either way.
+There are two ways to make `claude-iso` available on your shell; the
+wrapper behaviour is identical either way. **Under the secure setup, use
+the global install.** Your shell rc file sources the script outside every
+sandbox, at each login, so the copy it reads must be one no agent can
+change: a framework checkout, a pinned snapshot inside your tracker repo
+and `~/.cache/apache-magpie/framework/` are all writable to the agents
+you run there. The global copy sits in `~/.claude/agent-isolation/`,
+outside every workspace. Claude Code's sandboxed commands cannot write
+it, and the `Edit(~/.claude/agent-isolation/**)` deny rule keeps it out
+of Claude Code's file tools. That rule is Claude Code's own: Codex,
+Goose, Antigravity, OpenCode and Kiro keep their writes inside the
+workspace with their own sandboxes, while Pi asks before a native write
+outside the working folder, and Cursor, Copilot and Aider rely on their
+per-write approval prompt, so never approve a write to that folder
+there. Copy it once, from a
+checkout whose `tools/agent-isolation/agent-iso.sh` you have checked
+against upstream (`git diff origin/main -- tools/agent-isolation/agent-iso.sh`
+shows nothing).
 
 Both take the script from a directory that holds the framework's `tools/agent-isolation/`:
 a framework checkout, a pinned snapshot (`<your-tracker>/.apache-magpie/`),
@@ -1664,7 +1738,10 @@ The [`setup-isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-
 **Per-repo install** — source the script directly from the
 framework checkout. Simplest, always tracks the wrapper version in
 the repo (so a `git pull` of the framework updates the wrapper),
-but only works on hosts where the framework path resolves.
+but only works on hosts where the framework path resolves, and only
+for a checkout no agent works in: whatever an agent writes to that
+file runs in your next login shell, outside the sandbox. Not for the
+secure setup.
 
 ```bash
 # ~/.bashrc or ~/.zshrc
@@ -1912,9 +1989,9 @@ ships two **bundled** (universal `git` hygiene) guards:
 
 The domain-specific guards are **owned by the skills that need them**
 and discovered the same way (below) — `skills/pr-management-triage/guards/`
-ships **mention** (never `@`-ping a non-author in an author-directed
+ships **mention** (on a body triage rendered, never `@`-ping a non-author in an author-directed
 `gh pr comment`/`gh issue comment`; never `@`-mention anyone in a
-`gh pr edit --body` fold) and **mark-ready** (never add `ready for
+`gh pr edit --body` fold; other skills' posts pass) and **mark-ready** (never add `ready for
 maintainer review` while CI awaits approval); `skills/security-issue-fix/guards/`
 ships **security-language** (no CVE / security-fix wording in a public
 `gh pr create|edit` title/body).
@@ -2098,6 +2175,29 @@ Part 2 will add the `$.fs` IPC surface, which this section will then document.
   Adhering to the framework requirement that every agent-authored proposal requires human sign-off, an untouched state remains in `reviewing` status and never drops or closes candidate issues.
   Candidates are only marked for closure upon deliberate maintainer action via interactive buttons ("Keep Target" or "Set as Kept").
   Dismissed candidates provide a `Restore` button to undo accidental dismissals, and pressing a kept selection a second time clears the selection back to unselected.
+
+## Multi-agent review comparison pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pairing` plugin, the multi-agent review comparison pane mod ([`plugins/magpie-pairing/hooks/multi-agent-review-pane.ts`](../../plugins/magpie-pairing/hooks/multi-agent-review-pane.ts)) provides an interactive side pane comparing findings across three independent review axes (`Correctness`, `Security`, `Conventions`) during pre-flight self-reviews.
+The mod integrates with the `multi-agent-review` skill via filesystem IPC (`.magpie-pairing-review-<sha>.json` and `.magpie-pairing-decision-<sha>.json`), `$.ui.open({ component: 'Pane' })`, and `ui.press` event routing for human curation (`[Accept]`, `[Dismiss]`, `[Reset]`).
+
+- **Filesystem IPC and path confinement**: The skill stages `.magpie-pairing-review-<sha>.json` and notifies the mod via a contained `test -f` check. The mod validates path confinement (`isConfinedReviewPath`), verifies write target safety (`classifyWriteTarget` rejects symlinks, non-files, and escapes), verifies payload digest integrity (`computePayloadHash`), hydrates the reactive session atom (`magpie-pairing.multiAgentReviewState`), and writes curated developer decisions to `.magpie-pairing-decision-<sha>.json`.
+- **Threat model and untrusted content boundaries**: External diff content and finding summaries are strictly sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving legitimate quotes and syntax in inert `Text` nodes. Prompt-injection attempts detected by sub-agents are recorded in `injection_attempts` and elevated to blocking security findings in the pane model without duplicate correctness findings.
+- **State boundary and human sign-off**: The mod uses an isolated reactive session atom (`magpie-pairing.multiAgentReviewState`), reset on `session.start` and auto-dismissed on mutating `git` commands (writing an invalidation marker to disk). Findings are curated via interactive buttons (`[Accept]`, `[Dismiss]`, `[Reset]`) and never perform external network or Git writes.
+
+## Local security triage queue pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-security` plugin, the local security triage queue pane mod ([`plugins/magpie-security/hooks/security-triage-queue-pane.ts`](../../plugins/magpie-security/hooks/security-triage-queue-pane.ts)) provides a `/magpie-security-queue` command and interactive `Pane` UI (`[All]`, `[Needs Sync]`, `[Needs CVE]`, `[Ready]`) with single-click skill launcher buttons (`[Sync]`, `[Allocate CVE]`, `[Triage]`).
+Part 1 ships the `/magpie-security-queue` reader (`$.fs.read` + `$.ui.open`), session state atom (`magpie-security.triageQueueState`), sanitizer, strict path confinement, symlink/non-regular file checks, and launcher action staging.
+Skill-side emission of `.magpie-security-triage-queue.json` from `security-issue-sync` / `security-cve-allocate` will follow in Part 2.
+
+- **Local-only filesystem IPC and embargo protection**: All data remains local with zero network or subprocess calls.
+  Path strings are confined by `isConfinedQueuePath` to `.magpie-security-triage-queue.json` and `.magpie-security-triage-action.json` under the active workspace root.
+  To prevent symlink traversal outside the intended directory, both queue reads and action writes pre-check targets via `$.fs.stat` (`classifyWriteTarget`) and refuse symbolic links and non-regular files.
+  Both filenames are excluded by `.gitignore` in this framework repository; adopter tracker repositories must configure matching ignore entries or clean up session files before staging.
+  Staged launcher action payloads contain only `{ itemId, skill, command, stagedAt }` without advisory titles.
+- **Untrusted content boundaries and command safety**: Advisory titles and IDs are sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving quotes in inert `Text` nodes.
+  Launcher buttons validate `itemId` against `/^[A-Za-z0-9#._-]{1,40}$/`, allowlisted skill names, and active `state.items` membership, staging commands locally without auto-executing them.
 
 ## Sandbox-error hint hook
 
@@ -3454,10 +3554,14 @@ the agent's own rules:
     "Edit(~/.claude/CLAUDE.md)", "Edit(~/.claude-config/CLAUDE.md)",
     "Edit(~/.claude/settings.json)", "Edit(~/.claude-config/settings.json)",
     "Edit(~/.claude/scripts/**)", "Edit(~/.claude-config/scripts/**)",
-    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)"
+    "Edit(~/.claude/git-hooks/**)", "Edit(~/.claude-config/git-hooks/**)",
+    "Edit(~/.claude/agent-isolation/**)"
   ]
 }
 ```
+
+`~/.claude/agent-isolation/` holds the global copy of the clean-env
+wrapper, which your shell rc file sources outside the sandbox.
 
 Name both the `~/.claude/` path and the sync-repo path it links to.
 Hook scripts and git hooks run outside the sandbox, so an edit to them
@@ -4059,6 +4163,11 @@ never delete it:
      `sandbox.excludedCommands` (both forms), never in `allow`;
      an exclusion without its `ask` is ✗ (the prompt is the only
      gate on an unsandboxed write).
+   - `vetted-op-tracker-batch` is in `ask` and `sandbox.excludedCommands` (both forms),
+     never in `allow` (it also runs `batch` policies, which asked for a prompt).
+   - `vetted-op-tracker-batch-unprompted` is in `sandbox.excludedCommands` (both forms) and in `ask`,
+     or in `allow` only when the approved policy sets
+     `[approval] private_tracker_writes = "none"`; excluded with neither is ✗.
    - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the

@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "advisory_records",
+      "action": "Record CVE-2026-00006 through a pull request against myproject/myproject-site with vetted-op-git: show the planner's new file security/cves/CVE-2026-00006.json, the pull request's title and body, and, on confirmation, run its eight commands in order — git-fetch of main (its printed commit replaces <start-sha>), git-worktree-add of the worktree on advisory-records/CVE-2026-00006, the --apply re-run into the worktree, vetted-op-checks, git-stage, git-commit, git-push-branch to the operator's fork (publishes the branch on the fork) and git-pr-create (publishes the pull request), each vetted-op-git call with --caller security-issue-sync --policy-from the site checkout and confirmed on its own; nothing is pushed to the site repository itself. Run the adversarial review between the commit and the push. After the pull request opens, post the advisory-records v1 status comment naming its URL, without ticking the security-pages checklist item (that waits for the merge).",
+      "reason": "advisory_records_pending is true: cve.org reports CVE-2026-00006 PUBLISHED, the project configures advisory_records with publish: pull-request, no advisory-records marker comment exists, no pull request comes from the configured branch, the site policy is in place for vetted-op-git, and the planner returned a change."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "security_pages_reminder_proposed": false,
+  "advisory_records_proposed": true
+}

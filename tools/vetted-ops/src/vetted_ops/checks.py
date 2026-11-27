@@ -46,6 +46,9 @@ STAMP_DIR = "checks"
 #: The hook configurations this command knows how to run, and the command for each.
 CHECKERS = ((".pre-commit-config.yaml", ("prek", "run", "--files")),)
 DELETED = "deleted"
+#: What the record says when a records site's own hooks were skipped: only a
+#: policy that opts in (`[git] site_hooks = "skip"`) lets `git-commit` accept it.
+SITE_HOOKS_SKIPPED = "skipped: site hooks off by policy"
 
 
 def stamp_path(workspace: Path, worktree: Path) -> Path:
@@ -54,11 +57,50 @@ def stamp_path(workspace: Path, worktree: Path) -> Path:
     return workspace / STAMP_DIR / f"{key}.json"
 
 
-def content_id(worktree: Path, path: str) -> str:
-    """The blob id `git-stage` would record for `path` (no filters: it stages with none), or `deleted`."""
+def unreadable_git_dir(worktree: Path) -> Path | None:
+    """The linked worktree's git directory when the sandbox cannot read it, else None.
+
+    A worktree created under a sandbox-writable root (``~/.cache/…``) keeps its
+    index and objects in its main checkout's ``.git``, which may sit where the
+    sandbox denies reads (a site checkout under ``~/code``). Git cannot run in
+    such a worktree at all, so neither `git hash-object` nor a hook manager can.
+    """
+    marker = worktree / ".git"
+    if not marker.is_file():
+        return None
+    try:
+        first = marker.read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, UnicodeDecodeError, IndexError):
+        return None
+    if not first.startswith("gitdir:"):
+        return None
+    git_dir = Path(first.removeprefix("gitdir:").strip())
+    if not git_dir.is_absolute():
+        git_dir = worktree / git_dir
+    try:
+        os.listdir(git_dir)
+    except OSError:
+        return git_dir
+    return None
+
+
+def blob_id(data: bytes) -> str:
+    """Git's SHA-1 blob id of ``data``, computed here: what `git hash-object --no-filters` prints in a SHA-1 repository."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data, usedforsecurity=False).hexdigest()
+
+
+def content_id(worktree: Path, path: str, *, in_process: bool = False) -> str:
+    """The blob id `git-stage` would record for `path` (no filters: it stages with none), or `deleted`.
+
+    ``in_process`` computes it without git, for a worktree whose git directory
+    the sandbox cannot read. A SHA-256 repository then gets ids that never
+    match, so `git-commit` refuses: the fallback can only fail closed.
+    """
     full = worktree / path
     if not os.path.lexists(full):
         return DELETED
+    if in_process:
+        return blob_id(full.read_bytes())
     done = subprocess.run(
         ["git", "-C", str(worktree), "hash-object", "--no-filters", "--", path],
         capture_output=True,
@@ -75,11 +117,28 @@ def read_paths(paths_file: Path) -> list[str]:
     return paths
 
 
-def run_checks(worktree: Path, paths: list[str]) -> str:
-    """Run the worktree's hook configuration on `paths`; the checker's name, or `none`."""
+def run_checks(
+    worktree: Path, paths: list[str], git_dir: Path | None = None, *, skip_site_hooks: bool = False
+) -> str:
+    """Run the worktree's hook configuration on `paths`; the checker's name, or `none`.
+
+    ``git_dir`` is the worktree's unreadable git directory, if any: a hook
+    manager runs git, so a configured one cannot run, and the checks refuse
+    rather than pass unchecked content, unless ``skip_site_hooks`` asks to
+    record them as skipped. That is only a claim: `git-commit` accepts the
+    record only from a records-site policy that sets `[git] site_hooks = "skip"`.
+    """
     present = [p for p in paths if os.path.lexists(worktree / p)]
     for config, command in CHECKERS:
         if (worktree / config).is_file():
+            if git_dir is not None and skip_site_hooks:
+                return SITE_HOOKS_SKIPPED
+            if git_dir is not None:
+                raise RuntimeError(
+                    f"{config} configures checks, and {command[0]} needs the worktree's git directory "
+                    f"{git_dir}, which the sandbox cannot read; these changes cannot be checked here "
+                    '(a records site whose policy sets [git] site_hooks = "skip" passes --skip-site-hooks)'
+                )
             if present:
                 done = subprocess.run([*command, *present], cwd=worktree, check=False)
                 if done.returncode != 0:
@@ -88,17 +147,18 @@ def run_checks(worktree: Path, paths: list[str]) -> str:
     return "none"
 
 
-def record(worktree: Path, paths_file: Path) -> Path:
+def record(worktree: Path, paths_file: Path, *, skip_site_hooks: bool = False) -> Path:
     """Run the checks on the listed paths and write the record; returns its path."""
     worktree = Path(os.path.realpath(worktree))
     paths_file = Path(os.path.realpath(paths_file))
     paths = read_paths(paths_file)
-    checker = run_checks(worktree, paths)
+    git_dir = unreadable_git_dir(worktree)
+    checker = run_checks(worktree, paths, git_dir, skip_site_hooks=skip_site_hooks)
     stamp = {
         "worktree": str(worktree),
         "checks": checker,
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "files": {path: content_id(worktree, path) for path in paths},
+        "files": {path: content_id(worktree, path, in_process=git_dir is not None) for path in paths},
     }
     target = stamp_path(paths_file.parent, worktree)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -113,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog=PROG,
         description="Run a change's checks inside the sandbox and record what passed, for git-commit.",
+        allow_abbrev=False,
     )
     parser.add_argument("worktree", type=Path, help="the worktree the change is in")
     parser.add_argument(
@@ -120,9 +181,15 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="the git-stage path list in the vetted-ops workspace; the record is written beside it",
     )
+    parser.add_argument(
+        "--skip-site-hooks",
+        action="store_true",
+        help="in a worktree whose git directory the sandbox cannot read, record the site's hooks as skipped "
+        'instead of refusing; git-commit accepts that only under a policy with [git] site_hooks = "skip"',
+    )
     args = parser.parse_args(argv)
     try:
-        target = record(args.worktree, args.paths_file)
+        target = record(args.worktree, args.paths_file, skip_site_hooks=args.skip_site_hooks)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f"{PROG}: {exc}", file=sys.stderr)
         return 1

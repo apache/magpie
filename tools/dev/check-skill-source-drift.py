@@ -122,6 +122,7 @@ class Descriptor:
     commit: str = ""
     method: str = ""
     skills_root: str = "skills"
+    marketplace: str = ""
     provides: list[str] = field(default_factory=list)
 
 
@@ -159,7 +160,7 @@ def parse_descriptors(text: str) -> list[Descriptor]:
             m = re.match(r"^\s*([A-Za-z_][\w-]*):\s*(.*?)\s*$", line)
             if m:
                 key, val = m.group(1), m.group(2).split(" #")[0].strip().strip("'\"")
-                if key in ("url", "ref", "commit", "method", "skills_root") and val:
+                if key in ("url", "ref", "commit", "method", "skills_root", "marketplace") and val:
                     setattr(cur, key, val)
     return out
 
@@ -228,6 +229,8 @@ class Upstream:
     """tag name -> the commit it resolves to (resolved lazily; '' until then)."""
     marketplaces: dict[str, set[str]]
     """marketplace -> the plugin names its catalog lists."""
+    catalog_names: dict[str, str] = field(default_factory=dict)
+    """marketplace -> the ``name`` its catalog declares (what ``<plugin>@<name>`` installs from)."""
 
 
 def _listing(fetch: Fetch, base: str, path: str, ref: str | None = None) -> list[dict[str, str]]:
@@ -293,7 +296,8 @@ def resolve_tag(fetch: Fetch, base: str, tag: str) -> str:
     return str(obj["sha"])
 
 
-def read_marketplaces(fetch: Fetch, base: str) -> dict[str, set[str]]:
+def read_marketplaces(fetch: Fetch, base: str, names: dict[str, str] | None = None) -> dict[str, set[str]]:
+    """The plugin names each catalog lists; `names`, when given, receives each catalog's own ``name``."""
     out: dict[str, set[str]] = {}
     for market, path in MARKETPLACES.items():
         got = fetch(f"{base}/contents/{path}")
@@ -302,6 +306,8 @@ def read_marketplaces(fetch: Fetch, base: str) -> dict[str, set[str]]:
             continue
         data = json.loads(base64.b64decode(got["content"]))
         out[market] = {p["name"] for p in data.get("plugins", [])}
+        if names is not None and isinstance(data.get("name"), str):
+            names[market] = data["name"]
     return out
 
 
@@ -397,8 +403,9 @@ def check_repo(fetch: Fetch, descs: list[Descriptor], rows: list[CatalogueRow] |
     upstream = Upstream(
         layout=read_layout(fetch, base, scan_root(descs[0])),
         tags=read_tags(fetch, base),
-        marketplaces=read_marketplaces(fetch, base),
+        marketplaces={},
     )
+    upstream.marketplaces = read_marketplaces(fetch, base, upstream.catalog_names)
     findings: list[str] = []
     provided: set[str] = set()
     for desc in descs:
@@ -410,6 +417,12 @@ def check_repo(fetch: Fetch, descs: list[Descriptor], rows: list[CatalogueRow] |
                 pinned_dirs.add(skill)
         provided.update(desc.provides)
         findings += check_pin(desc, upstream, pin_commit, pinned_dirs)
+        for market, name in sorted(upstream.catalog_names.items()):
+            if desc.marketplace and name != desc.marketplace:
+                findings.append(
+                    f"`{desc.id}` records marketplace `{desc.marketplace}`, but the {market} catalog "
+                    f"names it `{name}`: `<skill>@{desc.marketplace}` would not install."
+                )
     if rows is None:
         findings.append(
             f"No catalogue for `{descs[0].url}`: add one so new skills in the source get noticed."

@@ -660,6 +660,44 @@ def test_a_relay_thread_is_no_further_reporter(capsys, tmp_path):
 def test_a_thread_id_the_field_does_not_record_is_blocked(capsys, tmp_path):
     plan = draft_plan(capsys, tmp_path, MERGED, thread_id="nosuchthread99")
     assert plan["action"] == "blocked"
+    assert "leave it out to plan the primary one" in plan["reason"]
+
+
+ARCHIVE = "https://lists.apache.org/thread/abc123def456?security@airflow.apache.org"
+
+
+def test_an_archive_only_report_threads_by_its_root_message_id(capsys, tmp_path):
+    # Forwarded to the private list, never in this mailbox: no Gmail thread to attach to.
+    field = f"{ARCHIVE}\nRoot Message-ID: `<report-1@example.org>`"
+    plan = draft_plan(capsys, tmp_path, field)
+    assert (plan["action"], plan["backend"]) == ("create", "oauth_curl")
+    assert plan["anchor"] == {"in_reply_to": "<report-1@example.org>", "references": "<report-1@example.org>"}
+    assert "thread_id" not in plan["anchor"]
+    assert plan["thread_id"] == ARCHIVE
+    assert plan["subject"] == "Re: Pickle in XCom"
+
+
+def test_an_archive_only_report_never_threads_by_the_gmail_message_id(capsys, tmp_path):
+    # `last_message_id` is a Gmail API id for `claude_ai_mcp`, not an RFC 5322 Message-ID.
+    plan = draft_plan(
+        capsys,
+        tmp_path,
+        ARCHIVE,
+        root_message_id="<report-1@example.org>",
+        last_message_id="18f3a2b9c1d4e600",
+    )
+    assert plan["anchor"] == {"in_reply_to": "<report-1@example.org>", "references": "<report-1@example.org>"}
+
+
+def test_an_archive_only_report_without_a_message_id_is_still_blocked(capsys, tmp_path):
+    plan = draft_plan(capsys, tmp_path, ARCHIVE)
+    assert plan["action"] == "blocked"
+    assert "thread_id or the root Message-ID" in plan["reason"]
+
+
+def test_a_gmail_thread_still_wins_over_the_message_id(capsys, tmp_path):
+    plan = draft_plan(capsys, tmp_path, f"{GMAIL}\nRoot Message-ID: `<report-1@example.org>`")
+    assert plan["anchor"] == {"thread_id": "18f3a2b9c1d4e507"}
 
 
 def test_each_further_reporter_is_planned_even_when_the_first_needs_no_draft(capsys, tmp_path):
@@ -782,15 +820,30 @@ def test_apply_plan_runs_the_confirmed_items_in_order(capsys, tmp_path):
          "legacy_comments": [{"comment_id": 11, "action": "Sync"}], "needs_amend": True},
     )  # fmt: skip
     commands = [s["command"] for s in out["steps"]]
-    assert [s["item"] for s in out["steps"]] == [1, 2, 3, 3, 4, 5, 5]
+    assert [s["item"] for s in out["steps"]] == [1, 2, 3, 3, 4, 4, 4, 4, 5, 5]
     assert commands[0].endswith(
         'vetted-op-tracker --caller security-cve-allocate body-field-set 312 "CVE tool link" /s/cve-tool-link-312.md'
     )
     assert commands[1] == f'gh issue edit 312 --repo {TRACKER} --add-label "cve allocated"'
     assert commands[2].endswith('rollup-fold 312 11 "Sync"')
     assert commands[3].endswith('rollup-append 312 "CVE allocated (CVE-2025-44812)" /s/rollup-entry-312.md')
-    assert "generate-cve-json 312 --attach --report-json /s/cve-report-312.json" in commands[4]
-    assert commands[6].endswith(
+    # The JSON refresh never runs `gh` in the sandbox: saved reads, the generator on
+    # the files, then the vetted body write.
+    assert commands[4].endswith(
+        "vetted-op-read --caller security-cve-allocate --save cve-issue-312.json issue-view 312"
+    )
+    assert commands[5].endswith(
+        "vetted-op-read --caller security-cve-allocate --save cve-team.txt collaborators"
+    )
+    assert (
+        "generate-cve-json --issue-json <workspace>/saved/cve-issue-312.json "
+        "--collaborators <workspace>/saved/cve-team.txt --attach --output-body <workspace>/cve-body-312.md "
+        "--report-json /s/cve-report-312.json"
+    ) in commands[6]
+    assert commands[7].endswith(
+        "vetted-op --caller security-cve-allocate issue-edit-body 312 <workspace>/cve-body-312.md"
+    )
+    assert commands[9].endswith(
         'rollup-amend-latest 312 "CVE allocated (CVE-2025-44812)" /s/rollup-entry-312.md'
     )
     assert out["steps"][0]["load_bearing"] is True
@@ -863,3 +916,75 @@ def test_case_2_no_draft(capsys, tmp_path):
     assert flags_["has_draft_id"] is False
     assert all(value for key, value in flags_.items() if key != "has_draft_id")
     assert "Reporter draft: none — the reporter is on the security team." in out["text"]
+
+
+def _long(chars: int, word: str = "Token") -> str:
+    """A synthetic title of ``chars`` characters (one of them two bytes long)."""
+    return (f"{word} leak é " + "x" * chars)[:chars]
+
+
+@pytest.mark.parametrize(("chars", "warned"), [(100, False), (101, True)])
+def test_step_2_asks_for_a_shorter_title_above_100_characters(capsys, tmp_path, chars, warned):
+    out = title(capsys, tmp_path, _long(chars))
+    assert out["length"]["title_chars"] == chars
+    assert out["length"]["shorten"] is warned
+    assert (out["length_warning"] is not None) is warned
+    if warned:
+        assert "at most 100 characters" in out["length_warning"]
+
+
+@pytest.mark.parametrize(("over", "limit"), [(0, False), (1, True)])
+@pytest.mark.parametrize("products", [["Foo"], ["Foo", "Foo Bar", "Foo Baz", "Foo Qux"]], ids=["one", "four"])
+def test_step_2_budget_follows_the_product_prefix(capsys, tmp_path, products, over, limit):
+    prefix = ", ".join(products) + ": "
+    out = title(
+        capsys, tmp_path, _long(256 - len(prefix) + over), products=products, title_product_prefix=True
+    )
+    assert out["length"]["over_limit"] is limit
+    assert out["length"]["max_title_chars"] == min(100, 256 - len(prefix))
+    assert out["length"]["shorten"] is True  # over 100 either way
+
+
+@pytest.mark.parametrize(
+    ("organization", "adopter", "limit"),
+    [("ASF", None, True), ("ASF", False, False), (None, None, False)],
+    ids=["org-true-adopter-unset", "adopter-false-overrides-org", "no-org"],
+)
+def test_step_2_prefix_follows_the_configuration_chain(
+    capsys, tmp_path, monkeypatch, organization, adopter, limit
+):
+    from generate_cve_json import cve_json
+
+    root = tmp_path / "tracker"
+    (root / ".apache-magpie-overrides").mkdir(parents=True)
+    if organization:
+        (root / ".apache-magpie-overrides" / "project.md").write_text(f"organization: {organization}\n")
+    monkeypatch.setattr(cve_json, "_CONFIG", None)
+    monkeypatch.delenv("CVE_JSON_CONFIG", raising=False)
+    if adopter is not None:
+        config = tmp_path / "cve-json-config.toml"
+        config.write_text(f"[cna]\ntitle_product_prefix = {str(adopter).lower()}\n")
+        monkeypatch.setenv("CVE_JSON_CONFIG", str(config))
+    monkeypatch.chdir(root)
+    products = ["Foo", "Foo Bar"]
+    out = title(capsys, tmp_path, _long(256 - len("Foo, Foo Bar: ") + 1), products=products)
+    assert out["length"]["over_limit"] is limit
+
+
+def test_step_2_an_apache_title_gets_the_prefixed_budget(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d}" for n in range(7)]
+    prefix = len(", ".join(products) + ": ")
+    out = title(
+        capsys, tmp_path, ("Apache widget " + "x" * 120)[:120], products=products, title_product_prefix=True
+    )
+    assert out["length"]["over_limit"] is False  # posted bare
+    assert out["length"]["max_title_chars"] == 256 - prefix
+    assert out["length_warning"] is not None
+
+
+def test_step_2_a_prefix_with_no_room_is_a_products_problem(capsys, tmp_path):
+    products = [f"Foo Component Number {n:02d} Long Name" for n in range(8)]
+    out = title(capsys, tmp_path, "Token leak in the store", products=products, title_product_prefix=True)
+    assert out["length"]["products_too_long"] is True
+    assert out["length"]["max_title_chars"] is None
+    assert "products problem" in out["length_warning"]

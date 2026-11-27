@@ -39,6 +39,26 @@ def test_active_repos_sorts_every_candidate_into_one_list():
     assert out["invalid_names"] == ["bad name"]
 
 
+def test_active_repos_strips_a_trailing_slash_from_a_url():
+    names = [
+        "https://github.com/apache/airflow/",
+        "airflow-site/",
+        "https://github.com/apache/airflow-ci.git/",
+        "https://github.com/apache/nutch-airflow-tools/",
+        "",
+        "/",
+    ]
+    count = counts({"apache/airflow": (1, 0), "apache/airflow-site": (0, 2)})
+    out = active_repos("apache", "airflow", names, since="2026-05-01", end="2026-10-31", count=count)
+    assert out["active"] == [
+        {"repo": "apache/airflow", "merged_prs": 1, "opened": 0},
+        {"repo": "apache/airflow-site", "merged_prs": 0, "opened": 2},
+    ]
+    assert out["inactive"] == [{"repo": "apache/airflow-ci", "merged_prs": 0, "opened": 0}]
+    assert out["excluded_by_name"] == ["nutch-airflow-tools"]
+    assert out["invalid_names"] == []
+
+
 def test_active_repos_cli(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "contributor_metrics.repos.search_count",

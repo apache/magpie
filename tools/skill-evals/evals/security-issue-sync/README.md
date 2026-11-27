@@ -12,7 +12,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 |------|------|-------|-------|
 | 1f | Process step identification | 7 | Decision table covering steps 1-2 through 14 |
 | 2a | Observed state | 3 | Step 11 (PR merged), step 6 (CVE needed), step 2 (stale) |
-| 2b | Proposed changes | 13 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder, advisory-records update (proposed once published, held while cve.org is not, and through a pull request from the operator's fork) |
+| 2b | Proposed changes | 14 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder, advisory-records update (proposed once published, held while cve.org is not, through a pull request from the operator's fork, and through `vetted-op-git` under the secure setup) |
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
 | 5b | The four judged pre-push gates | 2 | A private-scanner analyst credit fails the anonymise gate; a clean fix-released record passes all four |
 | 1d | Actionable signals in comments and mail | 7 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only, reporter credit opt-out kept as the empty-field marker (never `anonymous`) |
@@ -32,7 +32,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 - **Security-pages reminder fires only post-advisory, once**: on a closed-`announced` tracker with *Public advisory URL* populated, the hand-off comment's checklist item still unticked and no reminder marker posted, the reminder status comment is proposed with `security_pages_reminder_proposed: true`; a ticked checklist item or an already-posted reminder proposes nothing (2b cases 8-10).
 - **Hand-offs run delegates inside the wrapper**: a delegated next skill is named with its delegate and invoked through the Magpie skill, never by running the project skill directly (hand-off delegate cases 1-4).
 - **No second reporter reply for a dashboard decision**: a `dashboard-triage` finding links the project page and drafts no reporter reply, since the dashboard emails the reporter itself; every `asf-security` finding goes into one note, and a case that may be one of the security team's standing labels is confirmed as a report before any import; nothing is applied unconfirmed even when asked to (D4 cases 1-3).
-- **Advisory records only after publication**: with `advisory_records` configured, a closed-`announced` tracker whose CVE cve.org reports `PUBLISHED` gets one `advisory_records` item carrying the planner's change and commands (`advisory_records_proposed: true`) and no security-pages reminder; while cve.org does not report it `PUBLISHED`, nothing is proposed (2b cases 11-12). With `publish: pull-request` the item carries the eleven commands ending in a push to the operator's fork and `gh pr create`, never a push to the site repository (2b case 13).
+- **Advisory records only after publication**: with `advisory_records` configured, a closed-`announced` tracker whose CVE cve.org reports `PUBLISHED` gets one `advisory_records` item carrying the planner's change and commands (`advisory_records_proposed: true`) and no security-pages reminder; while cve.org does not report it `PUBLISHED`, nothing is proposed (2b cases 11-12). With `publish: pull-request` the item carries the eleven commands ending in a push to the operator's fork and `gh pr create`, never a push to the site repository (2b case 13); under the secure setup the same pull request goes through the eight steps (`vetted-op-git` and the sandboxed `--apply` and checks), planned from the forge, from a worktree of the site checkout, each with `--policy-from` (2b case 14).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
 
 ## Deterministic steps — pytest, not model evals
@@ -59,6 +59,9 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-26 | `1b258c9d` (review/2194) | `opus[1m]` | 1 | pass |  |
+| 2026-11-22 | `93050ec5` (fix/1736-allocation-placeholder) | (unrecorded, `claude -p`) | 1 | pass | re-run after review fixes on #2194 |
+| 2026-11-18 | `57480dcf` (fix/1736-allocation-placeholder) | `opus[1m]` | 1 | pass |  |
 | 2026-11-18 | `add4ee52` (feat/security-skills-vetted-cve-ops) | `opus[1m]` | 2 | pass |  |
 | 2026-11-18 | `9e979ff3` (feat/security-skills-vetted-cve-ops) | `opus[1m]` | 1 | pass |  |
 | 2026-11-13 | `c22d5769` (feat/cve-tool-interface) | `claude-sonnet-5-5` | 10 | `step-2b-proposed-changes/case-2-milestone-missing-create` failed 1 of 2; `step-2b-proposed-changes/case-5-pre-announce-distributors` failed 2 of 2; `step-2b-proposed-changes/case-6-reporter-unresponsive` errored 1 of 2 | cross-model check for #1800; cross-model check for #1800 (re-run of infra failures) |

@@ -18,6 +18,7 @@ re-`cp` — is in the body.
 | `~/.claude/scripts/sandbox-add-project-root.sh` (the issue-#197 project-root helper) | `tools/agent-isolation/` |
 | `~/.claude/scripts/gpg-touch-overlay.sh`, with `gpg-touch-overlay-window.py` and `gpg-touch-overlay-window-macos.py` | `tools/agent-isolation/` |
 | `~/.claude/scripts/container-gateway-hook.sh` | `tools/agent-isolation/container-gateway-hook.sh` |
+| `~/.claude/agents/magpie-gatherer.md` (install Step V.2, Claude Code; a change to its `tools:` line or hook widens or narrows what the bulk fan-out can do, so show that part first) | `tools/agent-isolation/agents/magpie-gatherer.md` |
 
 ## The four that are not a plain content diff
 

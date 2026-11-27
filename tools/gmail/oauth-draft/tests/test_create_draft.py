@@ -182,6 +182,51 @@ def test_headers_from_thread_appends_to_existing_references():
     assert references == "<root@example.com> <reply@example.com>"
 
 
+def test_headers_from_thread_falls_back_to_in_reply_to_without_references():
+    thread = {
+        "messages": [
+            {
+                "payload": {
+                    "headers": [
+                        {"name": "Message-ID", "value": "<followup@example.com>"},
+                        {"name": "In-Reply-To", "value": "<root@example.com>"},
+                    ]
+                }
+            }
+        ]
+    }
+    in_reply_to, references = headers_from_thread(thread)
+    assert in_reply_to == "<followup@example.com>"
+    assert references == "<root@example.com> <followup@example.com>"
+
+
+def _thread_with(*headers: tuple[str, str]) -> dict:
+    return {"messages": [{"payload": {"headers": [{"name": n, "value": v} for n, v in headers]}}]}
+
+
+def test_headers_from_thread_ignores_a_multi_id_in_reply_to():
+    # RFC 5322 3.6.4 only carries In-Reply-To over when it holds a single id.
+    thread = _thread_with(
+        ("Message-ID", "<followup@example.com>"),
+        ("In-Reply-To", "<a@example.com> <b@example.com>"),
+    )
+    assert headers_from_thread(thread) == ("<followup@example.com>", "<followup@example.com>")
+
+
+def test_headers_from_thread_prefers_references_over_in_reply_to():
+    thread = _thread_with(
+        ("Message-ID", "<reply@example.com>"),
+        ("References", "<root@example.com>"),
+        ("In-Reply-To", "<other@example.com>"),
+    )
+    assert headers_from_thread(thread) == ("<reply@example.com>", "<root@example.com> <reply@example.com>")
+
+
+def test_headers_from_thread_without_references_or_in_reply_to():
+    thread = _thread_with(("Message-ID", "<only@example.com>"))
+    assert headers_from_thread(thread) == ("<only@example.com>", "<only@example.com>")
+
+
 def test_headers_from_thread_is_case_insensitive_on_header_name():
     thread = {
         "messages": [

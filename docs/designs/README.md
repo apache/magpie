@@ -27,6 +27,8 @@ what was designed and deliberately not built.
 | [Reconciliation tracking for marketplace installs](2026-09-21-marketplace-reconciliation-tracking.md) | Built, bar seven items it names |
 | [Adversarial review by other models, before every PR](2026-09-23-adversarial-review.md) | Built (apache/magpie#1368 and the PRs stacked on it) |
 | [Security tracker backends: GitHub, local files, private Jira](2026-10-15-security-tracker-backends.md) ([plan](2026-10-15-security-tracker-backends-plan.md)) | Built; evals and pilots outstanding |
+| [One state summary instead of many nudges in a bulk sync](2026-11-26-issue-sync-bulk-summary-email.md) | Built; a model-graded eval for the new report field outstanding |
+| [Batches of private-tracker writes — one confirmation per batch](2026-11-26-vetted-ops-batch-tracker-writes.md) | Built; adoption by the remaining tracker-writing skills and the setup skills outstanding |
 
 One document per subject, describing the result rather than the phases it was
 built in. While a design is being implemented it may be split into plans; when

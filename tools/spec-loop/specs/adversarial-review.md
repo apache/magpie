@@ -166,6 +166,9 @@ before the PR is created, through one shared block.
   run ended (#1854);
   findings are de-duplicated across reviewers, keeping every reviewer's name,
   and sorted by severity.
+  A diff's `a/` or `b/` prefix is dropped from a finding's path, including
+  for a file the change deleted, unless the repository has a real top-level
+  entry of that name (#2318).
 - **Bounded and interruptible.** Reviewers run in parallel, each with a
   timeout (default 8 minutes, under the 10-minute cap harnesses put on one
   shell call); a timed-out reviewer's whole process group is killed, and

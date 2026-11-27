@@ -446,9 +446,9 @@ Group them by category:
   Re-read it before composing the entry body — the zero-extra-spacing rule is load-bearing and easy to miss.
 
   **Standalone comments are reserved for release-manager
-  instructions only.** The rollup is the default surface for every sync output — status changes, label rationale, milestone moves, assignee swaps,
+  instructions, plus the team nudge.** The rollup is the default surface for every sync output — status changes, label rationale, milestone moves, assignee swaps,
   reporter-draft notes, fix-PR links, CVE-review-comment surfacing, legacy-fold entries, recap pointers, blockers, *everything*.
-  The **only** comments this skill posts outside the rollup are the release-manager-directed call-to-action comments further down this list:
+  The **only** comments this skill posts outside the rollup are the team nudge (*Unanswered team question*, below) and the release-manager-directed call-to-action comments further down this list:
   the *Release-manager hand-off comment* (`pr merged` → `fix released`, Step 12)
   and the *Publication-ready notification comment* (*Public advisory URL* update, Step 14):
   they tell the RM to *do something next*, which a `<details>`-collapsed entry hides.
@@ -545,7 +545,7 @@ Group them by category:
 
 - **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged`, on any open tracker labelled `pr merged` or `fix released`, even when a gate blocks the next label, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
 
-- **Advisory-records update and security-pages reminder comment** — on a closed-`announced` tracker from the Step 1g scan, read [`post-advisory-records.md`](post-advisory-records.md) before proposing anything.
+- **Advisory-records update and security-pages reminder comment** — on a closed-`announced` tracker from the Step 1g scan, and when this pass proposes the *Advisory archived on `<users-list>`* combined apply for a project that configures `advisory_records`, read [`post-advisory-records.md`](post-advisory-records.md) before proposing anything.
 
 - **Overdue-for-disclosure escalation** — when `overdue_for_disclosure: true` (Step 1a), the tracker has passed its CVD window without the advisory being sent.
   Propose appending a rollup entry that:
@@ -603,6 +603,24 @@ Group them by category:
   If the user confirms, continue with the other Step 2b items this pass proposes, treating the reporter's last-known position as final;
   do **not** hold them back pending a reporter reply.
   Re-surface the item on every later pass while the thread stays stale; it stops once the reporter replies and the `gather.md` check no longer fires.
+
+- **Unanswered team question (team nudge)** — when the newest triage proposal on the tracker, or a question put to named team members,
+  has had no answer from any of them for at least `nudge_after_days` (default 7, in the `security-issue-sync.md` override file),
+  propose one short status comment that restates the decision asked for in one line and `@`-mentions the people asked,
+  leaving out every handle in `security_issue_sync.do_not_ping` of the resolved `user.md` (personal, never committed).
+  It is a **standalone comment**, not a rollup entry, like the release-manager comments below:
+  it asks named people to act, and an `@`-mention added to the edited rollup notifies nobody.
+  Its first line is the marker
+  ```html
+  <!-- apache-magpie: team-nudge v1 -->
+  ```
+  and its body links the question comment it chases (`#issuecomment-<C>`), so pre-flight counts it as skill-authored
+  and a later sync sees the nudge for that question.
+  Propose it at most once per question: when a comment with that marker already links the question, propose none (in bulk mode, report `nudged: true`).
+  Apply it with `gh issue comment <N> --repo <tracker> --body-file <file>` and add a one-line rollup entry pointing at it.
+  **In bulk mode the nudges can collapse:** when at least `nudge_summary_threshold` trackers (default 5) would get one,
+  no tracker gets a nudge and the run proposes one state-summary email to `<security-list>` instead,
+  per [`bulk-mode.md` step 4b](bulk-mode.md#orchestrator-responsibilities).
 
 - **Draft email to reporter (other reasons)** — whenever the ball is in our court on the thread for another reason
   (a reporter question, a triage follow-up, a negative assessment), propose a **Gmail draft** reply (not a sent message).

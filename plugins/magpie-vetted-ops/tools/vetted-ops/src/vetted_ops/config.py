@@ -26,6 +26,7 @@ never supplied on the command line — a caller cannot widen its own policy.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -67,6 +68,15 @@ PATTERNS_SUFFIX = "_patterns"
 #: label reaches `gh` list flags and search qualifiers, and a login has its own
 #: format check, so both stay listed by name.
 PATTERN_KEYS = frozenset({"milestones"})
+
+#: ``[approval] private_tracker_writes``: how writes to the private tracker are
+#: approved. ``each`` (the default) keeps one confirmation per call and turns
+#: `vetted-op-tracker-batch` off; ``batch`` turns it on, so a checked manifest of
+#: tracker writes runs under one confirmation; ``none`` also turns it on and
+#: records that the adopter allows the batch entry point without a prompt. The
+#: prompt itself comes from the harness's permission rules, never from this tool,
+#: so ``batch`` and ``none`` act alike here (see `batch.py`).
+PRIVATE_TRACKER_WRITES = ("each", "batch", "none")
 
 
 def cast_patterns(raw: object, key: str) -> list[str]:
@@ -171,6 +181,11 @@ class Config:
     tracker_backend: TrackerBackend | None = None
     #: The raw ``[git]`` table, validated by `git_ops.git_policy` for `vetted-op-git`.
     git: object = None
+    #: ``[approval] private_tracker_writes``, one of `PRIVATE_TRACKER_WRITES`.
+    private_tracker_writes: str = "each"
+    #: SHA-256 of the policy file's bytes: binds a checked batch to the very
+    #: policy (and so the approved copy) it was checked against.
+    policy_sha256: str = ""
 
     def as_mapping(self) -> dict[str, object]:
         """The mapping handed to an operation's ``build`` callable."""
@@ -220,7 +235,7 @@ class Config:
 
 def _require_repo(raw: dict[str, object], key: str) -> str:
     value = raw.get(key)
-    if not isinstance(value, str) or not _REPO.match(value):
+    if not isinstance(value, str) or not _REPO.fullmatch(value):
         raise ConfigError(f"{key!r} must be an 'owner/name' string, got {value!r}")
     return value
 
@@ -290,10 +305,12 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     if not url.startswith("https://"):
         raise ConfigError(f"[tracker] jira_url must use https://, got {url!r}")
     key = _one_line(raw, "jira_project")
-    if not _JIRA_KEY.match(key):
+    if not _JIRA_KEY.fullmatch(key):
         raise ConfigError(f"[tracker] jira_project must be a Jira project key, got {key!r}")
     authors = raw.get("jira_rollup_authors", [])
-    if not isinstance(authors, list) or not all(isinstance(a, str) and _JIRA_USER.match(a) for a in authors):
+    if not isinstance(authors, list) or not all(
+        isinstance(a, str) and _JIRA_USER.fullmatch(a) for a in authors
+    ):
         raise ConfigError(
             f"[tracker] jira_rollup_authors must be a list of Jira user names or account IDs, got {authors!r}"
         )
@@ -310,6 +327,24 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
         jira_cloud=deployment == "cloud",
         jira_rollup_authors=tuple(authors),
     )
+
+
+def _approval(raw: object) -> str:
+    """Validate the optional ``[approval]`` table; return ``private_tracker_writes``."""
+    if raw is None:
+        return "each"
+    if not isinstance(raw, dict):
+        raise ConfigError("[approval] must be a table")
+    unknown = sorted(set(raw) - {"private_tracker_writes"})
+    if unknown:
+        raise ConfigError(f"[approval] takes only 'private_tracker_writes', got {', '.join(unknown)}")
+    value = raw.get("private_tracker_writes", "each")
+    if value not in PRIVATE_TRACKER_WRITES:
+        raise ConfigError(
+            f"[approval] private_tracker_writes must be one of {', '.join(PRIVATE_TRACKER_WRITES)}, "
+            f"got {value!r}"
+        )
+    return str(value)
 
 
 def _discover(base: Path) -> tuple[Path, bytes]:
@@ -339,6 +374,46 @@ def _discover_optional(base: Path) -> tuple[Path, bytes] | None:
         if data is not None:
             return candidate, data
     return None
+
+
+#: A name the approval command may suggest: a plain slug, so it can never climb
+#: out of `approved_dir` or name a hidden or reserved file.
+_COPY_SLUG = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
+#: The `short_name` row of a `project.md` manifest table.
+_SHORT_NAME_ROW = re.compile(r"^\|\s*`short_name`\s*\|\s*`([^`\n]+)`", re.MULTILINE)
+#: Suggested when neither the manifest nor the checkout gives a usable slug.
+FALLBACK_COPY_NAME = "policy.toml"
+
+
+def _short_name(base: Path) -> str | None:
+    """`short_name` from the first `project.md` the config layers hold, if any."""
+    for layer in layers.config_layers(base):
+        try:
+            data = read_regular_file(layer / "project.md")
+        except (TamperedPath, OSError):
+            continue
+        if data is None:
+            continue
+        match = _SHORT_NAME_ROW.search(data.decode("utf-8", errors="replace"))
+        return match.group(1) if match else None
+    return None
+
+
+def approved_copy_name(base: Path) -> str:
+    """The file name the approval command suggests: `<project>.toml`.
+
+    `<project>` is `short_name` from `project.md`, lowercased, else the main
+    checkout's basename, as the README's *Configuration* defines it, so each
+    approval replaces the earlier copy instead of adding one beside it. Both
+    sources are text the agent can write, and the name lands in a `cp` the user
+    runs, so only a plain slug is used; anything else falls back to a fixed name.
+    """
+    root = layers.main_worktree(base) or base
+    for raw in (_short_name(base), root.name):
+        slug = (raw or "").strip().lower()
+        if _COPY_SLUG.fullmatch(slug) and f"{slug}.toml" != OPERATOR_GIT_FILE:
+            return f"{slug}.toml"
+    return FALLBACK_COPY_NAME
 
 
 def approval_status(cwd: Path | None = None) -> dict[str, object]:
@@ -386,7 +461,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
             "Review it, then in your own terminal: "
             + shlex.join(["mkdir", "-p", str(approved_dir())])
             + " && "
-            + shlex.join(["cp", str(resolved), str(approved_dir() / "NAME.toml")])
+            + shlex.join(["cp", str(resolved), str(approved_dir() / approved_copy_name(base))])
             + " (repeat after every change to the policy)"
         )
 
@@ -453,6 +528,8 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
         callers=callers,
         tracker_backend=_tracker_backend(raw.get("tracker")),
         git=raw.get("git"),
+        private_tracker_writes=_approval(raw.get("approval")),
+        policy_sha256=hashlib.sha256(data).hexdigest(),
     )
 
 
@@ -468,6 +545,7 @@ def describe(config: Config) -> str:
             "callers": {k: sorted(v) for k, v in sorted(config.callers.items())},
             "tracker_backend": (dict(vars(config.tracker_backend)) if config.tracker_backend else "github"),
             "git": config.git,
+            "approval": {"private_tracker_writes": config.private_tracker_writes},
         },
         indent=2,
         sort_keys=True,

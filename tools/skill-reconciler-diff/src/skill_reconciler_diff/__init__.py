@@ -86,16 +86,16 @@ def _fenced_spans(text: str) -> list[tuple[int, int]]:
     picking up phantom headings/steps in the code-block-heavy SKILL.md files.
     """
     spans: list[tuple[int, int]] = []
-    fence: str | None = None
+    fence: str | None = None  # opening run, e.g. "````"; a closer needs the same char and at least its length
     start = 0
     pos = 0
     for line in text.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if fence is None:
             if m:
-                fence = m.group(1)[0]
+                fence = m.group(1)
                 start = pos
-        elif m and m.group(1)[0] == fence:
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
             spans.append((start, pos + len(line)))
             fence = None
         pos += len(line)
@@ -133,24 +133,59 @@ def _parse_headings(text: str) -> list[tuple[int, str]]:
 # Step inventory extraction
 # ---------------------------------------------------------------------------
 
+# Start of any ATX heading (bare ``#`` included), for where a step section ends.
+_SECTION_START_RE = re.compile(r"^(#{1,6})(?:[ \t]|$)", re.MULTILINE)
+
 _STEP_HEADING_RE = re.compile(r"^#{1,3}\s+Step\s+(\S+)[^\n]*$", re.MULTILINE | re.IGNORECASE)
 
 
 def _parse_steps(text: str) -> dict[str, str]:
     """Extract ``## Step N`` sections as {step_label: body_text}.
 
+    A step body runs to the next heading of the same or a higher level.
     Step headings inside fenced code blocks are ignored; bodies are still
     sliced from the original text, so a step body keeps any code it contains.
     """
     spans = _fenced_spans(text)
     steps: dict[str, str] = {}
     matches = [m for m in _STEP_HEADING_RE.finditer(text) if not _in_spans(m.start(), spans)]
+    headings = [m for m in _SECTION_START_RE.finditer(text) if not _in_spans(m.start(), spans)]
     for i, m in enumerate(matches):
         label = m.group(1).rstrip("—: ")
         start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        level = len(m.group(0)) - len(m.group(0).lstrip("#"))
+        end = next(
+            (h.start() for h in headings if h.start() > m.start() and len(h.group(1)) <= level), len(text)
+        )
+        if i + 1 < len(matches):
+            end = min(end, matches[i + 1].start())
         steps[label] = text[start:end].strip()
     return steps
+
+
+# ---------------------------------------------------------------------------
+# Hard rules block
+# ---------------------------------------------------------------------------
+
+_HARD_RULES_RE = re.compile(r"^(#{1,6})[ \t]+Hard rules[ \t]*$", re.MULTILINE | re.IGNORECASE)
+
+
+def _parse_hard_rules(text: str) -> str | None:
+    """Return the text under the first ``## Hard rules`` heading, or ``None``.
+
+    The block runs to the next heading of the same or a higher level, like a
+    step body; a heading inside a fenced code block is ignored.
+    """
+    spans = _fenced_spans(text)
+    match = next((m for m in _HARD_RULES_RE.finditer(text) if not _in_spans(m.start(), spans)), None)
+    if match is None:
+        return None
+    level = len(match.group(1))
+    headings = [m for m in _SECTION_START_RE.finditer(text) if not _in_spans(m.start(), spans)]
+    end = next(
+        (h.start() for h in headings if h.start() > match.start() and len(h.group(1)) <= level), len(text)
+    )
+    return text[match.end() : end].strip()
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +278,7 @@ class ParsedSkill:
     placeholder_inventory: list[str]
     support_files: list[str]
     safety_baseline: SafetyBaseline
+    hard_rules: str | None = None
 
 
 def _resolve_skill_path(raw: str) -> Path:
@@ -275,6 +311,7 @@ def parse_skill(raw_path: str) -> ParsedSkill:
         placeholder_inventory=sorted(placeholders),
         support_files=_collect_support_files(skill_path),
         safety_baseline=_parse_safety_baseline(text),
+        hard_rules=_parse_hard_rules(text),
     )
 
 
@@ -347,6 +384,19 @@ class SupportFilesDiff:
 
 
 @dataclass
+class HardRulesDiff:
+    """Whether each skill has a Hard rules block, and whether the two blocks differ."""
+
+    a_present: bool = False
+    b_present: bool = False
+    body_changed: bool = False
+
+    @property
+    def has_diff(self) -> bool:
+        return self.a_present != self.b_present or self.body_changed
+
+
+@dataclass
 class ClauseDiff:
     """Per-clause safety-baseline presence comparison."""
 
@@ -388,6 +438,7 @@ class StructuralDiff:
     placeholder_diff: PlaceholderDiff
     support_files_diff: SupportFilesDiff
     safety_baseline_diff: SafetyBaselineDiff
+    hard_rules_diff: HardRulesDiff = field(default_factory=HardRulesDiff)
 
 
 def _diff_frontmatter(a: dict[str, str], b: dict[str, str]) -> FrontmatterDiff:
@@ -452,6 +503,11 @@ def diff_skills(a: ParsedSkill, b: ParsedSkill) -> StructuralDiff:
         only_in_b=sorted(set(b.support_files) - set(a.support_files)),
     )
     sb_diff = _diff_safety_baseline(a.safety_baseline, b.safety_baseline)
+    hr_diff = HardRulesDiff(
+        a_present=a.hard_rules is not None,
+        b_present=b.hard_rules is not None,
+        body_changed=a.hard_rules is not None and b.hard_rules is not None and a.hard_rules != b.hard_rules,
+    )
 
     identical = not any(
         [
@@ -461,6 +517,7 @@ def diff_skills(a: ParsedSkill, b: ParsedSkill) -> StructuralDiff:
             ph_diff.has_diff,
             sf_diff.has_diff,
             sb_diff.has_divergence,
+            hr_diff.has_diff,
         ]
     )
     return StructuralDiff(
@@ -473,6 +530,7 @@ def diff_skills(a: ParsedSkill, b: ParsedSkill) -> StructuralDiff:
         placeholder_diff=ph_diff,
         support_files_diff=sf_diff,
         safety_baseline_diff=sb_diff,
+        hard_rules_diff=hr_diff,
     )
 
 

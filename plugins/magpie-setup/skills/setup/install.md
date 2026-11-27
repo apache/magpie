@@ -439,6 +439,38 @@ Tell the user, in this order:
    the same line, since the secure setup above is where it gets wired;
    on other agents the step does not apply, so leave it out. None of them is required — say so once, and
    skip this item entirely when nothing matches.
+
+   **Apache Incubator skills, for an ASF project.** When the project
+   declares `organization: ASF` — ask the pre-flight package,
+   `PYTHONPATH=<trusted-installed-setup-package-parent> python3 -P -m setup_preflight.organization_network --project-root . --is-asf`,
+   with `PYTHONPATH` the installed pre-flight checker's parent directory,
+   as every other pre-flight call here; it prints `true` only for a real
+   declaration (never for the template's examples or a `TODO` value) — also offer the Incubator's own
+   marketplace. Read the ASF catalogue,
+   [`organizations/ASF/skill-sources.md`](../../../../organizations/ASF/skill-sources.md)
+   (a marketplace install ships no `organizations/`, so fetch
+   `https://raw.githubusercontent.com/apache/magpie/main/organizations/ASF/skill-sources.md`;
+   if neither can be read, say so in one line and skip), and list the skills
+   whose *Marketplaces* cell names this agent (`claude-code`, `codex`,
+   `copilot`), one line each from its *What it does* cell, leaving out a
+   skill the agent's plugin list already shows (when the list cannot be
+   read, keep them all and say the list was unreadable). If no skill is
+   left, offer nothing and record nothing. Otherwise print the
+   marketplace's add command from the catalogue's table for this agent, and
+   how to install a skill from it, by the marketplace name the
+   descriptors record (`marketplace: apache-incubator`): Claude Code
+   `/plugin install <skill>@apache-incubator`, Codex its plugin browser
+   after `codex plugin marketplace add apache/incubator`, Copilot its
+   marketplace view. Say, on the same lines, that these install and update
+   from whatever is on `apache/incubator`'s main branch: no tag, no
+   commit pin, nothing Magpie verified, unlike a source pinned through
+   `setup skill-sources`. Print them; never run them: the Incubator is a
+   separate trust decision, and it maintains these skills, not Magpie.
+   Record the offer as an `apache-incubator <agent>` line in
+   `~/.cache/apache-magpie/companions-offered` and skip it when that line is
+   there, exactly as for a companion; if the file cannot be written, skip
+   the record and say nothing. On an agent with no Incubator marketplace
+   (any other than those three), skip it.
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
@@ -958,6 +990,9 @@ A non-ASF project must not inherit ASF values: no `apache.org` addresses, no
 `cna_private_*` fields, and in `cve-json-config.toml` its own CNA's UUID as
 `[cna].org_id`, never the ASF CNA's (`cve_authority.vulnogram.asf_org_id`).
 Ask for that UUID; when the user does not know it, leave it `TODO`.
+Leave `[cna].title_product_prefix` out: it resolves from the organization manifest
+(`cve_authority.vulnogram.title_product_prefix`, true for ASF, whose Vulnogram prefixes a record title that lacks the word `Apache` with the product names);
+set it only to override that.
 
 **Auto-sourced metadata fields** (run when `gh` and/or `.asf.yaml` are
 available). These pre-populate `<project-config>/project.md` in Step 9:
@@ -1543,6 +1578,12 @@ setup; the skills skip any block that is missing or marked `TODO`.
 - `advisory_records_fork_remote: TODO` — the remote of your site
   working copy that points at that fork (default `fork`).
 
+## `security_issue_sync`
+
+- `do_not_ping: []` — GitHub handles of people who are away, for now.
+  `security-issue-sync` never `@`-mentions them in a nudge and never names them in its bulk state-summary email.
+  Personal and temporary, so it lives here and never in committed project config.
+
 ## `tools`
 
 ### `ponymail`
@@ -2080,6 +2121,11 @@ framework before they hit a "skill not found" error:
    authoritative entry-point, and an empty `AGENTS.md` would
    be more noise than signal.
 
+   Never create a `CLAUDE.md`, or a `CLAUDE.md` → `AGENTS.md` symlink.
+   Claude Code reads `AGENTS.md` natively in every session from 2.1.281, the secure setup's floor, and a `CLAUDE.md` in the working directory or above makes it read `CLAUDE.md` files only, so every nested `AGENTS.md` stops loading.
+   If the repo has a root `CLAUDE.md` that is only a symlink to `AGENTS.md` (or a one-line `@AGENTS.md` import), propose removing it in the same commit, saying why.
+   A `CLAUDE.md` with content of its own is the project's choice: leave it, and tell the user that Claude Code reads it instead of `AGENTS.md`, block above included.
+
 3. **`CONTRIBUTING.md` (fallback only).** If `README.md` is
    absent or strictly off-limits (some projects vendor it
    from another source and rebuild on release), add the
@@ -2090,7 +2136,7 @@ runs `doctoc` or similar README-TOC hooks, expect the next
 commit to also touch the TOC block. Either run the hook
 yourself before staging or note it in the commit message.
 
-Surface the rendered diff (`git diff README.md AGENTS.md`)
+Surface the rendered diff (`git diff README.md AGENTS.md`, plus `CLAUDE.md` when its removal is proposed)
 to the user before writing. The user confirms once for the
 whole doc set; do not ask separately per file.
 

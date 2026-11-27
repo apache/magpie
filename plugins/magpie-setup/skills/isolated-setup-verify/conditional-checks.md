@@ -125,6 +125,10 @@ reading this file; read the section for a check whose condition holds.
    the prompt is the only gate on its unsandboxed writes.
    A missing `vetted-op` exclusion is ✗ too: every write op fails
    with *"Project directory … does not exist"*.
+   `vetted-op-tracker-batch` belongs in `sandbox.excludedCommands` (both forms) and in `ask`, never in `allow`.
+   `vetted-op-tracker-batch-unprompted` belongs in `sandbox.excludedCommands` (both forms) and in `ask`;
+   in `allow` it is ✓ only when the approved policy sets `[approval] private_tracker_writes = "none"`
+   (`vetted-op-read policy` prints it), and ✗ otherwise.
 
    A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
    that spells the versioned plugin-cache path with a `*`
@@ -639,3 +643,40 @@ reading this file; read the section for a check whose condition holds.
       it. A real file or directory at the path, or a link anywhere else, is
       ✗: the exclusion would run that code outside the sandbox, and the hook
       refuses to replace anything that is not a symlink.
+
+## Check 21 — the read-only gatherer agent
+
+21. **The read-only gatherer agent.** Claude Code only. When
+    `~/.claude/agents/magpie-gatherer.md` exists, run 21b–21d whatever the
+    project: it is a user-scope agent, and `pr-management-code-review` and
+    `pr-management-stack-review` dispatch it in any repository. When it does
+    not exist, 21a is ⚠ under check 16's condition (a vetted-ops policy and
+    the sandbox on) and the whole check is **n/a** otherwise.
+    Install Step V.2 copies
+    [`tools/agent-isolation/agents/magpie-gatherer.md`](../../../../tools/agent-isolation/agents/magpie-gatherer.md)
+    there. Read the copy's frontmatter:
+
+    - **21a — installed.** The file exists. Missing is ⚠, not ✗: nothing is
+      exposed, but bulk skills fall back to a general-purpose agent with
+      `Bash`, `Edit` and `Write`.
+    - **21b — read-only tools.** `tools:` is exactly `Read, Grep, Glob,
+      Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)`, and
+      there is no `mcpServers` or `permissionMode` key. Any other tool, an
+      unrestricted `Bash`, or either key is ✗: the agent reads content
+      written by outsiders and runs unattended, so anything more is the
+      read-then-act path the agent exists to close. A `model:` line is a
+      note, not a failure.
+    - **21c — the Bash hook.** The only hook is one `PreToolUse` entry with
+      matcher `Bash`, and its command is byte-identical to the framework
+      copy's (it denies every Bash command but the vetted read, with no
+      chaining, redirection, `--config` or `--save`, and exits 2, which
+      blocks, when it cannot run at all). A missing or changed
+      hook, another event, or any hook that answers `allow` is ✗: the hook,
+      not the `tools:` line, is what keeps Bash to the vetted read, and it
+      runs outside the sandbox.
+    - **21d — tamper protection.** `permissions.deny` in user scope carries
+      `Edit(~/.claude/agents/**)`. Missing is ✗: an agent's file tools could
+      rewrite the hook or the tools line.
+
+    A copy that differs from the framework's only in its prose is a note for
+    `setup-isolated-setup-update`, not a failure here.

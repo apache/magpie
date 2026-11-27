@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:dca13f574cb22384
 license: Apache-2.0
-measured_tokens: 8150
+measured_tokens: 8498
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -162,7 +162,7 @@ Read a section, not the whole file: find its heading with `grep -n` and read fro
 | Vetted-ops policy | [`setup verify` check 11a](../setup/verify.md#11a-vetted-ops-policy-approval) (`vetted-op-read approval-status`) | a vetted-ops policy exists (committed, or in the personal layer) |
 | Project configuration | [`setup config`](../setup/config.md): [Step 1](../setup/config.md#step-1--work-out-what-is-actually-needed) (`requires_config` per installed skill), [Step 2a](../setup/config.md#step-2a--install-the-pre-flight-checker) (pre-flight checker copy freshness) and [Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) (the reconciliation stamp); `layers` answers Step 0 | `configured` is true |
 | Local changes | [`setup verify` 5d](../setup/verify.md#5d-local-configuration-and-what-it-shadows) (what a shadowing personal file means) | `shadowed` is not empty |
-| Local changes | the local agent settings against the template ([`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)) | always |
+| Local changes | the local agent settings against the template, and each family enabled for the user but not adopted here (keep or hide) ([`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings)) | always |
 | Isolated setup | [`setup-isolated-setup-verify`](../isolated-setup-verify/SKILL.md) checks with [`conditional-checks.md`](../isolated-setup-verify/conditional-checks.md), and [`setup-isolated-setup-update` → What to check](../isolated-setup-update/SKILL.md#what-to-check) with [`script-inventory.md`](../isolated-setup-update/script-inventory.md) (script-copy drift, settings shape drift, comdev MCP checkouts, the vetted-ops split) | `isolated.attention` is true |
 
 The *Install health*, *Reconciliation* and *Vetted-ops policy* rows, with *Local changes* 5d, are the whole of [`setup verify`](../setup/verify.md) for this install, so a run of this skill is also a verify run.
@@ -179,7 +179,7 @@ A checker copy older than `gather` fails with `invalid choice: 'gather'`: read e
 The plan then carries the checker refresh that `setup config` Step 2a describes.
 
 **Where the personal layer is.**
-`layers.personal_dir` is the only place this run writes personal-layer files.
+`layers.personal_dir` is the only place this run writes personal-layer configuration files; `reconciled.json` is written in `layers.stamp_dir` (this checkout's own layer, also in a linked worktree).
 If the call fails with `ModuleNotFoundError`, no checker copy exists yet: treat the repo as not configured (below), since `setup config` installs the checker.
 A location the plan still needs is then worked out without the plugin's copy, which Bash cannot read under the sandbox.
 In a framework checkout or on a pinned snapshot, run the in-tree package inside the sandbox (`plugins/magpie-setup/skills/setup/` or `.apache-magpie/tools/setup-preflight/src/` on `PYTHONPATH`).
@@ -208,7 +208,7 @@ When `isolated.state` is `unknown` (`python3 -P -m setup_preflight.isolated conf
 [Plan](#plan) holds the rule: a `[bypass]` *Check* item reads `~/.claude/settings.json` for `sandbox.enabled`, and the offer waits until that read confirms absence.
 The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.
 It proposes [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) after this run, as one question folded into the plan's approval message.
-On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the personal layer's `reconciled.json` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
+On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the `reconciled.json` in `layers.stamp_dir` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
 The summary says how to undo it: remove that key, or run `setup-isolated-setup-install`.
 
 **Probes the sandbox blocks are not run here.**
@@ -246,6 +246,7 @@ Its `details <n>` lists those lines, and its bypassed call saves the old copy to
 This deliberately relaxes `setup-isolated-setup-update`'s "never re-`cp`" for plain-content copies only, under the checksum rule.
 
 **Settings items** add only entries copied verbatim from the framework template (`tools/agent-isolation/claude-settings.local.template.json`) or reference config (the framework `.claude/settings.json`), or written by the helper that owns the write; never a value taken from gathered text.
+The one other entry allowed is `"<plugin>@apache-magpie": false` under `enabledPlugins`, for a family `local_families candidates` listed in `ask` that the user chose to hide, or listed in `apply`; and the one removal allowed is that same entry, for a family it listed in `restore`, from the file its `restore_files` names.
 
 An item a hard line blocks goes under *Run these yourself*, never under *Still open*: the vetted-ops policy, any committed file (a needed change to the committed `.claude/settings.json` is shown there as a diff), or a credential read.
 Two vetted-ops findings always land there, rendered as [`hard-lines.md` → 1](hard-lines.md#1-never-write-the-vetted-ops-policy) describes:
@@ -263,8 +264,9 @@ On `no`, apply nothing, write no stamps, and show the summary with every item un
 
 The isolated-setup offer is made only when absence is confirmed: the user-scope settings, read outside the sandbox, enable no sandbox, and `reconciled.json` has no `"isolated_setup": {"enabled": false}` opt-out.
 A `configured: false` read inside the sandbox means *unknown*: the plan carries a `[bypass]` *Check* item that reads those settings with the harness's file-read tool or `/usr/bin/jq` (never the personal layer's `setup_preflight` outside the sandbox) and makes no offer yet; the offer may follow in the second plan once that *Check* confirms absence.
-A pending isolated-setup offer counts as actionable: a run whose only finding is that offer is not *nothing to do*; the plan message shows the offer and asks.
-Nothing is actionable only when no group has an item, nothing is under *Still open* or *Run these yourself*, and no isolated-setup offer is pending.
+`local_families candidates` answering `user-settings-unreadable` inside the sandbox is *unknown* the same way: the plan carries a `[bypass]` *Check* item that reads the file at its `path` with the harness's file-read tool, and the keep-or-hide question follows in the second plan, from `candidates --user-settings -` given only `{"enabledPlugins": {…}}` on stdin, never a copy of the file; a file that does not exist means nothing to ask.
+A pending isolated-setup offer or keep-or-hide question counts as actionable: a run whose only finding is one of them is not *nothing to do*; the plan message shows it and asks.
+Nothing is actionable only when no group has an item, nothing is under *Still open* or *Run these yourself*, and no isolated-setup offer or keep-or-hide question is pending.
 In that case say so in one line, run [Re-check and record](#re-check-and-record), and stop.
 
 ## Apply
@@ -314,7 +316,8 @@ Then write the stamps the existing skills own, each through its own definition, 
 
 - `verified_at`, as [`setup verify` → Writing `verified_at`](../setup/verify.md#writing-verified_at) defines it, because Gather ran every check of `setup verify` for this install.
 - The isolated-setup run record, through `python3 -P -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when this run gathered the *Isolated setup* area and no item of it was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined, or when Gather left the area out because it needed no attention: the last run's record still stands.
-- The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the personal layer's `reconciled.json`.
+- The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the `reconciled.json` in `layers.stamp_dir`.
+- Each family's keep-or-hide answer through `python3 -P -m setup_preflight.local_families record`, as [`setup update` → Reconcile the local agent settings](../setup/update.md#reconcile-the-local-agent-settings) defines it: `keep` for each family the user chose to keep, even when no settings item was applied; `disable` only for a hide whose settings item was applied; `restored` only for a removal whose settings item was applied.
 
 Then record this skill's own run, which stops every skill's pre-flight from asking again until the version moves next:
 

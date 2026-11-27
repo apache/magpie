@@ -227,6 +227,21 @@ def test_a_hostile_gist_id_never_reaches_the_command(project: Path, tmp_path: Pa
     assert any("not a gist id" in w for w in result["publish"]["warnings"])
 
 
+def test_a_linked_worktree_keeps_its_session_state_in_its_own_layer(tmp_path: Path) -> None:
+    """Never in the main checkout's layer, which a worktree's sandbox may only read."""
+    main = tmp_path / "main"
+    gitdir = main / ".git" / "worktrees" / "wt"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n")
+    (main / ".apache-magpie-local").mkdir()
+    (main / ".apache-magpie-local" / "project.md").write_text("x\n")
+    wt = tmp_path / "wt"
+    (wt / ".apache-magpie-local" / "run").mkdir(parents=True)  # bookkeeping only
+    (wt / ".git").write_text(f"gitdir: {gitdir}\n")
+    (wt / ".apache-magpie.lock").write_text("method: local\n")
+    assert build._state_path(wt).parent == wt / ".apache-magpie-local"
+
+
 def test_the_publish_command_quotes_every_value(project: Path, tmp_path: Path) -> None:
     import shlex
 

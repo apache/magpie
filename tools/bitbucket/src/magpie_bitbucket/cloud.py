@@ -196,6 +196,26 @@ def create_pull_request(
     return post_json(url, config, payload)
 
 
+def edit_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    title: str | None,
+    description: str | None,
+    expected_version: int,
+) -> dict[str, Any]:
+    """Fail closed until Cloud update preservation and concurrency are verified."""
+    _ = (config, pull_request_id, title, description, expected_version)
+    raise pull_request_edit_unsupported()
+
+
+def pull_request_edit_unsupported() -> BitbucketError:
+    """Return the fail-closed error for Cloud pull-request editing."""
+    return BitbucketError(
+        "Bitbucket Cloud PR editing is not supported: "
+        "field preservation and concurrency guarantees are unverified"
+    )
+
+
 def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch one pull request from Bitbucket Cloud."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))

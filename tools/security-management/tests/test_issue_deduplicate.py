@@ -569,9 +569,15 @@ def test_apply_plan_closes_the_dropped_side_only(capsys, tmp_path):
     assert commands[3].endswith('rollup-append 67 "Merge (dropped) (into #42)" /s/dedupe-67-rollup.md')
     assert commands[4] == f'gh issue edit 67 --repo {TRACKER} --add-label "duplicate"'
     assert commands[5] == f"gh issue close 67 --repo {TRACKER} --reason 'not planned'"
-    assert "generate-cve-json 42 --attach" in commands[6]
-    assert "push_update(CVE-2025-1111" in commands[7]
-    assert "retract(CVE-2025-2222" in commands[8]
+    assert commands[6].endswith("--save cve-issue-42.json issue-view 42")
+    assert commands[7].endswith("--save cve-team.txt collaborators")
+    assert "generate-cve-json --issue-json <workspace>/saved/cve-issue-42.json" in commands[8]
+    assert "--attach --output-body <workspace>/cve-body-42.md" in commands[8]
+    assert commands[9].endswith(
+        "vetted-op --caller security-issue-deduplicate issue-edit-body 42 <workspace>/cve-body-42.md"
+    )
+    assert "push_update(CVE-2025-1111" in commands[10]
+    assert "retract(CVE-2025-2222" in commands[11]
 
 
 def test_apply_plan_refuses_with_an_open_blocker_or_the_same_tracker(capsys, tmp_path):

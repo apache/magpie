@@ -96,6 +96,12 @@ DEFAULT_SPEC_DIR = Path("tools/spec-loop/specs")
 _HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->")
 _FENCED_CODE_RE = re.compile(r"^ {0,3}```[\s\S]*?^ {0,3}```", re.MULTILINE)
 _YAML_BLOCK_SCALAR_HEADERS: frozenset[str] = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
+# A YAML comment starts at a `#` that opens the value or follows a space or tab;
+# a `#` inside a word (`C# tooling`) is part of the value.
+_INLINE_COMMENT_RE = re.compile(r"(?:^|[ \t])#.*$")
+# A quoted scalar ends at its closing quote: `\"` escapes inside double quotes,
+# `''` inside single quotes. A comment may follow it after a space or tab.
+_QUOTED_RE = re.compile(r"""^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*')(?:[ \t]+#.*)?$""")
 
 # ---------------------------------------------------------------------------
 # Validation-path check constants (check #9)
@@ -468,7 +474,12 @@ def _frontmatter_bounds(text: str) -> tuple[int, int] | None:
 
 
 def parse_frontmatter(text: str) -> dict[str, str] | None:
-    """Return a dict of top-level frontmatter key→value, or None if absent."""
+    """Return a dict of top-level frontmatter key→value, or None if absent.
+
+    A trailing ``# comment`` on a ``key:`` line is dropped as YAML does, so a spec
+    copied from the commented template in the spec-loop README validates; a quoted
+    value keeps its quotes and loses only a comment after its closing quote.
+    """
     bounds = _frontmatter_bounds(text)
     if bounds is None:
         return None
@@ -489,7 +500,7 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
                 result[current_key] = "\n".join(current_value_lines).strip()
             key, _, value = line.partition(":")
             current_key = key.strip()
-            inline = value.strip()
+            inline = _drop_yaml_comment(value.strip())
             current_value_lines = [inline] if inline and inline not in _YAML_BLOCK_SCALAR_HEADERS else []
             continue
         if current_key is not None:
@@ -499,6 +510,21 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
     if current_key is not None:
         result[current_key] = "\n".join(current_value_lines).strip()
     return result
+
+
+def _drop_yaml_comment(text: str) -> str:
+    if not text.startswith(('"', "'")):
+        match = _INLINE_COMMENT_RE.search(text)
+        if (
+            match is not None
+            and text.startswith(("[", "{"))
+            and any(quote in text[: match.start()] for quote in ('"', "'"))
+        ):
+            return text
+        return _INLINE_COMMENT_RE.sub("", text).strip()
+    elif quoted := _QUOTED_RE.match(text):
+        return quoted.group(1)
+    return text
 
 
 def has_acceptance_items(text: str) -> bool:
@@ -651,10 +677,11 @@ def validate_spdx_header(path: Path, text: str) -> list[Violation]:
     Apache-2.0`` somewhere before the opening ``---`` delimiter.  Files
     without frontmatter are skipped silently — they are not spec files.
     """
-    if parse_frontmatter(text) is None:
+    bounds = _frontmatter_bounds(text)
+    if bounds is None:
         return []  # Not a spec file; no SPDX required.
 
-    if SPDX_MARKER not in text:
+    if SPDX_MARKER not in text[: bounds[0] - len("---\n")]:
         return [
             Violation(
                 path,

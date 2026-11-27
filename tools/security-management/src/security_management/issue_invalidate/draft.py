@@ -103,12 +103,8 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
         }
     backend, backend_note = drafting.backend(data)
     anchor = drafting.anchor(backend, data)
-    if not all(anchor.values()):
-        return {
-            "action": "blocked",
-            "notification_case": None,
-            "reason": f"{backend} needs {', '.join(anchor)} to attach to the inbound thread",
-        }
+    if why := drafting.unanchored(backend, anchor):
+        return {"action": "blocked", "notification_case": None, "reason": why}
     case = "ghsa_forwarder" if ghsa.get("only_channel") else "via_forwarder" if via else "direct"
     if str(data.get("disposition") or "invalid") == "duplicate":
         case += "_duplicate"

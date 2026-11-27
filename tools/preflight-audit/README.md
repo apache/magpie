@@ -84,7 +84,7 @@ testing without network calls:
 
 ```bash
 uv run --directory tools/preflight-audit preflight-audit classify \
-  --load tests/fixtures/sample_response.json \
+  --load tests/fixtures/synthetic_workspace_sweep.json \
   --now 2026-05-31T12:00:00Z
 ```
 

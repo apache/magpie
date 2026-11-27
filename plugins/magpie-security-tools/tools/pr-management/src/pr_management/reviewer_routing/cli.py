@@ -60,6 +60,15 @@ def parse_target(value: str) -> tuple[str, int] | None:
     return match.group(1) or "pr", int(match.group(2))
 
 
+# The locations GitHub reads CODEOWNERS from, in its order: the first file found wins.
+# The code-review skill tries the same three (`CODEOWNERS_OPS` in code_review/cli.py).
+CODEOWNERS_LOCATIONS = (
+    (".github/CODEOWNERS", "routing-codeowners.txt"),
+    ("CODEOWNERS", "routing-codeowners-root.txt"),
+    ("docs/CODEOWNERS", "routing-codeowners-docs.txt"),
+)
+
+
 def add_parsers(sub: Any) -> None:
     parser = sub.add_parser(FAMILY, help="reviewer-routing")
     cmd = parser.add_subparsers(dest="command", required=True)
@@ -74,7 +83,14 @@ def add_parsers(sub: Any) -> None:
     pro.add_argument("--repo", default=None)
     pro.add_argument("--saved-dir", type=Path, required=True)
     pro.add_argument("--area", action="append", default=[], help="an area the agent inferred from the title")
-    pro.add_argument("--no-codeowners", action="store_true", help="the CODEOWNERS read failed (no such file)")
+    pro.add_argument("--no-codeowners", action="store_true", help="no CODEOWNERS file exists in any location")
+    pro.add_argument(
+        "--codeowners-missing",
+        action="append",
+        default=[],
+        choices=[path for path, _ in CODEOWNERS_LOCATIONS],
+        help="this CODEOWNERS location does not exist (repeat for each one tried)",
+    )
     pro.add_argument("--injection", default=None, help="one-line summary of a flagged injection attempt")
 
 
@@ -156,24 +172,29 @@ def propose(args: argparse.Namespace) -> dict[str, Any]:
             continue
         load[member.handle.lower()] = len(json.loads(found.read_text(encoding="utf-8") or "[]"))
     owners: dict[str, set[str]] = {}
-    owners_file = saved / "routing-codeowners.txt"
     if paths and not args.no_codeowners:
-        if not owners_file.is_file():
-            needs.append(
-                {
-                    "op": "repo-file",
-                    "params": [".github/CODEOWNERS", default_branch],
-                    "save": owners_file.name,
-                    "on_failure": "no CODEOWNERS: re-run propose with --no-codeowners",
-                }
-            )
-        else:
+        missing = set(getattr(args, "codeowners_missing", None) or [])
+        for location, save in CODEOWNERS_LOCATIONS:
+            if location in missing:
+                continue
+            owners_file = saved / save
+            if not owners_file.is_file():
+                needs.append(
+                    {
+                        "op": "repo-file",
+                        "params": [location, default_branch],
+                        "save": save,
+                        "on_failure": f"no {location}: re-run propose with --codeowners-missing {location}",
+                    }
+                )
+                break
             raw = owners_file.read_text(encoding="utf-8").strip().strip('"').replace("\\n", "")
             try:
                 text = base64.b64decode(raw).decode("utf-8")
             except (binascii.Error, UnicodeDecodeError):
                 text = raw
             owners = owned_paths(text, paths)
+            break
     if needs:
         return {"needs": needs}
     result = score.score(

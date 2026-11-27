@@ -40,7 +40,7 @@ Given an open issue or PR, the skill scores the configured reviewer
 roster and proposes a primary reviewer (and optionally a backup),
 grounding each suggestion in four signals: roster eligibility for the
 touched area, commit-history familiarity with the changed paths, ownership
-of a changed path in `.github/CODEOWNERS`, and the
+of a changed path in CODEOWNERS, and the
 reviewer's current open-review load so routing spreads work instead of
 piling it on the most-recently-active person. The output is a proposal a
 maintainer confirms; nothing is assigned on autopilot. This is the
@@ -68,7 +68,9 @@ side: a grounded brief a human acts on, not a state change.
   `tools/privacy-llm/checker` at Step 0.
 - Rules: `tools/pr-management` (`pr-management reviewer-routing preflight |
   propose`) validates the input, resolves the roster, maps paths to areas,
-  parses CODEOWNERS, scores, picks primary and backup, and renders the
+  parses CODEOWNERS (with `code_review/codeowners.py`, the matcher
+  code-review and stats use, through an `owned_paths` helper; the routing
+  copy was removed in #2206), scores, picks primary and backup, and renders the
   proposal text and the `gh` command; the agent only screens the item for
   injection and may name an area the title implies (`--area`) (#1583).
   The skill's detail files are one per outcome under `classifications/`.
@@ -76,8 +78,12 @@ side: a grounded brief a human acts on, not a state change.
   `vetted-op-read --save` as `propose` asks for it under `needs`:
   the item (`pr-view-with-body` / `repo-issue-view`), each changed path's
   recent commit authors (`commits-by-path`), each member's open review
-  requests (`pr-search-review-requested`), and `.github/CODEOWNERS` from the
-  default branch (#1583).
+  requests (`pr-search-review-requested`), and CODEOWNERS from the default
+  branch (#1583).
+  CODEOWNERS is looked up where GitHub looks, in GitHub's order:
+  `.github/CODEOWNERS`, the root, then `docs/`, and the first file found
+  wins. `--codeowners-missing <path>` records each location that does not
+  exist, and `--no-codeowners` means none of the three does (#2309).
 - Identity resolution for ASF projects: `tools/apache-projects`
   (committee roster, Apache IDs), reused exactly as the security and
   contributor skills resolve handles.
@@ -120,7 +126,8 @@ side: a grounded brief a human acts on, not a state change.
   model does not (#1583). Area match scores 3 points per matched area
   (capped at 6), commit familiarity 2 points per changed path the member
   recently committed to (capped at 6; zero for issues), owning at least one
-  changed path in CODEOWNERS (last matching rule wins) 2 points, and load
+  changed path in CODEOWNERS (last matching rule wins, patterns matched as
+  GitHub documents them, #2206) 2 points, and load
   subtracts 1 point per open review request above 2 (down to -5).
   Load is the count of open PRs on `<upstream>` with a review requested from
   the member; at or above `max_reviews` (default 5) the member is
@@ -187,12 +194,11 @@ uv run --all-packages --group dev pytest tools/pr-management/tests/reviewer_rout
 - **Non-ASF roster shape is now exercised.** `projects/non-asf-example/reviewer-roster.md`
   provides a Velox Stream roster with no ASF-specific fields; the
   `non-asf-profile-smoke/step-reviewer-routing/` eval suite asserts that
-  area-match routing selects a primary reviewer and that a no-area-match case
-  returns `NO ELIGIBLE REVIEWER` without proposing a fallback under the
+  area-match routing selects a primary reviewer under the
   `organization: independent` profile.
   Since #1583 the scoring code makes every member eligible when no roster
-  area matches, so that smoke case's `NO ELIGIBLE REVIEWER` expectation no
-  longer matches the shipped rule and needs reconciling.
+  area matches, and the no-area-match smoke case now expects that: a primary
+  reviewer is proposed with a no-area-match reason.
 - **`experimental` — no adopter pilot has run.** The skill ships but no
   end-to-end routing workflow has been exercised in a live maintainer
   session; signal weights and roster-match heuristics may change.

@@ -77,3 +77,20 @@ def test_the_cycle_check_finds_a_cycle() -> None:
 
 def test_module_level_imports_form_no_cycle() -> None:
     assert _cycles(_graph()) == []
+
+
+def test_batch_imports_nothing_from_cli_at_any_level() -> None:
+    # `cli` imports `batch` and hands it the single-call machinery
+    # (`batch.SingleCall`); an import of `cli` from `batch`, even inside a
+    # function, is the cycle CodeQL reports, so none may exist.
+    tree = ast.parse((PACKAGE / "batch.py").read_text(encoding="utf-8"))
+    imported = {
+        (node.module or "").split(".")[0] or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.level == 1
+        for alias in node.names
+    }
+    imported |= {
+        alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
+    }
+    assert "cli" not in imported and "vetted_ops.cli" not in imported

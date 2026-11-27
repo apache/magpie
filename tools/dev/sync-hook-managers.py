@@ -29,6 +29,9 @@ and `END ...` markers:
 - `tools/agent-isolation/git-hook-dispatcher.sh`: the host-only home and
   run-time override per tool.
 - `tools/sandbox-lint/src/sandbox_lint/__init__.py`: the homes the lint checks.
+- `tools/agent-isolation/sandbox-add-project-root.sh`: the managers whose
+  home variable a `~` cannot spell, so the helper writes an absolute path into
+  the project-local settings instead.
 
 It also checks, without writing, that the committed settings and the
 sandbox-lint baseline deny every manager's default home and give the sandbox
@@ -52,6 +55,7 @@ REGISTRY = Path("tools/hook-manager/registry.json")
 SHIM = Path("tools/agent-isolation/hook-manager-shim.sh")
 DISPATCHER = Path("tools/agent-isolation/git-hook-dispatcher.sh")
 SANDBOX_LINT = Path("tools/sandbox-lint/src/sandbox_lint/__init__.py")
+ADD_PROJECT_ROOT = Path("tools/agent-isolation/sandbox-add-project-root.sh")
 SETTINGS = (Path(".claude/settings.json"), Path("tools/sandbox-lint/expected.json"))
 
 #: Install strategies the shim implements. A new one lands with its shim branch.
@@ -173,10 +177,13 @@ def validate(registry: dict[str, Any]) -> list[str]:
             continue
         if not isinstance(home.get("env"), str) or not _ENV.match(home["env"]):
             errors.append(f"{where}.home.env: the environment variable that relocates the home")
-        if home.get("expands_tilde") is not True:
+        if not isinstance(home.get("expands_tilde"), bool):
             # The committed settings can only spell a per-user path with `~`.
+            # A tool that does not expand it gets an absolute path written into
+            # the project-local settings by sandbox-add-project-root.sh.
             errors.append(
-                f"{where}.home.expands_tilde: a tool that does not expand ~ needs a per-user sandbox home"
+                f"{where}.home.expands_tilde: must be true or false; false means the tool does not "
+                "expand ~ and needs an absolute home in the project-local settings.local.json"
             )
         default, sandbox, host = home.get("default"), home.get("sandbox"), home.get("host")
         for key, value in (("default", default), ("sandbox", sandbox)):
@@ -240,10 +247,30 @@ def render(registry: dict[str, Any]) -> dict[Path, str]:
             json.dumps(home["default"]),
             json.dumps(home["sandbox"]),
         ]
-        fields += [files, str(detect["nested"]), json.dumps(detect["hook_marker"])]
+        fields += [
+            files,
+            str(detect["nested"]),
+            json.dumps(detect["hook_marker"]),
+            str(home["expands_tilde"]),
+        ]
         lint += "    (\n" + "".join(f"        {f},\n" for f in fields) + "    ),\n"
     lint += ")\n"
-    return {SHIM: shim, DISPATCHER: dispatcher, SANDBOX_LINT: lint}
+    # A home the tool expands from `~` is written into the committed settings.
+    # One it does not expand gets an absolute path from the helper instead, so
+    # the helper needs the same facts in shell form.
+    absolute = [(n, a) for n, a in homes if not a["home"]["expands_tilde"]]
+    add_project_root = (
+        'absolute_home_adapters="' + " ".join(n for n, _ in absolute) + '"\n'
+        'absolute_home_adapter() {\n  case "$1" in\n'
+        + "".join(
+            f"    {n}) printf '%s\\n' '{a['home']['env']} {a['home']['sandbox'][2:]} "
+            f"{','.join(a['detect']['config_files'])} {a['detect']['hook_marker']} "
+            f"{'nested' if a['detect']['nested'] else 'root'}' ;;\n"
+            for n, a in absolute
+        )
+        + "    *) return 1 ;;\n  esac\n}\n"
+    )
+    return {SHIM: shim, DISPATCHER: dispatcher, SANDBOX_LINT: lint, ADD_PROJECT_ROOT: add_project_root}
 
 
 def check_settings(registry: dict[str, Any], root: Path) -> list[str]:
@@ -263,7 +290,15 @@ def check_settings(registry: dict[str, Any], root: Path) -> list[str]:
             if not home:
                 continue
             used = any((root / f).is_file() for f in adapter["detect"]["config_files"])
-            if used and env.get(home["env"]) != home["sandbox"]:
+            if not home["expands_tilde"]:
+                # An absolute path is not portable, so this one belongs in the
+                # project-local settings the helper writes, not here.
+                if env.get(home["env"]) is not None:
+                    errors.append(
+                        f"{rel}: env.{home['env']} must not be set: {name} does not expand ~, so "
+                        "sandbox-add-project-root.sh writes the absolute home per project"
+                    )
+            elif used and env.get(home["env"]) != home["sandbox"]:
                 errors.append(f"{rel}: env.{home['env']} must be {home['sandbox']!r} ({name})")
             if f"Edit({home['default']}/**)" not in deny:
                 errors.append(f"{rel}: permissions.deny must carry Edit({home['default']}/**) ({name})")

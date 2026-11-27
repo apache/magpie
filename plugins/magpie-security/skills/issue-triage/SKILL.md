@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 6888
+measured_tokens: 7028
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -268,6 +268,10 @@ If any check fails (Gmail aside, for markdown imports), stop and surface what is
 Write `{invocation, tracker, scope_labels}` and run `<sm> selector`: it applies the *Inputs* grammar and prints the plain `gh` `command` to run (none for explicit numbers).
 A CVE token not matching `^CVE-\d{4}-\d{4,7}$`, an undeclared scope label and a bare `--retriage` exit `2`: stop and ask; an unvalidated string never reaches a search argument.
 With `--retriage` the query drops the `needs triage` filter, relying on the explicit numbers or scope label.
+Where the read runs through vetted-ops (a non-GitHub tracker, per [`tracker-backend.md`](tracker-backend.md)), the queue is
+`uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-triage issue-list-label open "<label>"`
+and the CVE selector `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-triage issue-search "<CVE-ID>"`.
+A refusal naming the caller is a missing grant: stop and tell the user which one to add, never borrow another skill's caller.
 
 Then write `{selection, issues` (or the CVE search's `cve_matches`)`, tracker, scratch}` and run `<sm> queue`.
 **Echo** its one informational `echo` line (count, scope, oldest / newest) and continue to Step 2 without waiting: per [Golden rule 7](#golden-rules), Step 5 is the only decision point.
@@ -386,7 +390,7 @@ For each confirmed proposal, write `render-proposal`'s `text` to its `file` (`<w
 uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-triage issue-comment <N> <workspace>/triage-<N>.md
 ```
 
-`<workspace>` is the vetted-ops body workspace (`~/.cache/apache-magpie/vetted-ops-bodies/`, passed to `render-proposal` as `workspace`): the operation reads its body file only from there.
+`<workspace>` is the policy's vetted-ops `workspace` (`uvx --from ~/.claude/magpie/vetted-ops vetted-op-read policy` prints it; passed to `render-proposal` as `workspace`): the operation reads its body file only from there.
 Never post with raw `gh issue comment`: the agent guard blocks it, because a proposal names CVEs and vulnerability classes, and the vetted operation is the sanctioned route for private-tracker comments.
 A refusal naming the caller means the project's policy lacks the `issue-comment` grant for `security-issue-triage`: stop and tell the user which grant to add, never borrow another skill's caller.
 The body carries text from the tracker, which crossed a trust boundary at import, so it always travels as a file, never inline.

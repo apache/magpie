@@ -59,8 +59,27 @@ acceptance:
     Its personal layers are its own `.apache-magpie-local/`, then the main
     checkout's when that exists, per file, first match wins
     (`personal_layers`), and its write target (`personal_dir`) is its own
-    directory if it exists, else the main checkout's if that exists, else
-    its own. The main checkout is found by reading files only
+    directory if it holds configuration, else the main checkout's if that
+    exists, else its own. A layer holding only bookkeeping
+    (`layers.BOOKKEEPING`: `reconciled.json`, the pre-flight cache, `run/`, a
+    checker copy, and any dot-file) never takes over as the configuration
+    layer, in every copy of the layer rule, so `setup config` run from a
+    worktree still writes to the main checkout's layer; one that cannot be
+    listed counts as holding configuration (#2372).
+    Bookkeeping is written elsewhere: `layers.stamp_dir` (printed by
+    `setup_preflight.layers`) is this checkout's own `.apache-magpie-local/`
+    in an adopted project, also in a linked worktree, whose sandbox may only
+    read the main checkout's, and `personal_dir` otherwise. Every
+    `reconciled.json` reader merges the personal layers
+    (`layers.merged_stamp`): each top-level key, and each entry of a block,
+    comes from the first layer holding it, so a worktree's own stamp adds to
+    its main checkout's instead of hiding it; `isolated_setup`
+    (`layers.WHOLE_BLOCKS`) comes whole, and running the install or update
+    skill in a worktree ends an inherited opt-out there only. An unadopted
+    repository's legacy in-tree stamp is never merged, only read whole when
+    no other layer has a stamp. Writers add only their own entries, through
+    a dot-named temporary file of their own (`layers.write_atomic`), as the
+    pre-flight cache is written too. The main checkout is found by reading files only
     (`main_worktree`: the common git directory is named `.git` and is its
     parent's `.git` directory; a main checkout, a bare repository, a
     submodule or no repository has none). It is located from the
@@ -134,6 +153,16 @@ acceptance:
     is offered once, recorded in `~/.cache/apache-magpie/companions-offered`
     outside every repository, so the record never marks a project as
     configured.
+    For an ASF project (the resolved `project.md` names
+    `organization: ASF`) the same recap and upgrade also offer the Apache
+    Incubator's marketplace: the skills the ASF catalogue
+    (`organizations/ASF/skill-sources.md`) lists for the agent, minus those
+    already installed, with the add command and `<skill>@apache-incubator`,
+    printed and never run, saying that a marketplace install tracks
+    `apache/incubator`'s default branch with no pin Magpie verified,
+    recorded as `apache-incubator <agent>`. A
+    pinned-snapshot update points once at that catalogue and
+    `setup skill-sources` instead (`apache-incubator snapshot`).
   - The default-set floor is seeded with four plugins (`magpie-setup`,
     `magpie-utilities`, `magpie-agent-guard`, `magpie-vetted-ops`) and never grows
     automatically — not to match which other families this maintainer
@@ -266,6 +295,10 @@ committed version with drift detection.
   The package also carries `isolated_verify`, the read-only checker
   `setup-isolated-setup-verify` runs for its mechanical checks, so it ships
   wherever the pre-flight checker does.
+  It also carries `local_families`, whose `candidates` / `record`
+  commands back the keep-or-hide question for families enabled for the
+  user but not adopted (#2373; tests in
+  `tools/setup-preflight/tests/test_local_families.py`).
 - Project templates: `plugins/magpie-setup/templates/` (#1410), the
   scaffold `setup config` copies adopter configuration from.
   `projects/_template` is a symlink to it, so older paths keep resolving;
@@ -534,6 +567,29 @@ committed version with drift detection.
   framework checkout's template plus the registry) and hands the write to
   the user, adding missing entries and removing dropped ones only on
   confirmation.
+- **A family enabled for the user but not adopted here is kept or hidden,
+  once** (#2373). Under Claude Code, a `magpie-<family>@apache-magpie`
+  enabled in the user-scope settings loads in every project; absence from a
+  marketplace floor never means *disable*. The same reconcile step runs
+  `python3 -P -m setup_preflight.local_families candidates` and asks, per
+  family in `ask`, keep it here or hide it here with
+  `"<plugin>@apache-magpie": false` in `.claude/settings.local.json`; a hide
+  already made in another worktree is in `apply`, added without asking.
+  Substrate plugins and any plugin a project settings file already names are
+  never candidates. Answers are recorded with `local_families record` under
+  `local_families.<plugin>` in `reconciled.json` (`keep` is never asked
+  again, `disable` lists the worktrees it was applied in), in the checkout's
+  own stamp and read merged. Once the floor adopts a hidden family, the step
+  offers to remove the hide (`restore`), but only a `false` Magpie applied
+  and recorded in that checkout's own stamp; a hide in the main checkout's
+  settings seen from a worktree (`restore_in_main`) is restored from the
+  main checkout. Inside a sandbox that denies the user-scope settings
+  (`user-settings-unreadable`), the agent reads the file with the harness's
+  file-read tool and passes back only `{"enabledPlugins": {…}}` on stdin
+  (`--user-settings -`), never a copy of the file. Separately, the
+  pre-flight's `family` finding `family-not-adopted` gives a one-time,
+  non-blocking hint under Claude Code (recorded as `hinted`), silent where
+  the sandbox hides the user-scope settings.
 - **Every skill's pre-flight brings the machine up to the floor** and
   then stops for a restart, and does so without asking only when the
   lock's `url` is `apache/magpie`. `magpie-vetted-ops` counts as part of
@@ -594,6 +650,16 @@ committed version with drift detection.
   with a *"Depends on #N"* line.
   `gh stack submit --auto` and letting `gh stack` generate titles or bodies
   are never used.
+- **`AGENTS.md` only, never `CLAUDE.md`.** `install` never creates a
+  `CLAUDE.md` or a `CLAUDE.md` → `AGENTS.md` symlink: Claude Code reads
+  `AGENTS.md` natively in every session from 2.1.281, and a `CLAUDE.md` in
+  the working directory or above makes it read `CLAUDE.md` files only. A root
+  `CLAUDE.md` that only points at `AGENTS.md` is proposed for removal in the
+  same commit; one with content of its own is left, and the user is told it
+  shadows `AGENTS.md`. The secure setup's `claude-code` floor is 2.1.281
+  (2.1.277 still read `CLAUDE.md` only on a third-party provider or with
+  telemetry off, and 2.1.277–2.1.280 reject Magpie's hook modules); verify
+  check 5 hard-fails below it.
 - **Commit attribution is a project choice** (#1385). `adopt` always asks
   the maintainer for the convention (`generated-by`, the default and the
   ASF convention; `assisted-by`; `co-authored-by`; `none`;
@@ -989,6 +1055,42 @@ committed version with drift detection.
     `unadopted_home` falls back to the in-tree `.apache-magpie-local/`.
     agent-guard runs its own git commands with `core.fsmonitor=false` and an
     empty `core.hooksPath`, so a crafted `.git/config` runs no program.
+41. `setup_preflight.isolated` answers two questions apart (#2146):
+    `installed` (the personal layer's stamp first, an explicit
+    `enabled: false` meaning opted out; unstamped, any managed, main-worktree,
+    project or user settings file that enables the sandbox) and
+    `sandbox-active` (Claude Code's precedence walk, merged managed settings
+    and their `managed-settings.d/` drop-ins first, the first explicit boolean
+    winning, default false).
+    `configured` remains as an alias of `installed`, so a contributor who
+    toggles `/sandbox` off keeps the isolated-setup upgrade findings and the
+    upgrade summary's state (`tools/setup-preflight/tests/test_isolated.py`).
+42. When a `security`-family skill is in scope and `security_pages_url` is
+    unset, `setup config` Step 3a.2 looks for the project's advisories page
+    (for an ASF project `https://<project>.apache.org/security` and the site
+    repository), then asks once whether one exists: a yes records the URL
+    and offers advisory records; a no proposes creating one in the
+    `cve-json-file` layout, drafted only on the user's go-ahead (#2219).
+    Without a `security_pages_url`, `security-issue-sync` sends no
+    security-pages reminder and the release-manager hand-off asks for no
+    website edit.
+43. Run from an adopter repository, `setup-upstream-fix` never clones the
+    framework inside the sandbox: it finishes Steps 1–3 and hands Steps 4–5
+    to a live session in the user's framework clone (ListAgents /
+    SendMessage in Claude Code), or else writes the brief to the scratch
+    directory for the user to paste, after scrubbing it for public
+    disclosure and showing it to the user (#2226; eval suite
+    `tools/skill-evals/evals/setup-upstream-fix/step-0-preflight`).
+    The brief never hands over an action a permission rule or the user
+    refused, and the receiving session re-checks the classification and the
+    duplicate search.
+44. `setup-isolated-setup-update`'s comdev MCP check resolves each server's
+    directory from the `index.js` its registration names (user, per-project
+    or `./.mcp.json`), prints only resolved paths, and skips a checkout
+    whose origin is not `apache/comdev`, that is off `main`, or whose fetch
+    failed; a refresh only fast-forwards to the checked `origin/main`
+    (#2199, #2202;
+    `plugins/magpie-setup/skills/isolated-setup-update/tests/test_comdev_mcp.py`).
 
 ## Validation
 

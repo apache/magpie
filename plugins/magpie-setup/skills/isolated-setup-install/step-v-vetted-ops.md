@@ -6,13 +6,15 @@
 Read this when the walk-through reaches Step V and both of its conditions in `SKILL.md` hold:
 the adopter routes forge operations through `vetted-ops`, and the sandbox is on.
 
-There are four console scripts over one catalogue, and which of them
+There are six console scripts over one catalogue, and which of them
 gets the `allow` is the entire security question:
 
 | Entry point | Can write? | Permission |
 |---|---|---|
 | `vetted-op-read` | never — refused before policy or `--caller` is consulted | `allow` |
 | `vetted-op-tracker` | only the tracker rollup / body-field procedures — everything else refused before policy | `ask` |
+| `vetted-op-tracker-batch` | only a checked manifest of private-tracker writes, when the approved policy turns batching on (`batch` or `none`) | `ask` |
+| `vetted-op-tracker-batch-unprompted` | the same, and only under a policy set to `none`; refuses any other policy before reading the manifest | `ask` (`allow` only on the adopter's explicit `private_tracker_writes = "none"`) |
 | `vetted-op-git` | only the git operations the sandbox blocks, plus `git-pr-create` | `ask` |
 | `vetted-op` | yes | `ask` |
 
@@ -35,6 +37,10 @@ writes structurally.
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
@@ -66,8 +72,10 @@ gatherer agents use `uvx --from`, because `uv run` in the plugin cache
 needs to write a venv there. A rule for only one form leaves every call
 in the other form prompting.
 
-Add both forms of `vetted-op-tracker`, `vetted-op-git` and `vetted-op` to `sandbox.excludedCommands` too
+Add both forms of `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted`, `vetted-op-git` and `vetted-op` to `sandbox.excludedCommands` too
 (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *"`,
 `"uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *"`,
 `"uv run --project ~/.claude/magpie/vetted-ops vetted-op *"` and `"uvx --from ~/.claude/magpie/vetted-ops vetted-op *"`):
 their writes need a `gh` that can verify TLS, which a sandboxed one cannot,
@@ -76,9 +84,19 @@ and a sandboxed `vetted-op` cannot even read `~/.claude/magpie/` to start.
 and a linked worktree's administrative directory is read-only there.
 Excluding them is acceptable because every operation is a fixed `gh` argv with no shell
 and bodies come only from the workspace, so they reach less than the bare `gh *` already excluded;
-`vetted-op-tracker` is further closed to the tracker procedures.
-**All three stay in `ask`, never `allow`**, so each write keeps its confirmation;
+`vetted-op-tracker` is further closed to the tracker procedures, and the two batch entry points to a checked manifest of them and the other private-tracker writes.
+**All five stay in `ask`, never `allow`**, so each write (or each batch) keeps its confirmation;
 `sandbox-lint` fails an exclusion that has lost its `ask`.
+The one exception is the adopter's to make, never the agent's to propose unprompted:
+a project whose approved policy sets `[approval] private_tracker_writes = "none"` may move the two `vetted-op-tracker-batch-unprompted` rules, and only those, to `allow` (never `vetted-op-tracker-batch`, which also runs `batch` policies), after reading what that gives up in the
+[batch design note](../../../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts).
+
+Before the user approves the policy, propose the grants the installed skills use.
+Run the caller-grant comparison of [`setup reconcile` check 3a](../setup/reconcile.md#the-sweep): every installed
+skill whose caller the README's `[callers]` example names gets the operations listed there, among them the
+`git-*` publishing steps and `pr-add-label`, and a caller that opens and labels pull requests gets the repository's
+taxonomy labels, discovered with `gh label list`, proposed by name in `[values] upstream_labels`.
+Show each proposal as a TOML diff; the policy is `Edit`-denied to the agent, so the user applies it.
 
 Outside the sandbox, the write dispatchers act only on a policy the user approved:
 a byte-for-byte copy in `~/.config/apache-magpie/vetted-ops/`, which the agent cannot write.
@@ -175,3 +193,35 @@ operator applies it; never write a settings file on your own.
 
 This covers the read dispatcher only. `vetted-op-tracker`, `vetted-op-git` and `vetted-op`
 are excluded but stay in `ask`, never in `allow`.
+
+## Step V.2 — The read-only gatherer agent (Claude Code)
+
+Bulk skills fan out one background agent per item.
+A general-purpose agent has `Bash`, `Edit` and `Write`, and reads content written by outsiders:
+the read-then-act exposure Step V.1's unprompted reads should not widen.
+The framework ships a narrower agent, which `pr-management-code-review`'s prefetch and `pr-management-stack-review`'s layer readers use where it is installed,
+[`tools/agent-isolation/agents/magpie-gatherer.md`](../../../../tools/agent-isolation/agents/magpie-gatherer.md):
+`Read`, `Grep`, `Glob` and `vetted-op-read` as its only Bash.
+It has no `Edit`, `Write`, MCP tool or general Bash, and it runs on the session's model.
+The `tools:` line is not trusted alone: a `PreToolUse` hook in the agent's own frontmatter denies every Bash command but `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read …`, with no chaining, redirection, `--config` or `--save`.
+
+Claude Code only, and only after Step V.1 passes: without it every gatherer read is a silent denial.
+On another harness, report **n/a**.
+
+1. Propose copying it to the user scope, `~/.claude/agents/magpie-gatherer.md`,
+   from a copy no sandboxed agent can have changed, since its hook runs outside the sandbox:
+   on a marketplace install, the installed `magpie-security-tools` plugin, through its stable link
+   (`mkdir -p ~/.claude/agents && cp ~/.claude/magpie/security-tools/agent-isolation/agents/magpie-gatherer.md ~/.claude/agents/`;
+   the plugin cache it resolves to is not writable from the sandbox, and the tamper rules above deny `Edit(~/.claude/magpie/**)`);
+   in the framework checkout, `tools/agent-isolation/agents/magpie-gatherer.md`, once `git status` and
+   `git diff origin/main -- tools/agent-isolation/agents/` show it unmodified.
+   Never copy it from `<framework>` on a marketplace install: that tree under `~/.cache/apache-magpie/framework/`
+   is writable from the sandbox.
+   It must be a user-scope agent, not a plugin agent: Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook matching the agent's name would match any agent that takes the name.
+   The operator runs the copy; never write it yourself.
+2. **Tamper protection.** Propose `Edit(~/.claude/agents/**)` in the user-scope `permissions.deny`.
+   An agent file's hooks run outside the sandbox, and its `tools:` line decides what the fan-out may do, so no agent may rewrite it with its file tools.
+   The operator updates the copy from a terminal.
+3. If a file is already there and differs, show the diff and let the operator choose;
+   a local edit that adds a tool, a hook or a `model:` line changes what the fan-out can do and is theirs to keep or drop knowingly.
+4. Say that a session started before the copy does not see the agent: it takes effect in the next session.

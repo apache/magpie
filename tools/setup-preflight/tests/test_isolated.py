@@ -88,6 +88,17 @@ def test_a_documentation_only_change_does_not_move_the_fingerprint(project: Path
     assert isolated.current(project) == before
 
 
+def test_an_agent_definition_change_moves_the_fingerprint(project: Path) -> None:
+    """An agent's Markdown is installed, not read: its body is the agent's prompt."""
+    framework_tree(project)
+    agents = project / "tools" / "agent-isolation" / "agents"
+    agents.mkdir()
+    (agents / "magpie-gatherer.md").write_text("---\nname: magpie-gatherer\n---\none\n")
+    before = isolated.current(project)
+    (agents / "magpie-gatherer.md").write_text("---\nname: magpie-gatherer\n---\ntwo\n")
+    assert isolated.current(project) != before
+
+
 def test_a_change_already_shown_is_not_repeated(project: Path) -> None:
     framework_tree(project)
     write_stamp(project, {"isolated_setup": {"fingerprint": "sha256:old", "updated_at": "2026-09-25"}})
@@ -173,6 +184,18 @@ def test_recording_in_an_adopted_repo_writes_the_in_tree_local_dir(project: Path
     isolated.record(project, "reminder", today=TODAY)
     assert (project / ".apache-magpie-local" / "reconciled.json").is_file()
     assert not (project / ".git" / "apache-magpie").exists()
+
+
+def test_a_legacy_in_tree_stamp_never_fills_in_keys_beside_the_git_dir_home(project: Path) -> None:
+    """The in-tree directory may have come with a clone: read whole, only when nothing else has a stamp."""
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "reconciled.json").write_text(json.dumps({"isolated_setup": {"enabled": False}}))
+    assert isolated._load_stamp(project) == {"isolated_setup": {"enabled": False}}
+    home = project / ".git" / "apache-magpie"
+    home.mkdir(parents=True)
+    (home / "reconciled.json").write_text(json.dumps({"verified_at": "2026-11-01"}))
+    assert isolated._load_stamp(project) == {"verified_at": "2026-11-01"}
 
 
 def test_recording_carries_a_legacy_stamp_over_to_the_git_dir_home(project: Path) -> None:

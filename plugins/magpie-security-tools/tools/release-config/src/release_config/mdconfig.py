@@ -461,7 +461,7 @@ def user_config_path(explicit: str | None, resolver: Resolver) -> Path | None:
 
 
 def dotted_value(text: str | None, dotted: str) -> str | None:
-    """`a.b` from a table row, a flat `a.b: v` line, or a nested `a:` / `  b: v` block."""
+    """`a.b` (or `a.b.c`) from a table row, a flat `a.b: v` line, or nested `a:` / `  b: v` blocks."""
     if not text:
         return None
     table = table_values(text)
@@ -471,12 +471,17 @@ def dotted_value(text: str | None, dotted: str) -> str | None:
     if flat and _clean(flat.group(1)):
         return _clean(flat.group(1))
     parts = dotted.split(".")
-    if len(parts) == 2:
-        block = re.search(rf"^(\s*){re.escape(parts[0])}:\s*$((?:\n\1\s+.*)+)", text, re.MULTILINE)
-        if block:
-            inner = re.search(rf"^\s+{re.escape(parts[1])}:[ \t]*(.+)$", block.group(2), re.MULTILINE)
-            if inner and _clean(inner.group(1)):
-                return _clean(inner.group(1))
+    if len(parts) >= 2:
+        # Each leading part opens a nested `a:` block; the last is a value inside the innermost one.
+        scope = text
+        for part in parts[:-1]:
+            block = re.search(rf"^(\s*){re.escape(part)}:\s*$((?:\n\1\s+.*)+)", scope, re.MULTILINE)
+            if not block:
+                return None
+            scope = block.group(2)
+        inner = re.search(rf"^\s+{re.escape(parts[-1])}:[ \t]*(.+)$", scope, re.MULTILINE)
+        if inner and _clean(inner.group(1)):
+            return _clean(inner.group(1))
     return None
 
 

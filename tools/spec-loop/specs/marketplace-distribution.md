@@ -95,13 +95,22 @@ Claude-Code-only: Codex installs them by falling through to that same file.
 The exception is a plugin whose `hooks/hooks.json` carries Claude Code mods
 (`$schema`, `modules`), which Codex's strict hooks schema rejects whole:
 `magpie-setup`, `magpie-utilities`, `magpie-security`,
-`magpie-pr-management` and `magpie-release-management` each carry a
+`magpie-pr-management`, `magpie-release-management`, `magpie-issue` and
+`magpie-pairing` each carry a
 complete `.codex-plugin/plugin.json` (read instead of the Claude manifest)
 whose `hooks` names a clean `hooks/codex-hooks.json` — the `startup`
 upgrade check (`/bin/bash -p check-upgrade.sh`) for `magpie-setup`, an empty
-file for the other four (#1836, #1676, #1920, #2007).
+file for the other six (#1836, #1676, #1920, #2007, #2274).
 `tools/dev/check-family-plugins.py --fix` generates them and fails a Codex
 catalogue plugin whose Codex-visible hook file has any other top-level key.
+`--fix` also writes the whole `plugins` list of `.claude-plugin/marketplace.json`
+and `.agents/plugins/marketplace.json` from the family map
+(`magpie-setup` `INSTALLED_BY_DEFAULT`, every other family `AVAILABLE`),
+replacing any hand-added entry, so a family-entry error it reports is one it can fix (#2208).
+Its prek hook's `files:` pattern covers every file the substrate plugins copy
+(`tools/maildir`, `tools/maven-artifact-verify`, `tools/scan-format/README.md`,
+the `organizations/*/organization.md` manifests among them),
+and a test walks every copy as `check_substrate` does and fails on a file the pattern misses (#2205).
 For Claude Code, every `plugins/*/hooks/hooks.json` carries a `hooks` object, an empty one in a mods-only file:
 Claude Code releases inside the `claude-code` floor reject a hooks file without it, so `claude plugin validate` fails on the plugin and `claude plugin list` reports it as failed to load, and `check-family-plugins.py` fails on a hooks file that leaves it out.
 

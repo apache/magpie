@@ -46,6 +46,7 @@ from skill_reconciler_diff import (
     _diff_section_headings,
     _diff_steps,
     _parse_frontmatter,
+    _parse_hard_rules,
     _parse_headings,
     _parse_placeholders,
     _parse_safety_baseline,
@@ -143,6 +144,156 @@ def test_parse_steps_basic():
     steps = _parse_steps(text)
     assert "0" in steps
     assert "1" in steps
+
+
+def test_parse_steps_last_step_ends_at_same_level_sections():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Follow them.
+
+        ## References
+
+        Read them.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Do work."
+
+
+def test_parse_steps_non_step_section_before_next_step_ends_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        First body.
+
+        ## Notes
+
+        Not part of the step.
+
+        ## Step 2
+
+        Second body.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "First body."
+    assert steps["2"] == "Second body."
+
+
+def test_parse_steps_deeper_heading_stays_in_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Start.
+
+        ### Detail
+
+        More detail.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Start.\n\n### Detail\n\nMore detail."
+
+
+def test_parse_steps_fenced_heading_stays_in_body():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        Start.
+
+        ```markdown
+        ## Not a heading
+        ```
+
+        Finish.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "Start.\n\n```markdown\n## Not a heading\n```\n\nFinish."
+
+
+def test_parse_steps_level_three_ends_at_same_or_higher_level_heading():
+    higher = textwrap.dedent("""\
+        ### Step 1
+
+        Do work.
+
+        ## Adopter overrides
+
+        Override details.
+        """)
+    same = textwrap.dedent("""\
+        ### Step 1
+
+        Do work.
+
+        ### Notes
+
+        Additional notes.
+        """)
+    assert _parse_steps(higher)["1"] == "Do work."
+    assert _parse_steps(same)["1"] == "Do work."
+
+
+def test_parse_steps_last_step_without_later_heading_runs_to_end():
+    text = textwrap.dedent("""\
+        ## Step 1
+
+        First line.
+
+        Last line.
+        """)
+    steps = _parse_steps(text)
+    assert steps["1"] == "First line.\n\nLast line."
+
+
+def test_parse_steps_deeper_step_heading_still_ends_the_step():
+    text = "## Step 1\nFirst.\n### Step 2\nSecond.\n"
+    assert _parse_steps(text) == {"1": "First.", "2": "Second."}
+
+
+def test_parse_steps_after_a_bare_hash_line():
+    # A bare "#" line lets the heading pattern run into the next line, so the
+    # step heading is not in the heading list; the body still ends correctly.
+    text = "#\n## Step 1\nDo work.\n## Hard rules\nRule.\n"
+    assert _parse_steps(text) == {"1": "Do work."}
+
+
+@pytest.mark.parametrize("outer, inner", [("~~~~", "~~~"), ("````", "```")])
+def test_parse_steps_shorter_fence_run_does_not_close_a_longer_fence(outer, inner):
+    text = f"## Step 1\nbefore\n{outer}\n{inner}\n## inside\n{outer}\nafter\n## Hard rules\nRule.\n"
+    assert _parse_steps(text) == {"1": f"before\n{outer}\n{inner}\n## inside\n{outer}\nafter"}
+    assert [title for _, title in _parse_headings(text)] == ["Step 1", "Hard rules"]
+
+
+@pytest.mark.parametrize("tail", ["#\n", "#", "#\nText after.\n", "##\n## Step 2\nNext.\n"])
+def test_parse_steps_bare_hash_heading_ends_the_step(tail):
+    steps = _parse_steps("## Step 1\nbody\n" + tail)
+    assert steps["1"] == "body"
+
+
+def test_diff_steps_ignores_changes_after_last_step():
+    a = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Original rule.
+        """)
+    b = textwrap.dedent("""\
+        ## Step 1
+
+        Do work.
+
+        ## Hard rules
+
+        Updated rule.
+        """)
+    diff = _diff_steps(_parse_steps(a), _parse_steps(b))
+    assert diff.body_changed == []
 
 
 def test_diff_steps_only_in_a():
@@ -511,3 +662,55 @@ def test_headings_and_steps_ignore_fenced_code_blocks():
     assert "99" not in steps
     # The step body still keeps the fenced code it contains.
     assert "echo hi" in steps["0"]
+
+
+# ---------------------------------------------------------------------------
+# Hard rules block
+# ---------------------------------------------------------------------------
+
+
+def test_parse_hard_rules_ends_at_the_next_same_level_heading():
+    text = "## Step 1\nWork.\n## Hard rules\n\n- Rule one.\n\n### Detail\n\nMore.\n## References\nRead.\n"
+    assert _parse_hard_rules(text) == "- Rule one.\n\n### Detail\n\nMore."
+
+
+def test_parse_hard_rules_absent_or_fenced():
+    assert _parse_hard_rules("## Step 1\nWork.\n") is None
+    assert _parse_hard_rules("## Step 1\n```\n## Hard rules\n```\n") is None
+
+
+def test_hard_rules_edit_is_reported(tmp_path):
+    base = _BASE_FM + "\n## Step 1\n\nWork.\n\n## Hard rules\n\n- Rule one.\n"
+    skill_a = _make_skill(tmp_path, "hra", base)
+    skill_b = _make_skill(tmp_path, "hrb", base + "- Rule two.\n")
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert d.hard_rules_diff.body_changed is True
+    assert d.hard_rules_diff.has_diff
+    assert not d.step_diff.has_diff
+    assert d.identical is False
+    assert json.loads(render_json(d))["hard_rules_diff"] == {
+        "a_present": True,
+        "b_present": True,
+        "body_changed": True,
+    }
+
+
+def test_hard_rules_only_in_one_skill(tmp_path):
+    base = _BASE_FM + "\n## Step 1\n\nWork.\n"
+    skill_a = _make_skill(tmp_path, "hoa", base)
+    skill_b = _make_skill(tmp_path, "hob", base + "\n## Hard rules\n\n- Rule one.\n")
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert (d.hard_rules_diff.a_present, d.hard_rules_diff.b_present) == (False, True)
+    assert d.hard_rules_diff.body_changed is False
+    assert d.hard_rules_diff.has_diff
+
+
+def test_identical_hard_rules_report_no_diff(tmp_path):
+    content = _BASE_FM + "\n## Step 1\n\nWork.\n\n## Hard rules\n\n- Rule one.\n"
+    skill_a = _make_skill(tmp_path, "hia", content)
+    skill_b = _make_skill(tmp_path, "hib", content)
+
+    d = diff_skills(parse_skill(str(skill_a)), parse_skill(str(skill_b)))
+    assert not d.hard_rules_diff.has_diff

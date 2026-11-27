@@ -81,7 +81,7 @@ npm install -g @github/copilot
 Launch an interactive session under Magpie's clean-environment isolation wrapper:
 
 ```bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso copilot
 ```
 
@@ -207,7 +207,7 @@ When using the Copilot CLI:
 To run the Copilot CLI under Magpie's standard credential isolation policy:
 
 ```bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso copilot
 ```
 

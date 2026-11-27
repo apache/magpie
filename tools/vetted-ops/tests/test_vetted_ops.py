@@ -435,6 +435,7 @@ ecosystems = ["PyPI"]
         "$(whoami)",
         "`id`",
         "1\nrm -rf /",
+        "1\n",
         "../../etc/passwd",
         "1|tee /tmp/x",
     ],
@@ -460,7 +461,7 @@ def test_run_operations_take_an_eleven_digit_run_id(policy: config.Config, op_na
     assert any(RUN_ID in a for a in argv)
 
 
-def test_comment_ids_take_an_eleven_digit_id() -> None:
+def test_comment_ids_take_ids_past_ten_digits() -> None:
     assert ops.database_id("3456789012345") == "3456789012345"
 
 
@@ -468,6 +469,23 @@ def test_comment_ids_take_an_eleven_digit_id() -> None:
 def test_database_ids_stay_bounded(too_long: str) -> None:
     with pytest.raises(ops.ParamError, match="invalid id"):
         ops.database_id(too_long)
+
+
+@pytest.mark.parametrize(
+    ("validator", "value"),
+    [
+        (ops.number, "1"),
+        (ops.database_id, RUN_ID),
+        (ops.login, "octocat"),
+        (ops.ref, "main"),
+        (ops.cve_id, "CVE-2026-12345"),
+        (ops.commit_hash, "c6696e8d"),
+    ],
+)
+def test_a_trailing_newline_is_refused(validator: Any, value: str) -> None:
+    assert validator(value) == value
+    with pytest.raises(ops.ParamError):
+        validator(value + "\n")
 
 
 def test_issue_numbers_keep_their_bound() -> None:
@@ -1125,6 +1143,13 @@ def test_config_rejects_a_malformed_repo(tmp_path: Path) -> None:
         config.load(cfg_path)
 
 
+def test_config_rejects_a_repo_with_a_trailing_newline(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "bad.toml"
+    cfg_path.write_text('workspace = "."\n[repos]\ntracker = "acme/tracker\\n"\nupstream = "a/b"\n')
+    with pytest.raises(config.ConfigError, match="owner/name"):
+        config.load(cfg_path)
+
+
 # --- the GraphQL surface stays closed ----------------------------------------
 
 
@@ -1412,6 +1437,54 @@ def test_repeated_caller_is_refused(policy_path: Path, capsys: pytest.CaptureFix
     assert "more than once" in capsys.readouterr().err
 
 
+# The longest prefix of `--caller`, spelled by slicing so the spell checker passes it.
+CALLER_ONE_SHORT = "--caller"[:-1]
+
+_ENTRY_POINTS = {
+    "vetted-op": {},
+    "vetted-op-read": {"read_only": True},
+    "vetted-op-tracker": {"tracker_only": True},
+}
+
+
+@pytest.mark.parametrize("entry", sorted(_ENTRY_POINTS))
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        ["--ca", "security-issue-sync"],
+        ["--call", "security-issue-sync"],
+        [CALLER_ONE_SHORT, "security-issue-sync"],
+        ["--call=security-issue-sync"],
+        ["--caller", "security-issue-triage", "--call=security-issue-sync"],
+        ["--caller", "security-issue-triage", CALLER_ONE_SHORT, "security-issue-sync"],
+        ["--caller", "security-issue-triage", "--dry", "--conf", "x.toml"],
+        ["--caller", "security-issue-triage", "--sa", "out"],
+    ],
+)
+def test_abbreviated_long_options_are_not_accepted(
+    entry: str, spelling: list[str], policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every long option is matched exactly, as the checks on the raw argv assume."""
+    with pytest.raises(SystemExit) as exc:
+        cli.main(
+            [*spelling, "issue-view", "7", "--config", str(policy_path), "--dry-run"],
+            **_ENTRY_POINTS[entry],
+        )
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "caller", [["--caller", "security-issue-triage"], ["--caller=security-issue-triage"]]
+)
+def test_exact_caller_spellings_still_parse(
+    caller: list[str], policy_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = cli.main([*caller, "issue-view", "7", "--config", str(policy_path), "--dry-run"], read_only=True)
+    assert rc == cli.EXIT_OK
+    assert "gh issue view 7" in capsys.readouterr().out
+
+
 def test_read_dispatcher_still_runs_reads(policy_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     rc = cli.main(
         ["--caller", "security-issue-triage", "issue-view", "7", "--config", str(policy_path), "--dry-run"],
@@ -1542,7 +1615,7 @@ def test_a_team_slug_may_not_carry_an_organisation_or_metacharacters(hostile: st
 
 @pytest.mark.parametrize(
     ("name", "kind"),
-    [("repo-pr-search", "prs"), ("repo-code-search", "code")],
+    [("repo-pr-search", "prs"), ("repo-issue-search", "issues"), ("repo-code-search", "code")],
 )
 def test_upstream_search_is_pinned_and_ends_options_before_the_query(
     policy: config.Config, name: str, kind: str
@@ -1558,7 +1631,7 @@ def test_upstream_search_is_pinned_and_ends_options_before_the_query(
     assert argv[-3:] == ["--", "credentials", "redirect"]
 
 
-@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-issue-search", "repo-code-search"])
 def test_upstream_search_passes_each_word_separately(policy: config.Config, name: str) -> None:
     """
     `gh` quotes an argv element that holds a space, so a two-word query passed
@@ -1574,7 +1647,7 @@ def test_upstream_search_passes_each_word_separately(policy: config.Config, name
     assert all(" " not in word for word in tail)
 
 
-@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-issue-search", "repo-code-search"])
 @pytest.mark.parametrize(
     "hostile",
     [
@@ -1591,6 +1664,17 @@ def test_upstream_search_refuses_qualifiers_and_flags(policy: config.Config, nam
     op = ops.resolve(name)
     with pytest.raises(ops.ParamError):
         cli._validate_params(op, [hostile], policy)
+
+
+def test_upstream_issue_search_cannot_widen_to_pull_requests(policy: config.Config) -> None:
+    """A word that spells the flag lands after `--`, so the search stays issues-only."""
+    op = ops.resolve("repo-issue-search")
+    params, _ = cli._validate_params(op, ["dedup --include-prs"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    end = argv.index("--")
+    assert "--include-prs" not in argv[:end]
+    assert argv[end + 1 :] == ["dedup", "--include-prs"]
 
 
 def test_every_code_review_operation_is_a_read() -> None:
@@ -2004,3 +2088,92 @@ def test_triage_recovery_reads_are_scoped_and_read_only(policy: config.Config, n
         assert argv == ["gh", "api", "repos/acme/product/issues/comments/123456"]
     with pytest.raises(ops.ParamError):
         cli._validate_params(op, ["../other-repo"], policy)
+
+
+# --- --policy-from: another repository's policy, approved copies only ---------
+
+_SITE_POLICY = """workspace = "{workspace}"
+
+[repos]
+upstream = "acme/product-site"
+
+[callers]
+"security-issue-sync" = ["repo-file", "repo-tree"]
+"""
+
+
+def _site_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch | None = None, approved: Path | None = None
+) -> tuple[Path, Path]:
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(mode=0o700)
+    site = tmp_path / "site"
+    if approved is not None and monkeypatch is not None:
+        from vetted_ops import git_ops
+
+        monkeypatch.setattr(git_ops, "approved_dir", lambda: approved)
+        (approved / "operator-git.toml").write_text(f'["acme/product-site"]\ncheckouts = ["{site}"]\n')
+    policy = site / ".apache-magpie-overrides" / "tools" / "vetted-ops" / "config.toml"
+    policy.parent.mkdir(parents=True)
+    policy.write_text(_SITE_POLICY.format(workspace=workspace))
+    return site, policy
+
+
+def test_policy_from_reads_through_an_approved_site_policy(
+    tmp_path: Path, approved: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site, policy = _site_policy(tmp_path, monkeypatch, approved)
+    (approved / "site.toml").write_bytes(policy.read_bytes())
+    argv = ["--caller", "security-issue-sync", "--policy-from", str(site), "--dry-run"]
+    rc = cli.main([*argv, "repo-file", "content/security/json/a.json", "main"], read_only=True)
+    assert rc == cli.EXIT_OK
+    assert "repos/acme/product-site/contents/content/security/json/a.json" in capsys.readouterr().out
+
+
+def test_policy_from_refuses_an_unapproved_policy_even_for_a_read(
+    tmp_path: Path, approved: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Even a listed checkout's policy acts only as an approved copy."""
+    site, _policy = _site_policy(tmp_path, monkeypatch, approved)
+    argv = ["--caller", "security-issue-sync", "--policy-from", str(site), "--dry-run"]
+    rc = cli.main([*argv, "repo-tree", "main"], read_only=True)
+    assert rc == cli.EXIT_POLICY
+    assert "not an approved copy" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        pytest.param(["--policy-from", "relative"], id="relative"),
+        pytest.param(["--policy-from", "/", "--policy-from=/tmp"], id="twice"),
+        pytest.param(["--policy-from", "/", "--config", "/x.toml"], id="with-config"),
+    ],
+)
+def test_policy_from_refusals(spelling: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    rc = cli.main(["--caller", "security-issue-sync", *spelling, "repo-tree", "main"], read_only=True)
+    assert rc == cli.EXIT_POLICY
+    assert "--policy-from" in capsys.readouterr().err
+
+
+def test_a_read_cannot_probe_an_unlisted_directory(
+    tmp_path: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The read dispatcher is unprompted: only a checkout in the operator's own file is accepted."""
+    from vetted_ops import git_ops
+
+    monkeypatch.setattr(git_ops, "approved_dir", lambda: approved)
+    for probe in (tmp_path, tmp_path / "missing", Path("/etc")):
+        rc = cli.main(
+            ["--caller", "security-issue-sync", "--policy-from", str(probe), "repo-tree", "main"],
+            read_only=True,
+        )
+        assert rc == cli.EXIT_POLICY
+        assert "is not a checkout your" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("operation", ["approval-status", "source"])
+def test_policy_from_is_refused_where_it_would_be_ignored(
+    operation: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--policy-from", "/", operation], read_only=True) == cli.EXIT_USAGE
+    assert "takes no --policy-from" in capsys.readouterr().err

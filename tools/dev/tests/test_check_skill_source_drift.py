@@ -319,3 +319,35 @@ def test_scan_root() -> None:
     flat = mod.Descriptor(id="y", skills_root="tools/skills", provides=["releasecheck"])
     assert mod.scan_root(plugin) == "tools/skills"
     assert mod.scan_root(flat) == "tools/skills"
+
+
+def _with_marketplace(name: str) -> str:
+    return ORG_FILE.replace(
+        "  ref: releasecheck-0.5.1\n", f"  marketplace: {name}\n  ref: releasecheck-0.5.1\n"
+    )
+
+
+def _named_catalogs(name: str) -> dict[str, object]:
+    responses = _responses()
+    market = {"name": name, "plugins": [{"name": "releasecheck"}]}
+    responses[f"{BASE}/contents/.claude-plugin/marketplace.json"] = _catalog(market)
+    responses[f"{BASE}/contents/.agents/plugins/marketplace.json"] = _catalog(market)
+    return responses
+
+
+def test_a_recorded_marketplace_name_that_matches_the_catalogs_is_in_sync(tmp_path: Path) -> None:
+    status, report = _run(
+        tmp_path, _named_catalogs("apache-incubator"), _with_marketplace("apache-incubator")
+    )
+    assert status == 0, report
+
+
+def test_a_recorded_marketplace_name_the_catalogs_do_not_use_is_drift(tmp_path: Path) -> None:
+    status, report = _run(
+        tmp_path, _named_catalogs("incubator-skills"), _with_marketplace("apache-incubator")
+    )
+    assert status == 1
+    assert (
+        "records marketplace `apache-incubator`, but the claude-code catalog names it `incubator-skills`"
+        in report
+    )

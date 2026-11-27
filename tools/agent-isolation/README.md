@@ -50,7 +50,12 @@ the same `env -i` credential-strip core:
   injection is skipped for non-Claude CLIs, which take their filesystem
   isolation from the OS-level sandbox. The `-w` / `--worktree` flag is a
   Claude-only control flag and is stripped from the argv of non-Claude CLIs
-  (it has no meaning for them). The Layer 0 env passthrough (including
+  (it has no meaning for them). For `agy` inside an explicit ASF project, it
+  passes the reviewed ASF hosts as session-only `read_url` rules with
+  `agy --settings`, once the user has approved that checkout (asked on the
+  first launch, default yes)
+  ([ASF hosts for ASF projects](../../docs/adapters/harnesses/antigravity.md#asf-hosts-for-asf-projects)).
+  The Layer 0 env passthrough (including
   `SSH_AUTH_SOCK`) is identical for every harness per
   [RFC-AI-0002 § Layer 0](https://magpie.apache.org/docs/rfcs/rfc-ai-0002/#layer-0--clean-env-wrapper);
   gating git push is a separate Layer 3 concern wired per-harness (see

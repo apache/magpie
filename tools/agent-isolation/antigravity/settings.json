@@ -4,7 +4,6 @@
   "allowNonWorkspaceAccess": false,
   "permissions": {
     "allow": [
-      "command(gh api graphql)",
       "command(gh pr view)",
       "command(gh pr list)",
       "command(gh pr diff)",

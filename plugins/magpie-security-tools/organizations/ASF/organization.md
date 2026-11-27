@@ -103,6 +103,13 @@ cve_authority:
     # same for every project. Only the generated CVE JSON uses it; allocation
     # does not.
     asf_org_id: f0158376-9dc2-43b6-827c-5f631a4d8d09
+    # Vulnogram posts a record title without the whole word `Apache` as
+    # `<distinct affected products, first-seen order, joined with ", ">: <title>`,
+    # and the 256-character schema limit applies to that. The record
+    # generator reads this through the configuration chain, so every ASF
+    # project gets the posted-length check without setting anything; a
+    # project's own `[cna].title_product_prefix` in cve-json-config.toml wins.
+    title_product_prefix: true
 ```
 
 ## Governance gate
@@ -134,7 +141,12 @@ forwarders:
   enabled: [asf-security]              # ASF security team relays reports onto project lists
   asf-security:
     contact_handle: security@apache.org
-    preamble_match: "^Dear PMC,\\s+The security vulnerability report"
+    # Same values as the ASF default in tools/forwarder-relay/README.md.
+    sender_pattern: '^[^@\s]+@apache\.org$'
+    list_sender_pattern: '\svia\s+(private|security)\s*<\1@(?:[a-z0-9-]+\.)+apache\.org>$'
+    list_cc_pattern: 'security@apache\.org'
+    list_message_id_pattern: '[^@\s<>]+@security\.apache\.org'
+    preamble_match: '^\s*Dear\s+(?:[^,]{1,100}?\s+)?PMC,\s+(?:The\s+(?:following\s+)?)?security\s+vulnerability\s+report\s+has\s+been\s+received\s+by\s+the\s+Apache\s+Security\s+Team'
     credit_extraction_rule: "first-line-matching:^Reported by:\\s+(.+)$"
 ```
 

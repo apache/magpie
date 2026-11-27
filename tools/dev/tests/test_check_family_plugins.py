@@ -659,6 +659,21 @@ def _framework_tools_named_by(family_dir):
     return {name.removesuffix("/src") for name in named}
 
 
+# Tools called via `<framework>/tools/<tool>` that are NOT shipped by the
+# `magpie-security-tools` plugin because they are framework-checkout or
+# snapshot only:
+# - skill-and-tool-validator: checks a framework-shaped tree (docs/modes.md, the
+#   capability taxonomy, skills/) that an adopter repo does not have, and
+#   skill-reconciler's call to it is optional and non-blocking.
+# - sandbox-lint: reads its baselines beside itself (tools/agent-isolation/, the
+#   Claude Code floor), so it needs the framework tree too; setup verify's Codex
+#   profile check reports itself unchecked without one.
+# - vetted-ops: runs as `<framework>/tools/vetted-ops` only in a framework checkout
+#   or pinned snapshot; on a marketplace install, vetted-op-checks runs from its
+#   cache via the magpie-vetted-ops plugin.
+CHECKOUT_ONLY_TOOLS = {"skill-and-tool-validator", "sandbox-lint", "vetted-ops"}
+
+
 def test_the_tools_plugin_ships_every_framework_tool_any_skill_names():
     # On a marketplace install `<framework>` is materialised from this one plugin,
     # so every `<framework>/tools/<tool>` any family's skill runs must be in it.
@@ -667,16 +682,14 @@ def test_the_tools_plugin_ships_every_framework_tool_any_skill_names():
         named |= _framework_tools_named_by(family)
     shipped = {Path(dest).relative_to("tools").as_posix() for dest in mod.SECURITY_TOOLS} | {
         "security-tracker-stats-dashboard/run",
+        # Not a package: the gatherer agent, shipped as a file and copied from the
+        # installed plugin, never from `<framework>` (install Step V.2).
+        "agent-isolation/agents",
     }
-    # Framework-checkout only, by design: the validator checks a framework-shaped
-    # tree (docs/modes.md, the capability taxonomy, skills/) that an adopter repo
-    # does not have, and skill-reconciler's call to it is optional and non-blocking.
-    # sandbox-lint reads its baselines beside itself (tools/agent-isolation/, the
-    # Claude Code floor), so it needs the framework tree too; setup verify's Codex
-    # profile check reports itself unchecked without one.
-    checkout_only = {"skill-and-tool-validator", "sandbox-lint"}
-    assert named - checkout_only <= shipped, sorted(named - checkout_only - shipped)
-    assert not checkout_only & shipped, "a checkout-only tool is shipped; drop it from checkout_only"
+    assert named - CHECKOUT_ONLY_TOOLS <= shipped, sorted(named - CHECKOUT_ONLY_TOOLS - shipped)
+    assert not CHECKOUT_ONLY_TOOLS & shipped, (
+        "a checkout-only tool is shipped; drop it from CHECKOUT_ONLY_TOOLS"
+    )
 
 
 def test_every_family_that_runs_a_framework_tool_brings_the_tools_plugin():
@@ -686,7 +699,7 @@ def test_every_family_that_runs_a_framework_tool_brings_the_tools_plugin():
     families = {
         family.parent.name
         for family in (REPO_ROOT / "plugins").glob("magpie-*/skills")
-        if _framework_tools_named_by(family)
+        if _framework_tools_named_by(family) - CHECKOUT_ONLY_TOOLS
     }
     assert families, "no family runs a framework tool: the scan is broken"
     missing = sorted(f for f in families if core.COMPANIONS.get(f) != "magpie-security-tools")

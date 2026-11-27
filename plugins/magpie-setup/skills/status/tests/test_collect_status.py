@@ -207,7 +207,11 @@ class MainWorktreeVectors(unittest.TestCase):
         status = cs.personal_layer_status(wt)
         self.assertEqual(status["location"], "main-checkout")
         self.assertEqual(status["path"], str(main / LOCAL))
+        # A worktree layer holding only bookkeeping does not take over.
         (wt / LOCAL).mkdir()
+        (wt / LOCAL / "reconciled.json").write_text("{}")
+        self.assertEqual(cs.personal_dir(wt), main / LOCAL)
+        (wt / LOCAL / "user.md").write_text("own configuration")
         self.assertEqual(cs.personal_dir(wt), wt / LOCAL)
         self.assertEqual(cs.personal_layer_status(wt)["location"], "in-tree")
 

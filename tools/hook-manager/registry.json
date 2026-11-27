@@ -155,6 +155,29 @@
       "install": {
         "strategy": "none"
       }
+    },
+    "pre-commit": {
+      "language": "Python",
+      "upstream": "https://github.com/pre-commit/pre-commit",
+      "detect": {
+        "config_files": [
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml"
+        ],
+        "nested": false,
+        "hook_marker": "pre-commit.com"
+      },
+      "install": {
+        "subcommand": "install",
+        "strategy": "hide-global-config"
+      },
+      "home": {
+        "env": "PRE_COMMIT_HOME",
+        "default": "~/.cache/pre-commit",
+        "sandbox": "~/.cache/pre-commit-sandbox",
+        "host": "~/.local/share/pre-commit-host",
+        "expands_tilde": false
+      }
     }
   }
 }

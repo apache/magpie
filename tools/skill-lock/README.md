@@ -44,10 +44,14 @@ who holds it.
 ## Where the lock lives
 
 `<personal layer>/run/locks/<skill>@<owner>__<repo>.lock/`, where the
-personal layer is `.apache-magpie-local/` in an adopted project and the
-git-directory home (`<git-common-dir>/apache-magpie/`) otherwise, the same
-resolution every framework tool uses (`layers.py`). It is never inside the
-working tree of an adopted project, so it can never be committed.
+personal layer is this checkout's own `.apache-magpie-local/` in an adopted
+project (in a linked worktree too, never the main checkout's, which the
+worktree's sandbox may only read) and the git-directory home
+(`<git-common-dir>/apache-magpie/`) otherwise. It is never inside the
+working tree of an adopted project, so it can never be committed. In an
+adopted project each worktree therefore has its own locks: runs from two
+worktrees are not serialised, as for a worktree with its own personal layer
+before.
 
 The lock is scoped to **skill and repository**: `issue-triage` on
 `apache/a` and on `apache/b` never contend, and `issue-triage` and

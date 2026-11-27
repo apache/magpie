@@ -75,7 +75,7 @@ For guided setup, ask Pi: `/skill:isolated-setup-install`.
 Then start every session through the clean-environment wrapper:
 
 ```bash
-source "<framework>/tools/agent-isolation/agent-iso.sh"
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso pi
 ```
 

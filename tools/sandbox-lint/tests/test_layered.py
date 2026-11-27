@@ -281,6 +281,8 @@ def test_a_live_local_wholesale_weakening_fails_the_lint(
     [
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
         "gh *",
         "~/.claude/scripts/magpie-run-evals.sh *",
         "zizmor *",

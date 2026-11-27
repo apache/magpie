@@ -352,6 +352,20 @@ def test_step5d_case_2_existing_draft_found(capsys, tmp_path):
     assert out["action"] == "surface_existing" and out["existing_draft"]["id"] == "r9abc123def456"
 
 
+def test_step5d_an_archive_only_report_threads_by_its_root_message_id(capsys, tmp_path):
+    # Seen only in the PonyMail archive: no Gmail thread, but the root Message-ID is recorded.
+    data = draft_input(
+        import_path="security_at_imported_public", thread_id=None, last_message_id=None,
+        root_message_id="<report-1@example.org>",
+    )  # fmt: skip
+    _, out = run(capsys, tmp_path, "draft-plan", data)
+    assert out["action"] == "create" and out["backend"] == "oauth_curl"
+    assert out["anchor"] == {"in_reply_to": "<report-1@example.org>", "references": "<report-1@example.org>"}
+    _, out = run(capsys, tmp_path, "draft-plan", {**data, "root_message_id": None})
+    assert out["action"] == "blocked"
+    assert "thread_id or the root Message-ID" in out["reason"]
+
+
 def test_draft_plan_skips_blocks_and_backends(capsys, tmp_path):
     for path, case in (("pr_imported", "pr_imported"), ("internal_audit", "internal_audit")):
         _, out = run(capsys, tmp_path, "draft-plan", draft_input(import_path=path))

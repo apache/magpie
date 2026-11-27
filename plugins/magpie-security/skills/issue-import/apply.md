@@ -8,6 +8,31 @@
 `<sm> X` stands for `uv run --project <framework>/tools/security-management security-management issue-import X`
 ([`tools/security-management`](../../../../tools/security-management/README.md)); every command reads files the Write tool created, prints JSON and runs nothing.
 
+**Batching the tracker writes.**
+With two or more confirmed imports, read `approval.private_tracker_writes` from
+`uvx --from ~/.claude/magpie/vetted-ops vetted-op-read policy`.
+When it is `batch` or `none`, run the tracker writes below as batches
+([vetted-ops → Batches of private-tracker writes](../../../../tools/vetted-ops/README.md#batches-of-private-tracker-writes)) instead of one call each.
+A batch cannot use a number an earlier entry of the same batch creates, so each phase is its own batch:
+
+1. **The creates.** Render every body and title (item 1), then write `<workspace>/batch-import-create.json` with one `issue-create-labeled` entry per candidate, in proposal order.
+   Run `batch-check` on it, show the user its summary, and on their yes run the batch with the digest it printed:
+   `vetted-op-tracker-batch` under `batch`, `vetted-op-tracker-batch-unprompted` under `none`.
+   Take each tracker's `number`, `node_id` and `url` from the output line after its `[i/n]` header.
+2. Read `board-item <N>` for each new tracker (reads never prompt).
+   Only when some have no board item: a batch of `board-add-item <node_id>` entries, whose output lines give the new item ids.
+3. Draft the receipts (item 4): Gmail drafts, never part of a batch.
+4. **The rest.** One manifest with, per tracker, `board-set-status <item_id> "Needs triage"` and the item 5 `rollup-append`.
+
+Every manifest is checked, shown and confirmed before it runs: two or three prompts for the whole import.
+
+On a `stopped` report, the `unknown` entry may or may not have taken effect.
+Before anything else, read the tracker for it (`issue-list-with-bodies` or `issue-view` for a create, `board-item` for a board move, `issue-comments` for a rollup entry) and tell the user which entries succeeded, what the unknown one turned out to be, and which did not run.
+Then fix the cause and propose a new manifest with the `not_run` entries, plus the unknown one only if it did not take effect: their body files are still in the workspace.
+The old manifest is gone after the run; never rebuild it whole, or the entries that succeeded run twice.
+With `each`, a refusal saying batching is off, or a single import, run each write as its own call as below.
+Rejections-ledger comments, fold-ins and `advisory-comment` receipts are not part of either batch.
+
 For each confirmed `Report` or forwarder-relayed candidate:
 
 1. **Render the body.**
@@ -220,7 +245,7 @@ media / cross-thread-followup / fix-already-public):
    it keeps every value on one line, so attacker-derived text can neither add a key nor forge a second record,
    and writes `archive: unresolved (archive lag)` when no permalink is given.
    Write its `text` to `<workspace>/rejection-<threadId>.md` with the Write tool
-   (`<workspace>` is the vetted-ops body workspace, `~/.cache/apache-magpie/vetted-ops-bodies/`, one file per record:
+   (`<workspace>` is the policy's vetted-ops `workspace`, which `vetted-op-read policy` prints, one file per record:
    the operation consumes each body file it posts).
 
    Record **`title:`** (the verbatim thread subject) and **`archive:`** (a stable mail-archive permalink) besides the mailbox `thread:` id:

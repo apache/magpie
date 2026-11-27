@@ -44,7 +44,13 @@ protecting the ASF contribution path (contributor → committer → PMC).
   conventions); merges findings with deduplication and severity ranking
   into a report in the same format as `pairing-self-review`. Each pass
   is isolated so findings from one axis cannot suppress or bias the
-  others. Read-only; no state change. Ships `mode: Pairing` + `experimental`.
+  others. Read-only on the project; its only writes are the optional local
+  staging file below. Ships `mode: Pairing` + `experimental`.
+- Claude Code mod: `plugins/magpie-pairing/hooks/multi-agent-review-pane.ts`
+  (types in `types.ts` / `types.d.ts`, tests in
+  `multi-agent-review-pane.test.ts`), wired by `hooks/hooks.json`
+  (#2274, #2323). Codex reads the plugin's `.codex-plugin/plugin.json`
+  and an empty `hooks/codex-hooks.json` instead.
 - Skill: `pre-first-pr-check`
   (`plugins/magpie-pr-management/skills/pre-first-pr-check/`, linked from
   `skills/pre-first-pr-check`) — newcomer-focused checklist on a local
@@ -66,6 +72,18 @@ protecting the ASF contribution path (contributor → committer → PMC).
 - **No state change on the project's behalf.** Agentic Pairing skills are the
   developer's toolkit; they end at a report or a local branch.
 - Same skill format and sandbox/privacy posture as the project-side modes.
+- **A prompt-injection attempt in a diff is recorded, not obeyed.** Each
+  `pairing-multi-agent-review` pass lists it in `injection_attempts` and
+  emits no in-axis finding for it; Step 3 aggregates the lists into the
+  Security axis (#2323).
+- **Curation round trip.** Step 3 may stage the merged findings as
+  `.magpie-pairing-review-<head_sha>.json` and run `test -f` on it, which
+  is what notifies the mod. Step 4 applies
+  `.magpie-pairing-decision-<head_sha>.json` only when its schema version
+  and head SHA match, it is not invalidated, and its source digest matches
+  the staged payload; dismissed findings then leave the blocking and
+  advisory counts and are annotated as dismissed. A mutating `git` command
+  invalidates the decision file.
 - **Evidence-gated dependency-version findings.** `pairing-self-review` inventories every mandatory direct and transitive constraint path, applies environment markers, and classifies the effective intersection as broken, compatible, or unknown before surfacing a compatibility finding.
   An empty intersection is always `broken (uninstallable)`, never unknown.
   Every such finding carries the complete constraint ledger.
@@ -74,6 +92,7 @@ protecting the ASF contribution path (contributor → committer → PMC).
 - **Ships before Agentic Autonomous** in the roadmap (MISSION sequencing): Agentic Pairing
   must establish that human reasoning, not implementation chatter, is the
   load-bearing part of the workflow before any auto-merge is considered.
+- **The multi-agent review comparison pane is additive.** Under Claude Code, the mod (`plugins/magpie-pairing/hooks/`) provides the side-by-side comparison pane UI (`[Accept]`, `[Dismiss]`, `[Reset]` across `Correctness`, `Security`, `Conventions`), session state atom, payload sanitization, path confinement, runtime `$.fs` IPC (`.magpie-pairing-review-<sha>.json` / `.magpie-pairing-decision-<sha>.json`), `$.ui.open({ component: 'Pane' })`, `ui.press` button routing, and `multi-agent-review` skill integration. On other harnesses or when the mod is absent, the skill continues with its standard markdown report.
 
 ## Out of scope
 
@@ -95,6 +114,7 @@ protecting the ASF contribution path (contributor → committer → PMC).
 ```bash
 ls .claude/skills/ | grep -q '^magpie-pairing-' && echo "pairing skills present" || echo "GAP: no pairing skills"
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+prek run check-claude-mods --hook-stage manual --all-files
 ```
 
 ## Known gaps

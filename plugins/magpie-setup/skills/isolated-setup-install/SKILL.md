@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:cb0c81b693d9aa76
+surface_hash: sha256:c311b3e3fb82c31d
 license: Apache-2.0
-measured_tokens: 6474
+measured_tokens: 6490
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -255,7 +255,8 @@ session (Step P declined, or `sandbox.enabled` is not `true` in the
 scope being wired), skip this step, say so, and leave every vetted
 operation behind its normal prompt.
 
-**Full procedure, including Step V.1 (read-only vetted ops never prompt):**
+**Full procedure, including Step V.1 (read-only vetted ops never prompt)
+and Step V.2 (the read-only gatherer agent, Claude Code):**
 [`step-v-vetted-ops.md`](step-v-vetted-ops.md).
 
 ### Step R — The adversarial-review exclusion

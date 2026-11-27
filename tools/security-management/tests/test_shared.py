@@ -196,3 +196,36 @@ def test_cve_tool_command_quotes_a_placeholder_shaped_value() -> None:
     # A title comes from the tracker; one shaped like `<a placeholder>` must not reach the shell bare.
     command = cve_tool.command({}, "allocate", "--title", "<Some title>")
     assert command.endswith("cve-tool allocate --title '<Some title>'")
+
+
+# --- record-title length: the ASF Vulnogram posted-title rule ----------------
+
+
+def test_posted_title_lists_distinct_products_in_first_seen_order() -> None:
+    products = ["Beta", "Alpha", "Beta", "Gamma", "Alpha"]
+    assert titles.posted_title("Token leak", products, True) == "Beta, Alpha, Gamma: Token leak"
+    assert titles.posted_title("Token leak", products, False) == "Token leak"
+
+
+@pytest.mark.parametrize(
+    ("title", "prefixed"),
+    [
+        ("Apache Widget token leak", False),
+        ("Token leak (Apache)", False),
+        ("ApacheHttpClient token leak", True),
+        ("apache widget token leak", True),
+    ],
+)
+def test_posted_title_skips_the_prefix_for_the_whole_word_apache(title: str, prefixed: bool) -> None:
+    assert (titles.posted_title(title, ["Foo"], True) != title) is prefixed
+
+
+@pytest.mark.parametrize(
+    ("chars", "shorten", "over"),
+    [(100, False, False), (101, True, False), (256, True, False), (257, True, True)],
+)
+def test_length_check_counts_characters_at_the_boundaries(chars: int, shorten: bool, over: bool) -> None:
+    title = ("Token leak é " + "x" * chars)[:chars]
+    assert len(title.encode("utf-8")) == chars + 1  # bytes differ; characters count
+    out = titles.length_check(title)
+    assert (out["title_chars"], out["shorten"], out["over_limit"]) == (chars, shorten, over)

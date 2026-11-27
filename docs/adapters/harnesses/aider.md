@@ -66,7 +66,7 @@ Start an interactive session within the adopted repository:
 
 ```bash
 # Launch Aider with filtered environment variables and disabled auto-commits
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso aider --model <model> --no-auto-commits --no-dirty-commits
 ```
 
@@ -199,7 +199,7 @@ aider --model ollama_chat/<model> \
 To run Aider under Magpie's standard credential isolation policy:
 
 ```bash
-source <framework>/tools/agent-isolation/agent-iso.sh
+source ~/.claude/agent-isolation/agent-iso.sh  # the global install, never a checkout or cache: secure-agent-setup.md → The clean-env wrapper
 agent-iso aider --model <model> --no-auto-commits
 ```
 

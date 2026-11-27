@@ -834,6 +834,41 @@ def test_missing_directory_fails(tmp_path: Path) -> None:
     assert report["status"] == "FAIL"
 
 
+@pytest.mark.parametrize("digests", ("", " , "))
+def test_empty_digest_set_fails_before_checking_staged_dir(tmp_path: Path, digests: str) -> None:
+    import contextlib
+    import io
+
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path, companion_digests=())
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = mav.main([str(tmp_path), "--digests", digests])
+    report = json.loads(buffer.getvalue())
+    assert code == 2
+    assert report["tool"] == "maven-artifact-verify"
+    assert report["status"] == "FAIL"
+    assert report["artefact_dir"] == str(tmp_path)
+    assert any("--digests" in finding for finding in report["findings"])
+    assert "jars" not in report
+
+
+def test_default_digest_set_still_requires_sha512(tmp_path: Path) -> None:
+    import contextlib
+    import io
+
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path, companion_digests=())
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = mav.main([str(tmp_path)])
+    report = json.loads(buffer.getvalue())
+    assert code == 1
+    assert report["status"] == "FAIL"
+    assert report["jars"]
+    assert any("sha512" in companion["detail"] for companion in report["jars"][0]["companions"])
+
+
 # --- informational observations: checks 5-7 (never affect status) --------
 
 

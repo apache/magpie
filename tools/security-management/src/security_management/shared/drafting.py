@@ -20,7 +20,8 @@
   `maildir` when configured, else `oauth_curl` (the `gmail-plaintext` MCP
   server), and the discouraged `claude_ai_mcp` only without OAuth
   credentials and with no link in the body, since it rewrites links.
-- `anchor` is what each backend needs to attach the draft to the inbound thread.
+- `anchor` is what each backend needs to attach the draft to the inbound thread;
+  `oauth_curl` falls back to the root `Message-ID` when there is no Gmail thread.
 - `scan` greps a composed body before it is drafted: any `<tracker>`
   reference (the reporter cannot open it), the CVE-tool URL, a bare `#NNN`,
   a re-opening phrase, a CVSS score, and the AGENTS.md list of other ASF
@@ -110,11 +111,34 @@ def choose(data: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def anchor(name: str, data: Mapping[str, Any]) -> dict[str, Any]:
+    """What `name` attaches the draft by; a falsy value means it cannot attach.
+
+    `oauth_curl` attaches by the Gmail `thread_id`. A report that never reached
+    this mailbox (one seen only in the PonyMail archive) has none, so with the
+    root `Message-ID` known it threads by header instead: `in_reply_to` and
+    `references` both the root, which the `gmail-plaintext` server accepts
+    without a `thread_id`. Never `last_message_id`: that is a Gmail API id,
+    not an RFC 5322 `Message-ID`.
+    """
+    if name == "oauth_curl":
+        thread_id = data.get("thread_id")
+        root = data.get("root_message_id")
+        if thread_id or not root:
+            return {"thread_id": thread_id}
+        return {"in_reply_to": root, "references": root}
     return {
-        "oauth_curl": {"thread_id": data.get("thread_id")},
         "claude_ai_mcp": {"reply_to_message_id": data.get("last_message_id")},
         "maildir": {"in_reply_to": data.get("root_message_id")},
     }[name]
+
+
+def unanchored(name: str, anchor_: Mapping[str, Any]) -> str | None:
+    """Why the draft cannot attach to the inbound thread, or None when it can."""
+    if all(anchor_.values()):
+        return None
+    if name == "oauth_curl":
+        return "oauth_curl needs thread_id or the root Message-ID to attach to the inbound thread"
+    return f"{name} needs {', '.join(anchor_)} to attach to the inbound thread"
 
 
 def scan(

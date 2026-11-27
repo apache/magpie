@@ -24,7 +24,14 @@ is correct but unusable degrades into a posture that is bypassed.
 Replace the wildcard, not the confirmation. Route forge actions through a
 dispatcher whose operations are a **closed catalogue** of fixed shapes:
 
-- parameters are typed and validated; none may start with `-`;
+- parameters are typed and validated; none may start with `-`; an anchored
+  check matches the whole value (`fullmatch`), so a trailing newline is
+  refused, in the operations, the git operations and the policy loader alike
+  (#2270, #2314);
+- every parser (the four dispatchers, `vetted-op-checks` and
+  `vetted-ops-codex-rules`) sets `allow_abbrev=False`, so a long option is
+  matched by its exact spelling, as the pre-parse checks assume, and a
+  prefix such as `--call` for `--caller` is a usage error (#2363);
 - builders return `list[str]` executed without a shell for forge operations, or a request descriptor executed via Python stdlib `urllib.request` for HTTP read operations;
 - the repository is policy, never a parameter;
 - value-bearing parameters (labels, milestones, assignees, columns, close
@@ -125,6 +132,11 @@ On stdout, `body-field-get` prints the one value and `rollup-append` /
 so a caller can link to the entry without reading the rollup (#1451).
 The security skills are the first callers (#1451), and the policy example
 grants each security caller exactly the tracker operations it uses.
+The CVE JSON refresh needs no operation of its own: the skills save the issue and the roster
+with `vetted-op-read --save … issue-view` / `collaborators`, run `generate-cve-json` in the sandbox on those files
+(`--issue-json`, `--collaborators`, `--attach --output-body`, which never call `gh`),
+and write the body back with `issue-edit-body`;
+the policy example grants those to `security-issue-sync`, `security-cve-allocate` and `security-issue-deduplicate`.
 
 A third entry point, `vetted-op-tracker`, refuses every operation except the
 procedure ones before it reads the policy — the same shape as
@@ -206,6 +218,20 @@ read block off in every scope, and the three vetted-ops `Edit` deny rules presen
 The install skill applies it (Step V.1), verify checks it (check 16), update
 reports drift as must-fix, and sandbox-lint enforces it on the committed
 settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
+Under Claude Code, `pr-management-code-review`'s prefetch and
+`pr-management-stack-review`'s layer readers fan out into a dedicated
+read-only agent where it is installed (else `general-purpose`),
+`tools/agent-isolation/agents/magpie-gatherer.md`: `Read`, `Grep`, `Glob`,
+`vetted-op-read` as its only Bash, no MCP tool. A `PreToolUse` hook in
+its own frontmatter denies every other Bash command, chaining,
+redirection, `--config` and `--save`, so the limit does not rest on the
+`tools:` line. It is a user-scope agent (`~/.claude/agents/`), since
+Claude Code ignores a plugin agent's hooks; install Step V.2 copies it and
+proposes `Edit(~/.claude/agents/**)` in the user-scope deny list, verify
+check 21 checks its tools, hook and that rule, update diffs it, and the
+secure-setup fingerprint counts it.
+The `security-issue-sync` and `security-issue-triage` bulk agents stay
+`general-purpose`: they still need raw `gh`, Gmail and file writes.
 Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
 the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
 `$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
@@ -321,6 +347,9 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    before each write) and `pr-triage-comment-receipt` (one issue comment by
    numeric id, after a comment write), both against the policy-pinned upstream
    and granted to `pr-management-triage` (#2065).
+   Workflow run ids and REST comment ids are database ids, already past ten
+   digits, so they are validated with their own bound of 19 digits (any int64);
+   issue and pull request numbers keep ten (#2264).
    `security-issue-sync` reads a GitHub Security Advisory's comments with
    `advisory-comments` and posts a reply the reporter sees with
    `advisory-comment` (#1964).
@@ -329,6 +358,27 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    so "was this already fixed upstream?" needs no raw `gh search` outside the
    dispatcher. Like `issue-search`, each pins the repository from policy and
    takes one plain-word `query` (no `:`, one line, no leading `-`, after `--`).
+   The README's caller example grants each security skill the reads its own
+   docs run under its caller, so a gatherer never borrows another skill's
+   caller: `security-issue-triage` reads its queue (`issue-list-label`),
+   searches trackers (`issue-search`) and upstream (`repo-pr-search`,
+   `repo-code-search`); `security-issue-import` reads a relayed GHSA
+   (`advisory-view`, `advisory-comments`) and runs its duplicate search
+   (`issue-search`, `issue-view`) and its Step 2c upstream search
+   (`repo-pr-search`, which `security-issue-sync` also runs in Step 1b);
+   `security-issue-invalidate` posts the closing GHSA comment
+   (`advisory-comment`).
+   `security-issue-import-from-scan` has its own caller for the import and
+   triage steps it reuses: the open-tracker list (`issue-list-with-bodies`),
+   the duplicate and precedent searches (`issue-search`, `issue-view`), the
+   fixed-since-the-scan check (`repo-pr-search`, `pr-view`, `pr-diff`,
+   `compare`) and the patch comment on a new tracker (`issue-comment`).
+   `repo-issue-search` is the issue-only twin of `repo-pr-search`, under the
+   same bounds; `setup-upstream-fix` runs both for its Step 3 duplicate search
+   through `apache/magpie`'s own policy (`--policy-from <framework clone>`
+   from an adopter repo), so the search never needs a raw `gh search`.
+   `test_caller_grants.py` checks every `--caller` call in the repository's
+   Markdown against that example.
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They
@@ -349,8 +399,7 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
 
    Several shapes are refused rather than wrapped, and will stay refused:
    free-text search (`gh search issues` / `prs`, and GraphQL's `search(...)`)
-   has no fixed shape; `gh pr create` would need a free-text title, since `gh`
-   offers `--body-file` but no `--title-file`;
+   has no fixed shape;
    release publication and deletion is vote-gated and irreversible; and
    `gh run download` writes to local disk rather than to the forge, which is a
    different risk class entirely. All keep their `ask` rule. The catalogue
@@ -362,6 +411,8 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    run shows only its size, and a JSON array of 1 to 20 distinct policy-approved
    labels applied in the same request; it prints `number`, `node_id` and `url`
    (#1982).
+   Opening a pull request, once refused for its free-text title, has a fixed
+   shape in `vetted-op-git` (`git-pr-create`, below).
 
    Note what the PR family deliberately does *not* include: there is no
    `pr-merge`. Merging is this framework's deferred Agentic Autonomous mode —
@@ -384,6 +435,36 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    [`tools/permission-audit`](../../permission-audit/README.md) is the natural
    place to detect and offer to remove them.
 
+## Batches of private-tracker writes (`vetted-op-tracker-batch`, `-unprompted`)
+
+A bulk run makes dozens of private-tracker writes, and each vetted call is one permission prompt.
+When the approved policy sets `[approval] private_tracker_writes` to `batch` or `none`
+(default `each`: the batch entry point refuses), a skill writes those writes into one JSON manifest in the workspace
+(`{"version": 1, "ops": [{"op": …, "params": […]}, …]}`, 1–200 entries, positional parameters exactly as a single call takes them).
+`vetted-op-read --caller <skill> batch-check <manifest>` checks it against the approved policy and prints one line per entry
+(bodies and file titles by size only) and a digest; it runs nothing.
+The digest binds the destination and what runs: the approved policy's hash, tracker, tracker backend, board id, resolved workspace and mode,
+the manifest, every body and title it names, and every entry's built command, so a manifest checked under one policy is refused under another.
+`vetted-op-tracker-batch --caller <skill> --expect <digest> <manifest>` checks the manifest again,
+refuses a digest that does not match, and runs the entries in order, stopping at the first failure.
+Its report lists the entries that `succeeded`, the failing one as `unknown` (a write can land and still exit non-zero) and the rest as `not_run`;
+the caller reads the tracker before proposing the unknown entry again.
+Body and title files are consumed only after every entry succeeded; the manifest is removed after any run, so it is never rerun blindly.
+`vetted-op-tracker-batch-unprompted` takes the same arguments and refuses, before it reads the manifest, any policy not set to `none`.
+Every check runs before the first write, and one failure refuses the whole batch:
+batching on, the schema, every operation in the closed `BATCHABLE` list of private-tracker writes
+(public and outbound writes — `pr-*`, `repo-issue-*`, `advisory-comment`, the CVE-tool operations, `tracker-publish`, `vetted-op-git` — are refused by name, even when granted),
+the caller's grants, the single-call parameter checks and builder, a built argv that addresses the tracker or the policy's board,
+and, on GitHub, the forge reporting the tracker private and a touched board not public.
+The prompt is the harness's: both batch dispatchers are excluded from the sandbox and on `ask` like the other write dispatchers.
+sandbox-lint accepts `allow` for `vetted-op-tracker-batch-unprompted` alone, which an adopter writes only under `none`;
+since that script runs no other mode, an `allow` for one project cannot run another approved project's `batch` policy unprompted, whichever policy `--policy-from` or `cd` selects.
+`batch-check` and both batch dispatchers take `--policy-from <dir>` with the single-call dispatchers' confinement:
+only a checkout the operator's own `operator-git.toml` lists, compared as text before the file system is touched,
+and only an approved policy there that lists that checkout for its upstream; a repeated `--policy-from` is refused.
+Design, alternatives and the trade-off of `none`:
+[`docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md`](../../../docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md).
+
 ## Git operations the sandbox blocks (`vetted-op-git`)
 
 A fourth entry point, `vetted-op-git`
@@ -403,14 +484,24 @@ SHA; leased on that SHA), `git-push-pr-head` (a maintainer fixup:
 fast-forwards an open upstream pull request's head branch, named by the
 caller so the confirmation shows it and checked against what the forge
 reports, leased on the head the caller built on, at most ten non-merge
-commits on top; a contributor's fork only when its author allows maintainer
-edits),
+commits on top, apart from a merge of upstream's `pr_base` (fetched by the
+operation), whose upstream commits do not count; a contributor's fork only
+when its author allows maintainer edits), `git-merge-upstream` (a signed merge
+of a full SHA of the upstream `pr_base`, fetched by the operation, into a clean
+non-protected topic branch at the caller's expected SHA, with a fixed message;
+when the user signs, the commits it vouches for must carry their signature:
+on their own branch every commit not on upstream, on a pull request's branch
+only those on top of the head the forge reports; a conflict aborts and names
+the paths, and a merge onto a moved branch is taken back off),
 `git-switch` (a clean working tree to an existing local branch, only when
 the branch's own commits leave its files that steer the agent harness,
 plus the policy's `harness_paths`, as upstream's `pr_base` had them where
 the branch left it: that commit asked of the policy's URL during the
 call, both trees walked through objects re-hashed against their names,
 and every harness file written hashed again after the checkout),
+`git-switch-create` (a new, non-protected topic branch at upstream's
+`pr_base` as the policy's URL reports it during the call, then `git-switch`
+to it; a branch it could not switch to is deleted again),
 `git-worktree-sync` (`reset --keep` of a
 clean linked worktree), `git-rebase` (a clean, non-protected topic branch with no
 merge commits onto a full SHA of the upstream `pr_base`, which the operation
@@ -426,16 +517,50 @@ conflicting rebase commit by commit; when the user signs, the commit must
 already carry their signature; a conflict aborts and names the paths, and a
 pick onto a moved branch is taken back off), `git-worktree-add` and
 `git-worktree-remove`
-(never `--force`).
+(never `--force`), and the publishing steps (#2224): `git-stage` (exactly the
+relative paths listed in a workspace file, as literal pathspecs inside the
+worktree), `git-commit` (what is staged, on a non-protected branch, message from
+a workspace file, signed per the user's global config), `git-fetch` (one upstream
+branch from the policy's URL into `refs/remotes/<upstream_remote>/<branch>`) and
+`git-pr-create` (a pull request from `<fork>:<branch>` against `pr_base`, the
+title on the command line so the confirmation shows it, the body from a
+workspace file, both refused when they hold a never-publish term from
+`forbidden_terms.py`, except the ones the policy's `[git] published_terms`
+names: only `CVE id` and `CVE`, a project key the operator file cannot set, for
+the policy of a site repository whose pull requests add records already public;
+it requires `[git] published_paths`, relative glob-free path prefixes, and
+applies only when the forge's compare of the pushed branch against `pr_base`
+lists every changed file under one of them, with the branch's head at the local
+branch's commit, so a source-repository change never gets it).
+`--policy-from <absolute dir>` (on `vetted-op-git`, and on `vetted-op`,
+`vetted-op-read` and `vetted-op-tracker`, where it makes even a read require an
+approved policy; on all of them the directory must be a `checkouts` entry of
+the operator's `operator-git.toml`, checked before the file system is touched,
+and the policy's upstream table must list it, so the unprompted read dispatcher
+cannot probe the host; `approval-status` and `source` refuse it) discovers the
+policy from that directory instead of the working directory; only an approved policy acts either way, so it lets a
+tracker session reach a site repository's own policy without a `cd` that would
+put the call back in the sandbox. `security-issue-sync` uses it to publish its
+records pull request, granted only in a policy whose `[repos] upstream` is the
+site repository (the README's second-policy example).
 `[git]` values bound them: the project's (`upstream_push`, `protected`,
 `pr_base`, `host`) from the policy's `[git]` table, and each operator's
 (`checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport`, more
 `protected`) from `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one
-table per upstream repository, which may not set a project key. A worktree
+table per upstream repository, which may not set a project key (#2227). A worktree
 root must be owned by the operator and writable by nobody else.
+When that table is missing, the refusal prints a ready-to-save draft of it
+(main checkout, upstream remote, a `<checkout>-worktrees` root, the fork left as
+a placeholder), and under the secure setup `setup config` Step 3a.3 proposes the
+same table as a line the user runs, never writing the file itself (#2230).
 Safety rests on: destinations built from policy, never from a configured
 remote; refusal while repository config holds any key outside an inert list,
-checked in every working tree and again before the acting command; pinned
+checked in every working tree and again before the acting command (the list
+admits `gh-stack.remote`, which `gh stack link` writes and git never reads,
+#2263); the signing and verification settings (`gpg.format`, the gpg programs,
+the allowed-signers and revocation files, the default-key command, the minimum
+trust level, `user.signingKey`) pinned to the user's own values on every call
+(#2282); pinned
 config (no fsmonitor/gc, `https`/`ssh` only, attributes read from the empty
 tree, hooks never run, `--no-verify`); validated directories held by
 descriptor and git given the validated git directory; and every `GIT_*`
@@ -448,9 +573,56 @@ readable per-version copy the plugin's session hook keeps at
 `~/.cache/apache-magpie/vetted-ops/current` (the sandbox cannot read
 `~/.claude/magpie/`), runs the worktree's
 hooks on the listed paths and records the content they passed in
-`<workspace>/checks/`; `git-commit` refuses a staged path missing from that
+`<workspace>/checks/` (in a linked worktree whose git directory the sandbox
+cannot read, it computes SHA-1 blob ids itself and refuses when a hook
+configuration is present, since the hook manager runs git, unless the
+policy is a records-site one with `[git] site_hooks = "skip"`, where
+`--skip-site-hooks` records them as skipped and `git-commit` accepts only
+that policy's record); `git-commit` refuses a staged path missing from that
 record or staged with other content. The record is sandbox-writable, so it
 holds an agent to the checks the way CI does, not against a forgery.
+
+**Publishing skills run these steps through one shared block** (#2228).
+`tools/dev/blocks/vetted-git-publish.md`, rendered with each skill's `--caller`
+into a `vetted-git-publish.md` companion, takes a change to an open pull request
+(fetch, worktree, checks, stage, commit, push, open, label, then rebase,
+cherry-pick, worktree sync or removal and fork-branch cleanup as needed) for
+`security-issue-fix`, `issue-fix-workflow`, `audit-finding-fix`,
+`setup-upstream-fix`, `setup-override-upstream`, `pr-management-shepherd`,
+`pr-management-code-review` (fixups), `release-audit-report`, `release-prepare`,
+`release-announce-draft`, `security-submit-to-oss-scan` and
+`committer-onboarding`.
+With no `[git]` values configured it hands the user the commands instead; a
+draft pull request or a base other than `pr_base` keeps `gh pr create --web`.
+Labelling uses the existing `pr-add-label`, with labels listed by name in
+`[values]`, never a pattern (#2283); `security-issue-fix` labels its public pull
+request only after `<sm> scrub` passes the labels too (#2304).
+`tests/test_publish_grants.py` fails when the block names an operation that a
+carrying skill is not granted, in the README `[callers]` example or in Magpie's
+own policy (draft-PR flows get no `git-pr-create` or `pr-add-label`), and
+`tests/test_committed_policy.py` fails when the committed policy is invalid TOML,
+grants an operation that does not exist, or misses a taxonomy label from
+`docs/labels-and-capabilities.md` (#2231, #2283).
+Magpie's own policy grants the installed non-security skills the callers the
+README example lists; the security-family callers are left out because the
+framework checkout has no tracker (#2320).
+
+**Keeping a policy's grants current** (#2235, #2299).
+`setup` reconcile check 3a compares every caller the policy declares, and every
+installed skill the README `[callers]` example names, with that example and
+reports missing operations as a minimal TOML diff for the user to save; it never
+proposes removing a grant.
+For a caller that opens and labels pull requests it also lists the upstream's
+`<dimension>:<value>` labels and proposes them by name in `[values]
+upstream_labels`, grouped by prefix.
+`setup verify` check 11 runs it read-only, the isolated-setup install (Step V)
+and update (a fifth drift check) run it too, and `vetted-op-read
+approval-status` (no options, so it cannot probe other files) prints whether
+the discovered policy is approved, for verify check 11a and for the
+re-approval line `upgrade` hands the user.
+The example grants only what a skill runs: the unused OSV grants for
+`security-issue-triage` and `security-issue-deduplicate` were dropped, with a
+test that every OSV grant those callers hold is named in the skill (#2250).
 
 Every install method provides the stable path the dispatchers start from,
 `~/.claude/magpie/vetted-ops`. A marketplace install links it into the
@@ -460,7 +632,9 @@ refreshed by `setup update`, both as lines the user runs. A framework
 checkout links it into the main checkout's own `tools/`, so a vetted-ops
 change is what the next call runs; that code is the agent's to edit, so
 agent-guard's `vetted-ops-source` check answers `ask` for every launch through
-such a link, `vetted-op-read` included. The plugin's hook moves only a link
+such a link, `vetted-op-read` included; a harness whose hook cannot ask (Codex
+and the other deny-only adapters) refuses it instead, unless
+`MAGPIE_ALLOW_VETTED_PATH=1` (#2287, #2297). The plugin's hook moves only a link
 into its own cache, never a copy or a checkout link, and
 `vetted-op-read source` reports which of the three is in use (`setup verify`
 check 11b).

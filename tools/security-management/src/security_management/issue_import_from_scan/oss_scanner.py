@@ -45,6 +45,7 @@ it and never runs anything from it.
 
 from __future__ import annotations
 
+import codecs
 import email
 import email.policy
 import hashlib
@@ -453,121 +454,340 @@ def _archive_file(path: Path) -> bool:
     return path.is_file() and path.resolve() == path.absolute()
 
 
-def attach_archive(parsed: Mapping[str, Any], archive_dir: Path) -> None:
-    """Point each finding at its `REPORT.md` and candidate patches in an operator-decrypted archive.
+def _reproducers(finding_dir: Path, patches: list[Path]) -> list[str]:
+    """Every other regular file in the finding's folder: the reproducer, its build files, its inputs.
 
-    Never runs `repro`: the patches are only listed, for `render_patch_comments` to quote.
+    Listed for quoting only — never run, built or installed.
+    """
+    if not finding_dir.is_dir() or finding_dir.is_symlink():
+        return []
+    skip = {finding_dir / "REPORT.md", *patches}
+    found = []
+    for dirpath, dirnames, filenames in os.walk(finding_dir):
+        dirnames[:] = sorted(d for d in dirnames if not (Path(dirpath) / d).is_symlink())
+        for name in sorted(filenames):
+            path = Path(dirpath) / name
+            if path not in skip and _archive_file(path):
+                found.append(str(path))
+    return found
+
+
+def attach_archive(parsed: dict[str, Any], archive_dir: Path) -> None:
+    """Point each finding at its `REPORT.md`, candidate patches and reproducer files in the opened archive.
+
+    Never runs anything: the files are only listed, for the triage to read and
+    `render_patch_comments` to quote. Reports for ids the mail does not list as a
+    finding or an ordinary bug — entries the scanner sent before, or related
+    ones — go to `other_reports`, so their full text is triaged too.
     """
     archive_dir = archive_dir.resolve()
+    linked: set[Path] = set()
     for f in parsed["findings"]:
-        finding_dir = archive_dir / f["banner_severity"].lower() / f["id"]
-        report = finding_dir / "REPORT.md"
-        f["report_md"] = str(report) if _archive_file(report) else None
-        patches = [p for p in (finding_dir / "patches").glob("*.patch") if _archive_file(p)]
-        f["patches"] = [str(p) for p in sorted(patches, key=lambda p: (_patch_number(p), p.name))]
+        linked.add(_link(f, archive_dir / f["banner_severity"].lower() / f["id"]))
     for b in parsed["not_security"]:
-        report = archive_dir / "bugs-not-security" / b["id"] / "REPORT.md"
-        b["report_md"] = str(report) if _archive_file(report) else None
+        linked.add(_link(b, archive_dir / "bugs-not-security" / b["id"]))
+    other = []
+    for report in sorted(archive_dir.glob("*/*/REPORT.md")):
+        fid, section = report.parent.name, report.parent.parent.name
+        if report not in linked and re.fullmatch(_ID, fid) and _archive_file(report):
+            entry = {"id": fid, "section": section}
+            _link(entry, report.parent)
+            other.append(entry)
+    parsed["other_reports"] = other
 
 
-def _read_patch(path: Path) -> str:
-    """The patch text, refusing a symlink or anything but a regular file at read time."""
+def _link(entry: dict[str, Any], folder: Path) -> Path:
+    """Set *entry*'s `report_md`, `patches` and `reproducers` from its archive folder; returns the report path.
+
+    Every entry gets them — a finding, an ordinary bug or an unlisted report — since
+    any of them can be promoted to a tracker and then gets the evidence comment.
+    """
+    report = folder / "REPORT.md"
+    entry["report_md"] = str(report) if _archive_file(report) else None
+    patches = [p for p in (folder / "patches").glob("*.patch") if _archive_file(p)]
+    patches = sorted(patches, key=lambda p: (_patch_number(p), p.name))
+    entry["patches"] = [str(p) for p in patches]
+    entry["reproducers"] = _reproducers(folder, patches)
+    entry["evidence_dir"] = str(folder)
+    return report
+
+
+def find_entry(index: Mapping[str, Any], entry_id: str) -> dict[str, Any] | None:
+    """The finding, ordinary bug or unlisted archive report with *entry_id*, from a scan folder's index."""
+    for key in ("findings", "not_security", "other_reports"):
+        for entry in index.get(key) or []:
+            if isinstance(entry, dict) and entry.get("id") == entry_id:
+                return entry
+    return None
+
+
+# Read no more of one archive file than a comment could ever hold.
+_READ_CAP = 1 << 20
+
+
+def _read_archive_bytes(path: Path) -> tuple[bytes, int]:
+    """Up to `_READ_CAP` bytes and the file's size, refusing a symlink or anything but a regular file."""
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-    with os.fdopen(fd, encoding="utf-8") as handle:
-        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
             raise ValueError(f"{path} is not a regular file")
-        return handle.read()
+        return handle.read(_READ_CAP), info.st_size
+
+
+def _read_text(path: Path) -> str | None:
+    """The file as text, or None for a binary one (NUL bytes, or not UTF-8)."""
+    data, _ = _read_archive_bytes(path)
+    if b"\x00" in data:
+        return None
+    try:
+        # A file cut at the read cap may end inside a character; only a complete read is final.
+        return codecs.getincrementaldecoder("utf-8")().decode(data, final=len(data) < _READ_CAP)
+    except UnicodeDecodeError:
+        return None
 
 
 # GitHub refuses a comment over 65,536 characters; keep headroom for its own counting.
 COMMENT_LIMIT = 65_000
 # The skill-comment marker (tools/github/status-rollup.md), so sync's pre-flight
-# reads a patch comment as skill-authored rather than as human activity.
-PATCH_COMMENT_MARKER = "<!-- apache-magpie: scan-patches v1 -->"
+# reads the evidence comment as skill-authored rather than as human activity.
+PATCH_COMMENT_MARKER = "<!-- apache-magpie: scan-evidence v1 -->"
+# A block cut to less than this is listed as omitted instead.
+_MIN_BLOCK = 400
+_REPRO_HEADING = re.compile(r"reproduc|proof[ -]of[ -]concept|\bpoc\b|steps to", re.I)
+_HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+
+def _escape(text: str) -> str:
+    """Safe inside `<summary>` and prose: no HTML, and no bare `@name` that would notify someone."""
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return re.sub(r"(?<![\w`])(@[\w.-]+)", r"`\1`", text)
 
 
 def _patch_summary(patch: str, n: int) -> str:
     """The patch's one-line header (its second `#` line), safe inside `<summary>`."""
     lines = patch.splitlines()
     text = lines[1].lstrip("#").strip() if len(lines) > 1 and lines[1].startswith("#") else ""
-    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    # A bare `@task` would notify a GitHub user of that name.
-    text = re.sub(r"(?<![\w`])(@[\w.-]+)", r"`\1`", text)
-    return f"Candidate {n} — {text}" if text else f"Candidate {n}"
+    return f"Candidate patch {n} — {_escape(text)}" if text else f"Candidate patch {n}"
 
 
-def _patch_block(patch: str, n: int) -> str:
-    longest = max((len(run) for run in re.findall(r"`+", patch)), default=0)
-    fence = "`" * max(5, longest + 1)
-    return "\n".join(
-        [
-            f"<details><summary>{_patch_summary(patch, n)}</summary>",
-            "",
-            f"{fence}diff",
-            patch.rstrip("\n"),
-            fence,
-            "",
-            "</details>",
-            "",
-        ]
-    )
+def _shown_path(path: Path, base: Path) -> str:
+    """The file's path inside the finding's folder, as plain characters in code span."""
+    try:
+        rel = path.relative_to(base).as_posix()
+    except ValueError:
+        rel = path.name
+    return "`" + re.sub(r"[^\w./+-]", "_", rel)[:160] + "`"
+
+
+def _headings(report: str) -> list[tuple[int, int, str]]:
+    """`(offset, level, text)` of each Markdown heading, skipping lines inside fenced code blocks.
+
+    A `# comment` in a shell, Python, YAML or Dockerfile snippet is not a heading.
+    """
+    heads: list[tuple[int, int, str]] = []
+    fence: tuple[str, int] | None = None
+    offset = 0
+    for line in report.splitlines(keepends=True):
+        opener = _FENCE.match(line)
+        if fence is None and opener:
+            fence = (opener.group(1)[0], len(opener.group(1)))
+        elif fence is not None:
+            closer = _FENCE.match(line)
+            if (
+                closer
+                and closer.group(1)[0] == fence[0]
+                and len(closer.group(1)) >= fence[1]
+                and not closer.group(2).strip()
+            ):
+                fence = None
+        else:
+            m = _HEADING.match(line.rstrip("\n"))
+            if m:
+                heads.append((offset, len(m.group(1)), m.group(2)))
+        offset += len(line)
+    return heads
+
+
+def _repro_section(report: str) -> tuple[str, str]:
+    """`(title, text)`: the report's reproduction section, else the whole report."""
+    heads = _headings(report)
+    for i, (start, level, text) in enumerate(heads):
+        if _REPRO_HEADING.search(text):
+            end = next((h[0] for h in heads[i + 1 :] if h[1] <= level), len(report))
+            return "Reproduction steps (from the scanner's REPORT.md)", report[start:end]
+    return "The scanner's REPORT.md (it has no separate reproduction section)", report
+
+
+class _Block:
+    """One `<details>` block: a summary, the quoted text, and the fence's info string."""
+
+    def __init__(self, summary: str, text: str | None, lang: str = "", note: str = "") -> None:
+        self.summary, self.text, self.lang, self.note = summary, text, lang, note
+
+    def fence(self) -> str:
+        longest = max((len(run) for run in re.findall(r"`+", self.text or "")), default=0)
+        return "`" * max(5, longest + 1)
+
+    def render(self, text: str | None = None, cut_note: str = "") -> str:
+        body = self.text if text is None else text
+        if body is None:
+            inner = [self.note]
+        else:
+            fence = self.fence()
+            inner = [f"{fence}{self.lang}", body.rstrip("\n"), fence]
+            if cut_note:
+                inner += ["", cut_note]
+        return "\n".join([f"<details><summary>{self.summary}</summary>", "", *inner, "", "</details>", ""])
+
+    def fit(self, room: int) -> str:
+        """The block in at most *room* characters: whole, cut at a line with a note, or listed as omitted."""
+        whole = self.render()
+        if len(whole) <= room or self.text is None:
+            return whole
+        total = len(self.text)
+        note = (
+            f"_Truncated for the comment limit: the first {{shown}} of {total} characters,"
+            " so this is incomplete. The full file is in the local decrypted archive._"
+        )
+        keep = room - len(self.render("", note.format(shown=total)))
+        if keep >= _MIN_BLOCK:
+            cut = self.text[:keep]
+            cut = cut.rsplit("\n", 1)[0] if "\n" in cut else cut
+            block = self.render(cut, note.format(shown=len(cut)))
+            if len(block) <= room:
+                return block
+        return self.omitted()
+
+    def omitted(self) -> str:
+        return f"- {self.summary}: omitted for the comment limit; read it in the local decrypted archive.\n"
+
+
+def _blocks_for(finding: Mapping[str, Any]) -> list[_Block]:
+    blocks: list[_Block] = []
+    report = finding.get("report_md")
+    if report:
+        text = _read_text(Path(report))
+        if text is not None:
+            title, section = _repro_section(text)
+            blocks.append(_Block(title, section, "markdown"))
+    patches = [Path(p) for p in finding.get("patches") or []]
+    repros = [Path(p) for p in finding.get("reproducers") or []]
+    parents = [str(p.parent) for p in [*patches, *repros]]
+    if finding.get("evidence_dir"):
+        base = Path(finding["evidence_dir"])
+    elif report:
+        base = Path(report).parent
+    else:
+        base = Path(os.path.commonpath(parents)) if parents else Path("/")
+    for path in repros:
+        size = _read_archive_bytes(path)[1]
+        text = _read_text(path)
+        summary = f"Reproducer file {_shown_path(path, base)} — untested, do not run"
+        note = f"Binary file, {size} bytes: not quoted. It is in the local decrypted archive."
+        blocks.append(_Block(summary, text, "", note))
+    for n, path in enumerate(patches, 1):
+        text = _read_text(path)
+        if text is None:
+            size = _read_archive_bytes(path)[1]
+            summary = f"Candidate patch {n} {_shown_path(path, base)} — untested, do not apply as-is"
+            note = (
+                f"Binary or non-UTF-8 patch, {size} bytes: not quoted. It is in the local decrypted archive."
+            )
+            blocks.append(_Block(summary, None, "", note))
+            continue
+        blocks.append(_Block(f"{_patch_summary(text, n)} — untested, do not apply as-is", text, "diff"))
+    return blocks
+
+
+def _allot(sizes: list[int], room: int) -> list[int]:
+    """Share *room* among blocks: small ones whole, the rest an equal share of what is left."""
+    shares = [0] * len(sizes)
+    left, pending = room, sorted(range(len(sizes)), key=lambda i: sizes[i])
+    while pending:
+        share = left // len(pending)
+        i = pending[0]
+        if sizes[i] > share:
+            for j in pending:
+                shares[j] = share
+            break
+        shares[i] = sizes[i]
+        left -= sizes[i]
+        pending.pop(0)
+    return shares
 
 
 def render_patch_comments(
-    finding: Mapping[str, Any], scan: Mapping[str, Any], limit: int = COMMENT_LIMIT
+    finding: Mapping[str, Any],
+    scan: Mapping[str, Any],
+    limit: int = COMMENT_LIMIT,
+    verdict: str | None = None,
 ) -> list[str]:
-    """Tracker comment bodies quoting a finding's candidate patches, each folded in `<details>`.
+    """The ONE private-tracker comment quoting a finding's reproduction steps, reproducers and patches.
 
-    Returns `[]` when the finding has no patches. Patches go into as few bodies
-    as fit under *limit*, in order; a single patch too big for one body raises
-    `ValueError` rather than being cut, since a truncated diff is worse than none.
+    Each item is folded in its own `<details>` block, marked untested, and the
+    operator-confirmed triage verdict is stated first. Returns `[]` when the
+    archive has nothing for the finding. The body stays within *limit*: when the
+    items do not fit, the larger ones are cut at a line with a note saying so,
+    and one too large to show usefully is listed as omitted.
     """
-    paths = [Path(p) for p in finding.get("patches") or []]
-    if not paths:
+    blocks = _blocks_for(finding)
+    if not blocks:
         return []
     fid = finding["id"]
     refs = (str(v) for v in (scan.get("target"), scan.get("commit")) if v)
     where = " at ".join(f"`{v}`" for v in refs if _PLAIN_REF.fullmatch(v))
-    count = f"{len(paths)} candidate fix{'es' if len(paths) > 1 else ''}"
-    intro = (
-        f"The scan shipped {count} for this finding{f', against {where}' if where else ''}. "
-        "They are untested, machine-generated and not reviewed by the team: a starting point "
-        "for `security-issue-fix`, not a change to apply as-is. The patch headers spell out "
-        "the security impact, so do not copy them into a public PR."
-    )
-    blocks = [_patch_block(_read_patch(p), n) for n, p in enumerate(paths, 1)]
-
-    def heading(part: int, parts: int) -> str:
-        suffix = f" (part {part} of {parts})" if parts > 1 else ""
-        return (
-            f"{PATCH_COMMENT_MARKER}\n"
-            f"**Candidate patches from the security scan — `{fid}`**{suffix}\n\n{intro}\n\n"
-        )
-
-    # Size against the longest heading this finding can get.
-    room = limit - len(heading(len(blocks), len(blocks)))
-    groups: list[list[str]] = []
-    for n, block in enumerate(blocks, 1):
-        if len(block) > room:
-            raise ValueError(f"{fid}: candidate {n} is {len(block)} characters, over the comment limit")
-        if groups and len("\n".join([*groups[-1], block])) <= room:
-            groups[-1].append(block)
-        else:
-            groups.append([block])
-    return [heading(i, len(groups)) + "\n".join(g) for i, g in enumerate(groups, 1)]
+    head = [
+        PATCH_COMMENT_MARKER,
+        f"**Scanner evidence — `{fid}`**",
+        "",
+        "> [!WARNING]",
+        (
+            f"> Machine-generated material from the scan{f' of {where}' if where else ''}, quoted from its encrypted archive."
+            " None of it has been tested or reviewed by the team."
+        ),
+        (
+            "> Do not run the reproducers or apply the patches outside an isolated, throwaway environment;"
+            " they are here to read, as a starting point for `security-issue-fix`."
+        ),
+        "> They spell out the security impact: keep them on this private tracker and never copy them into a public PR.",
+        "",
+    ]
+    if verdict:
+        head += [f"**Triage verdict:** {_escape(' '.join(verdict.split()))[:1500]}", ""]
+    header = "\n".join(head) + "\n"
+    whole = [b.render() for b in blocks]
+    if len(header) + sum(len(w) + 1 for w in whole) <= limit:
+        return [header + "\n".join(whole)]
+    footer = "\n_Some items were cut or omitted to stay under GitHub's comment limit._\n"
+    room = limit - len(header) - len(footer) - len(blocks)
+    shares = _allot([len(w) for w in whole], room)
+    fitted = [b.fit(s) for b, s in zip(blocks, shares, strict=True)]
+    dropped = 0
+    while True:
+        tail = f"- {dropped} more item(s) omitted for the comment limit.\n" if dropped else ""
+        body = header + "\n".join(fitted) + tail + footer
+        if len(body) <= limit or not fitted:
+            break
+        fitted.pop()
+        dropped += 1
+    if len(body) > limit:
+        raise ValueError(f"{fid}: the comment header alone is over the limit")
+    return [body]
 
 
 def write_patch_comments(
-    finding: Mapping[str, Any], scan: Mapping[str, Any], out_dir: Path
+    finding: Mapping[str, Any], scan: Mapping[str, Any], out_dir: Path, verdict: str | None = None
 ) -> list[dict[str, Any]]:
-    """Write `render_patch_comments`' bodies as `<id>.md` (or `<id>-<n>.md` when split), owner-only."""
-    bodies = render_patch_comments(finding, scan)
+    """Write `render_patch_comments`' body as `<id>.md`, owner-only."""
+    bodies = render_patch_comments(finding, scan, verdict=verdict)
     _private_dir(out_dir)
     written = []
-    for n, body in enumerate(bodies, 1):
-        name = f"{finding['id']}.md" if len(bodies) == 1 else f"{finding['id']}-{n}.md"
-        _private_write(out_dir / name, body.encode("utf-8"))
-        written.append({"path": str(out_dir / name), "chars": len(body)})
+    for body in bodies:
+        path = out_dir / f"{finding['id']}.md"
+        _private_write(path, body.encode("utf-8"))
+        written.append({"path": str(path), "chars": len(body)})
     return written
 
 
@@ -589,9 +809,11 @@ def materialise(parsed: Mapping[str, Any], meta: Mapping[str, Any], out_dir: Pat
         "not_security": parsed["not_security"],
         "checks": parsed["checks"],
     }
+    if "other_reports" in parsed:
+        index["other_reports"] = parsed["other_reports"]
     _private_write(out_dir / INDEX_FILE, (json.dumps(index, indent=2) + "\n").encode("utf-8"))
     by_severity = Counter(f["severity"] for f in parsed["findings"])
-    return {
+    summary: dict[str, Any] = {
         "format": FORMAT,
         "scan_folder": str(out_dir),
         "index": str(out_dir / INDEX_FILE),
@@ -601,6 +823,16 @@ def materialise(parsed: Mapping[str, Any], meta: Mapping[str, Any], out_dir: Pat
         "not_security": len(parsed["not_security"]),
         "checks": parsed["checks"],
     }
+    if "other_reports" in parsed:
+        entries = [*parsed["findings"], *parsed["not_security"]]
+        summary["archive"] = {
+            "reports": sum(1 for e in entries if e.get("report_md")),
+            "missing_reports": sum(1 for e in entries if not e.get("report_md")),
+            "patches": sum(len(e.get("patches") or []) for e in entries),
+            "reproducer_files": sum(len(e.get("reproducers") or []) for e in entries),
+            "other_reports": len(parsed["other_reports"]),
+        }
+    return summary
 
 
 def detect(folder: Path) -> str | None:

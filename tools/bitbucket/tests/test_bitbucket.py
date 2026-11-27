@@ -39,6 +39,7 @@ from magpie_bitbucket.client import (
     get_json_with_header,
     load_config,
     make_auth_header,
+    write_request_with_metadata,
 )
 from magpie_bitbucket.normalize import (
     created_issue_comment,
@@ -2753,6 +2754,574 @@ def test_normalize_created_cloud_issue_comment() -> None:
     assert normalized["comment"]["id"] == "501"
     assert normalized["comment"]["author"] == "Alice"
     assert normalized["comment"]["body"] == "Confirmed comment."
+
+
+def _datacenter_edit_fixture() -> dict[str, Any]:
+    return {
+        "id": 42,
+        "version": 3,
+        "state": "OPEN",
+        "title": "Original title",
+        "description": "Original description",
+        "draft": False,
+        "fromRef": {"id": "refs/heads/feature/example"},
+        "toRef": {
+            "id": "refs/heads/main",
+            "repository": {
+                "slug": "magpie",
+                "project": {"key": "MAGPIE"},
+            },
+        },
+        "reviewers": [
+            {"user": {"name": "alice"}, "approved": True},
+            {"user": {"name": "bob"}, "status": "NEEDS_WORK"},
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("title", "description", "expected_title", "expected_description"),
+    [
+        ("Updated title", None, "Updated title", "Original description"),
+        (None, "Updated description", "Original title", "Updated description"),
+        (None, "", "Original title", ""),
+        ("Updated title", "Updated description", "Updated title", "Updated description"),
+    ],
+)
+def test_datacenter_edit_pull_request_preserves_metadata(
+    datacenter_env: None,
+    title: str | None,
+    description: str | None,
+    expected_title: str,
+    expected_description: str,
+) -> None:
+    original = _datacenter_edit_fixture()
+    updated = {
+        **original,
+        "version": 4,
+        "title": expected_title,
+        "description": expected_description,
+    }
+
+    response = MagicMock()
+    response.status = 200
+    response.body = updated
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ) as mock_get,
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            return_value=response,
+        ) as mock_put,
+    ):
+        result = datacenter.edit_pull_request(load_config(), "42", title, description, 3)
+
+    mock_get.assert_called_once_with(load_config(), "42")
+    mock_put.assert_called_once()
+
+    args, kwargs = mock_put.call_args
+    assert args[0] == (
+        "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/42"
+    )
+    assert kwargs["method"] == "PUT"
+
+    payload = kwargs["payload"]
+    assert payload == {
+        "version": 3,
+        "title": expected_title,
+        "description": expected_description,
+        "reviewers": [
+            {"user": {"name": "alice"}},
+            {"user": {"name": "bob"}},
+        ],
+        "toRef": {
+            "id": "refs/heads/main",
+            "repository": {
+                "slug": "magpie",
+                "project": {"key": "MAGPIE"},
+            },
+        },
+        "draft": False,
+    }
+
+    assert "fromRef" not in payload
+    assert "participants" not in payload
+    assert "author" not in payload
+    assert result == updated
+
+
+@pytest.mark.parametrize(
+    "version",
+    [None, -1, "3", True, 3.5],
+)
+def test_datacenter_edit_rejects_invalid_version_before_write(
+    datacenter_env: None,
+    version: Any,
+) -> None:
+    original = _datacenter_edit_fixture()
+    original["version"] = version
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch("magpie_bitbucket.datacenter.write_request_with_metadata") as mock_put,
+        pytest.raises(BitbucketError, match="valid nonnegative version"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_put.assert_not_called()
+
+
+def test_datacenter_edit_accepts_version_zero(
+    datacenter_env: None,
+) -> None:
+    original = _datacenter_edit_fixture()
+    original["version"] = 0
+
+    response = MagicMock()
+    response.status = 200
+    response.body = {
+        **original,
+        "title": "Updated title",
+        "version": 1,
+    }
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            return_value=response,
+        ) as mock_put,
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 0)
+
+    assert mock_put.call_args.kwargs["payload"]["version"] == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("id", 99, "unexpected ID"),
+        ("state", "MERGED", "Only OPEN"),
+        ("reviewers", None, "reviewers list"),
+        ("reviewers", [{}], "valid user"),
+        ("reviewers", [{"user": {}}], "valid username"),
+        ("toRef", None, "valid destination"),
+        ("draft", "false", "invalid draft"),
+    ],
+)
+def test_datacenter_edit_bad_preflight_never_writes(
+    datacenter_env: None,
+    field: str,
+    value: Any,
+    error: str,
+) -> None:
+    original = _datacenter_edit_fixture()
+    original[field] = value
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch("magpie_bitbucket.datacenter.write_request_with_metadata") as mock_put,
+        pytest.raises(BitbucketError, match=error),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_put.assert_not_called()
+
+
+def test_datacenter_edit_no_change_never_writes(
+    datacenter_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=_datacenter_edit_fixture(),
+        ),
+        patch("magpie_bitbucket.datacenter.write_request_with_metadata") as mock_put,
+        pytest.raises(BitbucketError, match="would not change"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Original title", None, 3)
+
+    mock_put.assert_not_called()
+
+
+def test_datacenter_edit_conflict_does_not_retry(
+    datacenter_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=_datacenter_edit_fixture(),
+        ) as mock_get,
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            side_effect=BitbucketError("Bitbucket request failed with HTTP 409: conflict", status=409),
+        ) as mock_put,
+        pytest.raises(BitbucketError, match="HTTP 409"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_get.assert_called_once()
+    mock_put.assert_called_once()
+
+
+@pytest.mark.parametrize("status", [201, 204])
+def test_datacenter_edit_unexpected_status_reports_unknown_outcome(
+    datacenter_env: None,
+    status: int,
+) -> None:
+    response = MagicMock()
+    response.status = status
+    response.body = None
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=_datacenter_edit_fixture(),
+        ),
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            return_value=response,
+        ),
+        pytest.raises(BitbucketError, match="outcome unknown"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "expected"),
+    [
+        ("Bitbucket request failed with HTTP 409: conflict", 409, "HTTP 409"),
+        ("Bitbucket request failed with HTTP 400: bad request", 400, "HTTP 400"),
+        ("Bitbucket request failed with HTTP 403: forbidden", 403, "HTTP 403"),
+        ("Bitbucket request failed with HTTP 500: server error", 500, "outcome unknown"),
+        ("Bitbucket request failed with HTTP 503: unavailable", 503, "outcome unknown"),
+        ("Bitbucket request failed with HTTP 408: timeout", 408, "outcome unknown"),
+        ("Timed out while connecting to Bitbucket", None, "outcome unknown"),
+        ("Failed to connect to Bitbucket: connection reset", None, "outcome unknown"),
+        ("Failed to parse JSON response from URL", None, "outcome unknown"),
+        ("Expected JSON object from URL", None, "outcome unknown"),
+        # Classification follows the status, never the wording of the message.
+        ("Some reworded rejection text", 409, "reworded"),
+        ("Bitbucket request failed with HTTP 409: conflict", None, "outcome unknown"),
+    ],
+)
+def test_datacenter_edit_put_errors_do_not_retry(
+    datacenter_env: None,
+    error: str,
+    status: int | None,
+    expected: str,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=_datacenter_edit_fixture(),
+        ) as mock_get,
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            side_effect=BitbucketError(error, status=status),
+        ) as mock_put,
+        pytest.raises(BitbucketError, match=expected) as exc,
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_get.assert_called_once()
+    mock_put.assert_called_once()
+
+    if expected == "outcome unknown":
+        assert "pr get 42" in str(exc.value)
+        assert "before retrying" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("reviewers", []),
+        ("reviewers", [{"user": {"name": "charlie"}}]),
+        ("reviewers", None),
+        ("toRef", {"id": "refs/heads/other", "repository": {}}),
+        ("draft", True),
+    ],
+)
+def test_datacenter_edit_rejects_unverified_preservation(
+    datacenter_env: None,
+    field: str,
+    value: Any,
+) -> None:
+    original = _datacenter_edit_fixture()
+    updated = {
+        **original,
+        "title": "Updated title",
+        "version": 4,
+    }
+    updated[field] = value
+
+    response = MagicMock()
+    response.status = 200
+    response.body = updated
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            return_value=response,
+        ) as mock_put,
+        pytest.raises(BitbucketError, match="outcome unknown"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_put.assert_called_once()
+
+
+def test_cloud_edit_fails_before_any_request(
+    cloud_env: None,
+) -> None:
+    with (
+        patch("magpie_bitbucket.client.urllib.request.build_opener") as mock_opener,
+        pytest.raises(BitbucketError, match="not supported"),
+    ):
+        cloud.edit_pull_request(load_config(), "42", "Updated title", None, 3)
+
+    mock_opener.assert_not_called()
+
+
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_title_only(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_edit.return_value = {
+        **_datacenter_edit_fixture(),
+        "title": "Updated title",
+    }
+
+    result = main(
+        [
+            "pr",
+            "edit",
+            "42",
+            "--title",
+            "Updated title",
+            "--expected-version",
+            "3",
+        ]
+    )
+
+    assert result == 0
+    mock_edit.assert_called_once_with(load_config(), "42", "Updated title", None, 3)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["operation"] == "pull-request-edit"
+    assert output["ok"] is True
+    assert output["pull_request_id"] == "42"
+
+
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_empty_file_clears_description(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "empty.md"
+    body_file.write_bytes(b"")
+
+    mock_edit.return_value = {
+        **_datacenter_edit_fixture(),
+        "description": "",
+    }
+
+    assert (
+        main(
+            [
+                "pr",
+                "edit",
+                "42",
+                "--body-file",
+                str(body_file),
+                "--expected-version",
+                "3",
+            ]
+        )
+        == 0
+    )
+
+    mock_edit.assert_called_once_with(load_config(), "42", None, "", 3)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["pr", "edit", "0", "--title", "New", "--expected-version", "3"],
+        ["pr", "edit", "-1", "--title", "New", "--expected-version", "3"],
+        ["pr", "edit", "abc", "--title", "New", "--expected-version", "3"],
+        ["pr", "edit", "42", "--expected-version", "3"],
+        ["pr", "edit", "42", "--title", "   ", "--expected-version", "3"],
+    ],
+)
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_rejects_invalid_arguments_before_write(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+    argv: list[str],
+) -> None:
+    with pytest.raises(BitbucketError):
+        main(argv)
+
+    mock_edit.assert_not_called()
+
+
+def test_datacenter_edit_refuses_a_version_changed_since_preview(
+    datacenter_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=_datacenter_edit_fixture(),
+        ),
+        patch("magpie_bitbucket.datacenter.write_request_with_metadata") as mock_put,
+        pytest.raises(BitbucketError, match=r"changed since it was previewed \(version 3, expected 2\)"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", "Updated title", None, 2)
+
+    mock_put.assert_not_called()
+
+
+@pytest.mark.parametrize("returned", [{}, {"description": None}, {"description": ""}])
+def test_datacenter_edit_clear_succeeds_when_the_response_omits_the_description(
+    datacenter_env: None,
+    returned: dict[str, Any],
+) -> None:
+    original = _datacenter_edit_fixture()
+    updated = {key: value for key, value in original.items() if key != "description"}
+    updated.update(returned, version=4)
+
+    response = MagicMock()
+    response.status = 200
+    response.body = updated
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch(
+            "magpie_bitbucket.datacenter.write_request_with_metadata",
+            return_value=response,
+        ) as mock_put,
+    ):
+        result = datacenter.edit_pull_request(load_config(), "42", None, "", 3)
+
+    assert mock_put.call_args.kwargs["payload"]["description"] == ""
+    assert result == updated
+
+
+def test_datacenter_edit_clearing_an_absent_description_is_no_change(
+    datacenter_env: None,
+) -> None:
+    original = _datacenter_edit_fixture()
+    del original["description"]
+
+    with (
+        patch(
+            "magpie_bitbucket.datacenter.get_pull_request",
+            return_value=original,
+        ),
+        patch("magpie_bitbucket.datacenter.write_request_with_metadata") as mock_put,
+        pytest.raises(BitbucketError, match="would not change"),
+    ):
+        datacenter.edit_pull_request(load_config(), "42", None, "", 3)
+
+    mock_put.assert_not_called()
+
+
+@pytest.mark.parametrize("content", [b"\n", b"  \n\t\n", b"\r\n"])
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_whitespace_only_file_clears_description(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+    content: bytes,
+) -> None:
+    body_file = tmp_path / "blank.md"
+    body_file.write_bytes(content)
+    mock_edit.return_value = {**_datacenter_edit_fixture(), "description": ""}
+
+    assert main(["pr", "edit", "42", "--body-file", str(body_file), "--expected-version", "3"]) == 0
+
+    mock_edit.assert_called_once_with(load_config(), "42", None, "", 3)
+
+
+@pytest.mark.parametrize("value", ["-1", "abc", "1.5", "\u0663"])
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_rejects_a_bad_expected_version(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+    value: str,
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["pr", "edit", "42", "--title", "New", "--expected-version", value])
+
+    assert exc.value.code == 2
+    mock_edit.assert_not_called()
+
+
+@patch("magpie_bitbucket.datacenter.edit_pull_request")
+def test_cli_pr_edit_requires_expected_version(
+    mock_edit: MagicMock,
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["pr", "edit", "42", "--title", "New"])
+
+    assert exc.value.code == 2
+    mock_edit.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_edit_on_cloud_refuses_before_reading_the_body_file(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "does-not-exist.md"
+
+    with pytest.raises(BitbucketError, match="Cloud PR editing is not supported"):
+        main(["pr", "edit", "42", "--body-file", str(missing), "--expected-version", "3"])
+
+    mock_build_opener.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_write_request_error_carries_the_http_status(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    url = "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/42"
+    opener = MagicMock()
+    opener.open.side_effect = urllib.error.HTTPError(
+        url, 409, "Conflict", Message(), io.BytesIO(b'{"errors":[{"message":"stale version"}]}')
+    )
+    mock_build_opener.return_value = opener
+
+    with pytest.raises(BitbucketError) as exc:
+        write_request_with_metadata(url, load_config(), method="PUT", payload={})
+
+    assert exc.value.status == 409
 
 
 @patch("magpie_bitbucket.client.urllib.request.build_opener")

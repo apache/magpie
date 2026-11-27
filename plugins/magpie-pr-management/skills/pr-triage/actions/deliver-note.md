@@ -59,7 +59,7 @@ gh pr edit <N> --repo <upstream> --add-assignee <author>
 ```
 
 and `--remove-assignee <author>` when it says `unassign_author: true` (the ready-for-review flip).
-No maintainer is ever assigned or `@`-mentioned; the agent-guard `mention` guard enforces it on `gh pr edit --body*` and `gh pr comment`.
+No maintainer is ever assigned or `@`-mentioned; the agent-guard `mention` guard enforces it on `gh pr edit --body*` and `gh pr comment`, keyed on the `pr-triage-fold` block and the `<!-- pr-triage -->` line the renderer writes, so never strip either from a rendered body.
 
 ## 4. Record
 

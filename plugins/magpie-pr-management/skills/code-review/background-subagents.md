@@ -43,7 +43,12 @@ one — that's fine, the results just sit in memory).
 
 ## Subagent contract
 
-Each subagent is a `general-purpose` Agent invocation. The
+Each subagent is a `magpie-gatherer` Agent invocation where that
+agent is installed (Claude Code, `setup-isolated-setup-install`
+Step V.2): it has no write tool and no Bash beyond
+`vetted-op-read`, so the PR text it reads cannot steer it into a
+change. Where it is not installed, use `general-purpose` and keep
+to the forbidden list below. The
 prompt is **self-contained** (no shared conversation context)
 and includes:
 

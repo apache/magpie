@@ -34,6 +34,8 @@ VOTER_OBLIGATION_REMINDER = (
 )
 
 ARCHIVE_SUFFIXES = (".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".tar", ".zip")
+#: The lifecycle stages `release-management-config.md` may record in `project_stage`.
+PROJECT_STAGES = ("incubating", "top-level")
 _SAFE = re.compile(r"[\w@%+=:,./-]+")
 
 
@@ -79,6 +81,30 @@ class VerifyRc:
     @property
     def is_asf(self) -> bool:
         return self.organization.upper() == "ASF"
+
+    @property
+    def project_stage(self) -> str | None:
+        """`project_stage` from the config: the lifecycle stage this project records for itself.
+
+        The organization manifest only publishes the vocabulary (`project_stage_vocab`);
+        which of its values applies to *this* project is an adopter fact, so it has to be
+        declared here rather than guessed from an artefact. `None` when unset.
+        """
+        raw = self.config.get("project_stage")
+        stage = str(raw if raw is not None else "").strip().lower()
+        if stage in ("", "<project-stage>"):
+            return None
+        if stage not in PROJECT_STAGES:
+            raise VerifyError(
+                f"project_stage is {raw!r}: release-management-config.md takes "
+                f"{' or '.join(PROJECT_STAGES)} (the ASF organization's project_stage_vocab)"
+            )
+        return stage
+
+    @property
+    def is_podling(self) -> bool:
+        """A recorded `project_stage: incubating` of an ASF project; an unset stage is never a podling."""
+        return self.is_asf and self.project_stage == "incubating"
 
     @property
     def ci_automated(self) -> bool:

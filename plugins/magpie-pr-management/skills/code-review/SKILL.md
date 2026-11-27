@@ -22,9 +22,9 @@ when_to_use: |
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:5540df0191ad8033
+surface_hash: sha256:0411b3fbfc2061d9
 license: Apache-2.0
-measured_tokens: 4671
+measured_tokens: 4669
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -137,7 +137,7 @@ Every rule that is a function of PR state runs as code in
 the five "my reviews" signals and their chips, the selectors, `CODEOWNERS`, the slop
 signals and threshold, the security- and AI-disclosure scans, compiled artifacts,
 licence categories and headers, the dependency ledger arithmetic, the disposition,
-reviewer ranking, the body and its footer, inline anchoring, the mention scan and the
+reviewer ranking, the body and its footer, inline anchoring and the
 SHA recheck. Your part is reading the diff and the sources, writing the findings and
 the summary, the judgement calls the documents name, and the conversation with the
 maintainer.

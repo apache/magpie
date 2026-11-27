@@ -13,37 +13,18 @@ How the findings list becomes a GitHub review submission.
 > **This section is normative and applies to every character this
 > skill posts** — the review body, every inline review comment,
 > findings folded in from an adversarial reviewer, and any
-> contributor text quoted inside a finding. It is the review-side
-> counterpart of the author-only notification rule in
-> [`pr-management-triage`](../../../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies).
+> contributor text quoted inside a finding. Unlike
+> [`pr-management-triage`](../../../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies),
+> whose notes mention only the PR author, a review may notify the people it names.
 
-Submitting a review already notifies the PR author and every
-subscriber — that is all the notification a review needs. A live
-`@`-mention additionally summons the named person, without their
-consent, onto a thread where nothing is being asked of them.
+A review is the maintainer talking to the people on the PR, so it mentions them the way the maintainer would.
 
-- **Nothing this skill posts ever live-`@`-mentions anyone** —
-  not suggested reviewers, not `CODEOWNERS` owners or teams, not
-  the PR author, not the operator. When a handle must appear
-  (a suggested reviewer, the author of a prior review being
-  referenced), render it **backtick-quoted** — `` `@login` `` /
-  `` `@org/team` `` — which reads as a handle without producing
-  a notification.
-- **Quoted contributor text is escaped too.** Commit messages,
-  PR-body excerpts, and code comments quoted into a finding may
-  carry `@handle` tokens; keep such quotes inside code spans or
-  fenced blocks so GitHub never processes the mentions.
-- **Adversarial fold-in is covered.** Findings imported from a
-  second reviewer (Step 5 of [`review-flow.md`](review-flow.md))
-  get the same escaping before composition — the other tool's
-  output is not exempt.
-- **A deliberate ping is still possible — never silent.** The
-  mention scan in Step 8 of
-  [`review-flow.md`](review-flow.md) flags any live mention that
-  survives drafting and posts it only on the maintainer's
-  explicit `[K]eep`. Formally requesting a reviewer remains a
-  separate action
-  ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+- **Handles the review names are live.** When the review answers or credits someone (a reviewer whose point it takes up, the author of a prior review), write `@login`: `render` posts it as written, and that person is notified.
+- **Suggested reviewers stay backtick-quoted** (`` `@login` `` / `` `@org/team` ``): nothing is asked of them, and the *Worth a second look from* section says nobody was notified.
+  Formally requesting a reviewer remains a separate action ([`reviewer-routing`](../reviewer-routing/SKILL.md)).
+- **Quoted text stays in code.** Commit messages, PR-body excerpts, code comments and findings folded in from an adversarial reviewer (Step 5 of [`review-flow.md`](review-flow.md)) may carry `@handle` tokens.
+  Keep every such quote inside a code span or a fenced block, so GitHub never processes the mentions in it: a review notifies only the people the maintainer meant to name.
+- The agent-guard `mention` guard checks only what `pr-management-triage` posts, so it does not stand between a review and its post.
 
 ---
 
@@ -88,18 +69,17 @@ doing it here (Golden rule 9, in [`scope.md`](scope.md)).
 
 ## The post
 
-`render` prints `post_command`:
+`render` prints `post_command`: `gh api repos/<repo>/pulls/<N>/reviews -X POST --input <payload>`.
+The payload carries the event, the body, the head SHA it was drafted against (`commit_id`), and every kept inline thread (`comments`), each placed by `path` + `line` + `side` (RIGHT for an added or context line, LEFT for a removed one) computed from the saved diff; a body-only review (no inline thread survived, or `inline:off`) has no `comments`.
+It is a REST call, not a GraphQL mutation, because its path names the repository: the public-surface scrub can only recognise a post to the framework's own repository, and set aside its own tool names, when the command shows where it goes.
 
-- with inline threads: `gh api graphql --input <payload>` — one `addPullRequestReview` mutation carrying the body and every kept thread, each placed by `path` + `line` + `side` (RIGHT for an added or context line, LEFT for a removed one) computed from the saved diff;
-- body-only (no inline thread survived, or `inline:off`): `gh pr review <N> --repo <repo> --approve|--request-changes|--comment --body-file <file>`.
+It reads the body from a file, never an inline string. Run the command exactly as printed, as a bare command, only after the maintainer confirmed the body.
 
-Both read the body from a file, never an inline string. Run the command exactly as printed, as a bare command, only after the maintainer confirmed the body.
+### Confirm the review posted — never re-run it
 
-### Confirm the review posted — never re-run on empty output
-
-`gh pr review` **prints nothing on success.** Empty output is the
-expected result, not a failure, and re-running the command because it
-"looked like nothing happened" submits the review a second time.
+The post prints the new review's JSON, but a failed-looking call
+can still have posted it, and re-running the command submits the
+review a second time.
 
 That second review cannot be taken back. GitHub's API deletes only
 *pending* reviews: `DELETE /repos/{owner}/{repo}/pulls/{n}/reviews/{id}`
@@ -118,15 +98,14 @@ gh api repos/<repo>/pulls/<N>/reviews
 
 (`render` prints it as `verify_command`; run it as a bare command — a `--jq` filter is fine, a pipe is not — and count the entries whose `user.login` is the viewer.)
 
-Treat a non-zero exit from `gh pr review` as the only failure signal. If
+Treat a non-zero exit from the post as the only failure signal. If
 the command exits zero, the review is posted — whatever it printed. If
 the exit status is genuinely non-zero, re-check with the query above
 before any retry, because a partial failure (for example the review
 landing but an inline comment being rejected) can still leave a review
 behind.
 
-The same applies to `gh pr comment` and to the `addPullRequestReview`
-mutation below.
+The same applies to `gh pr comment`.
 
 Inline positions are valid only against the head that was diffed; when the Step 8 `guard` reports new commits, re-run Steps 1–7 (`[R]efresh`) or post body-only (`[B]ody-only-now`).
 
@@ -204,8 +183,8 @@ agreed.
 
 ## Confirm-before-post
 
-The maintainer's harness-level instructions (`AGENTS.md`,
-`~/.claude/CLAUDE.md`) typically include a "confirm before
+The maintainer's instructions (`AGENTS.md`, their personal agent
+instructions) typically include a "confirm before
 sending" rule for any message authored on their behalf. The
 post step is **always** preceded by:
 
@@ -226,8 +205,8 @@ exact text it approved.
 
 ## Per-tone overrides
 
-If the maintainer's harness-level instructions (`AGENTS.md`,
-`~/.claude/CLAUDE.md`) define **per-contributor tone overrides**
+If the maintainer's instructions (`AGENTS.md`, their personal agent
+instructions) define **per-contributor tone overrides**
 — e.g. one contributor expects a sharper register, another
 gets a more measured tone — the **summary line** and body
 wording for the affected PR shift accordingly. The findings
@@ -250,5 +229,5 @@ When the `dry-run` selector is in effect (see
 > *Dry-run mode: would post `<DISP>` review to PR #N. Move on?
 > `[Y]es` (default), `[E]dit`, `[S]kip`, `[Q]uit`.*
 
-`gh pr review` is **not invoked**. The session summary lists
+`post_command` is **not run**. The session summary lists
 the would-have-been dispositions and counts.

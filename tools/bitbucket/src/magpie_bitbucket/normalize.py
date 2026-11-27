@@ -266,6 +266,24 @@ def created_pull_request(
     }
 
 
+def edited_pull_request(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize an updated pull request."""
+    normalized = pull_request(kind, raw)
+    normalized["labels"] = list(WRITE_LABELS)
+
+    return {
+        "ok": bool(normalized.get("id")),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-edit",
+        "pull_request_id": normalized.get("id"),
+        "pull_request": normalized,
+        "raw": raw,
+    }
+
+
 def pull_request_jira_issues(
     kind: str,
     raw: dict[str, Any],

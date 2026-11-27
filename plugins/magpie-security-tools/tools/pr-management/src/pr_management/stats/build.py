@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import config, people
-from ..layers import personal_dir
+from ..layers import LOCAL_DIR, adopted, personal_dir
 from . import dashboard, reference
 
 CLOSED_PAGE = "stats-closed-page-{k}.json"
@@ -141,7 +141,10 @@ REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{
 
 
 def _state_path(project_root: Path) -> Path:
-    return personal_dir(project_root) / SESSION_STATE_FILE
+    """Runtime state follows the checkout: in an adopted project a linked
+    worktree's `personal_dir` can be the main checkout's, read-only there."""
+    home = project_root / LOCAL_DIR if adopted(project_root) else personal_dir(project_root)
+    return home / SESSION_STATE_FILE
 
 
 def publish(project_root: Path, html: Path, repo: str) -> dict[str, Any]:

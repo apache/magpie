@@ -22,6 +22,7 @@
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
+  - [Batches of private-tracker writes](#batches-of-private-tracker-writes)
   - [Tracker backends](#tracker-backends)
   - [Git operations the sandbox blocks](#git-operations-the-sandbox-blocks)
   - [Wiring it into settings](#wiring-it-into-settings)
@@ -162,6 +163,8 @@ losing its gate, and it is why `--caller` repeated twice is an error rather than
 a last-wins convenience: argparse keeps the last occurrence, so repetition would
 let a command match a rule written against a read-only prefix while resolving to
 a privileged caller.
+Every dispatcher also refuses abbreviated long options (`--call` for `--caller`),
+so each option is matched exactly, as that check and the permission rules assume.
 
 For writes, the confirmation the harness puts in front of `vetted-op` is still
 doing the work. A finer boundary — per-skill scope bound by the runtime — needs
@@ -223,6 +226,9 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 
 [callers]                        # caller -> operations it may run
 "security-issue-sync"   = ["issue-view", "issue-comments", "issue-add-label",
+                           # Step 5: the saved issue and roster the generator reads,
+                           # and the body it writes back.
+                           "collaborators", "issue-edit-body",
                            "issue-set-milestone", "issue-comment", "comment-update",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
@@ -231,45 +237,81 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "issue-create-labeled",
                            "cve-record-fetch", "cve-record-update",
                            "board-item", "board-items", "board-add-item", "board-set-status",
-                           "board-archive-item"]
+                           "board-archive-item",
+                           # Step 1b: upstream PRs that mention the tracker.
+                           "repo-pr-search"]
 "security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
+                           "collaborators", "issue-edit-body", "issue-edit-title",
                            "rollup-append", "rollup-amend-latest", "rollup-fold",
                            "body-field-get", "body-field-set",
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set",
-                           # vetted-op-git: from a change to an open pull request.
+                           # vetted-op-git: from a change to an open pull request. Its
+                           # labels pass the same scrub as the title and body first: they
+                           # are public before the advisory.
                            "git-fetch", "git-worktree-add", "git-worktree-sync",
-                           "git-rebase", "git-worktree-remove", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-# The other skills that publish a change through vetted-op-git
-# (each skill's vetted-git-publish.md names its caller). Grant only the
-# skills the project runs; the draft-PR flows open the draft with
-# `gh pr create --web --draft`, so they need no git-pr-create.
-"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"release-prepare"       = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch"]
-"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync", "git-rebase",
-                            "git-stage", "git-commit", "git-push-branch", "git-pr-create"]
-"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                                 "git-push-branch", "git-pr-create"]
-"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                           "git-push-branch", "git-pr-create"]
-# Only in a policy whose [repos] upstream is the site repository / apache/magpie.
-"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-stage", "git-commit",
-                            "git-push-branch", "git-pr-create"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-rebase", "git-cherry-pick",
-                           "git-switch", "git-stage", "git-commit", "git-push-branch",
-                           "git-pr-create", "pr-add-label",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+# The other skills that publish a change through vetted-op-git (each skill's
+# vetted-git-publish.md names its caller and every step granted here; a test
+# keeps the two in step). Grant only the skills the project runs; the
+# draft-PR flows open the draft with `gh pr create --web --draft`, so they
+# need no git-pr-create or pr-add-label.
+"issue-fix-workflow"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
                            "git-delete-fork-branch"]
-"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-cherry-pick", "git-switch",
-                             "git-stage", "git-commit", "git-push-branch", "git-pr-create",
-                             "pr-add-label", "git-delete-fork-branch"]
+"audit-finding-fix"     = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"release-prepare"       = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch",
+                           "git-delete-fork-branch"]
+"pr-management-shepherd" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-switch", "git-switch-create",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"release-audit-report"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+"security-submit-to-oss-scan" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                                 "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                                 "git-switch", "git-switch-create",
+                                 "git-stage", "git-commit", "git-push-branch",
+                                 "git-pr-create", "pr-add-label", "git-delete-fork-branch"]
+"committer-onboarding"  = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-switch", "git-switch-create",
+                           "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                           "pr-add-label", "git-delete-fork-branch"]
+# Only in a policy whose [repos] upstream is the site repository / apache/magpie.
+"release-announce-draft" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                            "git-switch", "git-switch-create",
+                            "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                            "pr-add-label", "git-delete-fork-branch"]
+"setup-upstream-fix"    = ["repo-issue-search", "repo-pr-search", "repo-issue-view", "pr-view",
+                           "git-fetch", "git-worktree-add", "git-worktree-sync",
+                           "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                           "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
+                           "git-push-branch", "git-pr-create", "pr-add-label",
+                           "git-delete-fork-branch"]
+"setup-override-upstream" = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+                             "git-worktree-remove", "git-rebase", "git-cherry-pick",
+                             "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
+                             "git-push-branch", "git-pr-create", "pr-add-label",
+                             "git-delete-fork-branch"]
 "security-issue-import" = ["issue-list-with-bodies", "issue-create-labeled", "rollup-append",
                            # Step 7: put the new tracker on the board in Needs triage.
                            "board-item", "board-add-item", "board-set-status",
@@ -278,7 +320,21 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            # Fold-ins: add an independent finder to an existing tracker's credit.
                            "body-field-get", "body-field-set",
                            # Receipts for reports relayed from a GitHub Security Advisory.
-                           "advisory-comment"]
+                           "advisory-comment",
+                           # Step 1: read a GHSA-relayed report and its discussion.
+                           "advisory-view", "advisory-comments",
+                           # Step 2a: the duplicate search and its follow-up reads.
+                           "issue-search", "issue-view",
+                           # Step 2c: an upstream PR that already fixes the report.
+                           "repo-pr-search"]
+"security-issue-import-from-scan" = [
+                           # Step B: the open-tracker list, the duplicate and precedent
+                           # searches, and their follow-up reads.
+                           "issue-list-with-bodies", "issue-search", "issue-view",
+                           # Step B: the fix-already-public / fixed-since-the-scan check.
+                           "repo-pr-search", "pr-view", "pr-diff", "compare",
+                           # Step F: a finding's candidate patches, on its new tracker.
+                           "issue-comment"]
 "security-issue-import-from-md" = ["issue-create-labeled", "rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "issue-create-labeled", "rollup-append"]
 
@@ -311,11 +367,19 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 # Setup derives those from each workflow and the security-tracker contract,
 # preserving existing grants and requesting explicit confirmation.
 # Do not duplicate TOML keys or grant every operation to every caller.
-"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
+"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest",
+                               # The closing comment on a GHSA-relay-only report.
+                               "advisory-comment"]
 "security-issue-triage" = ["issue-view", "issue-comments",
+                           # Step 1: the `needs triage` queue, and the CVE selector.
+                           "issue-list-label", "issue-search",
+                           # Step 2: linked and independent upstream fixes.
+                           "repo-pr-search", "repo-code-search",
                            # Step 6: the confirmed triage-proposal comment.
                            "issue-comment"]
-"security-issue-deduplicate" = ["rollup-append", "rollup-fold"]
+"security-issue-deduplicate" = ["rollup-append", "rollup-fold",
+                                # item 6: regenerate the kept tracker's JSON block.
+                                "issue-view", "collaborators", "issue-edit-body"]
 "dependency-vulnerability-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",
@@ -342,7 +406,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                # FIXUP disposition: a worktree at the PR head, commit the fixups,
                                # fast-forward the PR's head branch.
                                "git-worktree-add", "git-worktree-remove",
-                               "git-stage", "git-commit", "git-push-pr-head"]
+                               "git-stage", "git-commit", "git-merge-upstream",
+                               "git-push-pr-head"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-merge-candidates" = ["viewer",
@@ -394,6 +459,47 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 and PRs, which the issue and PR families already cover. A family earns new
 operations only when it has a shape the catalogue lacks.
 
+**A second policy, for the security records site.** A project that publishes its
+security records to a site repository through pull requests
+([`advisory_records`](https://github.com/apache/magpie/blob/main/docs/security/advisory-records.md#publishing-through-a-pull-request))
+gives that repository its own policy, so the project's policy never names a second
+repository to push to. It lives in the site checkout's personal layer
+(`<site checkout>/.git/apache-magpie/tools/vetted-ops/config.toml`), is approved
+like any other (a copy in `~/.config/apache-magpie/vetted-ops/`), and grants
+`security-issue-sync` the git steps of the records pull request and nothing else;
+`security-issue-sync` names it with `--policy-from <site checkout>` on every call.
+Only in a policy whose `[repos] upstream` is that site repository:
+
+```toml
+workspace = "/tmp/agent-scratch"
+
+[repos]
+upstream = "acme/product-site"
+
+[git]
+pr_base = "main"
+# The pull request adds a published record, which names its identifier: the one
+# term git-pr-create lets through here. Never in the source repository's policy.
+published_terms = ["CVE id", "CVE"]
+# ...and only for a branch that changes nothing outside the records directory.
+published_paths = ["content/security/json"]
+# Optional, a records-site policy only (one with published_paths): the site's own hooks
+# (.pre-commit-config.yaml) cannot run in the sandbox, which cannot read the site checkout's
+# .git; "skip" lets vetted-op-checks --skip-site-hooks record them as skipped. A records pull
+# request changes only the files under published_paths, and the site's CI runs the hooks on it.
+# Unset (the default): vetted-op-checks refuses, and the skill hands over the commands instead.
+# site_hooks = "skip"
+
+[callers]
+# Only in a policy whose [repos] upstream is the advisory_records site repository.
+"security-issue-sync" = [# The site's current records at the base branch, read from the forge
+                         # (the sandbox cannot read the site checkout).
+                         "repo-file", "repo-tree",
+                         "git-fetch", "git-worktree-add", "git-worktree-remove",
+                         "git-stage", "git-commit", "git-push-branch", "git-pr-create",
+                         "git-delete-fork-branch"]
+```
+
 **Patterns for milestones a project mints on a schedule.** `milestones` can
 gain a sibling `milestones_patterns` list of regular expressions. A milestone
 parameter then accepts a listed value or one that a pattern matches *in full*
@@ -440,6 +546,15 @@ reviewing it, and again after every change:
 ```bash
 mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
 ```
+
+`<project>` is the project's slug: `short_name` in its `project.md`, lowercased,
+or the basename of the main checkout when there is no `project.md` (`foo.toml`).
+Only a plain slug is used (lowercase letters, digits, `-` and `_`), else `policy.toml`:
+both sources are text the agent can write, and the name lands in a `cp` you run.
+The write dispatchers print their refusal with this name filled in, and a skill that renders the command does the same, since it cannot list the directory.
+Any `.toml` name approves except `operator-git.toml`, which holds the operator's `[git]` table;
+the fixed name only makes each approval replace the stale copy instead of adding one beside it.
+A stale copy approves nothing, so an earlier one under another name is clutter to delete, not a risk.
 
 The home directory comes from the password database, not `$HOME`, and so does a
 `~` in the policy's `workspace`. Every policy file and every body is opened one
@@ -585,9 +700,10 @@ vetted-op-read --caller security-issue-triage repo-code-search "IMAP_SOURCE_SSL"
 | Operation | Kind | Parameters | Notes |
 |---|---|---|---|
 | `repo-pr-search` | read | `query` | `gh search prs` on the policy-pinned upstream, open and closed, up to 100 results. |
+| `repo-issue-search` | read | `query` | `gh search issues` on the policy-pinned upstream, open and closed, issues only (no pull requests), up to 100 results. |
 | `repo-code-search` | read | `query` | `gh search code` on the upstream default branch; returns paths and URLs only. |
 
-Free-text search is otherwise kept out of the catalogue. These two, like the
+Free-text search is otherwise kept out of the catalogue. These three, like the
 tracker's `issue-search`, are bounded: the repository comes from policy, and the
 `query` is plain words — one line, at most 200 characters, no `:` (so no
 `repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no leading `-`, and
@@ -784,6 +900,79 @@ The parsing and composing code is vendored byte-for-byte from the two tools
 copy of its own directory and cannot import them; a test fails if a copy drifts
 from its source.
 
+## Batches of private-tracker writes
+
+A bulk run (an import of a dozen reports, a bulk sync) makes dozens of tracker writes, and each vetted call is one permission prompt.
+When the approved policy turns batching on, a skill writes those writes into one manifest and the user confirms them once.
+Design and trade-offs: [the batch design note](https://github.com/apache/magpie/blob/main/docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md).
+
+```toml
+[approval]
+# each  — the default: every tracker write prompts on its own; the batch entry point refuses.
+# batch — a checked manifest of private-tracker writes runs under one prompt.
+# none  — as batch, and the adopter allows vetted-op-tracker-batch-unprompted without a prompt.
+private_tracker_writes = "batch"
+```
+
+There are two batch entry points, so that an unprompted run can never act on a policy whose adopter asked for a prompt:
+
+| Entry point | Runs a policy set to | Permission |
+|---|---|---|
+| `vetted-op-tracker-batch` | `batch` or `none` | `ask`, always |
+| `vetted-op-tracker-batch-unprompted` | `none` only; refuses anything else before it reads the manifest | `ask` by default; `allow` only where the adopter chose `none` |
+
+Without the split, an `allow` written for a `none` project would also run, unprompted, the policy of any other approved project the caller selects with `--policy-from` or `cd`, including one set to `batch`.
+`batch-check` and both batch scripts take `--policy-from <dir>` under the same rules as the single-call dispatchers:
+only a checkout listed in your own `operator-git.toml`, compared as text before anything on disk is touched,
+whose approved policy lists that checkout for its upstream.
+Pass body files and the manifest as absolute paths with it.
+Skills run `vetted-op-tracker-batch-unprompted` when the policy says `none`, and `vetted-op-tracker-batch` otherwise.
+
+The manifest is a `.json` file in the workspace, written with the file-writing tool:
+
+```json
+{"version": 1,
+ "ops": [{"op": "issue-add-label", "params": ["212", "needs triage"]},
+         {"op": "rollup-append", "params": ["212", "Sync", "<workspace>/entry-212.md"]}]}
+```
+
+Each entry is one operation and its positional parameters, exactly as a single call takes them.
+Then, each as a command line of its own:
+
+```bash
+uvx --from ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync batch-check <workspace>/batch-sync.json
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch --caller security-issue-sync --expect <digest> <workspace>/batch-sync.json
+```
+
+1. `batch-check` runs nothing and never prompts.
+   It checks every entry against the approved policy and prints one line per entry (bodies and file titles by size, never by content), then a JSON line with the `digest`.
+   Show the user that summary as the proposal.
+2. `vetted-op-tracker-batch` checks the manifest again, refuses unless its digest equals `--expect`, and runs the entries in order.
+   The digest binds the destination as well as the content: the approved policy's hash, its tracker, tracker backend, board and resolved workspace,
+   the manifest, every body and title file, and every entry's built command.
+   A manifest checked under one policy is refused under another, and what runs is exactly what was summarised.
+   It prints a header line per entry and each operation's own output (an `issue-create-labeled` prints `number`, `node_id` and `url`),
+   then `{"batch": "done", …}`, or, at the first failure and with that operation's exit code,
+   `{"batch": "stopped", "succeeded": [...], "unknown": <n>, "op": …, "not_run": [...]}`.
+   Body and title files, and the manifest, are deleted only after every entry succeeded; after a stop all of them stay.
+3. After a stop, the `unknown` entry's outcome is unknown: a write can land and still exit non-zero.
+   **Read the tracker first** (`issue-view`, `issue-comments`, `board-item`, `body-field-get` through `vetted-op-read`) to see whether it took effect.
+   Then write a new manifest with the `not_run` entries, plus the `unknown` one only if it did not take effect, check it, and show the user the new summary.
+   Never rerun the old manifest: entries that succeeded would run twice.
+
+The whole batch is refused, with nothing run, when any of these fails:
+batching is on in the approved policy and the policy declares a tracker;
+the manifest matches the schema (exactly `version` and `ops`, each entry exactly `op` and `params`, 1–200 entries);
+every operation is a private-tracker write (`issue-create`, `issue-create-labeled`, the `issue-*` label, milestone, assignee, comment, body, title, close and reopen writes, `comment-update`, `milestone-create`, `milestone-close`, the four procedure writes, and `board-add-item`, `board-set-status`, `board-archive-item`);
+the caller is granted every one of them;
+every entry passes the same parameter checks and builder as a single call, and the built command addresses the tracker or the policy's board;
+and, on GitHub, the tracker reports itself private and the board, when a board write is present, not public.
+Public and outbound writes (`pr-*`, `repo-issue-*`, `advisory-comment`, `cve-allocate`, `cve-record-update`, `tracker-publish`, every `vetted-op-git` operation) are refused by name, even when granted: they keep their own confirmation.
+No grant is needed for the batch itself; the caller needs the grants for the operations in it.
+
+A batch cannot refer to a number an earlier entry creates.
+A skill that creates trackers and then labels, boards or annotates them runs two batches: the creates, then the rest with the numbers the first one printed.
+
 ## Tracker backends
 
 The security tracker need not be a GitHub repository.
@@ -892,17 +1081,19 @@ command, and every step is still confirmed by the user:
 |---|---|---|
 | `git-push-branch` | `checkout branch target remote_branch expected` | Pushes local `branch`'s commit to `remote_branch` of the policy's `fork` or `upstream` repository, with `--force-with-lease=refs/heads/<remote_branch>:<expected>` and `--no-verify`. `expected` is the remote branch's current full SHA, or `new`. Run the pre-push checks in the sandbox first. |
 | `git-delete-fork-branch` | `checkout branch expected` | Deletes `branch` on the policy's `fork` (never upstream, never a protected branch) once its pull request has merged: the forge (`gh api repos/<upstream>/pulls?head=<fork owner>:<branch>&state=closed`) must report a merged pull request against the upstream repository whose head is that branch at exactly `expected`. A squash or rebase merge leaves the branch out of the base's history, so the forge's answer is the check. The deletion is leased on `expected`, so a branch pushed to since the merge is kept. |
-| `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
+| `git-push-pr-head` | `worktree branch number head_repo head_branch expected` | The maintainer-fixup push: fast-forwards `head_branch` of `head_repo`, the head of upstream pull request `number`, from `expected` (its full SHA) to local `branch`'s commit. The caller names the destination so the confirmation shows it, and the forge (`gh api repos/<upstream>/pulls/<number>`) must report that same head. Refused unless the pull request is open against the upstream repository, its head is still `expected`, `branch` adds at most 10 commits on top of `expected` and none of them is a merge, except one of the upstream `pr_base` (fetched by the operation; see `git-merge-upstream`), whose upstream commits do not count towards the 10 (so no other local history goes along, and nothing of the contributor's is rewritten), and the head branch is not protected; a head in a contributor's fork also needs the author to allow edits from maintainers, and one on the upstream repository an `upstream_push` glob. Leased on `expected`, `--no-verify`; run the pre-push checks in the sandbox first. |
 | `git-worktree-sync` | `worktree commit` | Moves a clean linked worktree's branch to `commit` with `git reset --keep`, and prints the commit it was on. |
 | `git-rebase` | `worktree onto expected` | Rebases the clean topic branch checked out in `worktree` (never a protected one) onto `onto`, a full SHA on the upstream `pr_base`: the operation fetches `pr_base` itself, from the policy's URL, and checks `onto` against the commit that fetch returned, never against a remote-tracking ref a sandboxed fetch could also write. `expected` is the branch's current full SHA, so a branch that moved after the user approved the call is refused, and one that moves while the rebase starts is put back where it was. A branch with merge commits over `onto` is refused, since a rebase would flatten them. Signing follows the user's global git configuration, and when that signs commits, every commit replayed must already carry the user's good signature (`%G?` is `G`, verified here, outside the sandbox): one made through `git-commit` or signed by the user, never one the agent committed unsigned in the sandbox. A user who does not sign gets no signature from the rebase and no such check. No recorded resolution (`rerere`), stash, editor or hook takes part. On a conflict it aborts, leaves the branch where it was, and names the conflicting paths: start a fresh branch on `onto`, replay the commits one by one with `git-cherry-pick`, and make the one that conflicts again in the sandbox and commit it with `git-commit`. |
 | `git-cherry-pick` | `worktree commit expected` | Replays one plain (non-merge) `commit` onto the clean topic branch checked out in `worktree` (never a protected one), at `expected`: the way to finish a rebase that conflicted, one commit at a time. Signing follows the user's global git configuration, and when that signs commits, `commit` must already carry the user's good signature, so an unsigned commit the agent made in the sandbox is never signed. No recorded resolution, editor or hook takes part. On a conflict it aborts and names the conflicting paths; a pick that landed on a branch or tip that moved after the checks is taken back off. |
+| `git-merge-upstream` | `worktree onto expected pr` | Merges `onto`, a full SHA on the upstream `pr_base` (fetched by the operation, as for `git-rebase`), into the clean topic branch checked out in `worktree` (never a protected one), at `expected`: for a branch whose history must stay as it is, such as a contributor's pull request. The merge commit has a fixed message (`Merge <upstream> <pr_base> into <branch>`) and is signed per the user's configuration. When that signs commits, the commits the merge vouches for must already carry the user's good signature: with `pr` set to `none` (the user's own branch), every commit not on upstream; with `pr` a pull request number, only the commits on top of that pull request's head, which the forge must report as open against the upstream repository and the branch must build on. The contributor's own commits are theirs, already published, and never carry the user's signature. No recorded resolution, stash, editor, merge log or hook takes part. On a conflict it aborts and names the conflicting paths; a merge that landed on a branch or tip that moved after the checks is taken back off. A contributor's branch then goes back with `git-push-pr-head`. |
 | `git-switch` | `worktree branch` | Switches a clean working tree (the main checkout or a linked worktree) to an existing local `branch`, with no hook. In the sandbox a switch fails half-way: the harness keeps `.claude/` settings, hooks and skills, the other harnesses' skill directories, `.mcp.json`, plugin manifests and the vetted-ops policy read-only (plus the policy's `harness_paths`), so git updates everything else and leaves those as local changes. Out here it can write them, so `branch` must not have changed any of them in its own commits: its version of every such file must be upstream's from where it left `pr_base`. Any branch that left them alone switches, however old. The upstream commit is asked of the policy's upstream URL during the call, never read from a local ref, the fork point must be reached from it through re-hashed parent links, and both trees are walked through objects re-hashed against their names (non-canonical tree modes refused), so neither a moved ref nor a forged object or history in the agent-writable `.git` counts. A branch checked out in another worktree is refused. Paths match at any depth, as a case-insensitive file system sees them (`.Claude/` is `.claude/`), and an entry that replaces a parent directory (a `.github` symlink) counts too. It checks out the commit it checked, detached, requires the index's harness entries to be the verified ones, hashes every harness file it wrote and puts back the verified content of any that differs, and attaches `branch` only if the branch still points there. |
+| `git-switch-create` | `worktree branch` | Creates a new topic `branch` (never a protected or an existing one) at upstream's `pr_base` as the policy's upstream URL reports it during the call, never a local ref, and switches the clean working tree to it with every check of `git-switch`; its harness files are upstream's, so nothing of the branch's own is there to refuse. A branch it could not switch to is deleted again. The way to start a change, or a fresh branch to finish a conflicting rebase on, in the main checkout. |
 | `git-worktree-add` | `checkout path branch start` | Creates a linked worktree at `path`, directly inside a `worktree_roots` directory, on a new `branch` at `start`. |
 | `git-worktree-remove` | `worktree` | Removes a linked worktree that has no changes (never `--force`). |
 | `git-stage` | `worktree paths_file` | Stages exactly the relative paths listed, one per line, in `paths_file` (a workspace file), with `--literal-pathspecs`: no glob or `:(magic)` widens the set, and nothing outside the worktree or under `.git` is accepted. At most 500 paths per call. |
 | `git-commit` | `worktree message_file` | Commits what is staged on the current branch (never a protected one, never `--amend`), message from `message_file` (a workspace file), with `--no-verify`. Signing follows the user's global git configuration. Refused unless `vetted-op-checks` passed every staged path, with the content it is staged with, in the sandbox: no hook runs out here, and nothing goes in unchecked. |
 | `git-fetch` | `checkout branch` | Fetches upstream `branch` into `refs/remotes/<upstream_remote>/<branch>` from the URL built from the policy, never from a remote the repository configures; no tags, no submodules. |
-| `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`). |
+| `git-pr-create` | `checkout branch title body_file` | Opens a pull request from `<fork owner>:<branch>` against `pr_base` of the upstream repository (`gh api … /pulls`). The `title` is a command-line parameter, so the confirmation the user approves shows the exact title that will be published; the body comes from a workspace file. Refuses a protected head branch, and any title or body holding a term the publication guard never lets out before disclosure (the list is generated from `magpie_vcs.publication.DEFAULT_TERMS`), except those the policy's `[git] published_terms` names: only a published record's identifier (`CVE id`, `CVE`), in a site repository's policy, and only when the forge's compare of the pushed branch against `pr_base` (`gh api …/compare/<pr_base>...<fork owner>:<branch>`, its head the local branch's commit) lists every changed file under `[git] published_paths`; otherwise the normal scan applies. |
 
 From a change to an open pull request, then, with each step confirmed:
 `git-worktree-add` (or `git-fetch` + `git-worktree-sync` to refresh one, or
@@ -910,6 +1101,29 @@ From a change to an open pull request, then, with each step confirmed:
 the sandbox, `vetted-op-checks <worktree> <workspace>/<paths-file>` in the sandbox,
 `git-stage` with the same paths file, `git-commit`,
 `git-push-branch … fork <branch> new`, `git-pr-create`.
+
+In a linked worktree whose git directory the sandbox cannot read (a worktree
+under `~/.cache/` of a checkout the sandbox denies), `vetted-op-checks` computes
+the blob ids itself, as `git hash-object --no-filters` would in a SHA-1
+repository (a SHA-256 one never matches, so `git-commit` refuses), and refuses
+when the worktree has a hook configuration: the hook manager runs git, which
+cannot open that git directory. A records site may opt out of its own hooks on
+this route: `[git] site_hooks = "skip"`, valid only in a policy that sets
+`published_paths` (never from `operator-git.toml`). Then `vetted-op-checks
+--skip-site-hooks` records the checks as `skipped: site hooks off by policy`,
+with the computed blob ids, and `git-commit` accepts that record only under
+such a policy; under any other it refuses. The site's CI still runs the hooks on
+the pull request, which changes only the records files.
+
+The read and write dispatchers take `--policy-from <absolute dir>` too, so
+`vetted-op-read --policy-from <site checkout> --save <name> repo-file <path> <base>`
+reads a site repository's file from the forge through its own policy.
+On every dispatcher the directory must be a `checkouts` entry of your own
+`operator-git.toml` (checked before anything on disk is looked at), the policy
+found there must be an approved copy, and its upstream's table must list that
+checkout: `vetted-op-read` runs without a prompt, so it must not be pointed at
+an arbitrary directory, to probe the host or to read through another project's
+policy. `approval-status` and `source` refuse the option.
 
 `vetted-op-checks` is the one vetted-ops command that runs *inside* the
 sandbox (no `excludedCommands` entry names it, and a test keeps it that way):
@@ -956,7 +1170,22 @@ host = "github.com"
 # list (.claude, .agents, .codex, .gemini, .github/skills, .mcp.json, .claude-plugin,
 # the vetted-ops policy layers): git-switch writes only upstream's version of them.
 harness_paths = ["tools/agent-settings.template.json"]
+# Never-publish terms git-pr-create lets through: only "CVE id" and "CVE", and only in the
+# policy of a site repository whose pull requests add records already public. Default: none.
+# published_terms = ["CVE id", "CVE"]
+# Required with published_terms: relative path prefixes (no globs, no ..) the exemption is
+# bound to. It applies only to a branch whose every changed file, as the forge lists it, is under one.
+# published_paths = ["content/security/json"]
 ```
+
+The policy is discovered from the working directory, or from the absolute
+directory `--policy-from <dir>` names (`vetted-op-git --caller <skill>
+--policy-from <dir> <operation> …`), which must be a checkout your
+`operator-git.toml` lists for the repository the policy there names. Either way
+only an approved policy acts, so the option widens nothing; it lets a session in the tracker repository reach the
+site repository's own policy without leaving its working directory (a `cd` into
+the site checkout would put the command back in the sandbox), and the confirmation
+shows which policy the call uses.
 
 Where your clones, worktrees and fork are differs per person, so it does not belong in a policy everyone commits and approves.
 Each operator keeps those values in `~/.config/apache-magpie/vetted-ops/operator-git.toml`, one table per upstream repository, picked by the policy's `[repos] upstream`:
@@ -978,7 +1207,7 @@ protected = ["my-wip-*"]
 ```
 
 That directory is outside every repository and every sandbox-writable root, and `Edit`-denied, so the file needs no separate approval step: only you put it there.
-Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`, `harness_paths`) is refused, so nothing in it widens what the shared policy allows.
+Its tables may set only `checkouts`, `fork`, `worktree_roots`, `upstream_remote`, `transport` and `protected`; a project key there (`upstream_push`, `pr_base`, `host`, `harness_paths`, `published_terms`, `published_paths`) is refused, so nothing in it widens what the shared policy allows.
 Its values win over the same keys in the policy, which keeps an older policy that still carries them working.
 The file is never one of the approved policies, even byte-for-byte.
 With neither source naming a value for the upstream, every git operation refuses, and skills fall back to handing over the commands.
@@ -1077,6 +1306,13 @@ anything still invoked directly:
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    // The private-tracker batches (see "Batches of private-tracker writes"): never allow.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *)",
+    // The unprompted twin runs only a `none` policy. An adopter whose policy sets
+    // private_tracker_writes = "none" may move these two, and only these, to allow.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *)"
   ],
@@ -1112,6 +1348,10 @@ fails the same way:
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker-batch-unprompted *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-git *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
@@ -1132,6 +1372,15 @@ the tracker procedures, and their runner refuses any `gh` call outside
 `repos/<tracker>/`. The repositories both write to come from the policy, which is
 why both keep their `ask` (never `allow`); `sandbox-lint` fails an excluded write
 dispatcher that has lost its `ask` rule.
+
+`vetted-op-tracker-batch-unprompted` is the one exception, and only by the adopter's choice.
+It runs nothing but a checked manifest of private-tracker writes, on a tracker the forge confirms is private,
+and only under a policy that sets `[approval] private_tracker_writes = "none"`,
+so a project whose approved policy says `none` may move its two rules from `ask` to `allow`.
+`vetted-op-tracker-batch` never moves: it also runs `batch` policies, whose adopters asked for a prompt.
+`sandbox-lint` accepts `ask` or `allow` for the unprompted dispatcher, fails it excluded with neither,
+and treats `vetted-op-tracker-batch` like every other write dispatcher.
+What `none` gives up is in [the batch design note](https://github.com/apache/magpie/blob/main/docs/designs/2026-11-26-vetted-ops-batch-tracker-writes.md#how-approval-maps-to-harness-prompts).
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook
@@ -1178,10 +1427,10 @@ layer.
 
 Codex loads the plugin’s Claude-compatible `SessionStart` hook after hook trust review.
 The shared stable path remains `~/.claude/magpie/vetted-ops`; no Claude runtime is needed.
-Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules (absolute path only, never `~`), then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+Run `vetted-ops-codex-rules` from the installed tool to print twelve native prefix rules (absolute path only, never `~`), then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
 Run `vetted-ops-codex-rules --hook` to print the Codex-only PreToolUse hook that rewrites a lone `vetted-op-read` call in the `~` spelling skills use to that path before the rules see it (writes and compound commands are never rewritten); review it and add it to `~/.codex/config.toml` — never to Claude Code, which reads its `allow` as a permission grant.
 The renderer only prints; it never edits user policy.
-Both supported launchers allow only `vetted-op-read` and prompt `vetted-op` and `vetted-op-tracker`.
+Both supported launchers allow only `vetted-op-read` and prompt `vetted-op`, `vetted-op-tracker`, `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted` and `vetted-op-git`.
 Paths are absolute, with no version glob or general `uv` allow rule.
 
 These native rules provide Codex’s approval path for networked reads; they do not create a sandbox exclusion or a file-write deny.

@@ -163,7 +163,7 @@ class Runner:
         if argv[1] == "issue":
             if argv[2] not in _ISSUE_SUBCOMMANDS:
                 raise RunnerRefused(f"gh issue {argv[2]!r} is not a procedure call")
-            if len(argv) < 4 or not NUMBER.match(argv[3]):
+            if len(argv) < 4 or not NUMBER.fullmatch(argv[3]):
                 raise RunnerRefused("gh issue call must name an issue number")
             repo_flags = [i for i, a in enumerate(argv) if a in ("--repo", "-R")]
             if len(repo_flags) != 1 or repo_flags[0] + 1 >= len(argv):
@@ -340,7 +340,7 @@ def _rest_id(r: Runner, comment: dict[str, object]) -> str:
     if match:
         return match.group(1)
     node_id = str(comment.get("id") or "")
-    if not _NODE_ID.match(node_id):
+    if not _NODE_ID.fullmatch(node_id):
         raise ProcedureRefused(f"rollup comment has neither a URL id nor a usable node id: {node_id!r}")
     out = r.read(
         [
@@ -353,7 +353,7 @@ def _rest_id(r: Runner, comment: dict[str, object]) -> str:
         ]
     )
     ids = out.strip().splitlines()
-    if not ids or not DATABASE_ID.match(ids[0]):
+    if not ids or not DATABASE_ID.fullmatch(ids[0]):
         raise ProcedureRefused(f"could not map node id {node_id!r} to a REST id")
     return ids[0]
 
@@ -473,7 +473,7 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
     # The fetched comment's own id, not the caller's spelling of it, decides
     # identity and is what gets deleted.
     comment_id = str(legacy.get("id") or "")
-    if not DATABASE_ID.match(comment_id):
+    if not DATABASE_ID.fullmatch(comment_id):
         raise ProcedureRefused(f"rollup comment has no usable id: {comment_id!r}")
     rollup = _find_rollup(r, _list_comments(r, number))
     if rollup is None or _rest_id(r, rollup) == comment_id:

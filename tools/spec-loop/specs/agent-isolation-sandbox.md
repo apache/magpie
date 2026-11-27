@@ -82,6 +82,17 @@ See `docs/adapters/harnesses/goose.md`.
 
 - `tools/agent-isolation/` — the harness (clean-env wrapper +
   sandbox profiles).
+- `tools/agent-isolation/agents/magpie-gatherer.md` — the read-only
+  Claude Code agent `pr-management-code-review`'s prefetch and
+  `pr-management-stack-review`'s layer readers fan out into where it is
+  installed (the security bulk agents still need raw `gh`, Gmail and
+  writes, so they stay `general-purpose`): no write tool, no MCP tool,
+  `vetted-op-read` as its only Bash, enforced by a frontmatter `PreToolUse`
+  hook that denies any other command, chaining, redirection, `--config` and
+  `--save` (`tools/agent-isolation/tests/test_gatherer_agent.py`). Installed
+  at user scope by install Step V.2 (a plugin agent's hooks are ignored)
+  with `Edit(~/.claude/agents/**)` denied, kept read-only by verify check
+  21, diffed by update; the secure-setup fingerprint counts its Markdown.
 - `tools/agent-isolation/gpg-touch-overlay.sh` (+ the two window
   scripts) — the hardware-key touch overlay: a window on screen while a
   signing key or ssh authentication key with a touch policy blocks
@@ -184,6 +195,11 @@ See `docs/adapters/harnesses/goose.md`.
   `OVERLAY_UNANSWERED`, could not be drawn, or crashed) is no dismissal and
   is shown again after `RESHOW_DELAY` while the signature still blocks
   (#1832).
+  Inside a Claude Code session (`CLAUDECODE=1`) the wrapper stands aside
+  only while a hook-armed watcher for that session
+  (`CLAUDE_CODE_SESSION_ID`) is actually alive: a command the user types
+  with the `!` prefix sets the same variable but fires no hook, so the
+  wrapper draws the window itself (#2218).
   The matcher arms for every git that can reach the key — global options
   with quoted values, git or ssh named by path or passed to a shell as a
   string, remote-talking subcommands beyond fetch and push (`lfs`,
@@ -340,6 +356,19 @@ See `docs/adapters/harnesses/goose.md`.
   anyway: they spell `~` literally, which the read block cannot check, so
   install Step V.1 requires it off where vetted-ops is used (#1640; see
   [`vetted-command-surface.md`](vetted-command-surface.md)).
+  With `--all-worktrees` run from a main checkout (its `.git` a real
+  directory, the git environment stripped), it also adds that checkout's
+  `.apache-magpie-local/`, `.claude/settings.json` and
+  `.claude/settings.local.json` to each linked worktree's `allowRead`, never
+  `allowWrite`, because a linked worktree inherits that personal layer and
+  loads those settings first (#2372). The main checkout is never derived
+  from a worktree's sandbox-writable `.git` file, so the single-worktree
+  mode adds none. A path that is a symlink, or sits under one, or does not
+  exist yet, is not granted, and every run, in either mode, drops an
+  inherited grant whose path has since become a symlink. Between runs, the
+  setup pre-flight's `machine` finding `inherited-path-symlink` reports such
+  a swap in a linked worktree and hands the user the commands to check the
+  link and refresh the grants, never touching the link itself.
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at
@@ -390,6 +419,21 @@ See `docs/adapters/harnesses/goose.md`.
   points `PREK_HOME` at `~/.local/share/prek-host` and `XDG_CACHE_HOME`
   at `~/.local/share/prek-host/cache`, keeping an operator's own value
   outside `~/.cache`.
+  pre-commit takes lefthook's `hide-global-config` strategy (#1820) and
+  has a home the committed settings cannot carry: `PRE_COMMIT_HOME`
+  reaches `os.path.realpath` unexpanded, so a `~` value would resolve
+  under the session's working directory.
+  The settings keep no `env` entry for it (an absolute path is per
+  machine), `Edit(~/.cache/pre-commit/**)` denies the default home, and
+  `sandbox-add-project-root.sh` writes the resolved sandbox home
+  `~/.cache/pre-commit-sandbox` into the project-local
+  `.claude/settings.local.json` for a repository that uses pre-commit —
+  filling a gap only, never replacing a value the operator set there —
+  and removes that value again from a repository that does not.
+  Detection counts an installed hook only when it carries
+  `https://pre-commit.com`, the URL pre-commit writes into its generated
+  hook; a `prek` hook mentions `--hook-type=pre-commit` and would otherwise
+  match.
   pnpm gets the same split without being a hook manager: a pnpm
   project's own settings `env` (never the shared template, since npm
   warns about unknown `npm_config_*` names) sets `PNPM_HOME` to a
@@ -428,7 +472,8 @@ See `docs/adapters/harnesses/goose.md`.
   `registry.json` registers prek (install strategy `git-dir-flag`),
   overcommit (`hooks-path-env`, with `install.runtime_env` so the
   dispatcher exports the same `core.hooksPath` at run time), lefthook
-  (`hide-global-config`, no home), captainhook (`hooks-path-env`, #1899),
+  (`hide-global-config`, no home), pre-commit (`hide-global-config`, home
+  from the helper, #1820), captainhook (`hooks-path-env`, #1899),
   plus four
   managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:
@@ -691,6 +736,26 @@ The reference model is four layers, layered:
    `setup_preflight/organization_network.py` ignores comments, fences and
    examples, treats anything else as not ASF, and refuses a fragment whose
    grants differ from the reviewed set.
+   Antigravity has no project-scoped rule file, so `agent-iso agy` applies
+   the same selection per session: for an explicit ASF checkout it runs the
+   selector from agy's own installed Magpie plugin
+   (`~/.gemini/config/plugins/magpie/`, its real path inside that directory),
+   whichever wrapper copy is sourced, with a stripped environment
+   and no site-packages, a `python3` whose real path is outside the checkout,
+   the launch directory and the directories above it (home, its parents and
+   system install locations aside), temporary directories and `~/.cache`
+   (never one from the checkout or an agent-writable cache), finds the
+   checkout root by the nearest `.git` without running `git`, accepts only
+   the reviewed host list, fails
+   closed on an unreadable user profile or a rule it cannot anchor, and passes
+   the hosts as `read_url(...)` rules with `agy --settings`, together with the
+   user-scope `allow` / `ask` / `deny` lists and sandbox switches, nothing
+   written to Antigravity's settings. The user approves it once per checkout:
+   the first launch asks on the terminal (default yes) and records the answer
+   in `~/.gemini/config/magpie-agy-asf`, under the directory the shipped
+   profile denies agents writing, outside every checkout; with no
+   terminal and no answer there is no grant. `AGENT_ISO_ASF=1` grants without
+   asking, `AGENT_ISO_ASF=0` or a user-supplied `--settings` skips it (#2003).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,

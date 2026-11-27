@@ -27,7 +27,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -38,7 +37,7 @@ SANDBOX_SCRATCH = ("/tmp/claude", "/private/tmp/claude")
 
 
 def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: Path | None = None,
-        dry_run: bool = True, payload: str | None = None) -> subprocess.CompletedProcess[str]:
+        dry_run: bool = True, payload: str | None = None, trace: bool = False) -> subprocess.CompletedProcess[str]:
     # The harness under test sets CLAUDE_PROJECT_DIR on hooks; never inherit the one running these tests.
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CODE_TMPDIR", "CLAUDE_PROJECT_DIR")}
     if dry_run:
@@ -50,7 +49,9 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
     env.update(env_extra or {})
     if payload is None:
         payload = json.dumps({"cwd": str(cwd)})
-    return subprocess.run(["/bin/bash", str(SCRIPT), action], input=payload,
+    if trace:
+        env["PS4"] = "+ "
+    return subprocess.run(["/bin/bash", *(["-x"] if trace else []), str(SCRIPT), action], input=payload,
                           capture_output=True, text=True, env=env, cwd=cwd, check=False, timeout=60)
 
 
@@ -977,7 +978,7 @@ def test_a_planted_bare_repository_is_not_discovered(tmp_path: Path) -> None:
 # --- ensure: waiting for the gateway it started ---
 
 _FAKE_GATEWAY = '''
-import json, os, sys, time
+import json, os, sys
 ctl = os.environ["FAKE_GW_DIR"]
 mode = open(os.path.join(ctl, "mode")).read().strip()
 cmd = sys.argv[1]
@@ -986,7 +987,7 @@ with open(os.path.join(ctl, "calls"), "a") as log:
 started = os.path.join(ctl, "started")
 if cmd == "serve":
     if mode != "never":
-        open(started, "w").write(str(time.time()))
+        open(started, "w").write("0")
     sys.exit(0)
 if cmd == "status":
     if mode == "already":
@@ -994,11 +995,12 @@ if cmd == "status":
     elif not os.path.exists(started):
         state = "down"
     else:
-        age = time.time() - float(open(started).read())
+        poll = int(open(started).read()) + 1
+        open(started, "w").write(str(poll))
         if mode == "dies":
-            state = "starting" if age < 0.3 else "down"
+            state = "starting" if poll == 1 else "down"
         else:
-            state = "starting" if age < 0.6 else "serving"
+            state = "starting" if poll <= 2 else "serving"
     print(json.dumps({"running": state != "down", "serving": ["docker"] if state == "serving" else []}))
     sys.exit(0 if state != "down" else 3)
 '''
@@ -1013,37 +1015,54 @@ def _fake_gateway(lay: Layout, mode: str) -> Path:
     return ctl
 
 
-def _ensure_for_real(lay: Layout, ctl: Path) -> tuple[subprocess.CompletedProcess[str], float, list[str]]:
+def _ensure_for_real(lay: Layout, ctl: Path) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     env = {"CLAUDE_PROJECT_DIR": str(lay.project), "FAKE_GW_DIR": str(ctl)}
-    began = time.monotonic()
     done = run("ensure", lay.project, env, home=lay.home, dry_run=False,
-               payload=bash_payload(lay.project, "docker ps"))
+               payload=bash_payload(lay.project, "docker ps"), trace=True)
     calls = (ctl / "calls").read_text().split() if (ctl / "calls").exists() else []
-    return done, time.monotonic() - began, calls
+    return done, calls
+
+
+def _poll_sleeps(done: subprocess.CompletedProcess[str]) -> list[str]:
+    """The real wait intervals, without charging subprocess startup to them."""
+    return [line.removeprefix("+ sleep ") for line in done.stderr.splitlines()
+            if line.startswith("+ sleep ")]
 
 
 def test_ensure_leaves_a_serving_gateway_alone(tmp_path: Path) -> None:
     lay = Layout(tmp_path)
-    done, _, calls = _ensure_for_real(lay, _fake_gateway(lay, "already"))
+    done, calls = _ensure_for_real(lay, _fake_gateway(lay, "already"))
     assert done.returncode == 0 and calls == ["status"]
+    assert _poll_sleeps(done) == []
 
 
-def test_ensure_waits_until_the_gateway_serves(tmp_path: Path) -> None:
+@pytest.mark.parametrize("ps4", ["+ ", "+ [$LINENO] ", "++ "])
+def test_ensure_waits_until_the_gateway_serves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ps4: str
+) -> None:
     """Holding the pid lock is not serving: the wait ends only once a backend socket is bound."""
+    monkeypatch.setenv("PS4", ps4)
     lay = Layout(tmp_path)
     ctl = _fake_gateway(lay, "slow")
-    done, elapsed, calls = _ensure_for_real(lay, ctl)
-    assert done.returncode == 0 and calls[:2] == ["status", "serve"]
-    assert elapsed >= 0.6 and calls.count("status") >= 3
+    done, calls = _ensure_for_real(lay, ctl)
+    assert done.returncode == 0, done.stderr
+    assert calls == ["status", "serve", "status", "status", "status"]
+    assert _poll_sleeps(done) == ["0.2"] * 2
 
 
 @pytest.mark.parametrize("mode", ["dies", "never"])
 def test_ensure_stops_waiting_for_a_gateway_that_is_gone(tmp_path: Path, mode: str) -> None:
-    """No backend (the gateway exits) or no start at all must not stall every container command for 5 s."""
+    """Stop at the first observed exit, or after five polls with no start.
+
+    Assert the hook's actual polling sequence, not total elapsed time:
+    interpreter validation and scheduling are not gateway waiting.
+    """
     lay = Layout(tmp_path)
-    done, elapsed, calls = _ensure_for_real(lay, _fake_gateway(lay, mode))
-    assert done.returncode == 0 and "serve" in calls
-    assert elapsed < 3
+    done, calls = _ensure_for_real(lay, _fake_gateway(lay, mode))
+    assert done.returncode == 0, done.stderr
+    polls = 2 if mode == "dies" else 5
+    assert calls == ["status", "serve", *(["status"] * polls)]
+    assert _poll_sleeps(done) == ["0.2"] * (polls - 1)
 
 
 def test_a_settings_fifo_refuses_without_blocking(tmp_path: Path) -> None:

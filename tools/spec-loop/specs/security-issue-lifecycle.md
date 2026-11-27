@@ -50,8 +50,18 @@ publication, with a human gate and an audit-log entry at every step.
   `index.json` plus `evidence/<id>.md`, printing counts only, and refuses
   triage unless `checks.complete` holds (preamble totals, severity
   banners, `INDEX`, parsed blocks and signature agree).
-  Attachments are saved byte-exact with their OpenPGP framing checked,
-  never decrypted or run.
+  Attachments are saved byte-exact with their OpenPGP framing checked.
+  The encrypted findings archive is always opened when the mail ships
+  one: `open-archive` decrypts it in the sandbox with `gpg` under a
+  throwaway `GNUPGHOME` (passphrase from a scratch file, on a pipe,
+  `DECRYPTION_OKAY` required) and unpacks it with `tarfile`'s `data`
+  filter after refusing links, special files, absolute and `..` paths
+  and oversize or over-long archives; `parse-email --archive-dir` then
+  links each finding's `REPORT.md`, patches and reproducer files and
+  lists unlisted reports (previously sent, related) as `other_reports`,
+  and triage reads those full reports, never the mail's one-line
+  summaries. Nothing from the archive is run, built or applied, and
+  `discard-archive` deletes the opened copy at the end of the run.
   A report built from such a private source stays a local file: no gist
   and no per-source post before disclosure.
   `security-issue-import-via-forwarder` is the relay sub-skill: handles
@@ -59,6 +69,7 @@ publication, with a human gate and an audit-log entry at every step.
   third-party disclosure platform) by applying preamble-detect,
   credit-extract, and routing rules declared in
   `tools/forwarder-relay/`; never mutates tracker state on its own.
+- **Local security triage queue pane (additive, Claude Code):** `plugins/magpie-security/hooks/security-triage-queue-pane.ts` provides a local-only `/magpie-security-queue` command (`$.fs.read` + `$.ui.open`) and interactive `Pane` UI with `[Sync]`, `[Allocate CVE]`, and `[Triage]` launcher buttons that stage commands to `.magpie-security-triage-action.json` under strict workspace confinement (Part 1; skill-side emission of `.magpie-security-triage-queue.json` is deferred to Part 2). On other harnesses or when the mod is absent, security triage skills continue normally.
 - Skill files live at `plugins/magpie-security/skills/<alias>/SKILL.md`
   (alias drops the `security-` prefix, e.g. `issue-import`), reached
   from `skills/security-<name>` symlinks.
@@ -109,6 +120,9 @@ publication, with a human gate and an audit-log entry at every step.
   at 30 hits), and renders the title, body (sentinels, bot author left
   `_No response_`), labels, rollup entry and recap; the milestone
   choice, title paraphrase and *Affected versions* stay with the model.
+  For `security-issue-import` its `title` command strips the mail prefixes
+  and returns the title's `length`; over 100 characters the skill proposes
+  a shorter title instead.
   For `security-issue-import-from-md` it parses the findings file
   (`not-a-findings-file` on another shape, `UNKNOWN` severity and
   `<upstream>` fallback with warnings), cleans the search keyword, and
@@ -140,7 +154,7 @@ publication, with a human gate and an audit-log entry at every step.
   or an unknown canned heading refused), replaces bare names, parses the
   Step 5 reply (nothing posts by default; edits and re-classifications
   are re-drafted before posting) and renders the recap; classification,
-  the Security Model quote, precedent rating, routing candidates and
+  choosing the Security Model passage, precedent rating, routing candidates and
   injection flagging stay with the model.
   For `security-issue-invalidate` it parses the selector (single, list,
   `proposed` with its 1000 cap and batched read), checks team consensus
@@ -162,7 +176,9 @@ publication, with a human gate and an audit-log entry at every step.
   label unless it is the override already wired in, `duplicate`, not
   exactly one scope label, an undecided field; `needs triage` warns only
   when nothing blocks), strips the title by the project's names and
-  tracker prefixes (an over-strip warning under 3 words), maps the API
+  tracker prefixes (an over-strip warning under 3 words, and a length
+  warning over the title's budget: 100 characters, less when the CVE tool's
+  product prefix leaves less of the record's 256), maps the API
   pre-flight and allocation exits to the next step (never re-running an
   allocation on its own), renders the API proposal, the self-service
   recipe or a non-member's terse relay, takes the one CVE ID from the
@@ -211,7 +227,8 @@ publication, with a human gate and an audit-log entry at every step.
   lists flagged), writes the batched pre-flight read and applies the
   no-op rule table (never skipping an explicitly named tracker), sorts
   the subagent reports into the CVE-affecting and non-CVE-affecting
-  buckets (the `allocated → review-ready` push riding the latter), parses
+  buckets (the `allocated → review-ready` push riding the latter), collapses
+  many team nudges into one state-summary email to the private list, parses
   the single and bulk confirmation forms, checks the proposal's surfaces
   against the Guardrails (reporter CVSS, other ASF projects, link forms)
   and renders the recap. It also resolves the security CC through the
@@ -228,8 +245,11 @@ publication, with a human gate and an audit-log entry at every step.
   sync (every advisory comment copied into the tracker; only comments the
   team marks for the reporter proposed for the advisory), and walks the
   Step 5b push flow,
-  checking the title, upgrade-target and CWE gates itself and taking the
-  four judged gates as the model's verdicts. A state fetch that fails after
+  checking the title, title-length, upgrade-target and CWE gates itself and
+  taking the four judged gates as the model's verdicts; the title-length
+  gate reads the record generator's `--report-json` and the JSON's own
+  title, blocks over 256 characters (bare or posted with the product
+  prefix), and returns a title over 100 in `warnings` on every answer. A state fetch that fails after
   the push is a recap blocker that posts nothing about the hand-off that run.
   The stage-specific Step 2b bullets live in `release-manager-comments.md`
   and `post-advisory-records.md`, read when `signals-to-actions.md` says so.
@@ -273,8 +293,26 @@ publication, with a human gate and an audit-log entry at every step.
   succeeded, and `body-field-get` / `body-field-set` replace whole-body
   rewrites that touched one field; sync keeps a whole-body write only
   where it adds sections the body lacks.
+  The CVE JSON block is regenerated without `gh` in the sandbox too
+  (sync's Step 5, cve-allocate's item 4, deduplicate's item 6): vetted
+  `issue-view` and `collaborators` reads saved to the workspace,
+  `generate-cve-json --issue-json … --collaborators … --attach
+  --output-body …` on them, and the vetted `issue-edit-body` write.
   Each skill notes once how to run the same operations without the
   secure setup, through the `github-rollup` and `github-body-field` CLIs.
+- When the approved vetted-ops policy turns batching on
+  (`[approval] private_tracker_writes = "batch"` or `"none"`), the bulk
+  tracker writes of `security-issue-sync` bulk apply,
+  `security-issue-import` Step 7 and `security-issue-import-from-scan`
+  Step F go through one checked manifest per phase
+  (`vetted-op-read batch-check`, then `vetted-op-tracker-batch`, or
+  `vetted-op-tracker-batch-unprompted` under `none`), one
+  confirmation per batch; an import runs two batches (the creates, then
+  board moves and rollup entries on the new numbers). Gmail drafts, CVE-tool
+  pushes, advisory comments and public comments stay one confirmation each,
+  and the batch entry point refuses them by name. With the default `each`
+  the skills write one call at a time, as before (see
+  [vetted-command-surface.md](vetted-command-surface.md)).
 - Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),
   `tools/cve-org`, `tools/gmail` + `tools/ponymail` (mail), and the
   `tools/privacy-llm` gate/redactor ([the privacy gate](privacy-llm-gate.md)).
@@ -475,6 +513,31 @@ publication, with a human gate and an audit-log entry at every step.
   policy-approved labels apply at creation (#1982).
   A failure stops the import and never falls back to raw `gh`, and a
   non-GitHub tracker keeps its backend's `issue-create`.
+- **Security Model quotes in a triage proposal are checked against the model (#2220).**
+  `security-issue-triage` fetches and caches the model once (Step 2.5) and passes that copy to
+  `render-proposal` as `model_file`, with `model_url`.
+  Every quote in the summary that links to `model_url` must appear verbatim in `model_file`,
+  up to inline markup, quote style and whitespace (`[...]` splits a quote into fragments matched in order);
+  a quote the model does not contain, or a model link with no `model_file`, is refused,
+  and the output lists `model_quotes_verified`.
+  Subagents return section names, never quotes, and a sentence an earlier proposal or tracker comment
+  attributed to the model is never a source.
+- **Private-tracker comments go through vetted-ops (#2217).**
+  `security-issue-triage` posts each confirmed proposal, and `security-issue-import` its rejections-ledger
+  record, with `vetted-op --caller <skill> issue-comment <N> <file>`, the body written to the vetted-ops
+  workspace; never raw `gh issue comment` or `gh api …/comments`, which the agent guard blocks.
+  The import adds a new tracker to the board with `board-item`, then `board-add-item` only when it is not
+  already there, and `board-set-status … "Needs triage"`.
+  A refusal naming the caller means the policy lacks that grant: the skill names the grant to add and never
+  borrows another skill's caller (triage stops; import finishes the rest of the run).
+- **Fix PRs are published through the vetted git operations (#2228, #2304).**
+  `security-issue-fix` stages, commits, pushes and opens the `<upstream>` PR with
+  `vetted-op-git` (`--caller security-issue-fix`), following the shared `vetted-git-publish` block,
+  each call confirmed by the user.
+  `git-pr-create` targets the policy's `pr_base` and refuses a title or body holding a never-publish term,
+  a second backstop behind 5c; a PR against another base (a backport branch) or a project with no `[git]`
+  values configured opens with `gh pr create --web` instead
+  ([vetted command surface](vetted-command-surface.md)).
 - **Import dedup searches follow a provisional class.**
   `security-issue-import` Steps 2a and 2c skip their searches for a
   candidate whose provisional class, read from the root message, is
@@ -484,12 +547,15 @@ publication, with a human gate and an audit-log entry at every step.
   mail-thread scan (`dedup-index`) matches an archive thread id before
   prose, so a trailing note, markdown link, autolink or comma does not hide
   a tracked thread and a second tracker is not proposed (#1750).
-- **Scan patches attach to new trackers.** `issue-import-from-scan`
-  lists each finding's `patches/<n>.patch` files and
-  `render-patch-comment` posts them as collapsed `diff` blocks under an
-  untested-and-private warning, split across comments under GitHub's
+- **Scan evidence attaches to new trackers.** `issue-import-from-scan`
+  lists each finding's `patches/<n>.patch` and reproducer files, and
+  for every import-as-tracker finding the default apply posts one
+  private comment from `render-patch-comment`: the operator-confirmed
+  verdict, then the reproduction steps from `REPORT.md`, each reproducer
+  file and each candidate patch as collapsed blocks under an
+  untested / do-not-run warning, cut with a note to stay under GitHub's
   limit (#1896). Archive reads never follow a symlink out of the scan
-  folder, and patches open with `O_NOFOLLOW` (#1916).
+  folder, and archive files open with `O_NOFOLLOW` (#1916).
 - **Invalidate can keep labels.** `invalidate.keep_labels` in `project.md`
   (`scope`, `pr`, or literal names) drops those labels from the removal
   command and reports them as `labels_kept`; `needs triage` is always
@@ -591,6 +657,19 @@ publication, with a human gate and an audit-log entry at every step.
   (to drop a reference that must no longer appear) and
   `--allow-product-change` (only while the record is still `DRAFT`) are
   used only after the user confirms.
+- **Many team nudges become one state summary.**
+  A team nudge is the per-tracker comment `security-issue-sync` proposes when a triage proposal or a question to named team members has gone unanswered for `nudge_after_days` (default 7).
+  In bulk mode, when at least `nudge_summary_threshold` trackers (default 5; `off` never) would get one, none does:
+  `issue-sync nudge-summary` collapses them and the run proposes one plain-text state-summary email instead, grouped as needs a decision, fix work needed, in flight, waiting on the release manager, and upcoming deadlines.
+  It goes only to the private `<security-list>` (a missing or public address is refused), as a new thread, never sent;
+  it is rendered after the apply and the end-of-sync sweep, confirmed like any other draft, and carries only each tracker's title with its full URL, the one-line question, names without `@`, release titles and dates.
+  A handle in the operator's `do_not_ping` (the personal `user.md`, never committed config) is never named, and nothing shows that anyone was left out.
+  Only `all` or an explicit `summary` in the bulk reply keeps it (an empty reply is ambiguous); once kept, the post-apply rendering keeps the collapse even if the apply left fewer candidates.
+  It counts pre-flight-skipped trackers from their pre-flight data, lists no closed, announced or closing-disposition tracker, scrubs record IDs, bare references and `@` from titles and questions, uses only the tracker's own URLs, and is never created while its check is not clean.
+  The single-tracker nudge is a standalone comment behind a `team-nudge` marker, posted at most once per question.
+  The recap reports how many nudges the draft replaced.
+  The threshold and `nudge_after_days` live in the `security-issue-sync.md` override file
+  ([design](../../../docs/designs/2026-11-26-issue-sync-bulk-summary-email.md)).
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where
@@ -628,6 +707,16 @@ publication, with a human gate and an audit-log entry at every step.
   A re-rendered hand-off comment keeps the release manager's tick, and a
   ticked box keeps later runs quiet. The reminder links the project's
   pages through the optional `security_pages_url` manifest key (#1355).
+  A project without `security_pages_url` (unset, empty or `TODO`) has no page to update (#2219):
+  the hand-off comment drops the whole security-pages block and its checklist item, and
+  `issue-sync closed-announced`, given `security_pages_configured: false`, reports
+  `security_pages: not_configured` and never proposes the reminder;
+  a caller that omits the flag keeps the reminder.
+  `/magpie-setup:setup config` asks whether the project has a security page.
+- **Import records *Affected versions* in a shape the generator accepts.**
+  `security-issue-import` writes `<version>`, `< Y`, `<= Y`, `>= X` or
+  `>= X, < Y`; several tested versions become `<=` the highest one, never a
+  comma-separated list, which `generate-cve-json` refuses (#2300).
 - **Sync state markers are read from comments only (#1716).**
   `issue-sync closed-announced` decides "records done", "pages ticked" and
   "reporter notification drafted" from the tracker's comments, never its
@@ -646,7 +735,9 @@ publication, with a human gate and an audit-log entry at every step.
   the `magpie-vcs` commands; sync proposes them as one item and runs them only
   on confirmation, then posts an `advisory-records` marker comment with the
   ticked checklist item. The planner refuses before publication, is
-  idempotent, escapes tracker text, and refuses a page it cannot parse. The
+  idempotent, escapes tracker text, and refuses a page it cannot parse. Its
+  reported, public and per-version release dates must name a real day, not
+  only match `YYYY-MM-DD` (#2294). The
   reminder never fires for such a project. `magpie-vcs` gains `update` and
   `checkout` for it.
   With `publish: pull-request` (Git), the operator instead commits on a new
@@ -655,6 +746,43 @@ publication, with a human gate and an audit-log entry at every step.
   request's URL, an open or merged one found by its branch is never opened
   twice, and a later sync posts an `advisory-records-merged` comment with the
   ticked checklist item once it merges (a closed one is a blocker).
+  The record goes to the site when the advisory is announced, not when
+  cve.org lists it: the *advisory archived* combined apply gains a step that
+  runs the planner with `--announced-url <archive URL>` (the gate: the record
+  carries that URL as its `vendor-advisory` reference) on the record the
+  apply has just regenerated and pushed, confirmed with that batch. The
+  Step 1g pass then catches trackers announced without it, and, once cve.org
+  lists a CVE the site already records, reads the site's copy, re-runs the
+  planner against it and proposes a refresh only when the content differs
+  (`recheck` → `site_recheck` → `recheck_unchanged`, `refresh`,
+  `recheck_unverified` or `retry_recheck`). The planner's `--recheck`
+  compares contents: a JSON file must equal the rendered record and a page
+  entry the rendered entry, else `unverified`, a blocker never reported as
+  matching. A refresh pull request is followed like the first one (open
+  waits, merged asks for an `advisory-records-refresh-merged` comment, closed
+  unmerged proposes the refresh again on a numbered branch); an
+  `advisory-records-recheck` or `advisory-records-refresh-merged` comment ends
+  the check.
+  Under the secure setup, pull-request mode publishes through `vetted-op-git`
+  (`--vetted-git`), planned from the forge (`vetted-op-read --policy-from
+  <site checkout> repo-file|repo-tree --save`, then `--from-saved`,
+  `--site-absent` for a 404, or `--site-listing`; an unanswered path is
+  refused), never from the site checkout, which the sandbox cannot
+  read: `git-fetch` (its printed commit is the start SHA), `git-worktree-add`
+  into a sandbox-writable worktree root, the planner's `--apply` and
+  `vetted-op-checks` in the sandbox (blob ids computed in-process; a site
+  with a hook configuration falls back to the hand-over, after removing the
+  worktree and its branch when they exist, unless its policy
+  opts in with `[git] site_hooks = "skip"`, which records the hooks as
+  skipped and adds a line to the PR body saying the site's CI checks it), `git-stage`, `git-commit`, `git-push-branch` to the fork and
+  `git-pr-create`, each with `--caller security-issue-sync --policy-from
+  <site checkout>`, acting on the site repository's own approved policy; the
+  `magpie-vcs` and `gh pr create` commands remain the fallback. The commit
+  message ends with the project's commit-attribution trailer
+  (`--commit-trailer`, or `--no-commit-trailer`), else the framework's
+  `Generated-by: <agent name and version>` (`--agent`); one is required.
+  `--backfill DIR` proposes one change, and one pull request, adding every
+  published record in `DIR` that the site does not hold yet (`cve-json-file`).
 - **The CVE record is published only after the advisory ships (#1795).**
   Sync's `REVIEW → PUBLIC` move through `vulnogram-api-record-publish`
   runs only in the *advisory archived* combined apply, and the CLI refuses
@@ -729,7 +857,9 @@ publication, with a human gate and an audit-log entry at every step.
    in the report body never skips a step (#1716).
 9. A scanner disclosure email is triaged only from a scan folder whose
    completeness checks pass, and its report never leaves the machine
-   before disclosure (#1786).
+   before disclosure (#1786). When the mail ships an encrypted archive,
+   triage reads the archive's full reports, and nothing in the archive
+   is ever executed.
 
 ## Validation
 

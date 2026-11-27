@@ -106,7 +106,9 @@ class ParamError(ValueError):
 
 
 def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
-    if not pattern.match(value):
+    # fullmatch, not match: ``$`` also matches before a trailing newline, so
+    # ``match`` would let ``"123\n"`` through every anchored pattern in this module.
+    if not pattern.fullmatch(value):
         raise ParamError(f"invalid {what}: {value!r}")
     return value
 
@@ -2446,8 +2448,9 @@ _register(
 #     login or team slug, so a caller picks *whose* queue to read and never
 #     what to ask.
 #
-#     `issue-search`, `repo-pr-search` and `repo-code-search` are the bounded
-#     exceptions. Each pins its repository from policy and takes one `query`
+#     `issue-search`, `repo-pr-search`, `repo-issue-search` and
+#     `repo-code-search` are the bounded exceptions. Each pins its repository
+#     from policy and takes one `query`
 #     that the `query()` validator reduces to plain words: one line, at most
 #     200 characters, no `:` (so no `repo:` / `org:` / `is:` qualifier can
 #     re-aim or reshape it), no leading `-`, and passed after `--` so it is
@@ -2528,6 +2531,30 @@ _register(
             # space, which would turn "a b" into an exact-phrase search and
             # miss a title that has both words apart. `query()` has already
             # refused `:`, so no word can be a qualifier.
+            "--",
+            *query.split(),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-search",
+        params=("query",),
+        summary="Search upstream issues (open and closed, no pull requests) for plain words.",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "issues",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,author,closedAt,updatedAt,url",
+            # As `repo-pr-search`: options end here and each word is its own
+            # positional. `gh search issues` leaves pull requests out unless
+            # `--include-prs` is passed, which no word can become.
             "--",
             *query.split(),
         ],

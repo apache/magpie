@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8710
+measured_tokens: 8942
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -313,7 +313,7 @@ the optional [`security-issue-import-via-forwarder`](../issue-import-via-forward
 and may pre-classify the message through a registered forwarder adapter ([contract](../../../../tools/forwarder-relay/README.md)):
 use its classification when it returns one, else the table below.
 Invoke it only when `<sm> relay-prescreen --message <scratch>/root-<threadId>.json --forwarders <scratch>/forwarders.json` prints `invoke_subskill: true`.
-The message file holds the root's `from` and `body`; the forwarders file holds `project.md → forwarders`, each enabled adapter with its `sender_pattern` / `preamble_match`
+The message file holds the root's raw `from` header and `body`, and its `cc` and RFC-5322 `message_id` when an enabled adapter sets a list-rewrite path (the Gmail MCP does not expose `Message-ID:`; [get it](../../../../tools/gmail/operations.md#get-the-root-message-id-of-a-thread) through the OAuth Gmail helper or the archive, and leave it out when neither is reachable, so a list-rewritten relay shows as one signal only); the forwarders file holds `project.md → forwarders`, each enabled adapter with every pattern key it sets (`sender_pattern`, `preamble_match`, and the three `list_*_pattern` keys of its list-rewrite path; leaving those out drops list-rewritten relays to one signal only)
 (else its [defaults](../../../../tools/forwarder-relay/README.md#asf-default--asf-security-forwarder)), never copied into this skill.
 The pre-screen needs both `detect()` signals of one adapter (sender against `From:` AND preamble against the first 400 characters), since either alone is forgeable by any sender;
 the sub-skill's Step 1 stays authoritative. An adapter listed under `partial` matched only one signal: classify the candidate as a direct report and show *"relay-shaped, one signal only"* in its Step 5 entry.
@@ -361,7 +361,7 @@ The table below says where each value comes from in the inbound report.
 |---|---|
 | **The issue description** | The root email body, **verbatim** (preserve paragraphs, PoC code blocks, and any quoted sections). The body is private — the triager will copy it into a public CVE description only after Step 13. |
 | **Short public summary for publish** | Leave `_No response_`. Filled by the release manager at Step 13 in sanitised form. |
-| **Affected versions** | Extract the version(s) / range (`<version>` / `>= X, < Y` / `<Y`) the reporter states and record them as **bare, comma-separated version numbers** — e.g. `2.9.0, 2.9.3` or `>= 2.6.0, < 2.10.2`. **Do not prefix the product name** (the tracker is already project-scoped, so `<product> 2.9.0` is redundant — record `2.9.0`). If the reporter gave only a single version they tested on (e.g. `3.1.5`), record that verbatim; the triager can widen the range later. Leave `_No response_` if no version is mentioned. |
+| **Affected versions** | Extract the version(s) / range the reporter states and record them in a shape `generate-cve-json` accepts: a bare `<version>`, `< Y`, `<= Y`, `>= X` or `>= X, < Y` — e.g. `>= 2.6.0, < 2.10.2`. When the reporter names several versions they tested (e.g. 2.9.0 and 2.9.3), record everything up to the highest one, `<= 2.9.3`: the range defaults to all versions affected until there is evidence an earlier one is not, and a comma-separated list is refused by the generator. **Do not prefix the product name** (the tracker is already project-scoped, so `<product> 2.9.0` is redundant — record `2.9.0`). If the reporter gave only a single version they tested on (e.g. `3.1.5`), record that verbatim; the triager can widen the range later. Leave `_No response_` if no version is mentioned. |
 | **Security mailing list thread** | The private thread handle, the PonyMail archive URL once the user pastes it back, and ``Root Message-ID: `<id>` `` (backtick-wrapped) — [how](outcomes/mailing-thread.md). **Internal-only**: `generate-cve-json` never exports it. |
 | **Public advisory URL** | `_No response_`. Populated at Step 14 by `security-issue-sync` once the advisory is archived. |
 | **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. **For a forwarder-relayed candidate** the extracted credit is a proposal only: Step 5 shows it, and the field stays `_No response_` unless the user confirms it with `NN:reporter <text>`. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
@@ -373,6 +373,7 @@ The table below says where each value comes from in the inbound report.
 
 **Issue title**: the reporter's subject if descriptive, else a paraphrase as *"<Component>: <short vulnerability description>"* led by the component (`Webserver: …`, `Auth: …`).
 `<sm> title` strips the `Re:` / `Fwd:` / `[SECURITY]` prefixes; **do not prefix the product name** (`Webserver: session cookie missing Secure flag`, the tracker is project-scoped).
+The title ships as the published record's title and in the announcement subject: when its `length.shorten` is set (over 100 characters), propose a shorter one of at most 100 instead.
 
 ---
 

@@ -532,13 +532,15 @@ def test_patch_comment_folds_each_candidate(capsys, tmp_path) -> None:
     (entry,) = out["bodies"]
     body = Path(entry["path"]).read_text()
     assert body.startswith(
-        "<!-- apache-magpie: scan-patches v1 -->\n"
-        "**Candidate patches from the security scan — `ANT-2026-AAAAAAA1`**\n"
+        "<!-- apache-magpie: scan-evidence v1 -->\n**Scanner evidence — `ANT-2026-AAAAAAA1`**\n"
     )
-    assert "against `gh:example/widget@main` at `0123456789ab`" in body
-    assert "untested, machine-generated" in body and "public PR" in body
-    assert "<details><summary>Candidate 1 — Stop rendering `@task.bash` &lt;args&gt;</summary>" in body
-    assert "<details><summary>Candidate 2 — Smaller variant</summary>" in body
+    assert "scan of `gh:example/widget@main` at `0123456789ab`" in body
+    assert "None of it has been tested" in body and "public PR" in body and "Do not run" in body
+    assert (
+        "<details><summary>Candidate patch 1 — Stop rendering `@task.bash` &lt;args&gt;"
+        " — untested, do not apply as-is</summary>" in body
+    )
+    assert "<details><summary>Candidate patch 2 — Smaller variant — untested" in body
     assert body.count("`````diff\n") == 2 and body.count("</details>") == 2
     assert "<details open" not in body
 
@@ -549,16 +551,16 @@ def test_patch_comment_drops_a_target_that_is_not_a_plain_ref(tmp_path) -> None:
     finding = {"id": "ANT-2026-AAAAAAA1", "patches": [str(path)]}
     scan = {"target": "x` @someone [link](https://example.com) `", "commit": "0123456789ab"}
     (body,) = oss_scanner.render_patch_comments(finding, scan)
-    assert "against `0123456789ab`" in body
+    assert "scan of `0123456789ab`" in body
     assert "@someone" not in body and "example.com" not in body
 
 
 def test_patch_fence_outgrows_backticks_in_the_patch() -> None:
-    body = oss_scanner._patch_block(patch("Uses fences", "# ``````python\n"), 1)
+    body = oss_scanner._Block("x", patch("Uses fences", "# ``````python\n"), "diff").render()
     assert "```````diff\n" in body
 
 
-def test_no_patches_means_no_comment() -> None:
+def test_no_archive_material_means_no_comment() -> None:
     assert oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": []}, {}) == []
 
 
@@ -568,20 +570,248 @@ def test_patch_comment_refuses_without_archive(capsys, tmp_path) -> None:
     assert code == 2 and "--archive-dir" in out["refused"]
 
 
-def test_large_patches_split_across_comments(tmp_path) -> None:
+REPORT = """# ANT-2026-AAAAAAA1
+
+## Summary
+
+Long analysis.
+
+## How to reproduce
+
+1. Start the server.
+2. POST the NUL password.
+
+### Expected
+
+A 401.
+
+## Fix
+
+See the patches.
+"""
+
+
+def full_archive(tmp_path: Path) -> Path:
+    archive = archive_with_patches(tmp_path, {"1.patch": patch("real fix")})
+    finding = archive / "high" / "ANT-2026-AAAAAAA1"
+    (finding / "REPORT.md").write_text(REPORT)
+    (finding / "repro").mkdir()
+    (finding / "repro" / "poc.py").write_text("print('poc')  # ```` fence\n")
+    (finding / "repro" / "Dockerfile").write_text("FROM scratch\n")
+    (finding / "repro" / "blob.bin").write_bytes(b"\x00\x01\x02")
+    sent = archive / "previously-sent" / "ANT-2025-ZZZZZZZ9"
+    sent.mkdir(parents=True)
+    (sent / "REPORT.md").write_text("an earlier finding")
+    (archive / "bugs-not-security" / "ANT-2026-DDDDDDD4").mkdir(parents=True)
+    (archive / "bugs-not-security" / "ANT-2026-DDDDDDD4" / "REPORT.md").write_text("ordinary bug")
+    return archive
+
+
+def test_archive_links_reproducers_and_reports_the_mail_does_not_list(capsys, tmp_path) -> None:
+    index_path = parse_with_archive(capsys, tmp_path, full_archive(tmp_path))
+    index = json.loads(index_path.read_text())
+    finding = {f["id"]: f for f in index["findings"]}["ANT-2026-AAAAAAA1"]
+    assert [Path(p).name for p in finding["reproducers"]] == ["Dockerfile", "blob.bin", "poc.py"]
+    assert [(o["id"], o["section"]) for o in index["other_reports"]] == [
+        ("ANT-2025-ZZZZZZZ9", "previously-sent")
+    ]
+    code, summary = run(
+        capsys,
+        "parse-email",
+        "--source",
+        str(eml(tmp_path)),
+        "--out-dir",
+        str(tmp_path / "s2"),
+        "--archive-dir",
+        str(tmp_path / "archive"),
+    )
+    assert code == 0
+    assert summary["archive"] == {
+        "reports": 2,
+        "missing_reports": 3,
+        "patches": 1,
+        "reproducer_files": 3,
+        "other_reports": 1,
+    }
+
+
+def test_evidence_comment_quotes_steps_reproducers_and_patches(capsys, tmp_path) -> None:
+    index = parse_with_archive(capsys, tmp_path, full_archive(tmp_path))
+    verdict = tmp_path / "verdict.txt"
+    verdict.write_text("Import-as-tracker: an unauthenticated\nclient gets a token. cc @someone\n")
+    code, out = run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index),
+        "--finding",
+        "ANT-2026-AAAAAAA1",
+        "--out-dir",
+        str(tmp_path / "c"),
+        "--verdict",
+        str(verdict),
+    )
+    assert code == 0
+    (entry,) = out["bodies"]
+    body = Path(entry["path"]).read_text()
+    assert (
+        "**Triage verdict:** Import-as-tracker: an unauthenticated client gets a token. cc `@someone`" in body
+    )
+    steps = body.index("<details><summary>Reproduction steps (from the scanner's REPORT.md)</summary>")
+    repro = body.index("<details><summary>Reproducer file `repro/poc.py` — untested, do not run</summary>")
+    patch_at = body.index("<details><summary>Candidate patch 1 — real fix")
+    assert steps < repro < patch_at
+    assert "2. POST the NUL password.\n\n### Expected\n\nA 401." in body
+    assert "Long analysis" not in body and "See the patches" not in body
+    assert "`````\nprint('poc')" in body
+    assert "Reproducer file `repro/Dockerfile`" in body
+    assert "Binary file, 3 bytes: not quoted." in body
+    assert body.count("<details>") == 5
+
+
+def test_a_report_without_a_reproduction_section_is_quoted_whole(tmp_path) -> None:
+    report = tmp_path / "REPORT.md"
+    report.write_text("# Title\n\nJust prose.\n")
+    (body,) = oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "report_md": str(report)}, {})
+    assert "The scanner's REPORT.md (it has no separate reproduction section)" in body
+    assert "Just prose." in body
+
+
+def test_one_comment_stays_under_the_limit_by_cutting_with_a_note(tmp_path) -> None:
     paths = []
     for n in (1, 2, 3):
         path = tmp_path / f"{n}.patch"
-        path.write_text(patch(f"fix {n}", "+x\n" * 300))
+        path.write_text(patch(f"fix {n}", "+x\n" * 2000))
         paths.append(str(path))
-    finding = {"id": "ANT-2026-AAAAAAA1", "patches": paths}
-    bodies = oss_scanner.render_patch_comments(finding, {}, limit=2500)
-    assert len(bodies) > 1
-    assert all(len(b) <= 2500 for b in bodies)
-    assert bodies[0].startswith(
-        "<!-- apache-magpie: scan-patches v1 -->\n"
-        f"**Candidate patches from the security scan — `ANT-2026-AAAAAAA1`** (part 1 of {len(bodies)})"
+    small = tmp_path / "2-small.patch"
+    small.write_text(patch("small"))
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": [*paths, str(small)]}
+    (body,) = oss_scanner.render_patch_comments(finding, {}, limit=6000)
+    assert len(body) <= 6000
+    assert body.count("<details>") == 4
+    assert body.count("_Truncated for the comment limit") == 3
+    assert "Candidate patch 4 — small" in body and "_Truncated" not in body.split("Candidate patch 4")[1]
+    assert body.rstrip().endswith("_Some items were cut or omitted to stay under GitHub's comment limit._")
+
+
+def test_many_items_past_the_limit_are_omitted_not_overflowed(tmp_path) -> None:
+    paths = []
+    for n in range(200):
+        path = tmp_path / f"{n}.patch"
+        path.write_text(patch(f"fix {n}", "+x\n" * 50))
+        paths.append(str(path))
+    (body,) = oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": paths}, {}, limit=8000)
+    assert len(body) <= 8000
+    assert "omitted for the comment limit" in body
+
+
+@pytest.mark.parametrize("entry_id", ["ANT-2026-DDDDDDD4", "ANT-2025-ZZZZZZZ9"])
+def test_promoted_ordinary_bugs_and_unlisted_reports_get_their_evidence_comment(
+    capsys, tmp_path, entry_id
+) -> None:
+    archive = full_archive(tmp_path)
+    for folder in (
+        archive / "bugs-not-security" / "ANT-2026-DDDDDDD4",
+        archive / "previously-sent" / "ANT-2025-ZZZZZZZ9",
+    ):
+        (folder / "patches").mkdir()
+        (folder / "patches" / "1.patch").write_text(patch("bug fix"))
+        (folder / "repro").mkdir()
+        (folder / "repro" / "poc.sh").write_text("echo hi\n")
+    index_path = parse_with_archive(capsys, tmp_path, archive)
+    index = json.loads(index_path.read_text())
+    entries = {e["id"]: e for e in [*index["not_security"], *index["other_reports"]]}
+    assert [Path(p).name for p in entries[entry_id]["patches"]] == ["1.patch"]
+    assert [Path(p).name for p in entries[entry_id]["reproducers"]] == ["poc.sh"]
+    code, out = run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index_path),
+        "--finding",
+        entry_id,
+        "--out-dir",
+        str(tmp_path / "c"),
     )
-    assert "".join(bodies).count("<details>") == 3
-    with pytest.raises(ValueError, match="candidate 1"):
-        oss_scanner.render_patch_comments(finding, {}, limit=500)
+    assert code == 0, out
+    body = Path(out["bodies"][0]["path"]).read_text()
+    assert f"`{entry_id}`" in body
+    assert "Reproducer file `repro/poc.sh`" in body and "Candidate patch 1 — bug fix" in body
+
+
+def test_an_unknown_id_is_refused(capsys, tmp_path) -> None:
+    index_path = parse_with_archive(capsys, tmp_path, full_archive(tmp_path))
+    code, out = run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index_path),
+        "--finding",
+        "ANT-2026-NOPE0000",
+        "--out-dir",
+        str(tmp_path / "c"),
+    )
+    assert code == 2 and "no finding, ordinary bug or archive report" in out["refused"]
+
+
+FENCED_REPORT = """# Report
+
+## Background
+
+```python
+# PoC helper, not a heading
+x = 1
+```
+
+## Reproduction
+
+```bash
+# start the server
+widget serve &
+# send the request
+curl -d password=%00 http://localhost/token
+```
+
+~~~
+## not a heading either
+~~~
+
+Then read the token.
+
+## Fix
+
+See the patches.
+"""
+
+
+def test_headings_inside_fenced_code_are_not_section_boundaries(tmp_path) -> None:
+    title, section = oss_scanner._repro_section(FENCED_REPORT)
+    assert title.startswith("Reproduction steps")
+    assert section.startswith("## Reproduction")
+    assert "# send the request\ncurl" in section and "Then read the token." in section
+    assert "PoC helper" not in section and "See the patches" not in section
+
+
+def test_a_binary_patch_is_listed_not_quoted_and_does_not_abort(tmp_path) -> None:
+    text = tmp_path / "1.patch"
+    text.write_text(patch("text fix"))
+    binary = tmp_path / "2.patch"
+    binary.write_bytes(b"# x\n# fixture\n\x00\xff\xfe")
+    latin = tmp_path / "3.patch"
+    latin.write_bytes(b"# x\n# \xe9t\xe9\n")
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": [str(text), str(binary), str(latin)]}
+    (body,) = oss_scanner.render_patch_comments(finding, {})
+    assert "Candidate patch 1 — text fix" in body
+    assert body.count("Binary or non-UTF-8 patch") == 2
+    assert "\x00" not in body
+
+
+def test_a_lone_reproducer_shows_its_name_not_a_dot(tmp_path) -> None:
+    (tmp_path / "repro").mkdir()
+    poc = tmp_path / "repro" / "poc.py"
+    poc.write_text("print(1)\n")
+    (body,) = oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "reproducers": [str(poc)]}, {})
+    assert "Reproducer file `poc.py`" in body and "`.`" not in body
+    finding = {"id": "ANT-2026-AAAAAAA1", "reproducers": [str(poc)], "evidence_dir": str(tmp_path)}
+    (body,) = oss_scanner.render_patch_comments(finding, {})
+    assert "Reproducer file `repro/poc.py`" in body
