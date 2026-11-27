@@ -2,6 +2,7 @@
   "enableTerminalSandbox": true,
   "toolPermission": "proceed-in-sandbox",
   "allowNonWorkspaceAccess": false,
+  "agentMode": "",
   "permissions": {
     "allow": [
       "command(gh pr view)",

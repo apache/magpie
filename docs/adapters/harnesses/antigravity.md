@@ -82,7 +82,7 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
 2. **Inspect and propose.** Read the existing `~/.gemini/antigravity-cli/settings.json` and `~/.gemini/config/hooks.json`.
    Show the proposed merge and any missing prerequisite; resolve conflicts with the operator before writing.
    An invalid file needs repair, not replacement with an empty configuration.
-3. **Merge the settings.** Set `enableTerminalSandbox`, `toolPermission` and `allowNonWorkspaceAccess` from the shipped file, and add each shipped `permissions` rule once to the matching `allow`, `ask` or `deny` list.
+3. **Merge the settings.** Set `enableTerminalSandbox`, `toolPermission`, `allowNonWorkspaceAccess` and `agentMode` from the shipped file, and add each shipped `permissions` rule once to the matching `allow`, `ask` or `deny` list.
    Write home paths as absolute paths (`/Users/<you>/.ssh`, not `~/.ssh`): Antigravity matches absolute or workspace-relative paths.
    Preserve unrelated keys and rules; review every existing `allow` rule, since an allow escapes the sandbox without a prompt.
    **On upgrade**, compare existing permissions against the historical
@@ -99,7 +99,8 @@ It writes only the user's `~/.gemini/` files; it never asks for, or writes, any 
    globally effective across repositories. Do not automatically add
    ASF project-specific permissions to this user-scope profile.
    User-scope rules apply to every repository, so ASF hosts are never pre-approved here; `agent-iso agy` passes them for one session instead ([ASF hosts for ASF projects](#asf-hosts-for-asf-projects)).
-   Leave `agentMode` unset (or `plan`): `accept-edits` and `auto` approve edits or commands without review.
+   Set `agentMode` to `""` (the Default mode) or `plan`.
+   Since CLI 1.5.7 an unset `agentMode` starts in Auto, headless `-p` runs included; `accept-edits` and `auto` approve edits or commands without review.
 4. **Register the guard.** Merge the `magpie-agent-guard` entry from the shipped `hooks.json`, with the path resolved in step 1.
    Keep exactly one effective guard registration; propose correcting a stale or duplicate entry instead of appending another.
    Hooks in `~/.gemini/antigravity-cli/settings.json` are not loaded, so the registration must go in `~/.gemini/config/hooks.json`.

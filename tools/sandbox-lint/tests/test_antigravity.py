@@ -100,13 +100,20 @@ def test_absolute_home_paths_match_the_shipped_form() -> None:
         ("enableTerminalSandbox", False, "enableTerminalSandbox must be true"),
         ("toolPermission", "always-proceed", "toolPermission must be one of"),
         ("allowNonWorkspaceAccess", True, "allowNonWorkspaceAccess must be false"),
-        ("agentMode", "auto", "agentMode must be unset"),
-        ("agentMode", "accept-edits", "agentMode must be unset"),
+        ("agentMode", "auto", "agentMode must be"),
+        ("agentMode", "accept-edits", "agentMode must be"),
+        ("agentMode", "default", "agentMode must be"),
     ],
 )
 def test_weakened_setting_is_reported(key: str, value: object, message: str) -> None:
     settings = {**SETTINGS, key: value}
     assert any(message in e for e in check_antigravity_settings(settings, BASELINE))
+
+
+def test_unset_agent_mode_is_reported() -> None:
+    # agy 1.5.7 made Auto the default for a settings file with no agentMode.
+    settings = {k: v for k, v in SETTINGS.items() if k != "agentMode"}
+    assert any("unset agentMode starts in Auto" in e for e in check_antigravity_settings(settings, BASELINE))
 
 
 @pytest.mark.parametrize("key", ["deny", "ask"])
