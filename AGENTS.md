@@ -915,15 +915,9 @@ any other agent that follows the emerging skill convention. When a new
 recurring task is automated, add it as a skill rather than burying the
 instructions in a commit message or an ad-hoc comment.
 
-The security pipeline, in process order (read each skill's `SKILL.md`
-for its full contract):
-
-- [`security-issue-import`](skills/security-issue-import/SKILL.md) — scans `<security-list>` for threads not yet tracked, classifies each, extracts the issue-template fields, and creates trackers plus a receipt-of-confirmation Gmail draft. Step 2 of [`README.md`](README.md).
-- [`security-issue-triage`](skills/security-issue-triage/SKILL.md) — posts a top-level triage-proposal comment classifying the disposition into one of six classes and `@`-mentioning team members; **read-only on tracker state**. Step 3; supports `--retriage`.
-- [`security-issue-deduplicate`](skills/security-issue-deduplicate/SKILL.md) — merges two trackers describing the same root cause, concatenates the reporters' credits, regenerates the CVE JSON, and closes the dropped tracker `duplicate`; refuses to operate across scope labels.
-- [`security-issue-sync`](skills/security-issue-sync/SKILL.md) — reconciles an issue with its GitHub discussion, mail thread, and fixing PRs; proposes label / milestone / field / draft-email updates and refreshes the CVE JSON attachment at the end of every run.
-- [`security-cve-allocate`](skills/security-cve-allocate/SKILL.md) — walks the user through the PMC-gated CVE-allocation form (or reshapes it into a relay message for a non-PMC user), normalises the title, updates the tracker in one pass, and hands off to `security-issue-sync`.
-- [`security-issue-fix`](skills/security-issue-fix/SKILL.md) — runs `security-issue-sync`, then (when the fix is clear and small) writes the change in the local `<upstream>` clone, runs checks, and opens a scrubbed public PR (through `vetted-op-git` where configured, else `gh pr create --web`); every public surface is scrubbed for CVE / tracker-slug / `vulnerability` / `security fix` leakage.
+The security pipeline skills, in process order, and what each does: the
+[lifecycle table in `docs/security/README.md`](docs/security/README.md#lifecycle-skills);
+each skill's `SKILL.md` holds its full contract.
 
 These skills build the CVE record with the [`generate-cve-json`](tools/cve-tool-vulnogram/generate-cve-json/README.md) tool,
 a deterministic `uv run` script (not a skill) that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue,
@@ -1035,14 +1029,8 @@ model responds.
 
 ## References
 
-- `.apache-magpie-overrides/user.md` — per-user configuration (governance membership, local clone paths, optional tool backends) scaffolded during adoption.
-- [`<project-config>/project.md`](<project-config>/project.md) — the adopting project's manifest (identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project board + issue-template field declarations).
-- `.apache-magpie-overrides/` — adopter-specific overrides and per-user config committed in the adopter repo.
-- [`<project-config>/`](plugins/magpie-setup/templates/) — other project-specific files (canned responses, release trains, security model, scope labels, milestones, title-normalization, fix workflow, naming conventions).
-- [`tools/github/`](tools/github/) — GitHub tool adapter: `tool.md` (overview), `operations.md` (`gh` CLI / API catalogue), `issue-template.md` (body-field schema), `labels.md` (lifecycle-label taxonomy), `project-board.md` (Projects V2 GraphQL).
-- [`tools/gmail/`](tools/gmail/) — Gmail tool adapter: `tool.md` (overview), `operations.md` (MCP catalogue + no-update limitation), `threading.md` (prefer-`threadId`-else-subject-fallback rule), `asf-relay.md` (ASF-security-relay drafting), `search-queries.md` (query templates), `ponymail-archive.md` (ASF PonyMail URL construction).
-- [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/) — Vulnogram (ASF CVE tool) adapter: `tool.md` (overview), `allocation.md` (PMC-gated allocation flow), `record.md` (record URLs + `#source` paste + `DRAFT`/`REVIEW`/`PUBLIC` state machine + reviewer-comment signal), `generate-cve-json/` (CVE-5.x JSON generator — Python project).
-- [`tools/cve-org/`](tools/cve-org/) — public CVE registry adapter: `tool.md` covers the MITRE CVE Services API v2 `check-published` recipe, used by `security-issue-sync` to verify that a closed tracker's CVE has propagated from the CNA tool to cve.org before sending the reporter the final *"CVE is live"* email.
+- The adopter's configuration: [`<project-config>/project.md`](<project-config>/project.md) and its siblings, bootstrapped from [`projects/_template/`](plugins/magpie-setup/templates/); see [Per-project and per-user configuration](#per-project-and-per-user-configuration).
+- The tool adapters the security skills load, each described in its own `tool.md`: [`tools/github/`](tools/github/), [`tools/gmail/`](tools/gmail/), [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/), [`tools/cve-org/`](tools/cve-org/).
 
 ## Security
 
