@@ -457,48 +457,30 @@ to a home-dir path and update the tool to read from there.
 
 ## Labeling issues, PRs, tools, and documentation
 
-This repository uses an orthogonal label taxonomy with two required
-dimensions on every issue and PR:
+Every issue and PR carries two required label dimensions:
+**`family:*`** (which part of the framework it touches) and a **capability** (what it does):
+`capability:*` for skills, `contract:*` / `substrate:*` for tools.
+The full taxonomy, its value lists and the contract→adapter maps live in
+[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md) and [RFC-AI-0005](docs/rfcs/RFC-AI-0005.md), the source of truth.
 
-- **`family:*`** — *what part of the framework does this touch?* (e.g.
-  `family:pr-management`, `family:security`, `family:setup`, `family:issue`,
-  `family:tools`, `family:ci`, `family:docs`).
-- **capability** — *what does it do / provide?*, in two axes
-  (RFC-AI-0005): **skill capability** `capability:*` for skills
-  (`triage`, `review`, `fix`, `intake`, `reconciliation`, `resolve`,
-  `reassess`, `stats`, `platform`, `authoring`), and **tool capability**
-  `contract:*` / `substrate:*` for tools (the contract a tool implements,
-  e.g. `contract:tracker`, or a substrate kind, e.g. `substrate:privacy`).
-
-The full taxonomy — every label dimension, both capability axes, the
-skill-capability and contract→adapter maps — lives in
-[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md) and
-[RFC-AI-0005](docs/rfcs/RFC-AI-0005.md). Read those once; treat them as
-the source of truth.
-
-**Rules** (full taxonomy and per-target details in
-[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md)):
+**Rules:**
 
 - **Issues and PRs** get at least one `family:*` and every applicable
   capability — match what the change *implements*, not the file paths it
   touches; do not collapse multi-phase work to a single "primary".
 - **New tools** declare their capability in the first paragraph of the
-  tool README (`**Capability:** contract:NAME` or `substrate:NAME`) — the
-  contract the tool implements, or the substrate kind that fits.
+  tool README (`**Capability:** contract:NAME` or `substrate:NAME`).
 - **New skills** declare the capability in frontmatter (a string, or a
   YAML list for multi-capability skills); [`write-skill`](skills/write-skill/SKILL.md)
   prompts for it on every scaffold.
 - **New docs** link to the taxonomy doc and name their capability in the
   first paragraph if capability-specific; cross-cutting docs need no
   marker.
-- **Organization membership (optional).** A skill, skill family, tool, or
-  tool adapter that *belongs to* a specific organization declares it:
-  skills via an `organization:` frontmatter key, families via the
-  `organization:` scope banner in `docs/<family>/README.md`, and tools
-  via an `**Organization:** <org>` line in the README. The value must
+- **Organization membership (optional):** an entity that *belongs to* one organization declares it
+  (skills: `organization:` frontmatter; families: the scope banner in `docs/<family>/README.md`; tools: an `**Organization:** <org>` README line).
+  The value must
   name an organization under [`organizations/`](organizations/); omit it
-  for organization-agnostic entities. The validator fails on an unknown
-  organization value.
+  for organization-agnostic entities.
 
 The taxonomy applies to *this framework repository*. Skills that create
 issues or PRs on an **adopter's tracker** (e.g. `security-issue-import`,
