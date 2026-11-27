@@ -3037,7 +3037,9 @@ _register(
         backend="cve-tool",
         summary="Read one record from the Vulnogram CVE tool.",
         # `--pmc` picks that PMC's record token, so a user who holds tokens for
-        # several PMCs reads with the one the user approved, never a guess.
+        # several PMCs reads with the one the user approved, never a guess. The
+        # policy's `[values] pmcs` lists the PMCs this project may use at all.
+        enums={"pmc": "pmcs"},
         build=lambda cfg, pmc, cve_id: cve_tool.argv(
             "vulnogram-api-record-fetch", "--pmc", pmc, "--cve-id", cve_id
         ),
@@ -3051,6 +3053,7 @@ _register(
         backend="cve-tool",
         writes=True,
         summary="Push a CVE JSON record to the Vulnogram CVE tool (merge-mode guards on).",
+        enums={"pmc": "pmcs"},
         body_files=("body",),
         build=lambda cfg, pmc, cve_id, body: cve_tool.argv(
             "vulnogram-api-record-update",
@@ -3072,6 +3075,7 @@ _register(
         backend="cve-tool",
         writes=True,
         summary="Allocate a CVE id for a title through the Vulnogram CVE tool.",
+        enums={"pmc": "pmcs"},
         title_files=("title",),
         # `--pmc` lets the client refuse a token held for any other PMC, so the
         # id is reserved for the PMC the user approved, whatever session is current.

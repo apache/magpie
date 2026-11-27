@@ -216,6 +216,8 @@ issue_states  = ["open", "closed", "all"]
 pr_states     = ["open", "closed", "merged", "all"]
 close_reasons = ["completed", "not planned"]
 ecosystems    = ["PyPI", "Maven", "npm", "Go"]
+# The PMC(s) whose Vulnogram tokens this project may use: a session can then never use another PMC's stored token.
+pmcs          = ["<pmc>"]
 
 board_project_id      = "PVT_kwDO…"   # ProjectV2 node id
 board_status_field_id = "PVTSSF_…"    # its Status field id
@@ -738,6 +740,10 @@ overrides. Three operations run it instead, outside the sandbox through
 - Every operation names the PMC (`cna_private_owner` in `project.md`), so a
   user who holds tokens for several PMCs always acts with the token of the PMC
   they approved; the client refuses when it holds none for that PMC.
+- The PMC must be one the policy lists in `[values] pmcs`, so a session working
+  on one project can never use a token the user holds for another PMC.
+  A policy without `pmcs` refuses all three operations and names the key;
+  adopters upgrading add `pmcs = ["<pmc>"]` (their `cna_private_owner`).
 - The record travels on stdin as the bytes vetted-ops read from the workspace,
   so no second open can swap them. None of the override flags is reachable, so
   the record commands' merge-mode guards always apply.

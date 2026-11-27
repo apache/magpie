@@ -37,6 +37,9 @@ workspace = '{workspace}'
 tracker = "acme/tracker"
 upstream = "acme/product"
 
+[values]
+pmcs = ["airflow"]
+
 [callers]
 "security-cve-allocate" = ["cve-record-fetch", "cve-record-update", "cve-allocate"]
 """
@@ -187,6 +190,58 @@ def test_a_malformed_pmc_never_reaches_the_client(
     ]
     with pytest.raises(ops.ParamError):
         cli._validate_params(ops.resolve(name), [bad, *rest], policy)
+
+
+def _pmc_args(name: str, workspace: Path) -> list[str]:
+    """The arguments after the PMC for one of the three Vulnogram operations."""
+    title = workspace / "title.txt"
+    title.write_text("A title\n")
+    record = workspace / "cve.json"
+    record.write_text(json.dumps({"cveMetadata": {"cveId": CVE}}))
+    return {"cve-allocate": [str(title)], "cve-record-fetch": [CVE], "cve-record-update": [CVE, str(record)]}[
+        name
+    ]
+
+
+_PMC_OPS = ["cve-allocate", "cve-record-fetch", "cve-record-update"]
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_pmc_the_policy_does_not_list_is_refused(policy: config.Config, workspace: Path, name: str) -> None:
+    """A session can never use another PMC's stored token, however well-formed its name."""
+    with pytest.raises(ops.ParamError, match="not one of the configured values"):
+        cli._validate_params(ops.resolve(name), ["magpie", *_pmc_args(name, workspace)], policy)
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_listed_pmc_is_accepted(policy: config.Config, workspace: Path, name: str) -> None:
+    params, _ = cli._validate_params(ops.resolve(name), ["airflow", *_pmc_args(name, workspace)], policy)
+    assert params["pmc"] == "airflow"
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_policy_without_pmcs_refuses_the_vulnogram_operations(
+    tmp_path: Path, workspace: Path, name: str
+) -> None:
+    path = tmp_path / "no-pmcs.toml"
+    path.write_text(POLICY.format(workspace=workspace).replace('[values]\npmcs = ["airflow"]\n', ""))
+    bare = config.load(path)
+    with pytest.raises(config.ConfigError, match="'pmcs'"):
+        cli._validate_params(ops.resolve(name), ["airflow", *_pmc_args(name, workspace)], bare)
+
+
+@pytest.mark.parametrize("name", _PMC_OPS)
+def test_a_listed_value_that_is_no_pmc_name_is_still_refused(
+    tmp_path: Path, workspace: Path, name: str
+) -> None:
+    path = tmp_path / "odd-pmcs.toml"
+    path.write_text(
+        POLICY.format(workspace=workspace).replace('pmcs = ["airflow"]', 'pmcs = ["Airflow", "../x"]')
+    )
+    odd = config.load(path)
+    for bad in ("Airflow", "../x"):
+        with pytest.raises(ops.ParamError, match="PMC"):
+            cli._validate_params(ops.resolve(name), [bad, *_pmc_args(name, workspace)], odd)
 
 
 @pytest.mark.parametrize("name", ["cve-record-fetch", "cve-record-update"])

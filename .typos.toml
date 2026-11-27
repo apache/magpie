@@ -42,6 +42,8 @@ extend-ignore-re = [
   "surface_hash: sha256:[0-9a-f]+",
   # Fixture state stores the invoking skill's generated surface digest as JSON.
   '"hash": "sha256:[0-9a-f]+"',
+  # Eval run journals (`runs.jsonl`) record the commit a run was made on.
+  '"ref": "[0-9a-f]{7,40}"',
   "FRAMEWORK_FINGERPRINT = \"sha256:[0-9a-f]+\"",
 ]
 

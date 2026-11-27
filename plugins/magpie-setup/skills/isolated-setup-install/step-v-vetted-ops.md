@@ -96,6 +96,7 @@ Run the caller-grant comparison of [`setup reconcile` check 3a](../setup/reconci
 skill whose caller the README's `[callers]` example names gets the operations listed there, among them the
 `git-*` publishing steps and `pr-add-label`, and a caller that opens and labels pull requests gets the repository's
 taxonomy labels, discovered with `gh label list`, proposed by name in `[values] upstream_labels`.
+A policy granting the Vulnogram operations (`cve-record-fetch`, `cve-record-update`, `cve-allocate`) also gets `pmcs = ["<pmc>"]` in `[values]`, with `<pmc>` the project's `cna_private_owner`, so a session can never use a token the user holds for another PMC.
 Show each proposal as a TOML diff; the policy is `Edit`-denied to the agent, so the user applies it.
 
 Outside the sandbox, the write dispatchers act only on a policy the user approved:
