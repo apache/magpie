@@ -677,11 +677,8 @@ These skills build the CVE record with the [`generate-cve-json`](tools/cve-tool-
 a deterministic `uv run` script (not a skill) that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue,
 filtering the CVE-tool and `<tracker>` URLs out of `references[]`.
 
-When adding a new skill:
+When adding a new skill, scaffold it with [`write-skill`](skills/write-skill/SKILL.md), which covers its placement in the family plugin, the frontmatter the validator requires, and making every state-changing action a *proposal* the user confirms. Also:
 
-- place it in its family plugin, `plugins/magpie-<family>/skills/<alias>/SKILL.md`, linked into the flat `skills/` tree (the [`write-skill`](skills/write-skill/SKILL.md) scaffold and `tools/dev/check-family-plugins.py` cover the details);
-- start with YAML frontmatter containing every key the validator requires: `name` (the `<alias>`), `description`, `when_to_use`, `license`, `capability`, `family` and `mode`;
-- make every state-changing action a *proposal* that requires explicit user confirmation before it runs;
 - avoid agent-specific syntax so the skill remains portable across tools;
 - **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). A skill PR without a matching eval suite is incomplete.
 
