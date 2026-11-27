@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import NoReturn
 
@@ -349,3 +350,27 @@ def test_approval_status_is_only_on_the_read_entry_point(
     _nothing_runs(monkeypatch)
     assert cli.main(["--caller", "security-issue-sync", "approval-status"]) == cli.EXIT_POLICY
     assert "approved" not in capsys.readouterr().out
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+# The copy command names the approved file; capture the placeholder it uses.
+APPROVAL_TARGET = re.compile(r"(?:apache-magpie/vetted-ops|<approved_dir>)/<([^>]+)>\.toml")
+
+
+def test_rendered_approval_command_names_the_defined_placeholder() -> None:
+    """Every approval command uses `<project>`, the one name the README defines.
+
+    The sandbox cannot list the approved directory, so a skill told to use
+    "the earlier copy's name" cannot fill it in and hands the user a placeholder.
+    """
+    found: dict[str, str] = {}
+    for path in sorted(REPO_ROOT.rglob("*.md")):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel.startswith((".git/", ".apache-magpie/")) or "/node_modules/" in rel:
+            continue
+        for match in APPROVAL_TARGET.finditer(path.read_text(encoding="utf-8")):
+            found[f"{rel}: <{match.group(1)}>"] = match.group(1)
+    assert found, "no approval command found; the pattern no longer matches the docs"
+    assert {k for k, v in found.items() if v != "project"} == set()
+    readme = (REPO_ROOT / "tools" / "vetted-ops" / "README.md").read_text(encoding="utf-8")
+    assert "`<project>` is the project's slug" in readme

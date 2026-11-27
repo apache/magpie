@@ -546,6 +546,13 @@ reviewing it, and again after every change:
 mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
 ```
 
+`<project>` is the project's slug: `short_name` in its `project.md`, lowercased,
+or the basename of the main checkout when there is no `project.md` (`foo.toml`).
+A skill that renders this command fills the name in, since it cannot list the directory.
+Any `.toml` name approves except `operator-git.toml`, which holds the operator's `[git]` table;
+the fixed name only makes each approval replace the stale copy instead of adding one beside it.
+A stale copy approves nothing, so an earlier one under another name is clutter to delete, not a risk.
+
 The home directory comes from the password database, not `$HOME`, and so does a
 `~` in the policy's `workspace`. Every policy file and every body is opened one
 path component at a time without following symlinks, so the file read is the
