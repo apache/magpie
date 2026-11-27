@@ -387,6 +387,21 @@ def gather(
     }
 
 
+def _listing_needed(root: Path) -> bool:
+    """Whether `gather` has to run the harness plugin listing.
+
+    Only the marketplace branch reads it (the adoption floor), and a repo with
+    no lock may still be a marketplace install.  A framework checkout or a
+    pinned snapshot never consults it, and running it there reaches for the
+    harness's API, which the sandbox denies, for nothing.
+    """
+    try:
+        lock = load(root / LOCK_NAME)
+    except MalformedLock:
+        return False
+    return _install(lock.method if lock else None) not in {"local", "snapshot"}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.upgrade", description=__doc__.split("\n")[0])
     parser.add_argument("action", choices=["status", "record", "gather"])
@@ -404,7 +419,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root: Path = args.project_root
     if args.action == "gather":
-        harness, installed = read_installed(args.plugin_list)
+        if args.plugin_list is not None or _listing_needed(root):
+            harness, installed = read_installed(args.plugin_list)
+        else:
+            harness, installed = None, None
         print(json.dumps(gather(root, installed, harness), indent=2, sort_keys=True))
         return 0
     if args.action == "status":
