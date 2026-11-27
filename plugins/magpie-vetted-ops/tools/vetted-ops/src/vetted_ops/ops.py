@@ -379,6 +379,9 @@ def attachment_name(value: str) -> str:
 
 
 _QUERY_MAX = 200
+#: GitHub search operators. Only the uppercase whole word is one: GitHub searches
+#: a lowercase `or` / `and` / `not` as a plain word, so those stay allowed.
+_QUERY_OPERATORS = frozenset({"OR", "AND", "NOT"})
 
 
 def query(value: str) -> str:
@@ -403,6 +406,14 @@ def query(value: str) -> str:
     # become a flag.
     if stripped.startswith("-"):
         raise ParamError(f"query may not start with '-': {value!r}")
+    # `gh` appends the pinned `repo:` qualifier after the words, so a boolean
+    # operator or a group in the words could set a clause apart from it and
+    # search beyond the pinned repository. Plain words cannot.
+    if "(" in value or ")" in value:
+        raise ParamError(f"query may not contain '(' or ')' (search grouping): {value!r}")
+    operators = {word for word in stripped.split() if word in _QUERY_OPERATORS}
+    if operators:
+        raise ParamError(f"query may not use the search operators {sorted(operators)}: {value!r}")
     return stripped
 
 
@@ -2525,8 +2536,9 @@ _register(
 #     from policy and takes one `query`
 #     that the `query()` validator reduces to plain words: one line, at most
 #     200 characters, no `:` (so no `repo:` / `org:` / `is:` qualifier can
-#     re-aim or reshape it), no leading `-`, and passed after `--` so it is
-#     never read as a flag. Such a query can only narrow a search of the pinned
+#     re-aim or reshape it), no `(` `)` or uppercase `OR` / `AND` / `NOT` (so no
+#     clause can be set apart from the pinned `repo:`), no leading `-`, and
+#     passed after `--` so it is never read as a flag. Such a query can only narrow a search of the pinned
 #     repository. They exist so a read-only gatherer can answer "was this
 #     already fixed upstream?" without falling back to a raw `gh search`
 #     outside the dispatcher.

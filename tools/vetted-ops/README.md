@@ -743,8 +743,10 @@ vetted-op-read --caller security-issue-triage repo-code-search "IMAP_SOURCE_SSL"
 Free-text search is otherwise kept out of the catalogue. These three, like the
 tracker's `issue-search`, are bounded: the repository comes from policy, and the
 `query` is plain words — one line, at most 200 characters, no `:` (so no
-`repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no leading `-`, and
-passed after `--`. They let a read-only gatherer check whether something was
+`repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no `(` or `)` and
+no uppercase `OR` / `AND` / `NOT` word (GitHub reads only those as operators; `gh` appends the pinned `repo:` after the
+words, and a group or operator could set a clause apart from it), no leading `-`,
+and passed after `--`. They let a read-only gatherer check whether something was
 already fixed upstream without a raw `gh search` outside the dispatcher.
 Grant them per caller like any other operation.
 
