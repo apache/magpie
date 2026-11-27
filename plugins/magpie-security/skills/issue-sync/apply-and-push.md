@@ -323,10 +323,10 @@ uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE
 If the state is `public`, save the live record and add it as the baseline to the generator run above:
 
 ```bash
-uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <CVE-ID>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <pmc> <CVE-ID>
 ```
 
-and pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
+(`<pmc>` is `cna_private_owner` from `<project-config>/project.md`), and pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
 
 The body still wins for every value it owns; everything else keeps its published value.
 If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
@@ -536,8 +536,10 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    push through it instead, with the JSON at `<workspace>/cve-<CVE-ID>-<N>.json` (the vetted-ops policy's `workspace`):
 
    ```bash
-   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
+   uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <pmc> <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
    ```
+
+   `<pmc>` is `cna_private_owner` from `<project-config>/project.md`; the client uses that PMC's record token and refuses when it holds none.
 
    It runs the same Vulnogram push with a fixed argv and no override flag
    ([vetted-ops § *The Vulnogram CVE-tool operations*](../../../../tools/vetted-ops/README.md#the-vulnogram-cve-tool-operations)),
