@@ -174,39 +174,47 @@ shared; an MCP tool for a family only one person installed belongs in
 that person's `.claude/settings.local.json` instead. The lock is the
 source of truth; this file is how Claude Code acts on it.
 
-**On Claude Code, let the client write it.** `--scope project` is the
-scope whose store *is* this file, so the install commands do the whole
-of this step:
+**On Claude Code, let the client write the marketplace and plugin entries.**
+`--scope project` is the scope whose store *is* this file:
 
 ```bash
 claude plugin marketplace add apache/magpie --scope project
 claude plugin install <plugin>@apache-magpie --scope project
 ```
 
-— the second once per plugin in the floor. Those commands write only `extraKnownMarketplaces` and `enabledPlugins`; add the derived MCP allows from `family-mcp-allows.json` afterwards, under the merge rules below. That is why
+— the second once per plugin in the floor. Those commands write only
+`extraKnownMarketplaces` and `enabledPlugins`. After they finish, run the
+shipped merge once to add the derived MCP allows under the merge rules
+below. The same command creates all the derived wiring when the CLI is
+absent. That is why
 [`install.md`](install.md#step-m4--install-what-the-user-picked)
 refuses the flag and sends people here: run alone it hands a project
 the plugin list with no floor beside it, and no `.apache-magpie.lock`
 to say what the list was derived from.
 
-Run the commands, then read the result against the **merge rules**
-below before staging. Those rules are the contract however the file
-got written: the CLI is not Magpie's code, and a settings file it
-changed in a way they forbid is a finding rather than a fait accompli.
-
-Where the CLI is absent, or it cannot derive the MCP allows, run the
-shipped merge instead of writing the file by hand:
+If `.claude/settings.json` already exists, preserve its pre-run contents
+in scratch before running the CLI. Run the CLI commands, then run the
+merge from the installed pre-flight package with the same `PYTHONPATH`
+selector as [`config.md` Step 0](config.md#step-0--pre-flight):
 
 ```bash
-uv run --project <framework>/tools/setup-preflight setup-settings-merge
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight.settings_merge
 ```
 
-It prints the entries it would add and writes nothing until `--write`
-is passed, so show the maintainer that report and the `git diff` after
-the write, exactly as for the CLI's own result. It refuses a file that
-does not parse rather than replacing it. Where the CLI's result breaks
-a merge rule, report the finding and leave the file as it was; do not
-patch it by hand.
+The registry ships inside `setup_preflight/`, so the command's default
+resolves from the copied package on every install method. It prints
+`plugins_added` and `allows_added` and writes nothing until `--write` is
+passed. Show the maintainer that report, run the same command with
+`--write`, and show the resulting `git diff`.
+
+Read the result against the **merge rules** below before staging. Those
+rules are the contract however the file got written: the CLI is not
+Magpie's code. If the CLI changed the file in a way they forbid, restore
+the pre-run copy, or `git checkout -- .claude/settings.json` when the file
+was clean, report the finding, and do not stage it. The shipped merge
+cannot repair that result because it never removes or rewrites an entry.
+It refuses a file that does not parse rather than replacing it.
 
 **Write the marketplace entry untagged** — `"repo": "apache/magpie"`,
 with no `@version`. The floor is a minimum, and tagging the marketplace
