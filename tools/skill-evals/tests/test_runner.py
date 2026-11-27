@@ -2461,14 +2461,11 @@ def test_cli_cwd_keeps_repository_instructions_out_of_the_cli(
         step_config={"skill_md": "AGENTS.md", "step_heading": "# Instructions"},
     )
     _make_case(fixtures_dir, "case-1", expected={"sees_agents_md": False})
-    cli = shlex.join(
-        [
-            "bash",
-            "-c",
-            "cat >/dev/null; if [ -e AGENTS.md ]; then echo '{\"sees_agents_md\": true}'; "
-            "else echo '{\"sees_agents_md\": false}'; fi",
-        ]
+    script = (
+        "cat >/dev/null; if [ -e AGENTS.md ]; then echo '{\"sees_agents_md\": true}'; "
+        "else echo '{\"sees_agents_md\": false}'; fi"
     )
+    cli = shlex.join(["bash", "-c", script])
     empty = tmp_path / "empty"
     empty.mkdir()
     monkeypatch.chdir(repo_root)
