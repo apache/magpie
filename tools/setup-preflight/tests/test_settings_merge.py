@@ -161,6 +161,36 @@ def test_preserves_other_keys_and_existing_allows(tmp_path: Path) -> None:
     ]
 
 
+def test_preserves_an_existing_file_mode(tmp_path: Path) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    write_registry(registry_path)
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text("{}", encoding="utf-8")
+    settings_path.chmod(0o600)
+
+    settings_merge.run(settings_path, lock_path, registry_path, write=True)
+
+    assert settings_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_preserves_non_ascii_values_verbatim(tmp_path: Path) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    write_registry(registry_path)
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(
+        json.dumps({"sandbox": {"note": "café"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    settings_merge.run(settings_path, lock_path, registry_path, write=True)
+
+    written = settings_path.read_text(encoding="utf-8")
+    assert '"café"' in written
+    assert "\\u00e9" not in written
+
+
 def test_adds_only_the_missing_plugins(tmp_path: Path) -> None:
     settings_path, lock_path, registry_path = paths(tmp_path)
     write_lock(tmp_path, FLOOR)
