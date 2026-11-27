@@ -495,53 +495,9 @@ to a home-dir path and update the tool to read from there.
   ships no new functionality, lint, docs-only edits) are exempt.
 - Keep the commit message focused on the user-visible change, not the mechanics of how the edit
   was made.
-- **Never blind-run a signing commit against a hardware key.** When
-  `commit.gpgsign` is true and the signing key lives on a token (YubiKey,
-  Nitrokey, any OpenPGP card), `git commit` blocks on a pinentry prompt.
-  A GUI pinentry (`pinentry-gnome3`, `pinentry-qt`) pops a dialog on the
-  operator's desktop that the agent cannot see and the operator is not
-  watching; a TTY pinentry tries to write to the terminal the agent's tool
-  call owns. Either way the call sits until `gpg: signing failed: Timeout`
-  and **no commit is created** — a silent-looking failure that costs a
-  couple of minutes per attempt and leaves the tree mid-operation.
-
-  Probe the agent's cache *before* committing. `cached=1` means the
-  commit will not prompt; `cached=-` means it will:
-
-  ```bash
-  grip=$(gpg --list-secret-keys --with-colons --with-keygrip \
-           "$(git config --get user.signingkey)" \
-         | awk -F: '/^ssb/{s=($12 ~ /s/)} /^grp/{if(s){print $10; exit}}')
-  gpg-connect-agent "keyinfo $grip" /bye \
-    | awk '$1=="S"{print "type="$4" cached="$7}'
-  ```
-
-  `type=T` is a token-backed key; `type=D` is an on-disk key, which
-  prompts for a passphrase rather than a touch but blocks the same way.
-
-  `cached` reports the **PIN** cache, which is not the same thing as the
-  key's *touch policy*. A token whose signature slot is set to `on` or
-  `cached` (`ykman openpgp info`) needs a physical touch per signature,
-  and gpg raises no prompt at all for it — so `cached=1` still blocks,
-  silently, once the touch has expired. The probe cannot see that;
-  `tools/agent-isolation/gpg-touch-overlay.sh` covers it from the other
-  side by putting a window on screen while gpg waits — from a hook
-  around the agent's git commands, and as git's own signing program
-  and ssh command (`gpg.ssh.program` / `gpg.program`,
-  `core.sshCommand`) for the ones the operator runs by hand.
-  A key whose signature and authentication touch policies are both
-  `off` never waits for a touch, so the overlay stays out of the way
-  for it.
-  On `cached=-`, surface a dialogue naming the key and telling the
-  operator to expect the prompt, or hand them the `git commit` line to run
-  in their own terminal — do not run it and hope. On `cached=1`, commit
-  without interrupting them. Re-probe rather than assuming warmth
-  persists: the default `default-cache-ttl` is 600s idle.
-
-  The same applies to any `git rebase`, `git cherry-pick`, `git tag -s`, or
-  `--amend` that produces a signed object. Release-artefact signing is
-  already covered by a stronger rule — `release-rc-cut` never invokes `gpg`
-  at all, it emits the commands for the release manager to run.
+- **Never blind-run a signing commit against a hardware key.**
+  Before a `git commit`, `rebase`, `cherry-pick`, `tag -s` or `--amend` that signs, when `commit.gpgsign` is true,
+  read [the signing probe](docs/setup/secure-agent-setup.md#agent-side-never-blind-run-a-signing-commit): it tells whether the operation will block on a PIN or touch prompt the operator cannot see.
 
 ## Labeling issues, PRs, tools, and documentation
 

@@ -57,6 +57,7 @@
   - [Hardware security keys — signing and authentication](#hardware-security-keys--signing-and-authentication)
     - [Configure the key to require a touch](#configure-the-key-to-require-a-touch)
     - [Point git and ssh at the key](#point-git-and-ssh-at-the-key)
+    - [Agent side: never blind-run a signing commit](#agent-side-never-blind-run-a-signing-commit)
   - [Hardware-key touch overlay](#hardware-key-touch-overlay)
     - [Install (user-scope)](#install-user-scope-3)
     - [Verify](#verify-3)
@@ -2856,6 +2857,58 @@ the overlay below tells you when it is waiting. `git fetch`, `git pull`
 and `git push` go through without a touch, unless `aut` carries a
 policy (as it must with `gpg.format=ssh`).
 
+### Agent side: never blind-run a signing commit
+
+The rule the repository-wide [`AGENTS.md`](../../AGENTS.md#commit-and-pr-conventions) points to before an agent runs a signing git operation.
+
+- **Never blind-run a signing commit against a hardware key.** When
+  `commit.gpgsign` is true and the signing key lives on a token (YubiKey,
+  Nitrokey, any OpenPGP card), `git commit` blocks on a pinentry prompt.
+  A GUI pinentry (`pinentry-gnome3`, `pinentry-qt`) pops a dialog on the
+  operator's desktop that the agent cannot see and the operator is not
+  watching; a TTY pinentry tries to write to the terminal the agent's tool
+  call owns. Either way the call sits until `gpg: signing failed: Timeout`
+  and **no commit is created** — a silent-looking failure that costs a
+  couple of minutes per attempt and leaves the tree mid-operation.
+
+  Probe the agent's cache *before* committing. `cached=1` means the
+  commit will not prompt; `cached=-` means it will:
+
+  ```bash
+  grip=$(gpg --list-secret-keys --with-colons --with-keygrip \
+           "$(git config --get user.signingkey)" \
+         | awk -F: '/^ssb/{s=($12 ~ /s/)} /^grp/{if(s){print $10; exit}}')
+  gpg-connect-agent "keyinfo $grip" /bye \
+    | awk '$1=="S"{print "type="$4" cached="$7}'
+  ```
+
+  `type=T` is a token-backed key; `type=D` is an on-disk key, which
+  prompts for a passphrase rather than a touch but blocks the same way.
+
+  `cached` reports the **PIN** cache, which is not the same thing as the
+  key's *touch policy*. A token whose signature slot is set to `on` or
+  `cached` (`ykman openpgp info`) needs a physical touch per signature,
+  and gpg raises no prompt at all for it — so `cached=1` still blocks,
+  silently, once the touch has expired. The probe cannot see that;
+  `tools/agent-isolation/gpg-touch-overlay.sh` covers it from the other
+  side by putting a window on screen while gpg waits — from a hook
+  around the agent's git commands, and as git's own signing program
+  and ssh command (`gpg.ssh.program` / `gpg.program`,
+  `core.sshCommand`) for the ones the operator runs by hand.
+  A key whose signature and authentication touch policies are both
+  `off` never waits for a touch, so the overlay stays out of the way
+  for it.
+  On `cached=-`, surface a dialogue naming the key and telling the
+  operator to expect the prompt, or hand them the `git commit` line to run
+  in their own terminal — do not run it and hope. On `cached=1`, commit
+  without interrupting them. Re-probe rather than assuming warmth
+  persists: the default `default-cache-ttl` is 600s idle.
+
+  The same applies to any `git rebase`, `git cherry-pick`, `git tag -s`, or
+  `--amend` that produces a signed object. Release-artefact signing is
+  already covered by a stronger rule — `release-rc-cut` never invokes `gpg`
+  at all, it emits the commands for the release manager to run.
+
 ## Hardware-key touch overlay
 
 **Linux/X11.** A signing key on a YubiKey, Nitrokey, or any OpenPGP
@@ -2908,7 +2961,7 @@ To pick up a change at once, delete the cached answer, `touch-policy` in the ove
 No card, no gpg, or a token whose listing has no `uif:` record means the policy is unknown, and an unknown policy keeps the window.
 
 This is the operator-facing half of the hardware-key rule in
-[`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
+[*Agent side: never blind-run a signing commit*](#agent-side-never-blind-run-a-signing-commit) above. That rule
 has the agent probe gpg-agent's cache and warn **before** committing.
 The probe reads `keyinfo`, which reports the **PIN** cache only — a key
 whose PIN is warm but whose touch has expired reports `cached=1` and
