@@ -46,3 +46,14 @@ uv run --project tools/skill-evals skill-eval \
 - `case-7-verbose-prose` covers a structurally sound skill whose
   remaining cost is repeated prose, so the maintainer-led rewrite pass
   is the only applicable optimization.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `13a1af17` (feat/optimize-agents-md-lessons) | `opus[1m]` | 1 | pass |  |

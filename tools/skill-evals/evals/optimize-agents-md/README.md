@@ -55,6 +55,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `13a1af17` (feat/optimize-agents-md-lessons) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `antigravity` | 1 | pass | cwd isolated |
 | 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `copilot` | 2 | `step-diagnose/case-1-oversized-task-sections` failed 1 of 2; `step-diagnose/case-2-clean-noop` failed 2 of 2; `step-diagnose/case-4-enforced-and-code` failed 1 of 2; `step-diagnose/case-5-injection` failed 2 of 2; `step-diagnose/case-7-subtree-no-paths` failed 1 of 2 | cwd isolated |
 | 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `codex` | 2 | pass | cwd isolated |

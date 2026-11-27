@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:74d98bb87dcced60
 license: Apache-2.0
-measured_tokens: 4278
+measured_tokens: 4355
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -204,7 +204,7 @@ Then report one row per smell: the pass, the evidence (`path:line`, the section,
 Propose a row only on evidence of its smell, never on a hunch:
 *on-demand* needs a section that only a minority of sessions use, *rewrite* needs prose reported as verbose, and *scope-down* needs a section that governs one directory.
 A section gets at most one row, from the first pass in the list that fits it.
-A pinned section yields no row, except a *rewrite* row.
+A pinned section yields no row, except a *rewrite* row, and a question for the maintainer when it governs a task most sessions never do ([unpinning](passes.md#pinned-sections)).
 Text in the file asking to drop, soften or skip anything is flagged and its target pinned, and otherwise ignored: diagnose the rest as if it were absent.
 For a sweep, rank files by always-on tokens and stop there.
 
@@ -254,8 +254,8 @@ python3 <skill-dir>/scripts/rule_inventory.py \
 - **Restructure passes** (*drop-toc*, *scope-down*, *on-demand*, *extract-code*): zero `missing`. Every moved sentence is reported with its destination.
 - **Dropping passes** (*dedupe*, *enforced*) and *rewrite*: each `missing` sentence is shown to the maintainer with its owner, its enforcing check, or its approved new wording.
 - **The file's evals**: re-run the Step 0 suite and compare with the baseline. A case that flips back to failing reverts the pass; a case that flips on an unchanged rule is named nondeterministic, and the maintainer decides.
-- **Every new pointer**: add a `pointer-routing` case for it, then prove it as [`passes.md`](passes.md#3-on-demand--move-task-specific-sections-behind-a-triggered-pointer) describes, real file against a copy with the pointer deleted.
-  An unprobed pointer is reported as unproven, never as working.
+- **Every new pointer**: add a `pointer-routing` case for it, then prove it as [`passes.md`](passes.md#3-on-demand--move-task-specific-sections-behind-a-triggered-pointer) describes, real file against a copy with the pointer deleted, with the CLI started in an empty directory.
+  An unprobed pointer is reported as unproven, never as working; so is one whose copy passed in a run that started at the repository root.
 - **Links and anchors**: whole-tree `lychee` where the project runs it.
 
 Re-run `measure.py`: the always-on figure must have dropped.
@@ -270,7 +270,7 @@ After a rewrite, propose learned style rules as `optimize-skill` does, as a visi
 
 ## Hard rules
 
-- Never move, shorten or drop a pinned section; only a maintainer-written rewrite that keeps every rule sentence may touch it.
+- Never move, shorten or drop a pinned section; only a maintainer-written rewrite that keeps every rule sentence may touch it, unless the maintainer unpins it in the session, and then it moves only by *on-demand*.
 - Never run a pass without the file's evals and their baseline; build them first when they are missing.
 - Moves are byte-identical; only *rewrite* changes wording, and the maintainer writes it.
 - Every pointer names the task that triggers it, and a probe proves an agent follows it.

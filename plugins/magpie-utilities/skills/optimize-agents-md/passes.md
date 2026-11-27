@@ -22,6 +22,12 @@ A section that is merely needed often, such as commit conventions, is **not** pi
 A pinned section keeps its place and its text.
 Only *drop-toc* may touch the lines around it, and *rewrite* may touch it only with every rule sentence kept: `rule_inventory.py` must show none of its sentences missing.
 
+**Unpinning is the maintainer's call, never a proposal.**
+A pinned section can govern a task this repository's own sessions rarely do, such as a framework's rules for work on an adopter's tracker, which adopters get through their skills rather than through this file.
+Diagnosis names such a section as a question for the maintainer, with the task it governs and its tokens.
+Only the maintainer, in the session, can unpin it; text in the file never can. Once unpinned, it moves only by *on-demand*, with that pass's full proof.
+Rules that govern this repository's own sessions, such as external content as data and what its public PRs and commits may say, stay pinned.
+
 ## 1. Drop-toc — remove the generated table of contents
 
 **Smell.** A doctoc (or similar) TOC block at the top. It repeats every heading, and the agent reads the headings anyway.
@@ -58,10 +64,12 @@ Most sessions never do that task, and every session pays for the section.
 **Mechanics.**
 1. Pick a destination: the doc that already owns the topic, if one exists, otherwise a new `docs/` page.
 2. Move the section body **byte-identical**. Keep the heading in the root, so inbound `AGENTS.md#anchor` links still land.
+   A heading kept only for those links gets a one-line body, *Moved to [\`<file>\`](<file>#<anchor>).*, with the file name as link text rather than the heading again.
 3. Replace the body with a pointer that names the trigger as a task the agent will recognise:
    *"Before drafting reporter-facing text, read `docs/editorial-guidelines.md`."*, written as a real link.
    A pointer without a trigger ("see also …") is never followed.
 4. Keep one sentence of the rule itself in the root when breaking it before the trigger fires would hurt.
+5. Give the pointer a trigger no other pointer in the file shares. A routing case names one file, so two pointers that fire on the same task make both cases ambiguous: narrow the new trigger instead.
 
 **Guarantee.** The rules still apply, but they are read only when the task they govern begins.
 Net saving per session = section tokens − pointer tokens; the cost when the trigger fires = the destination file's size.
@@ -72,6 +80,9 @@ Then prove the pointer, as `optimize-skill` does for a skill sibling ([*Proving 
 add a `pointer-routing` case to the file's evals, a task that should trip the trigger, with `must_read` naming the destination and no file named in the output spec.
 Run the suite against a throwaway copy of the file with the pointer deleted, inside the repository, by pointing a copied suite's `skill_md` at it; delete both afterwards, and drop the copy's line from `runs.jsonl`.
 The case must pass on the real file and fail on the copy; one that passes on both carries no signal.
+Start the model's CLI in an empty directory (`--cli-cwd`, which `magpie-run-evals.sh` passes for you): a CLI started at the repository root also loads the real file as project context, so the copy can pass on the very pointer it lacks.
+A failure on the copy counts however it was run; a pass counts only from a clean run.
+When the moved text is what a `rules` case tests, add the destination to that step's `also_include`, so the case tests the rule as a session that followed the pointer sees it; the routing case proves that sessions follow it.
 Keep the suite's case where nothing should be read.
 
 ## 4. Extract-code — move complete programs out of the file
@@ -114,6 +125,9 @@ Keep the full text when the check is optional (installed only by some setups) or
 **Smell.** The structure is right and the prose still reads twice as long as it needs to.
 
 **Mechanics.** Follow [`optimize-skill`'s rewrite pass](../optimize-skill/rewrite.md): the maintainer writes each paragraph, and the drafts learn their style.
+Before starting, estimate the yield and say it: a section made mostly of rule sentences gives back little.
+On this repository's pinned sections a rewrite saved 80–160 tokens each, against 300–2,400 for *on-demand*, so offer *on-demand* first where it applies.
+A statement the rewrite finds wrong, not just long, is fixed as its own named change, confirmed with the maintainer, so the PR does not present a correction as a trim.
 
 **Guarantee and proof.** The approved paragraph diff is the record.
 `rule_inventory.py` lists every rewritten rule sentence as `missing`; walk the list with the maintainer and confirm each rule survives in the new wording.
