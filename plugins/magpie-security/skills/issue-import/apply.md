@@ -144,6 +144,8 @@ For each confirmed `Report` or forwarder-relayed candidate:
    `ccRecipients` includes `security_cc` from the shared
    [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution).
    If no address resolves, block draft creation.
+   `bccRecipients` is `security_bcc` (the private list, when the project has no dedicated security list), in both variants below;
+   never put the private list in To or Cc. A backend that takes no Bcc (`maildir`) gets the draft without it, and the proposal names it for the human to add.
 
    **Two variants depending on how the candidate was classified** (`route` in the `ack-decision` output):
 

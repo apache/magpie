@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:8cfc7395b16c2cf9
 license: Apache-2.0
-measured_tokens: 7500
+measured_tokens: 7563
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -276,8 +276,9 @@ Overall setup: [Prerequisites for running the agent skills](../../../../docs/qui
 
 **Security draft recipients.** Run the shared
 [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
-before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
-in the observed-state bag; a missing address blocks drafting, while
+before mail probes or draft proposals. Keep `security_cc`, `cc_fallback`
+and `security_bcc` (the private list, Bcc only, when there is no dedicated
+security list) in the observed-state bag; a missing address blocks drafting, while
 read-only work remains subject to its own prerequisites.
 `<sm> security-cc` (the `project`, `organization` and `framework_defaults` layers, `existing_cc`) applies the rule and prints both, the warning and the CC array.
 
@@ -352,7 +353,7 @@ Produce a single, compact summary for the user with three sections:
 
 A bullet list of the facts gathered in Step 1 — current labels, milestone,
 assignees, linked PRs, mailing-thread status, and the process step the issue is
-currently at. Include `security_cc` and `cc_fallback` from pre-flight
+currently at. Include `security_cc`, `cc_fallback` and `security_bcc` from pre-flight
 when a draft is proposed, and surface any missing-configuration warning.
 Keep it tight.
 
@@ -429,8 +430,8 @@ Its `bare_refs` must be empty; a cross-referenced issue the proposal mentioned i
 
 ## Guardrails
 
-Before presenting the proposal, write every passage it would write — body patches, the status comment, the rollup entry, issue bodies, draft emails — as `surfaces` (`{kind, text}`, with the observed state as `observed`) and run `<sm> check` with the project's `organization` (`ASF` or the adopter's own value) and `cve_tool_url` (`cve_authority.cve_tool_url`).
-It reports a reporter CVSS score outside the observed state, another ASF project's name or a cross-project phrase, a bare CVE ID on a markdown surface (or the CVE-tool URL in a reporter email), and a bare `#NNN`, one per passage and guardrail.
+Before presenting the proposal, write every passage it would write — body patches, the status comment, the rollup entry, issue bodies, draft emails — as `surfaces` (`{kind, text}`, with the observed state as `observed`; a draft email also carries its `to` and `cc`) and run `<sm> check` with the project's `organization` (`ASF` or the adopter's own value), `cve_tool_url` (`cve_authority.cve_tool_url`) and `private_list`.
+It reports a reporter CVSS score outside the observed state, another ASF project's name or a cross-project phrase, a bare CVE ID on a markdown surface (or the CVE-tool URL in a reporter email), a bare `#NNN`, and the private list in an email's To or Cc (it rides in Bcc only), one per passage and guardrail.
 Fix every hit and check again; it is the floor, not the whole review, so still read the surfaces against the rules below.
 
 - **Never send email.** Only create drafts.

@@ -28,7 +28,10 @@ guardrail, in passage order, content guardrails before formatting ones:
   ASF project's name, or a cross-project phrase;
 - *Linking CVEs* — a bare CVE ID on a markdown surface; in a reporter
   email the bare ID is right and the CVE-tool URL is the violation;
-- *Linking tracker issues* — a bare `#NNN`.
+- *Linking tracker issues* — a bare `#NNN`;
+- *Private list in Bcc only* — an `email` surface whose `to` or `cc`
+  names the project's `private_list` (top-level key): reporters are
+  never given that address, so it may only ride in Bcc.
 
 The model still reads the surfaces for what a pattern cannot see; this is
 the floor, not the whole check.
@@ -45,13 +48,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cve_allocate.gate import record_url
-from security_management.shared import drafting, refs
+from security_management.shared import drafting, recipients, refs
 from security_management.shared.rollup import code, one_line
 
 CVSS = "Never propagate a reporter-supplied CVSS score"
 OTHER_ASF = "Never name or describe other ASF projects' vulnerabilities"
 LINK_CVE = "Linking CVEs"
 LINK_TRACKER = "Linking tracker issues"
+PRIVATE_BCC = "Private list in Bcc only"
 MARKDOWN = ("body_patch", "status_comment", "rollup", "issue_body")
 _CVSS = re.compile(
     r"\bCVSS\b|\bAV:[NALP](?:/[A-Za-z]{1,3}:[A-Za-z])+|\b\d{1,2}\.\d[ \t]?\(?(?:low|medium|high|critical)\b",
@@ -98,6 +102,13 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
         kind = str(surface.get("kind") or "")
         if kind == "observed":
             continue
+        if kind == "email":
+            named = recipients.private_in_recipients(
+                data.get("private_list"), surface.get("to"), surface.get("cc")
+            )
+            violations.extend(
+                {"surface": kind, "guardrail": PRIVATE_BCC, "evidence": f"To/Cc: {a}"} for a in named
+            )
         for sentence in _sentences(str(surface.get("text") or "")):
             found: list[str] = []
             if _CVSS.search(sentence):

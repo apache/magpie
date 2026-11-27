@@ -123,6 +123,83 @@ def test_security_cc_cases(capsys, tmp_path, case, data, expected):
     assert tuple(out[k] for k in keys) == expected
 
 
+# --- Private-list Bcc ----------------------------------------------------------
+
+PRIVATE = "private@foo.apache.org"
+ASF_ORG = {"security_inbox": {"foundation_security_address": "security@apache.org", "bcc_private_list": True}}
+INDEPENDENT_ORG = {"security_inbox": {"foundation_security_address": None, "bcc_private_list": False}}
+
+
+@pytest.mark.parametrize(
+    ("case", "project", "organization", "bcc", "cc"),
+    [
+        ("no-list-bcc-private", {"security_list": "", "private_list": PRIVATE}, ASF_ORG,
+         [PRIVATE], ["security@apache.org"]),
+        ("foundation-list-bcc-private", {"security_list": "security@apache.org", "private_list": PRIVATE},
+         ASF_ORG, [PRIVATE], ["security@apache.org"]),
+        ("dedicated-list-no-bcc", {"security_list": "security@foo.apache.org", "private_list": PRIVATE},
+         ASF_ORG, [], ["security@foo.apache.org"]),
+        ("project-turns-it-off", {"security_list": "", "private_list": PRIVATE,
+                                  "security_inbox": {"bcc_private_list": False}},
+         ASF_ORG, [], ["security@apache.org"]),
+        ("independent-default-off", {"security_list": "security@example.org", "private_list": PRIVATE},
+         INDEPENDENT_ORG, [], ["security@example.org"]),
+        ("framework-default-off", {"security_list": "", "private_list": PRIVATE},
+         {"security_inbox": {"foundation_security_address": "security@apache.org"}}, [], ["security@apache.org"]),
+        ("private-list-unconfigured", {"security_list": "", "private_list": "TODO: e.g. private@foo"},
+         ASF_ORG, [], ["security@apache.org"]),
+    ],
+)  # fmt: skip
+def test_private_list_bcc(capsys, tmp_path, case, project, organization, bcc, cc):
+    out = ok(capsys, tmp_path, "security-cc", layered(project, organization, {}))
+    assert (out["bcc"], out["cc"], out["draft_blocked"]) == (bcc, cc, False)
+
+
+def test_private_list_never_in_cc(capsys, tmp_path):
+    data = layered({"security_list": "", "private_list": PRIVATE}, ASF_ORG, {})
+    data["existing_cc"] = ["Foo PMC <PRIVATE@foo.apache.org>", "alice@example.com"]
+    out = ok(capsys, tmp_path, "security-cc", data)
+    assert out["cc"] == ["alice@example.com", "security@apache.org"] and out["bcc"] == [PRIVATE]
+    out = ok(
+        capsys,
+        tmp_path,
+        "security-cc",
+        layered({"security_list": PRIVATE, "private_list": PRIVATE}, ASF_ORG, {}),
+    )
+    assert (out["security_cc"], out["cc"], out["bcc"]) == (
+        "security@apache.org",
+        ["security@apache.org"],
+        [PRIVATE],
+    )
+    assert out["warning"] is True and "private list" in out["warning_text"] and out["search_list"] == PRIVATE
+    no_fallback = {"security_inbox": {"foundation_security_address": None, "bcc_private_list": True}}
+    out = ok(
+        capsys,
+        tmp_path,
+        "security-cc",
+        layered({"security_list": PRIVATE, "private_list": PRIVATE}, no_fallback, {}),
+    )
+    assert out["draft_blocked"] is True and out["cc"] == [] and out["bcc"] == []
+
+
+def test_check_flags_private_list_in_to_or_cc(capsys, tmp_path):
+    surfaces = [
+        {"kind": "email", "text": "Thank you for the report.", "to": ["alice@example.com"],
+         "cc": ["security@apache.org", PRIVATE]},
+        {"kind": "email", "text": "Thank you for the report.", "to": f"Foo PMC <{PRIVATE}>"},
+        {"kind": "email", "text": "Thank you for the report.", "to": ["alice@example.com"],
+         "cc": ["security@apache.org"], "bcc": [PRIVATE]},
+    ]  # fmt: skip
+    out = ok(capsys, tmp_path, "check", {"surfaces": surfaces, "private_list": PRIVATE})
+    assert out["clean"] is False
+    assert [(v["guardrail"], v["evidence"]) for v in out["violations"]] == [
+        ("Private list in Bcc only", f"To/Cc: {PRIVATE}"),
+        ("Private list in Bcc only", f"To/Cc: {PRIVATE}"),
+    ]
+    out = ok(capsys, tmp_path, "check", {"surfaces": surfaces[2:], "private_list": PRIVATE})
+    assert out["clean"] is True
+
+
 # --- Draft backend -----------------------------------------------------------
 
 

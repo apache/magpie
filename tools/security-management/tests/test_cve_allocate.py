@@ -763,6 +763,22 @@ def test_check_draft_wants_the_cve_id_and_never_the_tool_url(capsys, tmp_path):
     assert {h["kind"] for h in dirty["hits"]} >= {"cve-tool-url", "tracker-reference"}
     missing = ok(capsys, tmp_path, "check-draft", {**base, "body": "We allocated an ID."})
     assert {h["kind"] for h in missing["hits"]} == {"missing-cve-id"}
+    private = {**base, "body": "We allocated CVE-2025-44812.", "private_list": "private@airflow.apache.org"}
+    leaked = ok(capsys, tmp_path, "check-draft", {**private, "cc": ["private@airflow.apache.org"]})
+    assert leaked["hits"] == [
+        {"kind": "private-list-recipient", "line": None, "text": "private@airflow.apache.org"}
+    ]
+    bcc_only = ok(capsys, tmp_path, "check-draft", {**private, "cc": ["security@apache.org"]})
+    assert bcc_only == {"clean": True, "hits": []}
+
+
+def test_the_status_draft_bccs_the_private_list_never_ccs_it(capsys, tmp_path):
+    private = "private@airflow.apache.org"
+    plan = draft_plan(capsys, tmp_path, GMAIL, security_bcc=[private], private_list=private)
+    assert (plan["action"], plan["cc"], plan["bcc"]) == ("create", "security@airflow.apache.org", [private])
+    assert draft_plan(capsys, tmp_path, GMAIL)["bcc"] == []
+    blocked = draft_plan(capsys, tmp_path, GMAIL, security_cc=private, private_list=private)
+    assert blocked["action"] == "blocked" and "Bcc" in blocked["reason"]
 
 
 def test_the_rollup_entry_links_and_lists_the_record_state(capsys, tmp_path):

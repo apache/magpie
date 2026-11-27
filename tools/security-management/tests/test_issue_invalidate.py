@@ -346,6 +346,25 @@ def test_step5d_case_1_draft_created(capsys, tmp_path):
     assert out == {"clean": True, "hits": []}
 
 
+def test_step5d_bccs_the_private_list_and_never_addresses_it(capsys, tmp_path):
+    private = "private@airflow.apache.org"
+    _, out = run(capsys, tmp_path, "draft-plan", draft_input(security_bcc=[private], private_list=private))
+    assert (out["action"], out["cc"], out["bcc"]) == ("create", "security@airflow.apache.org", [private])
+    _, out = run(capsys, tmp_path, "draft-plan", draft_input())
+    assert out["bcc"] == []
+    _, out = run(capsys, tmp_path, "draft-plan", draft_input(reporter_email=private, private_list=private))
+    assert out["action"] == "blocked" and "Bcc" in out["reason"]
+    body = {
+        "body": "Dear Alice,\n\nThank you for your report.\n",
+        "tracker": TRACKER,
+        "private_list": private,
+    }
+    _, out = run(capsys, tmp_path, "check-draft", {**body, "to": [private]})
+    assert out["hits"] == [{"kind": "private-list-recipient", "line": None, "text": private}]
+    _, out = run(capsys, tmp_path, "check-draft", {**body, "to": ["alice@example.com"]})
+    assert out == {"clean": True, "hits": []}
+
+
 def test_step5d_case_2_existing_draft_found(capsys, tmp_path):
     existing = {"id": "r9abc123def456", "subject": "Re: DAG serialization leaks env variable names"}
     _, out = run(capsys, tmp_path, "draft-plan", draft_input(existing_drafts=[existing]))
