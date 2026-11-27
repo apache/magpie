@@ -37,6 +37,7 @@ import {
   parseContributorSweepPayload,
   register,
   renderContributorSweepPane,
+  resolvePersonalLayerDir,
   sanitizeContributorText,
   setContributorSweepState,
   SWEEP_ACTION_FILENAME,
@@ -82,7 +83,10 @@ function createMockEngine(overrides: Record<string, any> = {}): any {
       ...(overrides.ui || {}),
     },
     fs: {
-      stat: async () => {
+      stat: async (p: string) => {
+        if (p === '/repo/.git') {
+          return { kind: 'directory', size: 0, mtimeMs: 0, isLink: false };
+        }
         throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       },
       read: async () => '',
@@ -104,7 +108,6 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
           {
             handle: 'octocat',
             displayName: 'The Octocat',
-            stage: 'ready',
             prCount: 14,
             reviewCount: 22,
             window: '6m',
@@ -112,7 +115,6 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
             updatedAt: '2026-11-27T00:00:00Z',
           },
         ],
-        activeFilter: 'all',
         selectedHandle: 'octocat',
         lastLaunchedAction: null,
         syncError: null,
@@ -141,50 +143,93 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
     });
   });
 
-  describe('isConfinedContributorPath', () => {
-    test('accepts exact queue and action filenames under workspace root', () => {
+  describe('personal-layer resolution & confinement', () => {
+    test('accepts exact filenames under <git-common-dir>/apache-magpie and rejects working tree', () => {
+      const personalDir = '/repo/.git/apache-magpie';
       assertStrictEqual(
-        isConfinedContributorPath(`/repo/${SWEEP_QUEUE_FILENAME}`, '/repo'),
+        isConfinedContributorPath(`${personalDir}/${SWEEP_QUEUE_FILENAME}`, personalDir),
         true
       );
       assertStrictEqual(
-        isConfinedContributorPath(`/repo/${SWEEP_ACTION_FILENAME}`, '/repo'),
+        isConfinedContributorPath(`${personalDir}/${SWEEP_ACTION_FILENAME}`, personalDir),
         true
       );
-    });
-
-    test('rejects traversal, null bytes, nested paths, and empty cwd', () => {
       assertStrictEqual(
-        isConfinedContributorPath(`/repo/../${SWEEP_QUEUE_FILENAME}`, '/repo'),
+        isConfinedContributorPath(`/repo/${SWEEP_ACTION_FILENAME}`, personalDir),
         false
       );
       assertStrictEqual(
-        isConfinedContributorPath(`/repo/sub/${SWEEP_QUEUE_FILENAME}`, '/repo'),
+        isConfinedContributorPath(`${personalDir}/../${SWEEP_QUEUE_FILENAME}`, personalDir),
         false
       );
       assertStrictEqual(
-        isConfinedContributorPath(`/repo/${SWEEP_QUEUE_FILENAME}\0`, '/repo'),
+        isConfinedContributorPath(`${personalDir}/${SWEEP_QUEUE_FILENAME}\0`, personalDir),
         false
       );
       assertStrictEqual(isConfinedContributorPath(SWEEP_QUEUE_FILENAME, ''), false);
     });
+
+    test('resolvePersonalLayerDir supports linked worktrees and refuses symlinked .git', async () => {
+      const linked$ = createMockEngine({
+        fs: {
+          stat: async (p: string) => {
+            if (p === '/wt/.git') {
+              return { kind: 'file', size: 40, mtimeMs: 0, isLink: false };
+            }
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
+          read: async (p: string) => {
+            if (p === '/wt/.git') return 'gitdir: /main/.git/worktrees/wt\n';
+            if (p === '/main/.git/worktrees/wt/commondir') return '../..\n';
+            return '';
+          },
+        },
+      });
+      assertStrictEqual(
+        await resolvePersonalLayerDir(linked$, '/wt'),
+        '/main/.git/apache-magpie'
+      );
+
+      const symlinkGit$ = createMockEngine({
+        fs: {
+          stat: async () => ({ kind: 'directory', size: 0, mtimeMs: 0, isLink: true }),
+        },
+      });
+      assertStrictEqual(await resolvePersonalLayerDir(symlinkGit$, '/repo'), null);
+    });
   });
 
   describe('parseContributorSweepPayload', () => {
-    test('parses valid payload, deduplicates handles, and bounds to MAX_CANDIDATES', () => {
+    test('sorts shuffled candidates alphabetically by handle (case-insensitively) before bounding', () => {
+      const items = [
+        { handle: 'zoe', displayName: 'Zoe', prCount: 20, reviewCount: 30, window: '6m', note: '' },
+        { handle: 'Alpha', displayName: 'Alpha', prCount: 2, reviewCount: 3, window: '6m', note: '' },
+        { handle: 'mike', displayName: 'Mike', prCount: 10, reviewCount: 15, window: '6m', note: '' },
+        { handle: 'bob', displayName: 'Bob', prCount: 5, reviewCount: 7, window: '6m', note: '' },
+      ];
+
+      const res = parseContributorSweepPayload(JSON.stringify({ items }), '2026-11-27T00:00:00Z');
+      assert(res.ok);
+      assertStrictEqual(
+        res.state.items.map((it) => it.handle).join(','),
+        'Alpha,bob,mike,zoe'
+      );
+      assertStrictEqual(res.state.selectedHandle, 'Alpha');
+      assertStrictEqual((res.state.items[0] as any).stage, undefined);
+    });
+
+    test('deduplicates handles case-insensitively and bounds to MAX_CANDIDATES', () => {
       const items = Array.from({ length: MAX_CANDIDATES + 5 }, (_, i) => ({
-        handle: `user-${i}`,
+        handle: `user-${String(i).padStart(3, '0')}`,
         displayName: `User ${i}`,
-        stage: i % 2 === 0 ? 'ready' : 'watch',
         prCount: i,
         reviewCount: i + 1,
         window: '6m',
         note: 'Active reviewer',
       }));
       items.push({
-        handle: 'USER-0',
+        handle: 'USER-000',
         displayName: 'Duplicate',
-        stage: 'hold',
         prCount: 99,
         reviewCount: 99,
         window: '6m',
@@ -194,7 +239,7 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       const res = parseContributorSweepPayload(JSON.stringify({ items }), '2026-11-27T00:00:00Z');
       assert(res.ok);
       assertStrictEqual(res.state.items.length, MAX_CANDIDATES);
-      assertStrictEqual(res.state.selectedHandle, 'user-0');
+      assertStrictEqual(res.state.selectedHandle, 'user-000');
     });
 
     test('rejects empty or malformed payloads cleanly', () => {
@@ -213,7 +258,7 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       assertStrictEqual(buildContributorLauncherAction('bad handle', 'nomination'), null);
     });
 
-    test('renders filter tabs, Sweep/Nominate buttons, and suppresses Staged when syncError is set', () => {
+    test('renders plain counts without verdict badges, and suppresses Staged when syncError is set', () => {
       const Box = (props: any) => ({ type: 'Box', props });
       const Text = (props: any) => ({ type: 'Text', props });
       const Button = (props: any) => ({ type: 'Button', props });
@@ -223,7 +268,6 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
           {
             handle: 'octocat',
             displayName: 'Octocat',
-            stage: 'ready',
             prCount: 10,
             reviewCount: 15,
             window: '6m',
@@ -231,7 +275,6 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
             updatedAt: '2026-11-27T00:00:00Z',
           },
         ],
-        activeFilter: 'all',
         selectedHandle: 'octocat',
         lastLaunchedAction: {
           handle: 'octocat',
@@ -246,7 +289,10 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       const okOut = JSON.stringify(renderContributorSweepPane(Box, Text, Button, state));
       assert(okOut.includes('cs:launch:activity-sweep:octocat'));
       assert(okOut.includes('cs:launch:nomination:octocat'));
+      assert(okOut.includes('10 PRs · 15 reviews (6m)'));
       assert(okOut.includes('Staged: /magpie-contributor-growth:nomination octocat'));
+      assertStrictEqual(okOut.includes('[READY]'), false);
+      assertStrictEqual(okOut.includes('[WATCH]'), false);
 
       const errOut = JSON.stringify(
         renderContributorSweepPane(Box, Text, Button, {
@@ -257,21 +303,56 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       assert(errOut.includes('Warning: Refusing to write to symlink or non-regular file'));
       assertStrictEqual(errOut.includes('Staged:'), false);
     });
+
+    test('renders a shuffled payload in alphabetical order of handle (case-insensitively)', () => {
+      const Box = (props: any) => ({ type: 'Box', props });
+      const Text = (props: any) => ({ type: 'Text', props });
+      const Button = (props: any) => ({ type: 'Button', props });
+
+      const parsed = parseContributorSweepPayload(
+        JSON.stringify({
+          items: [
+            { handle: 'zoe', displayName: 'Zoe', prCount: 20, reviewCount: 30, window: '6m', note: '' },
+            { handle: 'Alpha', displayName: 'Alpha', prCount: 2, reviewCount: 3, window: '6m', note: '' },
+            { handle: 'mike', displayName: 'Mike', prCount: 10, reviewCount: 15, window: '6m', note: '' },
+            { handle: 'bob', displayName: 'Bob', prCount: 5, reviewCount: 7, window: '6m', note: '' },
+          ],
+        }),
+        '2026-11-27T00:00:00Z'
+      );
+      assert(parsed.ok);
+
+      const rendered = JSON.stringify(renderContributorSweepPane(Box, Text, Button, parsed.state));
+      const iAlpha = rendered.indexOf('@Alpha');
+      const iBob = rendered.indexOf('@bob');
+      const iMike = rendered.indexOf('@mike');
+      const iZoe = rendered.indexOf('@zoe');
+      assert(iAlpha !== -1 && iBob !== -1 && iMike !== -1 && iZoe !== -1);
+      assert(iAlpha < iBob && iBob < iMike && iMike < iZoe);
+    });
   });
 
   describe('runtime lifecycle integration', () => {
-    test('handleContributorQueueCommand reads confined regular file, sets state, and opens Pane', async () => {
+    test('handleContributorQueueCommand reads from <git-common-dir>/apache-magpie and opens Pane', async () => {
+      const queuePath = `/repo/.git/apache-magpie/${SWEEP_QUEUE_FILENAME}`;
       const files: Record<string, string> = {
-        [`/repo/${SWEEP_QUEUE_FILENAME}`]: JSON.stringify({
+        [queuePath]: JSON.stringify({
           items: [
             {
-              handle: 'alice-dev',
-              displayName: 'Alice',
-              stage: 'ready',
+              handle: 'zoe-dev',
+              displayName: 'Zoe',
               prCount: 12,
               reviewCount: 20,
               window: '6m',
-              note: 'Ready for committer nomination',
+              note: '',
+            },
+            {
+              handle: 'alice-dev',
+              displayName: 'Alice',
+              prCount: 8,
+              reviewCount: 11,
+              window: '6m',
+              note: '',
             },
           ],
         }),
@@ -284,28 +365,41 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
           },
         },
         fs: {
-          stat: async (p: string) =>
-            p in files
-              ? { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false }
-              : (() => {
-                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-                })(),
+          stat: async (p: string) => {
+            if (p === '/repo/.git') {
+              return { kind: 'directory', size: 0, mtimeMs: 0, isLink: false };
+            }
+            if (p in files) {
+              return { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false };
+            }
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
           read: async (p: string) => files[p] ?? '',
         },
       });
 
       const msg = await handleContributorQueueCommand(mock$);
-      assert(msg.includes('1 candidate(s) (1 ready'));
+      assert(msg.includes('2 candidate(s)'));
       assertStrictEqual(opened, true);
       const state = await getContributorSweepState(mock$);
       assertStrictEqual(state?.selectedHandle, 'alice-dev');
+      assertStrictEqual(state?.queuePath, queuePath);
     });
 
     test('handleContributorQueueCommand refuses symlink or non-regular file before $.fs.read', async () => {
       let readCalled = false;
+      const queuePath = `/repo/.git/apache-magpie/${SWEEP_QUEUE_FILENAME}`;
       const mock$ = createMockEngine({
         fs: {
-          stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: true }),
+          stat: async (p: string) => {
+            if (p === '/repo/.git') {
+              return { kind: 'directory', size: 0, mtimeMs: 0, isLink: false };
+            }
+            if (p === queuePath) {
+              return { kind: 'file', size: 0, mtimeMs: 0, isLink: true };
+            }
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
           read: async () => {
             readCalled = true;
             return '{}';
@@ -319,17 +413,16 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       assertStrictEqual(await getContributorSweepState(mock$), null);
     });
 
-    test('Write and Bash tool.call auto-hydrate, skip git check-ignore, and refuse symlinks', async () => {
+    test('Write/Bash hydrate under <git-common-dir>/apache-magpie and press stages action there (not in working tree)', async () => {
       const files: Record<string, string> = {};
       let opened = false;
-      const cwdQueue = `/repo/subdir/${SWEEP_QUEUE_FILENAME}`;
-      const cwdAction = `/repo/subdir/${SWEEP_ACTION_FILENAME}`;
+      const personalQueue = `/repo/.git/apache-magpie/${SWEEP_QUEUE_FILENAME}`;
+      const personalAction = `/repo/.git/apache-magpie/${SWEEP_ACTION_FILENAME}`;
       const payload = JSON.stringify({
         items: [
           {
             handle: 'bob-dev',
             displayName: 'Bob',
-            stage: 'watch',
             prCount: 5,
             reviewCount: 8,
             window: '6m',
@@ -339,22 +432,21 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       });
 
       const mock$ = createMockEngine({
-        session: {
-          cwd: async () => '/repo/subdir',
-          root: async () => '/repo',
-        },
         ui: {
           open: async () => {
             opened = true;
           },
         },
         fs: {
-          stat: async (p: string) =>
-            p in files
-              ? { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false }
-              : (() => {
-                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-                })(),
+          stat: async (p: string) => {
+            if (p === '/repo/.git') {
+              return { kind: 'directory', size: 0, mtimeMs: 0, isLink: false };
+            }
+            if (p in files) {
+              return { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false };
+            }
+            throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+          },
           read: async (p: string) => files[p] ?? '',
           write: async (p: string, c: string) => {
             files[p] = c;
@@ -370,27 +462,36 @@ describe('contributor-sweep-pane mod (family:contributor-growth)', () => {
       );
       assertStrictEqual(opened, false);
 
-      // Write tool.call hydrates from cwd and press stages action beside it
+      // Write tool.call to working-tree path is ignored (only <git-common-dir>/apache-magpie is accepted)
       await handleContributorSweepWriteToolCall(
         mock$,
-        { file_path: cwdQueue },
+        { file_path: `/repo/${SWEEP_QUEUE_FILENAME}` },
+        async () => ({ ok: true })
+      );
+      assertStrictEqual(opened, false);
+
+      // Write tool.call to <git-common-dir>/apache-magpie hydrates and press stages action beside it
+      await handleContributorSweepWriteToolCall(
+        mock$,
+        { file_path: personalQueue },
         async () => {
-          files[cwdQueue] = payload;
+          files[personalQueue] = payload;
           return { ok: true };
         }
       );
       assertStrictEqual(opened, true);
       const state = await getContributorSweepState(mock$);
-      assertStrictEqual(state?.queuePath, cwdQueue);
+      assertStrictEqual(state?.queuePath, personalQueue);
 
       await handleContributorSweepPress(
         mock$,
-        { element: 'cs:launch:activity-sweep:bob-dev' },
+        { element: 'cs:launch:nomination:bob-dev' },
         () => {}
       );
-      assert(cwdAction in files);
-      const action = JSON.parse(files[cwdAction] ?? '');
-      assertStrictEqual(action.command, '/magpie-contributor-growth:activity-sweep bob-dev');
+      assert(personalAction in files);
+      assertStrictEqual(`/repo/${SWEEP_ACTION_FILENAME}` in files, false);
+      const action = JSON.parse(files[personalAction] ?? '');
+      assertStrictEqual(action.command, '/magpie-contributor-growth:nomination bob-dev');
 
       // Mutating git clears state
       await handleContributorSweepBashToolCall(mock$, { command: 'git checkout main' }, () => {});

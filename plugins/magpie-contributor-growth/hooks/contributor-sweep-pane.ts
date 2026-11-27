@@ -19,10 +19,8 @@
 
 import { atom, read, update } from 'claude-code';
 import type {
-  CandidateFilter,
   ContributorCandidateItem,
   ContributorLauncherSkill,
-  ContributorReadinessStage,
   ContributorSweepState,
   StagedContributorAction,
 } from './types.js';
@@ -38,26 +36,12 @@ export const CONTRIBUTOR_QUEUE_STATE_KEY = 'magpie-contributor-growth.contributo
 export const CONTRIBUTOR_QUEUE_COMMAND = 'magpie-contributor-queue';
 export const SWEEP_QUEUE_FILENAME = '.magpie-contributor-sweep-queue.json';
 export const SWEEP_ACTION_FILENAME = '.magpie-contributor-sweep-action.json';
+export const PERSONAL_LAYER_SUBDIR = 'apache-magpie';
 export const MAX_CANDIDATES = 100;
 
 const ALLOWED_SKILLS: ReadonlyArray<ContributorLauncherSkill> = [
   'activity-sweep',
   'nomination',
-];
-
-const ALLOWED_STAGES: ReadonlyArray<ContributorReadinessStage> = [
-  'ready',
-  'watch',
-  'hold',
-  'skip',
-];
-
-const ALLOWED_FILTERS: ReadonlyArray<CandidateFilter> = [
-  'all',
-  'ready',
-  'watch',
-  'hold',
-  'skip',
 ];
 
 const SAFE_HANDLE_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
@@ -97,25 +81,25 @@ export function isAllowedContributorSkill(raw: unknown): raw is ContributorLaunc
 
 /**
  * Confines local sweep queue/action file access strictly to the exact staging filenames
- * directly under the active workspace root, rejecting traversal and null bytes.
+ * directly under the resolved `<git-common-dir>/apache-magpie` personal-layer directory.
  */
-export function isConfinedContributorPath(filePath: string, cwd: string): boolean {
-  if (!filePath || !cwd || typeof filePath !== 'string' || typeof cwd !== 'string') {
+export function isConfinedContributorPath(filePath: string, personalDir: string): boolean {
+  if (!filePath || !personalDir || typeof filePath !== 'string' || typeof personalDir !== 'string') {
     return false;
   }
-  if (filePath.includes('\0') || cwd.includes('\0')) {
+  if (filePath.includes('\0') || personalDir.includes('\0')) {
     return false;
   }
 
   const normPath = filePath.replace(/\\/g, '/');
-  const normCwd = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
-  if (!normCwd || normPath.split('/').includes('..')) {
+  const normDir = personalDir.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!normDir || normPath.split('/').includes('..')) {
     return false;
   }
 
   return (
-    normPath === `${normCwd}/${SWEEP_QUEUE_FILENAME}` ||
-    normPath === `${normCwd}/${SWEEP_ACTION_FILENAME}`
+    normPath === `${normDir}/${SWEEP_QUEUE_FILENAME}` ||
+    normPath === `${normDir}/${SWEEP_ACTION_FILENAME}`
   );
 }
 
@@ -137,21 +121,77 @@ export function normalizeAbsolutePath(path: string): string | null {
   return `${prefix}/${parts.join('/')}`;
 }
 
+function resolveRelativePath(base: string, rel: string): string | null {
+  const normRel = rel.replace(/\\/g, '/').trim();
+  if (!normRel || normRel.includes('\0')) return null;
+  const abs = normalizeAbsolutePath(normRel);
+  if (abs) return abs;
+  const normBase = normalizeAbsolutePath(base);
+  if (!normBase) return null;
+  const drive = /^[A-Za-z]:/.exec(normBase)?.[0] ?? '';
+  const baseParts = normBase.slice(drive.length).split('/').filter(Boolean);
+  for (const seg of normRel.split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') {
+      if (baseParts.length === 0) return null;
+      baseParts.pop();
+    } else {
+      baseParts.push(seg);
+    }
+  }
+  return `${drive}/${baseParts.join('/')}`;
+}
+
 /**
- * Returns the deepest normalized session root that `path` sits under, or null.
+ * Resolves `<git-common-dir>/apache-magpie` for a workspace root via pure `$.fs`,
+ * supporting standard checkouts and linked worktrees while refusing symlinked `.git`.
  */
-export function allowedRootFor(
-  path: string,
-  sessionRoots: readonly (string | undefined)[]
-): string | null {
-  const target = normalizeAbsolutePath(path);
-  if (!target) return null;
-  const roots = sessionRoots
-    .map((r) => (r ? normalizeAbsolutePath(r) : null))
-    .filter((r): r is string => Boolean(r) && r !== '/')
-    .filter((r) => target.startsWith(`${r}/`))
-    .sort((a, b) => b.length - a.length);
-  return roots[0] ?? null;
+export async function resolvePersonalLayerDir(
+  $: any,
+  normRoot: string
+): Promise<string | null> {
+  const cleanRoot = normalizeAbsolutePath(normRoot);
+  if (!cleanRoot) return null;
+  const dotGitPath = `${cleanRoot}/.git`;
+  let stat: any;
+  try {
+    stat = await $.fs.stat(dotGitPath);
+  } catch {
+    return null;
+  }
+  if (!stat || stat.isLink !== false) return null;
+
+  if (stat.kind === 'directory') {
+    return `${dotGitPath}/${PERSONAL_LAYER_SUBDIR}`;
+  }
+
+  if (stat.kind === 'file') {
+    let content: string | null = null;
+    try {
+      content = await $.fs.read(dotGitPath);
+    } catch {
+      return null;
+    }
+    if (!content) return null;
+    const match = /^gitdir:\s*(.+)$/m.exec(content);
+    if (!match || !match[1]) return null;
+    const gitDir = resolveRelativePath(cleanRoot, match[1].trim());
+    if (!gitDir) return null;
+
+    let gitCommonDir = gitDir;
+    try {
+      const commonContent = await $.fs.read(`${gitDir}/commondir`);
+      if (typeof commonContent === 'string' && commonContent.trim()) {
+        const resolved = resolveRelativePath(gitDir, commonContent.trim());
+        if (resolved) gitCommonDir = resolved;
+      }
+    } catch {
+      // Single worktree or no commondir file
+    }
+    return `${gitCommonDir}/${PERSONAL_LAYER_SUBDIR}`;
+  }
+
+  return null;
 }
 
 /**
@@ -239,7 +279,8 @@ function clampNonNegInt(raw: unknown): number {
 }
 
 /**
- * Parses and bounds a local `.magpie-contributor-sweep-queue.json` payload.
+ * Parses a local `.magpie-contributor-sweep-queue.json` payload, sorting
+ * candidates alphabetically by handle (case-insensitively) and bounding to MAX_CANDIDATES.
  */
 export function parseContributorSweepPayload(
   rawJson: string,
@@ -263,10 +304,9 @@ export function parseContributorSweepPayload(
     };
   }
 
-  const items: ContributorCandidateItem[] = [];
+  const allItems: ContributorCandidateItem[] = [];
   const seen = new Set<string>();
   for (const rawItem of parsed.items) {
-    if (items.length >= MAX_CANDIDATES) break;
     if (!rawItem || typeof rawItem !== 'object') continue;
 
     const cleanHandle = sanitizeContributorText(rawItem.handle, 39).replace(/^@+/, '');
@@ -276,21 +316,15 @@ export function parseContributorSweepPayload(
     seen.add(key);
 
     const displayName = sanitizeContributorText(rawItem.displayName, 60) || cleanHandle;
-    const stage: ContributorReadinessStage = (ALLOWED_STAGES as readonly string[]).includes(
-      rawItem.stage
-    )
-      ? (rawItem.stage as ContributorReadinessStage)
-      : 'watch';
     const prCount = clampNonNegInt(rawItem.prCount);
     const reviewCount = clampNonNegInt(rawItem.reviewCount);
     const window = sanitizeContributorText(rawItem.window, 16) || '6m';
     const note = sanitizeContributorText(rawItem.note, 100);
     const updatedAt = sanitizeContributorText(rawItem.updatedAt, 40) || nowIso;
 
-    items.push({
+    allItems.push({
       handle: cleanHandle,
       displayName,
-      stage,
       prCount,
       reviewCount,
       window,
@@ -299,12 +333,18 @@ export function parseContributorSweepPayload(
     });
   }
 
+  allItems.sort((a, b) => {
+    const ka = a.handle.toLowerCase();
+    const kb = b.handle.toLowerCase();
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+
+  const items = allItems.slice(0, MAX_CANDIDATES);
   const firstItem = items[0];
   return {
     ok: true,
     state: {
       items,
-      activeFilter: 'all',
       selectedHandle: firstItem ? firstItem.handle : null,
       lastLaunchedAction: null,
       syncError: null,
@@ -333,32 +373,7 @@ export function buildContributorLauncherAction(
 }
 
 /**
- * Counts candidate items per readiness stage for header/tab badges.
- */
-export function summarizeCandidateStages(
-  items: ReadonlyArray<ContributorCandidateItem>
-): {
-  all: number;
-  ready: number;
-  watch: number;
-  hold: number;
-  skip: number;
-} {
-  let ready = 0;
-  let watch = 0;
-  let hold = 0;
-  let skip = 0;
-  for (const item of items) {
-    if (item.stage === 'ready') ready += 1;
-    else if (item.stage === 'watch') watch += 1;
-    else if (item.stage === 'hold') hold += 1;
-    else if (item.stage === 'skip') skip += 1;
-  }
-  return { all: items.length, ready, watch, hold, skip };
-}
-
-/**
- * Renders the interactive Contributor Activity Sweep Pane.
+ * Renders the interactive Contributor Activity Sweep Pane (plain counts, alphabetical order).
  */
 export function renderContributorSweepPane(
   Box: any,
@@ -368,30 +383,8 @@ export function renderContributorSweepPane(
 ): any {
   if (!Box || !Text || !Button || !state) return null;
 
-  const counts = summarizeCandidateStages(state.items);
-  const visibleItems =
-    state.activeFilter === 'all'
-      ? state.items
-      : state.items.filter((item) => item.stage === state.activeFilter);
-
-  const tabSpecs: ReadonlyArray<{ filter: CandidateFilter; label: string }> = [
-    { filter: 'all', label: `[All (${counts.all})]` },
-    { filter: 'ready', label: `[Ready (${counts.ready})]` },
-    { filter: 'watch', label: `[Watch (${counts.watch})]` },
-    { filter: 'hold', label: `[Hold (${counts.hold})]` },
-    { filter: 'skip', label: `[Skip (${counts.skip})]` },
-  ];
-
-  const tabButtons = tabSpecs.map((tab) =>
-    Button({
-      key: `cs:filter:${tab.filter}`,
-      label: tab.label,
-      variant: state.activeFilter === tab.filter ? 'primary' : 'secondary',
-    })
-  );
-
   const maxVisible = 12;
-  const shown = visibleItems.slice(0, maxVisible);
+  const shown = state.items.slice(0, maxVisible);
   const itemCards =
     shown.length > 0
       ? shown.map((item) => {
@@ -406,9 +399,7 @@ export function renderContributorSweepPane(
             children: [
               Text({
                 bold: isSelected,
-                children: [
-                  `@${item.handle} (${item.displayName}) [${item.stage.toUpperCase()}] · ${stats}${noteSuffix}`,
-                ],
+                children: [`@${item.handle} (${item.displayName}) · ${stats}${noteSuffix}`],
               }),
               Box({
                 flexDirection: 'row',
@@ -427,7 +418,7 @@ export function renderContributorSweepPane(
                   Button({
                     key: `cs:launch:nomination:${item.handle}`,
                     label: '[Nominate]',
-                    variant: item.stage === 'ready' ? 'primary' : 'secondary',
+                    variant: 'secondary',
                   }),
                 ],
               }),
@@ -437,16 +428,16 @@ export function renderContributorSweepPane(
       : [
           Text({
             color: 'muted',
-            children: ['No candidates match the active filter.'],
+            children: ['No candidates in queue.'],
           }),
         ];
 
   const footerChildren: any[] = [];
-  if (visibleItems.length > maxVisible) {
+  if (state.items.length > maxVisible) {
     footerChildren.push(
       Text({
         color: 'muted',
-        children: [`Showing ${maxVisible} of ${visibleItems.length} candidates in this filter.`],
+        children: [`Showing ${maxVisible} of ${state.items.length} candidates.`],
       })
     );
   }
@@ -478,7 +469,7 @@ export function renderContributorSweepPane(
         children: [
           Text({
             bold: true,
-            children: ['Contributor Activity Sweep (Local-Only)'],
+            children: [`Contributor Activity Sweep (${state.items.length})`],
           }),
           Button({
             key: 'cs:close',
@@ -486,11 +477,6 @@ export function renderContributorSweepPane(
             variant: 'secondary',
           }),
         ],
-      }),
-      Box({
-        flexDirection: 'row',
-        gap: 1,
-        children: tabButtons,
       }),
       ...itemCards,
       ...footerChildren,
@@ -503,23 +489,20 @@ function shouldKeepLaunchedAction(
   items: ReadonlyArray<ContributorCandidateItem>
 ): StagedContributorAction | null {
   if (!action) return null;
-  const item = items.find((it) => it.handle === action.handle);
-  if (!item) return null;
-  if (action.skill === 'activity-sweep' && item.stage === 'ready') return null;
-  return action;
+  return items.some((it) => it.handle === action.handle) ? action : null;
 }
 
 /**
  * Validates, reads, parses, and hydrates `.magpie-contributor-sweep-queue.json`
- * under strict workspace confinement, then opens the Pane.
+ * under `<git-common-dir>/apache-magpie/`, then opens the Pane.
  */
 export async function loadAndHydrateContributorQueue(
   $: any,
   queuePath: string,
-  normRoot: string,
+  personalDir: string,
   preserveUiState: boolean = false
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
-  if (!isConfinedContributorPath(queuePath, normRoot)) {
+  if (!isConfinedContributorPath(queuePath, personalDir)) {
     return {
       ok: false,
       message: 'Contributor Sweep Queue: refused unconfined queue path.',
@@ -566,7 +549,6 @@ export async function loadAndHydrateContributorQueue(
         nextState.items.some((it) => it.handle === prev.selectedHandle);
       nextState = {
         ...nextState,
-        activeFilter: prev.activeFilter,
         selectedHandle: selectedStillExists
           ? prev.selectedHandle
           : nextState.selectedHandle,
@@ -586,45 +568,47 @@ export async function loadAndHydrateContributorQueue(
     // Fail-open when $.ui.open is unavailable
   }
 
-  const summary = summarizeCandidateStages(nextState.items);
   return {
     ok: true,
-    message: `Contributor Sweep Queue loaded: ${summary.all} candidate(s) (${summary.ready} ready, ${summary.watch} watch, ${summary.hold} hold, ${summary.skip} skip).`,
+    message: `Contributor Sweep Queue loaded: ${nextState.items.length} candidate(s).`,
   };
 }
 
 /**
- * Resolves the active workspace root directory for queue/action operations.
+ * Resolves the `<git-common-dir>/apache-magpie` directory for the active session.
  */
-async function resolveContributorRoot($: any, preferCwd: boolean = false): Promise<string> {
+async function resolveSessionPersonalDir(
+  $: any,
+  preferCwd: boolean = false
+): Promise<string | null> {
   const roots = await sessionRootsOf($);
   const ordered = preferCwd ? [roots[0], roots[1]] : [roots[1], roots[0]];
+  let firstResolved: string | null = null;
   for (const r of ordered) {
     if (!r) continue;
-    const norm = String(r).replace(/\\/g, '/').replace(/\/+$/, '');
-    if (!norm) continue;
-    const candidate = `${norm}/${SWEEP_QUEUE_FILENAME}`;
-    if ((await classifyWriteTarget($, candidate)) !== 'missing') {
-      return norm;
+    const personalDir = await resolvePersonalLayerDir($, r);
+    if (!personalDir) continue;
+    if (!firstResolved) firstResolved = personalDir;
+    if ((await classifyWriteTarget($, `${personalDir}/${SWEEP_QUEUE_FILENAME}`)) !== 'missing') {
+      return personalDir;
     }
   }
-  const fallback = ordered[0] || ordered[1] || '';
-  return String(fallback).replace(/\\/g, '/').replace(/\/+$/, '');
+  return firstResolved;
 }
 
 /**
  * Handles `/magpie-contributor-queue`: reads `.magpie-contributor-sweep-queue.json`
- * under strict workspace confinement, hydrates state, and opens the Pane.
+ * under `<git-common-dir>/apache-magpie/`, hydrates state, and opens the Pane.
  */
 export async function handleContributorQueueCommand($: any): Promise<string> {
   try {
-    const normCwd = await resolveContributorRoot($, false);
-    if (!normCwd) {
-      return 'Contributor Sweep Queue: unable to resolve workspace root.';
+    const personalDir = await resolveSessionPersonalDir($, false);
+    if (!personalDir) {
+      return 'Contributor Sweep Queue: unable to resolve git personal-layer directory.';
     }
 
-    const queuePath = `${normCwd}/${SWEEP_QUEUE_FILENAME}`;
-    const res = await loadAndHydrateContributorQueue($, queuePath, normCwd, false);
+    const queuePath = `${personalDir}/${SWEEP_QUEUE_FILENAME}`;
+    const res = await loadAndHydrateContributorQueue($, queuePath, personalDir, false);
     return res.message;
   } catch {
     return 'Contributor Sweep Queue: failed to load local queue.';
@@ -663,7 +647,7 @@ export async function handleRenderContributorSweepPane(
 }
 
 /**
- * Handles interactive `ui.press` events for filter tabs, selection, launcher buttons, and close.
+ * Handles interactive `ui.press` events for selection, launcher buttons, and close.
  */
 export async function handleContributorSweepPress($: any, e: any, next: any): Promise<any> {
   try {
@@ -680,17 +664,6 @@ export async function handleContributorSweepPress($: any, e: any, next: any): Pr
     if (element === 'cs:close') {
       await setContributorSweepState($, null);
       return;
-    }
-
-    if (element.startsWith('cs:filter:')) {
-      const nextFilter = element.slice('cs:filter:'.length);
-      if ((ALLOWED_FILTERS as readonly string[]).includes(nextFilter)) {
-        await setContributorSweepState($, {
-          ...state,
-          activeFilter: nextFilter as CandidateFilter,
-        });
-        return;
-      }
     }
 
     if (element.startsWith('cs:select:')) {
@@ -722,20 +695,26 @@ export async function handleContributorSweepPress($: any, e: any, next: any): Pr
           if (action) {
             let syncError: string | null = null;
             try {
-              const normCwd = state.queuePath
+              const personalDir = state.queuePath
                 ? state.queuePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
-                : await resolveContributorRoot($, false);
+                : await resolveSessionPersonalDir($, false);
               const actionPath = state.queuePath
                 ? getActionPathFromQueuePath(state.queuePath)
-                : `${normCwd}/${SWEEP_ACTION_FILENAME}`;
-              if (normCwd && isConfinedContributorPath(actionPath, normCwd)) {
+                : personalDir
+                  ? `${personalDir}/${SWEEP_ACTION_FILENAME}`
+                  : '';
+              if (
+                personalDir &&
+                actionPath &&
+                isConfinedContributorPath(actionPath, personalDir)
+              ) {
                 if ((await classifyWriteTarget($, actionPath)) === 'unsafe') {
                   syncError = `Refusing to write to symlink or non-regular file: ${SWEEP_ACTION_FILENAME}`;
                 } else {
                   await $.fs.write(actionPath, JSON.stringify(action, null, 2) + '\n');
                 }
               } else {
-                syncError = `Could not write ${SWEEP_ACTION_FILENAME}; run command manually.`;
+                syncError = `Could not resolve git personal-layer directory for ${SWEEP_ACTION_FILENAME}; run command manually.`;
               }
             } catch {
               syncError = `Could not write ${SWEEP_ACTION_FILENAME}; run command manually.`;
@@ -779,7 +758,7 @@ export async function clearContributorSweepOnMutatingGit(
 
 /**
  * Write tool.call hook: auto-hydrates `.magpie-contributor-sweep-queue.json`
- * when written under the active session cwd or root.
+ * when written under `<git-common-dir>/apache-magpie/`.
  */
 export async function handleContributorSweepWriteToolCall(
   $: any,
@@ -802,22 +781,15 @@ export async function handleContributorSweepWriteToolCall(
       filePath &&
       /(?:^|\/)\.magpie-contributor-sweep-queue\.json$/.test(filePath.replace(/\\/g, '/'))
     ) {
-      const roots = await sessionRootsOf($);
       const normalized = normalizeAbsolutePath(filePath);
-      if (normalized) {
-        const wsRoot = allowedRootFor(normalized, roots);
-        if (wsRoot && isConfinedContributorPath(normalized, wsRoot)) {
-          await loadAndHydrateContributorQueue($, normalized, wsRoot, true);
-        }
-      } else if (filePath === SWEEP_QUEUE_FILENAME) {
-        const normRoot = await resolveContributorRoot($, true);
-        if (normRoot) {
-          await loadAndHydrateContributorQueue(
-            $,
-            `${normRoot}/${SWEEP_QUEUE_FILENAME}`,
-            normRoot,
-            true
-          );
+      const roots = await sessionRootsOf($);
+      for (const r of roots) {
+        if (!r) continue;
+        const personalDir = await resolvePersonalLayerDir($, r);
+        if (!personalDir) continue;
+        if (normalized && isConfinedContributorPath(normalized, personalDir)) {
+          await loadAndHydrateContributorQueue($, normalized, personalDir, true);
+          break;
         }
       }
     }
@@ -860,12 +832,12 @@ export async function handleContributorSweepBashToolCall(
       !isReadOnlyGit &&
       !/^\s*rm\b/i.test(cmd)
     ) {
-      const normRoot = await resolveContributorRoot($, true);
-      if (normRoot) {
+      const personalDir = await resolveSessionPersonalDir($, true);
+      if (personalDir) {
         await loadAndHydrateContributorQueue(
           $,
-          `${normRoot}/${SWEEP_QUEUE_FILENAME}`,
-          normRoot,
+          `${personalDir}/${SWEEP_QUEUE_FILENAME}`,
+          personalDir,
           true
         );
       }

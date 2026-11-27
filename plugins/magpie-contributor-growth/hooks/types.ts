@@ -17,16 +17,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export type ContributorReadinessStage = 'ready' | 'watch' | 'hold' | 'skip';
-
-export type CandidateFilter = 'all' | ContributorReadinessStage;
-
 export type ContributorLauncherSkill = 'activity-sweep' | 'nomination';
 
 export interface ContributorCandidateItem {
   handle: string;
   displayName: string;
-  stage: ContributorReadinessStage;
   prCount: number;
   reviewCount: number;
   window: string;
@@ -43,7 +38,6 @@ export interface StagedContributorAction {
 
 export interface ContributorSweepState {
   items: ContributorCandidateItem[];
-  activeFilter: CandidateFilter;
   selectedHandle: string | null;
   lastLaunchedAction: StagedContributorAction | null;
   syncError: string | null;
