@@ -260,9 +260,11 @@ agent could have built and stays refused.
 
 Under Claude Code, agent-guard's `vetted-ops-caller` rule (#2124) checks the
 honest case. It reads the hook's `transcript_path`, takes the skills invoked
-since the user's last prompt plus the one running when it was sent, and
-refuses a `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `vetted-op-git`
-launch whose `--caller` none of their files name. It allows when there is no
+across the user's last 10 prompts (back to a slash command that starts a
+skill), and
+refuses a `vetted-op`, `vetted-op-read`, `vetted-op-tracker`,
+`vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted` or
+`vetted-op-git` launch whose `--caller` none of their files name. It allows when there is no
 transcript, under another harness, when no skill was invoked, and when a
 running skill is unknown or names no caller. Its override,
 `MAGPIE_ALLOW_ANY_CALLER=1`, is read from the hook's environment only, never

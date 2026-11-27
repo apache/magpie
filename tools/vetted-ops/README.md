@@ -149,8 +149,8 @@ of a read-only caller name grants **every** operation in the catalogue, because
 the next invocation can name a different caller.
 
 Under Claude Code, agent-guard's `vetted-ops-caller` rule reads the session
-transcript and refuses a `--caller` that no skill running in the current turn
-names in its own files. The agent chooses its own `Skill` calls, so the rule
+transcript and refuses a `--caller` that no skill invoked across the user's last
+few prompts names in its own files. The agent chooses its own `Skill` calls, so the rule
 catches an accidental caller swap, not a deliberate one: the per-caller split
 is still not an authorisation boundary. It allows whenever it cannot tell which
 skill is running, and other harnesses are not checked, so the policy still

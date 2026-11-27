@@ -136,19 +136,46 @@ def test_the_equals_form_is_read(skills, tmp_path):
     assert agent_guard.dispatch(command, transcript_path=t)
 
 
-def test_a_skill_from_an_earlier_turn_no_longer_counts(skills, tmp_path):
-    # issue-sync was running when "now allocate the CVE" came in, so it still
-    # counts in that turn; once the next prompt arrives, only cve-allocate does.
+@pytest.mark.parametrize(
+    "entry", ["vetted-op-tracker-batch", "vetted-op-tracker-batch-unprompted", "vetted-op-git"]
+)
+def test_every_vetted_op_entry_point_is_checked(skills, tmp_path, entry):
+    t = write(tmp_path / "s.jsonl", skill_call("cve-allocate"))
+    command = f"uv run --project ~/.claude/magpie/vetted-ops {entry} --caller security-issue-sync x"
+    assert agent_guard.dispatch(command, transcript_path=t)
+    assert (
+        agent_guard.dispatch(
+            command.replace("security-issue-sync", "security-cve-allocate"), transcript_path=t
+        )
+        is None
+    )
+
+
+def test_a_skill_expires_after_the_turn_cap(skills, tmp_path):
+    turns = [prompt(f"step {i}") for i in range(agent_guard._SKILL_TURNS - 1)]
+    t = write(tmp_path / "s.jsonl", skill_call("issue-sync"), skill_call("cve-allocate"), *turns)
+    assert check(t, "security-issue-sync") is None
     t = write(
-        tmp_path / "s.jsonl",
-        skill_call("issue-sync"),
-        prompt("now allocate the CVE"),
-        skill_call("cve-allocate"),
-        tool_result(),
-        prompt("thanks, carry on"),
+        tmp_path / "s.jsonl", skill_call("issue-sync"), *turns, prompt("one more"), skill_call("cve-allocate")
     )
     assert check(t, "security-cve-allocate") is None
     assert check(t, "security-issue-sync")
+
+
+def test_an_outer_skill_keeps_its_caller_after_the_user_confirms_the_inner_one(skills, tmp_path):
+    # issue-fix runs issue-sync, the user confirms its corrections in a chat
+    # reply, and issue-fix carries on with its own writes.
+    t = write(
+        tmp_path / "s.jsonl",
+        skill_call("issue-fix"),
+        tool_result(),
+        skill_call("issue-sync"),
+        tool_result(),
+        prompt("yes, apply"),
+    )
+    assert check(t, "security-issue-fix") is None
+    assert check(t, "security-issue-sync") is None
+    assert check(t, "security-cve-allocate")
 
 
 def test_an_outer_skill_keeps_its_caller_after_running_another(skills, tmp_path):

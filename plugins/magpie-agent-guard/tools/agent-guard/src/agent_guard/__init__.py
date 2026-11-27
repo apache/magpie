@@ -2414,6 +2414,10 @@ CALLER_OVERRIDE_ENV = "MAGPIE_ALLOW_ANY_CALLER"
 #: Only this much of a transcript's tail is read; the skill that is running is
 #: near the end, and a long session can grow to many megabytes.
 _TRANSCRIPT_TAIL_BYTES = 32 * 1024 * 1024
+#: How many of the user's prompts a skill stays running across. The rule
+#: catches accidental caller swaps only, so a wider set is a cheaper error than
+#: refusing a skill that asked the user a question and then carried on.
+_SKILL_TURNS = 10
 _CALLER_IN_DOCS = re.compile(r"--caller[ =]([A-Za-z0-9][A-Za-z0-9._-]*)")
 _COMMAND_NAME = re.compile(r"<command-name>/?([^<\s]+)</command-name>")
 
@@ -2563,14 +2567,14 @@ def _is_user_turn(entry: dict[str, object]) -> bool:
 
 def running_skills(transcript_path: str | None) -> list[str]:
     """The skills that may be running, newest first, from a Claude Code
-    transcript: every skill invoked since the user's last prompt, and the one
-    that was running when they sent it. Empty when there is none or the
-    transcript cannot be read.
+    transcript: every skill invoked across the user's last ``_SKILL_TURNS``
+    prompts. Empty when there is none or the transcript cannot be read.
 
-    One skill can run another and then carry on (``security-issue-fix`` runs
-    ``security-issue-sync`` first), so the latest invocation alone is not the
-    running skill. A prompt that is itself a slash command naming a skill
-    starts that skill, and nothing before it counts.
+    One skill can run another and carry on, also after the user answers in
+    between: ``security-issue-fix`` runs ``security-issue-sync``, the user
+    confirms its corrections, and issue-fix goes on writing. So the latest
+    invocation alone is not the running skill. A prompt that is itself a slash
+    command naming a skill starts that skill, and nothing before it counts.
 
     A subagent's own transcript (``<session>/subagents/agent-*.jsonl``) holds no
     skill invocation of its own when the skill that started it is its parent's,
@@ -2589,7 +2593,7 @@ def running_skills(transcript_path: str | None) -> list[str]:
         except OSError:
             continue
         skills: list[str] = []
-        turn_began = False
+        prompts = 0
         for line in lines:
             if '"Skill"' not in line and "<command-name>" not in line and '"user"' not in line:
                 continue
@@ -2602,12 +2606,12 @@ def running_skills(transcript_path: str | None) -> list[str]:
             skill = _skill_invocation(entry)
             if skill and skill not in skills:
                 skills.append(skill)
-            if turn_began and skill:
-                break  # the skill that was running when the user's prompt came in
             if _is_user_turn(entry):
                 if skill:
                     break  # the prompt itself started a skill
-                turn_began = True
+                prompts += 1
+                if prompts >= _SKILL_TURNS:
+                    break
         if skills:
             return skills
     return []
