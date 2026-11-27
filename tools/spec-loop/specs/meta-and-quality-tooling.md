@@ -78,6 +78,12 @@ trustworthy as it grows.
   A compatible recommended next action the reference omits is not a
   mismatch, and the grader must make each boolean verdict agree with its
   stated reason before returning (#1751).
+  `--cli-cwd <dir>` starts the model-under-test CLI in `<dir>` while the
+  runner stays at the repository root: an agent CLI started at the root also
+  loads the repository's own `AGENTS.md`, which let a pointer mutation check
+  pass on the very pointer it deleted. `magpie-run-evals.sh` always passes a
+  fresh empty directory and removes it afterwards, and the journal records
+  `cli_cwd_isolated`.
   CI never runs a live model, so every live `--cli` run under
   `evals/<skill>/` appends one record (skill, ref, branch, model, the CLI
   strings, inputs, per-case outcome, cost, notes) to the append-only journal

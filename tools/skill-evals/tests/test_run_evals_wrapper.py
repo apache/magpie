@@ -93,3 +93,15 @@ def test_lets_a_real_path_inside_the_evals_tree_through(tmp_path: Path) -> None:
 
     assert result.returncode != 2, result.stdout + result.stderr
     assert "resolves outside" not in result.stderr
+
+
+def test_starts_claude_in_an_empty_directory() -> None:
+    """The wrapper passes --cli-cwd a fresh temporary directory and removes it after.
+
+    Started at the repository root, `claude -p` would also load the real
+    AGENTS.md, and a pointer mutation check could pass on the text it removed.
+    """
+    text = WRAPPER.read_text()
+    assert 'cli_cwd="$(mktemp -d)"' in text
+    assert '--cli "claude -p" --cli-cwd "$cli_cwd"' in text
+    assert 'rmdir -- "$cli_cwd"' in text

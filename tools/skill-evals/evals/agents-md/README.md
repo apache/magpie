@@ -26,13 +26,11 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/agents-md/
 - `pointer-routing` names no file in its output spec, so the answer has to come from the instructions.
   Prove each pointer against a copy of `AGENTS.md` with that pointer deleted: the case must fail there, or it carries no signal.
   Delete the whole pointer, not only the line holding the link: a trigger sentence left behind can still steer a model to the obvious file.
-- `case-10-skill-step-edit` has three routes in `AGENTS.md`: the *Keeping evals* pointer, the *Reusable skills* eval bullet and the *Before submitting* evals bullet.
-  It still passed with the pointer deleted and failed with all three gone, so it guards that a skill edit reaches the eval rules, not one pointer.
 - The security-tracker rules live in [`docs/security/agent-rules.md`](../../../../docs/security/agent-rules.md), behind one pointer in `AGENTS.md`.
   `rules` includes that file (`also_include`), testing the rules as a security session sees them; `case-12` and `case-13` test that the pointer gets the agent there; both fail with the *Security-tracker work* section deleted.
-- Run a mutation check from an empty directory, never through `magpie-run-evals.sh`:
-  `claude -p` started at the repository root also loads the real `AGENTS.md`, so a mutant can pass on the pointer it was meant to lack.
-  A mutant failure through the wrapper still counts; a mutant pass proves nothing.
+- Run a mutation check with `--cli-cwd` pointing at an empty directory (`magpie-run-evals.sh` does this).
+  Started at the repository root, `claude -p` also loads the real `AGENTS.md`, so a mutant can pass on the pointer it was meant to lack:
+  `case-10-skill-step-edit` once passed that way, and fails with only the *Keeping evals* pointer deleted once run cleanly.
 
 ## Run history
 

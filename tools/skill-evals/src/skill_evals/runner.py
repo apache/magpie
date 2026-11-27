@@ -1108,8 +1108,10 @@ def _format_diff(actual: object, expected: object) -> str:
     return "\n".join(lines)
 
 
-def run_cli(cli: str, prompt: str, timeout: int = 120) -> tuple[str, str, int]:
+def run_cli(cli: str, prompt: str, timeout: int = 120, cwd: Path | None = None) -> tuple[str, str, int]:
     """Run ``cli`` with ``prompt`` on stdin. Return (stdout, stderr, rc).
+
+    ``cwd`` is the directory the command starts in; ``None`` keeps the runner's own.
 
     The command string is tokenised with ``shlex.split`` and executed with
     ``shell=False``. The operator supplies the command, so trust is not the
@@ -1128,6 +1130,7 @@ def run_cli(cli: str, prompt: str, timeout: int = 120) -> tuple[str, str, int]:
         shell=False,
         timeout=timeout,
         check=False,
+        cwd=cwd,
     )
     return proc.stdout, proc.stderr, proc.returncode
 
@@ -1206,6 +1209,18 @@ def main(argv: list[str] | None = None) -> int:
             "<system_prompt>\\n\\n<user_prompt> to the command for each case, "
             "extracts JSON from stdout, and compares against expected.json. "
             "Exits non-zero on any FAIL."
+        ),
+    )
+    parser.add_argument(
+        "--cli-cwd",
+        type=Path,
+        default=None,
+        help=(
+            "Directory the --cli command starts in (default: the current one). "
+            "An agent CLI started at the repository root also loads the "
+            "repository's own instruction files (AGENTS.md, CLAUDE.md) next to "
+            "the eval's system prompt; point this at an empty directory so the "
+            "prompt is the only instruction the model sees."
         ),
     )
     parser.add_argument(
@@ -1437,7 +1452,7 @@ def main(argv: list[str] | None = None) -> int:
         graded_cases.append(case_label)
         cli_calls += 1
         try:
-            stdout, stderr, rc = run_cli(args.cli, full_prompt, timeout=args.timeout)
+            stdout, stderr, rc = run_cli(args.cli, full_prompt, timeout=args.timeout, cwd=args.cli_cwd)
         except subprocess.TimeoutExpired:
             print(f"ERROR   {case_label} (CLI timed out after {args.timeout}s)")
             errored += 1
@@ -1662,7 +1677,7 @@ def _write_run_record(
     now = datetime.now(UTC)
     if snapshot is None:
         snapshot = run_journal.git_snapshot(root)
-    model, model_source = run_journal.resolve_model(args.cli, args.journal_model)
+    model, model_source = run_journal.resolve_model(args.cli, args.journal_model, cwd=args.cli_cwd)
     try:
         rel_path = str(args.path.resolve().relative_to(root.resolve()))
     except ValueError:
@@ -1678,6 +1693,7 @@ def _write_run_record(
         "model": model,
         "model_source": model_source,
         "cli": run_journal.redact_cli(args.cli),
+        "cli_cwd_isolated": args.cli_cwd is not None,
         "grader_cli": None if args.exact else run_journal.redact_cli(args.grader_cli),
         "path": rel_path,
         "tags": sorted(args.tag),
