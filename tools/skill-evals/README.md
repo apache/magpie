@@ -42,7 +42,7 @@ Suites are currently implemented for:
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
 - **optimize-agents-md** — 7 cases across 1 step (step-diagnose)
-- **agents-md** — 21 cases across 2 suites (rules, pointer-routing); the repository's own `AGENTS.md` as the system prompt
+- **agents-md** — 23 cases across 2 suites (rules, pointer-routing); the repository's own `AGENTS.md` as the system prompt
 - **committer-onboarding** — 28 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
 - **contributor-identity-map** — 6 cases across 1 step (step-2-grade-confirm)
 - **ci-runner-audit** — 6 cases across 2 steps (step-scope-selection, step-reporting)
@@ -419,9 +419,12 @@ runner's working directory, and an agent CLI (`claude -p`, Codex, Copilot)
 started at the repository root loads this repository's own `AGENTS.md` as
 project context alongside the eval's system prompt. That skews any case
 about instruction files: a small model pinned sections that exist only in the
-real file. Wrap the command so it starts elsewhere, and leave the runner at the
-root so the run is still journaled:
-`--cli "bash -c 'cd \"\$(mktemp -d)\" && claude -p --model haiku'"`.
+real file, and a mutation check that deletes a pointer from a copy of
+`AGENTS.md` can pass on the real pointer. Pass `--cli-cwd <empty-dir>` so the
+CLI starts elsewhere while the runner stays at the root, where it finds the
+cases and journals the run (the journal records `cli_cwd_isolated`):
+`--cli "claude -p --model haiku" --cli-cwd "$(mktemp -d)"`.
+`magpie-run-evals.sh` always does this.
 
 **Print-mode self-eval discipline.** When self-evaluating in print mode
 (no `--cli`) — acting as the model under test yourself — use **only** the

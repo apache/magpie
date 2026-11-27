@@ -51,6 +51,9 @@ Record shape (schema 1). Keys the runner always writes:
     model_source  where model came from: journal-model, cli-flag,
                   env:ANTHROPIC_MODEL, settings:<scope>, or null
     cli           the --cli command string
+    cli_cwd_isolated
+                  true when --cli-cwd started the CLI outside the repository
+                  (absent from records written before the flag existed)
     grader_cli    the --grader-cli command string, or null under --exact
     path          the eval path argument, repo-relative
     tags          the --tag filters applied ([] when none)
