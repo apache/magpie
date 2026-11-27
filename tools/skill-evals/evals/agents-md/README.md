@@ -36,6 +36,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `9de98cfd` (opt/agents-md-rewrite) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `48cea6a9` (evals/agents-md-pointer-cases) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `antigravity` | 1 | pass | cwd isolated |
 | 2026-11-27 | `c1dc6826` (feat/optimize-agents-md) | `copilot` | 2 | `pointer-routing/case-1-reporter-email` failed 1 of 2; `pointer-routing/case-4-typo-nothing-to-read` failed 2 of 2 | cwd isolated |
