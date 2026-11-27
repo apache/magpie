@@ -331,25 +331,13 @@ to a home-dir path and update the tool to read from there.
   contributions. This applies without exception, including to commits
   prepared by an agent on the user's behalf in this framework repository
   itself. **Re-read this rule before preparing every `git commit`.**
-  When the framework's secure setup is installed, this is **also
-  enforced deterministically** by the agent-guard `PreToolUse` hook
-  (the `commit-trailer` guard), which blocks any `git commit` whose
-  message contains a `Co-Authored-By:` trailer — see
-  [`tools/agent-guard`](tools/agent-guard/README.md).
-  Use a `Generated-by:` trailer instead. The form is:
+  Under the secure setup, the agent-guard [`commit-trailer`](tools/agent-guard/README.md) guard also blocks such a commit.
+  Use a `Generated-by:` trailer instead, this repository's convention
+  ([`.apache-magpie-overrides/commit-attribution.toml`](.apache-magpie-overrides/commit-attribution.toml)):
 
   ```text
-  Generated-by: <agent name and version>
+  Generated-by: <agent name and version>     # e.g. Generated-by: Claude Code (Opus 4.7)
   ```
-
-  Concrete example for Claude Code:
-
-  ```text
-  Generated-by: Claude Code (Opus 4.7)
-  ```
-
-  That is this repository's convention, pinned in
-  [`.apache-magpie-overrides/commit-attribution.toml`](.apache-magpie-overrides/commit-attribution.toml).
 - **In an adopting project, use the project's commit-attribution convention.**
   `Generated-by:`, `Assisted-by:`, `Co-authored-by:`, no trailer, or a custom
   one — the project chooses when it adopts Magpie, and a contributor chooses
@@ -358,9 +346,7 @@ to a home-dir path and update the tool to read from there.
   the `commit-trailer` guard resolves it the same way.
 - **Add the trailer with `git commit --trailer`**, never by typing it into the
   message body or the `-F <file>`:
-  `git commit -F <file> --trailer "Generated-by: <agent name and version>"`.
-  git then places it in the trailer block, and it stays on the command line
-  where the guard and other hooks can see it.
+  `git commit -F <file> --trailer "Generated-by: <agent name and version>"`, so the guard and other hooks can see it.
   The one exception is `vetted-op-git git-commit`, which takes no `--trailer`:
   there the trailer is the message file's own last paragraph.
 - **The human reviews every PR's title, body and generative-AI disclosure before it is opened.**
@@ -371,11 +357,9 @@ to a home-dir path and update the tool to read from there.
   Otherwise, and for a draft or a base other than the policy's `pr_base`, open it with `gh pr create --web`,
   pre-filling `--title` and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
 - **Open a GitHub page for the human with `gh browse`, never `open <url>`.** The sandbox blocks
-  macOS `open` (Launch Services and Apple Events: error `-10822`), while `gh` runs outside it
-  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow` — both from your reconciled
-  `.claude/settings.local.json`, not the committed file (see
-  [CONTRIBUTING.md → Agent settings](CONTRIBUTING.md#agent-settings)) — so it opens the page with no
-  prompt. Use `gh browse <PR-or-issue-number> -R <repo>`, `gh browse <path> -R <repo>` for a file, and
+  macOS `open` (error `-10822`), while `gh` runs outside it and `gh browse` is allowed without a prompt
+  ([Agent settings](CONTRIBUTING.md#agent-settings)).
+  Use `gh browse <PR-or-issue-number> -R <repo>`, `gh browse <path> -R <repo>` for a file, and
   `gh browse <commit-SHA> -R <repo>` for a commit. Run it as a bare command: a pipe, `$(…)` or a
   redirection puts `gh` back in the sandbox, where it fails. For a page `gh browse` cannot address,
   give the user `! open <url>` to run themselves.
@@ -389,14 +373,8 @@ to a home-dir path and update the tool to read from there.
   `gh api … --input <file>` for JSON payloads, `git commit -F <file>`
   (with the attribution trailer as a separate `--trailer`, see above).
   Do not paste the body as a quoted argument, splice it in with `$(cat …)`,
-  or feed it through a pipe or heredoc on the same command line.
-  Three reasons:
-  under the secure agent setup, `gh` runs outside the sandbox only as a plain `gh …` command —
-  a `$(…)`, pipe, or redirect keeps it sandboxed, where it cannot read `~/.config/gh` and fails
-  (see [`docs/setup/secure-agent-setup.md`](docs/setup/secure-agent-setup.md));
-  markdown bodies are full of backticks, `$`, and quotes that the shell rewrites or truncates
-  when inlined;
-  and the file is the exact text the maintainer approved, so what gets posted is what they read.
+  or feed it through a pipe or heredoc on the same command line:
+  that keeps `gh` sandboxed, where it fails, lets the shell mangle backticks and `$`, and posts text other than what the maintainer approved.
   For a close-with-comment, post the comment from the file first, then close with a separate
   plain command (`gh pr close <N>`, `gh issue close <N> --reason "not planned"`).
 - **Target branch for this repository is declared in the project manifest** — see
@@ -410,14 +388,10 @@ to a home-dir path and update the tool to read from there.
   ([Bumping the dev version](CONTRIBUTING.md#bumping-the-dev-version)) — **and before pushing a rebase of one onto a `main`
   that has moved** — confirm `tools/spec-loop/.last-sync` is at (or near) the
   current `main` tip and that the affected specs reflect what actually
-  shipped. If they have drifted, run the sync
-  (`tools/spec-loop/loop.sh update`, which writes to a `spec/sync-specs`
-  branch — see
-  [`docs/spec-driven-development.md`](docs/spec-driven-development.md)) or,
-  for a small known gap, update the spec(s) and bump `.last-sync` by hand;
-  then either fold it into the PR or open a companion `sync-specs` PR. The
-  failure this prevents: a "sync specs" PR that lands already stale because
-  more functionality shipped while it sat. Pure-mechanical PRs (a rebase that
+  shipped. If they have drifted, run `tools/spec-loop/loop.sh update`
+  ([spec-driven development](docs/spec-driven-development.md)), or for a small known gap update the spec(s) and bump `.last-sync` by hand,
+  and fold it into the PR or open a companion `sync-specs` PR.
+  Pure-mechanical PRs (a rebase that
   ships no new functionality, lint, docs-only edits) are exempt.
 - Keep the commit message focused on the user-visible change, not the mechanics of how the edit
   was made.
