@@ -59,6 +59,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `ed5885cf` (fix/vulnogram-token-per-pmc-2) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `ed5885cf` (feat/reporter-drafts-bcc-private-list-2) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `1b258c9d` (review/2194) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `93050ec5` (fix/1736-allocation-placeholder) | (unrecorded, `claude -p`) | 1 | pass | re-run after review fixes on #2194 |

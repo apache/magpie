@@ -724,13 +724,16 @@ overrides. Three operations run it instead, outside the sandbox through
 
 | Operation | Parameters | Runs |
 |---|---|---|
-| `cve-record-fetch` (read) | `cve_id` | `vulnogram-api-record-fetch --cve-id <id>` |
-| `cve-record-update` (write) | `cve_id body` | `vulnogram-api-record-update --cve-id <id> --json-file -`, the record on stdin |
+| `cve-record-fetch` (read) | `pmc cve_id` | `vulnogram-api-record-fetch --pmc <pmc> --cve-id <id>` |
+| `cve-record-update` (write) | `pmc cve_id body` | `vulnogram-api-record-update --pmc <pmc> --cve-id <id> --json-file -`, the record on stdin |
 | `cve-allocate` (write) | `pmc title` (title a workspace file) | `vulnogram-api-allocate --pmc <pmc> --title <title>`; the client refuses a token held for another PMC |
 
 - The client is the copy shipped in this plugin beside vetted-ops
   (`tools/cve-tool-vulnogram/oauth-api`, resolved like the tracker backends),
   never a path the agent can write.
+- Every operation names the PMC (`cna_private_owner` in `project.md`), so a
+  user who holds tokens for several PMCs always acts with the token of the PMC
+  they approved; the client refuses when it holds none for that PMC.
 - The record travels on stdin as the bytes vetted-ops read from the workspace,
   so no second open can swap them. None of the override flags is reachable, so
   the record commands' merge-mode guards always apply.

@@ -3033,23 +3033,34 @@ _register(
 _register(
     Op(
         name="cve-record-fetch",
-        params=("cve_id",),
+        params=("pmc", "cve_id"),
         backend="cve-tool",
         summary="Read one record from the Vulnogram CVE tool.",
-        build=lambda cfg, cve_id: cve_tool.argv("vulnogram-api-record-fetch", "--cve-id", cve_id),
+        # `--pmc` picks that PMC's record token, so a user who holds tokens for
+        # several PMCs reads with the one the user approved, never a guess.
+        build=lambda cfg, pmc, cve_id: cve_tool.argv(
+            "vulnogram-api-record-fetch", "--pmc", pmc, "--cve-id", cve_id
+        ),
     )
 )
 
 _register(
     Op(
         name="cve-record-update",
-        params=("cve_id", "body"),
+        params=("pmc", "cve_id", "body"),
         backend="cve-tool",
         writes=True,
         summary="Push a CVE JSON record to the Vulnogram CVE tool (merge-mode guards on).",
         body_files=("body",),
-        build=lambda cfg, cve_id, body: cve_tool.argv(
-            "vulnogram-api-record-update", "--cve-id", cve_id, "--json-file", body, "--no-promote-to-public"
+        build=lambda cfg, pmc, cve_id, body: cve_tool.argv(
+            "vulnogram-api-record-update",
+            "--pmc",
+            pmc,
+            "--cve-id",
+            cve_id,
+            "--json-file",
+            body,
+            "--no-promote-to-public",
         ),
     )
 )
