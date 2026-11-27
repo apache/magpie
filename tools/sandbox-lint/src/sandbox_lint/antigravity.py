@@ -19,7 +19,8 @@ from pathlib import Path
 from typing import Any
 
 TOOL_PERMISSIONS = ("proceed-in-sandbox", "request-review", "strict")
-AGENT_MODES = (None, "default", "plan")
+# Since agy 1.5.7 an unset agentMode starts in Auto; "" is the Default mode.
+AGENT_MODES = ("", "plan")
 GH_API_MUTATION = "command(regex:^gh api( .*)? (-X|-f|-F|--method|--field|--raw-field|--input))"
 GUARD_SUFFIX = re.compile(r"""agent_guard/__init__\.py"?\s+--antigravity\s*$""")
 # Agent-writable files that would let the agent change its own permissions,
@@ -126,8 +127,9 @@ def check_antigravity_settings(
         errors.append("settings.json: allowNonWorkspaceAccess must be false")
     if settings.get("agentMode") not in AGENT_MODES:
         errors.append(
-            "settings.json: agentMode must be unset, default or plan; "
-            "accept-edits and auto approve edits or commands without review"
+            'settings.json: agentMode must be "" (Default) or plan; since agy 1.5.7 an unset '
+            "agentMode starts in Auto, and accept-edits and auto approve edits or commands "
+            "without review"
         )
 
     allow = _rules(settings, "allow", home)
