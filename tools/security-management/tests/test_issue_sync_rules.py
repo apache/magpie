@@ -495,6 +495,18 @@ def test_verify_reads_the_generic_state_cve_tool_fetch_prints(capsys, tmp_path, 
     assert (out["action"], out["state_advance"]) == ("push", "allocated->review-ready")
 
 
+def test_every_cve_tool_command_names_the_pmc_when_given(capsys, tmp_path):
+    """Tokens for two PMCs make an unnamed lookup refuse, so the project's PMC goes on every call."""
+    base = {"pmc": "airflow", "record_state": "DRAFT", "fix_released_transition": True}
+    assert decide(capsys, tmp_path, **base)["next"].endswith("cve-tool check --pmc airflow")
+    assert decide(capsys, tmp_path, **base, session="valid")["next"].endswith(
+        "--json-file '<scratch>/cve-CVE-2026-41107.json' --pmc airflow"
+    )
+    assert decide(capsys, tmp_path, **base, session="valid", push_exit=0)["next"].endswith(
+        "fetch --cve-id CVE-2026-41107 --state-only --pmc airflow"
+    )
+
+
 def test_cve_tool_project_overrides_the_command_path(capsys, tmp_path):
     out = decide(capsys, tmp_path, cve_tool_project="/opt/magpie/tools/cve-tool")
     assert out["next"] == "uv run --project /opt/magpie/tools/cve-tool cve-tool check"

@@ -183,8 +183,11 @@ def blockers(data: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _check(scope: str, data: Mapping[str, Any]) -> str:
-    flags = ("--server", "--quiet") if scope == "server" else ("--allocate",)
-    return cve_tool.command(data, "check", *flags)
+    if scope == "server":
+        return cve_tool.command(data, "check", "--server", "--quiet")
+    pmc = one_line(data.get("pmc"))
+    # The PMC's own allocate token: without it, tokens for two PMCs make the check refuse.
+    return cve_tool.command(data, "check", "--allocate", *(("--pmc", pmc) if pmc else ()))
 
 
 _NO_TOOL = {

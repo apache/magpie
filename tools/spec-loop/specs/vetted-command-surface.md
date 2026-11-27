@@ -35,7 +35,7 @@ dispatcher whose operations are a **closed catalogue** of fixed shapes:
 - builders return `list[str]` executed without a shell for forge operations, or a request descriptor executed via Python stdlib `urllib.request` for HTTP read operations;
 - the repository is policy, never a parameter;
 - value-bearing parameters (labels, milestones, assignees, columns, close
-  reasons) must appear in adopter-declared enums;
+  reasons, the Vulnogram PMC) must appear in adopter-declared enums;
 - free text reaches the forge only by file reference, and the file must sit
   inside a declared workspace, reached with no symlink on its path;
 - GraphQL documents are *named*, not supplied: the caller picks one of the

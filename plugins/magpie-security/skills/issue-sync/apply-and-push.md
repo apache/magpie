@@ -177,8 +177,11 @@ Use:
   `--allow-state review-ready --allow-state publish-ready` also accepts a record moved to `publish-ready` manually, and no earlier state can be published:
 
   ```bash
-  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN>
+  uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool publish --cve-id <CVE-YYYY-NNNNN> --pmc <pmc>
   ```
+
+  Every `cve-tool` record command in this file takes `--pmc <pmc>`, with `<pmc>` the project's `cna_private_owner` from `<project-config>/project.md`,
+  so a user holding tokens for several PMCs always uses this project's.
 
   Use it only as part of the *Advisory archived on `<users-list>`* combined apply in [Step 2b](SKILL.md#step-2--build-a-proposal-do-not-apply-anything-yet):
   the trigger is *"the advisory has provably shipped on `<users-list>`"*, the signal a human would use before clicking the Vulnogram `REVIEW → PUBLIC` button.
@@ -317,7 +320,7 @@ When any of the report's `normalisation_changes`, `missing_required`, `needs_dec
 When the *Public advisory URL* field is set, read the record's state before regenerating, so a regeneration never rewrites published content the team did not choose to change:
 
 ```bash
-uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only
+uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool fetch --cve-id <CVE-ID> --state-only --pmc <pmc>
 ```
 
 If the state is `public`, save the live record and add it as the baseline to the generator run above:
@@ -326,7 +329,7 @@ If the state is `public`, save the live record and add it as the baseline to the
 uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync --save cve-live-<N>.json cve-record-fetch <pmc> <CVE-ID>
 ```
 
-(`<pmc>` is `cna_private_owner` from `<project-config>/project.md`), and pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
+Then pass `--baseline <workspace>/saved/cve-live-<N>.json` to the `generate-cve-json` command; the `issue-edit-body` write is unchanged.
 
 The body still wins for every value it owns; everything else keeps its published value.
 If the state cannot be read, or the fetch fails, skip the regeneration for this run and say why in the Step 6 recap.
@@ -465,8 +468,9 @@ The remaining transitions stay separate:
 ### Decision flow
 
 `<sm> push-decision` (`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites)) walks this flow:
-write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
+write `{regenerated, cve_id, pmc, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file, report_json}`, act on its `action`,
 and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
+`pmc` is `cna_private_owner`; every `cve-tool` command in `next` then carries `--pmc <pmc>`.
 It checks the title cascade, the title length, the upgrade-target version and the CWE long form on the JSON itself;
 for the title length pass `report_json`, the generator's `--report-json` file (`<scratch>/cve-report-<N>.json`); its `title_product_prefix` is the resolved value (the project's config, else its organization: true for ASF), so do not pass one.
 A title over the record's 256-character limit, bare or as the CVE tool posts it, blocks the push;
@@ -529,7 +533,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
 
    ```bash
    uvx --from ~/.claude/magpie/security-tools/cve-tool cve-tool push \
-     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
+     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json --pmc <pmc>
    ```
 
    **Under the secure setup**, when the vetted-ops policy grants `security-issue-sync` the `cve-record-update` operation,
@@ -539,7 +543,7 @@ When the state fetch fails, pass `fetched_state: "unknown"`.
    uvx --from ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-sync cve-record-update <pmc> <CVE-ID> <workspace>/cve-<CVE-ID>-<N>.json
    ```
 
-   `<pmc>` is `cna_private_owner` from `<project-config>/project.md`; the client uses that PMC's record token and refuses when it holds none.
+   The client uses that PMC's record token and refuses when it holds none; `vetted-op` refuses a PMC the policy's `[values] pmcs` does not list.
 
    It runs the same Vulnogram push with a fixed argv and no override flag
    ([vetted-ops § *The Vulnogram CVE-tool operations*](../../../../tools/vetted-ops/README.md#the-vulnogram-cve-tool-operations)),

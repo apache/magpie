@@ -103,6 +103,9 @@ def _validate_params(
         if name in op.enums:
             key = op.enums[name]
             resolved[name] = ops_mod.enum(config.enum_values(key), config.enum_patterns(key))(raw)
+            if name == "pmc":
+                # A listed PMC still has to be a PMC name: it becomes a token file name.
+                resolved[name] = ops_mod.pmc(resolved[name])
         elif name in op.body_files:
             # Read the content here and hand `gh` a "-" so it takes the body on
             # stdin. The bytes that were validated are then, necessarily, the
