@@ -285,6 +285,9 @@ close_reasons = ["completed", "not planned"]
 # checkouts, fork and worktree roots are each maintainer's own, in
 # ~/.config/apache-magpie/vetted-ops/operator-git.toml under ["apache/magpie"].
 "setup-upstream-fix" = [
+    # Step 3: the duplicate search of apache/magpie.
+    "repo-issue-search",
+    "repo-pr-search",
     "git-fetch",
     "git-worktree-add",
     "git-worktree-sync",

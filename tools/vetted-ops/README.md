@@ -301,7 +301,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                             "git-switch", "git-switch-create",
                             "git-stage", "git-commit", "git-push-branch", "git-pr-create",
                             "pr-add-label", "git-delete-fork-branch"]
-"setup-upstream-fix"    = ["git-fetch", "git-worktree-add", "git-worktree-sync",
+"setup-upstream-fix"    = ["repo-issue-search", "repo-pr-search",
+                           "git-fetch", "git-worktree-add", "git-worktree-sync",
                            "git-worktree-remove", "git-rebase", "git-cherry-pick",
                            "git-merge-upstream", "git-switch", "git-switch-create", "git-stage", "git-commit",
                            "git-push-branch", "git-pr-create", "pr-add-label",
@@ -690,9 +691,10 @@ vetted-op-read --caller security-issue-triage repo-code-search "IMAP_SOURCE_SSL"
 | Operation | Kind | Parameters | Notes |
 |---|---|---|---|
 | `repo-pr-search` | read | `query` | `gh search prs` on the policy-pinned upstream, open and closed, up to 100 results. |
+| `repo-issue-search` | read | `query` | `gh search issues` on the policy-pinned upstream, open and closed, issues only (no pull requests), up to 100 results. |
 | `repo-code-search` | read | `query` | `gh search code` on the upstream default branch; returns paths and URLs only. |
 
-Free-text search is otherwise kept out of the catalogue. These two, like the
+Free-text search is otherwise kept out of the catalogue. These three, like the
 tracker's `issue-search`, are bounded: the repository comes from policy, and the
 `query` is plain words — one line, at most 200 characters, no `:` (so no
 `repo:` / `org:` / `is:` qualifier can re-aim or reshape it), no leading `-`, and
