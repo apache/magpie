@@ -3,8 +3,8 @@
 
 # security-issue-fix eval suite
 
-Behavioral evals for the `security-issue-fix` skill. Eight steps are
-covered by model evals; steps 0 (pre-flight checks), 1 (sync), 4 (repo setup), 8 (push),
+Behavioral evals for the `security-issue-fix` skill. Nine steps are
+covered by model evals; steps 0 (pre-flight checks), 1 (sync), 4 (repo setup, apart from its hand-off decision), 8 (push),
 9 (PR open), and 10 (tracker update) of the Git flow are skipped — tool-execution steps
 with no structured-output decision boundary. Step 7 is covered only for
 its adversarial-review decision, not for the implementation itself.
@@ -15,6 +15,7 @@ its adversarial-review decision, not for the implementation itself.
 |------|------|-------|-------|
 | 2 | Existing-PR check | 3 | PR linked in tracker, PR found via search, no PR found |
 | 3 | Fixability assessment | 5 | Includes untrusted-snippet case |
+| 4 | Hand-off when the clone is out of reach | 5 | a reachable clone stays here; an idle live session gets the brief, also when `[git]` values cover an unreachable clone; a harness with no messaging or network writes it to `~/.cache/apache-magpie/handoff/`; the Subversion flow stops instead; the brief, commit subject and PR title carry no CVE ID, tracker reference, reporter, skill name or flaw description, and this session resumes at Step 10 |
 | 5b | Files that will change | 3 | Trusted snippet, untrusted snippet, mixed |
 | 5d | Test plan | 3 | Full plan, pure-rename (no new tests), no typecheck |
 | 5g | PR body draft | 3 | Clean body, forbidden terms, missing GenAI block |
@@ -77,4 +78,6 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `92fbe17b` (feat/shared-handoff-block-2) | `opus[1m]` | 6 | `step-4-handoff/case-1-clone-writable` failed 1 of 5; `step-4-handoff/case-2-live-session` failed 2 of 5; `step-4-handoff/case-5-git-values-clone-unreachable` failed 2 of 5; `step-7-adversarial-review/case-1-security-runs-under-mode-off` failed 1 of 2 |  |
+| 2026-11-27 | `49523780` (feat/shared-handoff-block) | `opus[1m]` | 1 | pass |  |
 | 2026-11-25 | `dd6fefe6` (fix/publish-grants-match-block) | `opus[1m]` | 2 | pass |  |

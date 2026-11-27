@@ -1,1 +1,1 @@
-{"route": "brief-to-session", "clone_in_this_sandbox": false, "confirm_with_user_first": true, "reason": "The run is in an adopter repo whose sandbox cannot reach the framework clone, and a live session works there, so it gets a self-contained brief for Steps 4-5."}
+{"route": "live-session", "confirm_with_user_first": true, "brief_file_dir": null, "reason": "The adopter sandbox cannot write the framework clone, and an idle live session works there, so it is sent the scrubbed brief after the user confirms."}

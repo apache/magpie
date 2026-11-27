@@ -14,9 +14,9 @@ when_to_use: >-
   it belongs upstream.
 argument-hint: "[skill-name]"
 capability: capability:platform
-surface_hash: sha256:6aa9dd2488726450
+surface_hash: sha256:648571f721f7d32d
 license: Apache-2.0
-measured_tokens: 4388
+measured_tokens: 4589
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -120,6 +120,11 @@ The skill ends with a pointer at that cleanup; it does not delete the override p
    If not found, ask the user where it is, or help them clone it (`git clone
    git@github.com:apache/magpie.git`).
    The clone is **separate** from `<adopter-repo>/.apache-magpie/` (the snapshot).
+4. **Can this session write `<framework-clone>`?** An adopter repo's sandbox usually cannot, so it cannot do Steps 5–6 there.
+   Then run Steps 1–4 here and hand Steps 5–6 over as [handoff.md](handoff.md) describes:
+   the target repository is `apache/magpie`, the base `main`, and the brief carries the Step 4 design and the override text it generalises, scrubbed of anything project-specific the PR would not carry.
+   The receiver, in the framework clone, does only Steps 5–6 and skips these adopter-only checks, as that file says.
+   The PR URL it reports back goes into the skill-end output.
 
 ### Step 1 — Pick the override
 
@@ -278,6 +283,7 @@ Next: wait for the PR to merge, then in <adopter-repo>:
 | `<adopter-repo>` has no `.apache-magpie-overrides/` | not adopted, or adopted without the overrides scaffold | run `setup install` (idempotent) |
 | Step 1 finds zero overrides | nothing to upstream — adopter has no local modifications recorded | stop |
 | `<framework-clone>` not found | user has not cloned `apache/magpie` yet | help them clone, then resume |
+| Writing `<framework-clone>` fails with "Operation not permitted" | the adopter's sandbox cannot write another checkout | hand Steps 5–6 over per [handoff.md](handoff.md); never widen or leave the sandbox |
 | Framework pre-commit fails after the implementation | the change does not match framework conventions | iterate with the user, re-run pre-commit, do not bypass with `--no-verify` |
 | User decides mid-flow that the override is project-specific after all | wrong call in Step 3 | stop without opening a PR; the override file in the adopter repo is unchanged, no harm done |
 

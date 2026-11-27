@@ -1,1 +1,1 @@
-{"route": "work-here", "clone_in_this_sandbox": false, "confirm_with_user_first": false, "reason": "This session already runs in the framework checkout, so Steps 4-5 happen here after confirming the fork exists."}
+{"route": "work-here", "confirm_with_user_first": false, "brief_file_dir": null, "reason": "This session already runs in the framework checkout, so Steps 4-5 happen here after confirming the fork exists."}

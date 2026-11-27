@@ -1,0 +1,1 @@
+{"route": "live-session", "confirm_with_user_first": true, "brief_file_dir": "~/.cache/apache-magpie/handoff/", "reason": "Codex 0.149.0 can queue a message for the idle session with codex queue --thread, which takes text inline, so the brief is written to ~/.cache/apache-magpie/handoff/ first and the one-line prompt pointing at it is queued."}
