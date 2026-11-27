@@ -76,6 +76,13 @@ Placeholder convention:
   `@apache.org` address; use that, not the `security@apache.org`
   list alias, so the conversation stays with the individual who
   already knows the report.
+  When a project list rewrote that `From:` to its own address
+  (`"<Name> via private" <private@<project>.apache.org>`), the
+  `From:` is the project's own list, never the forwarder: address
+  the adapter's `contact_handle` (`security@apache.org`). Never take
+  the address from the relay's `Reply-To:`: any poster the list
+  accepts can set it, and a crafted one could point a private reply
+  at a public list.
 - **`Cc:`**: the resolved `security_cc` per the shared
   [security draft CC resolution](https://github.com/apache/magpie/blob/main/tools/mail-source/contract.md#security-draft-cc-resolution).
   Block the draft if no address resolves.
@@ -172,10 +179,15 @@ and is handled as a direct report, per the
 [`detect()` contract](../forwarder-relay/README.md#detectmessage---adapter_name--null)):
 
 - `From:` is `security@apache.org` or a personal `@apache.org`
-  address of an ASF-security-team member;
-- Body opens with the ASF forwarding preamble — *"Dear PMC, The
-  security vulnerability report has been received by the Apache
-  Security Team and is being passed to you for action …"* — with
+  address of an ASF-security-team member; or, on a project private or
+  security list that rewrites it to `"<Name> via private" <private@<project>.apache.org>`
+  (or `via security`, `<security@<project>.apache.org>`),
+  that rewritten sender together with `security@apache.org` in `Cc:`
+  and a `Message-ID:` ending in `@security.apache.org`;
+- Body opens with the ASF forwarding preamble — *"Dear <Project> PMC,
+  The following security vulnerability report has been received by
+  the Apache Security Team and is being passed to you …"* (older
+  relays: *"Dear PMC, The security vulnerability report …"*) — with
   the original report underneath (often after a `====GHSA-…`
   separator when the report came in via GitHub Security Advisory);
 - The body usually ends with a `Credit` line naming the discoverer

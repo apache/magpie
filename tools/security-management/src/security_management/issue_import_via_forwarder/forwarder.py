@@ -29,6 +29,9 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from email.errors import HeaderParseError
+from email.header import decode_header, make_header
+from email.utils import getaddresses
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +110,82 @@ def _snippet(body: str, start: int) -> str:
     return body[start : end if end >= 0 else len(body)][:SNIPPET_CHARS]
 
 
+#: The three keys of an adapter's list-rewrite path: all of them, or none.
+LIST_KEYS = ("list_sender_pattern", "list_cc_pattern", "list_message_id_pattern")
+
+
+def sender_patterns(name: str, config: Mapping[str, Any]) -> dict[str, re.Pattern[str]]:
+    """The adapter's compiled sender patterns: `sender_pattern`, plus the list-rewrite path when set.
+
+    Checked whole, before any message is read, so a half-set or broken list path
+    is refused on every message, not only on the ones that would reach it.
+    """
+    raw = {key: config.get(key) for key in ("sender_pattern", *LIST_KEYS)}
+    if not raw["sender_pattern"]:
+        raise ValueError(f"adapter {name!r}: sender_pattern or preamble_match is not resolved")
+    listed = [raw[key] for key in LIST_KEYS]
+    if any(listed) and not all(listed):
+        raise ValueError(f"adapter {name!r}: {', '.join(LIST_KEYS)} are set together or not at all")
+    try:
+        return {key: re.compile(str(value), re.IGNORECASE) for key, value in raw.items() if value}
+    except re.error as exc:
+        raise ValueError(f"adapter {name!r}: a pattern does not compile: {exc}") from exc
+
+
+def _cc_addresses(value: object) -> list[str]:
+    """Every address of a `Cc:` header, given as one header string or a list of them."""
+    headers = [str(v) for v in value] if isinstance(value, list) else [str(value or "")]
+    return [addr.strip().lower() for _, addr in getaddresses(headers) if addr.strip()]
+
+
+def _single_mailbox(raw_from: str) -> str | None:
+    """`From:` as one normalised `<display name> <<address>>`, or None unless it holds exactly one address.
+
+    The display name is decoded (RFC 2047) and its whitespace folded, so the
+    list pattern sees what a reader sees. A header naming several mailboxes is
+    refused rather than matched on its tail, so the address the list pattern
+    accepts is always the one `detect` reports.
+    """
+    try:
+        decoded = str(make_header(decode_header(raw_from)))
+    except (HeaderParseError, LookupError, UnicodeDecodeError):
+        return None
+    mailboxes = [(name, addr) for name, addr in getaddresses([decoded]) if addr.strip()]
+    if len(mailboxes) != 1:
+        return None
+    name, addr = mailboxes[0]
+    return f"{' '.join(name.split())} <{addr.strip().lower()}>"
+
+
+def sender_signal(patterns: Mapping[str, re.Pattern[str]], message: Mapping[str, Any]) -> bool:
+    """Whether the message carries the adapter's sender signal: its `From:` address, or its list-rewrite path.
+
+    A list that rewrites every poster's `From:` to its own address hides the
+    forwarder's address, and that rewritten `From:` alone says nothing, since
+    the list rewrites anyone it accepts. So the rewritten sender counts only
+    together with the forwarder in `Cc:` and a `Message-ID:` minted by the
+    forwarder's own host. Every one of those headers is forgeable; the
+    combination only raises the bar, and the user's confirmation of routing and
+    credit stays the gate. A message without `cc` / `message_id` never takes the
+    list path. `relay-prescreen` and `detect` both call this, so they cannot
+    disagree about a sender.
+    """
+    raw_from = str(message.get("from") or "")
+    if patterns["sender_pattern"].search(address(raw_from)):
+        return True
+    if "list_sender_pattern" not in patterns:
+        return False
+    mailbox = _single_mailbox(raw_from)
+    message_id = str(message.get("message_id") or "").strip().strip("<>").strip()
+    return bool(
+        mailbox
+        and patterns["list_sender_pattern"].search(mailbox)
+        and any(patterns["list_cc_pattern"].fullmatch(entry) for entry in _cc_addresses(message.get("cc")))
+        and message_id
+        and patterns["list_message_id_pattern"].fullmatch(message_id)
+    )
+
+
 def detect(
     message: Mapping[str, Any], forwarders: Mapping[str, Any], collaborators: Sequence[object] = ()
 ) -> dict[str, Any]:
@@ -115,7 +194,7 @@ def detect(
     Either signal alone is forgeable by any sender (a `From:` display or a
     pasted preamble), so one signal is not a relay: it is reported in
     `partial_matches` for the parent to surface, and the message stays on the
-    direct-reporter path.
+    direct-reporter path. The sender signal is `sender_signal`.
     """
     sender = address(str(message.get("from") or ""))
     body = str(message.get("body") or "")
@@ -124,16 +203,17 @@ def detect(
     partial: list[dict[str, Any]] = []
     for name in [str(n) for n in forwarders.get("enabled") or []]:
         config = forwarders.get(name) or {}
-        sender_pattern, preamble_pattern = config.get("sender_pattern"), config.get("preamble_match")
-        if not sender_pattern or not preamble_pattern:
+        preamble_pattern = config.get("preamble_match")
+        if not preamble_pattern:
             raise ValueError(f"adapter {name!r}: sender_pattern or preamble_match is not resolved")
+        patterns = sender_patterns(name, config)
         try:
-            by_sender = re.search(str(sender_pattern), sender, re.IGNORECASE)
             by_preamble = re.search(str(preamble_pattern), preamble)
         except re.error as exc:
             raise ValueError(f"adapter {name!r}: a pattern does not compile: {exc}") from exc
-        tried.append({"adapter": name, "sender": bool(by_sender), "preamble": bool(by_preamble)})
-        if bool(by_sender) != bool(by_preamble):
+        by_sender = sender_signal(patterns, message)
+        tried.append({"adapter": name, "sender": by_sender, "preamble": bool(by_preamble)})
+        if by_sender != bool(by_preamble):
             partial.append({"adapter": name, "signal": "sender" if by_sender else "preamble"})
         if by_sender and by_preamble:
             known = {str(c).strip().lower() for c in collaborators}

@@ -73,7 +73,10 @@ def add_parsers(sub: Any) -> None:
     command(
         "relay-prescreen",
         "Step 3: whether the via-forwarder sub-skill can match this root message",
-        ("--message", "JSON: from, body (the root message)"),
+        (
+            "--message",
+            "JSON: from, body (the root message); optional cc, message_id (an adapter's list-rewrite path)",
+        ),
         ("--forwarders", "JSON: project.md forwarders block, patterns resolved"),
     )
     keyword_p = commands.add_parser("keyword", help="Steps 2a/2b/2c: allowlist-clean search keywords")
