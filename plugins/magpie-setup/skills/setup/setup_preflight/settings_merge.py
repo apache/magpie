@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -164,12 +165,12 @@ def merge(
 def _write(path: Path, settings: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     body = json.dumps(settings, indent=2, ensure_ascii=False) + "\n"
-    mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(body)
-        os.chmod(tmp, mode)
+        if path.exists():
+            shutil.copymode(path, tmp)
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)

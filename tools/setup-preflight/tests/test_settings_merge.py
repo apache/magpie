@@ -207,6 +207,16 @@ def test_preserves_an_existing_file_mode(tmp_path: Path) -> None:
     assert settings_path.stat().st_mode & 0o777 == 0o600
 
 
+def test_new_file_is_owner_only(tmp_path: Path) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    write_registry(registry_path)
+
+    settings_merge.run(settings_path, lock_path, registry_path, write=True)
+
+    assert settings_path.stat().st_mode & 0o777 == 0o600
+
+
 def test_preserves_non_ascii_values_verbatim(tmp_path: Path) -> None:
     settings_path, lock_path, registry_path = paths(tmp_path)
     write_lock(tmp_path, FLOOR)
