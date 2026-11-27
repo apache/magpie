@@ -87,6 +87,8 @@ def test_an_unapproved_policy_is_refused_on_the_write_entry_points(
     assert entry(["--caller", "security-issue-sync", *op]) == cli.EXIT_POLICY  # type: ignore[operator]
     err = capsys.readouterr().err
     assert "not an approved copy" in err and str(approved) in err
+    # The copy command names the file, as the docs do: no placeholder to fill in.
+    assert str(approved / "checkout.toml") in err and "NAME" not in err
 
 
 def test_an_approved_copy_lets_the_write_run(
@@ -374,3 +376,44 @@ def test_rendered_approval_command_names_the_defined_placeholder() -> None:
     assert {k for k, v in found.items() if v != "project"} == set()
     readme = (REPO_ROOT / "tools" / "vetted-ops" / "README.md").read_text(encoding="utf-8")
     assert "`<project>` is the project's slug" in readme
+
+
+def _manifest(root: Path, short_name: str) -> None:
+    manifest = root / ".apache-magpie-overrides" / "project.md"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(
+        f"| Key | Value |\n|---|---|\n| `short_name` | `{short_name}` (derived from repo name) |\n"
+    )
+
+
+def test_approved_copy_name_is_the_lowercased_short_name(tmp_path: Path) -> None:
+    root = tmp_path / "checkout"
+    _manifest(root, "Magpie")
+    assert config.approved_copy_name(root) == "magpie.toml"
+
+
+def test_approved_copy_name_falls_back_to_the_checkout_name(tmp_path: Path) -> None:
+    root = tmp_path / "Foo-Project"
+    root.mkdir()
+    assert config.approved_copy_name(root) == "foo-project.toml"
+
+
+def test_approved_copy_name_uses_the_main_checkout_from_a_linked_worktree(tmp_path: Path) -> None:
+    main = tmp_path / "product"
+    (main / ".git" / "worktrees" / "wt").mkdir(parents=True)
+    (main / ".git" / "worktrees" / "wt" / "commondir").write_text("../..\n")
+    worktree = tmp_path / "some-branch"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {main / '.git' / 'worktrees' / 'wt'}\n")
+    assert config.approved_copy_name(worktree) == "product.toml"
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    ["../../.ssh/authorized_keys", ".hidden", "a b", "x/y", "operator-git", "a" * 65, "foo.bar"],
+)
+def test_approved_copy_name_never_suggests_an_unsafe_name(tmp_path: Path, hostile: str) -> None:
+    """The manifest is agent-writable and the name lands in a `cp` the user runs."""
+    root = tmp_path / "operator-git"  # the checkout name is no escape either
+    _manifest(root, hostile)
+    assert config.approved_copy_name(root) == config.FALLBACK_COPY_NAME

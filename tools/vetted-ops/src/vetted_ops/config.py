@@ -376,6 +376,46 @@ def _discover_optional(base: Path) -> tuple[Path, bytes] | None:
     return None
 
 
+#: A name the approval command may suggest: a plain slug, so it can never climb
+#: out of `approved_dir` or name a hidden or reserved file.
+_COPY_SLUG = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
+#: The `short_name` row of a `project.md` manifest table.
+_SHORT_NAME_ROW = re.compile(r"^\|\s*`short_name`\s*\|\s*`([^`\n]+)`", re.MULTILINE)
+#: Suggested when neither the manifest nor the checkout gives a usable slug.
+FALLBACK_COPY_NAME = "policy.toml"
+
+
+def _short_name(base: Path) -> str | None:
+    """`short_name` from the first `project.md` the config layers hold, if any."""
+    for layer in layers.config_layers(base):
+        try:
+            data = read_regular_file(layer / "project.md")
+        except (TamperedPath, OSError):
+            continue
+        if data is None:
+            continue
+        match = _SHORT_NAME_ROW.search(data.decode("utf-8", errors="replace"))
+        return match.group(1) if match else None
+    return None
+
+
+def approved_copy_name(base: Path) -> str:
+    """The file name the approval command suggests: `<project>.toml`.
+
+    `<project>` is `short_name` from `project.md`, lowercased, else the main
+    checkout's basename, as the README's *Configuration* defines it, so each
+    approval replaces the earlier copy instead of adding one beside it. Both
+    sources are text the agent can write, and the name lands in a `cp` the user
+    runs, so only a plain slug is used; anything else falls back to a fixed name.
+    """
+    root = layers.main_worktree(base) or base
+    for raw in (_short_name(base), root.name):
+        slug = (raw or "").strip().lower()
+        if _COPY_SLUG.fullmatch(slug) and f"{slug}.toml" != OPERATOR_GIT_FILE:
+            return f"{slug}.toml"
+    return FALLBACK_COPY_NAME
+
+
 def approval_status(cwd: Path | None = None) -> dict[str, object]:
     """Whether the write entry points would act on the policy discovered from ``cwd``.
 
@@ -421,7 +461,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
             "Review it, then in your own terminal: "
             + shlex.join(["mkdir", "-p", str(approved_dir())])
             + " && "
-            + shlex.join(["cp", str(resolved), str(approved_dir() / "NAME.toml")])
+            + shlex.join(["cp", str(resolved), str(approved_dir() / approved_copy_name(base))])
             + " (repeat after every change to the policy)"
         )
 

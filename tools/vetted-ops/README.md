@@ -549,7 +549,9 @@ mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools
 
 `<project>` is the project's slug: `short_name` in its `project.md`, lowercased,
 or the basename of the main checkout when there is no `project.md` (`foo.toml`).
-A skill that renders this command fills the name in, since it cannot list the directory.
+Only a plain slug is used (lowercase letters, digits, `-` and `_`), else `policy.toml`:
+both sources are text the agent can write, and the name lands in a `cp` you run.
+The write dispatchers print their refusal with this name filled in, and a skill that renders the command does the same, since it cannot list the directory.
 Any `.toml` name approves except `operator-git.toml`, which holds the operator's `[git]` table;
 the fixed name only makes each approval replace the stale copy instead of adding one beside it.
 A stale copy approves nothing, so an earlier one under another name is clutter to delete, not a risk.
