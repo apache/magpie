@@ -58,6 +58,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (opt/secure-setup-rules-checker) | `opus[1m]` | 2 | pass |  |
 | 2026-11-26 | `bcaddb72` (feat/gatherer-agent) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `593c5e74` (fix/pnpm-sandbox-home-mkdir) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `6f8fc287` (fix/pnpm-sandbox-home-mkdir) | `opus[1m]` | 1 | pass |  |

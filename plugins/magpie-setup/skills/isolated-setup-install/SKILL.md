@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:c311b3e3fb82c31d
 license: Apache-2.0
-measured_tokens: 6490
+measured_tokens: 6503
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -306,16 +306,19 @@ Rationale and the rules in full:
 The excluded `uvx` / `uv run` commands, MCP servers launched with `uv`, hooks
 that call `python3` and the operator's own terminal all run uv-managed code
 outside the sandbox. None of it may come from a directory a sandboxed command
-can write:
+can write.
 
-- **`~/.local/share/uv` is read-only to the sandbox.** No scope may list it,
-  or a parent of it, in `allowWrite` or `additionalDirectories`. The Step P
+Propose only what `setup-isolated-setup-verify`'s checker (§ *The checks*)
+reports as not `pass` in check 19 (19a–19e); 19b is usually `unknown`, since
+the sandbox cannot read `~/.config/uv/uv.toml`: read it with the file-reading
+tool and apply [check 19's rules](../isolated-setup-verify/manual-checks.md#check-19--host-only-uv-and-prek-state),
+also the fallback when the checker is not installed.
+
+- **`~/.local/share/uv` is read-only to the sandbox** (19a). The Step P
   helper removes the write an earlier version added; propose removing any other
   by hand.
-- **The host gets its own uv cache.** Read `~/.config/uv/uv.toml`. Unless it
-  sets a `cache-dir` that is absolute and, symlinks resolved, outside every
-  directory a sandboxed command can write (every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`)),
-  stage it with `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
+- **The host gets its own uv cache** (19b). Stage `~/.config/uv/uv.toml` with
+  `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
   added, keeping every other setting, and give the operator the copy command:
   `Edit(~/.config/uv/**)` keeps the agent from writing it. Never `~` (uv does
   not expand it there) and never a relative path.

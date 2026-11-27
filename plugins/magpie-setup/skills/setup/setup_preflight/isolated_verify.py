@@ -26,14 +26,15 @@ the rest by hand:
 * **Decided here** — checks 1 (settings shape), 2 (user-scope hook wiring),
   3 (hook scripts), 4 (`claude-iso` sourced), 5 (tool versions), 6
   (effective `sandbox.enabled`), 8 (the static half: project-root grants in
-  every worktree's `settings.local.json`) and 11 (the `gh` exclusion and the
-  catch-all ask rule).
+  every worktree's `settings.local.json`), 11 (the `gh` exclusion and the
+  catch-all ask rule) and 19 (the static half: host-only uv, prek and pnpm
+  state in the settings, `~/.config/uv/uv.toml` and on disk).
 * **Gated here** — checks 9, 10, 12, 13, 15, 16, 17 and 19 apply only in
   some setups; the gate is evaluated, and a check whose gate is closed is
   `n/a`.  An open gate is `manual`: the agent runs that check from the
   skill's prose.
 * **Always by hand** — checks 7 (live denial probes, one Bash call each),
-  14 and 18, the live probe of check 8.
+  14 and 18, the live probe of check 8 and the live probes of check 19.
 
 Statuses: `pass` (✓), `fail` (✗), `warn` (⚠), `n/a`, `unchecked` (no
 framework checkout to compare against), `unknown` (an input could not be
@@ -84,6 +85,7 @@ SECTIONS = {
     "6": "check-6--status-line-prefix",
     "8": "check-8--project-root-grants",
     "11": "check-11--gh-runs-outside-the-sandbox",
+    "19": "check-19--host-only-uv-and-prek-state",
 }
 
 #: Within one check, the first status in this order that any part has wins.
@@ -105,6 +107,25 @@ GH_CATCH_ALL = frozenset({"Bash(gh *)", "Bash(gh:*)", "Bash(gh)", "Bash(gh*)"})
 EVALS_EXCLUSION = "~/.claude/scripts/magpie-run-evals.sh *"
 VETTED_OPS_CONFIG = Path(".apache-magpie-overrides/tools/vetted-ops/config.toml")
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+)+)")
+
+# Check 19 — host-only uv, prek and pnpm state (docs/setup/secure-agent-setup.md#host-only-uv-state).
+#: uv's interpreters and tool venvs, which hooks, MCP servers and excluded commands run outside the sandbox.
+UV_DATA = "~/.local/share/uv"
+UV_CONFIG = Path(".config/uv/uv.toml")
+UV_DENIES = ("Read(~/.config/uv/uv.toml)", "Edit(~/.config/uv/**)")
+#: Where the sandbox lets every command write, whatever `allowWrite` says (`$TMPDIR` comes from the env).
+IMPLICIT_WRITABLE = ("/tmp", "/private/tmp", "/var/folders", "/private/var/folders")
+#: prek's default home, from which a terminal's git hooks run prek outside the sandbox.
+PREK_DEFAULT_HOME = "~/.cache/prek"
+PREK_DENY = "Edit(~/.cache/prek/**)"
+PREK_FILES = ("prek.toml", ".pre-commit-config.yaml", ".pre-commit-config.yml")
+PNPM_DENY = "Edit(~/.cache/pnpm/**)"
+PNPM_ROOT = "~/.local/share/pnpm-sandbox"
+PNPM_FILES = ("pnpm-lock.yaml", "pnpm-workspace.yaml")
+_PNPM_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
+PNPM_MOVED = ("npm_config_store_dir", "npm_config_state_dir", "npm_config_virtual_store_dir")
+#: The settings keys whose entries a sandboxed command can write (a working directory is writable too).
+WRITE_KEYS = (("sandbox", "filesystem", "allowWrite"), ("permissions", "additionalDirectories"))
 
 
 @dataclass
@@ -142,6 +163,8 @@ class Context:
     system: str
     framework_arg: Path | None = None
     managed_dirs: tuple[Path, ...] | None = None
+    #: The roots the sandbox writes without a grant; tests whose temporary home sits under one replace them.
+    implicit_writable: tuple[str, ...] = IMPLICIT_WRITABLE
     run: Callable[[list[str]], str | None] = field(default=_run)
     which: Callable[[str], str | None] = field(default=shutil.which)
 
@@ -765,11 +788,300 @@ class Verifier:
             see=f"{CONDITIONAL}#check-17--roborev-exclusion-if-installed",
         )
 
-    def gate_19(self) -> dict:
+    # -- check 19: host-only uv, prek and pnpm state ----------------------
+
+    def absolute(self, entry: str) -> str:
+        """A settings path entry as an absolute, normalised path: `~`, `$HOME`, `//` and relative forms."""
+        path = self.expand(entry[1:] if entry.startswith("//") else entry)
+        return os.path.normpath(str(path if path.is_absolute() else self.ctx.root / path))
+
+    def grants(self, *keys: tuple[str, ...]) -> list[tuple[Settings, str, str, str]]:
+        """`(file, key, entry, absolute path)` for each entry under `keys` in every readable merged file."""
+        return [
+            (f, ".".join(key), entry, self.absolute(entry))
+            for f in self.merged
+            if f.state == "read"
+            for key in keys
+            for entry in _strings(f.data, *key)
+        ]
+
+    def denied(self, rule: str) -> list[Settings]:
+        """The readable merged files whose `permissions.deny` holds `rule`, or a `Tool(dir/**)` covering it."""
+        tool, _, rest = rule.partition("(")
+        target = rest.removesuffix(")")
+        found = []
+        for f in self.merged:
+            if f.state != "read":
+                continue
+            for entry in _strings(f.data, "permissions", "deny"):
+                name, _, pattern = entry.replace(" ", "").partition("(")
+                pattern = pattern.removesuffix(")")
+                if name == tool and (
+                    pattern == target or (pattern.endswith("/**") and target.startswith(pattern[:-2]))
+                ):
+                    found.append(f)
+                    break
+        return found
+
+    def effective_env(self) -> dict[str, tuple[object, Settings]]:
+        """Each `env` key's value and the file it comes from: the highest-precedence file wins per key."""
+        env: dict[str, tuple[object, Settings]] = {}
+        for f in reversed(self.merged):
+            value = _get(f.data, "env") if f.state == "read" else None
+            for key, item in value.items() if isinstance(value, dict) else ():
+                env[key] = (item, f)
+        return env
+
+    def tracked(self, names: Iterable[str]) -> bool | None:
+        """Whether git tracks a file of one of these names anywhere; `None` when git cannot say."""
+        out = self.ctx.run(
+            ["git", "-C", str(self.ctx.root), "ls-files", "--", *(f":(glob)**/{name}" for name in names)]
+        )
+        return None if out is None else bool(out.strip())
+
+    def uses_prek(self) -> bool:
+        """The hook-manager detection (tools/hook-manager/README.md#detection) for prek."""
+        root = self.ctx.root
+        if any((root / name).is_file() for name in PREK_FILES) or self.tracked(PREK_FILES):
+            return True
+        common = (
+            self.ctx.run(["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"])
+            or ""
+        ).strip()
+        hooks = Path(common) / "hooks" if common else root / ".git" / "hooks"
+        try:
+            candidates = [h for h in hooks.iterdir() if h.is_file() and not h.name.endswith(".sample")]
+        except OSError:
+            return False
+        for hook in candidates:
+            try:
+                if "prek" in _read_regular(hook).decode("utf-8", errors="replace"):
+                    return True
+            except OSError:
+                continue
+        return False
+
+    def uses_pnpm(self) -> bool:
+        """A tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`; the files at the root when git cannot say."""
+        tracked = self.tracked(PNPM_FILES)
+        return tracked if tracked is not None else any((self.ctx.root / n).is_file() for n in PNPM_FILES)
+
+    def uv_config(self) -> tuple[str, dict]:
+        """`~/.config/uv/uv.toml`: its state (as for a settings file) and its content."""
+        path = self.ctx.home / UV_CONFIG
+        if _is_placeholder(path):
+            return "placeholder", {}
+        try:
+            raw = _read_regular(path)
+        except FileNotFoundError:
+            return "absent", {}
+        except PermissionError:
+            return "unreadable", {}
+        except OSError:
+            return ("absent" if not os.path.lexists(path) else "unreadable"), {}
+        try:
+            return "read", tomllib.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, tomllib.TOMLDecodeError):
+            return "invalid", {}
+
+    def sandbox_writable(self) -> list[tuple[str, str]]:
+        """`(label, absolute path)` for every directory a sandboxed command can write."""
+        roots = [
+            (f"{key} {entry!r} ({self.show(f.path)})", path)
+            for f, key, entry, path in self.grants(*WRITE_KEYS)
+        ]
+        roots += [(f"project root {tree}", os.path.normpath(str(tree))) for tree, _ in self.worktrees()]
+        roots += [(path, path) for path in self.ctx.implicit_writable]
+        tmpdir = self.ctx.env.get("TMPDIR")
+        if tmpdir:
+            roots.append((f"$TMPDIR {tmpdir}", os.path.normpath(tmpdir)))
+        roots.append(("~/.cache", os.path.normpath(str(self.ctx.home / ".cache"))))
+        return [(label, form) for label, path in roots for form in {path, os.path.realpath(path)}]
+
+    def check_19(self) -> dict:
         enabled, _, _ = self.sandbox_enabled()
         if enabled is not True:
             return self.result("19", "n/a", ["sandbox not enabled"])
-        return self.result("19", "manual", ["sandbox enabled"])
+        unseen = self.unseen(self.merged)
+        #: A required entry not found in any readable file may sit in one this process cannot read.
+        gap = "unknown" if unseen else "fail"
+        extra_unseen: list[str] = []
+        parts: list[tuple[str, str]] = []
+        writes = self.grants(*WRITE_KEYS)
+        env = self.effective_env()
+
+        # 19a — the uv data dir is read-only.
+        uv_data = self.absolute(UV_DATA)
+        over = [
+            f"{self.show(f.path)}: {key} {entry!r}"
+            for f, key, entry, path in writes
+            if _within(uv_data, path)
+        ]
+        if over:
+            parts.append(("fail", f"19a: {UV_DATA} writable: " + "; ".join(over)))
+        else:
+            parts.append(
+                (
+                    "unknown" if unseen else "pass",
+                    f"19a: no allowWrite or additionalDirectories entry covers {UV_DATA}",
+                )
+            )
+
+        # 19b — the host has its own uv cache.
+        shown = f"~/{UV_CONFIG}"
+        state, config = self.uv_config()
+        cache = config.get("cache-dir")
+        if state in ("unreadable", "placeholder"):
+            parts.append(("unknown", f"19b: {shown}: {state}"))
+            extra_unseen.append(f"{shown} ({state})")
+        elif state == "absent":
+            parts.append(("fail", f"19b: {shown} missing: the host has no uv cache of its own"))
+        elif state == "invalid":
+            parts.append(("fail", f"19b: {shown} is not valid TOML"))
+        elif not isinstance(cache, str) or not cache:
+            parts.append(("fail", f"19b: {shown} sets no cache-dir"))
+        elif not cache.startswith("/"):
+            parts.append(("fail", f"19b: cache-dir {cache!r} is not absolute (uv does not expand ~ there)"))
+        else:
+            resolved = os.path.realpath(cache)
+            hits = sorted({label for label, root in self.sandbox_writable() if _overlaps(resolved, root)})
+            if hits:
+                parts.append(
+                    ("fail", f"19b: cache-dir {cache!r} overlaps sandbox-writable {'; '.join(hits)}")
+                )
+            else:
+                parts.append(
+                    (
+                        "unknown" if unseen else "pass",
+                        f"19b: cache-dir {cache} (resolved {resolved}) is outside every sandbox-writable directory",
+                    )
+                )
+
+        # 19c — the sandbox cannot read the uv config (the deny rules; the live probe stays manual).
+        missing = [rule for rule in UV_DENIES if not self.denied(rule)]
+        if missing:
+            parts.append((gap, f"19c: permissions.deny lacks {', '.join(missing)}"))
+        else:
+            parts.append(("pass", f"19c: permissions.deny carries {' and '.join(UV_DENIES)}"))
+
+        # 19d — sandboxed prek has its own home.
+        prek = self.uses_prek()
+        if self.denied(PREK_DENY):
+            parts.append(("pass", f"19d: permissions.deny carries {PREK_DENY}"))
+        else:
+            parts.append((gap, f"19d: permissions.deny lacks {PREK_DENY}"))
+        if prek:
+            value, source = env.get("PREK_HOME", (None, None))
+            if not isinstance(value, str) or not value or source is None:
+                parts.append((gap, "19d: env.PREK_HOME missing (the reference is ~/.cache/prek-sandbox)"))
+            elif _overlaps(self.absolute(value), self.absolute(PREK_DEFAULT_HOME)):
+                parts.append(
+                    (
+                        "fail",
+                        f"19d: env.PREK_HOME {value!r} ({self.show(source.path)}) overlaps {PREK_DEFAULT_HOME}",
+                    )
+                )
+            else:
+                parts.append(
+                    (
+                        "pass",
+                        f"19d: env.PREK_HOME {value} ({self.show(source.path)}), outside {PREK_DEFAULT_HOME}",
+                    )
+                )
+        else:
+            parts.append(("pass", "19d: the project does not use prek: only the deny applies"))
+
+        # 19e — sandboxed pnpm has its own home.
+        if self.denied(PNPM_DENY):
+            parts.append(("pass", f"19e: permissions.deny carries {PNPM_DENY}"))
+        else:
+            parts.append((gap, f"19e: permissions.deny lacks {PNPM_DENY}"))
+        pnpm_root = self.absolute(PNPM_ROOT)
+        for f, key, entry, path in writes:
+            if _within(pnpm_root, path):
+                parts.append(
+                    ("fail", f"19e: {self.show(f.path)}: {key} {entry!r} grants {PNPM_ROOT}/ itself")
+                )
+        for f in self.merged:
+            value = _get(f.data, "env") if f.state == "read" else None
+            for key in value if isinstance(value, dict) else ():
+                if key.lower().replace("-", "_") in PNPM_MOVED:
+                    parts.append(
+                        (
+                            "fail",
+                            f"19e: {self.show(f.path)}: env.{key} moves pnpm's store or state out of its home",
+                        )
+                    )
+        for key, (value, source) in env.items():
+            if key.lower().replace("-", "_") == "npm_config_enable_global_virtual_store" and value in (
+                "true",
+                True,
+            ):
+                parts.append(
+                    (
+                        "warn",
+                        f"19e: env.{key} = true ({self.show(source.path)}): the project's @types/* packages are lost to TypeScript",
+                    )
+                )
+        if self.uses_pnpm():
+            home, source = env.get("PNPM_HOME", (None, None))
+            if not isinstance(home, str) or not home or source is None:
+                parts.append(
+                    (gap, f"19e: the project uses pnpm and env.PNPM_HOME is missing ({PNPM_ROOT}/<project>)")
+                )
+            elif _pnpm_name(home, str(self.ctx.home)) is None:
+                parts.append(("fail", f"19e: env.PNPM_HOME {home!r} is not exactly {PNPM_ROOT}/<project>"))
+            else:
+                target = self.absolute(home)
+                allowed = [
+                    g for g in self.grants(("sandbox", "filesystem", "allowWrite")) if _within(target, g[3])
+                ]
+                parts.append(
+                    ("pass", f"19e: env.PNPM_HOME {home} in allowWrite")
+                    if allowed
+                    else (gap, f"19e: env.PNPM_HOME {home} is not in sandbox.filesystem.allowWrite")
+                )
+                try:
+                    is_dir = stat.S_ISDIR(os.stat(target).st_mode)
+                except FileNotFoundError:
+                    parts.append(
+                        ("fail", f"19e: {home} does not exist on disk (mkdir -p it outside the sandbox)")
+                    )
+                except OSError:
+                    parts.append(("unknown", f"19e: {home}: not visible from here"))
+                    extra_unseen.append(f"{home} (not visible from here)")
+                else:
+                    parts.append(
+                        ("pass", f"19e: {home} exists")
+                        if is_dir
+                        else ("fail", f"19e: {home} is not a directory")
+                    )
+                for name, want, status in (
+                    ("npm_config_cache_dir", f"{home}/cache", "fail"),
+                    ("npm_config_cache", f"{home}/npm-cache", "warn"),
+                ):
+                    value, _ = env.get(name, (None, None))
+                    if value == want:
+                        parts.append(("pass", f"19e: env.{name} {want}"))
+                    elif value is None:
+                        parts.append(
+                            ("unknown" if unseen else status, f"19e: env.{name} missing (want {want})")
+                        )
+                    else:
+                        parts.append((status, f"19e: env.{name} {value!r} is not {want}"))
+        else:
+            parts.append(("pass", "19e: the project does not use pnpm: no env.PNPM_HOME needed"))
+
+        result = self.combine("19", parts)
+        if result["status"] == "unknown":
+            result["unreadable"] = unseen + extra_unseen
+        result["manual"] = [
+            "19c live probe: a sandboxed `uv cache dir` prints uv's default cache, not 19b's cache-dir",
+            *(["19d live probe: a sandboxed write into ~/.cache/prek fails"] if prek else []),
+            "19d: the whole-user dispatcher's installed copy carries the prek-host block",
+        ]
+        result["see"] = f"{BY_HAND}#{SECTIONS['19']}"
+        return result
 
     # -- assembly ---------------------------------------------------------
 
@@ -820,7 +1132,7 @@ class Verifier:
             self.gate_vetted_ops("16"),
             self.gate_17(),
             self.result("18", "manual", ["local agent settings against the reconciliation"]),
-            self.gate_19(),
+            self.check_19(),
             self.result(
                 "20",
                 "manual",
@@ -881,6 +1193,25 @@ def _covers(entries: list[str], target: Path) -> bool:
         if entry in wanted or _norm(os.path.realpath(entry)) in wanted:
             return True
     return False
+
+
+def _within(path: str, root: str) -> bool:
+    """Whether `path` is `root` or inside it (both absolute and normalised)."""
+    root = root.rstrip("/")
+    return path == root or path.startswith(root + "/") or not root
+
+
+def _overlaps(a: str, b: str) -> bool:
+    return _within(a, b) or _within(b, a)
+
+
+def _pnpm_name(home: str, home_dir: str) -> str | None:
+    """The project name in a pnpm home spelled exactly `~/.local/share/pnpm-sandbox/<name>` (or absolute)."""
+    for root in (PNPM_ROOT, home_dir.rstrip("/") + PNPM_ROOT[1:]):
+        if home.startswith(root + "/"):
+            name = home[len(root) + 1 :]
+            return name if _PNPM_NAME.fullmatch(name) else None
+    return None
 
 
 def _top_level(start: Path, run: Callable[[list[str]], str | None]) -> Path:
