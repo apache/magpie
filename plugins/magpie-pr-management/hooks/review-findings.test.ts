@@ -779,7 +779,7 @@ End of observations.
       };
 
       register(fakeOn);
-      assertStrictEqual(registered.length, 6);
+      assertStrictEqual(registered.length, 7);
       assertStrictEqual(registered[0]?.event, 'session.start');
       assertStrictEqual(registered[1]?.event, 'ui.render');
       assertStrictEqual(registered[1]?.opts?.component, 'Pane');
@@ -787,6 +787,9 @@ End of observations.
       assertStrictEqual(registered[2]?.opts?.component, 'AbovePrompt');
       assertStrictEqual(registered[3]?.event, 'ui.press');
       assertStrictEqual(registered[4]?.event, 'tool.call');
+      assertStrictEqual(registered[5]?.event, 'command.run');
+      assertStrictEqual(registered[6]?.event, 'command.run');
+      assertStrictEqual(registered[6]?.opts?.command, 'magpie-pr-stats');
       assertStrictEqual(registered[4]?.opts?.tool, 'Bash');
       assertStrictEqual(registered[5]?.event, 'command.run');
       assertStrictEqual(registered[5]?.opts?.command, 'magpie-findings');
