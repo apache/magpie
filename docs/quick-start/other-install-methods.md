@@ -75,7 +75,7 @@ symlinks, project doc note, gitignored runtime state) runs through
 
 > **Canonical layout — no per-project convention to pick.**
 > `.agents/skills/` is the one canonical home (see
-> [`agents.md`](../../skills/setup/agents.md)). Copy `setup` into
+> [`agents.md`](../../plugins/magpie-setup/skills/setup/agents.md)). Copy `setup` into
 > `.agents/skills/magpie-setup/`, then add a relay symlink to it
 > from every agent-specific dir you use
 > (`.claude/skills/magpie-setup` and `.github/skills/magpie-setup`
@@ -318,7 +318,7 @@ That runs `/magpie-setup update` and then checks and fixes this machine and proj
 committed lock, refreshes the gitignored symlinks (adding any
 new framework skills, removing any that were renamed away),
 and updates the local lock. See
-[`setup/update.md`](../../skills/setup/update.md)
+[`setup/update.md`](../../plugins/magpie-setup/skills/setup/update.md)
 for the full flow.
 
 ---

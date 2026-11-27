@@ -96,15 +96,15 @@ Use `/magpie-pr-management:pr-triage` to classify the open queue and propose nex
 
 | Skill | Purpose |
 |---|---|
-| [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md) | First-pass triage. Successor to `breeze pr auto-triage`. |
-| [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) | Read-only summary tables grouped by area label. |
-| [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md) | Deep code review, one PR at a time. |
-| [`pr-management-merge-candidates`](../../skills/pr-management-merge-candidates/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
-| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
-| [`pr-stale-sweep`](../../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
-| [`pre-first-pr-check`](../../skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
-| [`reviewer-routing`](../../skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
-| [`pr-management-stack-review`](../../skills/pr-management-stack-review/SKILL.md) | Review a GitHub stacked pull request as one unit — chain, file-by-layer matrix, removed-definition seams, narrative drift, code by tier with a coverage table. One rolling `COMMENT` on the lowest open layer; never approves; hands each layer to `pr-management-code-review`. |
+| [`pr-management-triage`](../../plugins/magpie-pr-management/skills/pr-triage/SKILL.md) | First-pass triage. Successor to `breeze pr auto-triage`. |
+| [`pr-management-stats`](../../plugins/magpie-pr-management/skills/stats/SKILL.md) | Read-only summary tables grouped by area label. |
+| [`pr-management-code-review`](../../plugins/magpie-pr-management/skills/code-review/SKILL.md) | Deep code review, one PR at a time. |
+| [`pr-management-merge-candidates`](../../plugins/magpie-pr-management/skills/merge-candidates/SKILL.md) | Express-lane screener for trivial, low-risk PRs in the `ready for maintainer review` queue; surfaces ranked candidates with diff summaries and the exact merge command. Read-only on the queue; the one optional mutation (APPROVE) requires explicit per-PR confirmation. |
+| [`pr-management-thread-mentor`](../../plugins/magpie-pr-management/skills/thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread (clarifying questions, project-convention pointers, rationale explanations); waits for explicit maintainer confirmation before posting. `mode: Mentoring` — see also [`docs/mentoring/README.md`](../mentoring/README.md). |
+| [`pr-stale-sweep`](../../plugins/magpie-pr-management/skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
+| [`pre-first-pr-check`](../../plugins/magpie-pr-management/skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
+| [`reviewer-routing`](../../plugins/magpie-pr-management/skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
+| [`pr-management-stack-review`](../../plugins/magpie-pr-management/skills/stack-review/SKILL.md) | Review a GitHub stacked pull request as one unit — chain, file-by-layer matrix, removed-definition seams, narrative drift, code by tier with a coverage table. One rolling `COMMENT` on the lowest open layer; never approves; hands each layer to `pr-management-code-review`. |
 
 ## Cross-references
 

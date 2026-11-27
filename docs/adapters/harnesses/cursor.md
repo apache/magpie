@@ -146,6 +146,6 @@ uv run prek run doctoc --all-files
 ## See also
 
 - [`docs/adapters/add-a-harness.md`](../add-a-harness.md) — recipe for adding runtime harnesses.
-- [`skills/setup/agents.md`](../../../skills/setup/agents.md) — agent-target registry (`universal` canonical path).
+- [`skills/setup/agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md) — agent-target registry (`universal` canonical path).
 - [`docs/rfcs/RFC-AI-0004.md`](../../rfcs/RFC-AI-0004.md) — normative principles for vendor neutrality and HITL.
 - [`docs/vendor-neutrality.md`](../../vendor-neutrality.md) — framework vendor neutrality index.

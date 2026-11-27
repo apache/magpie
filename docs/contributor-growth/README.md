@@ -95,24 +95,24 @@ Maintainers who want the same numbers share them the way they share the delibera
 
 | Stage | Skill | What it does |
 |---|---|---|
-| **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
-| **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC reference levels from the project's own past nomination decisions on the private list, deliberately relaxed well below what the project elected; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
-| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Pre-filters out the long tail of recent contributors, then shows the activity data of everyone else — deliberately more people than the PMC would consider, never scored or compared with thresholds — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: a Headline split by target (committer / PMC) with one phrase per person, each full section linked to its detail, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
-| **Activity vs. reference** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Shows a contributor's activity next to the project's committer or PMC reference levels, as plain numbers with the difference, and a short factual summary. No status, band, or readiness verdict. Read-only; never opens a nomination thread. |
-| **Identity mapping** | [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
-| **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence for a committer or PMC discussion: activity breadth, consistency, vendor-neutrality context, and factual narrative prose. Never rates the contributor or says whether they are ready. Read-only; never posts to any list. |
-| **Sentiment analysis** | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
-| **Onboarding concierge** | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Interactive first-session guide for new contributors: walks through repo setup, points to good first issues, introduces project conventions and communication channels. |
-| **Post-vote onboarding** | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Walks the nominator through ICLA check, account provisioning, permissions grant, and the welcome announcement for committer and PMC promotions at ASF TLPs and podlings. |
+| **Activity tracking** | [`contributor-activity-sweep`](../../plugins/magpie-contributor-growth/skills/activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
+| **Calibration** | [`contributor-calibrate`](../../plugins/magpie-contributor-growth/skills/calibrate/SKILL.md) | Derives committer and PMC reference levels from the project's own past nomination decisions on the private list, deliberately relaxed well below what the project elected; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
+| **Candidate screening** | [`contributor-candidate-screen`](../../plugins/magpie-contributor-growth/skills/candidate-screen/SKILL.md) | Pre-filters out the long tail of recent contributors, then shows the activity data of everyone else — deliberately more people than the PMC would consider, never scored or compared with thresholds — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: a Headline split by target (committer / PMC) with one phrase per person, each full section linked to its detail, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
+| **Activity vs. reference** | [`contributor-to-committer`](../../plugins/magpie-contributor-growth/skills/contributor-to-committer/SKILL.md) | Shows a contributor's activity next to the project's committer or PMC reference levels, as plain numbers with the difference, and a short factual summary. No status, band, or readiness verdict. Read-only; never opens a nomination thread. |
+| **Identity mapping** | [`contributor-identity-map`](../../plugins/magpie-contributor-growth/skills/identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
+| **Nomination brief** | [`contributor-nomination`](../../plugins/magpie-contributor-growth/skills/nomination/SKILL.md) | Assembles evidence for a committer or PMC discussion: activity breadth, consistency, vendor-neutrality context, and factual narrative prose. Never rates the contributor or says whether they are ready. Read-only; never posts to any list. |
+| **Sentiment analysis** | [`contributor-sentiment`](../../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
+| **Onboarding concierge** | [`onboarding-concierge`](../../plugins/magpie-contributor-growth/skills/onboarding-concierge/SKILL.md) | Interactive first-session guide for new contributors: walks through repo setup, points to good first issues, introduces project conventions and communication channels. |
+| **Post-vote onboarding** | [`committer-onboarding`](../../plugins/magpie-contributor-growth/skills/committer-onboarding/SKILL.md) | Walks the nominator through ICLA check, account provisioning, permissions grant, and the welcome announcement for committer and PMC promotions at ASF TLPs and podlings. |
 
 Every stage is read-only on governance artefacts or propose-before-post:
 no skill modifies a roster, posts an announcement, or files an issue
 without explicit maintainer confirmation.
 
 Related newcomer mentoring skills are installed by `magpie-mentoring`, not
-this plugin: [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md),
-[`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md),
-and [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md).
+this plugin: [`mentoring-welcome`](../../plugins/magpie-mentoring/skills/welcome/SKILL.md),
+[`good-first-issue-author`](../../plugins/magpie-mentoring/skills/good-first-issue-author/SKILL.md),
+and [`good-first-issue-sweep`](../../plugins/magpie-mentoring/skills/good-first-issue-sweep/SKILL.md).
 See the [mentoring overview](../mentoring/README.md) for their purpose and
 installation instructions.
 
@@ -120,15 +120,15 @@ installation instructions.
 
 | Skill | Mode | Status |
 |---|---|---|
-| [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Triage | experimental |
-| [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Mentoring | experimental |
-| [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
-| [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Triage | experimental |
-| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Mentoring | experimental |
-| [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Triage | experimental |
-| [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Triage | experimental |
-| [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Triage | experimental |
-| [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
+| [`contributor-sentiment`](../../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md) | Triage | experimental |
+| [`onboarding-concierge`](../../plugins/magpie-contributor-growth/skills/onboarding-concierge/SKILL.md) | Mentoring | experimental |
+| [`contributor-activity-sweep`](../../plugins/magpie-contributor-growth/skills/activity-sweep/SKILL.md) | Triage | experimental |
+| [`contributor-identity-map`](../../plugins/magpie-contributor-growth/skills/identity-map/SKILL.md) | Triage | experimental |
+| [`contributor-to-committer`](../../plugins/magpie-contributor-growth/skills/contributor-to-committer/SKILL.md) | Mentoring | experimental |
+| [`contributor-nomination`](../../plugins/magpie-contributor-growth/skills/nomination/SKILL.md) | Triage | experimental |
+| [`contributor-calibrate`](../../plugins/magpie-contributor-growth/skills/calibrate/SKILL.md) | Triage | experimental |
+| [`contributor-candidate-screen`](../../plugins/magpie-contributor-growth/skills/candidate-screen/SKILL.md) | Triage | experimental |
+| [`committer-onboarding`](../../plugins/magpie-contributor-growth/skills/committer-onboarding/SKILL.md) | Triage | experimental |
 
 All nine skills installed by this plugin are `experimental`.
 No adopter has run the full contributor-to-committer path under evaluation conditions yet.

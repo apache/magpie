@@ -36,7 +36,7 @@ indexes and catalogs exist for discovery, not installation.
 
 | Entity | What it is | Reference |
 |---|---|---|
-| **Skill** | a workflow the agent follows | [`PRINCIPLES.md` §15](../PRINCIPLES.md#15-skills-are-the-unit-of-authorship), [`write-skill`](../skills/write-skill/SKILL.md) |
+| **Skill** | a workflow the agent follows | [`PRINCIPLES.md` §15](../PRINCIPLES.md#15-skills-are-the-unit-of-authorship), [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) |
 | **Skill source** | a trusted external repo a skill/family is *pulled* from | [`docs/skill-sources/`](skill-sources/README.md), [`RFC-AI-0006`](rfcs/RFC-AI-0006.md) |
 | **Tool / tool adapter** | the only layer that knows a vendor — a backend behind a capability contract | [vendor-neutrality § Tool adapters](vendor-neutrality.md#tool-adapters), [`adapters/authoring.md`](adapters/authoring.md) |
 | **Capability contract** | the stable verb set a skill depends on; the seam adapters plug into | [`tools/cve-tool/`](../tools/cve-tool/) and siblings |
@@ -98,7 +98,7 @@ Owns its `<project-config>/`: identity, per-skill config, and
 `.apache-magpie-overrides/` for behaviour tweaks. A project may also
 keep a **local organization or adapter** in its override layer when no
 in-tree one fits — and upstream it later with
-[`setup-override-upstream`](../skills/setup-override-upstream/SKILL.md).
+[`setup-override-upstream`](../plugins/magpie-setup/skills/override-upstream/SKILL.md).
 
 ### An organization (foundation / company / collective)
 
@@ -123,12 +123,12 @@ personal repo and link it.
 Whatever the home you start with, upstreaming is one PR away and benefits
 every adopter:
 
-- a **skill** — [`write-skill`](../skills/write-skill/SKILL.md) +
+- a **skill** — [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) +
   [`CONTRIBUTING.md`](../CONTRIBUTING.md);
 - a **tool/adapter or organization** —
   [`adapters/authoring.md`](adapters/authoring.md);
 - an **override you have been running** —
-  [`setup-override-upstream`](../skills/setup-override-upstream/SKILL.md).
+  [`setup-override-upstream`](../plugins/magpie-setup/skills/override-upstream/SKILL.md).
 
 ## See also
 

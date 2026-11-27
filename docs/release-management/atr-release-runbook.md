@@ -45,7 +45,7 @@ runs against:
 | | `svnpubsub` runbook | **ATR runbook (this doc)** |
 |---|---|---|
 | Stage RC | `svn import` to `dist/dev/<rc>/` | **Compose** phase: upload to ATR |
-| Run checks | RM/voters run [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) locally | **Compose** checks run automatically in ATR + local verify |
+| Run checks | RM/voters run [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) locally | **Compose** checks run automatically in ATR + local verify |
 | Vote | RM sends `[VOTE]`, tallies by hand | **Vote** phase: ATR sends `[VOTE]`, tabulates |
 | Promote | `svn mv dist/dev → dist/release` | **Finish** phase: ATR strips `-rcN`, publishes |
 | Announce | RM sends `[ANNOUNCE]` | **Finish** phase: ATR-assisted announce |
@@ -158,12 +158,12 @@ own each step — like this:
 
 | ATR phase | Lifecycle steps | Owning skill(s) | What happens |
 |---|---|---|---|
-| *(pre-phase)* | 1 Plan · 2 Changelog/NOTICE/LICENSE | [`release-prepare`](../../skills/release-prepare/SKILL.md) | Planning issue + version-bump PR. Off-platform; unchanged. |
-| *(pre-phase)* | 3 `KEYS` | [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | RM's public key added to the committee's `KEYS` **in ATR**. |
-| **Compose** | 4 Cut RC · 5 Stage · 6 Verify | [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md), [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | Build the source artefact, sign it, upload it to ATR as a draft; ATR runs signature/checksum/license/notice/source-header checks automatically. |
-| **Vote** | 7 `[VOTE]` · 8 Window · 9 Tally | [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md), [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | ATR sends the `[VOTE]` to `dev@` and tabulates replies over ≥72h. The skills draft the body and cross-check the tally against the PMC roster. |
-| **Finish** | 10 Promote · 11 Announce | [`release-promote`](../../skills/release-promote/SKILL.md), [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | ATR strips `-rcN`, rearranges the tree, publishes to `dist.apache.org`, and assists the `[ANNOUNCE]`. Records downstream distributions (PyPI, Maven Central). |
-| *(post-phase)* | 12 Archive · 13 Audit · 14 Post-bump | [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md), [`release-audit-report`](../../skills/release-audit-report/SKILL.md), [`release-prepare`](../../skills/release-prepare/SKILL.md) | Archiving in ATR, audit-log record, `-SNAPSHOT`/`.dev` bump. |
+| *(pre-phase)* | 1 Plan · 2 Changelog/NOTICE/LICENSE | [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) | Planning issue + version-bump PR. Off-platform; unchanged. |
+| *(pre-phase)* | 3 `KEYS` | [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md) | RM's public key added to the committee's `KEYS` **in ATR**. |
+| **Compose** | 4 Cut RC · 5 Stage · 6 Verify | [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md), [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) | Build the source artefact, sign it, upload it to ATR as a draft; ATR runs signature/checksum/license/notice/source-header checks automatically. |
+| **Vote** | 7 `[VOTE]` · 8 Window · 9 Tally | [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md), [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md) | ATR sends the `[VOTE]` to `dev@` and tabulates replies over ≥72h. The skills draft the body and cross-check the tally against the PMC roster. |
+| **Finish** | 10 Promote · 11 Announce | [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md), [`release-announce-draft`](../../plugins/magpie-release-management/skills/announce-draft/SKILL.md) | ATR strips `-rcN`, rearranges the tree, publishes to `dist.apache.org`, and assists the `[ANNOUNCE]`. Records downstream distributions (PyPI, Maven Central). |
+| *(post-phase)* | 12 Archive · 13 Audit · 14 Post-bump | [`release-archive-sweep`](../../plugins/magpie-release-management/skills/archive-sweep/SKILL.md), [`release-audit-report`](../../plugins/magpie-release-management/skills/audit-report/SKILL.md), [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) | Archiving in ATR, audit-log record, `-SNAPSHOT`/`.dev` bump. |
 
 The takeaway: **ATR replaces the mechanics of Steps 5–12**, including archiving.
 Steps 1–4 (plan, changelog, keys, *build*) and 13–14 (audit, post-bump) are the same regardless of backend,
@@ -215,11 +215,11 @@ Before you start, confirm:
 - **Your OpenPGP key is registered in ATR** for the Magpie committee
   (the ATR equivalent of being in the `KEYS` file — see Step B). If
   this is your first release, run
-  [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md)
+  [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md)
   (Step 3) first.
 - **The prep PR is merged** — version strings, `CHANGELOG`,
   `NOTICE`/`LICENSE` reflect `<version>`
-  ([`release-prepare`](../../skills/release-prepare/SKILL.md), Step 2).
+  ([`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md), Step 2).
 - **`git`, `gpg`, and Python 3.12+** are installed locally (the `atr`
   client needs 3.12+).
 
@@ -262,10 +262,10 @@ atr jwt refresh          # exchanges the PAT for a short-lived JWT
 ## Step A: Prep + version bump (unchanged)
 
 Identical to the `svnpubsub` flow. Run
-[`release-prepare`](../../skills/release-prepare/SKILL.md):
+[`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md):
 
 0. For a release of Apache Magpie itself, it first runs
-   [`pre-release-sweep`](../../skills/pre-release-sweep/SKILL.md)
+   [`pre-release-sweep`](../../plugins/magpie-utilities/skills/pre-release-sweep/SKILL.md)
    and records the result in the planning issue
    ([`.apache-magpie-overrides/release-prepare.md`](../../.apache-magpie-overrides/release-prepare.md)).
 
@@ -283,7 +283,7 @@ platform**: ATR stores the `KEYS` set and validates candidate
 signatures against it during Compose.
 
 If this is your first Magpie release, run
-[`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) to
+[`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md) to
 produce the public-key block, then register it:
 
 ```bash
@@ -304,7 +304,7 @@ key and perform the registration
 
 1. **Build and sign the source artefact locally** — this half is
    unchanged from the [`svnpubsub` runbook Steps 2–5](svn-release-runbook.md#step-2-tag-the-release-candidate).
-   [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) emits the
+   [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) emits the
    recipe from [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md):
 
    ```bash
@@ -359,7 +359,7 @@ key and perform the registration
 
    Fix any failing check and re-upload a new revision before voting.
    This is the platform-run equivalent of
-   [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md); you
+   [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md); you
    can *still* run `release-verify-rc` locally for a second,
    independent read (voters can too, in their own dev loop).
 
@@ -375,7 +375,7 @@ ATR automates the mechanics of the `dev@` vote; the PMC still casts
 the binding votes.
 
 1. **Draft the `[VOTE]` body** with
-   [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md).
+   [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md).
    It produces the subject
    (`[VOTE] Release Apache Magpie <version> from <version>-rcN`) and
    body — pointing voters at the ATR candidate page and its check
@@ -427,7 +427,7 @@ the binding votes.
      and tested on. A binding `+1` is the voter's own statement, not the
      tool's.
 4. **Tally** (Step 9). ATR tabulates the replies; cross-check with
-   [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md),
+   [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md),
    which classifies each reply binding-vs-non-binding against the
    [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) and
    drafts the `[RESULT] [VOTE]`. On any ambiguity the skill refuses to
@@ -447,7 +447,7 @@ release.**
    - **publishes** the artefacts to `dist.apache.org` (the release
      area) via ATR.
 
-   [`release-promote`](../../skills/release-promote/SKILL.md) now
+   [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md) now
    emits the *Finish* command (the client/API equivalent of the
    promote) instead of the `svn mv`. **Finishing is an RM/PMC action**
    — the agent drafts the command; the human runs it
@@ -460,7 +460,7 @@ release.**
    ```
 
 2. **Announce** (Step 11).
-   [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md)
+   [`release-announce-draft`](../../plugins/magpie-release-management/skills/announce-draft/SKILL.md)
    drafts the `[ANNOUNCE]` body (subject
    `[ANNOUNCE] Apache Magpie <version> released`) for
    `announce@apache.org`, cc `dev@` — mandatory per
@@ -484,12 +484,12 @@ release.**
   If enabled in the project settings, select "Auto archive prior release" to archive the previous release in the same cycle when announcing the new release.
   See [Promoting to release](https://releases.apache.org/docs/promoting-to-release).
 - **Audit log** (Step 13) —
-  [`release-audit-report`](../../skills/release-audit-report/SKILL.md)
+  [`release-audit-report`](../../plugins/magpie-release-management/skills/audit-report/SKILL.md)
   appends the per-release record (RM, binding voters, artefacts +
   sigs + checksums, the ATR candidate/finish references, `[ANNOUNCE]`
   archive URL) to the audit log.
 - **Post-release version bump** (Step 14) —
-  [`release-prepare`](../../skills/release-prepare/SKILL.md) drafts
+  [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) drafts
   the `-SNAPSHOT`/`.dev` bump PR so `main` is open for the next line.
 
 ## GitHub Actions path (reproducible builds)

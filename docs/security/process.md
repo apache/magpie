@@ -124,7 +124,7 @@ project list).
 
 ### Step 2 — Import the report
 
-[`security-issue-import`](../../skills/security-issue-import/SKILL.md)
+[`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md)
 scans `<security-list>` for un-imported threads, classifies each
 candidate (real / automated-scan / consolidated / spam), extracts the
 issue-template fields from the root message, and proposes one tracker
@@ -139,14 +139,14 @@ and does **not** create a tracker — invalid noise never enters the
 board.
 
 **Alternate entry — fix already opened as a public PR.** Use
-[`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md).
+[`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md).
 The tracker lands directly in the `Assessed` column with the scope
 label applied (validity already decided informally), so Step 5 is
 skipped and the tracker is ready for `security-cve-allocate`
 immediately.
 
 **Alternate entry — bulk import from markdown.** Use
-[`security-issue-import-from-md`](../../skills/security-issue-import-from-md/SKILL.md)
+[`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md)
 when triaging the output of an AI security review or third-party
 scanner. Each finding becomes one tracker.
 
@@ -160,7 +160,7 @@ for negative assessments so the tone stays polite-but-firm.
 
 For larger batches landed by `security-issue-import` (or the
 `-from-md` / `-from-pr` variants), the
-[`security-issue-triage`](../../skills/security-issue-triage/SKILL.md)
+[`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md)
 skill automates the first half of this step: for each tracker
 in `Needs triage`, it reads the body + comments, applies the
 project's Security Model framing, and — on user confirmation —
@@ -181,12 +181,12 @@ team consensus lands:
 
 | Class | Next step after consensus |
 |---|---|
-| `VALID` | [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) → Step 6 |
+| `VALID` | [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) → Step 6 |
 | `DEFENSE-IN-DEPTH` | Close as wontfix + open a public PR for the hardening |
-| `INFO-ONLY` | [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) with the matching canned-response template |
-| `INVALID` | [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) |
-| `PROBABLE-DUP` | [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md) |
-| `FIX-ALREADY-PUBLIC` | After reporter confirms the cited public PR fixes their report: [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md). If the reporter says it does not fix it, re-triage with `--retriage`. No finder credit is recorded per the [no-credit-when-fix-is-already-public policy](../../skills/security-issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports). |
+| `INFO-ONLY` | [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) with the matching canned-response template |
+| `INVALID` | [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) |
+| `PROBABLE-DUP` | [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) |
+| `FIX-ALREADY-PUBLIC` | After reporter confirms the cited public PR fixes their report: [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md). If the reporter says it does not fix it, re-triage with `--retriage`. No finder credit is recorded per the [no-credit-when-fix-is-already-public policy](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports). |
 
 The triage skill is **read-only** on tracker state — it never
 flips `needs triage` to a scope label, never closes, never
@@ -234,7 +234,7 @@ this: at every sync pass it checks the reporter thread for staleness
 project's organization, 14 in both the ones Magpie ships, overridable
 per project — with no reply since) and, if stale, proposes proceeding
 without further reporter sign-off as an explicit, user-confirmed
-proposal item — see [`security-issue-sync` Step 1c/2b](../../skills/security-issue-sync/gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread).
+proposal item — see [`security-issue-sync` Step 1c/2b](../../plugins/magpie-security/skills/issue-sync/gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread).
 This never happens silently; the security team still confirms before
 the process moves forward without the reporter.
 
@@ -243,7 +243,7 @@ the process moves forward without the reporter.
 If valid, apply exactly one scope label from
 [`<project-config>/scope-labels.md`](<project-config>/scope-labels.md);
 remove `needs triage`. If invalid,
-[`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md)
+[`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md)
 labels `invalid`, posts a closing comment, archives the board item,
 and (for `<security-list>`-imported trackers) drafts a polite-but-firm
 reporter reply. If consensus cannot be reached, follow
@@ -251,7 +251,7 @@ reporter reply. If consensus cannot be reached, follow
 on `<security-list>`.
 
 If a candidate duplicate is detected,
-[`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md)
+[`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md)
 merges two trackers in place — preserving every reporter's credit,
 every mailing-list thread reference, and every independent
 attack-vector description. The kept issue's body is updated, the
@@ -260,7 +260,7 @@ attachment is regenerated so both finders land in `credits[]`.
 
 ### Step 6 — Allocate the CVE
 
-[`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md)
+[`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md)
 opens the project's CVE allocation tool (URL + tool name declared
 in [`<project-config>/project.md → CVE tooling`](<project-config>/project.md#cve-tooling)),
 normalises the title per
@@ -276,7 +276,7 @@ reconcile the rest.
 
 A security team member self-assigns and implements the fix.
 Optional automation:
-[`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
+[`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md)
 proposes an implementation plan, writes the change in your local
 `<upstream>` clone, runs local tests, and opens a public PR (through
 `vetted-op-git`, or `gh pr create --web` where that is not configured)
@@ -329,7 +329,7 @@ patch release) or weeks (a regular project-cadence release).
 
 When the release containing the fix ships to users (PyPI / Helm
 registry / equivalent),
-[`security-issue-sync`](../../skills/security-issue-sync/SKILL.md)
+[`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md)
 detects the release version on the next run and — provided a
 **two-stage gate** is clear — proposes the `pr merged` →
 `fix released` swap (and the assignee swap from remediation
@@ -593,7 +593,7 @@ labels the adopting project defines.
 | --- | --- | --- | --- |
 | `needs triage` | Freshly filed; assessment not yet started. | 1 | 5 |
 | `<scope>` | Scope of the vulnerability. Exactly one project-specific scope label is set. | 5 | never (sticks for the lifetime of the issue) |
-| `cve allocated` | A CVE has been reserved for the issue. Allocation itself is PMC-gated (only the adopting project's PMC members can submit the CVE-tool allocation form); a non-PMC triager relays a request to a PMC member via the [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) skill. | 6 | never |
+| `cve allocated` | A CVE has been reserved for the issue. Allocation itself is PMC-gated (only the adopting project's PMC members can submit the CVE-tool allocation form); a non-PMC triager relays a request to a PMC member via the [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) skill. | 6 | never |
 | `pr created` | A public fix PR has been opened on `<upstream>` but has not yet merged. | 10 | 11 (replaced by `pr merged`) |
 | `pr merged` | The fix PR has merged into `<upstream>`; no release with the fix has shipped yet. | 11 | 12 (replaced by `fix released` when the release ships) |
 | `fix released` | A release containing the fix has shipped to users; advisory has not been sent yet. Gated on the two-stage check (six mandatory body fields populated + CVE record state `review-ready`). | 12 | 14 (replaced by `announced - emails sent` at the archive-URL combined apply) |
@@ -601,7 +601,7 @@ labels the adopting project defines.
 | `announced` | The public advisory URL has been captured in the tracking issue's *Public advisory URL* body field and the attached CVE JSON has been regenerated so its `references[]` now carries the `vendor-advisory` URL. The CVE record has been promoted to `public` via `<cve-tool>.publish()` and the tracker has been closed and archived from the board — all in the same Step 14 combined apply. No label changes at close — the issue closes with `announced` still set. | 14 | never (stays on the issue after closing) |
 | `wontfix` / `invalid` / `not CVE worthy` / `duplicate` | Closing dispositions for reports that are not valid or not CVE-worthy. | 5 / 6 | — |
 
-The [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md)
+The [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md)
 skill keeps these labels honest: on every run it detects the current state
 of the issue, the fix PR, and the release train, and proposes the label
 transitions the process requires.

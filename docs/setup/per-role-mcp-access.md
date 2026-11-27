@@ -262,7 +262,7 @@ Move to a framework PR against `apache/magpie` when:
 
 - The integration is useful to all Magpie adopters, not just your
   project (the
-  [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md)
+  [`setup-override-upstream`](../../plugins/magpie-setup/skills/override-upstream/SKILL.md)
   skill walks through this).
 
 ## Hard rules
@@ -284,7 +284,7 @@ These apply to personal override files in the same way as shared ones:
 - [`agentic-overrides.md`](agentic-overrides.md) — the full override
   contract: lookup chain precedence, allowed shapes (skip / replace / add
   / pre-empt), and hard rules.
-- [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md)
+- [`setup-override-upstream`](../../plugins/magpie-setup/skills/override-upstream/SKILL.md)
   — promote a personal or project override into a framework PR once it
   proves its value.
 - [`install-recipes.md`](../quick-start/other-install-methods.md) — bootstrap Magpie in a

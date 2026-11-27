@@ -210,7 +210,7 @@ There is also a fourth command for anyone willing to take on a
 remediation-developer turn:
 
 - **`try to fix issue #N`** —
-  [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
+  [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md)
   attempts to land the fix for a triaged tracker in one go. It runs a
   pre-fix sync, reads the discussion on the tracker to build a fix
   plan, shows you the plan, and — only after you confirm — writes the

@@ -34,7 +34,7 @@ worktree resolves to the same file, so per-user fields (apache_id,
 GitHub handle, governance membership, local clone path) stay coherent without
 symlinks or per-worktree bootstrap. The framework does not manage the
 file — adopters create / edit it directly; see
-[`setup/install.md`](../skills/setup/install.md).
+[`setup/install.md`](../plugins/magpie-setup/skills/setup/install.md).
 
 When this document (or any skill) says *"the tracker repo"*, *"the
 security list"*, *"the canned responses"*, it means the value declared

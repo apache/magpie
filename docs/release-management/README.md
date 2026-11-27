@@ -92,16 +92,16 @@ eval suite:
 
 | Skill | PR | Step(s) |
 |---|---|---|
-| [`release-prepare`](../../skills/release-prepare/SKILL.md) | #540 | 1, 2, 14 |
-| [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | #541 | 3 |
-| [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | #543 | 4, 5 |
-| [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | #537 | 6 |
-| [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md) | #582 | 7 |
-| [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | #533 | 9 |
-| [`release-promote`](../../skills/release-promote/SKILL.md) | #544 | 10 |
-| [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | #512 | 11 |
-| [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md) | #551 | 12 |
-| [`release-audit-report`](../../skills/release-audit-report/SKILL.md) | #552 | 13 |
+| [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) | #540 | 1, 2, 14 |
+| [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md) | #541 | 3 |
+| [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) | #543 | 4, 5 |
+| [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) | #537 | 6 |
+| [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md) | #582 | 7 |
+| [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md) | #533 | 9 |
+| [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md) | #544 | 10 |
+| [`release-announce-draft`](../../plugins/magpie-release-management/skills/announce-draft/SKILL.md) | #512 | 11 |
+| [`release-archive-sweep`](../../plugins/magpie-release-management/skills/archive-sweep/SKILL.md) | #551 | 12 |
+| [`release-audit-report`](../../plugins/magpie-release-management/skills/audit-report/SKILL.md) | #552 | 13 |
 
 Every skill is flagged `experimental` and tracked in
 [`docs/modes.md`](../modes.md).
@@ -136,16 +136,16 @@ for the step it executes against.
 
 | Skill | Mode | Steps owned | Status | Purpose |
 |---|---|---|---|---|
-| [`release-prepare`](../../skills/release-prepare/SKILL.md) | Agentic Drafting | 1, 2, 14 | **experimental** | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
-| [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | Agentic Drafting | 3 | **experimental** | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
-| [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | Agentic Drafting | 4, 5 | **experimental** | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
-| [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | Agentic Triage / Agentic Pairing | 6 | **experimental** | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
-| [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md) | Agentic Drafting | 7 | **experimental** | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
-| [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | Agentic Triage | 9 | **experimental** | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
-| [`release-promote`](../../skills/release-promote/SKILL.md) | Agentic Drafting | 10 | **experimental** | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
-| [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md) | Agentic Drafting | 11 | **experimental** | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
-| [`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md) | Agentic Triage | 12 | **experimental** | Scan the distribution area, identify releases past retention, propose the backend-shaped archival step — the `svn mv` sequence under `svnpubsub`, or archiving in ATR (which removes the files from `dist/release` itself) under `atr`. Agent never archives. |
-| [`release-audit-report`](../../skills/release-audit-report/SKILL.md) | Agentic Triage (dashboard) | 13 | **experimental** | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
+| [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) | Agentic Drafting | 1, 2, 14 | **experimental** | Open the planning issue, draft the version-bump + changelog + NOTICE/LICENSE PR, then draft the post-release `-SNAPSHOT` bump. |
+| [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md) | Agentic Drafting | 3 | **experimental** | Draft the `KEYS` diff for a Release Manager cutting their first release for the project. Agent never holds the private key. |
+| [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) | Agentic Drafting | 4, 5 | **experimental** | Emit the paste-ready command sequence, signed tag, build, detached signatures, checksums, `svn` import to `dist/dev/<project>/`. Agent never signs and never imports. |
+| [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) | Agentic Triage / Agentic Pairing | 6 | **experimental** | Read-only pre-flight: signatures against the project's `KEYS`, checksums, license headers (Apache RAT), NOTICE/LICENSE presence, no prohibited binaries, version-string consistency. Voters can run it in their own dev loop before posting `+1`. |
+| [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md) | Agentic Drafting | 7 | **experimental** | Draft the `[VOTE]` email body to `dev@<project>`. Agent never sends. |
+| [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md) | Agentic Triage | 9 | **experimental** | Parse the vote thread, classify each reply (+1 / 0 / -1) binding vs non-binding against the PMC roster, propose `[RESULT] [VOTE]`. Conservative on ambiguous votes, refuses to count, flags `AMBIGUOUS, needs RM call`. |
+| [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md) | Agentic Drafting | 10 | **experimental** | Emit the paste-ready `svn mv dist/dev → dist/release` command set plus commit message. Agent never moves; the human commit is the act of release. |
+| [`release-announce-draft`](../../plugins/magpie-release-management/skills/announce-draft/SKILL.md) | Agentic Drafting | 11 | **experimental** | Draft the `[ANNOUNCE]` email body to `announce@apache.org` and the site-bump PR (download page, release notes, version banner). Agent never sends mail and never merges the site PR. |
+| [`release-archive-sweep`](../../plugins/magpie-release-management/skills/archive-sweep/SKILL.md) | Agentic Triage | 12 | **experimental** | Scan the distribution area, identify releases past retention, propose the backend-shaped archival step — the `svn mv` sequence under `svnpubsub`, or archiving in ATR (which removes the files from `dist/release` itself) under `atr`. Agent never archives. |
+| [`release-audit-report`](../../plugins/magpie-release-management/skills/audit-report/SKILL.md) | Agentic Triage (dashboard) | 13 | **experimental** | Read-only structured report per release, RM, voters with binding flags, artefacts with sigs and checksums, promotion revision, `[ANNOUNCE]` archive URL. Output appended to the project's audit log. |
 
 Two non-negotiable boundaries cross every Agentic Drafting skill above:
 
@@ -153,7 +153,7 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
   Manager's private signing key.** Steps 3, 4, 10 emit paste-ready
   recipes; the RM runs every signing or `svn commit` operation as
   themselves. This mirrors
-  [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md)
+  [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md)
   (Vulnogram URL + paste-ready JSON, human submits) and satisfies
   [RFC-AI-0004 Principle 1](../rfcs/RFC-AI-0004.md#principle-1--human-in-the-loop-on-every-state-change).
 - **The agent never publishes the release.** Steps 10
@@ -174,7 +174,7 @@ Two non-negotiable boundaries cross every Agentic Drafting skill above:
   hands-on copy-paste command sequence for the `svnpubsub` backend:
   package a tagged revision as a signed source `.zip` with SHA-512
   and stage it to `dist/dev/` (lifecycle Steps 4–5). The longhand
-  companion to [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md).
+  companion to [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md).
 - [**`atr-release-runbook.md`**](atr-release-runbook.md), the
   counterpart runbook for the `atr` (**Apache Trusted Releases**)
   backend: compose a signed candidate in ATR, let the platform run

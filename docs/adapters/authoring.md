@@ -67,7 +67,7 @@ A tool adapter fulfils a capability *contract* for one backend.
    under `tools/skill-evals/evals/` so the adapter's behaviour is graded,
    not just demoed.
 
-The [`write-skill`](../../skills/write-skill/SKILL.md) flow and
+The [`write-skill`](../../plugins/magpie-utilities/skills/write-skill/SKILL.md) flow and
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) walk the conventions in detail;
 `skill-and-tool-validate` enforces the capability + prerequisites lines.
 

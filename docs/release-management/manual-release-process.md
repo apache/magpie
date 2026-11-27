@@ -184,7 +184,7 @@ atr check status magpie "${VERSION}" --verbose
 ATR is beta and its client is not yet stable — treat client verbs as
 the *shape* of the operation and
 confirm with `atr --help`; the web UI is the stable path. Run
-[`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) locally too,
+[`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) locally too,
 as an independent second read.
 
 ### 5. Vote via ATR (Steps 7–9)
@@ -203,7 +203,7 @@ downloads (the canonical location in hybrid mode). For `0.1.0-rc2` the
 | KEYS | `https://dist.apache.org/repos/dist/release/magpie/KEYS` |
 
 Cross-check the tally with
-[`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) against
+[`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md) against
 [`pmc-roster.md`](../../projects/magpie/pmc-roster.md) — the binding tally
 is the PMC's, not the platform's. Needs ≥3 binding `+1` and more `+1` than
 `-1`. If the vote fails, bump `RC` and return to Step 2.
@@ -229,12 +229,12 @@ git push origin "${VERSION}"
 ### 7. Announce + post-release (Steps 11–14)
 
 - `[ANNOUNCE]` to `announce@apache.org`, cc `dev@` (mandatory) — drafted by
-  [`release-announce-draft`](../../skills/release-announce-draft/SKILL.md);
+  [`release-announce-draft`](../../plugins/magpie-release-management/skills/announce-draft/SKILL.md);
   the RM sends it.
 - Archive sweep, audit-log record, and the post-release `.dev` bump PR
-  ([`release-archive-sweep`](../../skills/release-archive-sweep/SKILL.md),
-  [`release-audit-report`](../../skills/release-audit-report/SKILL.md),
-  [`release-prepare`](../../skills/release-prepare/SKILL.md)).
+  ([`release-archive-sweep`](../../plugins/magpie-release-management/skills/archive-sweep/SKILL.md),
+  [`release-audit-report`](../../plugins/magpie-release-management/skills/audit-report/SKILL.md),
+  [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md)).
 
 ## Manual verification — what a voter runs before `+1`
 
@@ -243,7 +243,7 @@ during the vote window.
 
 **The easy path is the agent:** with the release skills adopted, just ask
 it to *"verify the latest release candidate"* — that runs
-[`release-verify-rc`](../../skills/release-verify-rc/SKILL.md), which does
+[`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md), which does
 every step below (signatures against `KEYS`, checksums, RAT license
 headers, `NOTICE`/`LICENSE`, prohibited-binary scan, version-string
 consistency) and emits a PASS / PASS-WITH-WARNINGS / FAIL report. It is
@@ -385,7 +385,7 @@ carries the release). Report any failure on the `[VOTE]` thread with the
 exact command and output.
 
 The whole sequence above is what
-[`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) runs for
+[`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) runs for
 you (`/magpie-release-management:verify-rc <version>-rcN` from any
 Magpie-enabled agent): it emits each command, records the results, and
 adds the source rebuild-and-compare from

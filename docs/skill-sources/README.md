@@ -34,7 +34,7 @@ adopter has explicitly vouched for by committing its pin (method + URL +
 ref + verification anchor) to the repo. A trusted install obeys the same
 pin discipline as the framework's pinned-snapshot install: a gitignored
 snapshot, a committed lock, a verified and deliberate fetch by the one
-[`setup`](../../skills/setup/SKILL.md) skill — never a git submodule, and
+[`setup`](../../plugins/magpie-setup/skills/setup/SKILL.md) skill — never a git submodule, and
 never an unpinned or unverified auto-fetch. The full rationale and threat
 model are in [`RFC-AI-0006`](../rfcs/RFC-AI-0006.md).
 
@@ -85,7 +85,7 @@ provides:
 ```
 
 `method`, `url`, `ref`, and the per-method anchor are exactly the keys the
-framework's own [`.apache-magpie.lock`](../../skills/setup/SKILL.md) carries;
+framework's own [`.apache-magpie.lock`](../../plugins/magpie-setup/skills/setup/SKILL.md) carries;
 `svn-zip` is the only method with cryptographic verification (SHA-512 +
 optional GPG against the source's `KEYS`), `git-tag` pins a resolved
 `commit`, and `git-branch` tracks a tip (WIP only, no frozen anchor).
@@ -128,8 +128,8 @@ directory draws no eval-coverage advisory because its evals are external).
 
 ## How a trusted skill is installed
 
-The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
-[`skill-sources`](../../skills/setup/skill-sources.md) sub-action
+The [`setup`](../../plugins/magpie-setup/skills/setup/SKILL.md) skill drives the fetch — the
+[`skill-sources`](../../plugins/magpie-setup/skills/setup/skill-sources.md) sub-action
 (`/magpie-setup:setup skill-sources`). In outline:
 
 1. Read `<project-config>/skill-sources.md` — the trust list. Sources not
@@ -195,5 +195,5 @@ only; it makes no guarantee and triggers no install.
 - [`RFC-AI-0006`](../rfcs/RFC-AI-0006.md) — the design + trust + threat model.
 - [`docs/extending.md`](../extending.md) — the full extension model (what / where / who).
 - [`organizations/README.md`](../../organizations/README.md) — the organization layer and its `skill-sources.md` curation.
-- [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md) — the adopt/upgrade/verify flow that fetches and pins sources.
+- [`skills/setup/SKILL.md`](../../plugins/magpie-setup/skills/setup/SKILL.md) — the adopt/upgrade/verify flow that fetches and pins sources.
 - [`docs/adapters/registry.md`](../adapters/registry.md) — the sibling discovery index for tool adapters and organizations.

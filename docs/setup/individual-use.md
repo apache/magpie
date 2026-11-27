@@ -92,7 +92,7 @@ The recipe has three steps:
 - **Claude Code** installed and working (see
   [`docs/prerequisites.md`](../quick-start/prerequisites.md)).
 - **Secure agent setup** installed — run
-  [`/magpie-setup:isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
+  [`/magpie-setup:isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-setup-install/SKILL.md)
   with **whole-user (global) scope** once. This sets up the sandbox
   allowlist for every repo on your host, not just adopted ones.  If you
   have already done this for another Magpie-adopted project on this machine,
@@ -305,7 +305,7 @@ file it needs resolves in neither your personal layer nor a committed
 unresolved placeholder in its body.
 Running `/magpie-setup:setup config` fills your personal layer and satisfies it,
 without committing anything. If a skill still stops after that,
-[report it](../../skills/report-framework-issue/SKILL.md) so the skill is
+[report it](../../plugins/magpie-utilities/skills/report-framework-issue/SKILL.md) so the skill is
 fixed to degrade gracefully instead.
 
 Skills that write to shared project state — labels, PR assignments, roster
@@ -375,5 +375,5 @@ user-scope symlinks you set up under the fallback path in Step 1.
   worth running whether or not any repo has adopted Magpie.
 - [`install-recipes.md`](../quick-start/other-install-methods.md) — install methods, if you need the
   pinned snapshot rather than the marketplace.
-- [`setup-status` skill](../../skills/setup-status/SKILL.md) — reports what is
+- [`setup-status` skill](../../plugins/magpie-setup/skills/status/SKILL.md) — reports what is
   installed and wired here, including where your personal layer is and whether it exists.

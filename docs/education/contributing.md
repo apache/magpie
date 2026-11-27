@@ -144,7 +144,7 @@ The short version (the long version is [`CONTRIBUTING.md`](../../CONTRIBUTING.md
 
 - Read [`CONTRIBUTING.md`](../../CONTRIBUTING.md) end to end before your first
   patch. It is the authoritative process, layout, and dev-loop reference.
-- Use the [`magpie-write-skill`](../../skills/write-skill/SKILL.md) skill
+- Use the [`magpie-write-skill`](../../plugins/magpie-utilities/skills/write-skill/SKILL.md) skill
   (`/write-skill`) for the complete skill-authoring checklist.
 - Read [`MISSION.md`](../../MISSION.md) and [`PRINCIPLES.md`](../../PRINCIPLES.md)
   for the *why* behind the rules a reviewer will apply.

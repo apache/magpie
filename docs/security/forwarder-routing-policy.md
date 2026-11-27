@@ -81,7 +81,7 @@ The mode applies to a tracker when **any** of the following is true:
    normal reporter address simply does not exist.
 
 The trackers opened by
-[`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md)
+[`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md)
 are a **separate case** with its own *no outreach to the PR
 author* rule (see that skill's `Reporter credit policy for
 public-PR imports` section). The forwarder-routing policy does
@@ -98,8 +98,8 @@ on their behalf) would actually want to hear about:
 | Milestone | Where it fires | Draft body summary |
 |---|---|---|
 | **Report accepted as valid** | After Step 5 lands a `valid` consensus + scope label applied | *"We received the report you forwarded; the team has confirmed it as valid. A CVE will be allocated next; we will write again when the advisory is sent. If you can pass this update back to the original reporter, please do; if you can also ask them to reply with their preferred credit form, that would help — otherwise we'll proceed with the credit line in the original report."* |
-| **Report assessed as invalid** | [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) — closing reply | *"The team has assessed the report you forwarded and concluded it is not a security vulnerability. Reasoning: \<one-paragraph summary\>. If you (or the original reporter) want to challenge the assessment, please reply with the additional context; otherwise this is our final disposition."* |
-| **Advisory sent** | [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) Step 14 close-out — after the advisory archive URL is captured | *"The advisory for `CVE-YYYY-NNNNN` has been sent and is archived publicly at `<URL>`. This completes the lifecycle for the report you forwarded; thank you for the relay."* |
+| **Report assessed as invalid** | [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) — closing reply | *"The team has assessed the report you forwarded and concluded it is not a security vulnerability. Reasoning: \<one-paragraph summary\>. If you (or the original reporter) want to challenge the assessment, please reply with the additional context; otherwise this is our final disposition."* |
+| **Advisory sent** | [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) Step 14 close-out — after the advisory archive URL is captured | *"The advisory for `CVE-YYYY-NNNNN` has been sent and is archived publicly at `<URL>`. This completes the lifecycle for the report you forwarded; thank you for the relay."* |
 | **Additional information requested** | Any skill that needs a specific clarification from the reporter (re-reproduction steps, attack-vector clarification, affected-version range) | *"We need additional information to assess the report you forwarded: `<specific question(s)>`. If you can relay this to the original reporter and pass back a reply, that would help us land a decision."* |
 
 The drafts go to the **forwarder contact**, not to the relay list
@@ -120,7 +120,7 @@ modes** — no recipient swap, no body-shape swap, no
 suppression.
 
 * **CVE allocated**
-  ([`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md)
+  ([`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md)
   Step 4 #5). The `<cve-tool>` adapter typically emits its own
   allocation notification when the CVE record is created
   (`cve_authority.emits_allocation_email: true` for the
@@ -215,7 +215,7 @@ The detection runs once per skill invocation; subsequent dispatch
 through the skill is consistent for that run.
 
 The detection itself is the responsibility of the optional sub-skill
-[`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md),
+[`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md),
 which dispatches through whichever adapter from `forwarders.enabled`
 matches the inbound message (per
 [`tools/forwarder-relay/README.md`](../../tools/forwarder-relay/README.md)).

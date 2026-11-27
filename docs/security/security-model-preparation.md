@@ -31,9 +31,9 @@ in one place so the skills do not each re-argue them.
 
 | Stage | Skill | Question it answers |
 |---|---|---|
-| Produce | [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md) | The project has no written model. What does one say, and how does it land without burning maintainer goodwill? |
-| Verify | [`security-model-verify`](../../skills/security-model-verify/SKILL.md) | Can an agent find the model, and does it say enough to route a finding? |
-| Update | [`security-model-update`](../../skills/security-model-update/SKILL.md) | Six months of triage decisions have happened. What does the model now say that it did not? |
+| Produce | [`security-model-prepare`](../../plugins/magpie-security/skills/model-prepare/SKILL.md) | The project has no written model. What does one say, and how does it land without burning maintainer goodwill? |
+| Verify | [`security-model-verify`](../../plugins/magpie-security/skills/model-verify/SKILL.md) | Can an agent find the model, and does it say enough to route a finding? |
+| Update | [`security-model-update`](../../plugins/magpie-security/skills/model-update/SKILL.md) | Six months of triage decisions have happened. What does the model now say that it did not? |
 
 ## Why a project wants one at all
 

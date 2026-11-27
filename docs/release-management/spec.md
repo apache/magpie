@@ -64,7 +64,7 @@ a signature emit a paste-ready command sequence; the RM runs every
 their own machine, as themselves.
 
 This mirrors
-[`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md):
+[`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md):
 the skill emits the Vulnogram URL + paste-ready JSON, the human
 submits the record. It satisfies
 [RFC-AI-0004 Principle 1](../rfcs/RFC-AI-0004.md#principle-1--human-in-the-loop-on-every-state-change).
@@ -145,7 +145,7 @@ label transition in its output (e.g.
 `release-vote-tally` proposes `vote-passed` or `rc-rolled`); the
 RM applies it on the issue. This mirrors the security family's
 discipline that
-[`security-issue-triage`](../../skills/security-issue-triage/SKILL.md)
+[`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md)
 opens a discussion comment, never flips the label.
 
 Rationale: labels are the lifecycle's audit trail. A label flip

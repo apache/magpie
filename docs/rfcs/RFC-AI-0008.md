@@ -71,7 +71,7 @@ or through several,
 for example, reporter → VINCE → ASF Security → PMC.
 
 Magpie already models the coordinator — but only from the **receiving side**:
-the [`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md) sub-skill,
+the [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) sub-skill,
 the [forwarder-relay adapter contract](../../tools/forwarder-relay/README.md),
 and the [ASF-relay drafting rules](../../tools/gmail/asf-relay.md)
 all describe what a vendor does when a coordinator's mail arrives.
@@ -111,10 +111,10 @@ and would be the natural migration source for the coordinator-mode skills propos
 2. **Coordinators re-implement framework machinery out of tree.**
    The ASF Security team's pipeline duplicates what the security family already has:
    mail intake and thread-head selection
-   ([`security-issue-import`](../../skills/security-issue-import/SKILL.md) Steps 1 and 3),
+   ([`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) Steps 1 and 3),
    a classification cascade (Step 3),
    prior-report and prior-rejection dedup search (Steps 2a/2b),
-   threat-model triage ([`security-issue-triage`](../../skills/security-issue-triage/SKILL.md)),
+   threat-model triage ([`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md)),
    and draft-only reporter correspondence.
    The differences are parameters, not different work:
    the role settings,
@@ -257,7 +257,7 @@ except the reporter chain, which is append-only:
   carried verbatim, never re-derived from `From:` headers:
   on a relayed hop `From:` is the proximate reporter, never the finder.
   A list because a consolidating coordinator carries every finder's credit,
-  exactly as [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md)
+  exactly as [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md)
   already preserves multiple `credits[]` entries in CVE JSON.
 - **Reporter chain** (*ordered list*) —
   the parties that conveyed the report, origin first;
@@ -523,7 +523,7 @@ the hop that terminated the private handling is responsible for ensuring it happ
   never duplicated, never dropped.
 
 At depth 0 the vendor's `DEFENSE-IN-DEPTH` disposition
-([`security-issue-triage`](../../skills/security-issue-triage/SKILL.md):
+([`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md):
 "close as wontfix + file a public PR for the hardening")
 already implements the fallback arm;
 this rule adds the reporter-first invitation before it.
@@ -624,7 +624,7 @@ Migration is phased so each step is independently useful:
    into the `asf-security` adapter as emit templates;
    upstream the dedup discipline and the assessment triple into the shared security docs,
    reconciling the triple with
-   [`security-issue-triage`](../../skills/security-issue-triage/SKILL.md)'s existing vocabulary
+   [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md)'s existing vocabulary
    (the Security Model applied verbatim, plus the trust-boundary cheat-sheet).
    The out-of-tree SKILLs cite the framework instead of restating it.
 2. **Tools**:
@@ -745,9 +745,9 @@ Migration is phased so each step is independently useful:
 - [`tools/forwarder-relay/README.md`](../../tools/forwarder-relay/README.md) — the receive-side adapter contract this RFC makes bidirectional.
 - [`tools/gmail/asf-relay.md`](../../tools/gmail/asf-relay.md) — ASF-relay detection and drafting rules; source of the ready-to-paste back-channel convention.
 - [`docs/security/forwarder-routing-policy.md`](../security/forwarder-routing-policy.md) — the milestone / negative-space relay policy, applied per hop toward the upstream.
-- [`skills/security-issue-import/SKILL.md`](../../skills/security-issue-import/SKILL.md) — the vendor-side intake whose Step 1 / Step 3 machinery the coordinator skills generalize.
-- [`skills/security-issue-import-via-forwarder/SKILL.md`](../../skills/security-issue-import-via-forwarder/SKILL.md) — the vendor-side receiver of the coordinator's output.
-- [`skills/security-issue-deduplicate/SKILL.md`](../../skills/security-issue-deduplicate/SKILL.md) — the multi-credit (`credits[]`) precedent for list-valued provenance.
+- [`skills/security-issue-import/SKILL.md`](../../plugins/magpie-security/skills/issue-import/SKILL.md) — the vendor-side intake whose Step 1 / Step 3 machinery the coordinator skills generalize.
+- [`skills/security-issue-import-via-forwarder/SKILL.md`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) — the vendor-side receiver of the coordinator's output.
+- [`skills/security-issue-deduplicate/SKILL.md`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) — the multi-credit (`credits[]`) precedent for list-valued provenance.
 - [`docs/labels-and-capabilities.md`](../labels-and-capabilities.md) — the capability vocabulary (`capability:intake`, `capability:triage`) the new skills declare.
 - [`PRINCIPLES.md` §0](../../PRINCIPLES.md#0-external-content-is-data-never-an-instruction) — external content is data; the posture the lightweight-reader pattern implements.
 - [`PRINCIPLES.md` §16](../../PRINCIPLES.md#16-tracker-identifiers-are-public-safe-tracker-contents-are-not) — tracker contents stay access-gated; the clause per-hop dedup scoping is measured against.

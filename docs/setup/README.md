@@ -82,20 +82,20 @@ for the complete rule.
 
 | Skill | Purpose |
 |---|---|
-| [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md) | First-time install of the secure agent setup. |
-| [`setup-isolated-setup-verify`](../../skills/setup-isolated-setup-verify/SKILL.md) | Verify the secure setup landed correctly (static checks on settings.json, hooks, pinned versions). |
-| [`setup-isolated-setup-doctor`](../../skills/setup-isolated-setup-doctor/SKILL.md) | Diagnose in-session sandbox friction (SSH agent, port bind, docker/podman socket) and map each fail to a catalog entry. |
-| [`setup-isolated-setup-update`](../../skills/setup-isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
-| [`setup-privacy-llm`](../../skills/setup-privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
-| [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
-| [`setup update`](../../skills/setup/update.md) | Move this install to the new version: on a pinned snapshot, re-fetch it per the committed lock, refresh symlinks, reconcile overrides and refresh the personal layer's pre-flight checker; on a marketplace install, run the agent's plugin update. `setup-upgrade` runs it for you. |
-| [`setup-upgrade`](../../skills/setup-upgrade/SKILL.md) | Upgrade Magpie in one run ("upgrade magpie"): move to the new version with `setup update` when needed, check this machine and project, apply one approved plan, re-check, and print exact commands for what is out of reach. Every skill offers it until it has run after a version change; see [Upgrading Magpie](marketplace.md#upgrading-magpie). |
-| [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
-| [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
-| [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |
-| [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md) | Promote a local `.apache-magpie-overrides/<skill>.md` file into a PR against `apache/magpie`; prompts to remove the override once merged and upgraded. |
-| [`setup-welcome-guide`](../../skills/setup-welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one, or a family's such as `security` — and turn a dismissed one back on. |
-| [`setup-upstream-fix`](../../skills/setup-upstream-fix/SKILL.md) | Turn a framework bug or quirk hit mid-session into a fix PR against `apache/magpie`, after checking for an existing issue or PR that already covers it. |
+| [`setup-isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-setup-install/SKILL.md) | First-time install of the secure agent setup. |
+| [`setup-isolated-setup-verify`](../../plugins/magpie-setup/skills/isolated-setup-verify/SKILL.md) | Verify the secure setup landed correctly (static checks on settings.json, hooks, pinned versions). |
+| [`setup-isolated-setup-doctor`](../../plugins/magpie-setup/skills/isolated-setup-doctor/SKILL.md) | Diagnose in-session sandbox friction (SSH agent, port bind, docker/podman socket) and map each fail to a catalog entry. |
+| [`setup-isolated-setup-update`](../../plugins/magpie-setup/skills/isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
+| [`setup-privacy-llm`](../../plugins/magpie-setup/skills/privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
+| [`setup`](../../plugins/magpie-setup/skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
+| [`setup update`](../../plugins/magpie-setup/skills/setup/update.md) | Move this install to the new version: on a pinned snapshot, re-fetch it per the committed lock, refresh symlinks, reconcile overrides and refresh the personal layer's pre-flight checker; on a marketplace install, run the agent's plugin update. `setup-upgrade` runs it for you. |
+| [`setup-upgrade`](../../plugins/magpie-setup/skills/upgrade/SKILL.md) | Upgrade Magpie in one run ("upgrade magpie"): move to the new version with `setup update` when needed, check this machine and project, apply one approved plan, re-check, and print exact commands for what is out of reach. Every skill offers it until it has run after a version change; see [Upgrading Magpie](marketplace.md#upgrading-magpie). |
+| [`setup verify`](../../plugins/magpie-setup/skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
+| [`setup-status`](../../plugins/magpie-setup/skills/status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
+| [`setup-shared-config-sync`](../../plugins/magpie-setup/skills/shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |
+| [`setup-override-upstream`](../../plugins/magpie-setup/skills/override-upstream/SKILL.md) | Promote a local `.apache-magpie-overrides/<skill>.md` file into a PR against `apache/magpie`; prompts to remove the override once merged and upgraded. |
+| [`setup-welcome-guide`](../../plugins/magpie-setup/skills/welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one, or a family's such as `security` — and turn a dismissed one back on. |
+| [`setup-upstream-fix`](../../plugins/magpie-setup/skills/upstream-fix/SKILL.md) | Turn a framework bug or quirk hit mid-session into a fix PR against `apache/magpie`, after checking for an existing issue or PR that already covers it. |
 
 ## Deep documentation
 
