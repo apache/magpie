@@ -7,12 +7,12 @@ Behavioural evals for the repository's own [`AGENTS.md`](../../../../AGENTS.md).
 The whole file is the system prompt (`step_heading` is its top heading), as an agent receives it.
 [`optimize-agents-md`](../../../../plugins/magpie-utilities/skills/optimize-agents-md/SKILL.md) runs them before and after every pass, so a trim that loses a rule or a pointer shows up as a flipped case.
 
-## Suites (21 cases total)
+## Suites (23 cases total)
 
 | Suite | Cases | What it covers |
 |---|---|---|
 | rules | 10 | the high-stakes rules: attribution trailer, external content as data, embargoed security framing, reporter CVSS, other ASF projects, `gh` bodies, `gh browse`, the vetted-ops `~` spelling, sandbox-blocked steps, one reply per thread |
-| pointer-routing | 11 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
+| pointer-routing | 13 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
 
 ## Run
 
@@ -28,6 +28,11 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/agents-md/
   Delete the whole pointer, not only the line holding the link: a trigger sentence left behind can still steer a model to the obvious file.
 - `case-10-skill-step-edit` has three routes in `AGENTS.md`: the *Keeping evals* pointer, the *Reusable skills* eval bullet and the *Before submitting* evals bullet.
   It still passed with the pointer deleted and failed with all three gone, so it guards that a skill edit reaches the eval rules, not one pointer.
+- The security-tracker rules live in [`docs/security/agent-rules.md`](../../../../docs/security/agent-rules.md), behind one pointer in `AGENTS.md`.
+  `rules` includes that file (`also_include`), testing the rules as a security session sees them; `case-12` and `case-13` test that the pointer gets the agent there; both fail with the *Security-tracker work* section deleted.
+- Run a mutation check from an empty directory, never through `magpie-run-evals.sh`:
+  `claude -p` started at the repository root also loads the real `AGENTS.md`, so a mutant can pass on the pointer it was meant to lack.
+  A mutant failure through the wrapper still counts; a mutant pass proves nothing.
 
 ## Run history
 
@@ -38,6 +43,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `df592e66` (opt/agents-md-security-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `2d111058` | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `06ea9fb3` (fix/asf-severity-wording) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `f1ca0072` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
