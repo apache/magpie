@@ -5,3 +5,4 @@
 `extraKnownMarketplaces`, `enabledPlugins`. `extraKnownMarketplaces` defines
 `apache-magpie` with `{"source": {"source": "github", "repo": "apache/magpie@0.2.0"}}`.
 `enabledPlugins` contains `magpie-setup@apache-magpie: true`.
+The lock names `apache/magpie` as the marketplace.

@@ -157,6 +157,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `79ca73bc` (feat/1637-settings-merge) | (unrecorded, `bash -c 'opencode run "$(cat)"'`) | 2 | pass | review round: marketplace_repo and no-op merge |
 | 2026-11-27 | `7ba04297` (fix/vulnogram-pmc-followups) | `opus[1m]` | 2 | pass |  |
 | 2026-11-26 | `04a99e50` (feat/incubator-pin-notice) | `opus[1m]` | 1 | pass |  |
 | 2026-11-26 | `f403a18e` (feat/incubator-marketplace-offer) | `opus[1m]` | 1 | pass |  |

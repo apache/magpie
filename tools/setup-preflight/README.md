@@ -177,7 +177,11 @@ It never removes an entry and never rewrites an existing `apache-magpie`
 marketplace definition, so a pinned one stays pinned.
 The report lists both `plugins_added` and `allows_added`; when no MCP allows
 are derived, it leaves an absent `permissions` block absent.
-A write preserves an existing file's mode and non-ASCII values.
+A write preserves an existing file's mode and non-ASCII values, and a merge
+that adds nothing leaves the file byte for byte.
+The report also names the marketplace the lock's `url` derives as
+`marketplace_repo`. `url` is a security boundary, so any value other than
+`apache/magpie` is refused until `--accept-marketplace` confirms it.
 A file that does not parse, or a block of the wrong JSON type, is refused:
 the command prints the `refuse` report, exits non-zero and leaves the file
 alone.

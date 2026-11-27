@@ -175,7 +175,9 @@ that person's `.claude/settings.local.json` instead. The lock is the
 source of truth; this file is how Claude Code acts on it.
 
 **On Claude Code, let the client write the marketplace and plugin entries.**
-`--scope project` is the scope whose store *is* this file:
+`--scope project` is the scope whose store *is* this file. If
+`.claude/settings.json` already exists, preserve its pre-run contents in
+scratch before running the CLI:
 
 ```bash
 claude plugin marketplace add apache/magpie --scope project
@@ -192,9 +194,19 @@ refuses the flag and sends people here: run alone it hands a project
 the plugin list with no floor beside it, and no `.apache-magpie.lock`
 to say what the list was derived from.
 
-If `.claude/settings.json` already exists, preserve its pre-run contents
-in scratch before running the CLI. In the framework checkout, use the
-trusted in-tree package:
+Read the CLI's result against the **merge rules** below *before* the merge
+runs. Those rules are the contract however the file got written: the CLI
+is not Magpie's code, and the merge writes on top of its output, so a
+rule-breaking entry would otherwise be mixed into the merge's own diff.
+Compare against the pre-run copy with
+`git diff -- .claude/settings.json`, or run
+`git checkout -- .claude/settings.json` when the file was clean. If the
+CLI changed the file in a way the rules forbid, restore it, report the
+finding, and do not stage it. The shipped merge cannot repair that result
+because it never removes or rewrites an entry. It refuses a file that does
+not parse rather than replacing it.
+
+In the framework checkout, use the trusted in-tree package:
 
 ```bash
 uv run --project tools/setup-preflight setup-settings-merge
@@ -216,17 +228,18 @@ registry, it is missing or stale: stop and refresh it through
 [`config.md` Step 2a](config.md#step-2a--install-the-pre-flight-checker)
 or the checker refresh in [`update.md`](update.md#refresh-the-pre-flight-checker)
 before continuing. A marketplace sandbox uses the user-run refresh commands
-documented there. It prints `plugins_added` and `allows_added` and writes
-nothing until `--write` is passed. Show the maintainer that report, run the
-same command with `--write`, and show the resulting `git diff`.
+documented there. The report names the repository the lock's `url` reads
+(`marketplace_repo`) beside `plugins_added` and `allows_added`, and writes
+nothing until `--write` is passed. A `marketplace_repo` other than
+`apache/magpie` is a security boundary
+([`locks.md`](locks.md#url-is-a-security-boundary)): the merge refuses it
+until the maintainer confirms it with `--accept-marketplace`.
 
-Read the result against the **merge rules** below before staging. Those
-rules are the contract however the file got written: the CLI is not
-Magpie's code. If the CLI changed the file in a way they forbid, restore
-the pre-run copy, or `git checkout -- .claude/settings.json` when the file
-was clean, report the finding, and do not stage it. The shipped merge
-cannot repair that result because it never removes or rewrites an entry.
-It refuses a file that does not parse rather than replacing it.
+Show the maintainer that report, run the same command with `--write`, and
+show the resulting diff. When the merge created the file it is untracked,
+so `git diff` prints nothing: show
+`git diff --no-index /dev/null .claude/settings.json` instead, whose exit
+status of 1 just means the files differ.
 
 **Write the marketplace entry untagged** — `"repo": "apache/magpie"`,
 with no `@version`. The floor is a minimum, and tagging the marketplace
@@ -272,10 +285,19 @@ whatever they put there.
   or a tool pulled from the registry, perhaps because it turned out to
   write); the maintainers confirm it in review. An allow for a server the
   registry does not list was added by hand: leave it.
+- **Take the marketplace repository from the lock's `url`, and refuse
+  anything else until it is confirmed.** The report names it as
+  `marketplace_repo`, so the maintainer sees a fork or a tag before
+  `--write`; [`locks.md`](locks.md#url-is-a-security-boundary) is why the
+  merge refuses a value other than `apache/magpie` until
+  `--accept-marketplace` confirms it.
 - **If the file does not exist**, create it with exactly those keys:
   `extraKnownMarketplaces` defining `apache-magpie`, `enabledPlugins`
   containing the floor, and `permissions.allow` with the derived MCP
   tools (omitted when there are none).
+- **If the file already carries every one of those entries, leave it
+  byte for byte.** A no-op merge writes nothing, so a re-run does not
+  re-serialise an adopter's file to Magpie's indentation.
 - **If the file exists but does not parse as JSON, stop and say so.**
   Do not rewrite a file you cannot read; a malformed settings file is
   the user's to fix. Nothing was written — stop without staging.

@@ -12,7 +12,8 @@ Return ONLY valid JSON with this structure:
   "plugins_added": [...],
   "allows_added": [...],
   "plugins_removed": [...],
-  "marketplace_definition_changed": true | false
+  "marketplace_definition_changed": true | false,
+  "marketplace_repo": "<owner>/<repo>"
 }
 ```
 
@@ -37,5 +38,9 @@ entries the merge removed from `enabledPlugins`.
 
 `marketplace_definition_changed` is a boolean — whether this merge added or
 changed the `apache-magpie` entry in `extraKnownMarketplaces`.
+
+`marketplace_repo` is the repository the lock's `url` names. It is the
+value the report shows the maintainer before `--write`, and any value other
+than `apache/magpie` is refused until the maintainer confirms it.
 
 Do not include any text outside the JSON object.

@@ -3,3 +3,4 @@
 
 `.claude/settings.json` exists but does not parse: it ends mid-object after a
 trailing comma on the `permissions` key.
+The lock names `apache/magpie` as the marketplace.

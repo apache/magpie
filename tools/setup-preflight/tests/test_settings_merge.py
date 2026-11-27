@@ -123,6 +123,7 @@ def test_creates_the_file_when_absent(tmp_path: Path) -> None:
         ],
         "plugins_removed": [],
         "marketplace_definition_changed": True,
+        "marketplace_repo": "apache/magpie",
     }
     written = json.loads(settings_path.read_text(encoding="utf-8"))
     assert written["extraKnownMarketplaces"]["apache-magpie"] == {
@@ -345,3 +346,112 @@ def test_without_write_the_file_is_not_touched(tmp_path: Path) -> None:
         "mcp__apache-projects__get_person",
     ]
     assert not settings_path.exists()
+
+
+def merged_settings() -> dict:
+    return {
+        "$schema": "https://json.schemastore.org/claude-code-settings.json",
+        "extraKnownMarketplaces": {
+            "apache-magpie": {"source": {"source": "github", "repo": "apache/magpie"}},
+        },
+        "enabledPlugins": {
+            "magpie-setup@apache-magpie": True,
+            "magpie-utilities@apache-magpie": True,
+            "magpie-agent-guard@apache-magpie": True,
+            "magpie-vetted-ops@apache-magpie": True,
+        },
+    }
+
+
+def test_write_leaves_an_already_merged_file_byte_for_byte(tmp_path: Path) -> None:
+    settings_path, lock_path, _ = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    settings_path.parent.mkdir(parents=True)
+    original = json.dumps(merged_settings(), indent=4) + "\n"
+    settings_path.write_text(original, encoding="utf-8")
+
+    report = settings_merge.run(settings_path, lock_path, settings_merge.DEFAULT_REGISTRY, write=True)
+
+    assert report["plugins_added"] == []
+    assert report["allows_added"] == []
+    assert report["marketplace_definition_changed"] is False
+    assert settings_path.read_text(encoding="utf-8") == original
+
+
+def test_reports_the_marketplace_repository(tmp_path: Path) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    write_registry(registry_path)
+
+    report = settings_merge.run(settings_path, lock_path, registry_path, write=False)
+
+    assert report["marketplace_repo"] == "apache/magpie"
+
+
+def test_refuses_a_fork_marketplace_without_confirmation(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR.replace("url: apache/magpie", "url: someone-else/magpie"))
+    write_registry(registry_path)
+
+    code = settings_merge.main(
+        [
+            "--settings",
+            str(settings_path),
+            "--lock",
+            str(lock_path),
+            "--registry",
+            str(registry_path),
+            "--write",
+        ]
+    )
+
+    assert code == 2
+    assert not settings_path.exists()
+    captured = capsys.readouterr()
+    assert "someone-else/magpie" in captured.err
+    report = json.loads(captured.out)
+    assert report["action"] == "refuse"
+    assert report["marketplace_repo"] == "someone-else/magpie"
+
+
+def test_refuses_a_tagged_marketplace_without_confirmation(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR.replace("url: apache/magpie", "url: apache/magpie@0.2.0"))
+    write_registry(registry_path)
+
+    code = settings_merge.main(["--settings", str(settings_path), "--lock", str(lock_path)])
+
+    assert code == 2
+    out = capsys.readouterr().out
+    assert json.loads(out)["action"] == "refuse"
+    assert json.loads(out)["marketplace_repo"] == "apache/magpie@0.2.0"
+
+
+def test_merges_a_fork_marketplace_when_confirmed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    settings_path, lock_path, registry_path = paths(tmp_path)
+    write_lock(tmp_path, FLOOR.replace("url: apache/magpie", "url: someone-else/magpie"))
+    write_registry(registry_path)
+
+    code = settings_merge.main(
+        [
+            "--settings",
+            str(settings_path),
+            "--lock",
+            str(lock_path),
+            "--registry",
+            str(registry_path),
+            "--write",
+            "--accept-marketplace",
+        ]
+    )
+
+    assert code == 0
+    assert json.loads(capsys.readouterr().out)["marketplace_repo"] == "someone-else/magpie"
+    written = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert written["extraKnownMarketplaces"]["apache-magpie"] == {
+        "source": {"source": "github", "repo": "someone-else/magpie"}
+    }

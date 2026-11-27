@@ -34,12 +34,18 @@ Run it as a console script (`setup-settings-merge`, from the
     python3 -m setup_preflight.settings_merge --write
     python3 -m setup_preflight.settings_merge --settings path/to/settings.json
 
+The lock's `url` is a security boundary: only `apache/magpie` may be
+merged from without asking.  The report names the repository it read, and
+any other value is refused until `--accept-marketplace` confirms it in so
+many words.
+
 Without `--write` it reports what the merge would do and leaves the file
 untouched.  The report is JSON:
 
     {"action": "create" | "merge" | "refuse", "keys_preserved": [...],
      "plugins_added": [...], "allows_added": [...],
-     "plugins_removed": [...], "marketplace_definition_changed": true | false}
+     "plugins_removed": [...], "marketplace_definition_changed": true | false,
+     "marketplace_repo": "apache/magpie"}
 """
 
 from __future__ import annotations
@@ -66,6 +72,10 @@ TOUCHED_KEYS = ("extraKnownMarketplaces", "enabledPlugins")
 
 class Refused(ValueError):
     """The settings file exists but cannot be merged safely."""
+
+    def __init__(self, message: str, report: dict | None = None) -> None:
+        super().__init__(message)
+        self.report = report or {}
 
 
 def _read_json(path: Path) -> object:
@@ -158,6 +168,7 @@ def merge(
         "allows_added": allows_added,
         "plugins_removed": [],
         "marketplace_definition_changed": marketplace_definition_changed,
+        "marketplace_repo": repo,
     }
     return settings, report
 
@@ -177,7 +188,13 @@ def _write(path: Path, settings: dict) -> None:
         raise
 
 
-def run(settings_path: Path, lock_path: Path, registry_path: Path, write: bool) -> dict:
+def run(
+    settings_path: Path,
+    lock_path: Path,
+    registry_path: Path,
+    write: bool,
+    accept_marketplace: bool = False,
+) -> dict:
     try:
         lock = load(lock_path)
     except MalformedLock as exc:
@@ -187,23 +204,39 @@ def run(settings_path: Path, lock_path: Path, registry_path: Path, write: bool) 
     if not lock.plugins:
         raise Refused(f"{lock_path} names no plugins: adoption has no floor to wire")
 
-    registry = _read_json(registry_path)
-    if not isinstance(registry, dict):
-        raise Refused(f"{registry_path} is not a JSON object")
+    repo = lock.url or DEFAULT_REPO
+    if repo != DEFAULT_REPO and not accept_marketplace:
+        raise Refused(
+            f"{lock_path} names the marketplace {repo!r}: merging from any marketplace other "
+            f"than {DEFAULT_REPO!r} is confirmed first. Re-run with --accept-marketplace to "
+            "merge from it.",
+            {"marketplace_repo": repo},
+        )
 
-    plugins = derived_plugins(lock)
-    allows = derived_allows(plugins, registry)
+    try:
+        registry = _read_json(registry_path)
+        if not isinstance(registry, dict):
+            raise Refused(f"{registry_path} is not a JSON object")
 
-    if settings_path.exists():
-        original = _read_json(settings_path)
-        if not isinstance(original, dict):
-            raise Refused(f"{settings_path} is not a JSON object")
-        settings, report = merge(original, plugins, allows, lock.url or DEFAULT_REPO, settings_path)
-    else:
-        settings, report = merge({}, plugins, allows, lock.url or DEFAULT_REPO, settings_path)
-        report["action"] = "create"
+        plugins = derived_plugins(lock)
+        allows = derived_allows(plugins, registry)
 
-    if write:
+        if settings_path.exists():
+            original = _read_json(settings_path)
+            if not isinstance(original, dict):
+                raise Refused(f"{settings_path} is not a JSON object")
+            settings, report = merge(original, plugins, allows, repo, settings_path)
+        else:
+            settings, report = merge({}, plugins, allows, repo, settings_path)
+            report["action"] = "create"
+    except Refused as exc:
+        exc.report.setdefault("marketplace_repo", repo)
+        raise
+
+    unchanged = not (
+        report["plugins_added"] or report["allows_added"] or report["marketplace_definition_changed"]
+    )
+    if write and not unchanged:
         _write(settings_path, settings)
     return report
 
@@ -222,27 +255,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="family MCP allowlist (default: the copy shipped beside setup_preflight)",
     )
     parser.add_argument("--write", action="store_true", help="write the merged file")
+    parser.add_argument(
+        "--accept-marketplace",
+        action="store_true",
+        help=f"merge from the marketplace the lock names even when it is not {DEFAULT_REPO}",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        report = run(args.settings, args.lock, args.registry, args.write)
+        report = run(args.settings, args.lock, args.registry, args.write, args.accept_marketplace)
     except Refused as exc:
         print(f"setup-settings-merge: {exc}", file=sys.stderr)
-        print(
-            json.dumps(
-                {
-                    "action": "refuse",
-                    "keys_preserved": [],
-                    "plugins_added": [],
-                    "allows_added": [],
-                    "plugins_removed": [],
-                    "marketplace_definition_changed": False,
-                }
-            )
-        )
+        refused = {
+            "action": "refuse",
+            "keys_preserved": [],
+            "plugins_added": [],
+            "allows_added": [],
+            "plugins_removed": [],
+            "marketplace_definition_changed": False,
+            "marketplace_repo": None,
+        }
+        refused.update(exc.report)
+        print(json.dumps(refused))
         return 2
     except (OSError, ValueError) as exc:
         print(f"setup-settings-merge: {exc}", file=sys.stderr)
