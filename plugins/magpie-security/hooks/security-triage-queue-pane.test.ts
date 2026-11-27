@@ -407,5 +407,60 @@ describe('security-triage-queue-pane mod (family:security)', () => {
       assert(typeof res?.text === 'string' && res.text.includes('No local queue file found'));
       assertStrictEqual(res?.output, undefined);
     });
+
+    test('renderSecurityQueuePane suppresses Staged footer when syncError is set on refused or missing-root writes', async () => {
+      const Box = (props: any) => ({ type: 'Box', props });
+      const Text = (props: any) => ({ type: 'Text', props });
+      const Button = (props: any) => ({ type: 'Button', props });
+
+      const baseState: SecurityTriageQueueState = {
+        items: [
+          {
+            id: '2001',
+            title: 'Issue 2001',
+            stage: 'needs-sync',
+            severity: 'high',
+            cveId: null,
+            needsCve: true,
+            updatedAt: '2026-11-27T00:00:00Z',
+          },
+        ],
+        activeFilter: 'all',
+        selectedItemId: '2001',
+        lastLaunchedAction: null,
+        syncError: null,
+        updatedAt: '2026-11-27T00:00:00Z',
+      };
+
+      // 1. Symlink refusal sets syncError and footer must show Warning without Staged
+      const symlink$ = createMockEngine({
+        fs: {
+          stat: async () => ({ kind: 'file', size: 0, mtimeMs: 0, isLink: true }),
+          write: async () => {},
+        },
+      });
+      await setSecurityTriageQueueState(symlink$, baseState);
+      await handleSecurityQueuePress(symlink$, { element: 'sq:launch:issue-sync:2001' }, () => {});
+      const afterRefusal = await getSecurityTriageQueueState(symlink$);
+      assert(afterRefusal?.syncError);
+      const renderedRefusal = JSON.stringify(renderSecurityQueuePane(Box, Text, Button, afterRefusal));
+      assert(renderedRefusal.includes('Warning: Refusing to write to symlink or non-regular file'));
+      assertStrictEqual(renderedRefusal.includes('Staged:'), false);
+
+      // 2. Missing workspace root sets syncError and suppresses Staged
+      const noRoot$ = createMockEngine({
+        session: {
+          root: async () => '',
+          cwd: async () => '',
+        },
+      });
+      await setSecurityTriageQueueState(noRoot$, baseState);
+      await handleSecurityQueuePress(noRoot$, { element: 'sq:launch:issue-sync:2001' }, () => {});
+      const afterNoRoot = await getSecurityTriageQueueState(noRoot$);
+      assert(afterNoRoot?.syncError?.includes(QUEUE_ACTION_FILENAME));
+      const renderedNoRoot = JSON.stringify(renderSecurityQueuePane(Box, Text, Button, afterNoRoot));
+      assert(renderedNoRoot.includes('Warning: Could not write'));
+      assertStrictEqual(renderedNoRoot.includes('Staged:'), false);
+    });
   });
 });
