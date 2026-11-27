@@ -726,37 +726,8 @@ review body.
 
 ## Keeping evals and mode-economics in sync
 
-When you change a skill or a tool adapter the skills load, two
-follow-up actions are part of the change, not optional polish:
-
-1. **Run the affected skill's eval suite** to confirm the prompts the
-   harness extracts from `SKILL.md` still produce the expected
-   structured output ([`tools/skill-evals/README.md`](tools/skill-evals/README.md) has the run recipes).
-   A self-eval is a smoke test worth running on every change;
-   run a **cross-model pass** for substantive changes (new steps, prompt
-   restructures, behaviour changes that cross a classification
-   boundary).
-2. **Restamp and review the token cost.** Every `SKILL.md` edit needs
-   `uv run --project tools/skill-token-count skill-token-count --write`,
-   which rewrites that skill's own `measured_tokens:` frontmatter line (the
-   hook fails until it matches). Separately, update the prose in
-   [`docs/mode-economics.md`](docs/mode-economics.md) if the change
-   materially shifts the per-invocation token shape — a new step that loads
-   substantial context, a removed read path, a new skill. Pure prose / link
-   / typo edits need only the restamp.
-
-### When the rule fires
-
-| You touched | Run evals for | Update mode-economics if |
-|---|---|---|
-| `skills/<skill>/SKILL.md`, an extracted step subdoc, or any prompt material a step's `step-config.json` extracts | That skill's suite under `tools/skill-evals/evals/<skill>/` | The change adds or removes a step, alters a context-heavy read, or restructures the call catalogue |
-| `tools/<adapter>/` docs or operation catalogues that skills load (e.g. `tools/github/operations.md`, `tools/gmail/operations.md`) | Every skill naming this adapter in its prerequisites or step bodies — `grep -l <adapter-path> skills/*/SKILL.md` to enumerate | A new operation enlarges a typical skill's loaded context, or a removed one shrinks it |
-| Pure prose edits (typo / clarification / link fix) with no behavioural impact on the model's output | No eval rerun required | No update required |
-
-If you are unsure whether a change is "behavioural" or "prose-only",
-re-run the affected eval suite anyway — it is cheap and protects against
-the false-negative case where a "clarification" actually changes how the
-model responds.
+**When you change a skill, or a tool adapter the skills load**, read [Keeping evals and mode-economics in sync](tools/skill-evals/README.md#keeping-evals-and-mode-economics-in-sync) before committing:
+running the affected eval suite and restamping the token cost are part of the change, not optional polish.
 
 ## Before submitting
 
