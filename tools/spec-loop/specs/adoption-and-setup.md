@@ -1068,16 +1068,36 @@ committed version with drift detection.
     Without a `security_pages_url`, `security-issue-sync` sends no
     security-pages reminder and the release-manager hand-off asks for no
     website edit.
-43. Run from an adopter repository, `setup-upstream-fix` never clones the
-    framework inside the sandbox: it finishes Steps 1–3 and hands Steps 4–5
-    to a live session in the user's framework clone (ListAgents /
-    SendMessage in Claude Code), or else writes the brief to the scratch
-    directory for the user to paste, after scrubbing it for public
-    disclosure and showing it to the user (#2226; eval suite
-    `tools/skill-evals/evals/setup-upstream-fix/step-0-preflight`).
+43. Run from an adopter repository, `setup-upstream-fix` finishes Steps 1–3
+    and hands Steps 4–5 over through the shared
+    `handoff-to-another-checkout` block (also used by
+    `setup-override-upstream` and `security-issue-fix`): to a live idle
+    session in the user's framework clone (ListAgents / SendMessage in
+    Claude Code, `codex queue` in Codex 0.149.0+; a busy session gets an
+    offer of a sub-agent worktree or the other routes instead), to a sparse
+    scratch clone inside this sandbox that excludes the harness's read-only
+    paths and leaves it only as a `git bundle` the user fetches into a clone
+    of their own (nothing runs in the scratch clone outside the sandbox), or
+    to a brief file created private (umask 077, never overwritten) under
+    `~/.cache/apache-magpie/handoff/` (never the session scratch directory)
+    that the user opens a session on with a prompt naming no skill, after
+    scrubbing it for public disclosure and showing it to the user (#2226;
+    eval suites `tools/skill-evals/evals/setup-upstream-fix/step-0-preflight`
+    and `tools/skill-evals/evals/security-issue-fix/step-4-handoff`;
+    `tools/dev/tests/test_check_shared_blocks.py`).
+    What the receiver does is per skill: for `setup-upstream-fix` it re-checks
+    the Step 2 classification and the Step 3 duplicate search, then does
+    Steps 4–5; for `setup-override-upstream` it does only Steps 5–6, skipping
+    the adopter-only Step 0 checks; for `security-issue-fix`, on the
+    `pull-request` flow only and whenever the clone is unset or unreachable
+    whatever its `[git]` values, the brief is publication-neutral (desired
+    behaviour, files, tests and neutral commit and PR text; no symptom,
+    evidence, CVE, tracker, reporter or skill name), the receiver runs no
+    security skill and opens a neutral PR, and the sender resumes at Step 10;
+    on the Subversion flow an unreachable working copy still stops the run.
     The brief never hands over an action a permission rule or the user
-    refused, and the receiving session re-checks the classification and the
-    duplicate search.
+    refused, and the receiving session shows its user the brief before
+    acting on it.
 44. `setup-isolated-setup-update`'s comdev MCP check resolves each server's
     directory from the `index.js` its registration names (user, per-project
     or `./.mcp.json`), prints only resolved paths, and skips a checkout

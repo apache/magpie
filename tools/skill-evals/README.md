@@ -22,7 +22,7 @@ Suites are currently implemented for:
 - **security-issue-deduplicate** — 3 cases across 1 step (3, the merge inputs); Steps 1, 2, 3 (the merged body), 4, 5 and 6 are decided and pytest-tested in `tools/security-management`
 - **security-cve-allocate** — 4 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-sync**: 67 cases across 11 steps (1d, 1f, 2a, 2b, 2c, 5b judged gates, handoff-delegate, pointer-routing, pointer-routing-gather, D0 dashboard ASF-only gate, D4 dashboard proposals); bulk selection and pre-flight, the buckets, Steps 3 and 6, the Guardrails check, the security CC, the drafting backend, the GHSA tier and the Step 5b flow are decided and pytest-tested in `tools/security-management`
-- **security-issue-fix** — 37 cases across 9 steps (2, 3, 5b, 5d, 5g, 7, Subversion steps 8 and 9, and pointer-routing); the flow choice, 5a, 5c, 5e, 5f, 6 and 11 are decided and pytest-tested in `tools/security-management`
+- **security-issue-fix** — 42 cases across 10 steps (2, 3, 4 hand-off, 5b, 5d, 5g, 7, Subversion steps 8 and 9, and pointer-routing); the flow choice, 5a, 5c, 5e, 5f, 6 and 11 are decided and pytest-tested in `tools/security-management`
 - **security-issue-invalidate** — 7 cases across 2 steps (3, 4); Steps 2, 5a, 5b, 5d, 5e, 5f and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-import-from-md** — 7 cases across 4 steps (1, 2, 4, 6); the Step 1 parser and Step 2 keyword clean are pytest-tested in `tools/security-management`
 - **security-issue-import-from-pr** — 10 cases across 4 steps (3, 6, 8, pointer-routing); Step 2 is decided and pytest-tested in `tools/security-management`
@@ -89,7 +89,7 @@ Suites are currently implemented for:
 - **security-issue-import-via-forwarder** — 6 cases across 2 suites (step-1-detect-adapter, step-2-extract-credit); Steps 0 and 3 and the scripted Step 1 cases are pytest-tested in `tools/security-management`
 - **security-tracker-stats-dashboard** — 11 cases across 3 suites (step-1-resolve-config, step-2-cache-freshness, step-3-hard-rules)
 - **setup-override-upstream** — 17 cases across 5 suites (step-0-preflight, step-1-pick-override, step-3-decide-upstreamable, step-6-pr-confirm, pointer-routing)
-- **setup-upstream-fix** — 19 cases across 5 suites (step-0-preflight, step-2-classify, step-3-dedup, step-5-adversarial-review, pointer-routing)
+- **setup-upstream-fix** — 21 cases across 5 suites (step-0-preflight, step-2-classify, step-3-dedup, step-5-adversarial-review, pointer-routing)
 - **skill-reconciler** — 12 cases across 2 suites (step-0-discover-pairs, step-2-classify)
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **workflow-optimization** — 8 cases across 2 suites (step-2-classify, step-3-plan)

@@ -7,10 +7,12 @@ Behavioural evals for the two decision steps that keep the skill
 honest:
 
 - **step-0-preflight** — where Steps 4–5 happen: in this session when it
-  already runs in the framework checkout, otherwise never by cloning
-  inside the adopter's sandbox, but through a brief sent to a live
-  session in the user's framework clone, or written to a file for the
-  user to paste into one.
+  already runs in the framework checkout, otherwise through the shared
+  hand-off (`handoff.md`): a live idle session in the framework clone
+  (Claude Code `SendMessage`, Codex `codex queue`), not a busy one; a sparse
+  scratch clone that excludes the harness's read-only paths; or a brief file
+  under `~/.cache/apache-magpie/handoff/`, never the session scratch
+  directory. Every route waits for the user's OK.
 - **step-2-classify** — is an encountered quirk a *framework
   defect* (proceed), a *local misconfiguration* (stop, remediate
   locally), *already fixed upstream* (propose upgrade), or
@@ -39,6 +41,8 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `92fbe17b` (feat/shared-handoff-block-2) | `opus[1m]` | 2 | pass |  |
+| 2026-11-27 | `49523780` (feat/shared-handoff-block) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `493c5161` (fix/upstream-fix-vetted-dedup-search) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `160b4de7` (fix/upstream-fix-vetted-dedup-search) | `opus[1m]` | 1 | pass |  |
 | 2026-11-22 | `95a76395` (fix/upstream-fix-session-handoff) | `opus[1m]` | 5 | pass |  |
