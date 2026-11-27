@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-doctor/SKILL.md",
-  "step_heading": "## The probes"
+  "step_heading": "## The probes",
+  "also_include": [
+    "skills/setup-isolated-setup-doctor/probes.md"
+  ]
 }

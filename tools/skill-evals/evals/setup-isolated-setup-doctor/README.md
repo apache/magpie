@@ -5,12 +5,13 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (29 cases total)
+## Suites (33 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | `runtime-routing` | Runtime routing | 4 | Codex, Antigravity, Pi and Goose route to their native adapters and never require Claude files |
 | `interpret-probes` | Probe interpretation (`## The probes`) | 20 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST/source-unreadable, scratch-on-shared-session-root, dev-tools-not-granted, git-hooks-unreadable, working-dirs glob entry not matched, working-dirs listing the vetted-ops checkout (✗) |
+| `pointer-routing` | Whole body, no sibling included | 4 | Opens `probes.md` on any non-✓ probe line (✗, ⚠, ⊘), and nothing on an all-✓ run |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 
 ## Run
@@ -141,4 +142,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (worktree-agent-a124a99eb11265dac) | `opus[1m]` | 2 | pass |  |
 | 2026-11-15 | `062c72ed` (perf/optimize-isolated-setup-doctor) | `opus[1m]` | 2 | pass |  |
