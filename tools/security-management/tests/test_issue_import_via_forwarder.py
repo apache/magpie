@@ -425,15 +425,21 @@ def test_a_list_rewritten_sender_without_both_headers_is_only_a_preamble_match(
 @pytest.mark.parametrize(
     "message",
     [
-        {"from": "security@apache.org.evil.test"},
+        {"from": "security@apache.org.other.test"},
         {"from": "private@foo.apache.org"},  # a list address is not a direct sender
-        {"from": LIST_FROM, **LIST_HEADERS, "message_id": "<abc@security.apache.org.evil.test>"},
-        {"from": LIST_FROM, **LIST_HEADERS, "cc": "security@apache.org.evil.test"},
-        {"from": '"Jane via private" <private@foo.apache.org.evil.test>', **LIST_HEADERS},
+        {"from": LIST_FROM, **LIST_HEADERS, "message_id": "<abc@security.apache.org.other.test>"},
+        {"from": LIST_FROM, **LIST_HEADERS, "cc": "security@apache.org.other.test"},
+        {"from": '"Jane via private" <private@foo.apache.org.other.test>', **LIST_HEADERS},
     ],
-    ids=["lookalike-sender", "list-address", "lookalike-message-id", "lookalike-cc", "lookalike-list"],
+    ids=[
+        "other-domain-sender",
+        "list-address",
+        "other-domain-message-id",
+        "other-domain-cc",
+        "other-domain-list",
+    ],
 )
-def test_lookalike_senders_and_headers_never_complete_the_sender_signal(
+def test_only_the_configured_domains_complete_the_sender_signal(
     capsys, tmp_path, message: dict[str, str]
 ) -> None:
     out = detect(capsys, tmp_path, {**message, "body": CURRENT_BODY}, SHIPPED)
@@ -514,7 +520,7 @@ def test_list_rewritten_senders_in_their_other_valid_shapes_match(capsys, tmp_pa
 @pytest.mark.parametrize(
     "sender",
     [
-        'attacker@evil.example, "x via private" <private@foo.apache.org>',
+        'someone@other.test, "x via private" <private@foo.apache.org>',
         '"Jane via private" <security@foo.apache.org>',
     ],
     ids=["two-mailboxes", "list-name-and-address-disagree"],

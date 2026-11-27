@@ -365,9 +365,8 @@ forwarders:
   asf-security:
     # Detection needs BOTH the sender signal and preamble_match to match;
     # neither alone switches a message into relay mode.
-    # Sender: an address at apache.org itself, anchored so that no
-    # lookalike domain (apache.org.example) and no <project>.apache.org
-    # list address passes.
+    # Sender: the whole address, at apache.org itself; a <project>.apache.org
+    # list address takes the list-rewrite path below.
     sender_pattern: '^[^@\s]+@apache\.org$'
     # A project's private or security list rewrites the relay's From: to
     # "<Name> via private" <private@<project>.apache.org> (or "via security",
