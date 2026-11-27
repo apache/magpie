@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:8cfc7395b16c2cf9
 license: Apache-2.0
-measured_tokens: 7563
+measured_tokens: 7754
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -425,6 +425,10 @@ It says what was changed and what was skipped, and links:
 - the **next step** from 2c, repeated so the user does not have to scroll.
 
 Its `bare_refs` must be empty; a cross-referenced issue the proposal mentioned is linked too (fetch its URL before finalising the recap).
+
+**Optional local queue pane emission (additive).** If running in a workspace checkout, you may emit `.magpie-security-triage-queue.json` at the workspace root from the tracker states already gathered in Step 1 (`{ items: [{ id, title, stage, severity, cveId, needsCve, updatedAt }], updatedAt }`, with plain numeric `id`s such as `"123"` and `stage` in `needs-sync | needs-cve | ready-for-fix`).
+Because `.magpie-security-triage-queue.json` contains advisory titles that may be embargoed, run `git check-ignore -q .magpie-security-triage-queue.json` first; if it is **not** ignored, skip writing and remind the operator to add `.magpie-security-triage-queue.json` and `.magpie-security-triage-action.json` to `.gitignore`.
+Skip silently on non-interactive/headless runs.
 
 ---
 

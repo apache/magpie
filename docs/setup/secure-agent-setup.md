@@ -2188,9 +2188,8 @@ The mod integrates with the `multi-agent-review` skill via filesystem IPC (`.mag
 
 ## Local security triage queue pane mod (Claude Code plugin / hook)
 
-For Claude Code harnesses using the `magpie-security` plugin, the local security triage queue pane mod ([`plugins/magpie-security/hooks/security-triage-queue-pane.ts`](../../plugins/magpie-security/hooks/security-triage-queue-pane.ts)) provides a `/magpie-security-queue` command and interactive `Pane` UI (`[All]`, `[Needs Sync]`, `[Needs CVE]`, `[Ready]`) with single-click skill launcher buttons (`[Sync]`, `[Allocate CVE]`, `[Triage]`).
-Part 1 ships the `/magpie-security-queue` reader (`$.fs.read` + `$.ui.open`), session state atom (`magpie-security.triageQueueState`), sanitizer, strict path confinement, symlink/non-regular file checks, and launcher action staging.
-Skill-side emission of `.magpie-security-triage-queue.json` from `security-issue-sync` / `security-cve-allocate` will follow in Part 2.
+For Claude Code harnesses using the `magpie-security` plugin, the local security triage queue pane mod ([`plugins/magpie-security/hooks/security-triage-queue-pane.ts`](../../plugins/magpie-security/hooks/security-triage-queue-pane.ts)) provides a `/magpie-security-queue` command, `Write`/`Bash` `tool.call` auto-hydration, and interactive `Pane` UI (`[All]`, `[Needs Sync]`, `[Needs CVE]`, `[Ready]`) with single-click skill launcher buttons (`[Sync]`, `[Allocate CVE]`, `[Triage]`).
+The mod reads `.magpie-security-triage-queue.json` (`$.fs.read` + `$.ui.open`) when written by `security-issue-sync`, `security-cve-allocate`, or `security-issue-triage`, or via `/magpie-security-queue`, maintains the session state atom (`magpie-security.triageQueueState`), sanitizes advisory text, enforces strict path confinement and symlink/non-regular file checks, and stages launcher actions locally.
 
 - **Local-only filesystem IPC and embargo protection**: All data remains local with zero network or subprocess calls.
   Path strings are confined by `isConfinedQueuePath` to `.magpie-security-triage-queue.json` and `.magpie-security-triage-action.json` under the active workspace root.
