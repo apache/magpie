@@ -774,3 +774,16 @@ def test_runner_journal_flags_require_cli(tmp_path: Path) -> None:
 )
 def test_redact_cli(cli: str | None, expected: str | None) -> None:
     assert redact_cli(cli) == expected
+
+
+def test_evals_root_for_finds_the_framework_and_adopter_trees(tmp_path: Path) -> None:
+    """A path under either tree maps to that tree; anything else to None."""
+    framework = tmp_path / journal.EVALS_REL / "some-skill" / "step" / "fixtures"
+    adopter = tmp_path / journal.ADOPTER_EVALS_REL / "agents-md" / "rules"
+    elsewhere = tmp_path / "docs"
+    for path in (framework, adopter, elsewhere):
+        path.mkdir(parents=True)
+
+    assert journal.evals_root_for(framework, tmp_path) == tmp_path / journal.EVALS_REL
+    assert journal.evals_root_for(adopter, tmp_path) == tmp_path / journal.ADOPTER_EVALS_REL
+    assert journal.evals_root_for(elsewhere, tmp_path) is None

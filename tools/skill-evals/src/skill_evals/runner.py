@@ -1302,7 +1302,8 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FILE",
         help=(
             "Append one record for this --cli run to FILE (a runs.jsonl). Without it, "
-            f"a run whose path lies under <repo>/{run_journal.EVALS_REL}/<skill>/ is journaled "
+            f"a run whose path lies under <repo>/{run_journal.EVALS_REL}/<skill>/ or "
+            f"<repo>/{run_journal.ADOPTER_EVALS_REL}/<suite>/ is journaled "
             "to that skill's runs.jsonl automatically; any other path is not journaled."
         ),
     )
@@ -1644,8 +1645,8 @@ def _resolve_journal(args: argparse.Namespace) -> tuple[Path, Path, str] | None:
         root = find_repo_root(args.path)
     except (FileNotFoundError, RuntimeError):
         return None
-    evals_root = root / run_journal.EVALS_REL
-    if not evals_root.is_dir():
+    evals_root = run_journal.evals_root_for(args.path, root)
+    if evals_root is None:
         return None
     journal = run_journal.journal_path_for(args.path, evals_root)
     if journal is None:
@@ -1715,7 +1716,7 @@ def _write_run_record(
     try:
         # An explicit --journal is the caller's choice; the default journal
         # must stay inside the repository's evals tree.
-        within = None if args.journal is not None else root / run_journal.EVALS_REL
+        within = None if args.journal is not None else run_journal.evals_root_for(args.path, root)
         run_journal.append_record(journal, record, within=within)
     except OSError as exc:
         print(f"warning: could not write run journal {journal}: {exc}", file=sys.stderr)

@@ -206,6 +206,21 @@ The framework's `.claude/settings.json` lists
 the nested `claude -p` reaches the keychain. Paths are relative to the
 current directory — run it from the repository root.
 
+**In an adopting project**, the same wrapper runs the project's own suites,
+kept under `.apache-magpie-overrides/evals/` (for its `AGENTS.md` or its own
+skills); it accepts that directory and this one, nothing else:
+
+```bash
+~/.claude/scripts/magpie-run-evals.sh .apache-magpie-overrides/evals/agents-md/
+```
+
+The project needs the same `sandbox.excludedCommands` entry. Without the
+secure setup, the runner ships with the framework as
+`<framework>/tools/skill-evals`; run it directly only where no sandbox is in
+use. Under a sandbox that tree is agent-writable, so a hand-run command against
+it would run agent-editable code outside the sandbox: install the wrapper
+instead.
+
 **It is a user-scope copy, like the touch overlay.** The file in this
 directory is the source of truth; installing it copies both the
 wrapper and the runner package to `~/.claude/scripts/`:

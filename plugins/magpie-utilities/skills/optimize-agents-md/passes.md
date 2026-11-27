@@ -78,7 +78,7 @@ Move a section only when its trigger fires in a minority of sessions.
 **Proof.** `rule_inventory.py` reports the sentences as `moved` to the destination.
 Then prove the pointer, as `optimize-skill` does for a skill sibling ([*Proving a pointer*](../optimize-skill/patterns.md#1-split--slim-an-oversized-skillmd-into-linked-siblings)):
 add a `pointer-routing` case to the file's evals, a task that should trip the trigger, with `must_read` naming the destination and no file named in the output spec.
-Run the suite against a throwaway copy of the file with the pointer deleted, inside the repository, by pointing a copied suite's `skill_md` at it; delete both afterwards, and drop the copy's line from `runs.jsonl`.
+Run the suite against a throwaway copy of the file with the pointer deleted, inside the repository, by pointing a copied suite's `skill_md` at it; put the copied suite beside the real one (under the same evals directory) so the runner accepts it, delete both afterwards, and drop the copy's line from `runs.jsonl`.
 The case must pass on the real file and fail on the copy; one that passes on both carries no signal.
 Start the model's CLI in an empty directory (`--cli-cwd`, which `magpie-run-evals.sh` passes for you): a CLI started at the repository root also loads the real file as project context, so the copy can pass on the very pointer it lacks.
 A failure on the copy counts however it was run; a pass counts only from a clean run.
@@ -126,7 +126,7 @@ Keep the full text when the check is optional (installed only by some setups) or
 
 **Mechanics.** Follow [`optimize-skill`'s rewrite pass](../optimize-skill/rewrite.md): the maintainer writes each paragraph, and the drafts learn their style.
 Before starting, estimate the yield and say it: a section made mostly of rule sentences gives back little.
-On this repository's pinned sections a rewrite saved 80–160 tokens each, against 300–2,400 for *on-demand*, so offer *on-demand* first where it applies.
+On the pinned sections of Magpie's own `AGENTS.md` a rewrite saved 80–160 tokens each, against 300–2,400 for *on-demand*, so offer *on-demand* first where it applies.
 A statement the rewrite finds wrong, not just long, is fixed as its own named change, confirmed with the maintainer, so the PR does not present a correction as a trim.
 
 **Guarantee and proof.** The approved paragraph diff is the record.

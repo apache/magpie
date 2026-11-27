@@ -105,3 +105,42 @@ def test_starts_claude_in_an_empty_directory() -> None:
     assert 'cli_cwd="$(mktemp -d)"' in text
     assert '--cli "claude -p" --cli-cwd "$cli_cwd"' in text
     assert 'rmdir -- "$cli_cwd"' in text
+
+
+ADOPTER_EVALS_REL = ".apache-magpie-overrides/evals"
+
+
+def test_lets_an_adopter_suite_through(tmp_path: Path) -> None:
+    """An adopting project's own suite, under its overrides directory, reaches the runner."""
+    root = tmp_path / "repo"
+    (root / ADOPTER_EVALS_REL / "agents-md").mkdir(parents=True)
+
+    result = _run(root, f"{ADOPTER_EVALS_REL}/agents-md")
+
+    assert result.returncode != 2, result.stdout + result.stderr
+    assert "resolves outside" not in result.stderr
+
+
+def test_rejects_an_adopter_suite_symlinked_outside(tmp_path: Path) -> None:
+    """The adopter root gets the same containment check as the framework one."""
+    root = tmp_path / "repo"
+    (root / ADOPTER_EVALS_REL).mkdir(parents=True)
+    outside = tmp_path / "secrets"
+    outside.mkdir()
+    (outside / "id_rsa").write_text("PRIVATE KEY MATERIAL")
+    (root / ADOPTER_EVALS_REL / "sneaky").symlink_to(outside)
+
+    result = _run(root, f"{ADOPTER_EVALS_REL}/sneaky")
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "PRIVATE KEY MATERIAL" not in result.stdout
+
+
+def test_rejects_other_overrides_paths(tmp_path: Path) -> None:
+    """Only the evals directory under the overrides is allowed, not the overrides as a whole."""
+    root = tmp_path / "repo"
+    (root / ".apache-magpie-overrides" / "other").mkdir(parents=True)
+
+    result = _run(root, ".apache-magpie-overrides/other")
+
+    assert result.returncode == 2, result.stdout + result.stderr

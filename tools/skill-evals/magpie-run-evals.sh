@@ -89,6 +89,9 @@
 set -euo pipefail
 
 readonly EVALS_REL="tools/skill-evals/evals"
+# An adopting project's suites for its own files (its AGENTS.md, its own
+# skills) live beside the rest of its committed Magpie configuration.
+readonly ADOPTER_EVALS_REL=".apache-magpie-overrides/evals"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -109,7 +112,7 @@ fi
 
 usage() {
   cat >&2 <<EOF
-usage: magpie-run-evals.sh <path-under-$EVALS_REL/>
+usage: magpie-run-evals.sh <path-under-$EVALS_REL/ or $ADOPTER_EVALS_REL/>
 
 Runs the eval runner over exactly that path with --cli "claude -p",
 from the current directory (the repository root); claude -p itself
@@ -131,7 +134,8 @@ EOF
 target="$1"
 case "$target" in
   -* | *..*) usage ;;
-  "$EVALS_REL" | "$EVALS_REL"/*) ;;
+  "$EVALS_REL" | "$EVALS_REL"/*) root_rel="$EVALS_REL" ;;
+  "$ADOPTER_EVALS_REL" | "$ADOPTER_EVALS_REL"/*) root_rel="$ADOPTER_EVALS_REL" ;;
   *) usage ;;
 esac
 
@@ -149,8 +153,8 @@ esac
 # containment. The runner enforces the same rule per fixture read, since
 # a file symlink inside a real case escapes without the target ever
 # leaving the tree.
-evals_root="$(cd -- "$EVALS_REL" 2>/dev/null && pwd -P)" || {
-  echo "magpie-run-evals.sh: $EVALS_REL not found — run from the repository root" >&2
+evals_root="$(cd -- "$root_rel" 2>/dev/null && pwd -P)" || {
+  echo "magpie-run-evals.sh: $root_rel not found — run from the repository root" >&2
   exit 2
 }
 target_real="$(cd -- "$target" && pwd -P)"
