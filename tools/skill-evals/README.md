@@ -41,6 +41,8 @@ Suites are currently implemented for:
 - **setup-isolated-setup-doctor** — 29 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
+- **optimize-agents-md** — 7 cases across 1 step (step-diagnose)
+- **agents-md** — 14 cases across 2 suites (rules, pointer-routing); the repository's own `AGENTS.md` as the system prompt
 - **committer-onboarding** — 28 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
 - **contributor-identity-map** — 6 cases across 1 step (step-2-grade-confirm)
 - **ci-runner-audit** — 6 cases across 2 steps (step-scope-selection, step-reporting)
@@ -411,6 +413,15 @@ model (or model class) that just authored the skill change, the
 comparison is a self-eval pass — useful as a smoke test for prompt /
 output-shape regressions, but weaker than a cross-model run. For
 substantive changes, also run against a different model class.
+
+**Run a cross-model `--cli` from an empty directory.** The CLI inherits the
+runner's working directory, and an agent CLI (`claude -p`, Codex, Copilot)
+started at the repository root loads this repository's own `AGENTS.md` as
+project context alongside the eval's system prompt. That skews any case
+about instruction files: a small model pinned sections that exist only in the
+real file. Wrap the command so it starts elsewhere, and leave the runner at the
+root so the run is still journaled:
+`--cli "bash -c 'cd \"\$(mktemp -d)\" && claude -p --model haiku'"`.
 
 **Print-mode self-eval discipline.** When self-evaluating in print mode
 (no `--cli`) — acting as the model under test yourself — use **only** the

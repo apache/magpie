@@ -273,7 +273,7 @@ is loaded only after the decision.
 | Repository maintenance (`repo-health-*`) | Audits and `audit-finding-fix` | Audits and fixes for dependency, workflow, license, runner, and test-maintenance findings. See [`docs/repo-health/`](docs/repo-health/README.md). |
 | Local code review (`pairing-*`) | `pairing-self-review`, `pairing-multi-agent-review` | Developer-side self-review and multi-agent review before opening a pull request. See [`docs/pairing/`](docs/pairing/README.md). |
 | Committer readiness and onboarding (`contributor-growth-*`) | `contributor-*`, `committer-onboarding`, `onboarding-concierge` | Readiness signals, nomination support, and onboarding. ASF-specific. See [`docs/contributor-growth/`](docs/contributor-growth/README.md). |
-| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
+| Skill tools (`utilities-*`) | `write-skill`, `optimize-skill`, `optimize-agents-md`, `skill-reconciler`, `report-framework-issue`, `list-skills` | Discover, author, and maintain skills, and report framework bugs. See [`docs/utilities/`](docs/utilities/README.md). |
 | Releases (`release-*`) | `release-*` | ASF release lifecycle and records. ASF-specific. See [`docs/release-management/`](docs/release-management/README.md). |
 
 Each skill's frontmatter `description` is the agent-router contract.

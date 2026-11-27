@@ -57,7 +57,7 @@ Magpie**. The [pinned snapshot install](../quick-start/other-install-methods.md)
 for the cases it does not cover.
 
 > [!IMPORTANT]
-> A marketplace install drops the 85 skills into your agent and is complete
+> A marketplace install drops the 86 skills into your agent and is complete
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
@@ -184,7 +184,7 @@ can say so, because it is the floor everything else is managed from.
 | `magpie-pr-management` | 10 | ~1.7k |
 | `magpie-issue` | 8 | ~1.5k |
 | `magpie-repo-health` | 8 | ~1.4k |
-| `magpie-utilities` | 6 | ~0.9k |
+| `magpie-utilities` | 7 | ~1.0k |
 | `magpie-contributor-growth` | 9 | ~1.4k |
 | `magpie-mentoring` | 4 | ~0.7k |
 | `magpie-pairing` | 2 | ~0.3k |

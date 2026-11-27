@@ -71,6 +71,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "newcomer-issue-explainer": "newcomer-issue-explainer",
     "nomination": "contributor-nomination",
     "onboarding-concierge": "onboarding-concierge",
+    "optimize-agents-md": "optimize-agents-md",
     "optimize-skill": "optimize-skill",
     "override-upstream": "setup-override-upstream",
     "pr-stale-sweep": "pr-stale-sweep",
