@@ -68,7 +68,7 @@ The generic lifecycle refers to fields by these roles:
 | `pr-with-fix` | sync, CVE JSON generator | fix, sync | URL of the merged `<upstream>` PR. |
 | `remediation-developer` | CVE JSON generator | sync (auto-populated from `pr-with-fix` author when set; manual edits preserved) | Person(s) who authored the fix; one credit per line. |
 | `cwe` | CVE JSON generator | sync proposes, user confirms | CWE number for the CVE 5.x `problemTypes[]`. |
-| `severity` | CVE JSON generator | sync proposes, user confirms | CVSS severity; never copy the reporter's self-assigned value. |
+| `severity` | CVE JSON generator | sync proposes, user confirms | Severity rating: the [ASF severity rating](https://security.apache.org/blog/severityrating) for ASF projects, else the rubric in the project's `security-model.md`; never copy the reporter's self-assigned value. |
 | `cve-tool-link` | sync, security-cve-allocate (blocker check) | security-cve-allocate | Canonical link to the CVE record in the project's CVE tool. |
 
 The concrete field names each role maps to for the adopting project

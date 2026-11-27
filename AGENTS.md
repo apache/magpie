@@ -544,13 +544,13 @@ Practical consequences:
   only ("*reporter estimated CVSS 4.0 = 7.2*"), never as a proposed value for
   the `Severity` field.
 - Proposed field updates for `Severity` must either leave the field as
-  `_No response_` until the team scores it independently, or come from a
-  security-team member who has already done the scoring in-thread or in a
+  `_No response_` until the team rates it independently, or come from a
+  security-team member who has already rated it in-thread or in a
   comment on the tracking issue — not from the reporter.
 - Draft replies to the reporter must not echo their score. If the reporter
-  asks us to confirm their score, respond that we score every CVE
+  asks us to confirm their score, respond that we rate every CVE
   independently during the CVE-allocation step and will share the final
-  score when the public advisory is sent.
+  severity when the public advisory is sent.
 
 This rule applies equally to CVSS 3.x and 4.0 vectors, to qualitative labels
 (*"Low"*, *"High"*, *"Critical"*), and to any self-assigned CWE the reporter
