@@ -805,9 +805,7 @@ and
 Reusable, agent-friendly task definitions live in the family plugins,
 `plugins/magpie-<family>/skills/<alias>/`,
 and the flat [`skills/`](skills/) tree links to each of them by its full name.
-Each skill is a plain Markdown file with YAML
-frontmatter, so it can be picked up by Claude Code, GitHub Copilot, and
-any other agent that follows the emerging skill convention. When a new
+When a new
 recurring task is automated, add it as a skill rather than burying the
 instructions in a commit message or an ad-hoc comment.
 
@@ -821,11 +819,11 @@ filtering the CVE-tool and `<tracker>` URLs out of `references[]`.
 
 When adding a new skill:
 
-- place its content in its family plugin, `plugins/magpie-<family>/skills/<alias>/SKILL.md`, and link it into the flat tree as `skills/<skill-name>` → `../plugins/magpie-<family>/skills/<alias>` (the [`write-skill`](skills/write-skill/SKILL.md) scaffold and `tools/dev/check-family-plugins.py` cover the details);
+- place it in its family plugin, `plugins/magpie-<family>/skills/<alias>/SKILL.md`, linked into the flat `skills/` tree (the [`write-skill`](skills/write-skill/SKILL.md) scaffold and `tools/dev/check-family-plugins.py` cover the details);
 - start with YAML frontmatter containing every key the validator requires: `name` (the `<alias>`), `description`, `when_to_use`, `license`, `capability`, `family` and `mode`;
 - make every state-changing action a *proposal* that requires explicit user confirmation before it runs;
 - avoid agent-specific syntax so the skill remains portable across tools;
-- **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). The [`write-skill`](skills/write-skill/SKILL.md) skill prompts for the capability frontmatter on every new-skill scaffold. A skill PR without a matching eval suite is incomplete.
+- **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). A skill PR without a matching eval suite is incomplete.
 
 ### Reviewing pull requests
 
@@ -837,9 +835,7 @@ presents the drafted comments to the maintainer **individually for
 accept/skip**, and posts the accepted set as a single review. A
 body-only review is the explicit opt-out (`inline:off`), never the
 default; findings that cannot be anchored to a changed line go in the
-review body. Adopters that install the `pr-management-*` family inherit
-the same default in their own `AGENTS.md` (wired by
-[`skills/setup/install.md`](skills/setup/install.md)).
+review body.
 
 ## Keeping evals and mode-economics in sync
 
@@ -848,12 +844,8 @@ follow-up actions are part of the change, not optional polish:
 
 1. **Run the affected skill's eval suite** to confirm the prompts the
    harness extracts from `SKILL.md` still produce the expected
-   structured output. The harness, run recipes (print mode and `--cli`
-   mode), agent self-eval, and cross-model guidance all live in
-   [`tools/skill-evals/README.md`](tools/skill-evals/README.md).
-   Self-eval — the authoring model grading itself — is a smoke test for
-   the cheap failure class (invalid JSON, missing fields, off-spec
-   shape, fixture / prompt drift) and is worth running on every change;
+   structured output ([`tools/skill-evals/README.md`](tools/skill-evals/README.md) has the run recipes).
+   A self-eval is a smoke test worth running on every change;
    run a **cross-model pass** for substantive changes (new steps, prompt
    restructures, behaviour changes that cross a classification
    boundary).
@@ -865,10 +857,6 @@ follow-up actions are part of the change, not optional polish:
    materially shifts the per-invocation token shape — a new step that loads
    substantial context, a removed read path, a new skill. Pure prose / link
    / typo edits need only the restamp.
-
-Both signals catch the same class of regression: a skill that silently
-starts producing different output (eval failure) or that silently became
-materially more expensive to run (cost-table drift).
 
 ### When the rule fires
 
@@ -887,13 +875,8 @@ model responds.
 
 - Re-read the diff and check that every change is intentional.
 - Check that any renamed headings have matching TOC updates.
-- **Run the lychee link check.** It runs as the `lychee` hook in the
-  `pre-commit.yml` CI workflow — over the PR's changed files on a pull
-  request, over the whole tree on `main` — and gates merge via the
-  required `prek` status; a single broken link, dead `#anchor`, or
-  unreachable URL fails it. Catch it locally first, whole-tree, since
-  the PR run will not: the hook is `language: rust`, so prek installs
-  lychee for you:
+- **Run the lychee link check**, whole-tree, before pushing: the PR's CI run checks only changed files,
+  so a link the branch broke elsewhere first fails on `main`. prek installs lychee for you:
 
   ```bash
   prek run lychee --all-files
@@ -901,27 +884,18 @@ model responds.
   lychee --config .lychee.toml .
   ```
 
-  Run on the whole repo (cheap — most checks are offline file +
-  fragment lookups; only the external-URL subset hits the network).
   Pay attention to **`Fragment not found in document`** errors —
   those are anchor-style links (`other.md#section`) whose target
-  heading no longer exists. They are the most common breakage after
-  any refactor that moved a section between files or renamed a
-  heading. Re-write the link to point at the new location; do not
-  silence it with an ignore-pattern. (On lychee v0.24+, the v0.23
-  `include_fragments = true` in `.lychee.toml` becomes
-  `include_fragments = "anchor-only"`.)
+  heading no longer exists, the most common breakage after a section moves or a heading is renamed.
+  Re-write the link to point at the new location; do not
+  silence it with an ignore-pattern.
 
 - Verify that links to the project's Security Model use an anchor that
   exists on the current stable version (adopting project's anchors:
   [`<project-config>/security-model.md`](<project-config>/security-model.md)).
 - Self-review the tone of any modified canned response against the "polite but firm" guidance above.
-- If the change touched a skill or a tool adapter the skills load,
-  follow the
-  [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync)
-  rules above — run the affected eval suite(s) (agent self-eval on
-  every change, cross-model on substantive changes) and update
-  `docs/mode-economics.md` if the per-invocation token shape moved.
+- If the change touched a skill or a tool adapter the skills load, follow
+  [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync).
 
 ## References
 
