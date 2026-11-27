@@ -96,7 +96,8 @@ def registry_errors(floor: dict[str, Any], registry: dict[str, Any]) -> list[str
 
 # allowRead must not contain any path that resolves to a credential
 # store. Each entry is matched after dropping trailing and repeated slashes
-# and ``.`` segments, so that "~/.aws" and "~/.aws/" both fail.
+# and ``.`` segments, so that "~/.aws" and "~/.aws/" both fail. An entry with a
+# ``..`` segment is refused outright (see ``check_invariants``).
 FORBIDDEN_ALLOW_READ = {
     "~/",
     "/",
@@ -1007,6 +1008,16 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 f"sandbox.filesystem.allowWrite: contains {entry!r} which is not in allowRead "
                 "(allowWrite must be a subset of allowRead)"
             )
+        # `_normalise` leaves `..` as written, so `~/x/../.ssh` matches no
+        # forbidden path although it names `~/.ssh` whenever `~/x` exists.
+        # Refuse the segment instead of resolving it, as `_is_outside_pin` does.
+        for key in ("allowRead", "allowWrite"):
+            for entry in fs.get(key, []) or []:
+                if isinstance(entry, str) and ".." in entry.split("/"):
+                    errors.append(
+                        f"sandbox.filesystem.{key}: {entry!r} has a '..' segment, which can name a "
+                        "credential path the forbidden list does not match; write the path without it"
+                    )
         # bubblewrap mounts a read-only allowRead parent over its writable
         # child, so every Bash call then fails creating its deny-write
         # placeholders ("Can't create file … Read-only file system"). Seen

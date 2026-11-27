@@ -138,6 +138,9 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      `~/.azure`, `~/.config/gcloud`, `/`, `~/`).
    - `sandbox.filesystem.allowWrite` is a subset of `allowRead` and
      contains no credential, config-root, or homedir-root path.
+   - No `sandbox.filesystem.allowRead` or `allowWrite` entry has a `..`
+     segment: `~/x/../.ssh` names `~/.ssh` but would match no forbidden
+     path, so the segment is refused rather than resolved.
    - `permissions.deny` contains the verbatim entries listed in
      [`src/sandbox_lint/__init__.py`](src/sandbox_lint/__init__.py)
      (`REQUIRED_PERMISSIONS_DENY`).
