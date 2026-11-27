@@ -195,3 +195,19 @@ def test_the_readme_template_grants_what_the_docs_run(caller: str) -> None:
         if who == caller and op in known and op not in granted
     }
     assert not missing, f"{README.relative_to(REPO_ROOT)} does not grant {caller}: {missing}"
+
+
+#: Body directories the dispatchers never read from: a body file lives only under the policy's
+#: `workspace`, so a doc naming another directory sends the write to a refusal.
+STALE_BODY_DIRS = ("apache-magpie/vetted-ops-bodies",)
+
+
+def test_no_doc_or_hook_names_a_body_directory_other_than_the_workspace() -> None:
+    sources = [*_docs(), *sorted(REPO_ROOT.glob("plugins/*/hooks/*.ts"))]
+    stale = {
+        path.relative_to(REPO_ROOT).as_posix(): marker
+        for path in sources
+        for marker in STALE_BODY_DIRS
+        if marker in path.read_text(encoding="utf-8", errors="replace")
+    }
+    assert not stale, f"name the policy's `workspace` (`vetted-op-read policy` prints it) instead: {stale}"

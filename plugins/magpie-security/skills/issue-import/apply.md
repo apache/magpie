@@ -245,7 +245,7 @@ media / cross-thread-followup / fix-already-public):
    it keeps every value on one line, so attacker-derived text can neither add a key nor forge a second record,
    and writes `archive: unresolved (archive lag)` when no permalink is given.
    Write its `text` to `<workspace>/rejection-<threadId>.md` with the Write tool
-   (`<workspace>` is the vetted-ops body workspace, `~/.cache/apache-magpie/vetted-ops-bodies/`, one file per record:
+   (`<workspace>` is the policy's vetted-ops `workspace`, which `vetted-op-read policy` prints, one file per record:
    the operation consumes each body file it posts).
 
    Record **`title:`** (the verbatim thread subject) and **`archive:`** (a stable mail-archive permalink) besides the mailbox `thread:` id:
