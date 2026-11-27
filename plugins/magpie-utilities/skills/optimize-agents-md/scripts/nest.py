@@ -196,7 +196,19 @@ def inbound_links(file: Path, anchor: str) -> list[str]:
     return hits
 
 
+def write_no_follow(path: Path, text: str) -> None:
+    """Write ``path`` without following a symlink planted in its place."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 def apply(file: Path, heading: str, directory: str, pointer: bool, dry_run: bool) -> dict:
+    # Both files are written, so neither may be a symlink: in a repository the
+    # user did not write, one could point anywhere the user can write.
+    if file.is_symlink():
+        raise SystemExit(f"error: {file} is a symlink; pass the file it points at")
     root_file = file.resolve()
     root = root_file.parent
     lines = root_file.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -208,6 +220,8 @@ def apply(file: Path, heading: str, directory: str, pointer: bool, dry_run: bool
     if not target_dir.is_dir() or root not in target_dir.parents:
         raise SystemExit(f"error: {directory!r} is not a subdirectory of {root}")
     nested = target_dir / root_file.name
+    if nested.is_symlink():
+        raise SystemExit(f"error: {nested} is a symlink; refusing to write through it")
 
     moved = section.lines(lines)
     shift = section.level - 2
@@ -253,7 +267,7 @@ def apply(file: Path, heading: str, directory: str, pointer: bool, dry_run: bool
     mirror = (
         claude_link.is_symlink()
         and os.readlink(claude_link) == root_file.name
-        and not (target_dir / "CLAUDE.md").exists()
+        and not os.path.lexists(target_dir / "CLAUDE.md")
     )
 
     plan = {
@@ -269,8 +283,8 @@ def apply(file: Path, heading: str, directory: str, pointer: bool, dry_run: bool
         "dry_run": dry_run,
     }
     if not dry_run:
-        nested.write_text(new_nested, encoding="utf-8")
-        root_file.write_text("".join(new_root), encoding="utf-8")
+        write_no_follow(nested, new_nested)
+        write_no_follow(root_file, "".join(new_root))
         if mirror:
             (target_dir / "CLAUDE.md").symlink_to(root_file.name)
     return plan

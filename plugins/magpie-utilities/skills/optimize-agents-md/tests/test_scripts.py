@@ -216,6 +216,17 @@ class NestTest(unittest.TestCase):
         )
         self.assertTrue(mirrored)
 
+    def test_refuses_to_write_through_a_planted_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            root = self.make_repo(tmp)
+            victim = Path(outside) / "victim"
+            victim.write_text("untouched\n", encoding="utf-8")
+            (root / "tools/AGENTS.md").symlink_to(victim)
+            with self.assertRaises(SystemExit):
+                nest.apply(root / "AGENTS.md", "Writing tools", "tools", pointer=False, dry_run=False)
+            self.assertEqual(victim.read_text(encoding="utf-8"), "untouched\n")
+            self.assertEqual((root / "AGENTS.md").read_text(encoding="utf-8"), NESTED_ROOT)
+
     def test_dry_run_writes_nothing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = self.make_repo(tmp)
