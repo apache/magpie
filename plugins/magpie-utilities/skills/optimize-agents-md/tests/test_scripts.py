@@ -203,6 +203,19 @@ class NestTest(unittest.TestCase):
         self.assertNotIn("Writing tools", after)
         self.assertIn("## Other", after)
 
+    def test_link_through_a_symlink_keeps_its_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.make_repo(tmp)
+            (root / "plugins/setup").mkdir(parents=True)
+            (root / "plugins/setup/install.md").write_text("x\n", encoding="utf-8")
+            (root / "skills").mkdir()
+            (root / "skills/setup").symlink_to("../plugins/setup")
+            text = NESTED_ROOT.replace("Use the template.", "Use [it](skills/setup/install.md).")
+            (root / "AGENTS.md").write_text(text, encoding="utf-8")
+            nest.apply(root / "AGENTS.md", "Writing tools", "tools", pointer=False, dry_run=False)
+            nested = (root / "tools/AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("Use [it](../skills/setup/install.md).", nested)
+
     def test_inbound_anchor_keeps_a_pointer(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = self.make_repo(tmp, inbound=True, claude_link=True)

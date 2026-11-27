@@ -163,7 +163,9 @@ def rewrite_links(text: str, old_base: Path, new_base: Path, root_file: Path, lo
             new = os.path.relpath(root_file, new_base) + target
         elif is_relative(target):
             path, _, anchor = target.partition("#")
-            new = os.path.relpath((old_base / path).resolve(), new_base)
+            # normpath, not resolve(): a link through a symlink (skills/<name>
+            # -> plugins/...) must keep the path it was written with.
+            new = os.path.relpath(os.path.normpath(old_base / path), new_base)
             new += f"#{anchor}" if anchor else ""
         else:
             return match.group(0)
