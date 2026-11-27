@@ -19,6 +19,8 @@
 - `go` / `proceed` / `yes` (and `all` in bulk) — `apply`;
 - `email: <freeform>` — `replace_email_body` (only when a draft is proposed);
 - `canned: <section name>` — `repick_canned`;
+- `as: <reason>` / `reason: <reason>` — `change_reason` to `invalid`,
+  `defense-in-depth` or `info-only` (the proposal is re-rendered and shown again);
 - `silent` — `apply_silent`: close, skip the draft, say why in the rollup;
 - `cancel` / `none` — `cancel`.
 
@@ -32,16 +34,25 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from security_management.issue_invalidate import reasons
+
 _GO = frozenset({"go", "proceed", "yes", "all"})
 _CANCEL = frozenset({"cancel", "none"})
 _NEGATION = re.compile(r"\b(?:not|no|never|don'?t|stop|wait|hold)\b|n't\b", re.IGNORECASE)
 
 
-def _out(action: str, why: str, email: str | None = None, canned: str | None = None) -> dict[str, Any]:
+def _out(
+    action: str,
+    why: str,
+    email: str | None = None,
+    canned: str | None = None,
+    reason: str | None = None,
+) -> dict[str, Any]:
     return {
         "action": action,
         "email_body_override": email,
         "canned_section_override": canned,
+        "reason_override": reason,
         "rationale": why,
     }
 
@@ -49,9 +60,18 @@ def _out(action: str, why: str, email: str | None = None, canned: str | None = N
 def parse(data: Mapping[str, Any]) -> dict[str, Any]:
     reply = str(data.get("reply") or "").strip()
     draft_proposed = bool(data.get("draft_proposed", True))
-    form = re.match(r"^(email|canned)\s*:\s*(.+)$", reply, re.IGNORECASE | re.DOTALL)
+    form = re.match(r"^(email|canned|as|reason)\s*:\s*(.+)$", reply, re.IGNORECASE | re.DOTALL)
     if form:
         kind, arg = form.group(1).lower(), form.group(2).strip()
+        if kind in ("as", "reason"):
+            try:
+                reason = reasons.normalise(arg)
+            except ValueError as exc:
+                return _out("ambiguous", str(exc))
+            current = reasons.normalise(data.get("reason"))
+            if reason == current:
+                return _out("ambiguous", f"the proposal already closes as `{reason}`; reply `go` to apply it")
+            return _out("change_reason", f"re-render the proposal as a `{reason}` close", reason=reason)
         if kind == "email":
             if not draft_proposed:
                 return _out(

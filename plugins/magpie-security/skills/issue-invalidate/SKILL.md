@@ -8,19 +8,19 @@ requires_config:
   - project.md
   - canned-responses.md
 description: |
-  Close a tracker as invalid: label, closing comment, board archive,
-  and — for `<security-list>` imports — a polite-but-firm reply draft
-  to the reporter with the team's reasoning. No reporter outreach for
-  trackers imported from a public PR.
+  Close a tracker as invalid, defense-in-depth or info-only: label,
+  closing comment, board archive, and — for `<security-list>` imports —
+  a polite-but-firm reply draft to the reporter with the team's
+  reasoning. No reporter outreach for trackers imported from a public PR.
 when_to_use: |
-  "close NN as invalid", "NN is not a security issue", after the team
-  agreed it is invalid. Skip before consensus, or once a CVE is
-  allocated or the advisory has shipped.
+  "close NN as invalid", "NN is not a security issue", "close NN as
+  defense-in-depth / info-only", after the team agreed. Skip before
+  consensus, or once a CVE is allocated or the advisory has shipped.
 argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 6528
+measured_tokens: 7096
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -132,18 +132,30 @@ denied credential or socket):
 
 <!-- END MAGPIE BLOCK: sandbox-golden-rule -->
 
-This skill is the **terminal-disposition apply step** for the `invalid` close on a `<tracker>` tracker.
-The team reaches the consensus-invalid decision in the tracker's comments, at Step 5 of the
+This skill is the **terminal-disposition apply step** for closing a `<tracker>` tracker that is not a CVE.
+The team reaches the decision in the tracker's comments, at Step 5 of the
 [handling process](../../../../docs/security/process.md#step-5--land-the-validinvalid-consensus);
-this skill applies it: labels the tracker `invalid`, posts a short closing comment, closes the tracker, archives the project-board item,
+this skill applies it: labels the tracker for its close reason, posts a short closing comment, closes the tracker as `not planned`, archives the project-board item,
 and, for `security@`-imported trackers, drafts a reply to the reporter explaining why.
+
+**The close reason** matches the [`security-issue-triage`](../issue-triage/SKILL.md) class the team agreed on, and is one of:
+
+| Reason | Triage class | Labels added (default) | After the close |
+|---|---|---|---|
+| `invalid` (the default) | `INVALID` | `invalid` | nothing: terminal |
+| `defense-in-depth` | `DEFENSE-IN-DEPTH` | `defense-in-depth`, `wontfix` | file the public hardening PR |
+| `info-only` | `INFO-ONLY` | `info-only` | nothing: terminal |
+
+`invalidate.reason_labels` in `<project-config>/project.md` overrides the labels per reason.
+The reason runs through the labels (5a), the closing comment (5b), the reporter draft's default canned response (Step 4), the rollup action label `Closed as <reason>` (5e) and the recap (Step 7).
+Never close a `DEFENSE-IN-DEPTH` or `INFO-ONLY` tracker as `invalid`: it misstates the decision and pollutes the closed-`invalid` precedents triage searches.
 
 It is the counterpart of [`security-cve-allocate`](../cve-allocate/SKILL.md), which applies the *valid → CVE* decision in the same one-pass way.
 
 **Golden rule — never sends email.** Any reply to the reporter is a draft on the original inbound thread (in Gmail, or in a local Maildir), which the triager reviews and sends.
 The skill never calls `send` on any drafting backend.
 
-**Golden rule — public-facing comment is brief.** The closing comment is short and process-shaped (*"closing as invalid per team consensus in this thread"*).
+**Golden rule — public-facing comment is brief.** The closing comment is short and process-shaped (*"closing as `<reason>` per team consensus in this thread"*).
 The team's full reasoning stays in the discussion comments and the rollup;
 the detailed version goes to the reporter in the email draft, not into the closing comment.
 
@@ -258,10 +270,12 @@ If `gh` fails, any hard stop fires, or the privacy-llm pre-flight fails, do **no
 
 | Selector | Resolves to |
 |---|---|
-| `invalidate <N>` / `invalidate #N` | single tracker; the existing single-issue flow |
-| `invalidate #N1, #N2, …` / `invalidate #N1-#N5` | explicit list; bulk-mode flow |
-| `invalidate proposed` | every open tracker that satisfies **both**: (a) has a triage proposal posted by [`security-issue-triage`](../issue-triage/SKILL.md) carrying **Proposed disposition: INVALID**, and (b) has a team-consensus marker — a thumbs-up reaction on the triage proposal from a roster member who is **not** the proposal author, OR a follow-up comment from a roster member containing a positive-acknowledgement keyword (`agree`, `concur`, `+1`, `confirmed`, `LGTM`) |
+| `invalidate <N> [as <reason>]` / `invalidate #N [as <reason>]` | single tracker; the existing single-issue flow |
+| `invalidate #N1, #N2, … [as <reason>]` / `invalidate #N1-#N5 [as <reason>]` | explicit list; bulk-mode flow, one reason for all |
+| `invalidate proposed` | every open tracker that satisfies **both**: (a) its latest triage proposal from a roster member, posted by [`security-issue-triage`](../issue-triage/SKILL.md), carries **Proposed disposition: INVALID**, **DEFENSE-IN-DEPTH** or **INFO-ONLY**, and (b) has a team-consensus marker — a thumbs-up reaction on that proposal from a roster member who is **not** the proposal author, OR a follow-up comment from a roster member containing a positive-acknowledgement keyword (`agree`, `concur`, `+1`, `confirmed`, `LGTM`). Each tracker's reason comes from its proposal's class |
 
+`<reason>` is `invalid` (the default when `as` is left out), `defense-in-depth` or `info-only`; `<sm> selector` prints it as `reason`, and refuses any other.
+When no `as` was given and the tracker's latest triage proposal names `DEFENSE-IN-DEPTH` or `INFO-ONLY`, surface the mismatch and ask which reason to close with before Step 5.
 Bulk-mode aggregation, the `invalidate proposed` consensus rules, and its resolution recipe: [`bulk.md`](bulk.md).
 
 ---
@@ -330,18 +344,18 @@ Surface every change to the user before any write.
 
 ### 5a — Labels
 
-- **Add:** `invalid`.
+- **Add:** the reason's labels — `invalid`; `defense-in-depth` and `wontfix`; or `info-only` — unless `invalidate.reason_labels` in `<project-config>/project.md` names others for that reason.
 - **Remove:** `needs triage`, the scope label and `pr created` / `pr merged`, when set (the public PR stays open as normal-process work, but is no longer the security fix).
 
-The `security issue` label **stays**: it pins the tracker to the board's filter and keeps it findable for invalid-class history.
+The `security issue` label **stays**: it pins the tracker to the board's filter and keeps it findable for closed-class history.
 A project that keeps some of the removable labels on invalid trackers (e.g. so archived trackers stay filterable by component) lists them in `invalidate.keep_labels` in `<project-config>/project.md`:
 `scope` keeps whichever scope label is set, `pr` keeps `pr created` / `pr merged`, and any other entry is a literal label name.
-`needs triage` is always removed and `invalid` always added; a `needs triage` entry is ignored with a warning.
-`<sm> labels` (`{labels, scope_labels, keep_labels, tracker, number}`) prints the lists, any `labels_kept` and `warnings`, and the `gh issue edit` command; run that command as printed, never edit its flags.
+`needs triage` is always removed and the reason's labels always added; a `needs triage` entry is ignored with a warning.
+`<sm> labels` (`{labels, scope_labels, keep_labels, reason, reason_labels, tracker, number}`) prints the lists, any `labels_kept` and `warnings`, and the `gh issue edit` command; run that command as printed, never edit its flags.
 
 ### 5b — Closing comment on the tracker
 
-Brief, process-shaped: `<sm> render-close` (`{decision_comment, rollup_comment, notification_case, backend}`) links the deciding comment and the rollup and says where the reply is, or why there is none
+Brief, process-shaped: `<sm> render-close` (`{decision_comment, rollup_comment, notification_case, backend, reason}`) names the reason (a `defense-in-depth` close adds that the hardening is welcome as a public PR), links the deciding comment and the rollup and says where the reply is, or why there is none
 (PR-imported: no reporter notification, with the [Reporter credit policy](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports) link).
 Post the rollup first (6a) so its comment ID exists. Shape: [`outcomes/closing-comment.md`](outcomes/closing-comment.md).
 
@@ -362,8 +376,8 @@ Skip cases, recipients, subject, body, backend selection, and the existing-draft
 
 ### 5e — Status-rollup entry
 
-Write `{tracker, date, decision_comment, quotes, canned_section, notification, board}` and run `<sm> render-rollup`; append its `text` with the action label `Closed as invalid` in 6a.
-It keeps at most 5 verbatim quotes (the rollup is a navigation aid), every line at column 0, the canned section, the board state and *Next: none — terminal disposition*.
+Write `{tracker, date, decision_comment, quotes, canned_section, notification, board, reason}` and run `<sm> render-rollup`; append its `text` with its `label` (`Closed as <reason>`) as the action label in 6a.
+It keeps at most 5 verbatim quotes (the rollup is a navigation aid), every line at column 0, the canned section, the board state and the *Next:* line (*none — terminal disposition*, or *file the public hardening PR* for `defense-in-depth`).
 **The Reporter-notification line is required:** `notification.case` is exactly one of `direct`, `via_forwarder`, their `_duplicate` forms, `internal_audit`, `ghsa_comment`, `ghsa_forwarder`, `pr_imported`, `indeterminate`, `silent` (the Step 5d `draft-plan` names it);
 with none, the tool refuses and the close stops until the user resolves the channel. Entry shape and every case's line: [`outcomes/rollup-entry.md`](outcomes/rollup-entry.md).
 
@@ -379,12 +393,15 @@ entry — and ask:
   user is overriding only the body).
 - `canned: <section name>` — re-pick the canned response and
   re-augment.
+- `as: <reason>` — change the close reason (`invalid`,
+  `defense-in-depth`, `info-only`), re-render the proposal and ask
+  again.
 - `silent` — for an `security@`-imported tracker, deliberately
   skip the email draft and note in the rollup why (e.g. the
   reporter is unreachable, GHSA closed, etc.).
 - `cancel` / `none` — bail; nothing applied.
 
-The user must confirm explicitly; `<sm> parse-reply` (`{reply, draft_proposed}`) maps the reply, and anything else is `ambiguous`: ask again.
+The user must confirm explicitly; `<sm> parse-reply` (`{reply, draft_proposed, reason}`) maps the reply, and anything else is `ambiguous`: ask again.
 Unlike `security-issue-import`, this skill does **not** default to apply:
 the close is a terminal disposition and the email draft is a message attributed to the security team.
 
@@ -411,9 +428,10 @@ Sub-steps 6a (rollup entry) through 6g (cleanup), with their commands: [`apply.m
 
 ## Step 7 — Recap and hand-off
 
-Write `{tracker, closed: [{number, labels_added, labels_removed, rollup_url, close_url, board, draft}], awaiting, failed, remaining}` and run `<sm> render-recap`; print its `text`.
-Per tracker it shows the clickable link and the new state (`closed - not planned`), the labels applied and removed, the rollup and closing-comment permalinks, the board status (`archived` or `not on board`),
-the draft ID and its web URL or the explicit *no draft* reason, and the terminal hand-off line: there is no `un-invalidate` skill, because reversing an invalid close is a deliberate team action that deserves a fresh discussion.
+Write `{tracker, closed: [{number, reason, labels_added, labels_removed, rollup_url, close_url, board, draft}], awaiting, failed, remaining}` and run `<sm> render-recap`; print its `text`.
+Per tracker it shows the clickable link, the reason and the new state (`closed - not planned`), the labels applied and removed, the rollup and closing-comment permalinks, the board status (`archived` or `not on board`),
+the draft ID and its web URL or the explicit *no draft* reason, for `defense-in-depth` the next step *file the public hardening PR*,
+and the terminal hand-off line: there is no `un-invalidate` skill, because reversing a close is a deliberate team action that deserves a fresh discussion.
 Its `bare_refs` must be empty.
 
 ---

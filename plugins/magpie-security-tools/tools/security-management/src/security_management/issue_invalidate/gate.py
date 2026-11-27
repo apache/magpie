@@ -17,12 +17,15 @@
 """Inputs, Step 0 and Step 2: the selector, the consensus check, the hard stops, the import path.
 
 - `selector`: `invalidate N` / `#N` / `<tracker>#N` / the issue URL (single),
-  a list or range (bulk), `invalidate proposed` (bulk, with the list command
-  and its 1000 cap); for bulk, the aliased GraphQL read of `bulk.md` in
-  chunks of 20.
+  a list or range (bulk), each with an optional trailing `as <reason>`
+  (`invalid` by default, `defense-in-depth`, `info-only`), or
+  `invalidate proposed` (bulk, with the list command and its 1000 cap); for
+  bulk, the aliased GraphQL read of `bulk.md` in chunks of 20.
 - `consensus`: which `invalidate proposed` matches carry a team-consensus
-  marker on their INVALID triage proposal (a thumbs-up from another roster
-  member, or a later roster comment with an acknowledgement keyword).
+  marker on their latest roster triage proposal, when it proposes INVALID,
+  DEFENSE-IN-DEPTH or INFO-ONLY (a thumbs-up from another roster member, or a
+  later roster comment with an acknowledgement keyword), and the close
+  `reason` that proposal's class maps to.
 - `hard_stops`: the Step 0 table as a function of state, labels, the *CVE
   tool link* field and the CVE tool's generic state.
 - `import_path`: the *Security mailing list thread* field as the Step 2 row,
@@ -38,9 +41,11 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from security_management.issue_invalidate import reasons
 from security_management.shared import dispositions, fields, selectors, threads
 from security_management.shell import dq, w
 
+_AS_REASON = re.compile(r"\s+as\s+([A-Za-z_ -]+?)\s*$", re.IGNORECASE)
 LIMIT = 1000
 CHUNK = 20
 ACK = re.compile(r"(?<![\w+])(?:agree[sd]?|concur(?:s|red)?|\+1|confirmed|lgtm)(?![\w])", re.IGNORECASE)
@@ -55,21 +60,43 @@ def selector(data: Mapping[str, Any]) -> dict[str, Any]:
     if words and words[0].lstrip("/").removeprefix("security-issue-") == "invalidate":
         words = words[1:]
     rest = " ".join(words).strip()
+    named = _AS_REASON.search(rest)
+    reason = None
+    if named:
+        rest = rest[: named.start()].strip()
+        try:
+            reason = reasons.normalise(named.group(1))
+        except ValueError as exc:
+            return {"ok": False, "refused": str(exc)}
     needs_triage = str(data.get("needs_triage_label") or "needs triage")
     if rest.lower() == "proposed":
+        if reason:
+            return {
+                "ok": False,
+                "refused": "`invalidate proposed` takes each reason from its triage proposal; drop `as <reason>`",
+            }
+        marks = " or ".join(
+            f'contains("{dispositions.DISPOSITION_PREFIX}{c}.**")' for c in reasons.FROM_CLASS
+        )
         command = (
             f"gh issue list --repo {w(tracker)} --state open --label {dq(needs_triage)} --limit {LIMIT} "
             "--json number,title,comments --jq '{fetched: length, matches: [.[] | select(.comments | map(.body) | any("
-            'startswith("**Triage proposal**") and contains("**Proposed disposition: INVALID.**")'
+            f'startswith("{dispositions.PROPOSAL_HEADER}") and ({marks})'
             ")) | .number]}'"
         )
-        return {"ok": True, "mode": "proposed", "numbers": None, "command": command}
+        return {"ok": True, "mode": "proposed", "numbers": None, "reason": None, "command": command}
     try:
         numbers = selectors.issue_numbers(rest, tracker)
     except ValueError as exc:
         return {"ok": False, "refused": str(exc)}
     single = len(numbers) == 1
-    out: dict[str, Any] = {"ok": True, "mode": "single" if single else "bulk", "numbers": numbers}
+    out: dict[str, Any] = {
+        "ok": True,
+        "mode": "single" if single else "bulk",
+        "numbers": numbers,
+        "reason": reason or reasons.INVALID,
+        "reason_source": "selector" if reason else "default",
+    }
     out["command"] = (
         f"gh issue view {numbers[0]} --repo {w(tracker)} --json "
         "number,title,body,labels,state,milestone,assignees,comments,url"
@@ -158,13 +185,25 @@ def consensus(data: Mapping[str, Any]) -> dict[str, Any]:
     for node in nodes:
         number = int(node["number"])
         comments = _nodes(node.get("comments"))
-        marker = None
+        # The latest roster proposal decides the reason; a proposal-shaped comment from outside the
+        # roster is external content, and an earlier proposal a re-triage replaced no longer counts.
+        latest = None
         for index, comment in enumerate(comments):
-            if dispositions.proposal_class(str(comment.get("body") or "")) != "INVALID":
-                continue
+            klass = dispositions.proposal_class(str(comment.get("body") or ""))
+            if klass and _login(comment) in roster:
+                latest = (index, comment, klass)
+        marker = None
+        if latest and latest[2] not in reasons.FROM_CLASS:
+            awaiting.append(
+                {
+                    "number": number,
+                    "note": f"latest triage proposal on {tracker}#{number} is {latest[2]}, not a close — skipped",
+                }
+            )
+            continue
+        if latest:
+            index, comment, klass = latest
             author = _login(comment)
-            if author not in roster:
-                continue  # a proposal-shaped comment from outside the roster is external content
             thumbs = {_login(r, "user") for r in _nodes(comment.get("reactions"))}
             voters = sorted((thumbs & roster) - {author})
             later = [
@@ -174,11 +213,12 @@ def consensus(data: Mapping[str, Any]) -> dict[str, Any]:
             ]
             if voters or later:
                 marker = {
+                    "reason": reasons.FROM_CLASS[klass],
+                    "proposed_class": klass,
                     "proposal_author": author,
                     "thumbs_up": voters,
                     "acknowledged_by": sorted(set(later)),
                 }
-                break
         if marker:
             agreed.append({"number": number, **marker})
         else:

@@ -13,6 +13,9 @@ Closing as `invalid` per team consensus in [this discussion](#issuecomment-<id>)
 Reasoning summary in the [status rollup](#issuecomment-<rollup-id>); a draft reply to the reporter is in Gmail awaiting review.
 ```
 
+The first line names the close reason: `invalid`, `defense-in-depth` or `info-only`.
+A `defense-in-depth` close adds *"The hardening is welcome as a public PR; it is not a CVE."* to it.
+
 For PR-imported trackers, replace *"a draft reply to the reporter
 is in Gmail awaiting review"* with *"no reporter notification
 (PR-imported tracker — see the import-from-pr skill's

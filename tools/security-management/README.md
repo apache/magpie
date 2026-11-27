@@ -193,19 +193,19 @@ Every command takes `--input F`, a JSON file.
 
 | Command | Prints |
 |---|---|
-| `selector` | `mode` (`single`, `bulk`, `proposed`), `numbers`, the `gh issue view` / `invalidate proposed` list `command`, and for bulk the aliased `batches` with thumbs-up reactions; another repository exits `2`. |
-| `consensus` | `agreed` (a roster member's INVALID proposal with a thumbs-up or acknowledgement from another roster member), `awaiting` with the recap note, `stop` at the 1000 cap. |
+| `selector` | `mode` (`single`, `bulk`, `proposed`), `numbers`, the close `reason` from a trailing `as <reason>` (`invalid` by default, `defense-in-depth`, `info-only`) and its `reason_source`, the `gh issue view` / `invalidate proposed` list `command`, and for bulk the aliased `batches` with thumbs-up reactions; another repository, an unknown reason or `proposed as …` exits `2`. |
+| `consensus` | `agreed` (a roster member's latest proposal, INVALID, DEFENSE-IN-DEPTH or INFO-ONLY, with a thumbs-up or acknowledgement from another roster member, and the `reason` its `proposed_class` maps to), `awaiting` with the recap note, `stop` at the 1000 cap. |
 | `hard-stops` | `verdict` (`proceed`, `noop`, `stop`, `escalate`, `probe`, `ask`), `cve_id`, `message` from state, labels, the *CVE tool link* field and the generic CVE state. |
 | `import-path` | `import_path`, `email_draft_step`, `thread_id` (field, else the rollup provenance), `thread_source`, `secondary_threads`, `root_message_id`, `reporter_credit`; an ambiguous field exits `2`. |
-| `labels` | `labels_to_add` (`invalid`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
+| `labels` | `reason`, `labels_to_add` (the reason's `reason_labels` entry, else `invalid`; `defense-in-depth`, `wontfix`; `info-only`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
 | `board` | The introspection query `file` and `command`; given `items`, the `archiveProjectV2Item` mutation or the *not on the board* note. |
-| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `bcc` (from `security_bcc`), `subject` (`Re: <root subject>`), `backend`, `anchor`; the `private_list` as To or Cc blocks it; links without OAuth credentials exit `2`. |
+| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `bcc` (from `security_bcc`), `subject` (`Re: <root subject>`), `backend`, `anchor`, `close_reason` and its `canned_default`; the `private_list` as To or Cc blocks it; links without OAuth credentials exit `2`. |
 | `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects when `organization` is `ASF`, a duplicate's missing canonical CVE, the `private_list` in `to` / `cc`. |
-| `render-close` | The brief closing comment `text`. |
-| `render-rollup` | `label`, `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
-| `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`. |
-| `apply-plan` | The 6a-6g `steps` in order, with file paths and commands, and the label plan. |
-| `render-recap` | The recap `text` with the hand-off line, `bare_refs`. |
+| `render-close` | The brief closing comment `text`, naming the `reason`. |
+| `render-rollup` | `reason`, `label` (`Closed as <reason>`), `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
+| `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `change_reason`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`, `reason_override`. |
+| `apply-plan` | The 6a-6g `steps` in order, with file paths and commands (the rollup action label `Closed as <reason>`), and the label plan. |
+| `render-recap` | The recap `text` with each tracker's reason, the *file the public hardening PR* next step for `defense-in-depth`, the hand-off line, `bare_refs`. |
 
 ### `cve-allocate`
 

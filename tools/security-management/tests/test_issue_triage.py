@@ -657,7 +657,7 @@ def test_step7_case_1_mixed_dispositions(capsys, tmp_path):
     assert out["next_steps"] == [
         "/security-cve-allocate 212",
         "/security-issue-invalidate 215",
-        "/security-issue-invalidate 218",
+        "/security-issue-invalidate 218 as info-only",
         "/security-issue-deduplicate 212 220",
     ]
     assert [t["comment_url"] for t in out["trackers"]] == [
@@ -735,7 +735,35 @@ def test_step7_case_3_no_valid(capsys, tmp_path):
     ]
     out = recap(capsys, tmp_path, posted)
     assert out["distribution"] == zero(DEFENSE_IN_DEPTH=1, INVALID=2)
-    assert out["next_steps"] == ["/security-issue-invalidate 241", "/security-issue-invalidate 244"]
+    assert out["next_steps"] == [
+        "/security-issue-invalidate 241",
+        "/security-issue-invalidate 242 as defense-in-depth",
+        "/security-issue-invalidate 244",
+    ]
+    assert out["next_step_notes"] == [
+        {
+            "step": "/security-issue-invalidate 242 as defense-in-depth",
+            "note": "then file the public hardening PR",
+        }
+    ]
+    assert (
+        "`/security-issue-invalidate 242 as defense-in-depth` — then file the public hardening PR"
+        in out["text"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("klass", "reason"),
+    [("INVALID", "invalid"), ("DEFENSE-IN-DEPTH", "defense-in-depth"), ("INFO-ONLY", "info-only")],
+)
+def test_recap_close_commands_resolve_in_invalidate(capsys, tmp_path, klass, reason):
+    out = recap(capsys, tmp_path, [{"number": 260, "class": klass, "comment_url": url(260, 1)}])
+    [command] = out["next_steps"]
+    path = tmp_path / "invalidate-selector.json"
+    path.write_text(json.dumps({"tracker": TRACKER, "invocation": command}), encoding="utf-8")
+    assert main(["issue-invalidate", "selector", "--input", str(path)]) == 0
+    resolved = json.loads(capsys.readouterr().out)
+    assert (resolved["numbers"], resolved["reason"]) == ([260], reason)
 
 
 def test_recap_fix_public_note_and_skipped_group(capsys, tmp_path):

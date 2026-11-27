@@ -34,3 +34,14 @@ no tracker reference in the reporter draft, an existing draft is surfaced, the r
 ## Steps not covered
 
 Steps 0, 1, 5c (project-board archive) and 6a–6g (apply loop) are procedural shell-command steps; their deterministic parts (`hard-stops`, `selector`, `consensus`, `board`, `apply-plan`) are pytest-tested in the same file.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `ed5885cf` (feat/invalidate-close-reasons-2) | `opus[1m]` | 1 | pass |  |

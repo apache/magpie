@@ -16,8 +16,10 @@
 # under the License.
 """Steps 5a, 5c and 6: the label change, the board queries and the ordered apply commands.
 
-Labels: add `invalid`; remove `needs triage`, the scope label and `pr created` /
-`pr merged` when set; `security issue` always stays. `keep_labels` (from
+Labels: add the close reason's labels (`invalid` by default; `reason_labels`,
+from `invalidate.reason_labels` in project.md, overrides them per reason);
+remove `needs triage`, the scope label and `pr created` / `pr merged` when set;
+`security issue` always stays. `keep_labels` (from
 `invalidate.keep_labels` in project.md) spares labels from removal: `scope`
 keeps whichever scope label is set, `pr` keeps `pr created` / `pr merged`, and
 any other entry is a literal label name. `needs triage` is never kept.
@@ -33,9 +35,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from security_management.issue_invalidate import reasons
 from security_management.shell import dq, w
 
-INVALID = "invalid"
 KEEP = "security issue"
 PR_LABELS = ("pr created", "pr merged")
 VETTED = "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-invalidate"
@@ -88,12 +90,15 @@ def labels(data: Mapping[str, Any]) -> dict[str, Any]:
     current = _names(data.get("labels"))
     scopes = [str(s) for s in data.get("scope_labels") or []]
     needs_triage = str(data.get("needs_triage_label") or "needs triage")
+    reason = reasons.normalise(data.get("reason"))
+    add = reasons.labels_for(reason, data.get("reason_labels"))
     kept, warnings = _kept(data.get("keep_labels"), scopes, needs_triage)
     remove = [lbl for lbl in current if lbl == needs_triage]
-    remove += [lbl for lbl in current if lbl in scopes and lbl not in kept]
-    remove += [lbl for lbl in current if lbl in PR_LABELS and lbl not in kept]
+    remove += [lbl for lbl in current if lbl in scopes and lbl not in kept and lbl not in add]
+    remove += [lbl for lbl in current if lbl in PR_LABELS and lbl not in kept and lbl not in add]
     out: dict[str, Any] = {
-        "labels_to_add": [INVALID],
+        "reason": reason,
+        "labels_to_add": add,
         "labels_to_remove": remove,
         "security_issue_stays": True,
     }
@@ -103,9 +108,8 @@ def labels(data: Mapping[str, Any]) -> dict[str, Any]:
     if warnings:
         out["warnings"] = warnings
     if data.get("number") and data.get("tracker"):
-        parts = [
-            f"gh issue edit {int(data['number'])} --repo {w(str(data['tracker']))} --add-label {dq(INVALID)}"
-        ]
+        parts = [f"gh issue edit {int(data['number'])} --repo {w(str(data['tracker']))}"]
+        parts += [f"--add-label {dq(lbl)}" for lbl in add]
         parts += [f"--remove-label {dq(lbl)}" for lbl in remove]
         out["command"] = " ".join(parts)
     return out
@@ -157,11 +161,12 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     rollup_file = f"{scratch}/invalidate-{number}-rollup.md"
     close_file = f"{scratch}/invalidate-{number}-close.md"
     label_plan = labels({**data, "tracker": tracker, "number": number})
+    action = dq(reasons.action_label(label_plan["reason"]))
     steps: Sequence[dict[str, Any]] = [
         {
             "step": "6a",
             "write": rollup_file,
-            "command": f'{VETTED} rollup-append {number} "Closed as invalid" {w(rollup_file)}',
+            "command": f"{VETTED} rollup-append {number} {action} {w(rollup_file)}",
         },
         {
             "step": "6b",
@@ -178,7 +183,7 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
         },
         {
             "step": "6f-amend",
-            "command": f'{VETTED} rollup-amend-latest {number} "Closed as invalid" {w(rollup_file)}',
+            "command": f"{VETTED} rollup-amend-latest {number} {action} {w(rollup_file)}",
             "when": "6a ran with the `<pending>` draft id",
         },
         {"step": "6g", "command": f"delete {scratch}/invalidate-{number}-*"},

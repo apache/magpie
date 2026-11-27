@@ -8,11 +8,11 @@ Read from [`SKILL.md` Step 5e](../SKILL.md#5e--status-rollup-entry); `<sm> rende
 Append a new entry to the existing rollup comment
 (per
 [`tools/github/status-rollup.md`](../../../../../tools/github/status-rollup.md)
-upsert recipe) with the action label `Closed as invalid`.
+upsert recipe) with the action label `Closed as <reason>` (`invalid`, `defense-in-depth` or `info-only`).
 Draft only the entry body; Step 6a's tool writes the `<details>` envelope. Shape:
 
 ```markdown
-**Closed as `invalid` on <YYYY-MM-DD>** (decided in [comment](#issuecomment-<id>)).
+**Closed as `<reason>` on <YYYY-MM-DD>** (decided in [comment](#issuecomment-<id>)).
 
 **Reasoning** (verbatim from the team's discussion, capped at ~5 quotes):
 
@@ -42,6 +42,8 @@ entry without the line.
 
 **Next:** none — terminal disposition.
 ```
+
+A `defense-in-depth` close ends on *"**Next:** file the public hardening PR (normal-process work, no CVE)."* instead.
 
 Start every body line at column 0 — leading spaces inside the `<details>` envelope render as a code block.
 Trim the reasoning quotes to ~5 even when the discussion has more: the rollup is a navigation aid, not an archive.

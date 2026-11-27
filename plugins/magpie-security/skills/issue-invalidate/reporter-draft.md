@@ -88,7 +88,8 @@ the **recipient** and the **body shape**.
    or its `in_reply_to` set to the inbound `Message-ID` when the report is not in this Gmail —
    `--in-reply-to` the inbound `Message-ID` for `maildir`).
 3. **Body:**
-   - Spine: the canned section picked in Step 4, verbatim.
+   - Spine: the canned section picked in Step 4, verbatim (the close reason's `canned_default` when no more specific section fits).
+   - **`defense-in-depth`:** say the report describes hardening rather than a CVE, and that a public PR for it is welcome.
    - Augmentation: a clearly-marked block filling the
      `HERE DETAILED EXPLANATION FOLLOWS` placeholder (or
      equivalent) with the case-specific reasoning gathered in
