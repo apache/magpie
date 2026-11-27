@@ -357,6 +357,58 @@ def test_gather_prints_json(project: Path, capsys: pytest.CaptureFixture[str], t
     }
 
 
+@pytest.mark.parametrize(
+    ("body", "runs"),
+    [
+        (None, True),
+        ("method: local\n", False),
+        ("method: git-tag\nurl: https://github.com/apache/magpie\nref: v0.8.0\n", False),
+        ("method: marketplace\nurl: apache/magpie\nmin_version: 0.8.0\nplugins:\n  - magpie-setup\n", True),
+    ],
+)
+def test_gather_runs_the_plugin_listing_only_where_it_is_read(
+    project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    body: str | None,
+    runs: bool,
+) -> None:
+    # The listing (`claude plugin list --json`) reaches for the harness's API,
+    # which the sandbox denies; a checkout or a snapshot never reads it.
+    if body is not None:
+        write_lock(project, body)
+    calls: list[str | None] = []
+
+    def fake_read_installed(explicit: str | None) -> tuple[str | None, dict[str, str] | None]:
+        calls.append(explicit)
+        return None, None
+
+    monkeypatch.setattr(upgrade, "read_installed", fake_read_installed)
+    assert upgrade.main(["gather", "--project-root", str(project)]) == 0
+    assert calls == ([None] if runs else [])
+    assert json.loads(capsys.readouterr().out)["listing_known"] is False
+
+
+def test_gather_still_reads_a_supplied_listing_on_a_checkout(
+    project: Path, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_lock(project, "method: local\n")
+    listing = tmp_path / "listing.json"
+    listing.write_text("[]")
+    calls: list[str | None] = []
+    original = upgrade.read_installed
+
+    def spy(explicit: str | None) -> tuple[str | None, dict[str, str] | None]:
+        calls.append(explicit)
+        return original(explicit)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(upgrade, "read_installed", spy)
+        assert upgrade.main(["gather", "--project-root", str(project), "--plugin-list", str(listing)]) == 0
+    assert calls == [str(listing)]
+    capsys.readouterr()
+
+
 def _plugin(home: Path, version: str, manifest: str = ".claude-plugin/plugin.json") -> Path:
     """A skill directory inside an installed plugin of the given version; returns the skill dir."""
     root = home / ".claude" / "plugins" / "cache" / "apache-magpie" / "magpie-setup" / version
