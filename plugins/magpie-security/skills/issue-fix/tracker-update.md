@@ -41,7 +41,13 @@ Now that a public PR exists, update the private tracking issue:
      A non-member is recorded and surfaced but **not** assigned — GitHub silently drops the write.
    - **Never override** an existing conflicting assignee here; the hand-off to the release manager stays at the `fix released` transition (sync owns it).
 
-   Propose; apply on confirmation.
+   Propose; apply on confirmation:
+
+   ```bash
+   uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix issue-add-assignee <N> <login>
+   ```
+
+   The policy's `[values] assignees` must list `<login>`; without the secure setup, `gh issue edit <N> --repo <tracker> --add-assignee <login>` does the same.
 
 4. **Maintain milestones and labels** — see the next section.
 
@@ -53,17 +59,32 @@ Now that a public PR exists, update the private tracking issue:
 The skill leaves the private issue in a consistent "fix-proposed, awaiting review" state: milestone and label set match the current release plan (the default release target is in "Release branches currently in flight" and "What this means for sync and fix skills" in [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md#release-branches-currently-in-flight)).
 **Every action in this section is a proposal that requires explicit user confirmation before it is applied.**
 
+Under the secure setup, run each step as the vetted operation it names, with `--caller security-issue-fix`:
+`gh` cannot reach the forge from inside the sandbox, and the operations take their values from the policy's `[values]` (`milestones`, `labels`, `assignees`).
+The plain `gh` commands below are the same steps for a setup without it.
+
 #### 10a. Ensure the target milestone exists
 
 The default milestone for a patch-release fix is the next patch release `<project-config>/release-trains.md` names (`<target>` below).
 Before assigning, check that the milestone exists:
 
 ```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-fix milestone-list
+# without the secure setup, open and closed alike:
 gh api 'repos/<tracker>/milestones?state=all&per_page=100' \
   --jq '.[] | select(.title == "<target>") | {number, state}'
 ```
 
-If the query returns nothing, **propose creating the milestone**.
+`milestone-list` returns the open milestones only, so a `<target>` it does not list may still exist closed; the closed case is below.
+
+If neither returns it, **propose creating the milestone**:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix milestone-create '<target>'
+```
+
+`milestone-create` sets the title only, and `<target>` must be in the policy's `milestones` (or match its `milestones_patterns`).
+Without the secure setup, create it with a description:
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 ```bash
@@ -78,8 +99,9 @@ gh api repos/<tracker>/milestones \
 Present the `title`, `state` and `description` and wait for a `yes` before running the create call.
 Capture the returned milestone `number` for the closed-milestone fallback.
 
-If the milestone exists but is **closed**, `gh issue edit --milestone "<title>"` fails with `'<title>' not found`.
-Fall back to the REST API and reference it by number:
+If the milestone exists but is **closed**, `gh issue edit --milestone "<title>"` (and so `issue-set-milestone`) fails with `'<title>' not found`.
+No vetted operation sets a closed milestone, so under the secure setup hand the user this command to run; otherwise run it here.
+It references the milestone by number:
 
 ```bash
 gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
@@ -90,8 +112,10 @@ gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<milestone-number>
 If the issue sits on a stale milestone (a patch release already cut, a retired release line listed as legacy in `<project-config>/release-trains.md`, or a legacy catch-all placeholder), propose moving it to the current default and apply on confirmation:
 
 ```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix issue-set-milestone <N> '<target>'
+# without the secure setup:
 gh issue edit <N> --repo <tracker> --milestone '<target>'
-# or, for closed milestones, via REST:
+# a closed milestone, either way, via REST (the user runs it under the secure setup):
 gh api repos/<tracker>/issues/<N> -X PATCH -F milestone=<number>
 ```
 
@@ -103,6 +127,8 @@ When in doubt, ask the user instead of moving it.
 The current label set on `<tracker>` can be listed with:
 
 ```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-fix label-list
+# without the secure setup:
 gh label list --repo <tracker> --limit 100 \
   --json name,description,color --jq '.[].name'
 ```
@@ -119,7 +145,7 @@ For a post-triage, pre-merge fix, the target label set is:
 If a label the skill wants to apply does **not** exist on the repository (e.g. a stale doc name — the README once said `vendor-advisory` where the actual label is `announced - emails sent`), stop and report the mismatch.
 Do **not** create labels without asking — label names are the security team's shared vocabulary.
 
-If the user confirms creating a label, do it explicitly:
+If the user confirms creating a label, do it explicitly (no vetted operation creates labels, so under the secure setup the user runs this):
 
 ```bash
 gh label create '<name>' --repo <tracker> \
@@ -129,7 +155,16 @@ gh label create '<name>' --repo <tracker> \
 
 #### 10d. Apply the label changes
 
-Once the target label set is agreed, apply all adds and removes in a single `gh issue edit` call, so the change lands as one audit-trail entry:
+Once the target label set is agreed, apply the adds and removes.
+Under the secure setup it is one call per label, each confirmed, and every label must be in the policy's `labels`:
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix issue-add-label <N> '<scope-a>'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix issue-add-label <N> 'cve allocated'
+uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller security-issue-fix issue-remove-label <N> 'needs triage'
+```
+
+Without the secure setup, apply them all in a single `gh issue edit` call, so the change lands as one audit-trail entry:
 
 ```bash
 gh issue edit <N> --repo <tracker> \

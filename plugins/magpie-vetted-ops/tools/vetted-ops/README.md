@@ -247,6 +247,10 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "cve-record-fetch", "cve-record-update", "cve-allocate"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set",
+                           # Step 10: assignee, milestone and labels on the tracker.
+                           "issue-add-assignee", "milestone-list", "milestone-create",
+                           "issue-set-milestone", "label-list",
+                           "issue-add-label", "issue-remove-label",
                            # vetted-op-git: from a change to an open pull request. Its
                            # labels pass the same scrub as the title and body first: they
                            # are public before the advisory.
