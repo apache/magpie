@@ -242,25 +242,18 @@ Before writing, resolving or reviewing a placeholder such as `<PROJECT>`, `<trac
 ## Local setup
 
 **`prek install` MUST be run before any other work in this repository —
-including the first commit on a fresh clone.** This repo uses
-[`prek`](https://github.com/j178/prek) (a fast, Rust-based drop-in
-replacement for `pre-commit`) to run the hooks that keep documentation
-consistent — regenerating `doctoc` TOCs, stripping trailing whitespace,
-checking line endings, blocking committed secrets, and the per-sub-tool
-`ruff` / `mypy` / `pytest` quality gates. Config:
-[`.pre-commit-config.yaml`](.pre-commit-config.yaml).
+including the first commit on a fresh clone.**
+[`prek`](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, runs the hooks
+(TOCs, whitespace, line endings, secrets, and the `ruff` / `mypy` / `pytest` gates; config in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)).
 
 ```bash
 uv tool install prek   # or: pipx install prek
 prek install           # installs the git hook into .git/hooks/pre-commit
 ```
 
-**Verify the hook before every commit** (agents and humans alike); CI
-re-runs the same hooks against every push — scoped to the pull
-request's own diff on a PR, over the whole tree on `main` — and rejects
-any commit whose contents do not match the hook's output, so a missing
-local hook silently becomes a CI failure. The pre-flight check is one
-line:
+**Verify the hook before every commit** (agents and humans alike):
+CI re-runs the same hooks and rejects any commit whose contents do not match their output,
+so a missing local hook silently becomes a CI failure.
 
 ```bash
 test -x .git/hooks/pre-commit || prek install
@@ -275,50 +268,35 @@ prek run --all-files --skip workspace-pytest
 prek run workspace-pytest --from-ref origin/main --to-ref HEAD
 ```
 
-The second run tests only the workspace members with a file the branch
-changed (Markdown and plugin manifests aside), and every member that depends
-on one of them (`tools/dev/ci-pytest-batches.py` picks them, as the PR's
-`tests` workflow does). Do not run the whole suite locally (`prek run --all-files`
+The second run tests the workspace members the branch changed and their dependents, as the PR's `tests` workflow does.
+Do not run the whole suite locally (`prek run --all-files`
 with the tests included) unless asked: a change to a root build input such
 as `uv.lock` already gets a full run in CI.
 
-The commit hook only sees the files in that commit, so issues in files
-committed earlier on the branch can slip past it; and the PR's CI run is
-scoped to the PR's diff, so a file the branch did not touch but broke anyway (a moved anchor, a renamed
-heading, a hook whose config changed) goes green on the PR and fails on
-the `main` build after merge. A whole-tree run locally mirrors that
-`main` build and surfaces both classes before you push. If a hook modifies
+The commit hook sees only the files in that commit and the PR's CI only its diff,
+so a file the branch broke without touching it (a moved anchor, a renamed heading, a changed hook config)
+goes green on the PR and fails on `main` after merge; the whole-tree run above catches it first.
+If a hook modifies
 files (e.g. `doctoc` regenerating a TOC), the commit is aborted —
 re-stage and commit again. **Do not bypass the hooks with
 `--no-verify`**; fix the underlying issue or update the hook config in
 the same PR.
 
-**Keep the framework snapshot in sync with the project's pin.** The
-framework lives at `<adopter-tracker>/.apache-magpie/` as a gitignored
-snapshot that [`setup`](skills/setup/SKILL.md) manages; the project's
-pinned version is the committed `.apache-magpie.lock`. Every skill
-compares the per-machine `.apache-magpie.local.lock` against the
-committed pin at the top of its run and, on drift, proposes
-`/magpie-setup update`. There is no `git submodule update` step — the
-snapshot mechanism replaces it.
+**Keep the framework snapshot in sync with the project's pin.**
+Every skill's pre-flight compares the per-machine `.apache-magpie.local.lock` with the committed `.apache-magpie.lock`
+and proposes `/magpie-setup update` on drift.
 
-**Run the agent in the credential-isolation setup.** The skills operate
-against pre-disclosure CVE content; running an `SKILL.md`-aware agent
-with default-permissive access to `~/`, env vars, and arbitrary network
-egress is a real exfiltration risk. See
-[`docs/setup/secure-agent-setup.md`](docs/setup/secure-agent-setup.md)
-for the layered defence the framework dogfoods (sandbox + tool
-permissions + clean-env wrapper, sandbox primitives pinned with a
-7-day upstream cooldown, and an agent harness installed at the latest
-release subject to a minimum-version floor).
+**Run the agent in the credential-isolation setup.**
+The skills handle pre-disclosure CVE content, so an agent with open access to `~/`, env vars and network egress is a real exfiltration risk;
+[`docs/setup/secure-agent-setup.md`](docs/setup/secure-agent-setup.md) describes the layered defence the framework dogfoods.
 
 **Golden rule — launch vetted operations with the literal `~` path, never an expanded one.**
 Run the dispatchers exactly as the skills spell them:
 `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read …` (or `vetted-op-tracker`, `vetted-op`),
 `uvx --from ~/.claude/magpie/vetted-ops …`, and `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …`.
 Never substitute `/Users/<you>/…`, `/home/<you>/…` or `$HOME/…`, and never fall back to a checkout path such as `tools/vetted-ops`.
-The sandbox exclusions and permission rules name only the `~` spelling, so an expanded path runs inside the sandbox, where `gh` cannot verify TLS, and the usual next step, a sandbox bypass, is exactly what the exclusion exists to avoid.
-A checkout path is worse: it runs code the agent can edit, which must never leave the sandbox.
+The sandbox exclusions name only the `~` spelling, so an expanded path runs sandboxed and fails;
+a checkout path runs code the agent can edit, which must never leave the sandbox.
 The agent-guard [`vetted-ops-spelling`](tools/agent-guard/README.md#guards) guard enforces this rule and names the corrected command.
 Codex's own absolute-path rewrite is the one exception.
 The same holds for the eval wrapper, `~/.claude/scripts/magpie-run-evals.sh`, and for any sandbox-excluded command:
@@ -331,25 +309,17 @@ worktree's administrative directory; a credential or socket the profile denies),
 sandbox, and never a wider `excludedCommands` or `allow` entry. Look first for a route that stays inside, then for a
 vetted operation that already covers the step. When neither exists, the framework is missing one: the agent gives
 the user the one command for this time and proposes [`setup-upstream-fix`](skills/setup-upstream-fix/SKILL.md),
-and the fix adds a closed shape to [`vetted-ops`](tools/vetted-ops/README.md) (fixed argv, parameters that cannot
-become flags, a destination taken from the approved policy, nothing from the repository's code, configuration or
-the environment able to steer it, the call kept behind `ask`) or documents the in-sandbox route.
+and the fix adds a closed shape to [`vetted-ops`](tools/vetted-ops/README.md) or documents the in-sandbox route.
 A pasted command is the stopgap, never the design.
 Every skill carries this rule as the shared block
-[`tools/dev/blocks/sandbox-golden-rule.md`](tools/dev/blocks/sandbox-golden-rule.md), right after its pre-flight;
-a new skill gets it the same way (an empty `sandbox-golden-rule` region, filled by `check-shared-blocks.py --fix`).
+[`tools/dev/blocks/sandbox-golden-rule.md`](tools/dev/blocks/sandbox-golden-rule.md), right after its pre-flight.
 
-**Tool credentials live under `$HOME`, never in the project tree.** Any
-persistent token, API key, OAuth refresh token, or session cookie a
-framework tool needs goes under a well-known home-directory path —
-`~/.config/apache-magpie/<tool>` for framework-owned tools, or the
-third-party tool's own convention (Gmail OAuth at
-`~/.config/apache-magpie/gmail-oauth.json`, PonyMail session cookie at
-`~/.ponymail-mcp/session.json`, GitHub via `gh auth` under
-`~/.config/gh/`). Two reasons this is non-negotiable: the standard
-sandbox denies reads on home-dir credential paths, so an in-tree
-credential silently bypasses that boundary; and one home-dir file serves
-every clone / worktree, not re-acquired per checkout. New integrations
+**Tool credentials live under `$HOME`, never in the project tree.**
+Any persistent token, API key, OAuth refresh token, or session cookie a framework tool needs goes under
+`~/.config/apache-magpie/<tool>`, or the third-party tool's own home-dir convention (e.g. `gh auth` under `~/.config/gh/`).
+Two reasons this is non-negotiable: the sandbox denies reads on home-dir credential paths, so an in-tree credential bypasses that boundary;
+and one home-dir file serves every clone and worktree.
+New integrations
 MUST follow the pattern — if a credential is found in-tree, relocate it
 to a home-dir path and update the tool to read from there.
 
