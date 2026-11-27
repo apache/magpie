@@ -498,6 +498,39 @@ class TestMinimalYamlLoad:
         result = _minimal_yaml_load("s: 'hello world'\n")
         assert result == {"s": "hello world"}
 
+    def test_double_quoted_latin_1_character(self):
+        result = _minimal_yaml_load('label: "café"\n')
+        assert result == {"label": "café"}
+
+    def test_double_quoted_wide_unicode_characters(self):
+        result = _minimal_yaml_load('label: "announced – ready 😀"\n')  # noqa: RUF001
+        assert result == {"label": "announced – ready 😀"}  # noqa: RUF001
+
+    def test_double_quoted_non_ascii_inline_list_item(self):
+        result = _minimal_yaml_load(
+            'labels: [plain, "announced – emails sent"]\n'  # noqa: RUF001
+        )
+        assert result == {
+            "labels": ["plain", "announced – emails sent"]  # noqa: RUF001
+        }
+
+    def test_double_quoted_non_ascii_block_sequence_predicate(self):
+        text = 'predicates:\n  - any_label: ["fix released ✅"]\n'
+        result = _minimal_yaml_load(text)
+        assert result == {"predicates": [{"any_label": ["fix released ✅"]}]}
+
+    def test_double_quoted_escape_with_non_ascii(self):
+        result = _minimal_yaml_load('label: "café\\tdone"\n')
+        assert result == {"label": "café\tdone"}
+
+    def test_double_quoted_ascii_escape(self):
+        result = _minimal_yaml_load('label: "a\\"b"\n')
+        assert result == {"label": 'a"b'}
+
+    def test_double_quoted_unicode_escape_with_non_ascii(self):
+        result = _minimal_yaml_load('label: "\\u00e9 – x"\n')  # noqa: RUF001
+        assert result == {"label": "é – x"}  # noqa: RUF001
+
     def test_mapping_in_sequence(self):
         text = "cats:\n  - name: foo\n    color: red\n"
         result = _minimal_yaml_load(text)
