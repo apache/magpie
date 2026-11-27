@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:51ecb7683ea269cf
 license: Apache-2.0
-measured_tokens: 6169
+measured_tokens: 6214
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -157,7 +157,18 @@ Walk each:
    (A `Co-Authored-By:` trailer is no longer a reliable canary: the `commit-trailer` guard allows it in a project whose [commit-attribution convention](../../../../docs/setup/commit-attribution.md) is `co-authored-by`.)
 
 4. **Settings.json shape drift.**
-   Diff the user's project `.claude/settings.json` against the framework's dogfooded one.
+   Run the read-only checker `setup-isolated-setup-verify` runs, inside the sandbox from the project root, with the `PYTHONPATH` every skill's pre-flight uses:
+
+   ```bash
+   PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+     python3 -P -m setup_preflight.isolated_verify check --project-root .
+   ```
+
+   In the framework checkout put `plugins/magpie-setup/skills/setup` on `PYTHONPATH` instead, and on a pinned snapshot `.apache-magpie/tools/setup-preflight/src`.
+   When the command fails (no checker copy, or one older than this skill), say that `/magpie-setup:setup update` refreshes it (`setup config` installs it), and apply the rules it would have decided by hand from [verify's `manual-checks.md`](../isolated-setup-verify/manual-checks.md#check-19--host-only-uv-and-prek-state).
+   A finding that is `unknown` lists the inputs under `unreadable` that the sandbox hid: read those with the file-reading tool, never `cat`, and finish it with the rules at `see`; a `fail` or `warn` already found stands.
+
+   Then diff the user's project `.claude/settings.json` against the framework's dogfooded one.
    The framework occasionally adds new `denyRead` paths (a credential type the team newly cares about), new `allowedDomains` entries, new `permissions.deny` patterns for newly-discovered exfiltration paths, **or the agent-guard `hooks.PreToolUse` entry** (matcher `Bash`) — the last only matters if the user wired the secure setup before the guard shipped and does not have the `magpie-agent-guard` plugin enabled.
    With the plugin, that hook comes from the plugin manifest and its absence from `settings.json` is correct.
    Report new entries the user does not have; do not auto-merge.
@@ -188,7 +199,8 @@ Walk each:
      Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
    - **`~/.local/share/uv` writable, or no host-only uv cache.**
      Earlier defaults put `~/.local/share/uv/` in `allowWrite`, where the interpreters and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run` commands run outside the sandbox live; and `uvx` ran from the shared, sandbox-writable `~/.cache/uv`.
-     Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` / `Edit(~/.cache/prek/**)` deny, an `env.PREK_HOME` that is missing or overlaps `~/.cache/prek`, a missing `Edit(~/.cache/pnpm/**)` deny, a grant covering `~/.local/share/pnpm-sandbox/` itself, an `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, or, in a project that uses pnpm, an `env.PNPM_HOME` that is missing, not exactly `~/.local/share/pnpm-sandbox/<project>`, not in `allowWrite` or not yet created on disk, or an `npm_config_cache_dir` other than `<home>/cache`, as a **must-fix**; report a missing `npm_config_cache` (`<home>/npm-cache`) as drift, to add (commands pnpm hands to npm otherwise fail on `~/.npm`), and an `npm_config_enable_global_virtual_store` = `true` as drift, to remove (a virtual store outside the project hides its `@types/*` packages from TypeScript); the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
+     Report the checker's check 19 finding (its live probes under `manual` are verify's, not this skill's): each `fail` line is a **must-fix**, and each `warn` line (a missing or other `npm_config_cache`, to add; `npm_config_enable_global_virtual_store` = `true`, to remove) is drift.
+     The remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
    - **A container-gateway hook registered for another machine.**
      The `SessionStart` / `SessionEnd` / `PreToolUse` hooks run `container-gateway-hook.sh` by its absolute path, which differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`).
      Report a registered path that does not exist on this machine as a **must-fix** (the gateway never starts), one registered only in `~/.claude/settings.local.json` as a **must-fix** too (Claude Code does not load that file, so the hook never runs), and one in a `~/.claude/settings.json` that links into a synced config repo as drift; the remedy is the setup guide's [Fixing your other machines](../../../../docs/setup/secure-agent-setup.md#container-gateway): move the entries into each machine's managed-settings drop-in `managed-settings.d/50-magpie-container-gateway.json`, which runs the root-owned dispatcher `<managed-settings dir>/magpie/container-gateway-dispatch`. Report a `~/.claude/scripts/container-gateway-hook.sh` that is a symlink while the dispatcher is registered as a **must-fix** (the dispatcher refuses links, so the gateway never starts; the remedy is a plain copy, `rm` the link first). Report an installed dispatcher that differs from `tools/agent-isolation/container-gateway-dispatch.sh` as drift (re-run the guide's `install` line), and one that is not root-owned, or is writable by anyone but root, as a **must-fix**.

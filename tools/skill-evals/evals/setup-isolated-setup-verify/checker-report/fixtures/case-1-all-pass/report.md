@@ -197,10 +197,22 @@ PYTHONPATH="$HOME/.cache/apache-magpie/preflight" python3 -P -m setup_preflight.
     },
     {
       "check": "19",
-      "status": "manual",
+      "status": "pass",
       "evidence": [
-        "sandbox enabled"
-      ]
+        "19a: no allowWrite or additionalDirectories entry covers ~/.local/share/uv",
+        "19b: cache-dir /home/alice/.local/share/uv-host/cache (resolved /home/alice/.local/share/uv-host/cache) is outside every sandbox-writable directory",
+        "19c: permissions.deny carries Read(~/.config/uv/uv.toml) and Edit(~/.config/uv/**)",
+        "19d: permissions.deny carries Edit(~/.cache/prek/**)",
+        "19d: env.PREK_HOME ~/.cache/prek-sandbox (.claude/settings.json), outside ~/.cache/prek",
+        "19e: permissions.deny carries Edit(~/.cache/pnpm/**)",
+        "19e: the project does not use pnpm: no env.PNPM_HOME needed"
+      ],
+      "manual": [
+        "19c live probe: a sandboxed `uv cache dir` prints uv's default cache, not 19b's cache-dir",
+        "19d live probe: a sandboxed write into ~/.cache/prek fails",
+        "19d: the whole-user dispatcher's installed copy carries the prek-host block"
+      ],
+      "see": "manual-checks.md#check-19--host-only-uv-and-prek-state"
     }
   ]
 }

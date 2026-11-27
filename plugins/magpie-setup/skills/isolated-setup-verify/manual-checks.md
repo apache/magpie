@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# The mechanical checks, by hand: 1 to 6, 8 and 11
+# The mechanical checks, by hand: 1 to 6, 8, 11 and 19
 
 `setup_preflight.isolated_verify` decides these checks; `SKILL.md` § *The checks* runs it.
 Read this file only when the checker is not installed, or for a check it reported `unknown`: then read the files it lists under `unreadable` with the file-reading tool, never `cat`, and apply that check's section below.
@@ -86,3 +86,57 @@ Missing on macOS is ✗; missing on Linux is ⚠ (a sandboxed `gh` may work ther
 Claude Code evaluates deny, then ask, then allow, and "a matching ask rule prompts even when a more specific allow rule also matches", so the catch-all forces a prompt on every read-only `gh` call the `allow` rules meant to exempt.
 The reference config lists the write subcommands one by one instead.
 A catch-all in any scope is ✗, and the report should say which file carries it.
+
+## Check 19 — host-only uv and prek state
+
+Only when the sandbox is enabled; otherwise **n/a**.
+Hooks, MCP servers, the excluded `uvx` / `uv run` commands and the operator's terminal (its git hooks included) run uv- and prek-managed code outside the sandbox, so none of it may come from a directory a sandboxed command can write.
+The checker decides the static part of every sub-check below; the parts it lists under `manual` (19c's `uv cache dir` probe, 19d's write probe and its dispatcher rule) stay with the agent.
+Each sub-check is ✓ or ✗ unless it names ⚠:
+
+- **19a — the uv data dir is read-only.** No `allowWrite` or
+  `additionalDirectories` entry in any scope covers `~/.local/share/uv`
+  or a parent of it.
+- **19b — the host has its own cache.** `~/.config/uv/uv.toml` sets
+  `cache-dir` to an absolute path, symlinks resolved, outside every
+  directory a sandboxed command can write: every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`), `~/.cache` included. A writable root inside the
+  cache counts too. Missing, relative (uv does not expand `~` there) or
+  overlapping is ✗.
+- **19c — the sandbox cannot read it.** `permissions.deny` carries
+  `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
+  sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
+  19b's path is ✗: the sandbox reads the config and writes the host cache.
+- **19d — sandboxed prek has its own home.** When the project does not
+  use prek ([detection](../../../../tools/hook-manager/README.md#detection)),
+  only the deny below is checked. The merged settings carry
+  `env.PREK_HOME` outside `~/.cache/prek` (`~/.cache/prek-sandbox` in the
+  reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
+  sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
+  terminal's git hooks run prek's environments there, outside the sandbox.
+  With the whole-user dispatcher, an installed copy without the
+  `prek-host` block is ✗ (stale: commits Claude runs outside the sandbox
+  would use the sandbox home). Per-project scope, or a repository whose own
+  `core.hooksPath` skips the dispatcher (check 8), is ⚠ for that same case.
+- **19e — sandboxed pnpm has its own home.** `permissions.deny` carries
+  `Edit(~/.cache/pnpm/**)` (✗ if missing). When the project uses pnpm (a
+  tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`), the merged settings
+  also carry `env.PNPM_HOME` set to a directory of the project's own,
+  exactly `~/.local/share/pnpm-sandbox/<project>` (or its absolute form;
+  `<project>` lower-case letters, digits, `.`, `_`, `-`), that directory
+  in `allowWrite` and existing on disk (`test -d`; a grant on a missing
+  directory does nothing, and the sandbox cannot create it), and `env.npm_config_cache_dir`
+  exactly `<home>/cache`. Any missing is
+  ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm`. A missing
+  `env.npm_config_cache` (`<home>/npm-cache`) is ⚠: commands pnpm hands
+  to npm (`pnpm view`) fail on `~/.npm` with a misleading `sudo chown`
+  hint. `env.npm_config_enable_global_virtual_store` = `"true"` is ⚠ (not a
+  sandbox breach): a virtual store outside the project hides the
+  project's own `@types/*` packages from TypeScript, so type-aware checks
+  fail. A home spelled any other way
+  (under `~/.cache/`, or `.`/`//` in it), and in any project a scope
+  granting `~/.local/share/pnpm-sandbox/` itself or an
+  `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, is
+  ✗: the project's hooks run those packages outside the sandbox, and every
+  project's sessions could write them.
+
+[Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).

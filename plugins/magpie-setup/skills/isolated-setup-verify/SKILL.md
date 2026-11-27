@@ -16,9 +16,9 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:3b9f2a6489ad6989
+surface_hash: sha256:48f94e320677084d
 license: Apache-2.0
-measured_tokens: 6544
+measured_tokens: 5813
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -113,7 +113,7 @@ The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
 Walk each in order.
 
-**Run the checker first.** Checks 1 to 6, the static half of 8, and 11 are mechanical, and so are the conditions that make 9, 10, 12, 13, 15, 16, 17 and 19 apply; a read-only checker decides them.
+**Run the checker first.** Checks 1 to 6, the static halves of 8 and 19, and 11 are mechanical, and so are the conditions that make 9, 10, 12, 13, 15, 16, 17 and 19 apply; a read-only checker decides them.
 Run it inside the sandbox from the project root, with the `PYTHONPATH` every skill's pre-flight uses:
 
 ```bash
@@ -131,7 +131,7 @@ Report each check from its finding, with the evidence:
   A `fail` or `warn` the checker already found in that check stands.
 - `manual`: run the check below; `see` names its section when there is one.
 
-When the command fails (no checker copy, or one older than this skill), say that `/magpie-setup:setup update` refreshes it (`setup config` installs it), then run checks 1 to 6, 8 and 11 by hand from [`manual-checks.md`](manual-checks.md) and take each condition from the check below.
+When the command fails (no checker copy, or one older than this skill), say that `/magpie-setup:setup update` refreshes it (`setup config` installs it), then run checks 1 to 6, 8, 11 and 19 by hand from [`manual-checks.md`](manual-checks.md) and take each condition from the check below.
 
 **No framework checkout.** When `facts.framework_checkout` is null, ask the user once for the path of their `magpie` clone and re-run with `--framework <path>`.
 Without one, keep the checker's verdicts: 10a's script comparison and 13c are **unchecked — no framework checkout**, check 5's `bubblewrap`/`socat` pins too, and the unenforced `claude-code` floor is ⚠ (overall `warn`), never unchecked; say which path to supply.
@@ -241,57 +241,11 @@ At or above the floor, suggest `@latest` if it is not already the newest (a note
     a local value that overrides one the committed file sets (such as
     `sandbox.enabled`) is ✗.
 
-19. **Host-only uv and prek state.** Only when the sandbox is enabled; otherwise **n/a**.
-    Hooks, MCP servers, the excluded `uvx` / `uv run` commands and the
-    operator's terminal (its git hooks included) run uv- and prek-managed
-    code outside the sandbox, so none of it may come from a directory a
-    sandboxed command can write. Four sub-checks, each ✓ or ✗:
-
-    - **19a — the uv data dir is read-only.** No `allowWrite` or
-      `additionalDirectories` entry in any scope covers `~/.local/share/uv`
-      or a parent of it.
-    - **19b — the host has its own cache.** `~/.config/uv/uv.toml` sets
-      `cache-dir` to an absolute path, symlinks resolved, outside every
-      directory a sandboxed command can write: every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`), `~/.cache` included. A writable root inside the
-      cache counts too. Missing, relative (uv does not expand `~` there) or
-      overlapping is ✗.
-    - **19c — the sandbox cannot read it.** `permissions.deny` carries
-      `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
-      sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
-      19b's path is ✗: the sandbox reads the config and writes the host cache.
-    - **19d — sandboxed prek has its own home.** When the project does not
-      use prek ([detection](../../../../tools/hook-manager/README.md#detection)),
-      only the deny below is checked. The merged settings carry
-      `env.PREK_HOME` outside `~/.cache/prek` (`~/.cache/prek-sandbox` in the
-      reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
-      sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
-      terminal's git hooks run prek's environments there, outside the sandbox.
-      With the whole-user dispatcher, an installed copy without the
-      `prek-host` block is ✗ (stale: commits Claude runs outside the sandbox
-      would use the sandbox home). Per-project scope, or a repository whose own
-      `core.hooksPath` skips the dispatcher (check 8), is ⚠ for that same case.
-    - **19e — sandboxed pnpm has its own home.** `permissions.deny` carries
-      `Edit(~/.cache/pnpm/**)` (✗ if missing). When the project uses pnpm (a
-      tracked `pnpm-lock.yaml` or `pnpm-workspace.yaml`), the merged settings
-      also carry `env.PNPM_HOME` set to a directory of the project's own,
-      exactly `~/.local/share/pnpm-sandbox/<project>` (or its absolute form;
-      `<project>` lower-case letters, digits, `.`, `_`, `-`), that directory
-      in `allowWrite` and existing on disk (`test -d`; a grant on a missing
-      directory does nothing, and the sandbox cannot create it), and `env.npm_config_cache_dir`
-      exactly `<home>/cache`. Any missing is
-      ✗: a sandboxed `pnpm install` fails on `~/Library/pnpm`. A missing
-      `env.npm_config_cache` (`<home>/npm-cache`) is ⚠: commands pnpm hands
-      to npm (`pnpm view`) fail on `~/.npm` with a misleading `sudo chown`
-      hint. `env.npm_config_enable_global_virtual_store` = `"true"` is ⚠ (not a
-      sandbox breach): a virtual store outside the project hides the
-      project's own `@types/*` packages from TypeScript, so type-aware checks
-      fail. A home spelled any other way
-      (under `~/.cache/`, or `.`/`//` in it), and in any project a scope
-      granting `~/.local/share/pnpm-sandbox/` itself or an
-      `npm_config_store_dir` / `state_dir` / `virtual_store_dir` in `env`, is
-      ✗: the project's hooks run those packages outside the sandbox, and every
-      project's sessions could write them.
-
+19. **Host-only uv and prek state** (the checker, static half).
+    Only when the sandbox is enabled; otherwise **n/a**.
+    The checker decides 19a–19e from the merged settings, `~/.config/uv/uv.toml` and the pnpm home on disk: the uv data dir is read-only, the host has its own absolute uv cache outside every sandbox-writable directory, the uv, prek and pnpm deny rules, `env.PREK_HOME`, and the pnpm home, grant and cache entries ([rules](manual-checks.md#check-19--host-only-uv-and-prek-state)).
+    Report its finding with the evidence; `~/.config/uv/uv.toml` is read-denied in the sandbox, so 19b usually comes back `unknown`: read it with the file-reading tool and finish 19b from those rules.
+    Then run the probes it lists under `manual`, as standalone Bash calls: a sandboxed `uv cache dir` that prints 19b's path is ✗ (the sandbox reads the config and writes the host cache); where the project uses prek, a sandboxed write into `~/.cache/prek` that succeeds is ✗; and the whole-user dispatcher rule of 19d, from the same rules.
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 
 20. **cve-tool exclusion, if installed.** Optional (step C of `setup-isolated-setup-install`).

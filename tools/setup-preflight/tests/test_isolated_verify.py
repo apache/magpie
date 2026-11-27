@@ -73,7 +73,15 @@ def reference(root: Path, home: Path) -> dict:
             "network": {"allowedDomains": ["github.com"]},
             "filesystem": {"denyRead": ["~/"], "allowRead": ["."], "allowWrite": ["~/.cache/"]},
         },
-        "permissions": {"deny": ["Bash(curl *)"], "ask": ["Bash(git push *)"]},
+        "permissions": {
+            "deny": [
+                "Bash(curl *)",
+                *isolated_verify.UV_DENIES,
+                isolated_verify.PREK_DENY,
+                isolated_verify.PNPM_DENY,
+            ],
+            "ask": ["Bash(git push *)"],
+        },
     }
 
 
@@ -116,6 +124,7 @@ def setup(tmp_path: Path, isolated_home: Path, tmp_path_factory: pytest.TempPath
         home / ".bashrc",
         "export PATH=$PATH\nsource ~/.claude/scripts/agent-iso.sh\nalias claude='claude-iso'\n",
     )
+    write(home / isolated_verify.UV_CONFIG, f'cache-dir = "{home}/.local/share/uv-host/cache"\n')
     managed = tmp_path_factory.mktemp("managed")
     return root, home, managed
 
@@ -128,6 +137,7 @@ def verifier(
     run: Fake | None = None,
     which=None,
     framework=None,
+    implicit_writable: tuple[str, ...] = (),
 ):
     root, home, managed = setup
     ctx = Context(
@@ -139,6 +149,8 @@ def verifier(
         managed_dirs=(managed,),
         run=run or Fake(),
         which=which or (lambda name: None),
+        # The temporary home sits under /var/folders on macOS; the tests that need these roots pass them.
+        implicit_writable=implicit_writable,
     )
     return Verifier(ctx)
 
@@ -163,7 +175,7 @@ def test_a_complete_install_passes_every_mechanical_check(setup) -> None:
     report = verifier(setup).run()
     statuses = {f["check"]: f["status"] for f in report["findings"]}
     assert [f["check"] for f in report["findings"]] == [str(n) for n in range(1, 22)]
-    for n in ("1", "2", "3", "4", "5", "6", "8", "11"):
+    for n in ("1", "2", "3", "4", "5", "6", "8", "11", "19"):
         assert statuses[n] == "pass", (n, finding(verifier(setup), n))
     assert statuses["7"] == statuses["18"] == statuses["14"] == statuses["20"] == statuses["21"] == "manual"
     assert report["facts"]["framework_found_via"] == "this repository"
@@ -517,6 +529,326 @@ def test_check_11b_specific_gh_ask_rules_are_fine(setup) -> None:
     assert finding(verifier(setup), "11")["status"] == "pass"
 
 
+# -- check 19 ---------------------------------------------------------------
+
+
+def part(result: dict, prefix: str) -> list[str]:
+    return [line for line in result["evidence"] if line.startswith(prefix)]
+
+
+def with_settings(setup, change) -> None:
+    """Rewrite the project settings with `change` applied to them."""
+    root, home, _ = setup
+    settings = reference(root, home)
+    change(settings)
+    write(root / ".claude" / "settings.json", settings)
+
+
+def test_check_19_passes_and_lists_the_live_probes(setup) -> None:
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "pass", result
+    assert {line[:3] for line in result["evidence"]} == {"19a", "19b", "19c", "19d", "19e"}
+    assert any("uv cache dir" in item for item in result["manual"])
+    assert not any("write into ~/.cache/prek" in item for item in result["manual"])  # no prek here
+    assert result["see"] == "manual-checks.md#check-19--host-only-uv-and-prek-state"
+
+
+def test_check_19_is_not_applicable_without_a_sandbox(setup) -> None:
+    with_settings(setup, lambda s: s["sandbox"].update(enabled=False))
+    assert finding(verifier(setup), "19")["status"] == "n/a"
+
+
+@pytest.mark.parametrize(
+    "key, entry",
+    [
+        (("sandbox", "filesystem", "allowWrite"), "~/.local/share/uv/"),
+        (("permissions", "additionalDirectories"), "~/.local"),
+        (("sandbox", "filesystem", "allowWrite"), "$HOME/.local/share/uv"),
+    ],
+)
+def test_check_19a_a_write_grant_covering_the_uv_data_dir_fails(setup, key, entry) -> None:
+    def change(settings: dict) -> None:
+        node = settings
+        for name in key[:-1]:
+            node = node.setdefault(name, {})
+        node.setdefault(key[-1], []).append(entry)
+
+    with_settings(setup, change)
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert part(result, "19a") == [
+        f"19a: ~/.local/share/uv writable: .claude/settings.json: {'.'.join(key)} {entry!r}"
+    ]
+
+
+def test_check_19a_a_read_grant_is_fine(setup) -> None:
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowRead"].append("~/.local/share/uv"))
+    assert part(finding(verifier(setup), "19"), "19a")[0].startswith("19a: no allowWrite")
+
+
+def test_check_19_is_unknown_when_a_settings_file_is_unreadable(setup) -> None:
+    _, home, _ = setup
+    unreadable(home / ".claude" / "settings.json")
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "unknown"
+    assert result["unreadable"] == ["~/.claude/settings.json (unreadable)"]
+    assert result["see"] == "manual-checks.md#check-19--host-only-uv-and-prek-state"
+
+
+def test_check_19_a_gap_found_beats_an_unreadable_file(setup) -> None:
+    _, home, _ = setup
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append("~/.local/share/uv"))
+    unreadable(home / ".claude" / "settings.json")
+    assert finding(verifier(setup), "19")["status"] == "fail"
+
+
+def test_check_19b_an_unreadable_uv_config_is_unknown(setup) -> None:
+    _, home, _ = setup
+    unreadable(home / isolated_verify.UV_CONFIG)
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "unknown"
+    assert result["unreadable"] == ["~/.config/uv/uv.toml (unreadable)"]
+
+
+@pytest.mark.parametrize(
+    "content, wording",
+    [
+        (None, "missing"),
+        ("not = [toml", "not valid TOML"),
+        ("python-preference = 'managed'\n", "sets no cache-dir"),
+        ('cache-dir = "~/.local/share/uv-host/cache"\n', "not absolute"),
+        ('cache-dir = "uv-host/cache"\n', "not absolute"),
+    ],
+)
+def test_check_19b_a_missing_or_relative_host_cache_fails(setup, content, wording) -> None:
+    _, home, _ = setup
+    config = home / isolated_verify.UV_CONFIG
+    if content is None:
+        config.unlink()
+    else:
+        write(config, content)
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert wording in part(result, "19b")[0]
+
+
+def test_check_19b_a_cache_inside_a_writable_directory_fails(setup) -> None:
+    _, home, _ = setup
+    write(home / isolated_verify.UV_CONFIG, f'cache-dir = "{home}/.cache/uv-host"\n')
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert "~/.cache" in part(result, "19b")[0]
+
+
+def test_check_19b_a_writable_root_inside_the_cache_fails(setup) -> None:
+    with_settings(
+        setup,
+        lambda s: s["sandbox"]["filesystem"]["allowWrite"].append("~/.local/share/uv-host/cache/sandbox"),
+    )
+    assert "overlaps" in part(finding(verifier(setup), "19"), "19b")[0]
+
+
+def test_check_19b_resolves_symlinks_and_the_project_root(setup) -> None:
+    root, home, _ = setup
+    (home / "link").symlink_to(root)
+    write(home / isolated_verify.UV_CONFIG, f'cache-dir = "{home}/link/uv-cache"\n')
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert "project root" in part(result, "19b")[0]
+
+
+def test_check_19b_the_sandbox_writes_temporary_roots_without_a_grant(setup) -> None:
+    _, home, _ = setup
+    write(home / isolated_verify.UV_CONFIG, 'cache-dir = "/tmp/uv-host"\n')
+    v = verifier(setup, implicit_writable=isolated_verify.IMPLICIT_WRITABLE)
+    assert "/tmp" in part(finding(v, "19"), "19b")[0]
+    write(home / isolated_verify.UV_CONFIG, 'cache-dir = "/srv/uv-host"\n')
+    tmpdir = verifier(setup, env={"CLAUDECODE": "1", "TMPDIR": "/srv"})
+    assert "$TMPDIR" in part(finding(tmpdir, "19"), "19b")[0]
+
+
+@pytest.mark.parametrize(
+    "rule, sub",
+    [
+        ("Read(~/.config/uv/uv.toml)", "19c"),
+        ("Edit(~/.config/uv/**)", "19c"),
+        (isolated_verify.PREK_DENY, "19d"),
+        (isolated_verify.PNPM_DENY, "19e"),
+    ],
+)
+def test_check_19_a_missing_deny_rule_fails(setup, rule, sub) -> None:
+    with_settings(setup, lambda s: s["permissions"]["deny"].remove(rule))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert rule in part(result, sub)[0] and "lacks" in part(result, sub)[0]
+
+
+def test_check_19_a_broader_deny_rule_covers_a_narrower_one(setup) -> None:
+    def change(settings: dict) -> None:
+        settings["permissions"]["deny"].remove("Edit(~/.config/uv/**)")
+        settings["permissions"]["deny"].append("Edit(~/.config/**)")
+
+    with_settings(setup, change)
+    assert finding(verifier(setup), "19")["status"] == "pass"
+
+
+def test_check_19_a_missing_deny_may_hide_in_an_unreadable_file(setup) -> None:
+    _, home, _ = setup
+    with_settings(setup, lambda s: s["permissions"]["deny"].remove(isolated_verify.PNPM_DENY))
+    unreadable(home / ".claude" / "settings.json")
+    assert finding(verifier(setup), "19")["status"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "prek_home, status",
+    [
+        (None, "fail"),
+        ("~/.cache/prek", "fail"),
+        ("~/.cache/prek/sandbox", "fail"),
+        ("~/.cache", "fail"),
+        ("~/.cache/prek-sandbox", "pass"),
+    ],
+)
+def test_check_19d_a_prek_project_needs_its_own_home(setup, prek_home, status) -> None:
+    root, _, _ = setup
+    write(root / "prek.toml", "")
+    if prek_home is not None:
+        with_settings(setup, lambda s: s.setdefault("env", {}).update(PREK_HOME=prek_home))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == status, result
+    assert "PREK_HOME" in part(result, "19d")[1]
+    assert any("write into ~/.cache/prek" in item for item in result["manual"])
+
+
+def test_check_19d_detects_prek_through_an_installed_git_hook(setup) -> None:
+    root, _, _ = setup
+    write(root / ".git" / "hooks" / "pre-commit", "#!/bin/sh\nexec prek hook-impl\n")
+    assert "env.PREK_HOME missing" in part(finding(verifier(setup), "19"), "19d")[1]
+
+
+def test_check_19d_the_local_file_overrides_the_project_home(setup) -> None:
+    root, home, _ = setup
+    write(root / "prek.toml", "")
+    with_settings(setup, lambda s: s.setdefault("env", {}).update(PREK_HOME="~/.cache/prek-sandbox"))
+    write(
+        root / ".claude" / "settings.local.json", {**local(root, home), "env": {"PREK_HOME": "~/.cache/prek"}}
+    )
+    assert "overlaps" in part(finding(verifier(setup), "19"), "19d")[1]
+
+
+PNPM_PROJECT: dict[str, str | None] = {
+    "ls-files -- :(glob)**/pnpm-lock.yaml :(glob)**/pnpm-workspace.yaml": "pnpm-lock.yaml\n"
+}
+
+
+def pnpm_ready(setup, **env: str | None) -> None:
+    """A pnpm project wired as install Step U proposes, with `env` overriding the env entries."""
+    _, home, _ = setup
+    pnpm_home = "~/.local/share/pnpm-sandbox/demo"
+    values = {
+        "PNPM_HOME": pnpm_home,
+        "npm_config_cache_dir": f"{pnpm_home}/cache",
+        "npm_config_cache": f"{pnpm_home}/npm-cache",
+        **env,
+    }
+
+    def change(settings: dict) -> None:
+        settings["env"] = {key: value for key, value in values.items() if value is not None}
+        settings["sandbox"]["filesystem"]["allowRead"].append(f"{pnpm_home}/")
+        settings["sandbox"]["filesystem"]["allowWrite"].append(f"{pnpm_home}/")
+
+    with_settings(setup, change)
+    (home / ".local" / "share" / "pnpm-sandbox" / "demo").mkdir(parents=True, exist_ok=True)
+
+
+def test_check_19e_a_wired_pnpm_project_passes(setup) -> None:
+    pnpm_ready(setup)
+    result = finding(verifier(setup, run=Fake(PNPM_PROJECT)), "19")
+    assert result["status"] == "pass", result
+    assert any("exists" in line for line in part(result, "19e"))
+
+
+def test_check_19e_the_absolute_home_spelling_is_accepted(setup) -> None:
+    _, home, _ = setup
+    absolute = f"{home}/.local/share/pnpm-sandbox/demo"
+    pnpm_ready(
+        setup,
+        PNPM_HOME=absolute,
+        npm_config_cache_dir=f"{absolute}/cache",
+        npm_config_cache=f"{absolute}/npm-cache",
+    )
+    assert finding(verifier(setup, run=Fake(PNPM_PROJECT)), "19")["status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    "env, wording",
+    [
+        ({"PNPM_HOME": None}, "env.PNPM_HOME is missing"),
+        ({"PNPM_HOME": "~/.cache/pnpm-sandbox/demo"}, "is not exactly"),
+        ({"PNPM_HOME": "~/.local/share/./pnpm-sandbox/demo"}, "is not exactly"),
+        ({"PNPM_HOME": "~/.local/share/pnpm-sandbox/Demo"}, "is not exactly"),
+        ({"npm_config_cache_dir": None}, "npm_config_cache_dir missing"),
+        ({"npm_config_cache_dir": "~/.cache/pnpm"}, "is not ~/.local/share/pnpm-sandbox/demo/cache"),
+    ],
+)
+def test_check_19e_a_pnpm_project_home_spelled_or_set_wrong_fails(setup, env, wording) -> None:
+    pnpm_ready(setup, **env)
+    result = finding(verifier(setup, run=Fake(PNPM_PROJECT)), "19")
+    assert result["status"] == "fail", result
+    assert any(wording in line for line in part(result, "19e")), result["evidence"]
+
+
+def test_check_19e_a_home_not_granted_or_not_created_fails(setup) -> None:
+    root, home, _ = setup
+    pnpm_ready(setup)
+    settings = json.loads((root / ".claude" / "settings.json").read_text())
+    settings["sandbox"]["filesystem"]["allowWrite"].remove("~/.local/share/pnpm-sandbox/demo/")
+    write(root / ".claude" / "settings.json", settings)
+    (home / ".local" / "share" / "pnpm-sandbox" / "demo").rmdir()
+    result = finding(verifier(setup, run=Fake(PNPM_PROJECT)), "19")
+    assert result["status"] == "fail"
+    lines = part(result, "19e")
+    assert any("not in sandbox.filesystem.allowWrite" in line for line in lines)
+    assert any("does not exist on disk" in line for line in lines)
+
+
+@pytest.mark.parametrize(
+    "env, wording",
+    [
+        ({"npm_config_cache": None}, "npm_config_cache missing"),
+        ({"npm_config_cache": "~/.npm"}, "is not ~/.local/share/pnpm-sandbox/demo/npm-cache"),
+        ({"npm_config_enable_global_virtual_store": "true"}, "npm_config_enable_global_virtual_store = true"),
+    ],
+)
+def test_check_19e_npm_cache_and_global_virtual_store_are_drift(setup, env, wording) -> None:
+    pnpm_ready(setup, **env)
+    result = finding(verifier(setup, run=Fake(PNPM_PROJECT)), "19")
+    assert result["status"] == "warn", result
+    assert any(wording in line for line in part(result, "19e")), result["evidence"]
+
+
+def test_check_19e_a_project_without_pnpm_needs_no_home(setup) -> None:
+    assert "does not use pnpm" in part(finding(verifier(setup), "19"), "19e")[-1]
+
+
+@pytest.mark.parametrize("entry", ["~/.local/share/pnpm-sandbox/", "~/.local/share"])
+def test_check_19e_granting_every_pnpm_home_fails_in_any_project(setup, entry) -> None:
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append(entry))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert any("grants ~/.local/share/pnpm-sandbox/ itself" in line for line in part(result, "19e"))
+
+
+@pytest.mark.parametrize(
+    "key", ["npm_config_store_dir", "npm-config-state-dir", "npm_config_virtual_store_dir"]
+)
+def test_check_19e_moving_pnpm_store_or_state_fails_in_any_project(setup, key) -> None:
+    with_settings(setup, lambda s: s.setdefault("env", {}).update({key: "~/.cache/pnpm-store"}))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert any(f"env.{key}" in line for line in part(result, "19e"))
+
+
 # -- gates ------------------------------------------------------------------
 
 
@@ -524,7 +856,7 @@ def test_closed_gates_are_not_applicable(setup) -> None:
     statuses = {f["check"]: f["status"] for f in verifier(setup).run()["findings"]}
     for n in ("9", "10", "13", "15", "16", "17"):
         assert statuses[n] == "n/a", n
-    assert statuses["19"] == "manual"  # the sandbox is enabled
+    assert statuses["19"] == "pass"  # the sandbox is enabled, so check 19 applies
 
 
 def test_open_gates_send_the_agent_to_the_conditional_checks(setup) -> None:
