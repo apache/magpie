@@ -74,18 +74,20 @@ Use the backend chosen in Step 5d:
   the chronologically-last message's `id`, and call
   `mcp__claude_ai_Gmail__create_draft` with `to=<reporterEmail>`,
   `cc=security_cc`, `subject='Re: <root subject>'`,
-  `body=<file>`, and `replyToMessageId=<that message id>`. The
+  `body=<file>`, and `replyToMessageId=<that message id>`
+  (a non-empty plan `bcc` is named in the proposal for the human to add). The
   draft lands attached to the inbound thread.
 - **`oauth_curl`** (preferred): call the `oauth_curl drafts:create` script
   per [`draft-backends.md`](../../../../tools/gmail/draft-backends.md)
   with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
-  `cc=security_cc`, `subject='Re: <root subject>'`,
+  `cc=security_cc`, `bcc=<the plan's bcc>`, `subject='Re: <root subject>'`,
   `body=<file>`. The draft lands attached to the inbound thread.
 - **`maildir`** (when the drafting backend resolves to it): call
   `maildir-draft-create` per [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend)
   with `--in-reply-to` the inbound report's `Message-ID`,
   `--to <reporterEmail>`, `--cc security_cc`,
-  `--subject 'Re: <root subject>'` and `--body-file <file>`. The printed
+  `--subject 'Re: <root subject>'` and `--body-file <file>`
+  (it takes no Bcc: a non-empty plan `bcc` is named in the proposal for the human to add). The printed
   draft path stands in for the `draftId`.
 
 Capture the returned `draftId`.

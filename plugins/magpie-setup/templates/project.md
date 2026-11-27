@@ -416,6 +416,21 @@ security_inbox:
   reporter_response_timeout_days: 21   # only if your project differs from its organization
 ```
 
+**Optional override — `bcc_private_list`.** When the project has no
+dedicated security list (`security_list` unset, or the organization's
+foundation address), reporter-facing drafts carry `private_list` in
+**Bcc** so the governance body sees what reporters are told; it never goes
+in To or Cc, since reporters are never given that address. `ASF` turns this
+on and `independent` leaves it off; set it here only to depart from your
+organization. A dedicated security list already reaches the team, so no Bcc
+is added then. Consumed by the shared
+[security draft CC resolution](../../../tools/mail-source/contract.md#security-draft-cc-resolution).
+
+```yaml
+security_inbox:
+  bcc_private_list: false   # only if your project differs from its organization
+```
+
 ### Forwarders
 
 Org-level — inherited from your organization's `forwarders` block (which

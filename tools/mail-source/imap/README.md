@@ -140,6 +140,9 @@ framework directives (see
 Drafts carry the `security_cc` recipient resolved by the calling skill per
 the contract's *Security draft CC resolution* section — this adapter never
 invents a recipient and never hardcodes an organization address.
+It takes no Bcc, so a resolved private-list `security_bcc` is not filed with
+the draft: the calling skill names it for the human to add before sending,
+and never moves it to Cc.
 
 ## Test
 

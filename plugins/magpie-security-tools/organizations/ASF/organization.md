@@ -128,6 +128,7 @@ governance:
 security_inbox:
   kind: mailing-list
   foundation_security_address: security@apache.org   # ASF security team forwards reports here
+  bcc_private_list: true                              # no project security list: reporter drafts Bcc private_list
   cve_tool_senders: [security@apache.org]             # organization-wide CVE bookkeeping sender
   has_forwarder_relay: true
   list_filter_query: "list:<security-list-domain>"

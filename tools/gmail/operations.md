@@ -297,8 +297,10 @@ populates `In-Reply-To` / `References` from the thread's last message,
 so every client threads consistently. Skills call it as an MCP tool,
 never as a shell command: the sandbox denies the token to Bash.
 
-Pass the pre-flight's resolved `security_cc` in `cc`. Use the exact
-resolved address; never substitute a sample address.
+Pass the pre-flight's resolved `security_cc` in `cc`, and its
+`security_bcc` (the private list, only when the project has no dedicated
+security list) in `bcc` on a reporter-facing draft. Use the exact
+resolved addresses; never substitute a sample address.
 
 ```text
 # Bind security_cc to the pre-flight's resolved address before this block.
@@ -309,6 +311,7 @@ if not isinstance(security_cc, str) or not security_cc.strip():
 mcp__gmail-plaintext__create_draft(
   to=['reporter@example.com'],
   cc=[security_cc],
+  bcc=security_bcc,             # [] or ['private@<project>...']; never in to/cc
   subject='Re: <root subject>',
   body='<body>',                # plain text; the server has no HTML option
   thread_id='<gmail-threadId>',
@@ -332,6 +335,10 @@ backend too — drafts only, never send; subject is always
   In the recipes above, `security_cc` (and the shell variable of the same
   name) holds that resolved address. Do not invoke either backend while
   it is unresolved; preserve other required CC recipients and deduplicate.
+- **The private list rides in Bcc only.** A non-empty `security_bcc` goes in
+  the backend's Bcc field (`bcc` on `oauth_curl`); never put the private
+  list in To or Cc. A backend that takes no Bcc gets the draft without it,
+  and the proposal names the Bcc address for the human to add before sending.
 
 - **Never send.**
 - **Plain text only — never HTML.** Every draft is a plain-text

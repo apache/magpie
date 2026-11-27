@@ -211,6 +211,11 @@ source (PonyMail, Gmail), and a human sends the reply.
 
 A setting that resolves nowhere is a question to the user, never a guess.
 
+**No Bcc.** `maildir-draft-create` takes `--to` and `--cc` only. When the
+[security draft CC resolution](../mail-source/contract.md#security-draft-cc-resolution)
+yields a private-list `security_bcc`, the proposal names it for the human to
+add before sending; it never moves to Cc.
+
 **Threading.** A Maildir draft threads by its headers alone:
 
 - `--in-reply-to` — the `Message-ID` of the latest message on the inbound

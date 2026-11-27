@@ -163,9 +163,11 @@ publication, with a human gate and an audit-log entry at every step.
   tool link* field and the generic CVE state, reads the import path and
   reply thread from the mailing-thread field (relay threads excluded),
   plans the reporter draft (skip, surface an existing draft, block
-  without `security_cc`, or recipients, `Re:` subject, thread anchor and
-  backend), greps the composed reply for tracker references, the CVE-tool
-  URL, CVSS and other ASF projects, and renders the labels, board
+  without `security_cc` or with the private list as a To/Cc recipient, or
+  recipients (the private list in Bcc only, when the project has no dedicated
+  security list), `Re:` subject, thread anchor and backend), greps the
+  composed reply for tracker references, the CVE-tool URL, CVSS, other ASF
+  projects and the private list in To/Cc, and renders the labels, board
   queries, closing comment, rollup entry (exactly one Reporter-notification
   line or a refusal), confirmation forms, apply order and recap; mining
   the reasoning, choosing the canned section and writing the reply stay

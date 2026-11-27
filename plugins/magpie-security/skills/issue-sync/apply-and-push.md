@@ -213,6 +213,8 @@ Use:
 - **Gmail draft:** include `security_cc` from the shared
   [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution)
   in every draft's CC; block creation if unresolved.
+  On a reporter-facing draft (status, credit and advisory notices, direct or via a forwarder) put `security_bcc` in Bcc:
+  the private list, when the project has no dedicated security list; never in To or Cc.
   Create it through the configured drafting backend per [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
   The draft is **plain text**; the **preferred** backend is `oauth_curl`, which preserves URLs in the body verbatim:
 
@@ -220,7 +222,7 @@ Use:
     `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — call
     `mcp__gmail-plaintext__create_draft`, never a shell command
     (see [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend))
-    with `thread_id` from Step 1c, the standard `to` / `cc` lists,
+    with `thread_id` from Step 1c, the standard `to` / `cc` lists, `bcc=security_bcc`,
     `subject="Re: <root subject>"`, and the plain-text `body`.
     When Step 1c found no Gmail thread but the inbound `Message-ID` is known
     (PonyMail, or the tracker's recorded root `Message-ID`), pass it as `in_reply_to`
@@ -232,7 +234,7 @@ Use:
     [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
   - **`maildir`** (when the drafting backend resolves to it) — `maildir-draft-create` per
     [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend),
-    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc`,
+    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc` (it takes no Bcc: name a non-empty `security_bcc` in the proposal for the human to add),
     `--subject "Re: <root subject>"`, and a `--body-file`.
 
   **Before drafting, check for an existing pending draft on the thread** with **both** detection paths
