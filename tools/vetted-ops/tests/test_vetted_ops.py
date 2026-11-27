@@ -1615,7 +1615,7 @@ def test_a_team_slug_may_not_carry_an_organisation_or_metacharacters(hostile: st
 
 @pytest.mark.parametrize(
     ("name", "kind"),
-    [("repo-pr-search", "prs"), ("repo-code-search", "code")],
+    [("repo-pr-search", "prs"), ("repo-issue-search", "issues"), ("repo-code-search", "code")],
 )
 def test_upstream_search_is_pinned_and_ends_options_before_the_query(
     policy: config.Config, name: str, kind: str
@@ -1631,7 +1631,7 @@ def test_upstream_search_is_pinned_and_ends_options_before_the_query(
     assert argv[-3:] == ["--", "credentials", "redirect"]
 
 
-@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-issue-search", "repo-code-search"])
 def test_upstream_search_passes_each_word_separately(policy: config.Config, name: str) -> None:
     """
     `gh` quotes an argv element that holds a space, so a two-word query passed
@@ -1647,7 +1647,7 @@ def test_upstream_search_passes_each_word_separately(policy: config.Config, name
     assert all(" " not in word for word in tail)
 
 
-@pytest.mark.parametrize("name", ["repo-pr-search", "repo-code-search"])
+@pytest.mark.parametrize("name", ["repo-pr-search", "repo-issue-search", "repo-code-search"])
 @pytest.mark.parametrize(
     "hostile",
     [
@@ -1664,6 +1664,17 @@ def test_upstream_search_refuses_qualifiers_and_flags(policy: config.Config, nam
     op = ops.resolve(name)
     with pytest.raises(ops.ParamError):
         cli._validate_params(op, [hostile], policy)
+
+
+def test_upstream_issue_search_cannot_widen_to_pull_requests(policy: config.Config) -> None:
+    """A word that spells the flag lands after `--`, so the search stays issues-only."""
+    op = ops.resolve("repo-issue-search")
+    params, _ = cli._validate_params(op, ["dedup --include-prs"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    end = argv.index("--")
+    assert "--include-prs" not in argv[:end]
+    assert argv[end + 1 :] == ["dedup", "--include-prs"]
 
 
 def test_every_code_review_operation_is_a_read() -> None:

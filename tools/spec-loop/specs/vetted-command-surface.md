@@ -373,6 +373,10 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    the duplicate and precedent searches (`issue-search`, `issue-view`), the
    fixed-since-the-scan check (`repo-pr-search`, `pr-view`, `pr-diff`,
    `compare`) and the patch comment on a new tracker (`issue-comment`).
+   `repo-issue-search` is the issue-only twin of `repo-pr-search`, under the
+   same bounds; `setup-upstream-fix` runs both for its Step 3 duplicate search
+   through `apache/magpie`'s own policy (`--policy-from <framework clone>`
+   from an adopter repo), so the search never needs a raw `gh search`.
    `test_caller_grants.py` checks every `--caller` call in the repository's
    Markdown against that example.
 
