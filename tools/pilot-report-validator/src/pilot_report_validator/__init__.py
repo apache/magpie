@@ -69,6 +69,12 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
 
 _HTML_COMMENT_RE = re.compile(r"<!--[\s\S]*?-->")
 _YAML_BLOCK_SCALAR_HEADERS: frozenset[str] = frozenset({"|", ">", "|-", "|+", ">-", ">+"})
+# A YAML comment starts at a `#` that opens the value or follows a space or tab;
+# a `#` inside a word (`C# tooling`) is part of the value.
+_INLINE_COMMENT_RE = re.compile(r"(?:^|[ \t])#.*$")
+# A quoted scalar ends at its closing quote: `\"` escapes inside double quotes,
+# `''` inside single quotes. A comment may follow it after a space or tab.
+_QUOTED_RE = re.compile(r"""^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*')(?:[ \t]+#.*)?$""")
 
 # An un-substituted template placeholder, e.g. "<skill-name>" or "<owner>/<repo>".
 _ANGLE_PLACEHOLDER_RE = re.compile(r"<[^<>\n]+>")
@@ -118,7 +124,7 @@ def _frontmatter_bounds(text: str) -> tuple[int, int] | None:
 
 
 def parse_frontmatter(text: str) -> dict[str, str] | None:
-    """Return a dict of top-level frontmatter key→value, or None if absent."""
+    """Return fields, ignoring column-0 comments and trailing key-line comments, or None."""
     bounds = _frontmatter_bounds(text)
     if bounds is None:
         return None
@@ -127,6 +133,7 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
     result: dict[str, str] = {}
     current_key: str | None = None
     current_value_lines: list[str] = []
+    current_value_is_open_quote = False
 
     for raw_line in block.splitlines():
         line = raw_line.rstrip()
@@ -134,17 +141,25 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
             if current_key is not None:
                 current_value_lines.append("")
             continue
+        if line.startswith("#") and not current_value_is_open_quote:
+            continue
         if not line.startswith((" ", "\t")) and ":" in line:
             if current_key is not None:
                 result[current_key] = "\n".join(current_value_lines).strip()
             key, _, value = line.partition(":")
             current_key = key.strip()
             inline = value.strip()
+            if not inline.startswith(('"', "'")):
+                inline = _INLINE_COMMENT_RE.sub("", inline).strip()
+            elif quoted := _QUOTED_RE.match(inline):
+                inline = quoted.group(1)
+            current_value_is_open_quote = inline.startswith(('"', "'")) and not _QUOTED_RE.match(inline)
             current_value_lines = [inline] if inline and inline not in _YAML_BLOCK_SCALAR_HEADERS else []
             continue
         if current_key is not None:
             stripped = line[2:] if line.startswith("  ") else line
             current_value_lines.append(stripped)
+            current_value_is_open_quote &= not bool(_QUOTED_RE.match("\n".join(current_value_lines)))
 
     if current_key is not None:
         result[current_key] = "\n".join(current_value_lines).strip()
