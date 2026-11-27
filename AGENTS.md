@@ -3,17 +3,8 @@
 
 # AGENTS instructions
 
-These instructions apply to any AI agent (or agent-assisted
-contributor) working on this repository. The repository hosts a
-generic, reusable framework for handling security issues for Apache
-Software Foundation (ASF) projects. The framework is project-agnostic
-by design — adopting projects configure their identity, rosters,
-canned responses, release trains, and security model in their own
-`<project-config>/` directory (see *Per-project and per-user
-configuration* below). Processes, canned responses, and onboarding
-documentation are read by security-team members and, through the
-canned responses, indirectly by external reporters. Small wording
-choices matter.
+These instructions apply to any AI agent (or agent-assisted contributor) working on this repository, the generic framework described under *Repository purpose*.
+Processes, canned responses, and onboarding documentation are read by security-team members and, through the canned responses, indirectly by external reporters. Small wording choices matter.
 
 ## Repository purpose
 
@@ -289,12 +280,6 @@ to a home-dir path and update the tool to read from there.
   ```text
   Generated-by: <agent name and version>     # e.g. Generated-by: Claude Code (Opus 4.7)
   ```
-- **In an adopting project, use the project's commit-attribution convention.**
-  `Generated-by:`, `Assisted-by:`, `Co-authored-by:`, no trailer, or a custom
-  one — the project chooses when it adopts Magpie, and a contributor chooses
-  only where the project leaves it open. Resolve it per
-  [`docs/setup/commit-attribution.md`](docs/setup/commit-attribution.md);
-  the `commit-trailer` guard resolves it the same way.
 - **Add the trailer with `git commit --trailer`**, never by typing it into the
   message body or the `-F <file>`:
   `git commit -F <file> --trailer "Generated-by: <agent name and version>"`, so the guard and other hooks can see it.
@@ -699,11 +684,6 @@ running the affected eval suite and restamping the token cost are part of the ch
 - Self-review the tone of any modified canned response against the "polite but firm" guidance above.
 - If the change touched a skill or a tool adapter the skills load, follow
   [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync).
-
-## References
-
-- The adopter's configuration: [`<project-config>/project.md`](<project-config>/project.md) and its siblings, bootstrapped from [`projects/_template/`](plugins/magpie-setup/templates/); see [Per-project and per-user configuration](#per-project-and-per-user-configuration).
-- The tool adapters the security skills load, each described in its own `tool.md`: [`tools/github/`](tools/github/), [`tools/gmail/`](tools/gmail/), [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/), [`tools/cve-org/`](tools/cve-org/).
 
 ## Security
 
