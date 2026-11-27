@@ -37,7 +37,7 @@ PLAINTEXT_TOOL = "mcp__gmail-plaintext__create_draft"
 PLAINTEXT_TOOL_PY = "mcp__gmail_plaintext__create_draft"
 
 
-def run_oauth_curl_recipe(recipient):
+def run_oauth_curl_recipe(recipient, bcc=()):
     repo = Path(__file__).resolve().parents[4]
     doc = (repo / "tools/gmail/operations.md").read_text()
     section = doc.split("### Create draft — `oauth_curl` backend", 1)[1]
@@ -47,6 +47,7 @@ def run_oauth_curl_recipe(recipient):
     calls = []
     namespace = {
         "security_cc": recipient,
+        "security_bcc": list(bcc),
         PLAINTEXT_TOOL_PY: lambda **kwargs: calls.append(kwargs),
     }
     exec(recipe, namespace)
@@ -59,22 +60,36 @@ def test_unresolved_security_cc_stops_before_backend(recipient):
         run_oauth_curl_recipe(recipient)
 
 
+@pytest.mark.parametrize("bcc", [[], ["private@project.example"]], ids=["no-bcc", "private-bcc"])
 @pytest.mark.parametrize(
     "recipient", ["security@project.example", "security@apache.org", "security@acme.example"]
 )
-def test_resolved_security_cc_reaches_mcp_tool_and_mime(recipient):
-    calls = run_oauth_curl_recipe(recipient)
+def test_resolved_security_cc_reaches_mcp_tool_and_mime(recipient, bcc):
+    calls = run_oauth_curl_recipe(recipient, bcc)
     assert len(calls) == 1
     kwargs = calls[0]
     assert kwargs["cc"] == [recipient]
+    assert kwargs["bcc"] == bcc
     assert kwargs["thread_id"]
     # Every argument the recipe passes is one the MCP tool accepts.
     assert set(kwargs) <= set(inspect.signature(mcp_server.create_draft).parameters)
     raw = build_mime(
-        "triager@example.com", kwargs["to"], kwargs["cc"], [], kwargs["subject"], "Body", None, None
+        "triager@example.com",
+        kwargs["to"],
+        kwargs["cc"],
+        kwargs["bcc"],
+        kwargs["subject"],
+        "Body",
+        None,
+        None,
     )
     msg = email.message_from_bytes(raw, policy=email.policy.default)
     assert str(msg["Cc"]) == recipient
+    # The private list rides in Bcc only, never in To or Cc.
+    assert msg["Bcc"] == (", ".join(bcc) if bcc else None)
+    for address in bcc:
+        assert address not in str(msg["To"])
+        assert address not in str(msg["Cc"])
 
 
 @pytest.mark.parametrize("recipient", [None, "", "   ", "security@project.example", "security@apache.org"])
