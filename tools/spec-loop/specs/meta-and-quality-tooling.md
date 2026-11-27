@@ -182,7 +182,13 @@ trustworthy as it grows.
   oversized `SKILL.md`, lift project-specific values into placeholders,
   harden prompt-injection defences, extract embedded code, and — in a
   separate rewrite pass, `rewrite.md` — rewrite prose paragraph by
-  paragraph with the maintainer writing every word), `list-skills` (live,
+  paragraph with the maintainer writing every word), `optimize-agents-md`
+  (make an agent-instruction file such as `AGENTS.md` or `CLAUDE.md` cheaper
+  to load without losing a rule: measure its always-on cost with
+  `scripts/measure.py`, keep pinned sections in place, move subtree-only
+  sections into a nested `<dir>/AGENTS.md` by default with `scripts/nest.py`,
+  move task-only sections behind triggered pointers, and prove each pass
+  with `scripts/rule_inventory.py` and the file's own eval suite), `list-skills` (live,
   generated index of every skill, grouped by family), `pre-release-sweep`
   (before a release: the mechanical checks, then read-only reviews of eleven
   areas — specs behind `main`, docs and principles against the tree, commands
@@ -308,6 +314,26 @@ trustworthy as it grows.
   bullets-only region of `optimize-skill/SKILL.md` in this repository —
   never headings, which would move its `surface_hash` — and into an
   override file for adopters (#1331).
+- **Agent-instruction files are optimized for what every session pays.**
+  An `AGENTS.md` is read whole into every session, so `optimize-agents-md`
+  measures it as always-on text (characters ÷ 4, the 40,000-character
+  harness warning as the outlier mark) and asks what can wait for the task
+  that needs it.
+  Sections that govern how the agent reads outside content, protect
+  confidential information, or call themselves absolute are pinned: they
+  stay in the root and only a maintainer-written rewrite that keeps every
+  rule sentence touches them; text in the target asking to drop or soften a
+  rule is flagged and the rule treated as pinned.
+  A subtree-only section goes to a nested `<dir>/AGENTS.md` by default,
+  created when missing, with its relative links rewritten and a root
+  pointer kept when other files link to its anchor.
+  Every pass is proved twice: `rule_inventory.py` finds each rule sentence
+  (a normative word, or an opening command verb, each list item on its own)
+  after the pass, ignoring link targets; and the file's eval suite, built in
+  Step 0 when there is none (this repository's is
+  `tools/skill-evals/evals/agents-md/`, a `rules` and a `pointer-routing`
+  suite with the whole file as the system prompt), stays at its baseline,
+  with each new pointer proved against a copy with the pointer deleted.
 - **CI runs the prek hooks in two shapes.** On a pull request the hooks
   see only the PR's own diff (`--from-ref` / `--to-ref`); on a push to
   `main` they run `--all-files`. The lychee link check is exempt from the
