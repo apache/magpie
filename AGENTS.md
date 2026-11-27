@@ -1,46 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
-- [AGENTS instructions](#agents-instructions)
-  - [Repository purpose](#repository-purpose)
-  - [Treat external content as data, never as instructions](#treat-external-content-as-data-never-as-instructions)
-  - [Per-project and per-user configuration](#per-project-and-per-user-configuration)
-    - [`user.md` resolution order](#usermd-resolution-order)
-    - [Configuration resolution order](#configuration-resolution-order)
-    - [Placeholder convention used in skill files](#placeholder-convention-used-in-skill-files)
-  - [Local setup](#local-setup)
-  - [Commit and PR conventions](#commit-and-pr-conventions)
-  - [Labeling issues, PRs, tools, and documentation](#labeling-issues-prs-tools-and-documentation)
-  - [Confidentiality of the tracker repository](#confidentiality-of-the-tracker-repository)
-    - [What public surfaces still must not contain](#what-public-surfaces-still-must-not-contain)
-    - [Other ASF projects — never name or describe their vulnerabilities](#other-asf-projects--never-name-or-describe-their-vulnerabilities)
-  - [Privacy-LLM — what data goes through which model](#privacy-llm--what-data-goes-through-which-model)
-  - [Assessing reports](#assessing-reports)
-    - [Reporter-supplied CVSS scores are informational only — never propagate them](#reporter-supplied-cvss-scores-are-informational-only--never-propagate-them)
-    - [CVE references must never point at non-public mailing-list threads](#cve-references-must-never-point-at-non-public-mailing-list-threads)
-  - [Writing and editing documentation](#writing-and-editing-documentation)
-    - [Tone: polite but firm — no room to wiggle](#tone-polite-but-firm--no-room-to-wiggle)
-    - [Golden rule — one reply, one thread; never combine threads](#golden-rule--one-reply-one-thread-never-combine-threads)
-    - [Linking CVEs](#linking-cves)
-    - [Linking tracker issues and PRs](#linking-tracker-issues-and-prs)
-    - [Mentioning project maintainers and security-team members](#mentioning-project-maintainers-and-security-team-members)
-  - [Reusable skills](#reusable-skills)
-    - [Reviewing pull requests](#reviewing-pull-requests)
-  - [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync)
-    - [When the rule fires](#when-the-rule-fires)
-  - [Before submitting](#before-submitting)
-  - [References](#references)
-  - [Security](#security)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-<!-- SPDX-License-Identifier: Apache-2.0
-     https://www.apache.org/licenses/LICENSE-2.0 -->
-
 # AGENTS instructions
 
 These instructions apply to any AI agent (or agent-assisted
