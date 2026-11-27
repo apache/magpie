@@ -18,8 +18,9 @@ Behavioural eval suite for the
 | `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 3 | Reading `verify-rc jvm`'s classification: the POM-licence and missing-companion-signature finding wording, and observations (a groupId outside `org.apache.*`, a consistent timestamp signal) that never change the verdict |
 | `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 1 | The anonymous voter path: `STATE-UNVERIFIED` on a `401` stays a warning while a missing companion `.asc` fails, and the recipe carries no credentialed or write call |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
+| `pointer-routing` | Whole body, no sibling text | 4 | The agent finds `commands.md` before Step 1's first command and `source-tree.md` at Step 7 from the pointers alone, and opens nothing at Step 0 or mid-run; the output spec names no file, so removing a pointer fails its case |
 
-Total: **18 cases** across 8 step suites.
+Total: **22 cases** across 8 step suites and the pointer-routing suite.
 
 ## Where the scripted cases went
 
@@ -125,3 +126,14 @@ which are graded semantically.
   a non-JVM (or gate-failing) RC is an explicit `"SKIP"`.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or
   `extracted: null`; dev/snapshot suffixes are always `match: false`.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (opt/verify-rc-split) | `opus[1m]` | 2 | pass |  |

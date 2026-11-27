@@ -421,9 +421,11 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   values (`project_dist_name: magpie`, ATR for both backends).
   `.apache-magpie-overrides/release-build.md` likewise differs from
   `projects/magpie/release-build.md`.
-- **`release-verify-rc` is back over the 500-line cap.** The
+- **`rc-cut/SKILL.md` sits at the 500-line cap.** The
   decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625) brought
   every `SKILL.md` in the family under it (`release-prepare` fell from 1,208
-  to 367), but later additions grew `verify-rc/SKILL.md` to 527 lines;
-  `rc-cut/SKILL.md` (498) is next.
+  to 367); later additions grew `verify-rc/SKILL.md` to 527 lines, and an
+  `optimize-skill` split moved its command setup and Step 7 into
+  `commands.md` and `source-tree.md` (473 lines). `rc-cut/SKILL.md` (498)
+  is next.
   <!-- gap-closes-when: none (narrative) -->

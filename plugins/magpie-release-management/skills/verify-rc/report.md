@@ -34,8 +34,21 @@ and one `--fail-detail` / `--warn-detail` per failing / warning step naming the 
 `text` is the report: header (RC, staging URL, UTC timestamp), the voter-obligation reminder, the per-step table, FAIL and WARN detail,
 the overall verdict, and the reproducibility record (Step 9's verdict, commit, `SOURCE_DATE_EPOCH`, the rebuilt source sha512, each convenience artefact's result),
 so another voter can cross-check without rerunning.
-The voter-obligation reminder and the trusted-hardware attestation block are SKILL.md's Step 10 text, verbatim;
+The voter-obligation reminder (SKILL.md's Step 10 text) and the trusted-hardware attestation block below are verbatim;
 the command decides whether the attestation applies (`reproducibility_attestation`, and `attestation_withheld_because` when it does not) and never posts.
+
+🪶 ASF-specific: under `automated_release_signing: enabled`,
+when Step 9 is `PASS` with every artefact `identical` **and** `--trusted-hardware` was passed,
+the comment carries the attestation block `release-promote` Step 0 looks for:
+
+   > **Reproducibility validated on trusted hardware** — `<rc-tag>` at
+   > commit `<sha>`, `SOURCE_DATE_EPOCH <epoch>`; every staged artefact
+   > rebuilt on `@<committer>`'s own hardware and confirmed bit-by-bit
+   > identical (`repro-archive compare --require-identical`). Per
+   > [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing).
+
+Without `--trusted-hardware`, or with any non-`identical` result, the
+comment carries no attestation and says why.
 
 Return ONLY the command's JSON without `text` and `attestation_withheld_because`:
 `step` (`report`), `rc_tag`, `verification_utc`, `overall` (`PASS` | `PASS-WITH-WARNINGS` | `FAIL`),
