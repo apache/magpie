@@ -3,17 +3,8 @@
 
 # AGENTS instructions
 
-These instructions apply to any AI agent (or agent-assisted
-contributor) working on this repository. The repository hosts a
-generic, reusable framework for handling security issues for Apache
-Software Foundation (ASF) projects. The framework is project-agnostic
-by design — adopting projects configure their identity, rosters,
-canned responses, release trains, and security model in their own
-`<project-config>/` directory (see *Per-project and per-user
-configuration* below). Processes, canned responses, and onboarding
-documentation are read by security-team members and, through the
-canned responses, indirectly by external reporters. Small wording
-choices matter.
+These instructions apply to any AI agent (or agent-assisted contributor) working on this repository, the generic framework described under *Repository purpose*.
+Processes, canned responses, and onboarding documentation are read by security-team members and, through the canned responses, indirectly by external reporters. Small wording choices matter.
 
 ## Repository purpose
 
@@ -289,12 +280,6 @@ to a home-dir path and update the tool to read from there.
   ```text
   Generated-by: <agent name and version>     # e.g. Generated-by: Claude Code (Opus 4.7)
   ```
-- **In an adopting project, use the project's commit-attribution convention.**
-  `Generated-by:`, `Assisted-by:`, `Co-authored-by:`, no trailer, or a custom
-  one — the project chooses when it adopts Magpie, and a contributor chooses
-  only where the project leaves it open. Resolve it per
-  [`docs/setup/commit-attribution.md`](docs/setup/commit-attribution.md);
-  the `commit-trailer` guard resolves it the same way.
 - **Add the trailer with `git commit --trailer`**, never by typing it into the
   message body or the `-F <file>`:
   `git commit -F <file> --trailer "Generated-by: <agent name and version>"`, so the guard and other hooks can see it.
@@ -352,35 +337,8 @@ to a home-dir path and update the tool to read from there.
 
 ## Labeling issues, PRs, tools, and documentation
 
-Every issue and PR carries two required label dimensions:
-**`family:*`** (which part of the framework it touches) and a **capability** (what it does):
-`capability:*` for skills, `contract:*` / `substrate:*` for tools.
-The full taxonomy, its value lists and the contract→adapter maps live in
-[`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md) and [RFC-AI-0005](docs/rfcs/RFC-AI-0005.md), the source of truth.
-
-**Rules:**
-
-- **Issues and PRs** get at least one `family:*` and every applicable
-  capability — match what the change *implements*, not the file paths it
-  touches; do not collapse multi-phase work to a single "primary".
-- **New tools** declare their capability in the first paragraph of the
-  tool README (`**Capability:** contract:NAME` or `substrate:NAME`).
-- **New skills** declare the capability in frontmatter (a string, or a
-  YAML list for multi-capability skills); [`write-skill`](skills/write-skill/SKILL.md)
-  prompts for it on every scaffold.
-- **New docs** link to the taxonomy doc and name their capability in the
-  first paragraph if capability-specific; cross-cutting docs need no
-  marker.
-- **Organization membership (optional):** an entity that *belongs to* one organization declares it
-  (skills: `organization:` frontmatter; families: the scope banner in `docs/<family>/README.md`; tools: an `**Organization:** <org>` README line).
-  The value must
-  name an organization under [`organizations/`](organizations/); omit it
-  for organization-agnostic entities.
-
-The taxonomy applies to *this framework repository*. Skills that create
-issues or PRs on an **adopter's tracker** (e.g. `security-issue-import`,
-`security-issue-fix`, `issue-fix-workflow`) use the adopter's own label
-scheme — adopters may mirror this taxonomy but are not required to.
+Every issue and PR carries two required label dimensions: **`family:*`** (which part of the framework it touches) and a **capability** (what it does), `capability:*` for skills, `contract:*` / `substrate:*` for tools.
+**Before labeling an issue or PR, or adding a tool, skill or doc**, read [The rule](docs/labels-and-capabilities.md#the-rule) in [`docs/labels-and-capabilities.md`](docs/labels-and-capabilities.md), the source of truth for the taxonomy, its value lists and the contract→adapter maps.
 
 ## Confidentiality of the tracker repository
 
@@ -636,12 +594,7 @@ references are summarised below.
 
 ### Tone: polite but firm — no room to wiggle
 
-Canned responses and reporter replies must be polite and professional,
-firm and unambiguous (state the outcome as a decision, not a
-negotiation), and free of accusation, sarcasm, condescension, and
-hedging. Anchor every decision in an authoritative document, not the
-responder's opinion. Full phrasing patterns:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle).
+Canned responses and reporter replies follow [the tone rules](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle): polite, firm, and anchored in an authoritative document, not the responder's opinion.
 
 ### Golden rule — one reply, one thread; never combine threads
 
@@ -656,36 +609,16 @@ Full rule: [`tools/gmail/threading.md`](tools/gmail/threading.md#the-rule).
 
 ### Linking CVEs
 
-Render every CVE ID as a clickable link, never bare text. Internal
-surfaces link the ASF CVE-tool record
-(`https://cveprocess.apache.org/cve5/<CVE-ID>`); add the public
-`cve.org` / NVD link once the advisory has shipped. **Reporter emails
-never carry the ASF CVE-tool URL** — use the bare CVE ID before
-publication, the `cve.org` URL after. Full rules and confidentiality
-cross-references:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#linking-cves).
+Render every CVE ID as a clickable link, never bare text; which URL goes on which surface: [Linking CVEs](docs/editorial-guidelines.md#linking-cves).
 
 ### Linking tracker issues and PRs
 
-Every reference to a `<tracker>` issue, PR, comment, or discussion must
-be one click away — markdown links on markdown surfaces, OSC 8 escape
-sequences on terminals. Bare `#NNN` or `<tracker>#NNN` with no link
-wrapper is never acceptable. Identifiers are public-safe; the
-*contents* they point at are not (see
-[Confidentiality of the tracker repository](#confidentiality-of-the-tracker-repository)).
-Full URL formats and self-check:
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#linking-tracker-issues-and-prs).
+Every `<tracker>` reference must be one click away; a bare `#NNN` is never acceptable.
+URL formats and self-check: [Linking tracker issues and PRs](docs/editorial-guidelines.md#linking-tracker-issues-and-prs).
 
 ### Mentioning project maintainers and security-team members
 
-In text that lands on a GitHub issue or PR, refer to a maintainer,
-committer, release manager, or security-team member by their GitHub
-`@handle` so GitHub notifies them; grep for bare names before posting
-and flag any to the user. Roster and public-surface caveats live in
-[`<project-config>/naming-conventions.md`](<project-config>/naming-conventions.md#mentioning-airflow-maintainers-and-security-team-members),
-[`<project-config>/release-trains.md`](<project-config>/release-trains.md),
-and
-[`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#mentioning-project-maintainers-and-security-team-members).
+On GitHub, refer to maintainers and security-team members by `@handle` and flag bare names to the user; roster and caveats: [Mentioning project maintainers and security-team members](docs/editorial-guidelines.md#mentioning-project-maintainers-and-security-team-members).
 
 ## Reusable skills
 
@@ -704,11 +637,8 @@ These skills build the CVE record with the [`generate-cve-json`](tools/cve-tool-
 a deterministic `uv run` script (not a skill) that emits a paste-ready CVE 5.x JSON record (Vulnogram shape) from a tracking issue,
 filtering the CVE-tool and `<tracker>` URLs out of `references[]`.
 
-When adding a new skill:
+When adding a new skill, scaffold it with [`write-skill`](skills/write-skill/SKILL.md), which covers its placement in the family plugin, the frontmatter the validator requires, and making every state-changing action a *proposal* the user confirms. Also:
 
-- place it in its family plugin, `plugins/magpie-<family>/skills/<alias>/SKILL.md`, linked into the flat `skills/` tree (the [`write-skill`](skills/write-skill/SKILL.md) scaffold and `tools/dev/check-family-plugins.py` cover the details);
-- start with YAML frontmatter containing every key the validator requires: `name` (the `<alias>`), `description`, `when_to_use`, `license`, `capability`, `family` and `mode`;
-- make every state-changing action a *proposal* that requires explicit user confirmation before it runs;
 - avoid agent-specific syntax so the skill remains portable across tools;
 - **ship a behavioural eval suite** under [`tools/skill-evals/evals/<skill-name>/`](tools/skill-evals/) — see [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync). A skill PR without a matching eval suite is incomplete.
 
@@ -726,37 +656,8 @@ review body.
 
 ## Keeping evals and mode-economics in sync
 
-When you change a skill or a tool adapter the skills load, two
-follow-up actions are part of the change, not optional polish:
-
-1. **Run the affected skill's eval suite** to confirm the prompts the
-   harness extracts from `SKILL.md` still produce the expected
-   structured output ([`tools/skill-evals/README.md`](tools/skill-evals/README.md) has the run recipes).
-   A self-eval is a smoke test worth running on every change;
-   run a **cross-model pass** for substantive changes (new steps, prompt
-   restructures, behaviour changes that cross a classification
-   boundary).
-2. **Restamp and review the token cost.** Every `SKILL.md` edit needs
-   `uv run --project tools/skill-token-count skill-token-count --write`,
-   which rewrites that skill's own `measured_tokens:` frontmatter line (the
-   hook fails until it matches). Separately, update the prose in
-   [`docs/mode-economics.md`](docs/mode-economics.md) if the change
-   materially shifts the per-invocation token shape — a new step that loads
-   substantial context, a removed read path, a new skill. Pure prose / link
-   / typo edits need only the restamp.
-
-### When the rule fires
-
-| You touched | Run evals for | Update mode-economics if |
-|---|---|---|
-| `skills/<skill>/SKILL.md`, an extracted step subdoc, or any prompt material a step's `step-config.json` extracts | That skill's suite under `tools/skill-evals/evals/<skill>/` | The change adds or removes a step, alters a context-heavy read, or restructures the call catalogue |
-| `tools/<adapter>/` docs or operation catalogues that skills load (e.g. `tools/github/operations.md`, `tools/gmail/operations.md`) | Every skill naming this adapter in its prerequisites or step bodies — `grep -l <adapter-path> skills/*/SKILL.md` to enumerate | A new operation enlarges a typical skill's loaded context, or a removed one shrinks it |
-| Pure prose edits (typo / clarification / link fix) with no behavioural impact on the model's output | No eval rerun required | No update required |
-
-If you are unsure whether a change is "behavioural" or "prose-only",
-re-run the affected eval suite anyway — it is cheap and protects against
-the false-negative case where a "clarification" actually changes how the
-model responds.
+**When you change a skill, or a tool adapter the skills load**, read [Keeping evals and mode-economics in sync](tools/skill-evals/README.md#keeping-evals-and-mode-economics-in-sync) before committing:
+running the affected eval suite and restamping the token cost are part of the change, not optional polish.
 
 ## Before submitting
 
@@ -783,11 +684,6 @@ model responds.
 - Self-review the tone of any modified canned response against the "polite but firm" guidance above.
 - If the change touched a skill or a tool adapter the skills load, follow
   [Keeping evals and mode-economics in sync](#keeping-evals-and-mode-economics-in-sync).
-
-## References
-
-- The adopter's configuration: [`<project-config>/project.md`](<project-config>/project.md) and its siblings, bootstrapped from [`projects/_template/`](plugins/magpie-setup/templates/); see [Per-project and per-user configuration](#per-project-and-per-user-configuration).
-- The tool adapters the security skills load, each described in its own `tool.md`: [`tools/github/`](tools/github/), [`tools/gmail/`](tools/gmail/), [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/), [`tools/cve-org/`](tools/cve-org/).
 
 ## Security
 

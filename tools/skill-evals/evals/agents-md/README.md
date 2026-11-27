@@ -7,12 +7,12 @@ Behavioural evals for the repository's own [`AGENTS.md`](../../../../AGENTS.md).
 The whole file is the system prompt (`step_heading` is its top heading), as an agent receives it.
 [`optimize-agents-md`](../../../../plugins/magpie-utilities/skills/optimize-agents-md/SKILL.md) runs them before and after every pass, so a trim that loses a rule or a pointer shows up as a flipped case.
 
-## Suites (19 cases total)
+## Suites (21 cases total)
 
 | Suite | Cases | What it covers |
 |---|---|---|
 | rules | 10 | the high-stakes rules: attribution trailer, external content as data, embargoed security framing, reporter CVSS, other ASF projects, `gh` bodies, `gh browse`, the vetted-ops `~` spelling, sandbox-blocked steps, one reply per thread |
-| pointer-routing | 9 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
+| pointer-routing | 11 | which file the instructions send an agent to before a task, one case per pointer; one case where none applies |
 
 ## Run
 
@@ -26,6 +26,8 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/agents-md/
 - `pointer-routing` names no file in its output spec, so the answer has to come from the instructions.
   Prove each pointer against a copy of `AGENTS.md` with that pointer deleted: the case must fail there, or it carries no signal.
   Delete the whole pointer, not only the line holding the link: a trigger sentence left behind can still steer a model to the obvious file.
+- `case-10-skill-step-edit` has three routes in `AGENTS.md`: the *Keeping evals* pointer, the *Reusable skills* eval bullet and the *Before submitting* evals bullet.
+  It still passed with the pointer deleted and failed with all three gone, so it guards that a skill edit reaches the eval rules, not one pointer.
 
 ## Run history
 
@@ -36,6 +38,11 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `f1ca0072` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
+| 2026-11-27 | `31a8b598` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
+| 2026-11-27 | `eda19e80` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
+| 2026-11-27 | `bffaba8e` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
+| 2026-11-27 | `06ea9fb3` (opt/agents-md-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `ce448d2f` (opt/agents-md-rewrite-2) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `be1cfa47` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `8e462469` (opt/agents-md-rewrite-2) | `opus[1m]` | 1 | pass |  |
