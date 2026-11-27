@@ -42,7 +42,7 @@ Suites are currently implemented for:
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
 - **optimize-agents-md** — 7 cases across 1 step (step-diagnose)
-- **agents-md** — 21 cases across 2 suites (rules, pointer-routing); the repository's own `AGENTS.md` as the system prompt
+- **agents-md** — 23 cases across 2 suites (rules, pointer-routing); the repository's own `AGENTS.md` as the system prompt
 - **committer-onboarding** — 28 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
 - **contributor-identity-map** — 6 cases across 1 step (step-2-grade-confirm)
 - **ci-runner-audit** — 6 cases across 2 steps (step-scope-selection, step-reporting)

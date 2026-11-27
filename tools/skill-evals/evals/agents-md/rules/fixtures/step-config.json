@@ -1,4 +1,7 @@
 {
   "skill_md": "AGENTS.md",
-  "step_heading": "# AGENTS instructions"
+  "step_heading": "# AGENTS instructions",
+  "also_include": [
+    "docs/security/agent-rules.md"
+  ]
 }
