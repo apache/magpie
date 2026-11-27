@@ -2435,3 +2435,48 @@ def test_batch_grader_preserves_explicit_false_with_matching_reason(monkeypatch)
     assert ok is False
     assert "same conclusion; should match" in note
     assert len(calls) == 1
+
+
+def test_run_cli_starts_in_the_given_cwd(tmp_path: Path) -> None:
+    """``cwd`` sets the directory the CLI runs in."""
+    stdout, _, rc = run_cli("pwd", "", cwd=tmp_path)
+    assert rc == 0
+    assert Path(stdout.strip()).resolve() == tmp_path.resolve()
+
+
+def test_cli_cwd_keeps_repository_instructions_out_of_the_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--cli-cwd starts the CLI where the repository's AGENTS.md is not visible.
+
+    The fake CLI reports whether an AGENTS.md sits in its working directory,
+    standing in for an agent CLI that loads it as project context. The case
+    expects ``false``: it fails from the repository root and passes once
+    --cli-cwd moves the CLI to an empty directory.
+    """
+    repo_root = _make_repo(tmp_path)
+    (repo_root / "AGENTS.md").write_text("# Instructions\n\nReal pointer.\n")
+    fixtures_dir = _make_fixtures_dir(
+        repo_root / "step-dir",
+        step_config={"skill_md": "AGENTS.md", "step_heading": "# Instructions"},
+    )
+    _make_case(fixtures_dir, "case-1", expected={"sees_agents_md": False})
+    cli = shlex.join(
+        [
+            "bash",
+            "-c",
+            "cat >/dev/null; if [ -e AGENTS.md ]; then echo '{\"sees_agents_md\": true}'; "
+            "else echo '{\"sees_agents_md\": false}'; fi",
+        ]
+    )
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.chdir(repo_root)
+
+    leaked, _, _ = _run_main(capsys, ["--cli", cli, "--exact", "--no-journal", str(fixtures_dir)])
+    isolated, _, _ = _run_main(
+        capsys, ["--cli", cli, "--cli-cwd", str(empty), "--exact", "--no-journal", str(fixtures_dir)]
+    )
+
+    assert leaked != 0
+    assert isolated == 0

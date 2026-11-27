@@ -112,7 +112,9 @@ usage() {
 usage: magpie-run-evals.sh <path-under-$EVALS_REL/>
 
 Runs the eval runner over exactly that path with --cli "claude -p",
-from the current directory (the repository root).
+from the current directory (the repository root); claude -p itself
+starts in an empty temporary directory, so the repository's own
+AGENTS.md does not join the eval's prompt.
 
 Takes one argument and accepts no flags, because the exclusion that
 lets this run unsandboxed rests on that shape. For any other shape
@@ -161,5 +163,16 @@ case "$target_real" in
     ;;
 esac
 
+# Start `claude -p` in an empty directory, not here. From the repository
+# root it would also load the repository's own AGENTS.md as project
+# context, next to the eval's system prompt — so a case that deletes a
+# pointer from a copy of AGENTS.md would still see the real one, and a
+# mutation check could pass on the very text it removed. The runner
+# itself stays at the root, where it finds the cases and the journal.
+cli_cwd="$(mktemp -d)"
+
 export PYTHONPATH="$pythonpath"
-exec python3 -m skill_evals.runner --cli "claude -p" -- "$target"
+rc=0
+python3 -m skill_evals.runner --cli "claude -p" --cli-cwd "$cli_cwd" -- "$target" || rc=$?
+rmdir -- "$cli_cwd" 2>/dev/null || true
+exit "$rc"
