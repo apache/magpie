@@ -712,12 +712,11 @@ Format prose across the repository (skills, docs, canned responses) using **sema
 Break lines at natural linguistic boundaries — specifically one sentence per line (or at clause boundaries when helpful).
 Because English is the programming language of Magpie skills, single-sentence changes produce single-line diffs rather than paragraph re-wraps.
 
-**Every skill family has the same documentation pages.**
-At the least, `docs/<family>/README.md` (the overview, with an `## Install & first runs` section linking the install page) and `docs/<family>/install.md` (titled `# Install & first runs`, with the family's `/plugin install` line, then `## Before the first run` and `## Try these first`).
-A family may add further pages, never fewer, so every family unfolds the same way in the site's sidebar.
-`tools/dev/check-doc-sync.py` enforces this on commit.
+**Every skill family has the same documentation pages:**
+at least `docs/<family>/README.md` (with an `## Install & first runs` section) and `docs/<family>/install.md`; a family may add pages, never fewer.
+`tools/dev/check-doc-sync.py` enforces the details on commit.
 
-The full editorial playbook — reporter-facing tone, email brevity, Gmail threading, ASF-security-relay drafting, the "point to the Security Model, don't re-explain it" rule, dependency-claim phrasing, semantic line breaks, and the CVE / tracker-issue / PR link formats — lives in [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md).
+The full editorial playbook (reporter-facing tone, email brevity, threading, link formats, and more) lives in [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md).
 **Load that file before drafting or editing any reporter-facing or
 tracker-facing text.** The load-bearing rules each external surface
 references are summarised below.
