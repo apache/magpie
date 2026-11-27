@@ -102,7 +102,7 @@
       "Edit(.claude/settings.json)",
       "Edit(.claude/settings.local.json)",
       "Edit(tools/agent-isolation/claude-settings.local.template.json)",
-      "Edit(plugins/magpie-setup/skills/setup/family-mcp-allows.json)",
+      "Edit(plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.config/apache-magpie/vetted-ops/**)",

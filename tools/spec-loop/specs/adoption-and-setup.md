@@ -153,8 +153,9 @@ acceptance:
     whose `family-mcp-allows.json` ships inside the package. It touches
     only `extraKnownMarketplaces`, `enabledPlugins` and the derived
     `mcp__…` entries of `permissions.allow` (the MCP tools the adopted
-    families call, from `skills/setup/family-mcp-allows.json`, which lists
-    only tools that read one named item or report state — a tool that
+    families call, from
+    `skills/setup/setup_preflight/family-mcp-allows.json`, which lists only
+    tools that read one named item or report state — a tool that
     sends, posts, deletes, creates a draft, or searches a whole mailbox or
     list stays behind the harness prompt) in `.claude/settings.json`,
     preserves every other top-level key and an existing `apache-magpie`

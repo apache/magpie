@@ -23,7 +23,9 @@ from sandbox_lint import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FLOOR = REPO_ROOT / ".claude" / "settings.json"
 LOCAL_TEMPLATE = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.local.template.json"
-REGISTRY = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "setup" / "family-mcp-allows.json"
+REGISTRY = (
+    REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "setup" / "setup_preflight" / "family-mcp-allows.json"
+)
 
 
 def _load(p: Path) -> dict[str, Any]:
@@ -123,7 +125,15 @@ def _project_with(tmp_path: Path, template: dict[str, Any], *, registry: bool = 
     tpl.parent.mkdir(parents=True)
     tpl.write_text(json.dumps(template))
     if registry:
-        reg = root / "plugins" / "magpie-setup" / "skills" / "setup" / "family-mcp-allows.json"
+        reg = (
+            root
+            / "plugins"
+            / "magpie-setup"
+            / "skills"
+            / "setup"
+            / "setup_preflight"
+            / "family-mcp-allows.json"
+        )
         reg.parent.mkdir(parents=True)
         reg.write_text(REGISTRY.read_text())
     return root / ".claude" / "settings.json", tpl

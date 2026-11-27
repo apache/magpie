@@ -159,6 +159,13 @@ uv run --project tools/setup-preflight setup-settings-merge            # report 
 uv run --project tools/setup-preflight setup-settings-merge --write    # apply
 ```
 
+The copied checker runs the same command as a module:
+
+```bash
+PYTHONPATH="<checker-dir>" python3 -P -m setup_preflight.settings_merge
+PYTHONPATH="<checker-dir>" python3 -P -m setup_preflight.settings_merge --write
+```
+
 `--settings`, `--lock` and `--registry` default to `.claude/settings.json`,
 `.apache-magpie.lock` and the `family-mcp-allows.json` shipped inside this
 package, so the default still resolves after `config` or `update` copies

@@ -166,7 +166,7 @@ project's normal review process, like any other committed file.
 authored here: `extraKnownMarketplaces` names `url`,
 `enabledPlugins` contains `plugins`, each as `<plugin>@apache-magpie`,
 and `permissions.allow` gains the MCP tools those families' skills call,
-from [`family-mcp-allows.json`](family-mcp-allows.json): each server
+from [`family-mcp-allows.json`](setup_preflight/family-mcp-allows.json): each server
 whose `families` names a family in `plugins` (`magpie-<family>`)
 contributes `mcp__<server>__<tool>` for each of its `tools`. Every
 contributor runs the adopted families, so their read-only MCP tools are
@@ -193,9 +193,16 @@ the plugin list with no floor beside it, and no `.apache-magpie.lock`
 to say what the list was derived from.
 
 If `.claude/settings.json` already exists, preserve its pre-run contents
-in scratch before running the CLI. Run the CLI commands, then run the
-merge from the installed pre-flight package with the same `PYTHONPATH`
-selector as [`config.md` Step 0](config.md#step-0--pre-flight):
+in scratch before running the CLI. In the framework checkout, use the
+trusted in-tree package:
+
+```bash
+uv run --project tools/setup-preflight setup-settings-merge
+```
+
+On an installed copy, run the merge from the installed pre-flight package
+with the same `PYTHONPATH` selector as
+[`config.md` Step 0](config.md#step-0--pre-flight):
 
 ```bash
 PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
@@ -203,10 +210,15 @@ PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.pat
 ```
 
 The registry ships inside `setup_preflight/`, so the command's default
-resolves from the copied package on every install method. It prints
-`plugins_added` and `allows_added` and writes nothing until `--write` is
-passed. Show the maintainer that report, run the same command with
-`--write`, and show the resulting `git diff`.
+resolves from the copied package on every install method. If the selected
+checker cannot import `setup_preflight.settings_merge` or resolve that
+registry, it is missing or stale: stop and refresh it through
+[`config.md` Step 2a](config.md#step-2a--install-the-pre-flight-checker)
+or the checker refresh in [`update.md`](update.md#refresh-the-pre-flight-checker)
+before continuing. A marketplace sandbox uses the user-run refresh commands
+documented there. It prints `plugins_added` and `allows_added` and writes
+nothing until `--write` is passed. Show the maintainer that report, run the
+same command with `--write`, and show the resulting `git diff`.
 
 Read the result against the **merge rules** below before staging. Those
 rules are the contract however the file got written: the CLI is not

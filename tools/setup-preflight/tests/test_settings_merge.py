@@ -20,6 +20,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -62,6 +66,39 @@ def write_registry(path: Path, registry: dict = REGISTRY) -> None:
 def test_default_registry_is_shipped_inside_the_package() -> None:
     assert settings_merge.DEFAULT_REGISTRY == settings_merge.HERE / "family-mcp-allows.json"
     assert settings_merge.DEFAULT_REGISTRY.is_file()
+
+
+def test_copied_package_uses_its_shipped_registry(tmp_path: Path) -> None:
+    shutil.copytree(settings_merge.HERE, tmp_path / "setup_preflight")
+    project = tmp_path / "project"
+    project.mkdir()
+    write_lock(project, FLOOR)
+    settings_path = project / ".claude" / "settings.json"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(tmp_path)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-P",
+            "-m",
+            "setup_preflight.settings_merge",
+            "--settings",
+            str(settings_path),
+            "--lock",
+            str(project / ".apache-magpie.lock"),
+            "--write",
+        ],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["allows_added"] == []
+    assert "permissions" not in json.loads(settings_path.read_text(encoding="utf-8"))
 
 
 def test_creates_the_file_when_absent(tmp_path: Path) -> None:

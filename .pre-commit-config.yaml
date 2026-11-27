@@ -118,7 +118,7 @@ repos:
       # (`.claude/settings.json` and the local settings template it is
       # layered with, `tools/agent-isolation/claude-settings.local.template.json`,
       # and the family MCP registry it derives allows from,
-      # `plugins/magpie-setup/skills/setup/family-mcp-allows.json`),
+      # `plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json`),
       # the self-adoption skill relays
       # (`.claude/skills/*` symlinks), and the plugin hook scripts
       # (`plugins/magpie-setup/hooks/`) — because agents must never
@@ -144,7 +144,7 @@ repos:
       # every one of these three hooks aborts the run without it.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
-        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|tools/agent-isolation/claude-settings\.local\.template\.json|plugins/magpie-setup/skills/setup/family-mcp-allows\.json|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
+        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|tools/agent-isolation/claude-settings\.local\.template\.json|plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows\.json|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
       # `--fix=lf`, not the default `auto`: `auto` only fails a file
       # that mixes the two styles, so a file converted wholesale to
       # CRLF (an editor on Windows, `core.autocrlf=true`) passes and

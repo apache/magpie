@@ -59,7 +59,7 @@ DEFAULT_EXPECTED = Path("tools/sandbox-lint/expected.json")
 DEFAULT_LOCAL_TEMPLATE = Path("tools/agent-isolation/claude-settings.local.template.json")
 # Which MCP tools each family calls. In the framework checkout every family is
 # in use, so the floor's MCP allows must be exactly what this derives.
-FAMILY_MCP_REGISTRY = Path("plugins/magpie-setup/skills/setup/family-mcp-allows.json")
+FAMILY_MCP_REGISTRY = Path("plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json")
 # A project's own additions to EXCLUDED_COMMAND_ALLOWLIST, one entry per line,
 # under its project root.
 PROJECT_EXCLUSION_ALLOWLIST = Path(".apache-magpie-overrides/sandbox-lint/excluded-commands.txt")

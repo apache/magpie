@@ -535,7 +535,7 @@ up to date:
      `gh` read allows, the remaining sandbox exclusions, network domains
      and tool paths);
    - in any project, the MCP tools from
-     [`family-mcp-allows.json`](family-mcp-allows.json) for each family
+     [`family-mcp-allows.json`](setup_preflight/family-mcp-allows.json) for each family
      installed on this machine **but not** in the lock's `plugins`
      (an adopted family's tools are already committed).
 
