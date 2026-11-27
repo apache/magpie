@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 4443
+measured_tokens: 4493
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -380,4 +380,6 @@ over a wording preference.
 - Leave short paragraphs (one sentence, or two lines) as they are.
 - Keep an example that marks a boundary the model must not cross: dropping "one file under `^<scope-b>/` and one under `^<scope-a>/`" from a mixed-scope guard made a same-scope case fail; restoring it fixed the case.
 - In a wording pass, also fix any `gh` call that is piped, redirected or wrapped in `$(…)`, or that belongs in a vetted-ops read; that shape fails under the secure setup.
+- Drop promises about future work ("the registry will be updated"); keep what is true now, such as which file is the source of truth.
+- When an introduction restates a later section, cut it to a one-line pointer at that section.
 <!-- END LEARNED STYLE -->
