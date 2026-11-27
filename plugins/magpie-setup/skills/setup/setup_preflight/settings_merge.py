@@ -38,8 +38,8 @@ Without `--write` it reports what the merge would do and leaves the file
 untouched.  The report is JSON:
 
     {"action": "create" | "merge" | "refuse", "keys_preserved": [...],
-     "plugins_added": [...], "plugins_removed": [...],
-     "marketplace_definition_changed": true | false}
+     "plugins_added": [...], "allows_added": [...],
+     "plugins_removed": [...], "marketplace_definition_changed": true | false}
 """
 
 from __future__ import annotations
@@ -144,17 +144,17 @@ def merge(
             plugins_added.append(key)
 
     permissions = _object(settings, "permissions", path)
-    settings["permissions"] = permissions
     allow = _list(permissions, "allow", path)
-    permissions["allow"] = allow
-    for entry in allows:
-        if entry not in allow:
-            allow.append(entry)
+    allows_added = [entry for entry in dict.fromkeys(allows) if entry not in allow]
+    if allows_added:
+        permissions["allow"] = allow + allows_added
+        settings["permissions"] = permissions
 
     report = {
         "action": "merge",
         "keys_preserved": keys_preserved,
         "plugins_added": plugins_added,
+        "allows_added": allows_added,
         "plugins_removed": [],
         "marketplace_definition_changed": marketplace_definition_changed,
     }
@@ -235,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
                     "action": "refuse",
                     "keys_preserved": [],
                     "plugins_added": [],
+                    "allows_added": [],
                     "plugins_removed": [],
                     "marketplace_definition_changed": False,
                 }

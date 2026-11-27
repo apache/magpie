@@ -10,6 +10,7 @@ Return ONLY valid JSON with this structure:
   "action": "create" | "merge" | "refuse",
   "keys_preserved": [...],
   "plugins_added": [...],
+  "allows_added": [...],
   "plugins_removed": [...],
   "marketplace_definition_changed": true | false
 }
@@ -25,6 +26,11 @@ the settings file.
 `plugins_added` is a list of `<plugin>@<marketplace>` strings — the entries
 the merge added to `enabledPlugins`. Where it adds more than one, list them
 in the order the merge rules give them.
+
+`allows_added` is a list of `mcp__<server>__<tool>` strings — the derived
+MCP allows the merge added to `permissions.allow`, in registry order.
+It is empty when the floor derives no MCP allows, and `permissions` is
+then left absent unless it was already present.
 
 `plugins_removed` is a list of `<plugin>@<marketplace>` strings — the
 entries the merge removed from `enabledPlugins`.

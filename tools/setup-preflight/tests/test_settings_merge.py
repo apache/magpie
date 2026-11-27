@@ -46,6 +46,15 @@ REGISTRY = {
     }
 }
 
+SHIPPED_REGISTRY = (
+    Path(__file__).resolve().parents[3]
+    / "plugins"
+    / "magpie-setup"
+    / "skills"
+    / "setup"
+    / "family-mcp-allows.json"
+)
+
 
 def paths(tmp_path: Path) -> tuple[Path, Path, Path]:
     return (
@@ -75,6 +84,10 @@ def test_creates_the_file_when_absent(tmp_path: Path) -> None:
             "magpie-agent-guard@apache-magpie",
             "magpie-vetted-ops@apache-magpie",
         ],
+        "allows_added": [
+            "mcp__apache-projects__project_stats",
+            "mcp__apache-projects__get_person",
+        ],
         "plugins_removed": [],
         "marketplace_definition_changed": True,
     }
@@ -87,6 +100,32 @@ def test_creates_the_file_when_absent(tmp_path: Path) -> None:
         "mcp__apache-projects__project_stats",
         "mcp__apache-projects__get_person",
     ]
+
+
+def test_omits_permissions_when_the_shipped_registry_derives_no_allows(tmp_path: Path) -> None:
+    settings_path, lock_path, _ = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+
+    report = settings_merge.run(settings_path, lock_path, SHIPPED_REGISTRY, write=True)
+
+    assert report["allows_added"] == []
+    written = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert "permissions" not in written
+
+
+def test_does_not_add_permissions_to_an_existing_file_when_no_allows_are_derived(
+    tmp_path: Path,
+) -> None:
+    settings_path, lock_path, _ = paths(tmp_path)
+    write_lock(tmp_path, FLOOR)
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text('{"sandbox": {"enabled": true}}', encoding="utf-8")
+
+    settings_merge.run(settings_path, lock_path, SHIPPED_REGISTRY, write=True)
+
+    written = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert written["sandbox"] == {"enabled": True}
+    assert "permissions" not in written
 
 
 def test_preserves_other_keys_and_existing_allows(tmp_path: Path) -> None:
@@ -109,6 +148,10 @@ def test_preserves_other_keys_and_existing_allows(tmp_path: Path) -> None:
 
     assert report["action"] == "merge"
     assert report["keys_preserved"] == ["$schema", "sandbox", "permissions"]
+    assert report["allows_added"] == [
+        "mcp__apache-projects__project_stats",
+        "mcp__apache-projects__get_person",
+    ]
     written = json.loads(settings_path.read_text(encoding="utf-8"))
     assert written["sandbox"] == {"enabled": True}
     assert written["permissions"]["allow"] == [
@@ -193,6 +236,7 @@ def test_refuses_a_malformed_file_and_leaves_it_alone(
     report = json.loads(capsys.readouterr().out)
     assert report["action"] == "refuse"
     assert report["plugins_added"] == []
+    assert report["allows_added"] == []
 
 
 def test_ensures_the_vetted_ops_plugin_on_an_older_lock(tmp_path: Path) -> None:
@@ -223,4 +267,8 @@ def test_without_write_the_file_is_not_touched(tmp_path: Path) -> None:
     report = settings_merge.run(settings_path, lock_path, registry_path, write=False)
 
     assert report["action"] == "create"
+    assert report["allows_added"] == [
+        "mcp__apache-projects__project_stats",
+        "mcp__apache-projects__get_person",
+    ]
     assert not settings_path.exists()
