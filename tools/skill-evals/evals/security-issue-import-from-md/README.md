@@ -37,3 +37,14 @@ The `step-6-recap` scenario is pinned there too, against `render-recap`; that su
 ## Steps not covered
 
 Steps 0, 3 (tracker body construction), and 5 (apply loop) are procedural steps (shell commands, `gh api` calls, project-board mutations) without a clean prompt-only eval boundary. Step 3 body construction is testable but closely mirrors the import-from-pr and import skills' body-build steps already covered in those suites.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `51a6a7cd` (feat/vetted-ops-unlisted-value-refusal) | `opus[1m]` | 1 | pass |  |

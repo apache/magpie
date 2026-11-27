@@ -54,7 +54,9 @@ and on top of that:
   when a board operation is in the manifest, must report itself not public.
 
 All of that happens before the first write: one invalid entry refuses the whole
-batch with nothing run. The digest covers the policy (its bytes' hash, tracker,
+batch with nothing run. An entry refused only because a value is not in the
+policy's ``[values]`` exits ``EXIT_UNLISTED`` (5) instead, after the whole manifest
+was checked, with one JSON line per such value naming its entry index. The digest covers the policy (its bytes' hash, tracker,
 backend, board and resolved workspace), the manifest, every body and title file
 it names, and every entry's built command; the run refuses a digest that does
 not match, so the confirmation the user gives for ``--expect <digest>`` is a
@@ -95,6 +97,8 @@ from .safe_read import unlink_regular_file
 
 EXIT_OK = 0
 EXIT_POLICY = 3
+#: As `cli.EXIT_UNLISTED`: an entry names a value the policy's [values] does not list.
+EXIT_UNLISTED = 5
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,8 @@ class SingleCall:
     dispatch: Callable[[ops_mod.Op, object, dict[str, str], bytes | None, argparse.Namespace, Config], int]
     consume: Callable[[ops_mod.Op, list[str], Config], None]
     reject_repeated_caller: Callable[[Sequence[str]], None]
+    #: Prints one unlisted-value refusal (human line, then its JSON lines) for one entry.
+    report_unlisted: Callable[..., None]
 
 
 MANIFEST_VERSION = 1
@@ -160,6 +166,23 @@ _BOARD_PUBLIC_QUERY = "query($id:ID!){node(id:$id){... on ProjectV2{public}}}"
 
 class BatchRefused(RuntimeError):
     """The batch as a whole is refused; nothing has run."""
+
+
+class BatchUnlisted(BatchRefused):
+    """Refused only because entries name values the policy's [values] does not list.
+
+    ``unlisted`` holds each such entry's index and refusal, every one in the
+    manifest, so the skill asks the user about all of them at once.
+    """
+
+    def __init__(self, unlisted: Sequence[tuple[int, ops_mod.UnlistedValue]]) -> None:
+        self.unlisted = tuple(unlisted)
+        super().__init__("; ".join(f"entry {index} ({exc.operation}): {exc}" for index, exc in self.unlisted))
+
+    def report(self, caller: str, config: Config, single: SingleCall) -> int:
+        for index, exc in self.unlisted:
+            single.report_unlisted(exc, caller, config, entry=index)
+        return EXIT_UNLISTED
 
 
 @dataclass(frozen=True)
@@ -303,6 +326,9 @@ def check(config: Config, caller: str, manifest: str, single: SingleCall) -> Bat
     feed(_destination(config))
     feed(data)
     entries: list[Entry] = []
+    # Unlisted values are collected across the whole manifest (any other fault
+    # still refuses at once), so the user is asked about all of them together.
+    unlisted: list[tuple[int, ops_mod.UnlistedValue]] = []
     for index, (name, values) in enumerate(items, 1):
         try:
             op = ops_mod.resolve(name)
@@ -316,13 +342,20 @@ def check(config: Config, caller: str, manifest: str, single: SingleCall) -> Bat
             params, body = single.validate(op, values, config)
             command = single.build(op, params, config)
             _check_target(op, command, config)
+        except ops_mod.UnlistedValue as exc:
+            unlisted.append((index, exc))
+            continue
         except (BatchRefused, ops_mod.ParamError, ConfigError) as exc:
             raise BatchRefused(f"entry {index} ({name}): {exc}") from None
+        if unlisted:
+            continue  # refused anyway; keep checking only to find the other unlisted values
         for part in [body or b"", *(params[t].encode("utf-8") for t in op.title_files)]:
             feed(part)
         # What runs is what was summarised: the built command itself.
         feed(_built(command))
         entries.append(Entry(index, op, list(values), params, body, command))
+    if unlisted:
+        raise BatchUnlisted(unlisted)
     return Batch(Path(manifest), tuple(entries), digest.hexdigest())
 
 
@@ -463,6 +496,8 @@ def check_main(caller: str, manifest: str, policy_from: Path | None, single: Sin
         config = load_policy(policy_from)
         batch = check(config, caller, manifest, single)
         where = confirm_private(config, batch)
+    except BatchUnlisted as exc:
+        return exc.report(caller, config, single)
     except (BatchRefused, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -534,6 +569,8 @@ def main(argv: Sequence[str] | None, *, single: SingleCall, unprompted: bool = F
                 f"expected {args.expect}); run batch-check again and show the user the new summary"
             )
         where = confirm_private(config, batch)
+    except BatchUnlisted as exc:
+        return exc.report(args.caller, config, single)
     except (BatchRefused, ConfigError, ops_mod.ParamError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -545,6 +582,7 @@ __all__ = [
     "BATCHABLE",
     "Batch",
     "BatchRefused",
+    "BatchUnlisted",
     "SingleCall",
     "check",
     "confirm_private",

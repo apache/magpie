@@ -105,6 +105,63 @@ class ParamError(ValueError):
     """Raised when a parameter fails validation."""
 
 
+#: The ``refused`` value of the JSON line an unlisted-value refusal prints.
+UNLISTED_VALUE = "unlisted-value"
+
+
+class UnlistedValue(ParamError):
+    """
+    A well-formed value that the policy's ``[values]`` allowlist does not list.
+
+    It is the one refusal a skill can recover from with the user: the value is
+    not malformed, the policy just never approved it. The dispatchers report it
+    with an exit code of its own and one JSON line per value (see `records`),
+    naming the ``[values]`` key a reviewed policy change would add it to. The
+    allowlist itself is unchanged: the value never reaches ``gh``, and only the
+    user can widen the policy (edit it, then re-approve the copy).
+    """
+
+    def __init__(
+        self, *, operation: str, parameter: str, key: str, values: Sequence[str], detail: str
+    ) -> None:
+        self.operation = operation
+        self.parameter = parameter
+        self.key = key
+        self.values = tuple(values)
+        shown = ", ".join(repr(v) for v in self.values)
+        noun, verb = ("value", "is") if len(self.values) == 1 else ("values", "are")
+        super().__init__(
+            f"{noun} {shown} {verb} not in [values] {key} "
+            f"(parameter {parameter!r} of {operation!r}): {detail}"
+        )
+
+    def records(
+        self,
+        *,
+        caller: str | None,
+        policy: str | None,
+        approved_copy: str | None,
+        entry: int | None = None,
+    ) -> list[dict[str, object]]:
+        """One JSON-ready object per refused value, in the order given."""
+        out: list[dict[str, object]] = []
+        for value in self.values:
+            record: dict[str, object] = {
+                "refused": UNLISTED_VALUE,
+                "operation": self.operation,
+                "caller": caller,
+                "parameter": self.parameter,
+                "value": value,
+                "key": self.key,
+                "policy": policy,
+                "approved_copy": approved_copy,
+            }
+            if entry is not None:
+                record["entry"] = entry
+            out.append(record)
+        return out
+
+
 def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
     # fullmatch, not match: ``$`` also matches before a trailing newline, so
     # ``match`` would let ``"123\n"`` through every anchored pattern in this module.
@@ -589,6 +646,11 @@ def read_body(value: str, *, workspace: Path) -> bytes:
 #: says: `,` splits `gh`'s list flags, `"` and `\` break out of a quoted search
 #: qualifier.
 _PATTERN_VALUE_FORBIDDEN = frozenset(',"\\')
+
+
+def plain_value(value: str) -> bool:
+    """Whether an unlisted value is a plain name, so a refusal may offer it for the policy."""
+    return _pattern_value_ok(value)
 
 
 def _pattern_value_ok(value: str) -> bool:
@@ -1288,8 +1350,18 @@ def _issue_create_labeled(cfg: dict[str, str], title: str, body: str, labels: st
     if len(selected) != len(set(selected)):
         raise ParamError("duplicate labels are not allowed")
 
-    if any(label not in allowed for label in selected):
-        raise ParamError("labels contain a value not approved by policy")
+    # Every offending label at once, so the user decides about all of them in one ask.
+    unlisted = [label for label in selected if label not in allowed]
+    if unlisted and not all(plain_value(label) for label in unlisted):
+        raise ParamError("labels contain a value not approved by policy, and not a plain name")
+    if unlisted:
+        raise UnlistedValue(
+            operation="issue-create-labeled",
+            parameter="labels",
+            key="labels",
+            values=unlisted,
+            detail="labels contain a value not approved by policy",
+        )
 
     argv = [
         "gh",

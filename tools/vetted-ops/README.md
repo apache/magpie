@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [A value the policy does not list](#a-value-the-policy-does-not-list)
     - [Where do the dispatchers start from?](#where-do-the-dispatchers-start-from)
     - [Is the policy approved?](#is-the-policy-approved)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
@@ -522,6 +523,10 @@ other list takes patterns, and the policy refuses one that tries: labels reach
 `gh` list flags and search qualifiers, and logins have their own format check,
 so both stay listed by name.
 
+A value missing from a list is refused with exit `5` and a JSON line naming the
+key to add it to; see
+[A value the policy does not list](#a-value-the-policy-does-not-list).
+
 Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
 is a read-only dashboard, so it gets no write operation at all, and a
 prompt-injection payload in a PR title cannot talk it into one.
@@ -612,7 +617,33 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 ```
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
-underlying command failed.
+underlying command failed, `5` a value the policy's `[values]` does not list
+(see [A value the policy does not list](#a-value-the-policy-does-not-list)).
+
+### A value the policy does not list
+
+An enum-gated parameter (a label, milestone, assignee, state, close reason, board column or ecosystem)
+that is a plain name but not in its `[values]` list is refused with exit `5`, on every entry point,
+reads and dry runs included, before anything runs.
+The value never reaches `gh`, the HTTP client or a tracker backend; on a non-GitHub tracker the check runs before the translation.
+stderr carries the usual human line, then **one JSON object line per refused value**:
+
+```text
+vetted-op: refused: value 'family:tools' is not in [values] upstream_labels (parameter 'label' of 'pr-add-label'): …
+{"refused": "unlisted-value", "operation": "pr-add-label", "caller": "setup-upstream-fix", "parameter": "label", "value": "family:tools", "key": "upstream_labels", "policy": "/…/.apache-magpie-overrides/tools/vetted-ops/config.toml", "approved_copy": "/…/.config/apache-magpie/vetted-ops/<project>.toml"}
+```
+
+- `key` is the `[values]` key a reviewed policy change would add the value to; `policy` is the discovered policy file, and `approved_copy` the path the re-approval `cp` writes.
+- `issue-create-labeled` prints one line per unlisted label in its `labels` array (key `labels`), all of them in one refusal.
+- A batch (`batch-check`, `vetted-op-tracker-batch`, `…-unprompted`) checks the whole manifest, then prints one line per unlisted value with an extra `"entry": <index>`; any other fault in the manifest refuses at once with exit `3`.
+- A milestone that matches neither `milestones` nor `milestones_patterns` gets the same shape, with key `milestones`.
+- Exit `3` stays for everything else and prints no JSON line: an unknown operation, a caller not granted it,
+  a malformed value (a leading `-`, or an unlisted value that is not a plain name: control or format characters, `,` `"` `\`, over 100 characters),
+  and a policy that declares **no** list for the key at all, which is a configuration error, not one missing value.
+
+The allowlist is unchanged: only the user widens it, by editing the policy and re-approving the copy.
+Skills handle exit `5` with the shared
+[`unlisted-value-ask`](../dev/blocks/unlisted-value-ask.md) block.
 
 ### Where do the dispatchers start from?
 

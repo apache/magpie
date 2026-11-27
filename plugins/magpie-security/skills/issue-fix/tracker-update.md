@@ -5,7 +5,8 @@
 
 ## Step 10 — Update the <tracker> tracking issue
 
-Now that a public PR exists, update the private tracking issue:
+Now that a public PR exists, update the private tracking issue.
+When an assignee, milestone or label write below exits `5`, follow [unlisted-value-ask.md](unlisted-value-ask.md) for that write.
 
 1. **Append a `Fix PR` entry to the tracker's status-rollup comment** — not a new top-level comment.
    The rollup recipe (detection, append, zero-whitespace rules) lives in [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
