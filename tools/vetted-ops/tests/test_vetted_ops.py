@@ -1658,6 +1658,8 @@ def test_upstream_search_passes_each_word_separately(policy: config.Config, name
         " --repo=other/repo",
         "",
         "x" * 201,
+        "credentials ) OR ( credentials",  # a group set apart from the pinned repo:
+        "token OR secret",
     ],
 )
 def test_upstream_search_refuses_qualifiers_and_flags(policy: config.Config, name: str, hostile: str) -> None:

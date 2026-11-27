@@ -306,6 +306,22 @@ def test_query_refuses_qualifiers() -> None:
         ops.query(" --repo=other/repo")
 
 
+@pytest.mark.parametrize(
+    "hostile",
+    ["token ) OR ( token", "( token ) OR ( token )", "token OR secret", "a AND b", "NOT token", "(token)"],
+)
+def test_query_refuses_grouping_and_operators(hostile: str) -> None:
+    """The pinned `repo:` lands after the words; a group or operator could split a clause off it."""
+    with pytest.raises(ops.ParamError):
+        ops.query(hostile)
+
+
+@pytest.mark.parametrize("plain", ["normalise ORDER notation", "not found or missing", "this and that"])
+def test_query_keeps_lowercase_and_embedded_operator_words(plain: str) -> None:
+    """GitHub treats only the uppercase whole word as an operator; the rest are plain words."""
+    assert ops.query(plain) == plain
+
+
 def test_github_search_ends_options_before_the_query(tmp_path: Path) -> None:
     workspace = tmp_path / "w"
     workspace.mkdir()
