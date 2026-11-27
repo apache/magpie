@@ -791,9 +791,19 @@ class Verifier:
     # -- check 19: host-only uv, prek and pnpm state ----------------------
 
     def absolute(self, entry: str) -> str:
-        """A settings path entry as an absolute, normalised path: `~`, `$HOME`, `//` and relative forms."""
+        """A settings path entry as an absolute, normalised path: `~`, `$HOME`, `//` and relative forms.
+
+        A glob entry (`~/.local/share/**`, `~/.local/*/uv`) is cut back to its longest fixed prefix, the
+        directory it can match anything under, so a wildcard grant is never read as a path nothing matches.
+        """
         path = self.expand(entry[1:] if entry.startswith("//") else entry)
-        return os.path.normpath(str(path if path.is_absolute() else self.ctx.root / path))
+        full = os.path.normpath(str(path if path.is_absolute() else self.ctx.root / path))
+        return _glob_root(full)
+
+    @staticmethod
+    def forms(path: str) -> set[str]:
+        """`path` as written and with its symlinks resolved, as 19b compares the cache dir."""
+        return {path, os.path.realpath(path)}
 
     def grants(self, *keys: tuple[str, ...]) -> list[tuple[Settings, str, str, str]]:
         """`(file, key, entry, absolute path)` for each entry under `keys` in every readable merged file."""
@@ -912,10 +922,12 @@ class Verifier:
 
         # 19a — the uv data dir is read-only.
         uv_data = self.absolute(UV_DATA)
+        # Either direction: a grant on a parent makes the whole dir writable, and one on a child
+        # (`~/.local/share/uv/tools`) makes interpreters or tool venvs that run outside the sandbox writable.
         over = [
             f"{self.show(f.path)}: {key} {entry!r}"
             for f, key, entry, path in writes
-            if _within(uv_data, path)
+            if any(_overlaps(u, p) for u in self.forms(uv_data) for p in self.forms(path))
         ]
         if over:
             parts.append(("fail", f"19a: {UV_DATA} writable: " + "; ".join(over)))
@@ -998,7 +1010,8 @@ class Verifier:
             parts.append((gap, f"19e: permissions.deny lacks {PNPM_DENY}"))
         pnpm_root = self.absolute(PNPM_ROOT)
         for f, key, entry, path in writes:
-            if _within(pnpm_root, path):
+            # One direction only: a per-project home under the root is expected to be granted.
+            if any(_within(r, p) for r in self.forms(pnpm_root) for p in self.forms(path)):
                 parts.append(
                     ("fail", f"19e: {self.show(f.path)}: {key} {entry!r} grants {PNPM_ROOT}/ itself")
                 )
@@ -1199,6 +1212,15 @@ def _within(path: str, root: str) -> bool:
     """Whether `path` is `root` or inside it (both absolute and normalised)."""
     root = root.rstrip("/")
     return path == root or path.startswith(root + "/") or not root
+
+
+def _glob_root(path: str) -> str:
+    """`path` cut at its first component holding a glob character (`*`, `?`, `[`, `{`)."""
+    parts = path.split(os.sep)
+    for i, part in enumerate(parts):
+        if any(c in part for c in "*?[{"):
+            return os.sep.join(parts[:i]) or os.sep
+    return path
 
 
 def _overlaps(a: str, b: str) -> bool:
