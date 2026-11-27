@@ -115,3 +115,14 @@ Step 4 is a structural pass-through: it folds the prior steps' results into
 the shape the parent skill consumes and adds no new decision logic, so it
 is exercised through the parent skill's own evals rather than a separate
 case here.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-27 | `2a482e3c` (fix/asf-security-relay-detect) | `opus[1m]` | 2 | pass |  |

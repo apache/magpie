@@ -161,15 +161,35 @@ adapter, or `null` if not.
 Detection is the AND of two signals:
 
 * **Sender pattern.** A regex or set-membership check against
-  the `From:` address. ASF Security: `security@apache.org` OR
-  any `*@apache.org` address. huntr: huntr.com's outbound
+  the `From:` address. ASF Security: an address at `apache.org`
+  itself (`security@apache.org` among them), never one at a
+  `<project>.apache.org` list. huntr: huntr.com's outbound
   notification address. HackerOne: HackerOne's notification
   address.
+  A mailing list that rewrites every poster's `From:` to its own
+  address hides the forwarder's. For that case an adapter may set
+  a **list-rewrite path**, three patterns set together
+  (`list_sender_pattern` against the `From:` mailbox, decoded and
+  normalised to `<name> <address>`; a `From:` naming more than one
+  address never matches,
+  `list_cc_pattern` against each `Cc:` address,
+  `list_message_id_pattern` against the `Message-ID:` without its
+  angle brackets): the rewritten sender counts as the sender
+  signal only when all three match. The rewritten `From:` alone
+  says nothing, since the list rewrites anyone it accepts.
+  The skill passes `cc` and `message_id` in the message for it;
+  a message without them never takes this path.
 * **Preamble match.** A regex against the first ~400 characters
   of the message body, anchored to the broker's standard
-  forwarding header. ASF Security: *"Dear PMC, The security
-  vulnerability report has been received by the Apache Security
-  Team …"*.
+  forwarding header. ASF Security: *"Dear <Project> PMC, The
+  following security vulnerability report has been received by
+  the Apache Security Team …"* (older relays: *"Dear PMC, The
+  security vulnerability report …"*).
+
+Every one of these headers, and the preamble, can be forged by a
+sender who knows the shape; combining them only raises the bar.
+The human's confirmation of the routing and the credit stays the
+real gate.
 
 Both signals are evaluated and **both must match**.
 Either one alone is forgeable by any sender:
@@ -343,10 +363,22 @@ forwarders:
   enabled:
     - asf-security
   asf-security:
-    # Detection needs BOTH sender_pattern and preamble_match to match;
+    # Detection needs BOTH the sender signal and preamble_match to match;
     # neither alone switches a message into relay mode.
-    sender_pattern: '(security@apache\.org|.+@apache\.org)'
-    preamble_match: 'Dear PMC,\s+The security vulnerability report has been received by the Apache Security Team'
+    # Sender: an address at apache.org itself, anchored so that no
+    # lookalike domain (apache.org.example) and no <project>.apache.org
+    # list address passes.
+    sender_pattern: '^[^@\s]+@apache\.org$'
+    # A project's private or security list rewrites the relay's From: to
+    # "<Name> via private" <private@<project>.apache.org> (or "via security",
+    # <security@<project>.apache.org>) for every poster,
+    # so that sender counts only with the ASF Security address in Cc:
+    # and a Message-ID minted by the ASF Security mail host.
+    list_sender_pattern: '\svia\s+(private|security)\s*<\1@(?:[a-z0-9-]+\.)+apache\.org>$'
+    list_cc_pattern: 'security@apache\.org'
+    list_message_id_pattern: '[^@\s<>]+@security\.apache\.org'
+    # The greeting may name the project, and the line may wrap.
+    preamble_match: '^\s*Dear\s+(?:[^,]{1,100}?\s+)?PMC,\s+(?:The\s+(?:following\s+)?)?security\s+vulnerability\s+report\s+has\s+been\s+received\s+by\s+the\s+Apache\s+Security\s+Team'
     credit_extraction_rule:
       # The ASF forwarding template ends with a credit line in one of these shapes.
       patterns:

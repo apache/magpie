@@ -141,7 +141,12 @@ forwarders:
   enabled: [asf-security]              # ASF security team relays reports onto project lists
   asf-security:
     contact_handle: security@apache.org
-    preamble_match: "^Dear PMC,\\s+The security vulnerability report"
+    # Same values as the ASF default in tools/forwarder-relay/README.md.
+    sender_pattern: '^[^@\s]+@apache\.org$'
+    list_sender_pattern: '\svia\s+(private|security)\s*<\1@(?:[a-z0-9-]+\.)+apache\.org>$'
+    list_cc_pattern: 'security@apache\.org'
+    list_message_id_pattern: '[^@\s<>]+@security\.apache\.org'
+    preamble_match: '^\s*Dear\s+(?:[^,]{1,100}?\s+)?PMC,\s+(?:The\s+(?:following\s+)?)?security\s+vulnerability\s+report\s+has\s+been\s+received\s+by\s+the\s+Apache\s+Security\s+Team'
     credit_extraction_rule: "first-line-matching:^Reported by:\\s+(.+)$"
 ```
 

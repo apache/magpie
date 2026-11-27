@@ -42,7 +42,11 @@ def add_parsers(sub: Any) -> None:
     p.add_argument("--framework", required=True, help="<framework>: where tools/forwarder-relay/ lives")
 
     d = commands.add_parser("detect", help="Step 1: the first enabled adapter whose detect() matches")
-    d.add_argument("--message", required=True, help="JSON: from, body")
+    d.add_argument(
+        "--message",
+        required=True,
+        help="JSON: from, body; optional cc, message_id (an adapter's list-rewrite path)",
+    )
     d.add_argument("--forwarders", required=True, help="JSON: forwarders block, patterns resolved")
     d.add_argument("--collaborators", help="JSON list: the collaborator logins / addresses from Step 0")
 

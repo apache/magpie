@@ -20,7 +20,7 @@ when_to_use: |
 capability: capability:intake
 surface_hash: sha256:43894008501eb56d
 license: Apache-2.0
-measured_tokens: 6359
+measured_tokens: 6464
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -232,7 +232,7 @@ Before running, the skill needs:
 
 Before touching the in-hand message, verify:
 
-Write the in-hand message's `from`, `date` and `body` to `<scratch>/fwd-message.json` and `project.md → forwarders` to `<scratch>/forwarders.json`, then run
+Write the in-hand message's `from` (the raw header, display name included), `date`, `body`, and its `cc` and RFC-5322 `message_id` headers when it has them (an adapter's list-rewrite path reads them; the Gmail MCP does not expose `Message-ID:`, so [get it](../../../../tools/gmail/operations.md#get-the-root-message-id-of-a-thread) through the OAuth Gmail helper or the archive; [the `detect()` contract](../../../../tools/forwarder-relay/README.md#detectmessage---adapter_name--null)) to `<scratch>/fwd-message.json` and `project.md → forwarders` to `<scratch>/forwarders.json`, then run
 `<sm> preflight --forwarders <scratch>/forwarders.json --message <scratch>/fwd-message.json --framework <framework>`.
 It applies the three checks in order and prints `outcome`:
 

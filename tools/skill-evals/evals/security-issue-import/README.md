@@ -197,4 +197,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `2a482e3c` (fix/asf-security-relay-detect) | `opus[1m]` | 3 | `step-3-classify/case-6-ghsa-relay` failed 1 of 3 |  |
 | 2026-11-25 | `3ee03b24` (fix/import-affected-versions-shape) | `claude-opus-5-5` | 2 | `step-4-extract-fields/case-5-mail-body-injection` failed 1 of 2 | Affected versions shape fix |
