@@ -660,6 +660,44 @@ def test_a_relay_thread_is_no_further_reporter(capsys, tmp_path):
 def test_a_thread_id_the_field_does_not_record_is_blocked(capsys, tmp_path):
     plan = draft_plan(capsys, tmp_path, MERGED, thread_id="nosuchthread99")
     assert plan["action"] == "blocked"
+    assert "leave it out to plan the primary one" in plan["reason"]
+
+
+ARCHIVE = "https://lists.apache.org/thread/abc123def456?security@airflow.apache.org"
+
+
+def test_an_archive_only_report_threads_by_its_root_message_id(capsys, tmp_path):
+    # Forwarded to the private list, never in this mailbox: no Gmail thread to attach to.
+    field = f"{ARCHIVE}\nRoot Message-ID: `<report-1@example.org>`"
+    plan = draft_plan(capsys, tmp_path, field)
+    assert (plan["action"], plan["backend"]) == ("create", "oauth_curl")
+    assert plan["anchor"] == {"in_reply_to": "<report-1@example.org>", "references": "<report-1@example.org>"}
+    assert "thread_id" not in plan["anchor"]
+    assert plan["thread_id"] == ARCHIVE
+    assert plan["subject"] == "Re: Pickle in XCom"
+
+
+def test_an_archive_only_report_never_threads_by_the_gmail_message_id(capsys, tmp_path):
+    # `last_message_id` is a Gmail API id for `claude_ai_mcp`, not an RFC 5322 Message-ID.
+    plan = draft_plan(
+        capsys,
+        tmp_path,
+        ARCHIVE,
+        root_message_id="<report-1@example.org>",
+        last_message_id="18f3a2b9c1d4e600",
+    )
+    assert plan["anchor"] == {"in_reply_to": "<report-1@example.org>", "references": "<report-1@example.org>"}
+
+
+def test_an_archive_only_report_without_a_message_id_is_still_blocked(capsys, tmp_path):
+    plan = draft_plan(capsys, tmp_path, ARCHIVE)
+    assert plan["action"] == "blocked"
+    assert "thread_id or the root Message-ID" in plan["reason"]
+
+
+def test_a_gmail_thread_still_wins_over_the_message_id(capsys, tmp_path):
+    plan = draft_plan(capsys, tmp_path, f"{GMAIL}\nRoot Message-ID: `<report-1@example.org>`")
+    assert plan["anchor"] == {"thread_id": "18f3a2b9c1d4e507"}
 
 
 def test_each_further_reporter_is_planned_even_when_the_first_needs_no_draft(capsys, tmp_path):

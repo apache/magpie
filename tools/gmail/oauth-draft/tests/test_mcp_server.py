@@ -24,6 +24,7 @@ from email.message import EmailMessage
 from unittest.mock import patch
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
 from oauth_draft import mcp_server
 from oauth_draft.credentials import Credentials
@@ -345,3 +346,54 @@ def test_a_path_in_the_configured_dir_is_accepted(tmp_path, monkeypatch):
     ):
         assert mcp_server.check_auth(credentials_path=str(target))["status"] == "ok"
     locate.assert_called_once_with(str(target))
+
+
+# --- failures reach the MCP client with their reason -----------------------
+
+
+def _call_tool(name: str, arguments: dict):
+    return asyncio.run(mcp_server.mcp.call_tool(name, arguments))
+
+
+def test_a_gmail_api_failure_reaches_the_client_with_its_reason():
+    # Through the registered tool, as an MCP client calls it: without the
+    # conversion the SDK reports a bare "Error executing tool create_draft".
+    with (
+        patch.object(mcp_server, "locate_credentials", return_value="/dev/null"),
+        patch.object(mcp_server.Credentials, "load", return_value=CREDS),
+        patch.object(mcp_server, "refresh_access_token", return_value="tok"),
+        patch.object(
+            mcp_server._cd,
+            "create_draft",
+            side_effect=SystemExit("Gmail API /drafts failed (404): Requested entity was not found."),
+        ),
+        pytest.raises(ToolError, match=r"create_draft: Gmail API /drafts failed \(404\)") as caught,
+    ):
+        _call_tool(
+            "create_draft",
+            {
+                "to": ["rcpt@example.com"],
+                "subject": "Re: hello",
+                "body": "b",
+                "thread_id": "tid",
+                "in_reply_to": "<report@example.org>",
+            },
+        )
+    assert not isinstance(caught.value, UnexpectedToolError)
+
+
+def test_a_rejected_message_id_reaches_the_client_with_its_reason():
+    with pytest.raises(ToolError, match="not a Message-ID") as caught:
+        _call_tool(
+            "create_draft",
+            {"to": ["rcpt@example.com"], "subject": "S", "body": "b", "in_reply_to": "no-at-sign"},
+        )
+    assert not isinstance(caught.value, UnexpectedToolError)
+
+
+def test_check_auth_failure_reaches_the_client_with_its_reason():
+    with (
+        patch.object(mcp_server, "locate_credentials", side_effect=SystemExit("no credentials file")),
+        pytest.raises(ToolError, match="no credentials file"),
+    ):
+        _call_tool("check_auth", {})

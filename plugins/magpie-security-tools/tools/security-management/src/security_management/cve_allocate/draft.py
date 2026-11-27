@@ -85,7 +85,12 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
         return _plan(data, thread)
     match = next((t for t in thread["secondary_threads"] if target in (t["thread_id"], t["url"])), None)
     if match is None:
-        return _out("blocked", None, f"the thread field records no thread {target!r}")
+        return _out(
+            "blocked",
+            None,
+            f"the thread field records no thread {target!r}: `thread_id` names a further reporter's "
+            "recorded thread; leave it out to plan the primary one",
+        )
     if match["relay"]:
         return _out(
             "skip", "omitted", "a relay thread: the reporter behind it is answered on the primary thread"
@@ -147,8 +152,8 @@ def _plan_thread(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str
         "last_message_id": data.get("last_message_id"),
     }
     anchor = drafting.anchor(backend, fields)
-    if not all(anchor.values()):
-        return _out("blocked", None, f"{backend} needs {', '.join(anchor)} to attach to the inbound thread")
+    if why := drafting.unanchored(backend, anchor):
+        return _out("blocked", None, why)
     return _out(
         "create",
         "draft_pending",

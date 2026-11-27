@@ -66,12 +66,14 @@ as ``mcp__gmail-plaintext__create_draft``.
 from __future__ import annotations
 
 import contextlib
+import functools
 import os
 import pathlib
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, TypeVar
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from oauth_draft import create_draft as _cd
 from oauth_draft import setup_creds as _setup
@@ -84,6 +86,31 @@ from oauth_draft.credentials import (
 )
 
 mcp = MCPServer("gmail-plaintext")
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _tool(fn: _F) -> _F:
+    """Register ``fn`` as a tool whose failures reach the caller with their text.
+
+    The SDK reports any exception other than ``ToolError`` as a crash: the
+    client sees only ``Error executing tool <name>``, and the reason (a Gmail
+    API error, a rejected Message-ID, a missing credentials file) stays in
+    the server log. Every failure these tools raise on purpose is a
+    ``ValueError`` or the ``RuntimeError`` of :func:`_as_tool_error`, so the
+    registered wrapper re-raises those as ``ToolError`` with the same message.
+    The undecorated function is returned for direct calls.
+    """
+
+    @functools.wraps(fn)
+    def reported(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return fn(*args, **kwargs)
+        except (ValueError, RuntimeError) as exc:
+            raise ToolError(str(exc) or type(exc).__name__) from exc
+
+    mcp.tool()(reported)
+    return fn
 
 
 def _vetted_credentials_path(credentials_path: str | None) -> str | None:
@@ -184,7 +211,7 @@ def _create_draft_impl(
     }
 
 
-@mcp.tool()
+@_tool
 def create_draft(
     to: list[str],
     subject: str,
@@ -226,7 +253,8 @@ def create_draft(
             only in the PonyMail archive — so there is no ``thread_id`` to
             derive the headers from. Sets ``In-Reply-To``. When ``thread_id``
             is also given, the draft is still attached to that thread, but
-            these explicit headers win over the thread-derived ones.
+            these explicit headers win over the thread-derived ones; Gmail
+            must know that thread, or the call fails with its API error.
         references: Optional space-separated ``Message-ID`` chain for the
             ``References`` header, root first (the parent message's own
             ``References``). Needs ``in_reply_to``, which is appended when the
@@ -251,7 +279,7 @@ def create_draft(
     )
 
 
-@mcp.tool()
+@_tool
 def setup_credentials(
     client_secrets_path: str,
     from_address: str | None = None,
@@ -311,7 +339,7 @@ def setup_credentials(
     }
 
 
-@mcp.tool()
+@_tool
 def check_auth(credentials_path: str | None = None) -> dict[str, str]:
     """Report whether this server can authenticate to Gmail right now.
 
