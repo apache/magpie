@@ -197,9 +197,13 @@ def inbound_links(file: Path, anchor: str) -> list[str]:
 
 
 def write_no_follow(path: Path, text: str) -> None:
-    """Write ``path`` without following a symlink planted in its place."""
+    """Write ``path`` without following a symlink planted in its place.
+
+    A file that already exists keeps its mode (``O_TRUNC`` does not change it);
+    a new one is created owner-only, and git records no read bits anyway.
+    """
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(path, flags, 0o644)
+    fd = os.open(path, flags, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)
 
