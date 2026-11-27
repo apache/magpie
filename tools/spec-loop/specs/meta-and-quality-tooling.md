@@ -342,6 +342,22 @@ trustworthy as it grows.
   `tools/skill-evals/evals/agents-md/`, a `rules` and a `pointer-routing`
   suite with the whole file as the system prompt), stays at its baseline,
   with each new pointer proved against a copy with the pointer deleted.
+- **The optimize skills work in an adopting project too.** An adopter's
+  suites for its own `AGENTS.md` and skills live under
+  `.apache-magpie-overrides/evals/`, which the runner journals and
+  `magpie-run-evals.sh` accepts beside `tools/skill-evals/evals/`, with the
+  same containment check; `optimize-agents-md` seeds one from its
+  `assets/agents-md-evals/` template. The runner ships to adopters as
+  `<framework>/tools/skill-evals` through the framework-tools bundle. In a
+  sandboxed session a skill runs evals only through the installed wrapper,
+  never a hand-run command against `<framework>`, which the sandbox can
+  write. `optimize-skill` measures an adopter's skills with its own
+  stdlib `scripts/measure_skill.py` (characters ÷ 4, the always-on listing
+  line, the pre-flight block left out) and gates on the project's own skill
+  checks; the validator and the stamped tokenizer count stay the Magpie
+  repository's gates. Learned house style goes to
+  `.apache-magpie-overrides/optimize-skill.md`, which the rewrite pass reads
+  first.
 - **CI runs the prek hooks in two shapes.** On a pull request the hooks
   see only the PR's own diff (`--from-ref` / `--to-ref`); on a push to
   `main` they run `--all-files`. The lychee link check is exempt from the

@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:74d98bb87dcced60
 license: Apache-2.0
-measured_tokens: 4355
+measured_tokens: 4564
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -149,7 +149,7 @@ There is no catalogue baseline for instruction files yet, so measure and report 
 python3 <skill-dir>/scripts/measure.py AGENTS.md [CLAUDE.md …]
 ```
 
-It prints characters, lines and tokens (characters ÷ 4, as [`docs/mode-economics.md`](../../../../docs/mode-economics.md#always-on-skill-tokens) estimates always-on text), the generated TOC, code blocks, `@path` imports, and every section, largest first.
+It prints characters, lines and tokens (characters ÷ 4, the estimate Magpie uses for always-on text), the generated TOC, code blocks, `@path` imports, and every section, largest first.
 
 Two marks make a file an outlier:
 
@@ -166,9 +166,9 @@ Count everything the harness loads at start: the root file, its `@path` imports,
 
 ## Prerequisites
 
-`python3` 3.11 or later runs the scripts; `uv` runs the eval harness.
+`python3` 3.11 or later runs the scripts and the eval runner, `<framework>/tools/skill-evals` (stdlib only).
 Use `git` for the baseline and an isolated diff.
-Run the project's own hooks (in this repository, `prek` and `lychee`) when they exist.
+Run the project's own hooks and link checker when it has them (in the Magpie repository, `prek` and `lychee`).
 
 ## Step 0 — Check the ground
 
@@ -177,13 +177,16 @@ Work on a branch with a clean tree, and note the base revision: every proof comp
 Run the project's hooks once on the untouched file; hand back failures that were there before you started.
 
 **Build the file's evals if it has none.**
-Look for a suite whose `step-config.json` names the target as `skill_md` (in this repository, [`tools/skill-evals/evals/agents-md/`](../../../../tools/skill-evals/evals/agents-md/README.md)).
-When there is none, propose one in the same layout, with the file's top heading as `step_heading` so the whole file is the system prompt:
+Look for a suite whose `step-config.json` names the target as `skill_md`: in an adopting project under `.apache-magpie-overrides/evals/`, in the Magpie repository under `tools/skill-evals/evals/` (its own is `agents-md/`).
+When there is none, copy [`assets/agents-md-evals/`](assets/agents-md-evals/README.md) to `.apache-magpie-overrides/evals/agents-md/`, set each `step_heading` to the file's top heading so the whole file is the system prompt, and propose its cases:
 
 - a **`rules`** suite: one multiple-choice scenario per pinned section and per high-stakes rule, with the right letter spread across the options;
-- a **`pointer-routing`** suite: one case per existing pointer (`must_read`: the file the task sends the agent to), plus one task where nothing should be read, with no file named in the output spec.
+- a **`pointer-routing`** suite: one case per existing pointer (`must_read`: the file the task sends the agent to), plus the template's task where nothing should be read, with no file named in the output spec.
 
-Run it once, on the untouched file, through the [skill-evals harness](../../../../tools/skill-evals/README.md), and keep that run as the baseline.
+Run it once, on the untouched file, and keep that run as the baseline.
+In a sandboxed session, run it only through the installed wrapper, `~/.claude/scripts/magpie-run-evals.sh <suite>`, as a bare command from the repository root: it runs outside the sandbox from a copy the agent cannot edit.
+When it is missing, propose installing or refreshing it (`setup-isolated-setup-install`, `setup-isolated-setup-update`), and never hand the user a `!` command that runs `<framework>/tools/skill-evals`: the sandbox can write that tree, so the command would run agent-editable code outside it.
+In a session with no sandbox, the agent is not confined anyway, so it runs `PYTHONPATH=<framework>/tools/skill-evals/src python3 -m skill_evals.runner <suite> --cli "claude -p" --cli-cwd "$(mktemp -d)"` itself.
 A baseline failure is a finding about the file, not about this skill; report it and fix the case or the file before any pass.
 
 ## Step 1 — Measure and diagnose
@@ -282,5 +285,5 @@ After a rewrite, propose learned style rules as `optimize-skill` does, as a visi
 
 - [`passes.md`](passes.md): the passes, pinned sections, and when a pass is not an optimization.
 - [`scripts/measure.py`](scripts/measure.py), [`scripts/rule_inventory.py`](scripts/rule_inventory.py), [`scripts/nest.py`](scripts/nest.py): the measurement, the rule proof, and the nested-file move.
-- [`tools/skill-evals/evals/agents-md/`](../../../../tools/skill-evals/evals/agents-md/README.md): this repository's own AGENTS.md evals, the layout Step 0 builds for a file that has none.
+- [`assets/agents-md-evals/`](assets/agents-md-evals/README.md): the starter suite Step 0 copies for a file that has none; the Magpie repository's own, grown from it, is `tools/skill-evals/evals/agents-md/`.
 - [`optimize-skill`](../optimize-skill/SKILL.md): the same loop for a skill, and the [rewrite pass](../optimize-skill/rewrite.md) this skill reuses.

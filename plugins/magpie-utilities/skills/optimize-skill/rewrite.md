@@ -13,6 +13,11 @@ are right, the prose is twice as long as it needs to be.
 
 ## How a pass goes
 
+Before the first paragraph, read the style rules already learned: the
+region at the end of this skill's `SKILL.md`, and in an adopting project
+`.apache-magpie-overrides/optimize-skill.md` when it exists. Apply them
+to your drafts from the start.
+
 Work through the target's paragraphs in reading order, one per turn.
 Never batch them: the point is to learn from each edit before showing
 the next paragraph.
@@ -79,9 +84,11 @@ Then propose the edit, as a diff like any other:
   skill's `surface_hash` and tell every adopter their configuration went
   stale over a wording preference.
 - **In an adopter repository**, write them into
-  `.apache-magpie-local/optimize-skill.md`, which this skill already
-  reads on every run. A framework file would be overwritten on the next
-  upgrade, and one adopter's house style is not another's.
+  `.apache-magpie-overrides/optimize-skill.md`, committed beside the
+  project's other Magpie configuration and read at the start of every
+  rewrite pass (see *How a pass goes*). A framework file would be
+  overwritten on the next upgrade, and one adopter's house style is not
+  another's.
 
 Show the diff and let the maintainer confirm it, the same as any other
 pass. Rules learned in one session are a proposal, not a decision.

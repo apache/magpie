@@ -56,4 +56,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `9c610434` (feat/optimize-skills-for-adopters) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `13a1af17` (feat/optimize-agents-md-lessons) | `opus[1m]` | 1 | pass |  |

@@ -373,6 +373,11 @@ SECURITY_TOOLS = {
     "tools/contributor-metrics": "contributor_metrics",
     "tools/permission-audit": "permission_audit",
     "tools/privacy-llm/redactor": "redactor",
+    # The eval runner `optimize-agents-md` and `optimize-skill` prove a pass
+    # with, run as `<framework>/tools/skill-evals` on an adopter's own suites
+    # under `.apache-magpie-overrides/evals/`. Its stdlib-only package is all
+    # an adopter needs; the framework's suites stay out.
+    "tools/skill-evals": "skill_evals",
 }
 SECURITY_STATS_DASHBOARD_FILES = (
     "run.sh",

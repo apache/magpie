@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 4493
+measured_tokens: 4863
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -133,16 +133,17 @@ rewiring, or extracting content: five live in
 The seventh, [`rewrite.md`](rewrite.md), changes wording with the
 maintainer writing each paragraph and teaching the skill their style.
 
-The validator must be green before and after an approved pass.
+The project's skill checks must be green before and after an approved pass
+(in the Magpie repository, the validator).
 For a new skill, use [`write-skill`](../write-skill/SKILL.md).
 
-This skill reads only framework files, so the external-content rules do
-not apply to it.
+This skill reads only the repository's own files, so the external-content
+rules do not apply to it.
 
 ## What counts as small enough
 
-Measure two budgets, set from the catalogue median when this skill was
-written.
+Measure two budgets, set from the Magpie catalogue median when this skill
+was written; they hold for any project's skills.
 A skill over either target is an outlier.
 
 | | target | why |
@@ -150,9 +151,14 @@ A skill over either target is an outlier.
 | `SKILL.md` body, pre-flight block excluded | **5,000 tokens** | paid on every invocation of that skill |
 | always-on: `name` + `description` + `when_to_use` | **200 tokens** | paid in *every session*, for every skill at once, invoked or not |
 
-The always-on figure is defined once, in
-[`docs/mode-economics.md`](../../../../docs/mode-economics.md#always-on-skill-tokens).
-Measure both before Step 1 and again at Step 4:
+Measure both before Step 1 and again at Step 4.
+In any project, [`scripts/measure_skill.py`](scripts/measure_skill.py) gives both, standard library only:
+
+```bash
+python3 <skill-dir>/scripts/measure_skill.py <SKILL.md or skills directory>…
+```
+
+In the Magpie repository, use its own tools instead, since a hook checks the stamped count:
 
 ```bash
 uv run --project tools/skill-token-count skill-token-count --write   # body
@@ -163,9 +169,9 @@ Prioritize the always-on budget.
 The body costs only when invoked; frontmatter costs in every session for
 every skill.
 
-Reference baseline: 75 skills; body median 4,614 tokens, p90 10,613,
+Reference baseline, Magpie's own catalogue: 75 skills; body median 4,614 tokens, p90 10,613,
 largest 28,346; always-on median 200, largest 398.
-`PRINCIPLES.md` P15's 500-line structural cap still applies.
+Magpie also caps a `SKILL.md` at 500 lines (`PRINCIPLES.md` P15); use it as the structural cap elsewhere too.
 
 Also estimate the **run cost**: what one invocation actually reads, which the body alone understates.
 `security-issue-sync` has a body of about 6k tokens, yet a routine run reads about 46k and its heaviest path about 53k, before any tool output.
@@ -189,15 +195,18 @@ maintainer choose.
 
 ## Prerequisites
 
-`uv` runs the validator; stop if it is unavailable.
+`python3` 3.11 or later runs the measuring script and the eval runner.
+In the Magpie repository, `uv` runs the validator; stop if it is unavailable.
 Use `git` to isolate the diff, preferably on a clean tree or branch.
 Use `doctoc` when headings move, or report the manual step if it is
 unavailable.
 
 ## Step 0 — Check the ground
 
-Resolve the target to a real skill directory and require a **green**
-validator before editing.
+Resolve the target to a real skill directory and require **green** skill
+checks before editing: the validator in the Magpie repository; elsewhere the
+project's own, and at least `measure_skill.py`, which fails on a `SKILL.md`
+with no frontmatter or no `name`.
 Hand back baseline failures for correction; optimization starts from a
 working skill.
 Keep the diff isolated and reviewable.
@@ -247,9 +256,9 @@ a one-line pointer.
 
 **Rewire passes** (*out-of-context*, *fetch-upfront*,
 *preflight-classifier*) change execution, not decisions.
-Route through a deterministic tool such as
-[`github-body-field`](../../../../tools/github-body-field/README.md) or
-[`github-rollup`](../../../../tools/github-rollup/README.md).
+Route through a deterministic tool such as Magpie's
+`<framework>/tools/github-body-field` or `<framework>/tools/github-rollup`,
+or the project's own.
 If human-facing proposals change, stop and use normal review.
 Before cutting prose because a tool "already does this", compare the two line by line:
 where they disagree, cutting the prose changes behaviour, so fix the tool first, with a test that fails before the fix.
@@ -259,9 +268,10 @@ Keep the command's purpose and output interpretation in the body, then
 choose the destination by operational need:
 
 - **Sibling `scripts/`** — default for a dependency-free command.
-- **A `tools/` project** — for dependencies, tests, or reuse outside the
-  skill; follow `tools/AGENTS.md` for its README, declared capability and
-  prerequisites, and workspace entry.
+- **A tool project** — for dependencies, tests, or reuse outside the
+  skill; in the Magpie repository a `tools/` project per `tools/AGENTS.md`
+  (README, declared capability and prerequisites, workspace entry),
+  elsewhere wherever the project keeps its tools.
 - **The vetted-ops catalogue** — for a read-only operation with closed
   parameters that would otherwise prompt every run.
   Adding one requires reviewed changes to `ops.py` and the caller's
@@ -291,10 +301,11 @@ drafts.
 **A moved heading takes every reference with it:**
 
 - **Eval `step-config.json`** — update `skill_md` and `step_heading`.
-  Find matches with `grep -rl '<heading text>'
-  tools/skill-evals/evals/`.
-- **Anchor links** — update `other.md#the-heading` references; whole-tree
-  `lychee` verifies them.
+  Find matches with `grep -rl '<heading text>' <evals dir>`:
+  `tools/skill-evals/evals/` in the Magpie repository,
+  `.apache-magpie-overrides/evals/` in an adopting project.
+- **Anchor links** — update `other.md#the-heading` references; the
+  project's link checker verifies them (whole-tree `lychee` in Magpie).
 - **Heading levels** — a block cut from mid-body shifts one level so it
   can open its own file.
   This is the only byte a split may change, and its anchor and eval
@@ -303,19 +314,29 @@ drafts.
 Only the eval suite catches a stale `step-config.json` extraction.
 
 After each pass, regenerate the TOC if headings moved and re-run the
-validator. One pass per commit.
+skill checks. One pass per commit.
 
 ## Step 4 — Prove nothing broke
 
-Require the Step 0 validator result, and both budgets must have moved the
-right way.
+Require the Step 0 skill-check result, and both budgets must have moved
+the right way.
 
 **Run the skill's eval suite if it has one**, at
-`tools/skill-evals/evals/<skill>/`:
+`tools/skill-evals/evals/<skill>/` in the Magpie repository or
+`.apache-magpie-overrides/evals/<skill>/` in an adopting project.
+In a sandboxed session, run it only through the installed wrapper, as a
+bare command:
 
 ```bash
-tools/skill-evals/magpie-run-evals.sh tools/skill-evals/evals/<skill>
+~/.claude/scripts/magpie-run-evals.sh <evals dir>/<skill>
 ```
+
+It runs outside the sandbox from a copy the agent cannot edit. When it is
+missing, propose installing it; never hand the user a `!` command that runs
+the runner from `<framework>` or the repository, which the sandbox can
+write. With no sandbox in use, run
+`PYTHONPATH=<framework>/tools/skill-evals/src python3 -m skill_evals.runner`
+with `--cli "claude -p" --cli-cwd "$(mktemp -d)"` directly.
 
 Run it before the first pass and compare; an after-only run cannot
 distinguish regressions from baseline failures.
@@ -323,8 +344,8 @@ distinguish regressions from baseline failures.
 If an unchanged case flips, name it as nondeterministic and let the
 maintainer decide rather than claiming either result proves safety.
 
-A missing suite does not block the pass, but report that the validator
-was its only gate.
+A missing suite does not block the pass, but report that the skill checks
+were its only gate.
 
 For restructure, match body deletions to sibling additions plus the new
 pointer.
@@ -364,8 +385,9 @@ If it was a sweep, restate what is still on the list.
 - [`rewrite.md`](rewrite.md) — the paragraph-by-paragraph rewrite and
   the style-learning loop.
 - [`write-skill`](../write-skill/SKILL.md) — authoring a new skill.
-- [`tools/skill-and-tool-validator`](../../../../tools/skill-and-tool-validator/README.md)
-  — the gate.
+- [`scripts/measure_skill.py`](scripts/measure_skill.py) — both budgets
+  and the frontmatter check, in any project.
+- `tools/skill-and-tool-validator` — the gate in the Magpie repository.
 
 ## Learned style rules
 

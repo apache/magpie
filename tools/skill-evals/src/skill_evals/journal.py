@@ -91,6 +91,11 @@ from pathlib import Path
 SCHEMA_VERSION = 1
 JOURNAL_NAME = "runs.jsonl"
 EVALS_REL = Path("tools/skill-evals/evals")
+# Where an adopting project keeps eval suites for its own files (its
+# AGENTS.md, its own skills): committed, project-wide, beside the rest of
+# its Magpie configuration.
+ADOPTER_EVALS_REL = Path(".apache-magpie-overrides/evals")
+EVALS_RELS = (EVALS_REL, ADOPTER_EVALS_REL)
 RUN_HISTORY_HEADING = "## Run history"
 TABLE_HEADER = "| Date | Ref | Model | Runs | Result | Notes |"
 TABLE_RULE = "|---|---|---|---|---|---|"
@@ -125,6 +130,15 @@ def skill_dir_for(path: Path, evals_root: Path) -> Path | None:
     if not rel.parts:
         return None
     return evals_root / rel.parts[0]
+
+
+def evals_root_for(path: Path, root: Path) -> Path | None:
+    """Return the evals tree under ``root`` (framework or adopter) holding ``path``."""
+    for rel in EVALS_RELS:
+        candidate = root / rel
+        if candidate.is_dir() and skill_dir_for(path, candidate) is not None:
+            return candidate
+    return None
 
 
 def journal_path_for(path: Path, evals_root: Path) -> Path | None:
@@ -822,7 +836,7 @@ def main(argv: list[str] | None = None) -> int:
         "--evals-root",
         type=Path,
         default=None,
-        help=f"The evals tree (default: <repo root>/{EVALS_REL}).",
+        help=f"The evals tree (default: <repo root>/{EVALS_REL}, else <repo root>/{ADOPTER_EVALS_REL}).",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -877,7 +891,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError as exc:
             parser.error(f"{exc}; pass --evals-root")
             raise SystemExit(2) from exc  # parser.error never returns; this is for readers and analysers
-        evals_root = root / EVALS_REL
+        evals_root = next((root / rel for rel in EVALS_RELS if (root / rel).is_dir()), root / EVALS_REL)
     if not evals_root.is_dir():
         parser.error(f"evals root {evals_root} is not a directory")
     against = getattr(args, "against", None)

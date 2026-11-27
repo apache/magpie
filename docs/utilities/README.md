@@ -69,9 +69,17 @@ point instead.
 ## Adopter contract
 
 The utilities skills make no state changes to your project's tracker, label
-set, or shared infrastructure. `list-skills` and `optimize-skill` are
-read-only; `write-skill` only creates or edits skill files under your control,
-which you review before committing.
+set, or shared infrastructure. `list-skills` is read-only; `write-skill`,
+`optimize-skill` and `optimize-agents-md` only create or edit files under your
+control, which you review before committing.
+
+`optimize-skill` and `optimize-agents-md` work on your project's own skills and
+instruction files, not only Magpie's. Your eval suites for them live under
+`.apache-magpie-overrides/evals/` (`optimize-agents-md` seeds one from its
+template), and they run with the eval runner Magpie installs as
+`<framework>/tools/skill-evals`: under the secure setup, through
+`~/.claude/scripts/magpie-run-evals.sh`. A house style the rewrite pass learns
+from your edits is kept in `.apache-magpie-overrides/optimize-skill.md`.
 
 ## Status
 

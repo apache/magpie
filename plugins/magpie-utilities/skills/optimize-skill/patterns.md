@@ -75,7 +75,7 @@ concrete repo slug, a real mailing-list address, a real CVE ID, a
 project-specific label or milestone name — anything that should
 resolve from `<project-config>/project.md` at runtime instead of
 living in the skill. Diagnostic: run the placeholder linter
-([`tools/dev/check-placeholders.sh`](../../../../tools/dev/check-placeholders.sh))
+(in the Magpie repository, `tools/dev/check-placeholders.sh`)
 and scan for hardcoded strings outside `example:` markers.
 
 **Exemplar.** `feat(security): config-driven lifts of 6 skills`
@@ -123,9 +123,9 @@ back without the body ever entering the agent context.
 **Mechanics.**
 1. Identify the single field / append the step actually needs.
 2. Route the read-modify-write through the existing tool —
-   [`github-body-field`](../../../../tools/github-body-field/README.md)
+   `<framework>/tools/github-body-field`
    for one `### Field` section,
-   [`github-rollup`](../../../../tools/github-rollup/README.md) for the
+   `<framework>/tools/github-rollup` for the
    status-rollup comment.
 3. Replace the in-context fetch-then-edit prose with the tool call;
    keep the *decision* about what to write in the skill, the
@@ -182,7 +182,7 @@ is spent on what executable code already decides (Principle 6).
 skips obvious-idle trackers in bulk mode` (#414) and `tune pre-flight
 classifier — skill-marker detection + relaxed rules` (#416) — a
 deterministic classifier (see
-[`tools/preflight-audit`](../../../../tools/preflight-audit/README.md))
+Magpie's `tools/preflight-audit`)
 runs first and drops items that need no work, so the LLM pass only
 sees the candidates that actually require judgment.
 
