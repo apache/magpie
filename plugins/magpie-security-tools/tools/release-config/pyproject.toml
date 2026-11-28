@@ -39,27 +39,10 @@ packages = ["src/release_config"]
 
 [tool.ruff]
 line-length = 160
-target-version = "py311"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = [
-  "E",     # pycodestyle errors
-  "W",     # pycodestyle warnings
-  "F",     # pyflakes
-  "I",     # isort
-  "B",     # flake8-bugbear
-  "UP",    # pyupgrade
-  "SIM",   # flake8-simplify
-  "C4",    # flake8-comprehensions
-  "RUF",   # ruff-specific
-]
-ignore = [
-  "E501",  # line-too-long — the limit above is already generous
-]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM"]
+"tests/**" = ["ANN", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.11"

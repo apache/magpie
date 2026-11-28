@@ -34,18 +34,14 @@ pr-management = "pr_management.cli:main"
 packages = ["src/pr_management"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../dev/shared/ruff.toml"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
-ignore = ["E501"]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM"]
+"src/pr_management/stats/reference.py" = ["ANN"]
+"tests/**" = ["ANN", "B", "SIM"]
 # The rendered dashboard's typography (en dashes, ×) is intentional.
-"src/pr_management/stats/dashboard.py" = ["RUF001", "RUF002"]
+"src/pr_management/stats/dashboard.py" = ["ANN", "RUF001", "RUF002"]
 
 [tool.mypy]
 python_version = "3.11"

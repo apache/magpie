@@ -37,28 +37,10 @@ checker = { path = "../privacy-llm/checker" }
 packages = ["src/typed_decision"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = [
-  "E",     # pycodestyle errors
-  "W",     # pycodestyle warnings
-  "F",     # pyflakes
-  "I",     # isort
-  "B",     # flake8-bugbear
-  "UP",    # pyupgrade
-  "SIM",   # flake8-simplify
-  "C4",    # flake8-comprehensions
-  "RUF",   # ruff-specific
-]
-ignore = [
-  "E501",  # line-too-long
-]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM"]
+"tests/**" = ["ANN", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.11"

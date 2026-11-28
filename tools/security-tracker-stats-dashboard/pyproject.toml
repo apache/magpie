@@ -32,13 +32,12 @@ dependencies = []
 packages = ["src/security_tracker_stats_dashboard"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../dev/shared/ruff.toml"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
-ignore = ["E501"]
+# No annotation requirement here, as mypy had none for this member.
+ignore = ["ANN"]
 
 [tool.mypy]
 python_version = "3.11"
