@@ -584,8 +584,8 @@ def collect_diffs(
             f"{path}: type mismatch (actual={type(actual).__name__}, expected={type(expected).__name__})"
         ], []
 
-    if isinstance(expected, dict):
-        actual_dict = actual  # type: ignore[assignment]
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        actual_dict = actual
         # Only assert on the intersection of keys. Keys in expected that the
         # model didn't emit are skipped (not failed), and keys in actual that
         # expected doesn't declare are ignored. expected.json describes what
@@ -611,8 +611,8 @@ def collect_diffs(
                 prose_pairs.extend(sub_p)
         return decision_msgs, prose_pairs
 
-    if isinstance(expected, list):
-        actual_list = actual  # type: ignore[assignment]
+    if isinstance(expected, list) and isinstance(actual, list):
+        actual_list = actual
         if len(actual_list) != len(expected):
             return [f"{path}: length mismatch (actual={len(actual_list)}, expected={len(expected)})"], []
         decision_msgs = []
@@ -1492,7 +1492,7 @@ def main(argv: list[str] | None = None) -> int:
                     print("--- STDERR ---")
                     print(stderr)
                 continue
-            actual = {"raw_output": stdout, "stderr": stderr, "exit_code": rc}
+            actual: object = {"raw_output": stdout, "stderr": stderr, "exit_code": rc}
         else:
             # A suite whose expected side addresses a wrap key is declaring
             # that this step emits prose, not JSON. Do not run the extractor
