@@ -262,9 +262,9 @@ Group them by category:
   comment per sync.** The first bot-authored comment on a tracker is the **rollup comment** (created by
   [`security-issue-import`](../issue-import/SKILL.md));
   every later pass — this skill, security-cve-allocate, security-issue-deduplicate, security-issue-fix — appends an *entry* to it instead of posting a fresh comment.
-  Shape, summary conventions, upsert recipe and legacy-comment-folding rules:
-  [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
-  Re-read it before composing the entry body — the zero-extra-spacing rule is load-bearing and easy to miss.
+  `rollup-append` and `rollup-fold` build the envelope, so of [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md) only three sections apply to this skill:
+  re-read [*The entry body*](../../../../tools/github/status-rollup.md#the-entry-body) and [*Hard rules*](../../../../tools/github/status-rollup.md#hard-rules) before composing the entry body — the zero-extra-spacing rule is load-bearing and easy to miss —
+  and take the summary label from [*Summary — action labels*](../../../../tools/github/status-rollup.md#summary--action-labels).
 
   **Standalone comments are reserved for release-manager
   instructions, plus the team nudge.** The rollup is the default surface for every sync output — status changes, label rationale, milestone moves, assignee swaps,
@@ -361,7 +361,7 @@ Group them by category:
   self-check.** `<details>` blocks break silently when any line inside carries leading whitespace
   (the tool supplies the blank line after `<summary>`, not the entry body's indentation):
   the entry renders as a single preformatted block and hides every link.
-  Re-read [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
+  Re-read [`status-rollup.md` — Hard rules](../../../../tools/github/status-rollup.md#hard-rules)
   before posting, and do not indent entries for "readability".
 
 - **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments, the `fix released` assignee hand-off, and the fix-PR backport check** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged`, on any open tracker labelled `pr merged` or `fix released`, even when a gate blocks the next label, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
