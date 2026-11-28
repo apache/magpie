@@ -533,7 +533,7 @@ class Tracker:
             item = self.summary(entry)
             if state != "all" and item["state"] != state:
                 continue
-            have = {str(lb).lower() for lb in cast("Iterable[object]", item["labels"])}
+            have = {str(lb).lower() for lb in cast(Iterable[object], item["labels"])}
             if not wanted <= have:
                 continue
             if words:
