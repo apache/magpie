@@ -15,7 +15,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:be9968c266788028
 license: Apache-2.0
-measured_tokens: 4863
+measured_tokens: 4906
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -404,4 +404,5 @@ over a wording preference.
 - In a wording pass, also fix any `gh` call that is piped, redirected or wrapped in `$(…)`, or that belongs in a vetted-ops read; that shape fails under the secure setup.
 - Drop promises about future work ("the registry will be updated"); keep what is true now, such as which file is the source of truth.
 - When an introduction restates a later section, cut it to a one-line pointer at that section.
+- Keep a rule stated in its own words even when a link carries the detail: "**Tone: polite but firm, no room to wiggle**", not just a link labelled "polite but firm".
 <!-- END LEARNED STYLE -->

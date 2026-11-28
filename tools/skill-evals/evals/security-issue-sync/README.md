@@ -61,6 +61,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-28 | `a4721d4a` (opt/issue-sync-rewrite) | `opus[1m]` | 1 | pass |  |
 | 2026-11-28 | `b8d3e167` (opt/issue-sync-dedupe) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `6eba5a49` (opt/issue-sync-run-cost) | `opus[1m]` | 5 | `pointer-routing/case-2-fix-released-transition` failed 1 of 5; `pointer-routing/case-4-advisory-url-captured` failed 1 of 5 |  |
 | 2026-11-27 | `51a6a7cd` (feat/vetted-ops-unlisted-value-refusal) | `opus[1m]` | 1 | pass |  |
