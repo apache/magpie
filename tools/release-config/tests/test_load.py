@@ -274,6 +274,23 @@ def test_render_dist_url(template, rc, bucket, expected):
     assert render_dist_url(template, "1.0.0", rc, bucket) == expected
 
 
+@pytest.mark.parametrize(
+    ("rc", "bucket", "expected"),
+    [
+        ("rc1", "dev", "https://dist.apache.org/repos/dist/dev/foo/1.0.0-rc1/"),
+        (None, "release", "https://dist.apache.org/repos/dist/release/foo/1.0.0/"),
+    ],
+)
+def test_render_dist_url_fills_the_project(rc, bucket, expected):
+    template = "https://dist.apache.org/repos/dist/<bucket>/<project>/<version>/"
+    assert render_dist_url(template, "1.0.0", rc, bucket, "foo") == expected
+
+
+def test_render_dist_url_leaves_the_project_without_a_name():
+    template = "https://dist.apache.org/repos/dist/<bucket>/<project>/<version>/"
+    assert render_dist_url(template, "1.0.0", None, "release") == "https://dist.apache.org/repos/dist/release/<project>/1.0.0/"
+
+
 def test_plus_one_hour_formats():
     assert plus_one_hour("2026-06-11 09:45 UTC") == "2026-06-11T10:45:00Z"
     assert plus_one_hour("2026-06-11T23:30:00+00:00") == "2026-06-12T00:30:00Z"

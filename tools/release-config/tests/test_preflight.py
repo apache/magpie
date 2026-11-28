@@ -517,6 +517,23 @@ def test_non_asf_flag_removed(project):
 # --------------------------------------------------------------------------- promote
 
 
+PROJECT_TEMPLATE = "https://dist.apache.org/repos/dist/<bucket>/<project>/<version>/"
+
+
+def test_the_project_placeholder_in_the_dist_template_is_filled(project, preflight):
+    # docs/release-management/spec.md spells the svnpubsub template with <project>.
+    root = project({"release_dist_url_template": PROJECT_TEMPLATE})
+    rc_cut = preflight(root, "rc-cut", "1.1.0", "rc1")
+    assert rc_cut["ok"], rc_cut
+    assert rc_cut["values"]["staging_url"] == "https://dist.apache.org/repos/dist/dev/foo/1.1.0-rc1/"
+    verify = preflight(root, "verify-rc", "1.1.0-rc1")
+    assert verify["ok"], verify["blockers"]
+    promote = preflight(root, "promote", "1.1.0-rc1", "--rm", "johndoe")
+    assert promote["ok"], promote["blockers"]
+    assert promote["values"]["target_url"] == "https://dist.apache.org/repos/dist/release/foo/1.1.0/"
+    assert promote["values"]["staging_url"] == "https://dist.apache.org/repos/dist/dev/foo/1.1.0-rc1/"
+
+
 def test_promote_passes(project, preflight):
     result = preflight(project(), "promote", "1.1.0-rc1", "--rm", "johndoe")
     assert result["ok"], result
