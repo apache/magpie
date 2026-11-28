@@ -124,7 +124,7 @@ def _date(now: str | None) -> str:
     if not now:
         return dt.datetime.now(dt.UTC).date().isoformat()
     try:
-        return dt.datetime.fromisoformat(now.replace("Z", "+00:00")).date().isoformat()
+        return dt.datetime.fromisoformat(now).date().isoformat()
     except ValueError as exc:
         raise UsageError(f"--now is not an ISO 8601 date/time: {now!r}") from exc
 
