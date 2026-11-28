@@ -714,6 +714,25 @@ def test_invariant_allow_write_must_be_subset_of_allow_read(
     assert any("subset" in e for e in errors)
 
 
+@pytest.mark.parametrize("key", ["allowRead", "allowWrite"])
+@pytest.mark.parametrize("entry", ["~/x/../.ssh", "~/..", "/tmp/../root", "~/.config/x/../gh/"])
+def test_invariant_rejects_parent_segments(baseline: dict[str, Any], key: str, entry: str) -> None:
+    settings = copy.deepcopy(baseline)
+    fs = settings["sandbox"]["filesystem"]
+    fs["allowRead"].append(entry)
+    if key == "allowWrite":
+        fs["allowWrite"].append(entry)
+    errors = check_invariants(settings)
+    assert f"sandbox.filesystem.{key}: {entry!r} has a '..' segment" in "\n".join(errors)
+
+
+@pytest.mark.parametrize("entry", ["~/x..y", "~/..config", "~/.ssh..bak/"])
+def test_invariant_allows_dots_that_are_not_a_parent_segment(baseline: dict[str, Any], entry: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"].append(entry)
+    assert check_invariants(settings) == []
+
+
 def test_invariant_allow_write_does_not_resolve_parent_segments(
     baseline: dict[str, Any],
 ) -> None:
