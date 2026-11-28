@@ -306,6 +306,22 @@ A reminder that was only shown does not count as a check that ran.
 **`end-of-run`** is the periodic `/magpie-setup:setup verify` suggestion, which
 is settled when the run finishes rather than before it starts.
 
+The other `end-of-run` finding is `oversize`, with its rules in the section of the same name.
+It lists every `SKILL.md`, `AGENTS.md`, `CLAUDE.md` and `GEMINI.md` the current branch changed against its base
+(the merge-base with the first of `upstream/HEAD`, `upstream/main`, `upstream/master`, `origin/HEAD`, `origin/main`, `origin/master`, `main` or `master` that exists, working-tree changes included)
+that the change made bigger and that is now over budget:
+a skill body over 5,000 tokens or its `name` + `description` + `when_to_use` over 200,
+an instruction file over 40,000 characters, measured as `optimize-skill`'s `measure_skill.py` measures them.
+A branch that shrinks a big file, symlinks, and the `.apache-magpie/` snapshot are left alone.
+The agent proposes `optimize-skill` or `optimize-agents-md` once, after the requested work, and can hand the diagnosis
+to the read-only `optimizer` agent the `magpie-utilities` plugin ships;
+it records `acknowledged.oversize.<path>` as the file's digest, which suppresses that file until its content changes.
+Git runs with fsmonitor and external diff drivers off; a tree that is not a git checkout, or has no base branch, reports nothing,
+and `--no-oversize` leaves the check out.
+The same measurement runs as a required pull-request check, [`skill-size`](../../.github/workflows/skill-size.yml):
+`python3 -m setup_preflight.oversize --base <ref> [--format markdown]` exits 1 when a changed file grew past a budget,
+ignoring acknowledgements, and a maintainer accepts the growth with the `skill-size-accepted` label.
+
 ## Two rules that are the reason this is code
 
 **Unknown is never absent.** A plugin listing that could not be read is

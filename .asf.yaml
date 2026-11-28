@@ -156,6 +156,10 @@ github:
               # matrix in tests.yml, so a matrix change needs no
               # `.asf.yaml` change.
               - context: "tests-ok"
+              # skill-size: a pull request growing a SKILL.md or AGENTS.md
+              # past its budget; the `skill-size-accepted` label overrides
+              # it (skill-size.yml), so the bypass above is never needed.
+              - context: "skill-size"
     # The rest of `main`'s rules, with no bypass: the override is for CI,
     # not for skipping review threads, deleting the branch or rewriting
     # history.
