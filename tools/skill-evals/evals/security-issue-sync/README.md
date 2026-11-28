@@ -19,8 +19,9 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | D0 | Dashboard mode is ASF-only | 3 | An ASF project proceeds; an `independent` project and an unset (`TODO`) organization stop without asking for a dashboard session |
 | D4 | Dashboard-mode proposals | 3 | A dashboard-triage finding beside an untracked report; two findings for the ASF Security team; an untriaged case that may be a standing label |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
-| Pointer routing | `signals-to-actions.md` alone, no sibling text | 11 | The agent finds `release-manager-comments.md` and `post-advisory-records.md` from the pointers alone, including from an existing marker comment with no transition, on a tracker whose next label is blocked and for a merged records pull request, and opens neither on a routine pass; the output spec names no file, so removing a pointer fails the case |
+| Pointer routing | `signals-to-actions.md` alone, no sibling text | 19 | The agent finds `release-manager-comments.md`, `post-advisory-records.md`, `milestone-create-close.md` (a missing milestone, the last close on one), `reporter-drafts.md` (a status change or an open reporter question), `advisory-url-capture.md` and `disclosure-escalation.md` from the pointers alone, including from an existing marker comment with no transition, on a tracker whose next label is blocked and for a merged records pull request, and opens neither on a routine pass; the output spec names no file, so removing a pointer fails the case |
 | Pointer routing (gather) | Step 1 alone, no sibling text | 7 | The agent finds `cve-record-comments.md`, `closed-tracker-check.md` and `release-vote-detection.md` from their conditions alone, and opens none for an open tracker with no CVE or a closed one without `announced`; the output spec names no file, so removing a pointer fails the case |
+| Pointer routing (apply) | `apply-and-push.md` alone, no sibling text | 6 | The agent finds `cve-regen-push.md` whenever the *CVE tool link* field is populated, `advisory-closeout-apply.md` for the *Advisory archived* combined apply or an advisory-records update, and `release-manager-comments.md` for a confirmed hand-off comment, and opens none when no CVE is allocated; the output spec names no file, so removing a pointer fails the case |
 
 ## Hard rules exercised
 
@@ -59,6 +60,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (opt/issue-sync-run-cost) | `opus[1m]` | 5 | `pointer-routing/case-2-fix-released-transition` failed 1 of 5; `pointer-routing/case-4-advisory-url-captured` failed 1 of 5 |  |
 | 2026-11-27 | `51a6a7cd` (feat/vetted-ops-unlisted-value-refusal) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `7ba04297` (fix/vulnogram-pmc-followups) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `ed5885cf` (fix/vulnogram-token-per-pmc-2) | `opus[1m]` | 1 | pass |  |

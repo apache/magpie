@@ -249,7 +249,7 @@ worth fixing.
 PRs against any part of our process are welcome. The documents that
 shape the team are small enough to read in one sitting:
 
-- [`README.md`](../../README.md) — the end-to-end handling process.
+- [`process.md`](process.md) — the end-to-end handling process.
 - [`<project-config>/canned-responses.md`](<project-config>/canned-responses.md) — reply templates.
 - [`AGENTS.md`](../../AGENTS.md) — agent-facing conventions and confidentiality rules.
 - `.apache-magpie-overrides/user.md` — per-user configuration

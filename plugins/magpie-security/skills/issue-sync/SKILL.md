@@ -20,9 +20,9 @@ when_to_use: |
   reconciles the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:8cfc7395b16c2cf9
+surface_hash: sha256:6bc028c94b89b1aa
 license: Apache-2.0
-measured_tokens: 7563
+measured_tokens: 7571
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -140,7 +140,7 @@ This skill reconciles a single security issue in
 1. the **GitHub issue** itself — comments, labels, milestone, assignee, description fields;
 2. the **email thread** on `<security-list>` that originated the report (and any follow-ups);
 3. any **pull requests** in `<upstream>` or `<tracker>` that reference or fix the issue;
-4. the **handling process** documented in [`README.md`](../../../../README.md).
+4. the **handling process** documented in [`docs/security/process.md`](../../../../docs/security/process.md).
 
 **Golden rule 1 — propose before applying.** Every change this skill
 performs is a *proposal*: nothing is created, closed, edited or sent without the user's clear "yes" for that specific action.
@@ -156,7 +156,7 @@ A tracker merging several independent reporters gets one draft per reporter, eac
 surface it lands on.** Every issue, PR, comment, milestone and label reference this skill emits — in the observed state, the proposal, the confirmation prompt, the apply-loop and regeneration output, the recap, status-change comments and the CVE JSON reference list — is one click away:
 the link forms in [`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs) on markdown surfaces, and OSC 8 hyperlinks (`\e]8;;<URL>\e\\<tracker>#NNN\e]8;;\e\\`; bare URL as fallback) on the terminal.
 Link a comment by its `#issuecomment-<C>` anchor, and a milestone by number (`https://github.com/<tracker>/milestone/<number>`), not by its title, which can change.
-Draft emails are plain text: they carry full bare URLs (see the *Status update to the reporter* item in [`signals-to-actions.md`](signals-to-actions.md)).
+Draft emails are plain text: they carry full bare URLs (see the *Status update to the reporter* item in [`reporter-drafts.md`](reporter-drafts.md)).
 A bare `#NNN` is never acceptable; before presenting any text, grep it for bare `#\d+` / `<tracker>#\d+` tokens and wrap each, building a missing URL as `https://github.com/<tracker>/issues/<N>` with no lookup call (GitHub redirects it to `/pull/<N>` for a PR).
 Tracker URLs and numbers are public-safe; the tracker's *content* is not, per [`AGENTS.md` § *Confidentiality of the tracker repository*](../../../../AGENTS.md#confidentiality-of-the-tracker-repository).
 
@@ -407,9 +407,9 @@ In bulk mode the merged proposal has its own syntax: [`bulk-mode.md`](bulk-mode.
 ## Step 4 — Apply confirmed changes
 
 Run the confirmed items sequentially.
-[`apply-and-push.md`](apply-and-push.md) holds the apply mechanics (labels, milestones, assignees, body fields, rollup, RM hand-off comment, board moves, GHSA writes, Gmail drafts),
-the CVE JSON regen (Step 5 / 5a), the OAuth-API push with its pre-push hygiene gates (Step 5b), the RM hand-off reconciliation (Step 5c),
-and the unconditional end-of-sync sweep of board column, milestone and RM assignee over every tracker in the run (Step 5d).
+[`apply-and-push.md`](apply-and-push.md) holds the apply mechanics (labels, milestones, assignees, body fields, rollup, board moves, GHSA writes, Gmail drafts),
+says when to run the CVE JSON regen, the OAuth-API push with its pre-push hygiene gates and the RM hand-off reconciliation (Steps 5–5c),
+and holds the unconditional end-of-sync sweep of board column, milestone and RM assignee over every tracker in the run (Step 5d).
 
 ## Step 6 — Recap
 
@@ -481,7 +481,7 @@ Fix every hit and check again; it is the floor, not the whole review, so still r
 
 ## Process reference
 
-The canonical handling process lives in [`README.md`](../../../../README.md).
+The canonical handling process lives in [`docs/security/process.md`](../../../../docs/security/process.md#process-reference-the-16-steps).
 When in doubt, re-read the numbered step for the issue's state rather than improvising;
 if the process and the observed state disagree, surface it in the proposal and let the user decide.
 

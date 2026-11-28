@@ -136,7 +136,7 @@ normal proposal flow.
 ## Related rules
 
 - The anonymise rule is one of **six pre-push hygiene gates**
-  in [Step 5b 1b](../../../skills/security-issue-sync/apply-and-push.md#decision-flow)
+  in [Step 5b 1b](../../../skills/security-issue-sync/cve-regen-push.md#decision-flow)
   of the `security-issue-sync` skill. The other five are
   title cleanup, upgrade-target version, trigger conditions,
   incomplete-fix cross-CVE clause, and CWE long-form

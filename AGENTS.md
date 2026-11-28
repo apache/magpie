@@ -33,7 +33,7 @@ The framework has two layers:
 
 Repo-root files:
 
-- [`README.md`](README.md) — the end-to-end process for handling security issues (generic lifecycle).
+- [`README.md`](README.md) — the product page; the end-to-end process for handling security issues (generic lifecycle) is [`docs/security/process.md`](docs/security/process.md).
 - [`docs/security/fixing-security-issues.md`](docs/security/fixing-security-issues.md) — high-level description of the fix workflow.
 - [`docs/security/how-the-security-team-works.md`](docs/security/how-the-security-team-works.md) — how the security team operates, and the onboarding guide for new members.
 - [`tools/<name>/`](tools/) — tool adapters (GitHub operations, issue-template schema, project-board GraphQL, …) for the external tools the skills invoke.

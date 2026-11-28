@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6407
+measured_tokens: 6411
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -413,7 +413,7 @@ Its `bare_refs` must be empty.
 
 ## References
 
-- [`README.md`](../../../../README.md) — the handling process;
+- [`docs/security/process.md`](../../../../docs/security/process.md) — the handling process;
   duplicates are resolved here at various steps rather than at a
   single numbered step.
 - [`security-issue-import`](../issue-import/SKILL.md) —

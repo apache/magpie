@@ -23,7 +23,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:2a75797e813d8c7e
 license: Apache-2.0
-measured_tokens: 7121
+measured_tokens: 7148
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -139,7 +139,7 @@ In particular, **nothing public is pushed until the user approves the exact PR t
 
 **Confidentiality is paramount.** The `<upstream>` PR is public.
 It must not reveal the CVE ID or the security nature of the change (a `<tracker>` link is a public-safe identifier, but never with security framing around it), **and it must not name, reference, or describe vulnerabilities in other ASF projects**, even when the private discussion mentioned them.
-See [`AGENTS.md` § *Confidentiality of the tracker repository*](../../../../AGENTS.md#confidentiality-of-the-tracker-repository), its [*Other ASF projects*](../../../../AGENTS.md#other-asf-projects--never-name-or-describe-their-vulnerabilities) subsection, and process step 8 of [`README.md`](../../../../README.md).
+See [`AGENTS.md` § *Confidentiality of the tracker repository*](../../../../AGENTS.md#confidentiality-of-the-tracker-repository), its [*Other ASF projects*](../../../../AGENTS.md#other-asf-projects--never-name-or-describe-their-vulnerabilities) subsection, and [process step 8](../../../../docs/security/process.md#step-8--open-a-public-pr-straightforward-cases).
 
 **Golden rule — every `<tracker>` / `<upstream>` reference is
 clickable in the surface it lands on.** Every issue, PR and comment reference this skill emits — in the implementation plan, the public PR body and commit message, the `<tracker>` status-rollup update, and the recap — is one click away: the link forms in [`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs) on markdown surfaces, and OSC 8 hyperlinks (bare URL as fallback) on the terminal.
@@ -262,7 +262,7 @@ Run [`security-issue-sync`](../issue-sync/SKILL.md) on the same issue number and
 **Do not attempt a fix before the sync has completed**, because:
 
 - the issue may already have a fix PR linked — Step 2 detects it and decides whether to adopt, supersede, or stop;
-- a fix may be premature — still under triage, awaiting reporter input, or waiting on a wider-audience discussion per process step 4 of [`README.md`](../../../../README.md);
+- a fix may be premature — still under triage, awaiting reporter input, or waiting on a wider-audience discussion per [process step 4](../../../../docs/security/process.md#step-4--escalate-stalled-discussions);
 - the issue may already be closed / advisory-published, in which case the correct action is an erratum, not a new PR;
 - metadata the fix workflow needs (scope label, milestone, assignees, fix PR URL) may be stale until the sync corrects it.
 
@@ -431,7 +431,7 @@ the backport label (or that none was needed) and the next step — by default *"
 
 - [`security-issue-sync` skill](../issue-sync/SKILL.md) — run this first.
 - [`subversion-flow.md`](subversion-flow.md) and [`tools/vcs`](../../../../tools/vcs/README.md#publication-gate) — the Subversion flow and its scrubbed commit gate.
-- [`README.md`](../../../../README.md) — canonical process description, especially steps 7–9 (implementing the fix).
+- [`docs/security/process.md`](../../../../docs/security/process.md) — canonical process description, especially steps 7–9 (implementing the fix).
 - [`AGENTS.md`](../../../../AGENTS.md) — repo-wide rules (confidentiality, commit trailers, tone, CVE linking).
 - [`<upstream>/AGENTS.md`](https://github.com/<upstream>/blob/main/AGENTS.md) — parent conventions this skill defers to.
 - `<upstream_contributing_docs_url>` (from [`<project-config>/project.md`](../../../../<project-config>/project.md)) — the project's public PR conventions and Gen-AI disclosure rules.
