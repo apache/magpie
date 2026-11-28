@@ -453,7 +453,7 @@ def test_local_request_bypasses_proxy_and_rejects_redirect(monkeypatch: pytest.M
             self.send_header("Location", "http://attacker.example.com/exfil")
             self.end_headers()
 
-        def log_message(self, *args: Any) -> None:
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _RedirectHandler)

@@ -33,7 +33,7 @@ import signal
 import sys
 import tempfile
 import threading
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from types import FrameType
@@ -147,7 +147,7 @@ def _load_input(args: argparse.Namespace, repo_dir: Path, env: Mapping[str, str]
 
 
 @contextlib.contextmanager
-def _reviewers_die_with_us() -> Iterator[None]:
+def _reviewers_die_with_us() -> Generator[None]:
     """Reviewers run in their own sessions, so a Ctrl-C or a harness kill aimed at
     this process would not reach them: forward both as a kill of every live group."""
     if threading.current_thread() is not threading.main_thread():

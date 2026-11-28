@@ -53,6 +53,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -294,12 +295,12 @@ def _run(cmd: list[str], cwd: str | None = None, capture: bool = False) -> str:
 def _remove_tree(path: Path) -> None:
     """Remove a directory tree or file, clearing read-only attributes on Windows."""
 
-    def _on_error(func: object, p: str, _: object) -> None:
+    def _on_error(func: Callable[[str], object], p: str, _: object) -> None:
         with contextlib.suppress(OSError):
             if not os.path.islink(p):
                 st = os.stat(p)
                 os.chmod(p, st.st_mode | stat.S_IWRITE)
-        func(p)  # type: ignore[operator]
+        func(p)
 
     if path.is_symlink():
         path.unlink()

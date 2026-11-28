@@ -91,7 +91,8 @@ def test_a_skill_body_grown_past_the_budget_is_reported(repo: Path) -> None:
     assert file["path"] == "skills/demo/SKILL.md"
     assert file["over"] == ["body_tokens"]
     assert file["optimizer"] == "optimize-skill"
-    assert file["base"]["body_tokens"] < 5000  # type: ignore[index]
+    base = file["base"]
+    assert isinstance(base, dict) and base["body_tokens"] < 5000
 
 
 def test_a_committed_change_counts_as_well_as_a_working_tree_one(repo: Path) -> None:

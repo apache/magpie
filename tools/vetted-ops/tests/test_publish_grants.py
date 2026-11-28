@@ -71,7 +71,7 @@ def _blocks() -> dict[str, str]:
 
 def _named_ops(block: str) -> set[str]:
     """The vetted operations a block names, as the catalogues spell them."""
-    assert cli  # importing the CLI registers every operation module
+    _ = cli  # importing the CLI registers every operation module
     known = set(ops_mod.OPS) | set(git_ops.OPS)
     words = set(re.findall(r"(?<![\w-])((?:git|pr)-[a-z]+(?:-[a-z]+)*)", block))
     return words & known

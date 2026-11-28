@@ -28,6 +28,7 @@ import urllib.parse
 import urllib.request
 import urllib.response
 from email.message import Message
+from types import TracebackType
 from typing import Any
 
 import pytest
@@ -43,7 +44,12 @@ class FakeResponse(io.BytesIO):
     def __enter__(self) -> FakeResponse:
         return self
 
-    def __exit__(self, *exc: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.close()
 
 
@@ -804,8 +810,8 @@ def _serve_redirect(monkeypatch: pytest.MonkeyPatch, location: str) -> list[urll
         msg: str
 
     class FakeHTTPS(urllib.request.HTTPSHandler):
-        def https_open(self, request: urllib.request.Request) -> Any:
-            requests.append(request)
+        def https_open(self, req: urllib.request.Request) -> Any:
+            requests.append(req)
             headers = Message()
             if len(requests) == 1:
                 code, body = 302, b""
@@ -814,12 +820,12 @@ def _serve_redirect(monkeypatch: pytest.MonkeyPatch, location: str) -> list[urll
                 assert len(requests) == 2, "Unexpected extra redirect request"
                 code = 200
                 body = json.dumps(_topic([_post(100, 1)], [100])).encode("utf-8")
-            response = RedirectResponse(io.BytesIO(body), headers, request.full_url, code)
+            response = RedirectResponse(io.BytesIO(body), headers, req.full_url, code)
             response.msg = "Found" if code == 302 else "OK"
             return response
 
     class BlockHTTP(urllib.request.HTTPHandler):
-        def http_open(self, request: urllib.request.Request) -> Any:
+        def http_open(self, req: urllib.request.Request) -> Any:
             pytest.fail("An HTTP redirect reached the transport")
 
     def build_opener(*handlers: Any) -> urllib.request.OpenerDirector:

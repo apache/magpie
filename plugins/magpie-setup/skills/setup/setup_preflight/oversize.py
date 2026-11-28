@@ -232,9 +232,9 @@ def markdown(files: list[dict[str, object]]) -> str:
         "|---|---|---|---|---|---|",
     ]
     for file in files:
-        now, before = file["now"], file["base"]
-        assert isinstance(now, dict) and isinstance(before, dict)
-        for key in file["over"]:  # type: ignore[attr-defined]
+        now, before, over = file["now"], file["base"], file["over"]
+        assert isinstance(now, dict) and isinstance(before, dict) and isinstance(over, list)
+        for key in over:
             what, unit, cap = _LABELS[key]
             was = before.get(key)
             lines.append(

@@ -675,7 +675,7 @@ def _refuse_ambiguous(body: str, field_name: str) -> None:
     disputes = [d for d in normalise(body, [field_name]).needs_decision if d["kind"] == "container-heading"]
     if disputes:
         where = "; ".join(
-            f"{d['field']!r} at line(s) {', '.join(str(n) for n in d['lines'])}"  # type: ignore[attr-defined]
+            f"{d['field']!r} at line(s) {', '.join(str(n) for n in d['lines'])}"  # type: ignore[attr-defined]  # ty: ignore[not-iterable]
             for d in disputes
         )
         raise AmbiguousFieldError(

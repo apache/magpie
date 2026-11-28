@@ -10,10 +10,11 @@ import errno
 import fcntl
 import os
 import re
-from collections.abc import Iterator
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
+from typing import cast
 
 from . import custom_parser, sections
 from . import metadata as md
@@ -328,7 +329,7 @@ class Tracker:
         return fd
 
     @contextlib.contextmanager
-    def _allocation_lock(self) -> Iterator[None]:
+    def _allocation_lock(self) -> Generator[None]:
         """Serialize ID allocation across processes: exclusive creation alone
         reserves a file name, and with title slugs two writers could otherwise
         both take number N under different names."""
@@ -532,7 +533,7 @@ class Tracker:
             item = self.summary(entry)
             if state != "all" and item["state"] != state:
                 continue
-            have = {str(lb).lower() for lb in item["labels"]}  # type: ignore[attr-defined]
+            have = {str(lb).lower() for lb in cast(Iterable[object], item["labels"])}
             if not wanted <= have:
                 continue
             if words:

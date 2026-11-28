@@ -103,8 +103,10 @@ def test_the_overlapping_magpie_skill_ranks_first(project: Path, tmp_path: Path)
     assert sorted(m.name for m in magpie) == ["release-rc-cut", "security-issue-triage"], "setup is excluded"
     result = matches(project_skills(project), magpie, min_score=0.0)
     assert result[0]["magpie_skill"] == "security-issue-triage"
-    assert float(result[0]["score"]) > float(result[-1]["score"])  # type: ignore[arg-type]
-    assert "triage" in result[0]["shared_terms"]  # type: ignore[operator]
+    best, worst, terms = result[0]["score"], result[-1]["score"], result[0]["shared_terms"]
+    assert isinstance(best, float) and isinstance(worst, float) and isinstance(terms, list)
+    assert best > worst
+    assert "triage" in terms
 
 
 def test_scoring_is_deterministic(tmp_path: Path) -> None:

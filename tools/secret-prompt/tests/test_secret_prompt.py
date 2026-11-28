@@ -546,9 +546,9 @@ def test_npm_auth_token_is_allowed(
 
 
 @pytest.mark.parametrize("asker", [ask_zenity, ask_kdialog])
-def test_markup_capable_dialogs_refuse_markup_characters(asker: object) -> None:
+def test_markup_capable_dialogs_refuse_markup_characters(asker: Callable[[str, str], str]) -> None:
     with pytest.raises(PromptBackendError, match="markup"):
-        asker("Paste <b>it</b>", "PyPI upload")  # type: ignore[operator]
+        asker("Paste <b>it</b>", "PyPI upload")
 
 
 def test_osascript_ends_option_parsing_before_the_text(monkeypatch: pytest.MonkeyPatch) -> None:

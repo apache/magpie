@@ -588,8 +588,9 @@ def test_cli_get_and_set_on_a_remote_crlf_body(monkeypatch, capsys) -> None:
             self.stdout = stdout
             self.stderr = ""
 
-    def fake_run(cmd, input=None, **kwargs):
+    def fake_run(cmd: list[str], input: str | None = None, **kwargs: object) -> Result:
         if "edit" in cmd:
+            assert input is not None
             writes.append(input)
             return Result()
         return Result(json.dumps({"body": body}))

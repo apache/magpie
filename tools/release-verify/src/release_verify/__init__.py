@@ -69,7 +69,7 @@ import sys
 import tempfile
 import tomllib
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator, Sequence
+from collections.abc import Generator, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -219,7 +219,7 @@ def _read_public_keys(source: str) -> bytes:
 
 
 @contextlib.contextmanager
-def _gnupghome() -> Iterator[Path]:
+def _gnupghome() -> Generator[Path, None, None]:
     """A throwaway GNUPGHOME: public keys only, no agent, no keyboxd, no network."""
     home = Path(tempfile.mkdtemp(prefix="rv-gpg-"))
     try:

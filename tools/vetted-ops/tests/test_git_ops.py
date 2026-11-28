@@ -333,7 +333,7 @@ def test_git_older_than_2_42_is_refused(repo: Path, output: str, refused: bool) 
 
 
 def test_a_root_swapped_for_a_symlink_after_the_checks_cannot_redirect_the_worktree(
-    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path
+    git: Git, policy: LocalPolicy, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     start = _git(repo, "rev-parse", "HEAD")
     root = policy.worktree_roots[0]
@@ -349,16 +349,13 @@ def test_a_root_swapped_for_a_symlink_after_the_checks_cannot_redirect_the_workt
             root.symlink_to(elsewhere, target_is_directory=True)
         return fd
 
-    git_ops.open_dir = swapping_open_dir
-    try:
-        git_ops.worktree_add(
-            git,
-            policy,
-            {"checkout": str(repo), "path": str(root / "wt"), "branch": "t", "start": start},
-            False,
-        )
-    finally:
-        git_ops.open_dir = real_open_dir
+    monkeypatch.setattr(git_ops, "open_dir", swapping_open_dir)
+    git_ops.worktree_add(
+        git,
+        policy,
+        {"checkout": str(repo), "path": str(root / "wt"), "branch": "t", "start": start},
+        False,
+    )
     assert list(elsewhere.iterdir()) == []
     assert (root.with_name("moved-root") / "wt" / "one").exists()
 

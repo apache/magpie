@@ -69,7 +69,7 @@ import contextlib
 import functools
 import os
 import pathlib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from typing import Any, TypeVar
 
 from mcp.server.mcpserver import MCPServer
@@ -149,7 +149,7 @@ def _vetted_credentials_path(credentials_path: str | None) -> str | None:
 
 
 @contextlib.contextmanager
-def _as_tool_error() -> Iterator[None]:
+def _as_tool_error() -> Generator[None, None, None]:
     """Convert the CLI helpers' ``SystemExit`` into a normal tool error.
 
     ``create_draft.py`` / ``credentials.py`` raise ``SystemExit`` (they are

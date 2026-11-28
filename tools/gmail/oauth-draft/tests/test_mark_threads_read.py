@@ -120,7 +120,7 @@ def test_list_thread_ids_raises_on_http_error():
         url="https://x",
         code=429,
         msg="Too Many",
-        hdrs=None,  # type: ignore[arg-type]
+        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         fp=io.BytesIO(b'{"error": "rate"}'),
     )
     with patch(
@@ -156,7 +156,7 @@ def test_modify_thread_raises_on_http_error():
         url="https://x",
         code=500,
         msg="Boom",
-        hdrs=None,  # type: ignore[arg-type]
+        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         fp=io.BytesIO(b'{"error": "server"}'),
     )
     with patch(

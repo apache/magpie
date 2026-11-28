@@ -88,6 +88,15 @@ from security_tracker_stats_dashboard.core import (  # noqa: E402
     week_of,
 )
 
+
+def parse_required_dt(s):
+    """`parse_dt` for a timestamp GitHub always sets (`createdAt`): never None."""
+    parsed = parse_dt(s)
+    if parsed is None:
+        raise ValueError(f"missing timestamp: {s!r}")
+    return parsed
+
+
 # --- YAML loader ----------------------------------------------------
 # Prefer pyyaml when available (handles every edge case). When it's not
 # installed, fall back to the pure-Python subset parser from core.
@@ -243,7 +252,7 @@ else:
 # --- index issues + buckets ----------------------------------------
 
 issues_by_n = {i["number"]: i for i in issues}
-earliest = min(parse_dt(i["createdAt"]) for i in issues)
+earliest = min(parse_required_dt(i["createdAt"]) for i in issues)
 
 if START_OVERRIDE:
     if BUCKETS_MODE == "monthly":
@@ -614,7 +623,7 @@ n_no_triage = 0
 all_triage_hours = []
 
 for i in issues:
-    created = parse_dt(i["createdAt"])
+    created = parse_required_dt(i["createdAt"])
     blbl = bucket_label(*bucket_of(created))
     comments = i.get("comments", []) or []
 
@@ -626,7 +635,7 @@ for i in issues:
             continue
         if is_bot_body(c.get("body") or "", BOT_PREFIXES):
             continue
-        ct = parse_dt(c["createdAt"])
+        ct = parse_required_dt(c["createdAt"])
         if first_roster is None:
             first_roster = ct
         if first_roster_keyword is None and TRIAGE_RE is not None and TRIAGE_RE.search(c.get("body") or ""):
@@ -836,7 +845,11 @@ def _proj_trace(name, color, projected, actuals=None, prev_value=None, hover=Non
     """
     if projected is None:
         return ""
-    prev = actuals[-2] if prev_value is None else prev_value
+    if prev_value is None:
+        assert actuals is not None, "_proj_trace needs actuals or prev_value"
+        prev = actuals[-2]
+    else:
+        prev = prev_value
     hover_text = hover if hover is not None else "projected: %{y}"
     return (
         ",\n  {x: "

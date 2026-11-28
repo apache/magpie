@@ -39,7 +39,7 @@ COMMITTED = (
 
 
 def test_the_committed_policy_loads() -> None:
-    assert cli  # importing the CLI registers every operation module
+    _ = cli  # importing the CLI registers every operation module
     policy = config.load(COMMITTED)
     assert policy.upstream_repo == "apache/magpie"
 

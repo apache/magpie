@@ -87,7 +87,8 @@ def test_violation_is_frozen_dataclass() -> None:
     v = PostureViolation(layer="layer-0", detail="something missing")
     assert v.layer == "layer-0"
     with pytest.raises(Exception):
-        v.layer = "mutated"  # type: ignore[misc]
+        # `setattr`: the write the type checkers reject is what is under test.
+        setattr(v, "layer", "mutated")
 
 
 # ---------------------------------------------------------------------------

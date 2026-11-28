@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 from . import custom_parser
 from . import detect as detect_mod
@@ -98,7 +99,8 @@ def cmd_detect(args: argparse.Namespace) -> int:
     desc, evidence = detect_mod.detect(root)
     existing = root / DESCRIPTOR_NAME
     if existing.is_file() and not args.force:
-        evidence["decisions"].insert(0, f"{existing} already exists; showing what detection would write")  # type: ignore[attr-defined]
+        decisions = cast("list[str]", evidence["decisions"])
+        decisions.insert(0, f"{existing} already exists; showing what detection would write")
     _apply_setup_flags(desc, args)
     out: dict[str, object] = {"descriptor": json.loads(desc.to_json()), "summary": detect_mod.describe(desc)}
     out.update(evidence)

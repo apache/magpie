@@ -34,7 +34,8 @@ class Item:
 
     @classmethod
     def from_json(cls, d: Mapping[str, Any]) -> Item:
-        return cls(**{**d, "areas": tuple(d.get("areas", ()))})
+        fields: dict[str, Any] = {**d, "areas": tuple(d.get("areas", ()))}
+        return cls(**fields)
 
 
 _KEYS: dict[str, tuple[str, float]] = {
