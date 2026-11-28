@@ -23,7 +23,7 @@ name = "pr-management"
 version = "0.1.0"
 description = "Deterministic core of the pr-management skills: classify a fetched PR sweep, render the bodies, and leave only judgement to the agent."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = ["packaging>=26"]
 

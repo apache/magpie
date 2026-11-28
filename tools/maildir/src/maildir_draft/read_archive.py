@@ -198,7 +198,7 @@ def _parse_date(msg: Message) -> dt.datetime | None:
         return None
     try:
         parsed = email.utils.parsedate_to_datetime(str(raw))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     # A date without a zone is meaningless for ordering across archives; treat
     # it as UTC rather than dropping the message.
@@ -211,7 +211,7 @@ def _decode_payload(part: Message) -> str:
     """A single part's payload as text; ``""`` only when it has no bytes payload."""
     try:
         payload = part.get_payload(decode=True)
-    except (AttributeError, LookupError):
+    except AttributeError, LookupError:
         return ""
     if not isinstance(payload, bytes):
         # A nested ``message/rfc822`` or multipart part holds messages, not text.

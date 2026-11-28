@@ -242,7 +242,7 @@ def _http_error_message(exc: urllib.error.HTTPError) -> str:
         return f"{message} (rate limited; retry after {hint or 'a while'})"
     try:
         body = json.loads(exc.read().decode("utf-8"))
-    except (OSError, http.client.HTTPException, UnicodeDecodeError, json.JSONDecodeError):
+    except OSError, http.client.HTTPException, UnicodeDecodeError, json.JSONDecodeError:
         return message
     errors = body.get("errors") if isinstance(body, dict) else None
     if isinstance(errors, list) and errors:

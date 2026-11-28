@@ -23,7 +23,7 @@ name = "security-management"
 version = "0.1.0"
 description = "Deterministic core of the security skills: pre-filter, dedup batching, tracker body, rollup and ledger rendering, reply parsing and recap, leaving only judgement to the agent."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only on purpose: the skills call it through `uv run --project` from an
 # adopter's snapshot. The three workspace members it reuses are stdlib-only too:

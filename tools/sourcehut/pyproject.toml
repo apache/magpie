@@ -24,7 +24,7 @@ name = "magpie-sourcehut"
 version = "0.1.0"
 description = "SourceHut (sr.ht) forge bridge for Apache Magpie — provides tracker, patch review, VCS and CI status reads via GraphQL APIs."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

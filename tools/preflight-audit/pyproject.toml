@@ -23,7 +23,7 @@ name = "preflight-audit"
 version = "0.1.0"
 description = "Dry-run the bulk-mode pre-flight classifier against a real or replayed tracker — measure skip-rate before / after any rule change."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Stdlib-only at runtime; shells out to `gh` for live mode.
 dependencies = []

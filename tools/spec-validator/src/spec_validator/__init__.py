@@ -226,7 +226,7 @@ def _symbol_called(target: Path, name: str) -> tuple[bool, bool]:
             continue
         try:
             tree = ast.parse(file.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError, ValueError):
+        except OSError, SyntaxError, ValueError:
             continue
         own = [
             node

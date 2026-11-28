@@ -69,7 +69,7 @@ class Weights:
                 continue
             try:
                 v = float(raw)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 notes.append(f"{key}={raw!r} is not a number; using default {default}")
                 values[attr] = default
                 continue

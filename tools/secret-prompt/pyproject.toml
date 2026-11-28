@@ -24,7 +24,7 @@ name = "secret-prompt"
 version = "0.1.0"
 description = "Ask the operator for a secret (terminal, macOS dialog, zenity/kdialog or pinentry) and run one command with it in one environment variable, never printing it."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only — getpass, subprocess and the platform dialogs cover every backend.
 dependencies = []

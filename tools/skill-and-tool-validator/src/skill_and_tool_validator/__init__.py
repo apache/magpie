@@ -1698,7 +1698,7 @@ def _git_show(base_ref: str, rel_path: str, repo_root: Path) -> str | None:
             check=True,
         )
         return result.stdout
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+    except subprocess.CalledProcessError, FileNotFoundError, OSError:
         return None
 
 
@@ -3911,7 +3911,7 @@ def validate_pre_pr_review_block(root: Path | None = None) -> Iterable[Violation
         for path in files:
             try:
                 text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except OSError, UnicodeDecodeError:
                 continue
             if path.suffix == ".md" and PRE_PR_REVIEW_MARKER in text:
                 has_block = True

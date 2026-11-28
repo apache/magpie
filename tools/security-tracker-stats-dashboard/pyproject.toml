@@ -24,7 +24,7 @@ name = "security-tracker-stats-dashboard"
 version = "0.1.0"
 description = "Rendering helpers for the security-tracker statistics dashboard."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

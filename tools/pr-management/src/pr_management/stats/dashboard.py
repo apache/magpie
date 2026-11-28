@@ -2226,7 +2226,7 @@ def _read_session_state(path):
             continue
         try:
             data = json.loads(candidate.read_text())
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             return {}
         return data if isinstance(data, dict) else {}
     return {}

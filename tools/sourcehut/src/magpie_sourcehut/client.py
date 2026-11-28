@@ -120,7 +120,7 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
             if err_errors:
                 err_msgs = [e.get("message", "Unknown error") for e in err_errors]
                 err_msg = f"HTTP {exc.code}: {'; '.join(err_msgs)}"
-        except (ValueError, AttributeError, TypeError, OSError):
+        except ValueError, AttributeError, TypeError, OSError:
             # Ignore errors parsing the HTTP error response body as JSON. This is
             # a best-effort attempt to extract a nicer message from an untrusted
             # body, so failing to parse it must never be worse than not trying:

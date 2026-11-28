@@ -35,7 +35,7 @@ body **without bringing the body into agent context**.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (`uv run --directory tools/github-body-field body-field …`); stdlib-only, no third-party dependencies.
+- **Runtime:** Python 3.14+ run via `uv` (`uv run --directory tools/github-body-field body-field …`); stdlib-only, no third-party dependencies.
 - **CLIs:** `uv`; `gh` — the script shells out to it for all GitHub access (the `--repo` argument is forwarded verbatim).
 - **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass) — the body read / parse / replace / push all go through `gh`.
 - **Network:** `api.github.com` via `gh`.

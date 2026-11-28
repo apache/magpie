@@ -159,7 +159,7 @@ def publish(project_root: Path, html: Path, repo: str) -> dict[str, Any]:
     if state_path.is_file():
         try:
             gist_id = json.loads(state_path.read_text(encoding="utf-8")).get("stats_gist_id")
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             gist_id = None
     warnings: list[str] = []
     if gist_id is not None and not (isinstance(gist_id, str) and GIST_ID.match(gist_id)):
@@ -209,7 +209,7 @@ def record_gist(project_root: Path, gist_id: str) -> dict[str, Any]:
     if state_path.is_file():
         try:
             data = json.loads(state_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             data = {}
     if not GIST_ID.match(gist_id):
         return {"stored": False, "reason": f"{gist_id!r} is not a gist id (hex, from the gist URL)"}

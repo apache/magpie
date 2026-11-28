@@ -33,7 +33,7 @@
 # below, and a member's `select` replaces it.
 
 line-length = 110
-target-version = "py311"
+target-version = "py314"
 
 [lint]
 select = [

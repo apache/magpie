@@ -112,7 +112,7 @@ def summarise(message: email.message.Message) -> ThreadPosition:
     if date_header:
         try:
             parsed_date = email.utils.parsedate_to_datetime(str(date_header))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             parsed_date = None
     if parsed_date is not None and parsed_date.tzinfo is None:
         parsed_date = parsed_date.replace(tzinfo=UTC)

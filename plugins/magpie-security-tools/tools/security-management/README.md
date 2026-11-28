@@ -60,7 +60,7 @@ exits `2` with `{"ok": false, "refused": "<why>"}`.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+, stdlib only; run with `uv run --project <framework>/tools/security-management`.
+- **Runtime:** Python 3.14+, stdlib only; run with `uv run --project <framework>/tools/security-management`.
   It imports three stdlib-only workspace members instead of copying their rules:
   [`github-body-field`](../github-body-field/README.md) (what a `### Field` section is) and
   [`generate-cve-json`](../cve-tool-vulnogram/generate-cve-json/README.md) (the bot/AI credit policy) and

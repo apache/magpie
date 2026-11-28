@@ -96,7 +96,7 @@ def attribution_convention(repo: Path) -> str:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
-        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        except OSError, UnicodeDecodeError, tomllib.TOMLDecodeError:
             raise ValueError(path) from None
         value = data.get("convention")
         return value.strip().lower() if isinstance(value, str) else None

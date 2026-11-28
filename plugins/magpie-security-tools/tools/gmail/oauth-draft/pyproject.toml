@@ -23,7 +23,7 @@ name = "oauth-draft"
 version = "0.1.0"
 description = "Gmail OAuth helpers — create threadId-attached drafts and bulk-modify threads via the Gmail REST API."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # google-auth-oauthlib is needed only by `oauth-draft-setup` (the one-time
 # interactive consent flow). The `oauth-draft-create`,

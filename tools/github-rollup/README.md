@@ -35,7 +35,7 @@ issue **without bringing the rollup body into agent context**.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (`uv run --directory tools/github-rollup github-rollup …`); stdlib-only, no third-party dependencies.
+- **Runtime:** Python 3.14+ run via `uv` (`uv run --directory tools/github-rollup github-rollup …`); stdlib-only, no third-party dependencies.
 - **CLIs:** `uv`; `gh` — the script shells out to it for all GitHub access (the default `@user` comes from `gh api user`).
 - **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass) — the comment read / append / PATCH all go through `gh`.
 - **Network:** `api.github.com` via `gh`.

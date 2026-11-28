@@ -33,7 +33,7 @@ are made against evidence, not guesswork.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party deps).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib only, no third-party deps).
 - **CLIs:** `gh` (GitHub CLI) for live mode; replay mode needs none.
 - **Credentials / auth:** `gh` authenticated to the tracker repo (live mode only).
 - **Network:** GitHub GraphQL API via `gh` (live mode); replay mode runs fully offline.

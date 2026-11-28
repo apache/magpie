@@ -23,7 +23,7 @@ name = "adversarial-review"
 version = "0.1.0"
 description = "Run other models' CLIs read-only over a change before its PR is created, and merge their findings."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Runtime is stdlib-only; reviewers are external CLIs run via an argv list.
 dependencies = []

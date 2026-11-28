@@ -462,7 +462,7 @@ def _resolve_findings(
         if curated_path.is_file():
             try:
                 curated_raw = json.loads(curated_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            except json.JSONDecodeError, OSError, UnicodeDecodeError:
                 # An unreadable, malformed, or inaccessible sidecar falls back to the raw findings.
                 return raw, None
             if isinstance(curated_raw, dict) and _check_envelope(curated_raw, p, pr_number) is None:
@@ -482,7 +482,7 @@ def _curated_keep(curated_path: Path | None) -> str:
     keep_path = curated_path.with_name(curated_path.name[: -len(CURATED_JSON_SUFFIX)] + CURATED_KEEP_SUFFIX)
     try:
         answer = keep_path.read_text(encoding="utf-8").strip() if keep_path.is_file() else ""
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         answer = ""
     return answer if answer and answer != "INVALIDATED" else "A"
 
@@ -567,7 +567,7 @@ def _decide(
         else:
             try:
                 check_runs_data = json.loads(check_runs_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            except json.JSONDecodeError, OSError:
                 check_runs_data = None
             if check_runs_data is None or not shared_ci.check_runs_have_real_ci(check_runs_data, cfg):
                 secondary_ci_verified = False

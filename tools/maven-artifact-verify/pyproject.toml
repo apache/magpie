@@ -39,6 +39,10 @@ packages = ["src/maven_artifact_verify"]
 
 [tool.ruff]
 extend = "../dev/shared/ruff.toml"
+# Still run by a bare `python3` (a hook, a skill step, or code such a run
+# imports), whatever the machine has, so it keeps the 3.11 floor until those
+# invocations move to 3.14.
+target-version = "py311"
 line-length = 160
 src = ["src", "tests"]
 

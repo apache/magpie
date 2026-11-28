@@ -25,7 +25,7 @@ name = "magpie-asf-security-dash"
 version = "0.1.0"
 description = "Read-only bridge to the ASF Security dashboard (dash.security.apache.org) for Apache Magpie."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

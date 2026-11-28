@@ -226,14 +226,14 @@ def _extract(tarball: Path, out_dir: Path, max_bytes: int, max_members: int) -> 
 def _make_private(root: Path) -> int:
     """Owner-only, and no execute bit on any file: nothing in the archive is meant to run."""
     files = 0
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in root.walk():
         os.chmod(dirpath, 0o700)
         for name in filenames:
-            path = Path(dirpath) / name
+            path = dirpath / name
             if stat.S_ISREG(path.lstat().st_mode):
                 os.chmod(path, 0o600)
                 files += 1
-        dirnames[:] = [d for d in dirnames if not (Path(dirpath) / d).is_symlink()]
+        dirnames[:] = [d for d in dirnames if not (dirpath / d).is_symlink()]
     return files
 
 

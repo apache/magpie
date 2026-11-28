@@ -24,7 +24,7 @@ name = "sandbox-lint"
 version = "0.1.0"
 description = "Lint .claude/settings.json against the shipped baseline and the security invariants documented in docs/security/threat-model.md (mitigation M.29)."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only — JSON parsing and deep-diff are built into Python.
 dependencies = []

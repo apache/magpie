@@ -115,7 +115,7 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party deps).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib only, no third-party deps).
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None.
 - **Network:** Runs fully offline/local — it only reads local JSON, TOML, and rules files.

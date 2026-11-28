@@ -23,7 +23,7 @@ name = "imap-source"
 version = "0.1.0"
 description = "Concrete IMAP mail-source adapter — thread-view reads and draft-only APPEND over stdlib imaplib."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Stdlib only: imaplib + email cover the whole surface (see issue #303).
 dependencies = []

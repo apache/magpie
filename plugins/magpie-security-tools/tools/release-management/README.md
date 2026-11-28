@@ -51,7 +51,7 @@ For an ASF project that records `project_stage: incubating` in `release-manageme
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+, stdlib only; run with `uv run --project <framework>/tools/release-management`.
+- **Runtime:** Python 3.14+, stdlib only; run with `uv run --project <framework>/tools/release-management`.
 - **CLIs:** None. It reads files the agent saved: `release-config load` output, and text the release manager pasted back.
 - **Credentials / auth:** None.
 - **Network:** None; it never opens a connection.

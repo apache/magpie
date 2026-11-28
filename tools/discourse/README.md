@@ -44,7 +44,7 @@ listed under [Planned follow-up coverage](#planned-follow-up-coverage).
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib-only, no third-party runtime dependencies).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib-only, no third-party runtime dependencies).
 - **CLIs:** None.
 - **Credentials / auth:** None for a public forum: topics in public categories are read anonymously.
   For private categories or personal messages, set `DISCOURSE_API_KEY` and

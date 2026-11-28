@@ -55,6 +55,10 @@ package = false
 
 [tool.ruff]
 extend = "../tools/dev/shared/ruff.toml"
+# Still run by a bare `python3` (a hook, a skill step, or code such a run
+# imports), whatever the machine has, so it keeps the 3.11 floor until those
+# invocations move to 3.14.
+target-version = "py311"
 # Generated copies (tools/dev/check-family-plugins.py `copies`) of workspace
 # tools, each linted and formatted under its own settings at its source. The
 # copies cannot be linted here: their pyproject drops the `extend` of the

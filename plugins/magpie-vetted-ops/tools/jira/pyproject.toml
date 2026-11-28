@@ -24,7 +24,7 @@ name = "jira-bridge"
 version = "0.1.0"
 description = "JIRA REST bridge: test harness for bridge.groovy, a stdlib Python REST client, and the private-Jira security tracker."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # General-tracker writes live in bridge.groovy. The package ships a stdlib-only REST
 # client (jira_bridge.rest) and, on top of it, the security-tracker backend

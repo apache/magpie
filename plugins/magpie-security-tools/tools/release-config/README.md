@@ -29,7 +29,7 @@ Checks that need GitHub, the network or judgement — finding the planning issue
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+, stdlib only; run via `uv run --project <framework>/tools/release-config`.
+- **Runtime:** Python 3.14+, stdlib only; run via `uv run --project <framework>/tools/release-config`.
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None. It reads the RM's `user.md` only for `apache_id` and `release_manager.gpg_fingerprint`.
 - **Network:** None — reads local markdown files only.

@@ -310,7 +310,7 @@ def check_cve_record(body: bytes, expected_id: str) -> None:
     """
     try:
         document = json.loads(body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except UnicodeDecodeError, json.JSONDecodeError:
         raise ParamError("the CVE record is not UTF-8 JSON") from None
     if not isinstance(document, dict):
         raise ParamError("the CVE record is not a JSON object")
@@ -606,7 +606,7 @@ def read_title(value: str, *, workspace: Path) -> str:
     data = read_body(value, workspace=workspace)
     try:
         return title(data.decode("utf-8").strip())
-    except (UnicodeDecodeError, ParamError):
+    except UnicodeDecodeError, ParamError:
         raise ParamError(f"title file must hold one UTF-8 line of 1 to 256 characters: {value!r}") from None
 
 

@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import re
+from itertools import batched
 from typing import Any
 
 from magpie_discourse.client import DiscourseConfig, DiscourseError, get_json, origin, parse_url
@@ -86,8 +87,8 @@ def fetch_topic(config: DiscourseConfig, topic_id: int, max_posts: int = DEFAULT
 
     wanted = post_ids[:max_posts]
     missing = [post_id for post_id in wanted if post_id not in posts]
-    for start in range(0, len(missing), POSTS_CHUNK_SIZE):
-        chunk = missing[start : start + POSTS_CHUNK_SIZE]
+    for batch in batched(missing, POSTS_CHUNK_SIZE, strict=False):
+        chunk = list(batch)
         extra = get_json(config, f"/t/{topic_id}/posts.json", {"post_ids[]": chunk})
         for post in _read_posts(extra):
             posts[post["id"]] = post

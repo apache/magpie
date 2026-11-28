@@ -69,7 +69,7 @@ def git_common_dir(root: Path) -> Path | None:
         return None
     try:
         first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
-    except (OSError, UnicodeDecodeError, IndexError):
+    except OSError, UnicodeDecodeError, IndexError:
         return None
     if not first.startswith("gitdir:"):
         return None
@@ -84,7 +84,7 @@ def git_common_dir(root: Path) -> Path | None:
         return gitdir
     try:
         common = commondir.read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeDecodeError):
+    except OSError, UnicodeDecodeError:
         return None
     if not common:
         return gitdir
@@ -192,7 +192,7 @@ def _holds_config(layer: Path) -> bool:
     """
     try:
         names = [entry.name for entry in layer.iterdir()]
-    except (FileNotFoundError, NotADirectoryError):
+    except FileNotFoundError, NotADirectoryError:
         return False
     except OSError:
         return True

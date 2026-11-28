@@ -38,7 +38,7 @@ def _read(path: Path) -> dict[str, Any]:
     if path.is_file():
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             return {"prs": {}}
     return {"prs": {}}
 

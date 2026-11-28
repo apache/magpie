@@ -451,6 +451,14 @@ repo root pins versions across all packages.
 | [`tools/privacy-llm/checker/`](tools/privacy-llm/checker/) | Verifies that data destined for an LLM matches the privacy-LLM policy. |
 | [`tools/privacy-llm/redactor/`](tools/privacy-llm/redactor/) | Redacts reporter PII before content reaches a non-approved LLM. |
 
+The packages require Python 3.14, and the workspace runs on it (the root
+`.python-version` pins it for `uv`, locally and in CI). `uv` fetches 3.14
+itself, so nothing depends on the machine's own `python3`. The exception, for
+now, is code a hook, a skill step or a settings command still starts with a
+bare `python3`, whatever version the machine has: those packages keep
+`requires-python = ">=3.11"` and a `py311` ruff target until their invocations
+move to `uv` as well.
+
 Common invocation pattern (run from the package directory):
 
 ```bash

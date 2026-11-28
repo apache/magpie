@@ -120,7 +120,7 @@ def _approved(data: bytes) -> bool:
         try:
             if read_regular_file(root / name) == data:
                 return True
-        except (TamperedPath, OSError):
+        except TamperedPath, OSError:
             continue
     return False
 
@@ -400,7 +400,7 @@ def _short_name(base: Path) -> str | None:
     for layer in layers.config_layers(base):
         try:
             data = read_regular_file(layer / "project.md")
-        except (TamperedPath, OSError):
+        except TamperedPath, OSError:
             continue
         if data is None:
             continue

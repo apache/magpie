@@ -23,7 +23,7 @@ name = "github-body-field"
 version = "0.1.0"
 description = "Read or rewrite a single `### Field` section of a GitHub issue body without bringing the body into agent context."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Runtime is stdlib-only; the script shells out to `gh` for GitHub
 # access. Keeping the runtime closed lets `uv run` resolve in ms.

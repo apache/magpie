@@ -1081,7 +1081,7 @@ class TestTriggerPreservation:
                 check=True,
                 capture_output=True,
             )
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except subprocess.CalledProcessError, FileNotFoundError:
             pytest.skip("git not available")
 
         skills_dir = tmp_path / "skills"

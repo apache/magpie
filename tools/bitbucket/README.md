@@ -121,7 +121,7 @@ separately with narrow command surfaces and maintainer review.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv`; the bridge uses the Python standard library at runtime.
+- **Runtime:** Python 3.14+ run via `uv`; the bridge uses the Python standard library at runtime.
 - **CLIs:** `uv` to run the bridge and its tests; no Bitbucket-specific CLI is required.
 - **Credentials / auth:** `BITBUCKET_TOKEN` is required for authenticated Bitbucket API calls. Bitbucket Cloud also needs `BITBUCKET_CLOUD_USER`; Data Center uses `BITBUCKET_AUTH_SCHEME=Bearer` by default.
 - **Network:** Bitbucket Cloud reaches `api.bitbucket.org`; Bitbucket Data Center reaches the configured `BITBUCKET_BASE_URL`. Adopters using Data Center must explicitly allow their own Bitbucket host in the secure egress configuration.

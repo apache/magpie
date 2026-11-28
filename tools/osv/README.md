@@ -26,7 +26,7 @@ See [`tool.md`](tool.md) for endpoint recipes, payload structures, and confident
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via `uv` (through `tools/vetted-ops` dispatcher).
+- **Runtime:** Python 3.14+ via `uv` (through `tools/vetted-ops` dispatcher).
 - **CLIs:** `vetted-op-read` (from `tools/vetted-ops`) and `jq`.
 - **Credentials / auth:** None — open, unauthenticated REST API.
 - **Network:** `api.osv.dev` (REST API v1), routed through `vetted-ops` HTTP read backend.

@@ -33,7 +33,7 @@ Implements the deterministic measurement check discussed in
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via uv, with pinned `tiktoken`.
+- **Runtime:** Python 3.14+ via uv, with pinned `tiktoken`.
 - **CLIs:** None beyond uv and Python for file counts. The optional runtime
   replay adapter requires Claude Code.
 - **Credentials / auth:** None for file counts. The opt-in replay adapter

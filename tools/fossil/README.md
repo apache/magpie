@@ -26,7 +26,7 @@ Fossil SCM forge and tracker bridge implementation for the Apache Magpie framewo
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib-only, no third-party dependencies).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib-only, no third-party dependencies).
 - **CLIs:** `fossil` (for repository interactions).
 - **Credentials / auth:** None (local-only; reads are direct SQL queries on the repository database).
 - **Network:** Mostly offline. Requires the repository to be cloned locally, and reads/writes locally before syncs.

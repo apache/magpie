@@ -36,7 +36,7 @@ who holds it.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via `uv`; stdlib only.
+- **Runtime:** Python 3.14+ via `uv`; stdlib only.
 - **CLIs:** none.
 - **Credentials / auth:** none.
 - **Network:** none; works entirely on local files.

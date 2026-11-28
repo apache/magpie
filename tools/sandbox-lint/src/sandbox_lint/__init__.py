@@ -481,7 +481,7 @@ def _git_output(cmd: list[str]) -> str:
     """A git command's stdout, or "" when git is missing or the command fails."""
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=30)
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return ""
     return result.stdout if result.returncode == 0 else ""
 

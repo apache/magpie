@@ -86,7 +86,7 @@ Like `audit-opencode`, `audit-kiro` is read-only (no `apply`), and a
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (`uv sync` / `uv run`); the
+- **Runtime:** Python 3.14+ run via `uv` (`uv sync` / `uv run`); the
   tool itself is stdlib-only.
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None.

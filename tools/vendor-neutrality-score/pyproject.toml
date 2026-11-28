@@ -24,7 +24,7 @@ name = "vendor-neutrality-score"
 version = "0.1.0"
 description = "Deterministically score Magpie's vendor neutrality per capability contract and per skill."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

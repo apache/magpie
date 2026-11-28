@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from itertools import batched
 from typing import Any
 
 from security_management.shared import selectors
@@ -134,9 +135,9 @@ def batches(
     if not owner or not name:
         raise ValueError(f"tracker {tracker!r} is not owner/name")
     out = []
-    for index in range(0, len(numbers), CHUNK):
-        chunk = list(numbers[index : index + CHUNK])
-        path = f"{scratch.rstrip('/')}/{prefix}-batch-{index // CHUNK + 1}.graphql"
+    for batch_no, batch in enumerate(batched(numbers, CHUNK, strict=False), start=1):
+        chunk = list(batch)
+        path = f"{scratch.rstrip('/')}/{prefix}-batch-{batch_no}.graphql"
         out.append(
             {
                 "numbers": chunk,

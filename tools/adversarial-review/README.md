@@ -30,7 +30,7 @@ Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/202
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via `uv`.
+- **Runtime:** Python 3.14+ via `uv`.
 The package itself is stdlib-only.
 - **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `agy` (the `antigravity` reviewer), `pi`, `grok`, `goose` or `claude` — logged in with its own account.
 `--target pr:<N>` also needs `gh`.

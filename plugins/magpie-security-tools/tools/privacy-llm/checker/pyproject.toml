@@ -23,7 +23,7 @@ name = "checker"
 version = "0.1.0"
 description = "Approved-LLM gate-check for the apache-magpie privacy-llm tool — parse <project-config>/privacy-llm.md and verify the active LLM stack against the approved-model registry."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only — re + urllib.parse + pathlib + argparse are all that's
 # needed. Keeps the gate-check cheap to invoke from skills.

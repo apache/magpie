@@ -56,7 +56,7 @@ still drive every draft-producing skill. See
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ (standard library only — `email.message` +
+- **Runtime:** Python 3.14+ (standard library only — `email.message` +
   `mailbox`). Run via `uv run --project tools/maildir …`.
 - **CLIs:** none — stdlib only; the `maildir-draft-create` console script
   is the whole surface.

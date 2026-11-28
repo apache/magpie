@@ -443,6 +443,12 @@ trustworthy as it grows.
   every function to be annotated) and keeps only its path-based settings,
   which ruff would resolve against the base's directory; tests are exempt
   from `ANN`.
+  The packages require Python 3.14 and the workspace runs on it (root
+  `.python-version`); ruff targets `py314` from the shared base, and ty checks
+  each member against its own `requires-python`.
+  Members whose code a bare `python3` still runs (a hook, a skill step, a
+  settings command, or code those import) keep `>=3.11` and a `py311` ruff
+  target, so no 3.14-only syntax reaches an older interpreter.
   ty replaces mypy, pinned exactly while it is pre-1.0.
   It runs on every member unless the member opts out with `skip = ["ty"]`,
   with ty's default rules plus the unused-ignore, redundant-cast and

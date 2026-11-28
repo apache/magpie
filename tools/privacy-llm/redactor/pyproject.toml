@@ -23,7 +23,7 @@ name = "redactor"
 version = "0.1.0"
 description = "PII redactor for the apache-magpie privacy-llm tool — replace reporter PII with hash-prefixed identifiers and reverse on outbound."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only — hashlib + json + argparse + pathlib are all that's
 # needed. Keeping the dep set empty makes the redactor cheap to

@@ -24,7 +24,7 @@ name = "magpie-fossil"
 version = "0.1.0"
 description = "Fossil SCM forge and tracker bridge for Apache Magpie — provides version-control and built-in tracker/wiki/forum integration."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

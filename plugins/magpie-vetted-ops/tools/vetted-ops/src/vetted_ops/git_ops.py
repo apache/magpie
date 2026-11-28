@@ -2248,7 +2248,7 @@ def switch_create(git: Git, policy: GitPolicy, p: dict[str, str], dry_run: bool)
     git.run(worktree.path, "update-ref", f"refs/heads/{branch}", base, "0" * len(base))
     try:
         switched = switch_branch(git, policy, {"worktree": p["worktree"], "branch": branch}, False)
-    except (GitRefused, GitFailed):
+    except GitRefused, GitFailed:
         git._call(worktree.path, "update-ref", "-d", f"refs/heads/{branch}", base)
         raise
     return f"created {branch} at upstream {policy.pr_base} {base}; {switched}"
@@ -2390,7 +2390,7 @@ def _require_checked(git: Git, policy: GitPolicy, worktree: Worktree) -> None:
         raise GitRefused(f"no checks were recorded for {str(worktree.path)!r}: {hint}")
     try:
         record = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except UnicodeDecodeError, json.JSONDecodeError:
         raise GitRefused(f"the checks record {str(path)!r} is not valid JSON: {hint}") from None
     files = record.get("files") if isinstance(record, dict) else None
     if not isinstance(files, dict):

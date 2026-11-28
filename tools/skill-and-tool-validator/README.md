@@ -29,7 +29,7 @@ link integrity, and placeholder conventions.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no third-party
+- **Runtime:** Python 3.14+ run via `uv`; stdlib-only (no third-party
   runtime dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
 - **CLIs:** None beyond the runtime. `git` is used only for the optional
   trigger-phrase-preservation check and is silently skipped when git or

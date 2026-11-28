@@ -51,7 +51,7 @@ A project without a tracker that wants Magpie to keep per-report state pairs it 
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib-only, no third-party runtime dependencies).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib-only, no third-party runtime dependencies).
 - **CLIs:** None.
 - **Credentials / auth:** the dashboard signs in with ASF OAuth and shows a PMC to its members only
   (the ASF Security team sees every PMC).

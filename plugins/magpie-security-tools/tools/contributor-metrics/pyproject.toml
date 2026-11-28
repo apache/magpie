@@ -23,7 +23,7 @@ name = "contributor-metrics"
 version = "0.1.0"
 description = "Deterministic contributor activity counts, area shares and automated-work weighting for the contributor-growth skills."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # The Jira backend reads through tools/jira's REST client (a workspace member, stdlib only).
 dependencies = ["jira-bridge"]

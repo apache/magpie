@@ -41,7 +41,7 @@ how-to.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (no system install needed).
+- **Runtime:** Python 3.14+ run via `uv` (no system install needed).
 - **Dependencies:** `proxy.py` (`>=2.4,<3`) — the forward-proxy runtime,
   resolved by `uv` from PyPI.
 - **CLIs:** None beyond the runtime.

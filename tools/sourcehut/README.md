@@ -24,7 +24,7 @@ SourceHut (sr.ht) forge bridge implementation for the Apache Magpie framework. I
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib-only, no third-party package dependencies at runtime).
+- **Runtime:** Python 3.14+ run via `uv` (stdlib-only, no third-party package dependencies at runtime).
 - **CLIs:** `git` (for Git repo interactions) and `hg` (for Mercurial repo interactions).
 - **Credentials / auth:** `SRHT_TOKEN` environment variable containing a SourceHut Personal Access Token (OAuth2 bearer token) with appropriate scopes (e.g. `TICKETS:RW`, `LISTS:R`, `BUILDS:R`, `REPOS:R`).
 - **Network:** Reaches `todo.sr.ht`, `lists.sr.ht`, `builds.sr.ht`, `git.sr.ht`, and `hg.sr.ht` endpoints over HTTPS (`/query`).

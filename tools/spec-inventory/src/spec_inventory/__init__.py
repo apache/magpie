@@ -466,7 +466,7 @@ def skill_dir_aliases(repo_root: Path) -> dict[str, str]:
             continue
         try:
             target = entry.resolve().relative_to(root)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             continue
         aliases[target.as_posix()] = entry.name
     return aliases

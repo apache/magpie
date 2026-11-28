@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         command = event["tool_input"]["command"]
         if "turn_id" not in event or "model" not in event:
             return 0
-    except (ValueError, KeyError, TypeError):
+    except ValueError, KeyError, TypeError:
         return 0
     if not isinstance(command, str):
         return 0

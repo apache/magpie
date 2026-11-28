@@ -24,7 +24,7 @@ name = "release-config"
 version = "0.1.0"
 description = "Load the release-management configuration and run each release-* skill's deterministic Step 0 pre-flight checks, emitting JSON."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only on purpose: it parses the adopter's markdown config files and
 # applies fixed rules, nothing more.

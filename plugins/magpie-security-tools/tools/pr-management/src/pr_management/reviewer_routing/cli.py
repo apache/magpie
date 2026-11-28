@@ -191,7 +191,7 @@ def propose(args: argparse.Namespace) -> dict[str, Any]:
             raw = owners_file.read_text(encoding="utf-8").strip().strip('"').replace("\\n", "")
             try:
                 text = base64.b64decode(raw).decode("utf-8")
-            except (binascii.Error, UnicodeDecodeError):
+            except binascii.Error, UnicodeDecodeError:
                 text = raw
             owners = owned_paths(text, paths)
             break

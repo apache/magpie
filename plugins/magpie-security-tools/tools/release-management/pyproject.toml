@@ -23,7 +23,7 @@ name = "release-management"
 version = "0.1.0"
 description = "Deterministic core of the release-management skills: render every paste-ready command block, draft and comment from release-config's resolved configuration, and leave only judgement to the agent."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only on purpose: the skills call it through `uv run --project` from an
 # adopter's snapshot, and it reads release-config's JSON rather than importing it.

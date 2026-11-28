@@ -47,7 +47,7 @@ def read_session(path: Path | None) -> dict[str, Any]:
         return {"viewed": {}, "approved": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {"viewed": {}, "approved": {}}
     data.setdefault("viewed", {})
     data.setdefault("approved", {})

@@ -28,7 +28,7 @@ iterations can choose the next work item mechanically.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
+- **Runtime:** Python 3.14+ run via `uv`; stdlib-only (no runtime
   dependencies). The `dev` group pulls `pytest`.
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None.

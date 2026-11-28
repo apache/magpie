@@ -56,7 +56,7 @@ bridge only executes confirmed actions.
 
 ## Prerequisites
 
-- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` (standard library only; body fields go through a vendored copy of `github-body-field`'s parser) for `jira_bridge.rest`, `magpie-jira-tracker` and the pytest harness.
+- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.14+ via `uv` (standard library only; body fields go through a vendored copy of `github-body-field`'s parser) for `jira_bridge.rest`, `magpie-jira-tracker` and the pytest harness.
 - **CLIs:** `groovy` (4.x — the `@Grab` coordinate uses the `org.apache.groovy` group ID); `uv` only to run the tests.
 - **Credentials / auth:** `ISSUE_TRACKER_URL` (required) and `ISSUE_TRACKER_PROJECT` exported by the caller; write subcommands require `JIRA_API_TOKEN` (`JIRA_AUTH_SCHEME` = `Basic` default, or `Bearer` for ASF PATs). Anonymous-read trackers need no auth for read subcommands.
 - **Network:** the configured `<issue-tracker>` JIRA host (e.g. `issues.apache.org/jira`); `@Grab` reaches Maven Central on first run to resolve dependencies.

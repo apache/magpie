@@ -23,7 +23,7 @@ name = "magpie-maildir"
 version = "0.1.0"
 description = "Local Maildir backend for the mail contracts — writes editable outbound drafts (contract:mail-create) and reads a local mbox/Maildir archive (contract:mail-source). Offline, no vendor, no credentials."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # stdlib-only — composes email.message + mailbox from the standard library.
 dependencies = []

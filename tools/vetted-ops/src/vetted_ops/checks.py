@@ -70,7 +70,7 @@ def unreadable_git_dir(worktree: Path) -> Path | None:
         return None
     try:
         first = marker.read_text(encoding="utf-8").splitlines()[0]
-    except (OSError, UnicodeDecodeError, IndexError):
+    except OSError, UnicodeDecodeError, IndexError:
         return None
     if not first.startswith("gitdir:"):
         return None

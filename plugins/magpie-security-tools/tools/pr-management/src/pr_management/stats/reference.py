@@ -39,6 +39,7 @@ import sys
 import time
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from itertools import batched
 from pathlib import Path
 
 from .. import markers, people
@@ -285,8 +286,7 @@ def fetch_ready_pr_files(repo, ready_pr_numbers):
     """Aliased GraphQL: 20 PRs per call, fetch files(first:100) per PR."""
     owner, name = repo.split("/")
     out = {}
-    for batch_start in range(0, len(ready_pr_numbers), 20):
-        batch = ready_pr_numbers[batch_start : batch_start + 20]
+    for batch in batched(ready_pr_numbers, 20, strict=False):
         aliases = [
             f"pr{i}: pullRequest(number: {n}) {{ number files(first: 100) {{ nodes {{ path }} }} }}"
             for i, n in enumerate(batch)

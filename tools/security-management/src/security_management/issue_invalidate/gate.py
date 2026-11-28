@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from itertools import batched
 from typing import Any
 
 from security_management.issue_invalidate import reasons
@@ -130,9 +131,9 @@ def _query(owner: str, name: str, numbers: Sequence[int]) -> str:
 def batches(tracker: str, numbers: Sequence[int], scratch: str) -> list[dict[str, Any]]:
     owner, _, name = tracker.partition("/")
     out = []
-    for index in range(0, len(numbers), CHUNK):
-        chunk = list(numbers[index : index + CHUNK])
-        path = f"{scratch.rstrip('/')}/invalidate-batch-{index // CHUNK + 1}.graphql"
+    for batch_no, batch in enumerate(batched(numbers, CHUNK, strict=False), start=1):
+        chunk = list(batch)
+        path = f"{scratch.rstrip('/')}/invalidate-batch-{batch_no}.graphql"
         out.append(
             {
                 "numbers": chunk,

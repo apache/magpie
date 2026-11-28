@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
+from itertools import batched
 from typing import Any
 
 from security_management.issue_sync.select import _labels, _time
@@ -61,8 +62,8 @@ def query(data: Mapping[str, Any]) -> dict[str, Any]:
     numbers = [int(n) for n in data.get("numbers") or []]
     scratch = str(data["scratch"]).rstrip("/")
     out = []
-    for index in range(0, len(numbers), CHUNK):
-        chunk = numbers[index : index + CHUNK]
+    for batch_no, batch in enumerate(batched(numbers, CHUNK, strict=False), start=1):
+        chunk = list(batch)
         blocks = "\n".join(
             f"    i{n}: issue(number: {n}) {{\n"
             "      number state closedAt updatedAt title\n"
@@ -72,7 +73,7 @@ def query(data: Mapping[str, Any]) -> dict[str, Any]:
             "    }"
             for n in chunk
         )
-        path = f"{scratch}/sync-preflight-{index // CHUNK + 1}.graphql"
+        path = f"{scratch}/sync-preflight-{batch_no}.graphql"
         out.append(
             {
                 "numbers": chunk,

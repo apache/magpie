@@ -47,7 +47,7 @@ needs *one* allowlist entry instead of a dozen wildcard `ask` rules.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via `uv`.
+- **Runtime:** Python 3.14+ via `uv`.
 The package itself is stdlib-only.
 - **CLIs:** the `gh` CLI on `PATH`, authenticated for the repositories the policy names.
 HTTP operations do not use `gh` or `curl`; they use the `urllib.request` standard library module.

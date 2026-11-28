@@ -23,7 +23,7 @@ name = "permission-audit"
 version = "0.1.0"
 description = "Harness-neutral permission audit: auto-detect and audit Claude Code, OpenCode, and future harness settings in one CLI call."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Stdlib-only — fast `uv run` resolution + no surprises on a fresh install.
 dependencies = []

@@ -34,7 +34,7 @@ the agent only ever sees that command's output.
 
 ## Prerequisites
 
-- **Runtime** — Python 3.11+ (stdlib only), run via `uv`.
+- **Runtime** — Python 3.14+ (stdlib only), run via `uv`.
 - **CLIs** — one way to ask: a terminal, or `osascript` (macOS, built in),
   `zenity` or `kdialog` (Linux desktop), or `pinentry` (any OS with GnuPG,
   including `pinentry-mac`).

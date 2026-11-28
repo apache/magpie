@@ -23,7 +23,7 @@ name = "egress-gateway"
 version = "0.1.0"
 description = "Local egress-allowlist proxy for the apache-magpie framework — a host-allowlisting HTTP(S) forward proxy that constrains where framework tools may send data (defence-in-depth for RFC-AI-0003)."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # proxy.py supplies the forward-proxy runtime; the allowlist policy is
 # the only first-party code (a proxy.py plugin). Pinned to the 2.4.x

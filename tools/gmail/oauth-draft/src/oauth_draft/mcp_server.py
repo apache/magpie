@@ -70,7 +70,7 @@ import functools
 import os
 import pathlib
 from collections.abc import Callable, Generator
-from typing import Any, TypeVar
+from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -87,10 +87,8 @@ from oauth_draft.credentials import (
 
 mcp = MCPServer("gmail-plaintext")
 
-_F = TypeVar("_F", bound=Callable[..., Any])
 
-
-def _tool(fn: _F) -> _F:
+def _tool[F: Callable[..., Any]](fn: F) -> F:
     """Register ``fn`` as a tool whose failures reach the caller with their text.
 
     The SDK reports any exception other than ``ToolError`` as a crash: the
@@ -149,7 +147,7 @@ def _vetted_credentials_path(credentials_path: str | None) -> str | None:
 
 
 @contextlib.contextmanager
-def _as_tool_error() -> Generator[None, None, None]:
+def _as_tool_error() -> Generator[None]:
     """Convert the CLI helpers' ``SystemExit`` into a normal tool error.
 
     ``create_draft.py`` / ``credentials.py`` raise ``SystemExit`` (they are

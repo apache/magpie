@@ -24,7 +24,7 @@ name = "spec-inventory"
 version = "0.1.0"
 description = "Generate a compact routing inventory for the spec-loop prompts."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 dependencies = []
 

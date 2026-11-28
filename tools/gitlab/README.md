@@ -35,7 +35,7 @@ Write operations and issue/MR mutations remain out of scope for this foundation.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ via `uv`.
+- **Runtime:** Python 3.14+ via `uv`.
 - **CLIs:** `uv`.
 - **Credentials / auth:** `GITLAB_TOKEN` (Personal Access Token, OAuth Bearer token)
   or `CI_JOB_TOKEN` with API access. Tokens are optional for unauthenticated reads

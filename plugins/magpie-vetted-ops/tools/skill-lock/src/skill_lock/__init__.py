@@ -137,7 +137,7 @@ def read_owner(lock: Path) -> dict | None:
     """The owner record, or None when the lock dir has none (racing starter)."""
     try:
         return json.loads((lock / OWNER_FILE).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return None
 
 

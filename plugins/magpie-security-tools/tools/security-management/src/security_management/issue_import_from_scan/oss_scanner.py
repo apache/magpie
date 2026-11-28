@@ -463,10 +463,10 @@ def _reproducers(finding_dir: Path, patches: list[Path]) -> list[str]:
         return []
     skip = {finding_dir / "REPORT.md", *patches}
     found = []
-    for dirpath, dirnames, filenames in os.walk(finding_dir):
-        dirnames[:] = sorted(d for d in dirnames if not (Path(dirpath) / d).is_symlink())
+    for dirpath, dirnames, filenames in finding_dir.walk():
+        dirnames[:] = sorted(d for d in dirnames if not (dirpath / d).is_symlink())
         for name in sorted(filenames):
-            path = Path(dirpath) / name
+            path = dirpath / name
             if path not in skip and _archive_file(path):
                 found.append(str(path))
     return found
@@ -843,5 +843,5 @@ def detect(folder: Path) -> str | None:
     try:
         data = json.loads(index.read_text(encoding="utf-8"))
         return FORMAT if isinstance(data, dict) and data.get("format") == FORMAT else None
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None

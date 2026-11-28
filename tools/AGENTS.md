@@ -39,7 +39,7 @@ declares, up front:
    tool needs *before it can run*, so an adopter never discovers a
    missing dependency at first invocation. Cover the bullets that apply:
 
-   - **Runtime** — e.g. `Python 3.11+ run via uv`, `Bash + coreutils`,
+   - **Runtime** — e.g. `Python 3.14+ run via uv`, `Bash + coreutils`,
      `Python stdlib only`, `Node.js 20+`. State it even when trivial.
    - **CLIs** — external commands the tool shells out to (`gh`, `git`,
      `svn`, `jq`, `groovy`, `docker`/`podman`, `bubblewrap`, `socat`, …),

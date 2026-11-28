@@ -148,7 +148,7 @@ def _single_mailbox(raw_from: str) -> str | None:
     """
     try:
         decoded = str(make_header(decode_header(raw_from)))
-    except (HeaderParseError, LookupError, UnicodeDecodeError):
+    except HeaderParseError, LookupError, UnicodeDecodeError:
         return None
     mailboxes = [(name, addr) for name, addr in getaddresses([decoded]) if addr.strip()]
     if len(mailboxes) != 1:

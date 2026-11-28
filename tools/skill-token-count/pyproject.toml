@@ -24,7 +24,7 @@ name = "skill-token-count"
 version = "0.1.0"
 description = "Measure skill file tokens and stamp them into each SKILL.md."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = { text = "Apache-2.0" }
 # Pinned exactly, and bumping it is not a routine dependency update: every
 # skill's `measured_tokens:` stamp was measured with this version, so a bump
