@@ -391,7 +391,7 @@ If `.claude/settings.json` commits the block described in
 - Delete the `apache-magpie` entry from `extraKnownMarketplaces`. Keep any
   other marketplace entry untouched.
 - Delete the `mcp__…` entries of `permissions.allow` that
-  [`family-mcp-allows.json`](family-mcp-allows.json) derives for the lock's
+  [`family-mcp-allows.json`](setup_preflight/family-mcp-allows.json) derives for the lock's
   families (read them before the lock goes). Keep every other allow.
 - If removing its members leaves `enabledPlugins` or
   `extraKnownMarketplaces` empty, remove that now-empty key too.

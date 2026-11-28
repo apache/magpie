@@ -6,3 +6,4 @@
 `magpie-setup@apache-magpie: true`, `magpie-security@apache-magpie: true` and
 `some-other-plugin@vendor-marketplace: true`. There is no
 `extraKnownMarketplaces`.
+The lock names `apache/magpie` as the marketplace.

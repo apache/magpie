@@ -152,7 +152,9 @@ def test_no_recommendation_for_a_command_the_skills_never_run():
 def _find_family_mcp_allows() -> Path:
     current = Path(__file__).resolve().parent
     for p in [current, *current.parents]:
-        target = p / "plugins" / "magpie-setup" / "skills" / "setup" / "family-mcp-allows.json"
+        target = (
+            p / "plugins" / "magpie-setup" / "skills" / "setup" / "setup_preflight" / "family-mcp-allows.json"
+        )
         if target.exists():
             return target
     raise FileNotFoundError("Could not locate family-mcp-allows.json")

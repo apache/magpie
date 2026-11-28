@@ -166,7 +166,7 @@ project's normal review process, like any other committed file.
 authored here: `extraKnownMarketplaces` names `url`,
 `enabledPlugins` contains `plugins`, each as `<plugin>@apache-magpie`,
 and `permissions.allow` gains the MCP tools those families' skills call,
-from [`family-mcp-allows.json`](family-mcp-allows.json): each server
+from [`family-mcp-allows.json`](setup_preflight/family-mcp-allows.json): each server
 whose `families` names a family in `plugins` (`magpie-<family>`)
 contributes `mcp__<server>__<tool>` for each of its `tools`. Every
 contributor runs the adopted families, so their read-only MCP tools are
@@ -174,27 +174,72 @@ shared; an MCP tool for a family only one person installed belongs in
 that person's `.claude/settings.local.json` instead. The lock is the
 source of truth; this file is how Claude Code acts on it.
 
-**On Claude Code, let the client write it.** `--scope project` is the
-scope whose store *is* this file, so the install commands do the whole
-of this step:
+**On Claude Code, let the client write the marketplace and plugin entries.**
+`--scope project` is the scope whose store *is* this file. If
+`.claude/settings.json` already exists, preserve its pre-run contents in
+scratch before running the CLI:
 
 ```bash
 claude plugin marketplace add apache/magpie --scope project
 claude plugin install <plugin>@apache-magpie --scope project
 ```
 
-— the second once per plugin in the floor. Those commands write only `extraKnownMarketplaces` and `enabledPlugins`; add the derived MCP allows from `family-mcp-allows.json` afterwards, under the merge rules below. That is why
+— the second once per plugin in the floor. Those commands write only
+`extraKnownMarketplaces` and `enabledPlugins`. After they finish, run the
+shipped merge once to add the derived MCP allows under the merge rules
+below. The same command creates all the derived wiring when the CLI is
+absent. That is why
 [`install.md`](install.md#step-m4--install-what-the-user-picked)
 refuses the flag and sends people here: run alone it hands a project
 the plugin list with no floor beside it, and no `.apache-magpie.lock`
 to say what the list was derived from.
 
-Run the commands, then read the result against the **merge rules**
-below before staging. Those rules are the contract however the file
-got written: the CLI is not Magpie's code, and a settings file it
-changed in a way they forbid is a finding rather than a fait accompli.
-Where the CLI is absent, or its result breaks a rule, write the file
-yourself to the same rules.
+Read the CLI's result against the **merge rules** below *before* the merge
+runs. Those rules are the contract however the file got written: the CLI
+is not Magpie's code, and the merge writes on top of its output, so a
+rule-breaking entry would otherwise be mixed into the merge's own diff.
+Compare against the pre-run copy with
+`git diff -- .claude/settings.json`, or run
+`git checkout -- .claude/settings.json` when the file was clean. If the
+CLI changed the file in a way the rules forbid, restore it, report the
+finding, and do not stage it. The shipped merge cannot repair that result
+because it never removes or rewrites an entry. It refuses a file that does
+not parse rather than replacing it.
+
+In the framework checkout, use the trusted in-tree package:
+
+```bash
+uv run --project tools/setup-preflight setup-settings-merge
+```
+
+On an installed copy, run the merge from the installed pre-flight package
+with the same `PYTHONPATH` selector as
+[`config.md` Step 0](config.md#step-0--pre-flight):
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight.settings_merge
+```
+
+The registry ships inside `setup_preflight/`, so the command's default
+resolves from the copied package on every install method. If the selected
+checker cannot import `setup_preflight.settings_merge` or resolve that
+registry, it is missing or stale: stop and refresh it through
+[`config.md` Step 2a](config.md#step-2a--install-the-pre-flight-checker)
+or the checker refresh in [`update.md`](update.md#refresh-the-pre-flight-checker)
+before continuing. A marketplace sandbox uses the user-run refresh commands
+documented there. The report names the repository the lock's `url` reads
+(`marketplace_repo`) beside `plugins_added` and `allows_added`, and writes
+nothing until `--write` is passed. A `marketplace_repo` other than
+`apache/magpie` is a security boundary
+([`locks.md`](locks.md#url-is-a-security-boundary)): the merge refuses it
+until the maintainer confirms it with `--accept-marketplace`.
+
+Show the maintainer that report, run the same command with `--write`, and
+show the resulting diff. When the merge created the file it is untracked,
+so `git diff` prints nothing: show
+`git diff --no-index /dev/null .claude/settings.json` instead, whose exit
+status of 1 just means the files differ.
 
 **Write the marketplace entry untagged** — `"repo": "apache/magpie"`,
 with no `@version`. The floor is a minimum, and tagging the marketplace
@@ -240,10 +285,19 @@ whatever they put there.
   or a tool pulled from the registry, perhaps because it turned out to
   write); the maintainers confirm it in review. An allow for a server the
   registry does not list was added by hand: leave it.
+- **Take the marketplace repository from the lock's `url`, and refuse
+  anything else until it is confirmed.** The report names it as
+  `marketplace_repo`, so the maintainer sees a fork or a tag before
+  `--write`; [`locks.md`](locks.md#url-is-a-security-boundary) is why the
+  merge refuses a value other than `apache/magpie` until
+  `--accept-marketplace` confirms it.
 - **If the file does not exist**, create it with exactly those keys:
   `extraKnownMarketplaces` defining `apache-magpie`, `enabledPlugins`
   containing the floor, and `permissions.allow` with the derived MCP
   tools (omitted when there are none).
+- **If the file already carries every one of those entries, leave it
+  byte for byte.** A no-op merge writes nothing, so a re-run does not
+  re-serialise an adopter's file to Magpie's indentation.
 - **If the file exists but does not parse as JSON, stop and say so.**
   Do not rewrite a file you cannot read; a malformed settings file is
   the user's to fix. Nothing was written — stop without staging.

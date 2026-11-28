@@ -470,5 +470,5 @@ close_reasons = ["completed", "not planned"]
 # step with the Edit() denies in .claude/settings.json (a test checks).
 harness_paths = [
     "tools/agent-isolation/claude-settings.local.template.json",
-    "plugins/magpie-setup/skills/setup/family-mcp-allows.json",
+    "plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json",
 ]

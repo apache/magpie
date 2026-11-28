@@ -1126,7 +1126,7 @@ The agent:
 - **Its own hook enforces the Bash limit:** the `tools:` line is not trusted alone, so a `PreToolUse` hook in the agent's frontmatter denies every Bash command except that exact read, with no chaining, redirection, `--config` (another policy) or `--save` (a file write).
   It fails closed: if the guard itself cannot run (no `python3`, unreadable input), it exits 2, the one exit code Claude Code treats as a block; any other failure would let the command through.
   `vetted-op-read` itself refuses every forge or tracker write before it reads the policy.
-- **No mail reads:** a list-wide search such as PonyMail's `search_list` stays behind the harness prompt ([`family-mcp-allows.json`](../../plugins/magpie-setup/skills/setup/family-mcp-allows.json)), which a background agent cannot answer, and the skills that use the agent read PRs, not mail.
+- **No mail reads:** a list-wide search such as PonyMail's `search_list` stays behind the harness prompt ([`family-mcp-allows.json`](../../plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json)), which a background agent cannot answer, and the skills that use the agent read PRs, not mail.
 - **User scope, not a plugin:** Claude Code ignores a plugin agent's `hooks`, `mcpServers` and `permissionMode`, and a plugin-wide hook would have to match the agent's name, which any agent can take.
   So install Step V.2 copies it to `~/.claude/agents/` and proposes `Edit(~/.claude/agents/**)` in the user-scope deny list, since the hook runs outside the sandbox; verify check 21 checks the tools, the hook and that deny rule; update reports drift from the framework's copy.
 

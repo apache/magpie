@@ -32,7 +32,7 @@ on:  # yamllint disable-line rule:truthy
       # someone committed one, and the job must run to refuse it.
       - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
-      - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
+      - "plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json"
       - "tools/agent-isolation/antigravity/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
@@ -44,7 +44,7 @@ on:  # yamllint disable-line rule:truthy
       # someone committed one, and the job must run to refuse it.
       - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
-      - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
+      - "plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json"
       - "tools/agent-isolation/antigravity/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"

@@ -177,19 +177,30 @@ acceptance:
     recording the acceptance as a comment above the entry in
     `.apache-magpie.lock`. Its configuration files are never promoted or
     scaffolded into `.apache-magpie-overrides/`, adopted or not.
-  - Writing the committed default-set block touches only
-    `extraKnownMarketplaces`, `enabledPlugins` and the derived `mcp__…`
-    entries of `permissions.allow` (the MCP tools the adopted families
-    call, from `skills/setup/family-mcp-allows.json`, which lists only
-    tools that read one named item or report state — a tool that sends,
-    posts, deletes, creates a draft, or searches a whole mailbox or list
-    stays behind the harness prompt) in
-    `.claude/settings.json`, preserves every other top-level key and an
-    existing `apache-magpie` marketplace definition, adds only the floor
-    members missing from an existing `enabledPlugins` and removes nothing,
-    creates the file with just those two keys when it is absent, refuses to
-    rewrite a settings file that does not parse, and stages only the file
-    it wrote — never commits it.
+  - Writing the committed default-set block runs
+    `setup_preflight.settings_merge` from the copied pre-flight package,
+    whose `family-mcp-allows.json` ships inside the package. It touches
+    only `extraKnownMarketplaces`, `enabledPlugins` and the derived
+    `mcp__…` entries of `permissions.allow` (the MCP tools the adopted
+    families call, from
+    `skills/setup/setup_preflight/family-mcp-allows.json`, which lists only
+    tools that read one named item or report state — a tool that
+    sends, posts, deletes, creates a draft, or searches a whole mailbox or
+    list stays behind the harness prompt) in `.claude/settings.json`,
+    preserves every other top-level key and an existing `apache-magpie`
+    marketplace definition, adds only the floor members missing from an
+    existing `enabledPlugins` and removes nothing, creates the file with
+    the marketplace and plugin keys and adds `permissions.allow` only when
+    derived MCP tools exist, preserves an existing file's mode and
+    non-ASCII values, writes nothing when the merge adds nothing, reports
+    the lock's marketplace as `marketplace_repo` and refuses any value
+    other than `apache/magpie` until `--accept-marketplace` confirms it,
+    refuses to rewrite a settings file that does not parse, and stages only
+    the file it wrote — never commits it. `adopt` checks the external CLI's
+    result against the merge rules before the merge runs, and when it
+    violates one restores the pre-run file, reports the finding and does
+    not stage it; on the create path it shows the new file with
+    `git diff --no-index`, since `git diff` does not see an untracked file.
   - verify reports an absent committed default-set block through the
     non-fault glyph with an empty `missing` list, reports every floor
     member present as current and equally non-faulting, reports

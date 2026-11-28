@@ -4,3 +4,4 @@
 `.claude/settings.json` exists and parses as JSON. Its top-level keys, in order:
 `$schema`, `sandbox`, `permissions`. It has no `extraKnownMarketplaces` and no
 `enabledPlugins`.
+The lock names `apache/magpie` as the marketplace.

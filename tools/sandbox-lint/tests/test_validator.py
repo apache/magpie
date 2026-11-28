@@ -476,7 +476,7 @@ def test_main_exits_zero_on_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         ".claude/settings.json",
         "tools/agent-isolation/claude-settings.local.template.json",
         "tools/sandbox-lint/expected.json",
-        "plugins/magpie-setup/skills/setup/family-mcp-allows.json",
+        "plugins/magpie-setup/skills/setup/setup_preflight/family-mcp-allows.json",
     ):
         target = tmp_path / rel
         target.parent.mkdir(parents=True, exist_ok=True)
