@@ -593,7 +593,7 @@ def test_a_stdlib_link_hopping_out_and_back_is_refused(tmp_path: Path) -> None:
 def test_a_stdlib_link_through_a_writable_dotdot_is_refused(tmp_path: Path) -> None:
     """Folding `..` first would hide the writable hop; each step must stay inside."""
     lay = Layout(tmp_path)
-    fake, stdlib, marker = _fake_runtime(lay)
+    _, stdlib, marker = _fake_runtime(lay)
     (stdlib / "safe.py").write_text("")
     hop = lay.home / ".cache" / "hop"
     hop.mkdir(parents=True)

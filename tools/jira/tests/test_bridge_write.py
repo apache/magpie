@@ -80,10 +80,7 @@ class _JiraHandler(BaseHTTPRequestHandler):
         _log.requests.append(entry)
 
         key = f"{method} {self.path.split('?')[0]}"
-        if key in _canned_responses:
-            status, payload = _canned_responses[key]
-        else:
-            status, payload = 200, {}
+        status, payload = _canned_responses.get(key, (200, {}))
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         for name, value in _canned_headers.get(key, {}).items():

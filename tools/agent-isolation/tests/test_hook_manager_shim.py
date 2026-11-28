@@ -96,13 +96,13 @@ def _setup_lefthook(
     home.mkdir()
     (home / ".gitconfig").write_text(f"[core]\n\thooksPath = {shared}\n")
     env = dict(os.environ)
-    for name in (
+    for env_key in (
         "GIT_CONFIG_GLOBAL",
         "GIT_CONFIG_COUNT",
         "GIT_CONFIG_KEY_0",
         "GIT_CONFIG_VALUE_0",
     ):
-        env.pop(name, None)
+        env.pop(env_key, None)
     env.update(
         PATH=f"{shims}:{real}:/usr/bin:/bin", HOME=str(home), GIT_CONFIG_NOSYSTEM="1"
     )
