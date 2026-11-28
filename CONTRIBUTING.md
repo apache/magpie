@@ -886,7 +886,10 @@ The hook set:
 
 Separate GitHub workflows:
 
-- **`pre-commit.yml`** — runs prek in CI, in two shapes. On a pull
+- **`pre-commit.yml`** — runs prek in CI as three parallel jobs
+  (the hooks, the workspace type check, and the link and Claude Code
+  mod checks), gathered by the required `prek` job.
+  Each runs in two shapes. On a pull
   request the hooks are scoped to the PR's own diff (`--from-ref` /
   `--to-ref`) on `ubuntu-slim`; on a push to `main` they run
   `--all-files` on `ubuntu-latest`. So a green PR check is not a
@@ -901,8 +904,8 @@ Separate GitHub workflows:
   [Bumping the dev version](#bumping-the-dev-version) below.
 The link check ([lychee](https://lychee.cli.rs/)) is **not** a
 separate workflow — it runs as the `lychee` hook inside the
-`pre-commit.yml` workflow above (over the PR's changed files on a pull
-request, over the whole tree on `main`), and so is part of the required
+`pre-commit.yml` workflow above (over the whole tree on every event,
+pull request and `main` alike), and so is part of the required
 `prek` status check. It is a **hard gate**: a
 single broken internal link, dead `#anchor` fragment, or unreachable
 external URL fails `prek` and blocks merge. The hook is

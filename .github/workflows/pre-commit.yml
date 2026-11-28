@@ -34,36 +34,55 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The static checks run as three parallel jobs, gathered by the `prek` job at
+# the bottom, which is the required status check named in `.asf.yaml`.
+#
+# Split because one serial job made every PR wait for the sum of its parts.
+# Measured on a PR run on `ubuntu-slim` (2026-11-28): ~50s of setup before the
+# first hook, then `mypy (workspace)` alone ~140s, `check-doc-sync` ~36s, the
+# ~40 other hooks ~40s together, and the Claude Code mods and floor steps ~33s.
+# Queueing for a runner was 2-3s, so the wait was never the runner. In parallel
+# the wall clock is the slowest job plus its own setup, not the total.
+#
+#   hooks           every prek hook except the type check and the link/mod steps
+#   type-check      `workspace-mypy`, the single slowest hook
+#   links-and-mods  lychee over the whole repo, Claude Code mods and floor
+#
+# All three read one uv cache and one prek hook-env cache, and only `hooks`
+# saves them: it builds every hook env first, so what it saves serves the other
+# two. Parallel jobs saving the same key would race, and the loser saves nothing.
+#
+# Each job runs in two shapes, split by event.
+#
+# On a pull request the hooks run only over the files the PR changed
+# (`--from-ref` / `--to-ref`, see `PREK_SCOPE`), which is a handful of files
+# rather than ~4.9k, so the extra cores prek would split file lists across buy
+# nothing and the PR run sits on `ubuntu-slim` (1 vCPU, container-based, 5 GB,
+# killed at 15 minutes) with the other jobs #1190 moved there.
+#
+# On a push to `main` the hooks run over the whole tree (`--all-files`), which
+# is where the cores do pay, and it is the run that has to be exhaustive — it
+# sees files a PR did not touch — so it stays on `ubuntu-latest`.
+#
+# `ubuntu-slim`'s 15-minute container kill does not apply on `ubuntu-latest`,
+# so every job sets `timeout-minutes: 15` to keep that ceiling on `main` too
+# (~4x the slowest run observed, including a 674s outlier on a throttled host)
+# instead of the 6-hour default.
+#
+# `PREK_SCOPE` is built in `env:` rather than interpolated into a `run:` line so
+# the expression is never expanded into the shell source of a step. On a pull
+# request it is the PR's own diff — base..HEAD, where HEAD is the merge commit
+# `actions/checkout` leaves behind. Keep the asymmetry in mind when reading a
+# green PR check: it is not the whole-repo result. `prek run --all-files`
+# locally before pushing is what closes that gap ahead of `main` (`AGENTS.md`).
+#
+# Note `--skip a,b` is NOT a list — prek takes a single HOOK|PROJECT per
+# occurrence, and a comma-joined value matches no hook at all. It warns rather
+# than failing, so the comma form looks like it worked while skipping nothing.
+
 jobs:
-  prek:
-    # Two shapes of the same job, split by event.
-    #
-    # On a pull request the hooks run only over the files the PR
-    # changed (`--from-ref` / `--to-ref` on the `Run prek` step below),
-    # which is a handful of files rather than ~4.9k. At that size the
-    # parallelism prek gets from extra cores buys nothing — it splits
-    # each hook's file list across roughly `cpu_count` invocations, and
-    # there is nothing to split — so the PR run sits on `ubuntu-slim`
-    # (1 vCPU, container-based, 5 GB, killed at 15 minutes) with the
-    # other ten jobs #1190 moved there.
-    #
-    # On a push to `main` the hooks run over the whole tree
-    # (`--all-files`), which is where the cores do pay: measured,
-    # `Run prek` is 131s on 4 vCPUs and 183-211s on slim, and it is
-    # ~80% of the job either way. `main` is also the run that has to be
-    # exhaustive — it is the one that sees files a PR did not touch —
-    # so it stays on `ubuntu-latest`.
-    #
-    # Nothing in this job needs a Docker daemon, so the constraint that
-    # keeps zizmor off the `zizmor-action` (see `pyproject.toml`) is not
-    # what pins the `main` run to `ubuntu-latest`. Note that
-    # `ubuntu-slim`'s 15-minute container kill does not apply on
-    # `ubuntu-latest`, and no workflow here sets `timeout-minutes`, so
-    # leaving this job bare would swap that implicit ceiling for the
-    # 6-hour default on `main`. The explicit `timeout-minutes` below
-    # keeps the property #1190 relied on rather than dropping it as a
-    # side effect: 15 minutes is ~4x the slowest run observed,
-    # including a 674s outlier on a throttled host.
+  hooks:
+    name: prek (hooks)
     runs-on: >-
       ${{ github.event_name == 'pull_request' && 'ubuntu-slim'
       || 'ubuntu-latest' }}
@@ -74,73 +93,53 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-        # The PR run scopes the hooks with `--from-ref` / `--to-ref`, which
-        # needs both endpoints and their merge base in the local object
-        # store. The default shallow clone has neither, so fetch the full
-        # history on a pull request and keep the cheap depth-1 clone on
-        # `main`, where `--all-files` needs no revision range at all.
+        # `--from-ref` / `--to-ref` need both endpoints and their merge base in
+        # the local object store, which the default shallow clone lacks, so a
+        # pull request fetches the full history; `main` keeps depth 1.
         #
-        # Quoted on purpose. GitHub's `a && b || c` idiom yields `c`
-        # whenever `b` is falsy, and the number `0` is falsy — the
-        # unquoted form silently resolves to `1` on a pull request,
-        # i.e. the shallow clone the PR run must not have. The string
-        # `'0'` is truthy (only the empty string is not), and
-        # `actions/checkout` parses it as the depth.
+        # Quoted on purpose. GitHub's `a && b || c` idiom yields `c` whenever
+        # `b` is falsy, and the number `0` is falsy — the unquoted form
+        # silently resolves to `1` on a pull request. The string `'0'` is
+        # truthy, and `actions/checkout` parses it as the depth.
           fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
-      # `uv` brings its own Python and is required by both:
-      #  - the four `workspace-*` prek hooks in
-      #    `.pre-commit-config.yaml`, which call
-      #    `tools/dev/run-workspace-check.sh` to iterate over every
-      #    workspace member declared in the root pyproject's
-      #    `[tool.uv.workspace] members` list and invoke ruff /
-      #    mypy / pytest in each via `uv run --directory`;
-      #  - the `uv tool install prek` step below.
-      # Minimum uv version is pinned in the root `pyproject.toml`
-      # (`[tool.uv] required-version`).
+      # `uv` brings its own Python and runs the `workspace-*` hooks
+      # (`tools/dev/run-workspace-check.sh`, `uv run --directory <member>`) and
+      # the `uv tool install prek` below. Minimum version: root
+      # `pyproject.toml`, `[tool.uv] required-version`.
+      # The three jobs share one uv cache and one prek hook-env cache, and
+      # this job is the only one that saves either. Every job that enables the
+      # cache under the same key otherwise races to save it when they run
+      # concurrently — "Unable to reserve cache with key …, another job may be
+      # creating this cache" — so the others restore with saving turned off.
+      #
+      # `cache-suffix` still sets this workflow's slot apart from the other
+      # workflows' (`setup-uv` derives its key from the runner, arch, Python
+      # version and lock files only), and must match in all three jobs.
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: true
-        # A distinct cache slot per job. `setup-uv` derives its key from the
-        # runner, arch and Python version only, so every job that enables the
-        # cache computes the *same* key and they race when they run
-        # concurrently — "Unable to reserve cache with key …, another job may be
-        # creating this cache", and the loser saves nothing. `cache-suffix`
-        # splits them, which also keeps each slot scoped to the dependency set
-        # that job actually installs.
           cache-suffix: "prek"
-      # Sync the uv workspace with the dev group so that
-      # `ruff`, `mypy`, and `pytest` (declared at workspace root)
-      # are present in the shared `.venv`. The `workspace-*` hooks
-      # in `.pre-commit-config.yaml` call
-      # `tools/dev/run-workspace-check.sh`, which invokes
-      # `uv run --directory <member> <check>`; without the explicit
-      # sync, the auto-sync uv runs on `uv run` only resolves
-      # member runtime deps and the dev tools are missing.
-      - name: Sync workspace (installs ruff / mypy / pytest from root dev group)
-        # `--all-packages` is required — without it `uv sync` only
-        # installs the root project's deps, and the root has
-        # `package = false` so member packages and their
-        # `[project.scripts]` entry points would be skipped.
+      # `--all-packages` because the root has `package = false`: without it the
+      # member packages and their `[project.scripts]` entry points are skipped.
+      # `--group dev` brings ruff (and the rest of the shared toolchain).
+      - name: Sync workspace (installs the root dev group)
         run: uv sync --all-packages --group dev
       # Cache prek's hook environments, so each run reuses the built envs
       # instead of installing every hook's dependencies again; keyed on the
-      # prek config so a hook/version change busts it. (lychee, the one
-      # `language: rust` hook, is not among them in CI: it runs from a
-      # prebuilt binary, see "Install lychee" below.)
+      # prek config so a hook/version change busts it.
       #
-      # Kept small for `ubuntu-slim` (#2175), whose single vCPU has to
-      # download and unpack the archive on every PR run. The archive had
-      # grown to ~3.5 GB, which took 2.5-3.5 minutes there (31-58s on
-      # `ubuntu-latest`), so:
-      #  - `~/.cache/prek/cache` (prek's uv / npm / cargo download caches)
-      #    is left out: once the hook envs are built nothing reads it;
+      # Kept small for `ubuntu-slim` (#2175), whose single vCPU has to download
+      # and unpack the archive on every PR run:
+      #  - `~/.cache/prek/cache` (prek's uv / npm / cargo download caches) is
+      #    left out: once the hook envs are built nothing reads it;
       #  - the last step runs `prek cache gc`, so envs of an older config,
-      #    pulled in through `restore-keys`, are not saved again (the
-      #    archive otherwise only grows with every config change);
-      #  - `SEGMENT_DOWNLOAD_TIMEOUT_MINS` gives up on a stalled segment
-      #    after 2 minutes instead of the action's default 10, the stall
-      #    that once cost 10 minutes and pushed the job past its timeout.
-      #    A restore that gives up only means the hook envs get built.
+      #    pulled in through `restore-keys`, are not saved again;
+      #  - `SEGMENT_DOWNLOAD_TIMEOUT_MINS` gives up on a stalled segment after
+      #    2 minutes instead of the action's default 10. A restore that gives
+      #    up only means the hook envs get built.
+      #
+      # Saved by this job only; `links-and-mods` restores the same key with
+      # `actions/cache/restore`. Keep the paths and keys of the two in step.
       - name: Cache prek hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         env:
@@ -152,146 +151,157 @@ jobs:
           path: |
             ~/.cache/prek/*
             !~/.cache/prek/cache
-          # `v3` (`v2` was the cache-size fix): CI stopped building lychee's
-          # Rust env (see "Install lychee" below). `prek cache gc` keeps envs
-          # of every hook the config names, so under the old prefix
-          # `restore-keys` would carry that env forward for good; a new prefix
-          # starts the archive without it. Bump it whenever the archive must
-          # start over rather than carry the previous one forward.
-          key: prek-v3-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          # Bump the version whenever the archive must start over rather than
+          # carry the previous one forward through `restore-keys`.
+          key: prek-v4-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
           restore-keys: |
-            prek-v3-${{ runner.os }}-
-      # There is deliberately no lychee result cache here. `.lychee.toml`
-      # sets `offline = true`, so the hook resolves only in-repo paths and
-      # anchors and never fetches a URL — there are no results to cache.
-      # The `actions/cache` step that used to sit here restored and saved
-      # a 185-byte `.lycheecache` on every run, and because its key was
-      # `cache-lychee-${{ github.sha }}` it wrote a fresh entry per commit,
-      # evicting the 251 MB prek hook-env cache above that much sooner.
-      # Reinstate it only together with turning `offline` back off.
-      # Install prek via uv (rather than via the `j178/prek-action`
-      # action) so the `[tool.uv] exclude-newer` cooldown in the
-      # root `pyproject.toml` applies to the prek install as well.
+            prek-v4-${{ runner.os }}-
+      # Install prek via uv (rather than via the `j178/prek-action` action) so
+      # the `[tool.uv] exclude-newer` cooldown in the root `pyproject.toml`
+      # applies to the prek install as well.
       - name: Install prek
         run: uv tool install prek
-      # Token measurements run in the path-filtered skill-token-count workflow.
+      # Build every hook's environment, not only those this run fires, because
+      # this job writes the cache the others read. A pull request runs only the
+      # hooks its diff matches, and the cache saves once per key, so without
+      # this the archive would keep whatever the first run of a config needed.
+      # Manual-stage hooks are included (`check-claude-mods` runs only in
+      # `links-and-mods`). A no-op on a cache hit.
+      #
+      # `--skip lychee`: CI runs the prebuilt binary instead of building the
+      # hook's Rust env (see `links-and-mods`).
+      - name: Prepare every hook environment (this job writes the cache)
+        run: prek prepare-hooks --skip lychee
       - name: Run prek
-        # `PREK_SCOPE` selects which files the hooks see. On a pull
-        # request that is the PR's own diff — base..HEAD, where HEAD is
-        # the merge commit `actions/checkout` leaves behind — so a PR
-        # pays only for what it changed. On a push to `main` it is
-        # `--all-files`, the exhaustive sweep that catches anything the
-        # per-PR runs did not cover (a hook whose config changed, a file
-        # broken by two PRs that were green apart, an anchor a rename
-        # invalidated elsewhere in the tree). Keep that asymmetry in
-        # mind when reading a green PR check: it is not the whole-repo
-        # result. `prek run --all-files` locally before pushing is what
-        # closes that gap ahead of `main` — see `AGENTS.md`.
-        #
-        # The scope is built in `env:` rather than interpolated into the
-        # `run:` line so the expression is never expanded into the shell
-        # source of the step.
         env:
           PREK_SCOPE: >-
             ${{ github.event_name == 'pull_request'
             && format('--from-ref {0} --to-ref HEAD',
             github.event.pull_request.base.sha)
             || '--all-files' }}
-        # `--skip workspace-pytest`: pytest already runs in CI as the
-        # dedicated, path-filtered `tests` workflow matrix
-        # (`.github/workflows/tests.yml`). Running it a second time here
-        # (bundled across every workspace member) is pure duplication in
-        # CI, so skip it — the hook still runs locally on `git commit` /
-        # `prek run`, where there is no separate matrix.
+        # Skipped here, each for its own reason:
+        #  - `workspace-mypy`: the `type-check` job.
+        #  - `lychee`, `check-claude-mods-local`: the `links-and-mods` job
+        #    (the `-local` twin needs a local Claude Code the runner lacks).
+        #  - `workspace-pytest`: the path-filtered `tests` workflow matrix
+        #    already runs it; it stays on for local `prek run`.
+        #  - `skill-token-count`: the path-filtered `skill-token-count`
+        #    workflow.
+        #  - `identity`: echoes every file passed to the static checks, which
+        #    on `--all-files` buries the result under the whole repo listing.
         #
-        # `--skip identity`: the `identity` meta-hook echoes every file
-        # passed to the static checks. That is a useful local
-        # troubleshooting aid, but on `--all-files` it prints the whole
-        # repository into the CI log ahead of any actual result, burying
-        # the failure a reader came for. It stays enabled locally.
-        #
-        # No `--verbose`. It was added believing it bought live progress in
-        # a non-TTY log. It does not — measured on this repo, first output
-        # and total runtime coincide with the flag and without it: prek
-        # emits nothing until the run finishes either way. prek streams
-        # only when stdout is a TTY, where it draws an in-place progress UI
-        # (spinner, cursor-control escapes, redrawn lines); with stdout a
-        # pipe it suppresses that renderer and prints the whole result
-        # block at the end. `--no-progress` behaves identically, and `-q`
-        # prints nothing at all on success.
-        #
-        # So the flag's only effect in CI is to add every *passing* hook's
-        # stdout to that final block — several hundred lines around the one
-        # thing worth reading. Failures still print their output, and
-        # `--show-diff-on-failure` still shows what a fixer hook changed.
-        #
-        # No `--verbose`, and no pty. Live progress is not achievable here;
-        # this was measured on the runner rather than assumed. Three
-        # configurations, all with every hook-result line landing in the
-        # same one-second timestamp ~106s into the step:
-        #
-        #   plain pipe                       one block at the end
-        #   pty (`script -qec`)              one block at the end
-        #   pty + `--no-progress`            one block at the end
-        #
-        # Locally, a pty does make prek stream (spinner, in-place redraws),
-        # so the renderer works — but that output does not survive to the
-        # Actions log, which shows only the final state. `--verbose` never
-        # helped either: with stdout a pipe, first output and total runtime
-        # coincide with the flag and without it.
-        #
-        # So the plain form is kept: same information, no `script`
-        # dependency, and no `-e` exit-status footgun (without `-e`,
-        # `script` returns its own status and a failing prek reports as a
-        # passing step). `--verbose` is dropped because its only remaining
-        # effect was to add every passing hook's stdout to that final
-        # block. Failures still print their output, and
-        # `--show-diff-on-failure` still shows what a fixer hook changed.
-        #
-        # Note the repeated flag: `--skip a,b` is NOT a list — prek takes a
-        # single HOOK|PROJECT per occurrence, and a comma-joined value
-        # matches no hook at all. It warns rather than failing, so the
-        # comma form looks like it worked while skipping nothing.
-        #
-        # `--skip check-claude-mods-local`: the contributor-side twin of
-        # `check-claude-mods`, using a local Claude Code the runner does not
-        # have. The pinned hook runs in its own step below.
-        #
-        # `--skip lychee`: the link check is whole-repo on every event,
-        # in the dedicated step below. See its comment for why it cannot
-        # ride along with `PREK_SCOPE`.
+        # No `--verbose`: its only effect is to add every *passing* hook's
+        # stdout to the log. Failures still print their output, and
+        # `--show-diff-on-failure` shows what a fixer hook changed.
         run: >-
           prek run --show-diff-on-failure --color=always $PREK_SCOPE
-          --skip workspace-pytest --skip identity --skip skill-token-count
-          --skip lychee --skip check-claude-mods-local
-      # The link check runs over the whole repository on every event,
-      # `main` and pull request alike — `PREK_SCOPE` does not apply.
+          --skip workspace-mypy --skip workspace-pytest --skip identity
+          --skip skill-token-count --skip lychee --skip check-claude-mods-local
+      # Last, so the cache's post step saves only what this config uses.
+      - name: Prune unused prek hook environments
+        if: ${{ !cancelled() }}
+        run: prek cache gc
+
+  type-check:
+    name: prek (type check)
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && 'ubuntu-slim'
+      || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history on a pull request for `--from-ref`; see `hooks`.
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+      # The `hooks` job's uv cache, restored only: that job alone saves it.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          cache-suffix: "prek"
+          save-cache: false
+      - name: Sync workspace (installs the root dev group)
+        run: uv sync --all-packages --group dev
+      # No hook-env cache: `workspace-mypy` is `language: system` and runs from
+      # the synced workspace, so prek builds no environment for it.
+      - name: Install prek
+        run: uv tool install prek
+      - name: Run prek (workspace type check)
+        env:
+          PREK_SCOPE: >-
+            ${{ github.event_name == 'pull_request'
+            && format('--from-ref {0} --to-ref HEAD',
+            github.event.pull_request.base.sha)
+            || '--all-files' }}
+        run: prek run workspace-mypy --show-diff-on-failure --color=always $PREK_SCOPE
+
+  links-and-mods:
+    name: prek (links, Claude Code mods)
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && 'ubuntu-slim'
+      || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history on a pull request for the floor step's `--from-ref`;
+          # see `hooks`.
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+      # Only for `uv tool install prek`: nothing here needs the workspace, so
+      # there is no `uv sync`. The `hooks` job's uv cache, restored only.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          cache-suffix: "prek"
+          save-cache: false
+      # The `hooks` job's prek hook-env cache (it holds the node env
+      # `check-claude-mods` runs in), restored only: `actions/cache/restore`
+      # has no post step, so this job never saves. Paths and keys must match
+      # the `hooks` job's, or the restore misses. On a miss the env is built
+      # here and dropped at the end of the job.
+      - name: Restore prek hook environments (saved by the hooks job)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+        with:
+          path: |
+            ~/.cache/prek/*
+            !~/.cache/prek/cache
+          key: prek-v4-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            prek-v4-${{ runner.os }}-
+      - name: Install prek
+        run: uv tool install prek
+      # The link check runs over the whole repository on every event, `main`
+      # and pull request alike — `PREK_SCOPE` does not apply.
       #
       # It is a whole-repo hook wearing a file filter. `.pre-commit-
-      # config.yaml` gives it `pass_filenames: false` and a trailing `.`,
-      # so lychee walks the tree itself and prek's file list only decides
+      # config.yaml` gives it `pass_filenames: false` and a trailing `.`, so
+      # lychee walks the tree itself and prek's file list only decides
       # *whether the hook fires at all* (`files: \.(md|rst|j2)$`). Under
-      # `--from-ref` that gate is the bug: a PR that renames or deletes a
-      # file some doc links to, without touching a single `.md`, matches
-      # nothing, the hook never fires, and the broken link lands on
-      # `main`. Running it here unconditionally restores the property the
-      # old `--all-files` job had — every PR is checked against every
-      # link in the repo.
+      # `--from-ref` that gate is the bug: a PR that renames or deletes a file
+      # some doc links to, without touching a single `.md`, matches nothing,
+      # the hook never fires, and the broken link lands on `main`.
       #
       # Cheap enough to do on both events: `.lychee.toml` sets
       # `offline = true`, so this resolves in-repo paths and `#anchor`
-      # fragments only and fetches no URL.
+      # fragments only and fetches no URL. (That is also why there is no
+      # lychee result cache: there are no fetched results to cache.)
       #
-      # CI runs lychee's prebuilt release binary rather than the hook:
-      # the hook is `language: rust`, so prek would `cargo install` it, a
-      # multi-minute compile on `ubuntu-slim`'s one vCPU and the biggest
-      # thing in the hook-env cache (#2175). The release tarball is pinned
-      # by version and SHA-256 (the digest GitHub reports for the asset);
-      # the static musl build runs on both runner images. The arguments are
-      # the hook's own, from `.pre-commit-config.yaml`: keep the two in
-      # step. Contributors still run the hook locally through prek.
+      # CI runs lychee's prebuilt release binary rather than the hook: the
+      # hook is `language: rust`, so prek would `cargo install` it, a
+      # multi-minute compile on `ubuntu-slim`'s one vCPU and the biggest thing
+      # in the hook-env cache (#2175). The release tarball is pinned by version
+      # and SHA-256 (the digest GitHub reports for the asset); the static musl
+      # build runs on both runner images. The arguments are the hook's own,
+      # from `.pre-commit-config.yaml`: keep the two in step. Contributors
+      # still run the hook locally through prek.
       - name: Install lychee (pinned prebuilt release)
-        if: ${{ !cancelled() }}
         env:
           LYCHEE_VERSION: "0.24.2"
           LYCHEE_SHA256: "73657a111819a30c47c08352896796f23d64e4eb2b3ed39b6d32149241566fc5"
@@ -307,18 +317,10 @@ jobs:
           install -m 0755 "$bin" "$dir/bin/lychee"
           echo "$dir/bin" >> "$GITHUB_PATH"
           "$dir/bin/lychee" --version
-      #
-      # `!cancelled()` rather than `always()`: a link break and a hook
-      # failure in the step above are independent, and a contributor
-      # should see both in one run instead of fixing one to discover the
-      # other. `always()` would also run this on a cancelled job.
       - name: Run lychee (whole repo, both events)
-        if: ${{ !cancelled() }}
-        # GITHUB_TOKEN lets lychee authenticate its github.com link
-        # checks — unauthenticated requests get rate-limited (429) once a
-        # run checks more than a handful of GitHub URLs. lychee reads
-        # GITHUB_TOKEN automatically; the job's `contents: read` scope is
-        # sufficient for link checking. Dormant while `offline = true`,
+        # GITHUB_TOKEN lets lychee authenticate its github.com link checks —
+        # unauthenticated requests get rate-limited (429). The job's
+        # `contents: read` scope is sufficient. Dormant while `offline = true`,
         # kept so flipping that back on needs no workflow change.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -326,19 +328,22 @@ jobs:
       # Claude Code mods: `claude plugin validate --strict` and `claude plugin
       # test` on every plugin whose `hooks/hooks.json` declares `modules`. The
       # hook is `stages: [manual]` so contributors' commits never fetch the
-      # Claude Code binary it pins, which means the `Run prek` step above never
-      # runs it — this step is the only place it runs on its own.
+      # Claude Code binary it pins; this step is the only place it runs.
       #
       # Whole repo on both events, like lychee and for a similar reason: the
       # pin bump in `.pre-commit-config.yaml` touches no mod file, yet it is
       # exactly the change that has to re-check every mod against the new
       # version. A no-op (no binary fetched) while the tree has no mod.
+      #
+      # `!cancelled()` on this and the floor step: a link break and a mod
+      # failure are independent, and a contributor should see both in one run
+      # instead of fixing one to discover the other.
       - name: Run prek (Claude Code mods — whole repo, both events)
         if: ${{ !cancelled() }}
         run: prek run check-claude-mods --hook-stage manual --color=always --all-files
-      # `check-claude-floor` (manual stage, so it runs only here). Scoped like
-      # `Run prek`, not whole-repo like the mods step: the floor release never
-      # changes, so only files in the hook's filter, which include
+      # `check-claude-floor` (manual stage, so it runs only here). Scoped by
+      # `PREK_SCOPE`, not whole-repo like the mods step: the floor release
+      # never changes, so only files in the hook's filter, which include
       # `pinned-versions.toml`, can change the result.
       - name: Run prek (Claude Code floor — the PR's diff, or the whole repo on main)
         if: ${{ !cancelled() }}
@@ -349,8 +354,30 @@ jobs:
             github.event.pull_request.base.sha)
             || '--all-files' }}
         run: prek run check-claude-floor --hook-stage manual --color=always $PREK_SCOPE
-      # Last, so the cache's post step saves only what this config uses
-      # (see "Cache prek hook environments" above).
-      - name: Prune unused prek hook environments
-        if: ${{ !cancelled() }}
-        run: prek cache gc
+
+  prek:
+    # The required status check (`.asf.yaml`). Gathering the three jobs here
+    # means adding, removing or renaming one needs no `.asf.yaml` change.
+    name: prek
+    runs-on: ubuntu-slim
+    needs: [hooks, type-check, links-and-mods]
+    # `always()` — without it this job is *skipped* when a needed job fails,
+    # and a skipped required check does not block merging.
+    if: always()
+    permissions: {}
+    steps:
+      - name: Assert every static-check job passed
+        shell: bash
+        env:
+          HOOKS: ${{ needs.hooks.result }}
+          TYPE_CHECK: ${{ needs.type-check.result }}
+          LINKS_AND_MODS: ${{ needs.links-and-mods.result }}
+        # Each job always runs, so anything but `success` (`failure`,
+        # `cancelled`, or an unexpected `skipped`) fails the gate.
+        run: |
+          status=0
+          for pair in "hooks=$HOOKS" "type-check=$TYPE_CHECK" "links-and-mods=$LINKS_AND_MODS"; do
+            echo "$pair"
+            [ "${pair#*=}" = "success" ] || status=1
+          done
+          exit "$status"
