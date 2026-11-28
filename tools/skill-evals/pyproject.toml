@@ -36,8 +36,7 @@ skill-eval-journal = "skill_evals.journal:main"
 packages = ["src/skill_evals"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../dev/shared/ruff.toml"
 src = ["src"]
 # Eval fixtures are test *data*, not source. `report.md` files simulate what a
 # contributor actually pasted into an issue or PR — single quotes, missing
@@ -49,8 +48,8 @@ src = ["src"]
 extend-exclude = ["evals/**/fixtures/**"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
-ignore = ["E501"]
+# No annotation requirement here, as mypy had none for this member.
+ignore = ["ANN"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

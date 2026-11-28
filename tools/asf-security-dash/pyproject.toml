@@ -36,28 +36,11 @@ magpie-asf-security-dash = "magpie_asf_security_dash:main"
 packages = ["src/magpie_asf_security_dash"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../dev/shared/ruff.toml"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = [
-  "E",
-  "W",
-  "F",
-  "I",
-  "B",
-  "UP",
-  "SIM",
-  "C4",
-  "RUF",
-]
-ignore = [
-  "E501",
-]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM"]
+"tests/**" = ["ANN", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.11"

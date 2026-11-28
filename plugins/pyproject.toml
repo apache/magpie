@@ -54,28 +54,16 @@ dependencies = []
 package = false
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
-# A generated copy (tools/dev/check-family-plugins.py `copies`) whose source,
-# tools/jira, is linted and formatted under its own settings there.
-# The security tools are copies too, each linted under its own settings at its source.
-extend-exclude = ["magpie-vetted-ops/tools/jira", "magpie-security-tools/tools"]
+extend = "../tools/dev/shared/ruff.toml"
+# Generated copies (tools/dev/check-family-plugins.py `copies`) of workspace
+# tools, each linted and formatted under its own settings at its source. The
+# copies cannot be linted here: their pyproject drops the `extend` of the
+# shared base, which does not ship. Same set as mypy's `exclude` below.
+extend-exclude = ["magpie-agent-guard/tools", "magpie-vetted-ops/tools", "magpie-security-tools/tools"]
 
 [tool.ruff.lint]
-select = [
-  "E",     # pycodestyle errors
-  "W",     # pycodestyle warnings
-  "F",     # pyflakes
-  "I",     # isort
-  "B",     # flake8-bugbear
-  "UP",    # pyupgrade
-  "SIM",   # flake8-simplify
-  "C4",    # flake8-comprehensions
-  "RUF",   # ruff-specific
-]
-ignore = [
-  "E501",  # line-too-long — the 110-char limit above is already generous
-]
+# No annotation requirement here, as mypy had none for this member.
+ignore = ["ANN"]
 
 [tool.mypy]
 python_version = "3.11"

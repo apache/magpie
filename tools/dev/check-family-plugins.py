@@ -676,6 +676,10 @@ def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
             shipped[str(data.get("project", {}).get("name", ""))] = candidate.parent
     text = src.read_text(encoding="utf-8")
     text = re.sub(r"(?ms)^\[dependency-groups\]\n.*?(?=^\[|\Z)", "", text).rstrip("\n") + "\n"
+    # The shared ruff base (`tools/dev/shared/ruff.toml`) does not ship either,
+    # and ruff fails on an `extend` it cannot read. The copy is linted at its
+    # source, so it needs none of those settings.
+    text = re.sub(r'(?m)^extend = "[^"\n]*dev/shared/ruff\.toml"\n', "", text)
     deps = tomllib.loads(text).get("project", {}).get("dependencies", [])
     names = [re.split(r"[\s<>=!~;\[]", dep, maxsplit=1)[0] for dep in deps]
     local = {n: shipped[n] for n in names if n in shipped}

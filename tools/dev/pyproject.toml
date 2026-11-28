@@ -59,13 +59,11 @@ build-backend = "hatchling.build"
 bypass-selection = true
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "shared/ruff.toml"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
 ignore = [
-  "E501",   # line-too-long — the 110-char limit above is already generous
+  "ANN",    # no annotation requirement here, as mypy had none for this member
   "RUF003", # ambiguous en dash in a comment — the repo's prose style uses
             # en dashes throughout; rewriting comments to hyphens to satisfy
             # a homoglyph check would make them worse, and these files carry

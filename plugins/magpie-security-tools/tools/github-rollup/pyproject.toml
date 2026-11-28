@@ -34,16 +34,10 @@ github-rollup = "github_rollup:main"
 packages = ["src/github_rollup"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
-ignore = ["E501"]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM"]
+"tests/**" = ["ANN", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.11"

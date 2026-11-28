@@ -36,28 +36,11 @@ privacy-llm-check = "checker.check:main"
 packages = ["src/checker"]
 
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../../dev/shared/ruff.toml"
 src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = [
-  "E",     # pycodestyle errors
-  "W",     # pycodestyle warnings
-  "F",     # pyflakes
-  "I",     # isort
-  "B",     # flake8-bugbear
-  "UP",    # pyupgrade
-  "SIM",   # flake8-simplify
-  "C4",    # flake8-comprehensions
-  "RUF",   # ruff-specific
-]
-ignore = [
-  "E501",  # line-too-long — the 110-char limit above is already generous
-]
-
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "SIM", "RUF059"]  # tuple-unpack of (rc, out, err) keeps test sites uniform
+"tests/**" = ["ANN", "B", "SIM", "RUF059"]  # tuple-unpack of (rc, out, err) keeps test sites uniform
 
 [tool.mypy]
 python_version = "3.11"
