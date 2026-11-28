@@ -248,11 +248,12 @@ def _convo(repo: str, number: int) -> dict[str, Any]:
 def _pushback(convo: dict[str, Any], login: str, phrases: Iterable[str], maintainers: Iterable[str]) -> str:
     """URL of the first maintainer comment containing a pushback phrase — a candidate, not a verdict."""
     wanted = tuple(p.lower() for p in (*GENERIC_PHRASES, *phrases) if p.strip())
-    maint = set(maintainers)
+    # GitHub logins are case-insensitive, as common.first_pushback treats them.
+    maint = {m.lower() for m in maintainers}
     comments = (convo.get("comments") or {}).get("nodes", []) + (convo.get("reviews") or {}).get("nodes", [])
     for c in comments:
-        who = (c.get("author") or {}).get("login", "")
-        if who == login or who.endswith("[bot]"):
+        who = ((c.get("author") or {}).get("login") or "").lower()
+        if who == login.lower() or who.endswith("[bot]"):
             continue
         if c.get("authorAssociation") not in MAINTAINER_ASSOC and who not in maint:
             continue
@@ -266,7 +267,7 @@ def _own_comment_day(convo: dict[str, Any], login: str, since: str, end: str) ->
     days = [
         c["createdAt"][:10]
         for c in (convo.get("comments") or {}).get("nodes", [])
-        if (c.get("author") or {}).get("login") == login
+        if ((c.get("author") or {}).get("login") or "").lower() == login.lower()
         and c.get("createdAt")
         and since <= c["createdAt"][:10] <= end
     ]

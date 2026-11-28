@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
+from contributor_metrics.backends import github as gh_backend
 from contributor_metrics.fetch import InvalidLogin, fetch_items
 
 
@@ -250,6 +251,38 @@ def test_fetch_uses_configured_phrases_and_roster(fake_gh):
         maintainers=("rostered",),
     )
     assert items[0].pushback_candidate == "u9"
+
+
+def _convo(*comments):
+    return {"comments": {"nodes": list(comments)}, "reviews": {"nodes": []}}
+
+
+def _comment(url, login, association, body, created="2026-04-02T10:00:00Z"):
+    return {
+        "url": url,
+        "author": {"login": login},
+        "authorAssociation": association,
+        "body": body,
+        "createdAt": created,
+    }
+
+
+def test_the_candidates_own_comment_is_never_pushback_in_any_case():
+    # --login alice, while GitHub returns the account's own spelling "Alice".
+    convo = _convo(_comment("u1", "Alice", "MEMBER", "I used Copilot for the boilerplate"))
+    assert gh_backend._pushback(convo, "alice", (), ()) == ""
+
+
+def test_a_rostered_maintainer_matches_in_any_case():
+    convo = _convo(_comment("u2", "Rostered", "CONTRIBUTOR", "Is this ChatGPT output? did you run it?"))
+    assert gh_backend._pushback(convo, "alice", (), ("rostered",)) == "u2"
+    assert gh_backend._pushback(convo, "alice", (), ("someone-else",)) == ""
+
+
+def test_the_candidates_own_comment_day_matches_in_any_case():
+    convo = _convo(_comment("u3", "Alice", "CONTRIBUTOR", "a reply", created="2026-04-02T10:00:00Z"))
+    assert gh_backend._own_comment_day(convo, "alice", "2026-03-01", "2026-08-31") == "2026-04-02"
+    assert gh_backend._own_comment_day(convo, "bob", "2026-03-01", "2026-08-31") is None
 
 
 def test_reviews_come_from_contributions_dated_by_occurrence(fake_gh):
