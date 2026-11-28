@@ -1141,6 +1141,7 @@ Two places used to break that rule:
 - **`~/.local/share/uv/`** holds uv's managed interpreters (often what `python3` on `PATH` resolves to), its tool venvs (`prek`, `ruff`) and its credentials store.
   It stays in `allowRead`, so sandboxed uv can still use the interpreters already installed, but it is never in `allowWrite`.
   The cost: a sandboxed `uv python install` or `uv tool install` fails; run those from a terminal.
+  That includes the Python 3.14 the framework's tools require: uv would download it on a tool's first run, but inside the sandbox that fails with "Permission denied", so run `uv python install 3.14` once from a terminal (the skill pre-flight's `python-missing` finding asks for it).
 - **`~/.cache/uv/`** is the cache `uvx` runs from: `uvx --from <path> <cmd>` executes the unpacked package straight out of `archive-v0/`.
   Sandboxed uv needs a writable cache, and Claude Code has no environment that applies only inside the sandbox, so the split goes through a file the sandbox cannot read.
 

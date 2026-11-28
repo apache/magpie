@@ -278,6 +278,9 @@ so `setup config` run from a worktree still writes to the main checkout's person
 a layer that exists but cannot be listed still counts as the worktree's own.
 Clearing an inherited welcome answer writes an `enabled` entry over it.
 
+The `machine` finding `python-missing` (rules in the section of the same name) fires when `uv python find` finds no Python 3.14, the version the framework's uv-run tools require (`python_runtime.REQUIRED_PYTHON`, kept equal to the workspace's `.python-version` by a test).
+Under the secure setup the sandbox cannot install one, since uv's interpreter directory is read-only to it, so the user runs `uv python install 3.14` in their own terminal.
+
 The `machine` finding `inherited-path-symlink` (rules in the section of the same name) fires in a linked worktree of an adopted project
 when one of the paths it inherits from the main checkout (`.apache-magpie-local`, `.claude/settings.json`, `.claude/settings.local.json`) is now a symlink,
 or sits under one: `sandbox-add-project-root.sh` grants those reads only while they are not, and drops the grant on its next run.

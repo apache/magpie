@@ -325,7 +325,9 @@ See `docs/adapters/harnesses/goose.md`.
   and it removes a `~/.local/share/uv` write an earlier version added,
   because uv's interpreters and tool venvs there run outside the
   sandbox; sandbox-lint rejects any write grant over that directory,
-  #1785), into each worktree's gitignored
+  #1785; the Python the tools require is therefore installed from a
+  terminal, and the skill pre-flight's `python-missing` finding asks for
+  `uv python install 3.14` when `uv python find` finds none), into each worktree's gitignored
   `.claude/settings.local.json`, through a temporary copy and a final
   rename. A rename the sandbox denies — the dispatcher runs the helper
   sandboxed on every post-checkout — removes the copy, warns and leaves

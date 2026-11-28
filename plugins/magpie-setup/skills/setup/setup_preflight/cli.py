@@ -53,6 +53,7 @@ from .delegation import findings as delegation_findings
 from .installed import _running_harness, read_installed
 from .lockfile import MalformedLock
 from .oversize import findings as oversize_findings
+from .python_runtime import findings as python_runtime_findings
 from .upgrade import findings as upgrade_findings
 from .upgrade import skill_dir_from
 
@@ -153,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             *family_not_adopted_findings(root, args.skill, _running_harness(os.environ)[0]),
             *inherited_path_findings(root),
             *isolated_setup_findings(root, args.isolated_setup_interval_days),
+            *python_runtime_findings(),
             *container_gateway_findings(root, _running_harness(os.environ)[0]),
             *verify_findings(root, args.verify_interval_days),
             *([] if args.no_oversize else oversize_findings(root)),

@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:c311b3e3fb82c31d
 license: Apache-2.0
-measured_tokens: 6503
+measured_tokens: 6576
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -317,6 +317,10 @@ also the fallback when the checker is not installed.
 - **`~/.local/share/uv` is read-only to the sandbox** (19a). The Step P
   helper removes the write an earlier version added; propose removing any other
   by hand.
+- **The host installs the tools' Python.** The sandbox cannot add an
+  interpreter there, so give the operator `uv python install 3.14` for their
+  own terminal when `uv python find --no-project 3.14` finds none (the skill
+  pre-flight's `python-missing` finding reports the same).
 - **The host gets its own uv cache** (19b). Stage `~/.config/uv/uv.toml` with
   `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
   added, keeping every other setting, and give the operator the copy command:
