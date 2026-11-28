@@ -16,7 +16,7 @@ when_to_use: |
   Invoke when a security team member says "import findings
   from <path>", "import this scan output", "load these issues
   from a markdown file", or hands the agent a `.md` file with
-  one or more issue blocks separated by `---`. Typical sources:
+  one or more issue blocks separated by horizontal rules. Typical sources:
   AI security review output, third-party SAST report exported
   as markdown, or a security consultant's findings document.
   Skip when a single inbound report belongs on the Gmail path
