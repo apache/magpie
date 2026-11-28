@@ -358,6 +358,16 @@ trustworthy as it grows.
   repository's gates. Learned house style goes to
   `.apache-magpie-overrides/optimize-skill.md`, which the rewrite pass reads
   first.
+- **Growth past a budget is caught at the change that causes it.** The
+  setup pre-flight's `oversize` finding (end-of-run) lists each `SKILL.md`,
+  `AGENTS.md`, `CLAUDE.md` and `GEMINI.md` the branch grew past its budget
+  against its merge-base, and the agent proposes the matching optimize skill
+  once per file content (`acknowledged.oversize`). The diagnosis can go to the
+  `magpie-utilities` plugin's `optimizer` agent, whose only tools are `Read`,
+  `Grep` and `Glob`: it proposes and never applies.
+  The required `skill-size` pull-request check runs the same measurement
+  on every pull request and fails until the file is trimmed or a maintainer
+  adds the `skill-size-accepted` label.
 - **CI runs the prek hooks in two shapes.** On a pull request the hooks
   see only the PR's own diff (`--from-ref` / `--to-ref`); on a push to
   `main` they run `--all-files`. The lychee link check is exempt from the

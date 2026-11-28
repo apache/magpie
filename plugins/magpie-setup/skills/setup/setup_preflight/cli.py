@@ -52,6 +52,7 @@ from .core import (
 from .delegation import findings as delegation_findings
 from .installed import _running_harness, read_installed
 from .lockfile import MalformedLock
+from .oversize import findings as oversize_findings
 from .upgrade import findings as upgrade_findings
 from .upgrade import skill_dir_from
 
@@ -114,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="omit the skill family's first-run welcome guide",
     )
     parser.add_argument(
+        "--no-oversize",
+        action="store_true",
+        help="skip the check for skills and agent-instruction files this branch grew past their budget",
+    )
+    parser.add_argument(
         "--no-rules",
         action="store_true",
         help="omit each finding's rules text (the verdict alone)",
@@ -149,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
             *isolated_setup_findings(root, args.isolated_setup_interval_days),
             *container_gateway_findings(root, _running_harness(os.environ)[0]),
             *verify_findings(root, args.verify_interval_days),
+            *([] if args.no_oversize else oversize_findings(root)),
         ]
     except MalformedLock as exc:
         print(f"setup-preflight: {exc}", file=sys.stderr)

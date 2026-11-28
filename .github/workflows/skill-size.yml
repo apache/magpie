@@ -1,0 +1,91 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Fails a pull request that grows a SKILL.md or an AGENTS.md / CLAUDE.md /
+# GEMINI.md past its budget: a skill body over 5,000 tokens or its
+# name + description + when_to_use over 200, an instruction file over 40,000
+# characters. Only files the pull request changed and made bigger count, so a
+# pull request that shrinks a big file passes. The measurement is the setup
+# pre-flight's own (setup_preflight/oversize.py), which also proposes the
+# optimize skills to an agent working on such a branch.
+#
+# The override is the `skill-size-accepted` label: a maintainer who decides the
+# growth is worth it adds the label, which re-runs this check and passes it.
+# Removing the label, or pushing a new commit, measures again.
+#
+# Runs on every pull request against main, with no path filter, because it is a
+# required check (.asf.yaml): a required check that does not report blocks the
+# pull request. A pull request touching no such file passes in seconds.
+---
+name: skill-size
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  skill-size:
+    name: skill-size
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      # The default ref is the pull request merged into main, so its first
+      # parent is main's tip and the diff between them is exactly the change.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Measure changed skills and agent-instruction files
+        env:
+          ACCEPTED: ${{ contains(github.event.pull_request.labels.*.name, 'skill-size-accepted') }}
+          PYTHONPATH: plugins/magpie-setup/skills/setup
+        run: |
+          set +e
+          python3 -P -m setup_preflight.oversize --base HEAD^1 --format markdown > report.md
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "::error::the size check could not run (exit $status)"
+            exit "$status"
+          fi
+          {
+            echo "## Skill and agent-instruction file sizes"
+            echo
+            cat report.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$ACCEPTED" = "true" ]; then
+            echo "::notice::over budget, accepted by the skill-size-accepted label"
+            exit 0
+          fi
+          {
+            echo
+            echo "Run the named optimize skill on each file and push the result,"
+            echo "or ask a maintainer to add the \`skill-size-accepted\` label to accept the growth."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::this pull request grows a skill or agent-instruction file past its budget; see the job summary"
+          exit 1

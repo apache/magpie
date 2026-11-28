@@ -81,6 +81,16 @@ template), and they run with the eval runner Magpie installs as
 `~/.claude/scripts/magpie-run-evals.sh`. A house style the rewrite pass learns
 from your edits is kept in `.apache-magpie-overrides/optimize-skill.md`.
 
+Every Magpie skill's pre-flight also watches for growth: when the branch you are on
+makes a `SKILL.md` or an `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` bigger and over its
+budget, the agent proposes `optimize-skill` or `optimize-agents-md` for it once, at the
+end of the run. Under Claude Code it can hand the diagnosis to the `optimizer` agent this
+plugin ships, which has only `Read`, `Grep` and `Glob`: it returns a ranked proposal and
+changes nothing, and the passes you pick run through the skill as usual.
+In this repository the required `skill-size` pull-request check applies the same
+budgets to every pull request, whoever wrote it: it fails until the file is trimmed or a
+maintainer accepts the growth with the `skill-size-accepted` label.
+
 ## Status
 
 **Stable.** All four skills are shipped and validate under
