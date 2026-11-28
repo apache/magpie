@@ -260,8 +260,7 @@ agent could have built and stays refused.
 
 Under Claude Code, agent-guard's `vetted-ops-caller` rule (#2124) checks the
 honest case. It reads the hook's `transcript_path`, takes the skills invoked
-across the user's last 10 prompts (back to a slash command that starts a
-skill), and
+in the session, back to the last slash command that starts a skill, and
 refuses a `vetted-op`, `vetted-op-read`, `vetted-op-tracker`,
 `vetted-op-tracker-batch`, `vetted-op-tracker-batch-unprompted` or
 `vetted-op-git` launch whose `--caller` none of their files name. It allows when there is no

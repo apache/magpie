@@ -151,12 +151,23 @@ def test_every_vetted_op_entry_point_is_checked(skills, tmp_path, entry):
     )
 
 
-def test_a_skill_expires_after_the_turn_cap(skills, tmp_path):
-    turns = [prompt(f"step {i}") for i in range(agent_guard._SKILL_TURNS - 1)]
-    t = write(tmp_path / "s.jsonl", skill_call("issue-sync"), skill_call("cve-allocate"), *turns)
+def test_an_outer_skill_keeps_its_caller_across_a_long_run(skills, tmp_path):
+    # issue-fix easily passes many prompts before its Step 10 write, and may
+    # re-run issue-sync late in the run.
+    turns = [prompt(f"step {i}") for i in range(11)]
+    t = write(tmp_path / "s.jsonl", skill_call("issue-fix"), *turns, skill_call("issue-sync"), tool_result())
+    assert check(t, "security-issue-fix") is None
     assert check(t, "security-issue-sync") is None
+    assert check(t, "security-cve-allocate")
+
+
+def test_a_slash_command_ends_the_earlier_skills(skills, tmp_path):
     t = write(
-        tmp_path / "s.jsonl", skill_call("issue-sync"), *turns, prompt("one more"), skill_call("cve-allocate")
+        tmp_path / "s.jsonl",
+        skill_call("issue-sync"),
+        prompt("thanks"),
+        slash("magpie-security:cve-allocate"),
+        prompt("go on"),
     )
     assert check(t, "security-cve-allocate") is None
     assert check(t, "security-issue-sync")
