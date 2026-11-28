@@ -183,6 +183,9 @@ code lands.
   A `**/` in a prohibited-binaries glob matches zero or more directories,
   so `**/gradle-wrapper.jar` matches a jar at the root but not
   `fake-gradle-wrapper.jar` (#2257).
+  Its `version` step reads a `--manifest` only inside `--tree`: one that
+  resolves outside it (`..`, an absolute path elsewhere, or a symlink) is
+  not read and `FAIL`s, so Step 8 cannot pass on a file the RC lacks (#2424).
   Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
   stdlib `unittest` suites have all moved into `tools/release-management`
   beside each skill's renders: the `vote-tally` tally (formerly `tally.py`)

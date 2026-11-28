@@ -441,6 +441,126 @@ def test_version_dev_suffix_is_fail(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert out["results"][1]["extracted"] is None
 
 
+@pytest.mark.parametrize("escape", ["relative", "absolute", "symlink", "dangling-symlink", "regex"])
+def test_version_manifest_outside_tree_is_fail(tmp_path: Path, capsys: pytest.CaptureFixture[str], escape: str) -> None:
+    tree = tmp_path / "rc"
+    tree.mkdir()
+    if escape == "relative":
+        outside = tmp_path / "pyproject.toml"
+        manifest = "../pyproject.toml"
+        outside.write_text('[project]\nversion = "2.11.0"\n')
+    elif escape == "absolute":
+        outside = tmp_path / "outside" / "pyproject.toml"
+        manifest = str(outside)
+        outside.parent.mkdir()
+        outside.write_text('[project]\nversion = "2.11.0"\n')
+    elif escape == "symlink":
+        outside = tmp_path / "outside" / "pyproject.toml"
+        manifest = "pyproject.toml"
+        outside.parent.mkdir()
+        outside.write_text('[project]\nversion = "2.11.0"\n')
+        os.symlink("../outside/pyproject.toml", tree / manifest)
+    elif escape == "dangling-symlink":
+        manifest = "pyproject.toml"
+        os.symlink("../missing/dir/pyproject.toml", tree / manifest)
+    else:
+        outside = tmp_path / "VERSION.txt"
+        manifest = r"../VERSION.txt=release: (\S+)"
+        outside.write_text("release: 2.11.0\n")
+
+    out = run(capsys, "version", "--tree", str(tree), "--expected", "2.11.0", "--manifest", manifest)
+    assert out["status"] == "FAIL"
+    assert out["results"] == [{"file": manifest.partition("=")[0], "extracted": None, "match": False, "detail": "outside --tree"}]
+
+
+def test_version_manifest_normalizing_inside_tree_is_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = tmp_path / "rc"
+    (tree / "sub").mkdir(parents=True)
+    (tree / "linked").mkdir()
+    (tree / "setup.cfg").write_text("[metadata]\nversion = 2.11.0\n")
+    os.symlink("../setup.cfg", tree / "linked" / "setup.cfg")
+
+    out = run(
+        capsys,
+        "version",
+        "--tree",
+        str(tree),
+        "--expected",
+        "2.11.0",
+        "--manifest",
+        "sub/../setup.cfg",
+        "--manifest",
+        "linked/setup.cfg",
+        "--manifest",
+        str(tree / "setup.cfg"),
+    )
+    assert out["status"] == "PASS"
+    assert [result["extracted"] for result in out["results"]] == ["2.11.0", "2.11.0", "2.11.0"]
+
+
+@pytest.mark.parametrize(("manifest_name", "expected"), [("setup.cfg", "2.11.0"), (None, None)])
+def test_version_absolute_manifest_with_different_case(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], manifest_name: str | None, expected: str | None
+) -> None:
+    differently_cased_tmp_path = tmp_path.with_name(tmp_path.name.swapcase())
+    if not differently_cased_tmp_path.exists():
+        pytest.skip("temporary filesystem is case-sensitive")
+    tree = tmp_path / "rc"
+    tree.mkdir()
+    (tree / "setup.cfg").write_text("[metadata]\nversion = 2.11.0\n")
+
+    manifest = differently_cased_tmp_path / "rc"
+    if manifest_name is not None:
+        manifest /= manifest_name
+    out = run(
+        capsys,
+        "version",
+        "--tree",
+        str(tree),
+        "--expected",
+        "2.11.0",
+        "--manifest",
+        str(manifest),
+    )
+    assert out["status"] == ("PASS" if expected else "FAIL")
+    assert out["results"] == [
+        {
+            "file": str(manifest),
+            "extracted": expected,
+            "match": expected == "2.11.0",
+            **({} if expected else {"detail": "file not found"}),
+        }
+    ]
+
+
+def test_version_manifest_symlink_loop_is_file_not_found(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tree = tmp_path / "rc"
+    tree.mkdir()
+    os.symlink("loop.toml", tree / "loop.toml")
+
+    out = run(capsys, "version", "--tree", str(tree), "--expected", "2.11.0", "--manifest", "loop.toml")
+    assert out["status"] == "FAIL"
+    assert out["results"] == [{"file": "loop.toml", "extracted": None, "match": False, "detail": "file not found"}]
+
+
+@pytest.mark.parametrize("error", [OSError, RuntimeError])
+def test_version_manifest_resolve_error_is_file_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: type[Exception]) -> None:
+    tree = tmp_path / "rc"
+    tree.mkdir()
+    manifest = tree / "loop.toml"
+    resolve = Path.resolve
+
+    def raise_for_manifest(path: Path, strict: bool = False) -> Path:
+        if path == manifest:
+            raise error("could not resolve")
+        return resolve(path, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", raise_for_manifest)
+    out = rv.version_consistency(tree, "2.11.0", ["loop.toml"])
+    assert out["status"] == "FAIL"
+    assert out["results"] == [{"file": "loop.toml", "extracted": None, "match": False, "detail": "file not found"}]
+
+
 @pytest.mark.parametrize(
     ("name", "content", "expected"),
     [

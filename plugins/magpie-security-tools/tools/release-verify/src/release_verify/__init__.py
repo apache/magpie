@@ -806,14 +806,36 @@ def extract_version(path: Path, regex: str | None = None) -> tuple[str | None, s
     return None, "no known extraction pattern for this file type; pass PATH=REGEX"
 
 
+def _is_outside_tree(path: Path, tree: Path) -> bool:
+    try:
+        resolved_path, resolved_tree = path.resolve(), tree.resolve()
+    except (OSError, RuntimeError):
+        return False
+    if resolved_path.is_relative_to(resolved_tree):
+        return False
+    for candidate in (resolved_path, *resolved_path.parents):
+        try:
+            if os.path.samefile(candidate, resolved_tree):
+                return False
+        except OSError:
+            continue
+    return True
+
+
 def version_consistency(tree: Path, expected: str, manifests: Sequence[str]) -> dict[str, Any]:
     results = []
     for spec in manifests:
         rel, _, regex = spec.partition("=")
-        try:
-            found, detail = extract_version(tree / rel, regex or None)
-        except (ValueError, tomllib.TOMLDecodeError, ET.ParseError, configparser.Error) as exc:
-            found, detail = None, f"could not parse: {exc}"
+        found: str | None
+        detail: str | None
+        outside = _is_outside_tree(tree / rel, tree)
+        if outside:
+            found, detail = None, "outside --tree"
+        else:
+            try:
+                found, detail = extract_version(tree / rel, regex or None)
+            except (ValueError, tomllib.TOMLDecodeError, ET.ParseError, configparser.Error) as exc:
+                found, detail = None, f"could not parse: {exc}"
         entry: dict[str, Any] = {"file": rel, "extracted": found, "match": found == expected}
         if detail:
             entry["detail"] = detail
