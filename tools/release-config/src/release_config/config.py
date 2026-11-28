@@ -312,15 +312,18 @@ def plus_one_hour(value: str) -> str:
     return iso(parse_time(value) + timedelta(hours=1))
 
 
-def render_dist_url(template: str, version: str, rc: str | None, bucket: str) -> str:
+def render_dist_url(template: str, version: str, rc: str | None, bucket: str, project: str | None = None) -> str:
     """Render `release_dist_url_template` for staging (`rc` set) or the final release (`rc` None).
 
-    `<bucket>` → `dev` / `release`. A template that spells the RC itself
+    `<bucket>` → `dev` / `release`; `<project>` → `project` (`project_dist_name`)
+    when given, as the release-management renderers substitute it. A template that spells the RC itself
     (`<version>-<rcN>`) gets the RC substituted there, or the `-<rcN>` segment
     stripped for the release URL; otherwise `<version>` becomes `<version>-rcN`
     for staging and plain `<version>` for the release.
     """
     url = template.replace("<bucket>", bucket)
+    if project:
+        url = url.replace("<project>", project)
     rc_marker = re.search(r"-?<rc ?N>|-?<rcN>|-?rc<N>", url)
     if rc_marker:
         marker = rc_marker.group(0)

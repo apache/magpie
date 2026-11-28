@@ -168,18 +168,24 @@ def _user_value(cfg: Loaded, dotted: str) -> str | None:
     return md.dotted_value(cfg.user_text, dotted)
 
 
+def _dist_name(cfg: Loaded) -> str | None:
+    """`project_dist_name`, which fills `<project>` in `release_dist_url_template`."""
+    name = cfg.get("project_dist_name")
+    return name if isinstance(name, str) and name else None
+
+
 def _staging_url(cfg: Loaded, version: str | None, rc: str | None) -> str | None:
     template = cfg.raw.get("release_dist_url_template")
     if not isinstance(template, str) or not template or version is None or rc is None:
         return None
-    return render_dist_url(template, version, rc, "dev")
+    return render_dist_url(template, version, rc, "dev", _dist_name(cfg))
 
 
 def _target_url(cfg: Loaded, version: str | None) -> str | None:
     template = cfg.raw.get("release_dist_url_template")
     if not isinstance(template, str) or not template or version is None:
         return None
-    return render_dist_url(template, version, None, "release")
+    return render_dist_url(template, version, None, "release", _dist_name(cfg))
 
 
 def _source_version(result: Result, args: argparse.Namespace, index: int = 0) -> str | None:
