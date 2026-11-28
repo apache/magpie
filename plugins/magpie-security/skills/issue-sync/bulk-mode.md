@@ -167,7 +167,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    - **CVE-affecting** — a change to a body field whose value lands in the regenerated CVE JSON pushed to Vulnogram:
      *Title* (the issue title, read verbatim into `containers.cna.title`), *Short public summary for publish*, *CWE*, *Severity*, *Affected versions*,
      *Reporter credited as*, *Remediation developer*, *PR with the fix*, *Public advisory URL*.
-     These are the values that ship to `cve.org` and stay there — the same fields the [pre-push hygiene gates in Step 5b 1b](apply-and-push.md#decision-flow) scan.
+     These are the values that ship to `cve.org` and stay there — the same fields the [pre-push hygiene gates in Step 5b 1b](cve-regen-push.md#decision-flow) scan.
    - **Non-CVE-affecting** — label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries,
      reporter Gmail drafts, RM hand-off comments (template-bodied, no per-tracker CVE content).
      They change tracker state, not the published record.
@@ -178,7 +178,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    `fix released` is NOT gated by the CVE-affecting bucket's
    per-item review**, which exists for *body-field content judgment* (summary wording, CWE choice, credit-line shape).
    The `allocated → review-ready` (Vulnogram: `DRAFT → REVIEW`) push that a `pr merged → fix released` transition mandates
-   (the atomicity rule in [`apply-and-push.md` Step 5b](apply-and-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
+   (the atomicity rule in [`cve-regen-push.md` Step 5b](cve-regen-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
    rides the **same confirmation as the `fix released` label flip** in the non-CVE-affecting bucket and executes in the same apply pass.
    Do not hold a fix-released record at `allocated`/`DRAFT` for a separate CVE-affecting sign-off — that is the deferral the atomicity rule forbids.
    A body-field *content* change on the same tracker still goes through the CVE-affecting review; only the state push is exempt.
@@ -199,7 +199,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
    **Why bulk-review (and not per-tracker walk).** One merged proposal lets the operator compare summaries across trackers,
    spot two that should share a CWE, or three blocked on the same field, in one round-trip instead of N.
-   The hygiene gates in [Step 5b 1b](apply-and-push.md#decision-flow) still catch *mechanical* drift on every regen;
+   The hygiene gates in [Step 5b 1b](cve-regen-push.md#decision-flow) still catch *mechanical* drift on every regen;
    this surface is for *judgment* calls (threat-model framing, credit-line shape, CWE choice) before the push fires.
 
    **Confirmation syntax** for the merged proposal:

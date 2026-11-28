@@ -196,3 +196,44 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 
   **Apply mechanic** — same as the hand-off comment: a fresh
   `gh issue comment`, surfaced in the recap.
+
+## Step 4 — Apply the release-manager comments
+
+- **Release-manager hand-off comment:** pick the body template per the variant decision in
+  [Step 5c](cve-regen-push.md#step-5c--reconcile-the-release-manager-hand-off-comment) —
+  `tools/<cve-tool>/release-manager-handoff-comment-oauth-pushed.md`
+  when this run's `cve-tool push` succeeded,
+  `tools/<cve-tool>/release-manager-handoff-comment.md` (manual-paste) otherwise.
+  Substitute the placeholders (per the *Release-manager hand-off comment* bullet in Step 2b; the OAuth-pushed variant also takes `PUSH_TIMESTAMP`) and write the result to a temp file.
+  This fires whenever the tracker's proposal carries the hand-off item —
+  at the `pr merged` → `fix released` transition **and** on the invariant-repair path for a tracker already at `fix released` with a review-ready record but no hand-off marker
+  (see *Hand-off presence is an invariant* under **Assignees** in [`signals-to-actions.md`](signals-to-actions.md)).
+  Decide POST vs PATCH by scanning the comments the [Step 1a](gather.md#1a-read-the-github-issue) fetch already returned
+  for one whose body starts with `<!-- apache-magpie: release-manager-handoff v1 -->` — no extra call.
+
+  - **No marker found (first hand-off, or marker lost)** — POST a fresh comment:
+
+    ```bash
+    gh issue comment <N> --repo <tracker> --body-file <tmpfile>
+    ```
+
+  - **Marker found** — compare the existing body (from the same 1a fetch) against the re-rendered body for the current variant,
+    and PATCH it in place only if they differ.
+    The REST id (not the GraphQL node id) is the number after `#issuecomment-` in that comment's `url` field, so no lookup call is needed:
+
+    ```bash
+    gh api -X PATCH repos/<tracker>/issues/comments/<id> \
+      -F body=@<tmpfile> --jq '{id, updated_at}'
+    ```
+
+  The PATCH flips the existing comment between variants in place (for example after the Vulnogram token expired),
+  so the RM keeps a single comment instead of a duplicate burying the timeline.
+
+  Capture the comment URL (POST or PATCH) for the Step 6 recap.
+  Before posting or PATCHing, apply the rollup entry's bare-name → `@`-handle scrub to the resolved body, so the `RM_HANDLE` substitution notifies the release manager.
+- **Publication-ready notification comment:** same recipe as the hand-off comment above (same variant decision, same POST-vs-PATCH logic, same scrub), but loading
+  `tools/<cve-tool>/release-manager-publication-comment-oauth-pushed.md`
+  or `tools/<cve-tool>/release-manager-publication-comment.md`.
+  The marker is `<!-- apache-magpie: release-manager-publication-ready v1 -->`.
+  Apply it only after the *Public advisory URL* body-field update has landed, the CVE JSON has been regenerated (Step 5a), and (when applicable) the OAuth push has landed (Step 5b),
+  so the comment's *"the JSON has been regenerated to include the archive URL and pushed to the record"* claim is true when the RM reads it.

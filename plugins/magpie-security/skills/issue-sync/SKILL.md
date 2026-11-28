@@ -20,9 +20,9 @@ when_to_use: |
   reconciles the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:8cfc7395b16c2cf9
+surface_hash: sha256:6bc028c94b89b1aa
 license: Apache-2.0
-measured_tokens: 7579
+measured_tokens: 7567
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -407,9 +407,9 @@ In bulk mode the merged proposal has its own syntax: [`bulk-mode.md`](bulk-mode.
 ## Step 4 — Apply confirmed changes
 
 Run the confirmed items sequentially.
-[`apply-and-push.md`](apply-and-push.md) holds the apply mechanics (labels, milestones, assignees, body fields, rollup, RM hand-off comment, board moves, GHSA writes, Gmail drafts),
-the CVE JSON regen (Step 5 / 5a), the OAuth-API push with its pre-push hygiene gates (Step 5b), the RM hand-off reconciliation (Step 5c),
-and the unconditional end-of-sync sweep of board column, milestone and RM assignee over every tracker in the run (Step 5d).
+[`apply-and-push.md`](apply-and-push.md) holds the apply mechanics (labels, milestones, assignees, body fields, rollup, board moves, GHSA writes, Gmail drafts),
+says when to run the CVE JSON regen, the OAuth-API push with its pre-push hygiene gates and the RM hand-off reconciliation (Steps 5–5c),
+and holds the unconditional end-of-sync sweep of board column, milestone and RM assignee over every tracker in the run (Step 5d).
 
 ## Step 6 — Recap
 

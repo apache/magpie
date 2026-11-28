@@ -39,7 +39,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 
   **Pull-request mode** (`advisory_records.publish: pull-request`). Show the pull request's title and body with the commands,
   and say that the push publishes the branch on the fork and the last command publishes the pull request;
-  between the commit and the push, sync runs the configured adversarial review ([`apply-and-push.md`](apply-and-push.md)).
+  between the commit and the push, sync runs the configured adversarial review ([`advisory-closeout-apply.md`](advisory-closeout-apply.md)).
   When Step 1g found only a closed pull request (`records_pr_closed_url`), name it in the item: the team removed its status comment to try again.
 
   - **Through `vetted-op-git`**, under the secure agent setup: when `uvx --from ~/.claude/magpie/vetted-ops vetted-op-git --policy-from <site checkout> policy`
@@ -75,7 +75,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
 
 - **Advisory-records pull request, already open** — Step 1g returned `record_pr`:
   a pull request from the configured branch exists (`records_pr_url`) but no `advisory-records v1` comment records it.
-  **Proposed action.** Only the status comment that records it, as [`apply-and-push.md`](apply-and-push.md) describes for pull-request mode; no commands.
+  **Proposed action.** Only the status comment that records it, as [`advisory-closeout-apply.md`](advisory-closeout-apply.md) describes for pull-request mode; no commands.
 
 - **Advisory-records pull request merged** — Step 1g returned `pr_merged`: the pull request the `advisory-records v1` comment names has merged.
   **Proposed action.** A short status comment: line 1 is the marker

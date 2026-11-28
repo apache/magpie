@@ -3,7 +3,7 @@
 
 # Pre-PR adversarial review
 
-Companion to [`apply-and-push.md`](apply-and-push.md).
+Companion to [`advisory-closeout-apply.md`](advisory-closeout-apply.md).
 Full procedure for the adversarial review the advisory-records pull-request mode runs after its `commit` and before its `push` (generated shared block, byte-identical copy).
 The change is the published record only, so the diff, title and body hold nothing the pull request will not publish.
 
