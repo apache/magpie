@@ -893,9 +893,14 @@ The hook set:
 
 Separate GitHub workflows:
 
+- **`ci.yml`** — the pull-request CI. It calls `pre-commit.yml`
+  (prek), `tests.yml` (pytest) and `codeql.yml` as reusable workflows,
+  so the Actions UI nests their jobs under one run, and their checks
+  are named `<caller job> / <job>`: the required ones are
+  `prek / prek`, `tests / tests-ok` and `codeql / codeql-ok`.
 - **`pre-commit.yml`** — runs prek in CI as three parallel jobs
   (the hooks, the workspace type check, and the link and Claude Code
-  mod checks), gathered by the required `prek` job.
+  mod checks), gathered by its `prek` job.
   Each runs in two shapes. On a pull
   request the hooks are scoped to the PR's own diff (`--from-ref` /
   `--to-ref`) on `ubuntu-slim`; on a push to `main` they run
@@ -1026,8 +1031,8 @@ on *"N of N required status checks are expected"*.
 
 Opening it as a draft turns that into a normal gesture. Marking a draft
 ready raises `pull_request: ready_for_review`, which **is** a real event
-because a human does it, so `pre-commit.yml`, `tests.yml`, `rat.yml` and
-`zizmor.yml` list that activity type explicitly — it is not in the
+because a human does it, so `ci.yml` (which calls the prek, tests and
+CodeQL workflows), `rat.yml` and `zizmor.yml` list that activity type explicitly — it is not in the
 default `opened` / `synchronize` / `reopened` set. Pressing *Ready for
 review* starts the required checks against the PR head exactly as an
 ordinary PR gets them.
@@ -1084,8 +1089,9 @@ change.
 - **PR description:** one `## Summary` section (1–3 bullets of
   *what changed and why*) and one `## Test plan` section (how you
   verified). The `gh pr create` template in this repo matches.
-- **CI gates:** `prek run --all-files`, `zizmor`, `lychee`, and
-  every entry in the `tests-ok` pytest-matrix umbrella must pass.
+- **CI gates:** `prek run --all-files`, `zizmor`, `lychee`,
+  every entry in the `tests-ok` pytest-matrix umbrella, and the
+  CodeQL analyses (`codeql-ok`) must pass.
   All gates run automatically on every PR.
 - **Reviews:** at least one approval from a repo collaborator. Any
   change that edits [`AGENTS.md`](AGENTS.md), an RFC, or a skill

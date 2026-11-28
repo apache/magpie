@@ -453,11 +453,20 @@ trustworthy as it grows.
   `run-workspace-check.sh` passes as flags, since `ty check --config-file`
   would replace a member's own `[tool.ty]` (its path scope) instead of
   merging with it.
-- **The required `prek` check gathers three parallel jobs.**
+- **One CI workflow nests prek, the tests and CodeQL.**
+  `ci.yml` owns the pull-request / push triggers and the concurrency group,
+  and calls `pre-commit.yml`, `tests.yml` and `codeql.yml` as reusable
+  workflows (which declare no concurrency of their own: there
+  `github.workflow` is `ci.yml`'s name, so a group would cancel the caller).
+  Their checks are named `<caller job> / <job>`; `.asf.yaml` requires
+  `prek / prek`, `tests / tests-ok` and `codeql / codeql-ok`.
+  `codeql.yml` keeps its own weekly schedule, and its `codeql-ok` gate passes
+  only when every selected analysis succeeded or the language selection was
+  confirmed empty.
+- **The `prek` gate gathers three parallel jobs.**
   `pre-commit.yml` runs the hooks, the workspace type check, and lychee plus
-  the Claude Code mod and floor checks as separate jobs, and a `prek` job
-  that passes only when all three succeed keeps the status-check name
-  `.asf.yaml` requires.
+  the Claude Code mod and floor checks as separate jobs, and its `prek` job
+  passes only when all three succeed.
   The jobs share one uv cache and one prek hook-env cache, and only the hooks
   job saves them, after building every hook's environment, so parallel jobs
   never race to save the same key.

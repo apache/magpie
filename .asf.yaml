@@ -149,13 +149,18 @@ github:
             required_status_checks:
               # zizmor: GitHub Actions security lint.
               - context: "zizmor"
-              # prek: the static checks across the repository, including
-              # the lychee link check.
-              - context: "prek"
-              # tests-ok: the umbrella job over the per-project pytest
+              # The next three are reusable workflows `ci.yml` calls, so
+              # GitHub names their checks "<ci.yml job> / <job>".
+              # prek / prek: the static checks across the repository,
+              # including the lychee link check (pre-commit.yml's gate).
+              - context: "prek / prek"
+              # tests / tests-ok: the umbrella job over the per-project pytest
               # matrix in tests.yml, so a matrix change needs no
               # `.asf.yaml` change.
-              - context: "tests-ok"
+              - context: "tests / tests-ok"
+              # codeql / codeql-ok: the gate over the CodeQL analyses
+              # (codeql.yml); passes on a confirmed-empty language selection.
+              - context: "codeql / codeql-ok"
               # skill-size: a pull request growing a SKILL.md or AGENTS.md
               # past its budget; the `skill-size-accepted` label overrides
               # it (skill-size.yml), so the bypass above is never needed.

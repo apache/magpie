@@ -18,10 +18,9 @@
 name: "CodeQL"
 
 on:  # yamllint disable-line rule:truthy
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # Called by `ci.yml` on pull requests and pushes to main, which owns those
+  # triggers and the concurrency group; the weekly scan runs on its own.
+  workflow_call:
   schedule:
     # Run weekly on Sunday at 07:13 UTC. Off-peak hour chosen so the job
     # doesn't collide with Monday-morning CI surges.
@@ -29,10 +28,6 @@ on:  # yamllint disable-line rule:truthy
 
 permissions:
   contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which analyses can find anything new. On a pull request, `python`
@@ -138,3 +133,38 @@ jobs:
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066  # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"
+
+  # The required check (`.asf.yaml`: `codeql / codeql-ok`), over the analysis
+  # matrix. The matrix is skipped on a pull request that changes neither Python
+  # nor `.github/`, and a skipped required check would pass without proving
+  # anything, so this job asserts on the selection instead: success when every
+  # selected analysis passed, or when the selection was confirmed empty.
+  codeql-ok:
+    name: codeql-ok
+    runs-on: ubuntu-slim
+    needs: [languages, analyze]
+    # `always()` — without it this job is *skipped* when an analysis fails, and
+    # a skipped required check does not block merging.
+    if: always()
+    permissions: {}
+    steps:
+      - name: Assert language selection and analysis results
+        shell: bash
+        env:
+          LANGUAGES_RESULT: ${{ needs.languages.result }}
+          LANGUAGES: ${{ needs.languages.outputs.languages }}
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+        run: |
+          if [ "${LANGUAGES_RESULT}" != "success" ]; then
+            echo "language selection result: ${LANGUAGES_RESULT}"
+            exit 1
+          fi
+          if [ "${ANALYZE_RESULT}" = "skipped" ] && [ "${LANGUAGES:-}" != "[]" ]; then
+            echo "analysis matrix skipped without an empty selection"
+            exit 1
+          fi
+          if [ "${ANALYZE_RESULT}" != "success" ] && [ "${ANALYZE_RESULT}" != "skipped" ]; then
+            echo "analysis matrix result: ${ANALYZE_RESULT}"
+            exit 1
+          fi
+          echo "CodeQL gate satisfied (languages ${LANGUAGES}, analysis ${ANALYZE_RESULT})"

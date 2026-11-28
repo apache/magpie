@@ -19,23 +19,15 @@
 name: prek
 
 on:  # yamllint disable-line rule:truthy
-  pull_request:
-    # `ready_for_review` is not in the default set (opened / synchronize /
-    # reopened). It is here so that marking a draft ready starts the checks —
-    # which is what makes the draft PR from `bump-dev-version.yml` usable, since
-    # GitHub raises no events for anything `GITHUB_TOKEN` opens.
-    types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
+  # Called by `ci.yml`, which owns the pull-request / push triggers and the
+  # concurrency group (a group here would share `ci.yml`'s name and cancel it).
+  workflow_call:
 
 permissions: {}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 # The static checks run as three parallel jobs, gathered by the `prek` job at
-# the bottom, which is the required status check named in `.asf.yaml`.
+# the bottom. `ci.yml` calls this workflow from its own `prek` job, so the
+# required status check named in `.asf.yaml` is `prek / prek`.
 #
 # Split because one serial job made every PR wait for the sum of its parts.
 # Measured on a PR run on `ubuntu-slim` (2026-11-28): ~50s of setup before the
@@ -357,7 +349,8 @@ jobs:
         run: prek run check-claude-floor --hook-stage manual --color=always $PREK_SCOPE
 
   prek:
-    # The required status check (`.asf.yaml`). Gathering the three jobs here
+    # The required status check (`.asf.yaml`: `prek / prek`, called from
+    # `ci.yml`). Gathering the three jobs here
     # means adding, removing or renaming one needs no `.asf.yaml` change.
     name: prek
     runs-on: ubuntu-slim

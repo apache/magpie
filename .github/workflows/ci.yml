@@ -1,0 +1,72 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+---
+# The pull-request CI: the static checks, the tests and CodeQL, each a
+# reusable workflow called from here, so the Actions UI nests their jobs under
+# one run ("CI" → "prek" → "prek (hooks)", …) instead of listing three
+# unrelated workflows. A called workflow's checks are named
+# "<job here> / <job there>": the required ones in `.asf.yaml` are
+# `prek / prek`, `tests / tests-ok` and `codeql / codeql-ok`.
+#
+# Triggers and concurrency live here only. Inside a called workflow
+# `github.workflow` is *this* workflow's name, so a concurrency group of its
+# own would collide with the one below and cancel the caller; the callees
+# therefore declare none.
+name: CI
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    # `ready_for_review` is not in the default set (opened / synchronize /
+    # reopened). It is here so that marking a draft ready starts the checks —
+    # which is what makes the draft PR from `bump-dev-version.yml` usable, since
+    # GitHub raises no events for anything `GITHUB_TOKEN` opens.
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prek:
+    name: prek
+    # `./` already resolves to this run's own commit, which is all zizmor's
+    # `self-repository` audit asks `$/` for; `./` is what actionlint parses.
+    uses: ./.github/workflows/pre-commit.yml  # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  tests:
+    name: tests
+    uses: ./.github/workflows/tests.yml  # zizmor: ignore[self-repository] (see prek)
+    permissions:
+      contents: read
+
+  codeql:
+    name: codeql
+    uses: ./.github/workflows/codeql.yml  # zizmor: ignore[self-repository] (see prek)
+    # Code scanning uploads its results (`security-events: write`) and reads the
+    # run's own workflow metadata (`actions: read`). A called workflow gets at
+    # most what its caller grants.
+    permissions:
+      actions: read
+      contents: read
+      security-events: write

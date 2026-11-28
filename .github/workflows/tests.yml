@@ -19,20 +19,11 @@
 name: tests
 
 on:  # yamllint disable-line rule:truthy
-  pull_request:
-    # `ready_for_review` is not in the default set (opened / synchronize /
-    # reopened). It is here so that marking a draft ready starts the checks —
-    # which is what makes the draft PR from `bump-dev-version.yml` usable, since
-    # GitHub raises no events for anything `GITHUB_TOKEN` opens.
-    types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
+  # Called by `ci.yml`, which owns the pull-request / push triggers and the
+  # concurrency group (a group here would share `ci.yml`'s name and cancel it).
+  workflow_call:
 
 permissions: {}
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Discover workspace members from the root pyproject.toml so the

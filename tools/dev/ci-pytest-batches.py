@@ -65,6 +65,7 @@ GLOBAL = frozenset(
         "tools/dev/run-workspace-check.sh",
         "tools/dev/ci-pytest-batches.py",
         ".github/workflows/tests.yml",
+        ".github/workflows/ci.yml",
     }
 )
 
