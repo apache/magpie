@@ -167,6 +167,13 @@ def _session_settings(result: subprocess.CompletedProcess) -> dict | None:
     return json.loads(args[args.index("--settings") + 1])
 
 
+def _granted_settings(result: subprocess.CompletedProcess) -> dict:
+    """The session settings of a run that must have produced them."""
+    settings = _session_settings(result)
+    assert settings is not None, "expected the wrapper to pass --settings"
+    return settings
+
+
 def _plugin_install(home: Path, selector: str | None = "real", root: Path | None = None) -> Path:
     """A framework copy holding the wrapper and the ASF selector, by default where agy stages its plugin.
 
@@ -223,7 +230,7 @@ def test_the_users_own_rules_are_carried_into_the_session(tmp_path: Path) -> Non
     # Whether agy merges or replaces the lists, the session keeps every user rule.
     result = _run(tmp_path, _checkout(tmp_path, "ASF"), _home(tmp_path))
 
-    permissions = _session_settings(result)["permissions"]
+    permissions = _granted_settings(result)["permissions"]
     assert permissions["allow"][:2] == USER_PERMISSIONS["allow"]
     assert permissions["ask"] == USER_PERMISSIONS["ask"]
     assert permissions["deny"] == USER_PERMISSIONS["deny"]
@@ -241,7 +248,7 @@ def test_relative_and_home_file_paths_are_made_absolute(tmp_path: Path) -> None:
     result = _run(tmp_path, repo, home)
 
     root = _toplevel(repo)
-    lists = _session_settings(result)["permissions"]
+    lists = _granted_settings(result)["permissions"]
     assert lists["deny"] == [
         f"read_file({root}/.env)",
         f"write_file({root}/.agents/hooks.json)",
@@ -260,7 +267,7 @@ def test_from_a_subdirectory_deny_paths_cover_it_and_the_root(tmp_path: Path) ->
     result = _run(tmp_path, sub, _home(tmp_path, permissions))
 
     root = _toplevel(repo)
-    deny = _session_settings(result)["permissions"]["deny"]
+    deny = _granted_settings(result)["permissions"]["deny"]
     assert f"read_file({root}/.env)" in deny
     assert any(rule.endswith("/sub/.env)") for rule in deny)
 
@@ -269,14 +276,14 @@ def test_an_already_listed_host_is_not_repeated(tmp_path: Path) -> None:
     permissions = {"allow": ["read_url(dist.apache.org)"], "ask": [], "deny": []}
     result = _run(tmp_path, _checkout(tmp_path, "ASF"), _home(tmp_path, permissions))
 
-    allow = _session_settings(result)["permissions"]["allow"]
+    allow = _granted_settings(result)["permissions"]["allow"]
     assert allow.count("read_url(dist.apache.org)") == 1
 
 
 def test_no_user_profile_still_gets_only_the_asf_hosts(tmp_path: Path) -> None:
     result = _run(tmp_path, _checkout(tmp_path, "ASF"), _home(tmp_path, None))
 
-    permissions = _session_settings(result)["permissions"]
+    permissions = _granted_settings(result)["permissions"]
     assert permissions == {"allow": [f"read_url({host})" for host in ASF_HOSTS], "ask": [], "deny": []}
 
 
@@ -526,8 +533,10 @@ def test_zsh_grants_too(tmp_path: Path) -> None:
     script = _plugin_install(home)
     repo = _checkout(tmp_path, "ASF")
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home), "TERM": "xterm", "AGENT_ISO_ASF": "1"}
+    zsh = shutil.which("zsh")
+    assert zsh is not None
     result = subprocess.run(
-        [shutil.which("zsh"), "-f", "-c", f"setopt noclobber; source {str(script)!r}; agent_iso_agy_asf_settings -p hi"],
+        [zsh, "-f", "-c", f"setopt noclobber; source {str(script)!r}; agent_iso_agy_asf_settings -p hi"],
         cwd=repo, env=env, capture_output=True, text=True, timeout=30,
     )
     assert json.loads(result.stdout)["permissions"]["allow"][-1] == "read_url(cveprocess.apache.org)", result.stderr
@@ -555,7 +564,7 @@ def test_the_sandbox_switches_ride_along(tmp_path: Path) -> None:
             }
         )
     )
-    settings = _session_settings(_run(tmp_path, _checkout(tmp_path, "ASF"), home))
+    settings = _granted_settings(_run(tmp_path, _checkout(tmp_path, "ASF"), home))
 
     assert settings["enableTerminalSandbox"] is True
     assert settings["toolPermission"] == "proceed-in-sandbox"
@@ -708,7 +717,7 @@ def test_a_trailing_slash_on_home_is_ignored(tmp_path: Path) -> None:
     script = _plugin_install(home)
     result = _run(tmp_path, _checkout(tmp_path, "ASF"), home, extra_env={"HOME": f"{home}/"}, script=script)
 
-    assert _session_settings(result)["permissions"]["deny"] == [f"read_file({home}/.ssh)"]
+    assert _granted_settings(result)["permissions"]["deny"] == [f"read_file({home}/.ssh)"]
 
 
 def test_a_symlinked_launch_directory_is_covered_by_its_real_path_too(tmp_path: Path) -> None:
@@ -735,7 +744,7 @@ def test_a_symlinked_launch_directory_is_covered_by_its_real_path_too(tmp_path: 
         text=True,
         timeout=30,
     )
-    deny = _session_settings(result)["permissions"]["deny"]
+    deny = _granted_settings(result)["permissions"]["deny"]
     assert f"read_file({link}/.env)" in deny
     assert f"read_file({os.path.realpath(repo)}/.env)" in deny
 

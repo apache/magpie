@@ -1125,6 +1125,7 @@ def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -
     shim_dir = tmp_path / "shim"
     shim_dir.mkdir()
     real_ssh_keygen = shutil.which("ssh-keygen")
+    assert real_ssh_keygen is not None
     shim = shim_dir / "ssh-keygen"
     release = tmp_path / "release-signer"
     os.mkfifo(release)
@@ -1734,7 +1735,7 @@ def test_the_aqua_window_closes_when_it_loses_the_keyboard() -> None:
     }
     assert "<Deactivate>" in bound, (
         "the Aqua overlay does not close when another application takes the "
-        f"keyboard; it binds only {sorted(bound)}"
+        f"keyboard; it binds only {sorted(map(str, bound))}"
     )
     assert "<Escape>" in bound, "the Aqua overlay no longer closes on Esc"
 
@@ -2309,7 +2310,9 @@ def _wrapped_test_signer(
     named_dir = tmp_path / "named"
     named_dir.mkdir()
     named = named_dir / "ssh-keygen"
-    named.symlink_to(shutil.which("sleep"))
+    sleep = shutil.which("sleep")
+    assert sleep is not None
+    named.symlink_to(sleep)
     pid_file = tmp_path / "actual-signer"
     program = binary_dir / "ssh-keygen"
     _executable(
@@ -2605,6 +2608,7 @@ def test_failed_signer_publication_preserves_input_status_and_reminder(
         start_new_session=True,
     )
     try:
+        assert wrapper.stdin is not None
         wrapper.stdin.write("synthetic signing input\n")
         wrapper.stdin.close()
         wrapper.stdin = None

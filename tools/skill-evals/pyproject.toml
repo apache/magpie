@@ -51,6 +51,11 @@ extend-exclude = ["evals/**/fixtures/**"]
 # No annotation requirement here, as mypy had none for this member.
 ignore = ["ANN"]
 
+[tool.ty.environment]
+# `pr_triage_eval` imports the pr-triage skill's prefilter script, which it puts
+# on `sys.path` at run time; point ty at the same directory.
+extra-paths = ["../../plugins/magpie-pr-management/skills/pr-triage/scripts"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"

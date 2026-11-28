@@ -85,8 +85,10 @@ import shlex
 import subprocess
 import sys
 import time
+from collections.abc import Sequence, Sized
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from skill_evals import journal as run_journal
 
@@ -585,7 +587,8 @@ def collect_diffs(
         ], []
 
     if isinstance(expected, dict):
-        actual_dict = actual  # type: ignore[assignment]
+        # Same type as `expected`, checked above.
+        actual_dict = cast("dict[str, object]", actual)
         # Only assert on the intersection of keys. Keys in expected that the
         # model didn't emit are skipped (not failed), and keys in actual that
         # expected doesn't declare are ignored. expected.json describes what
@@ -612,7 +615,7 @@ def collect_diffs(
         return decision_msgs, prose_pairs
 
     if isinstance(expected, list):
-        actual_list = actual  # type: ignore[assignment]
+        actual_list = cast("list[object]", actual)
         if len(actual_list) != len(expected):
             return [f"{path}: length mismatch (actual={len(actual_list)}, expected={len(expected)})"], []
         decision_msgs = []
@@ -643,7 +646,7 @@ def collect_diffs(
     return [f"{path}: expected={expected!r}, actual={actual!r}"], []
 
 
-def _format_batch_fields_block(pairs: list[tuple[str, object, object]]) -> str:
+def _format_batch_fields_block(pairs: Sequence[tuple[str, object, object]]) -> str:
     chunks = []
     for path, expected, actual in pairs:
         chunks.append(
@@ -653,7 +656,7 @@ def _format_batch_fields_block(pairs: list[tuple[str, object, object]]) -> str:
 
 
 def batch_grade_prose_fields(
-    pairs: list[tuple[str, object, object]],
+    pairs: Sequence[tuple[str, object, object]],
     grader_cli: str,
     timeout: int,
 ) -> dict[str, tuple[bool, str]]:
@@ -683,7 +686,7 @@ def batch_grade_prose_fields(
 
 
 def _batch_grade_once(
-    pairs: list[tuple[str, object, object]],
+    pairs: Sequence[tuple[str, object, object]],
     grader_cli: str,
     timeout: int,
     *,
@@ -911,7 +914,8 @@ def _evaluate_deterministic_assertion_raw(spec: dict, actual: object) -> tuple[b
         if not present:
             return False, f"field {field!r} not present in output"
         try:
-            length = len(value)  # type: ignore[arg-type]
+            # A value without a length raises TypeError, handled below.
+            length = len(cast(Sized, value))
         except TypeError:
             return None, f"field {field!r} value has no length"
         return (length <= limit), ("" if length <= limit else f"len={length} > max={limit}")

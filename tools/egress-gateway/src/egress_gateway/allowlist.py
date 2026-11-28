@@ -33,6 +33,7 @@ dot means "this suffix and all sub-hosts").
 from __future__ import annotations
 
 import os
+from typing import Any
 
 # Exact hostnames that do not fall under an allowed suffix.
 ALLOW_EXACT: frozenset[str] = frozenset(
@@ -128,7 +129,8 @@ from proxy.http.proxy import HttpProxyBasePlugin  # noqa: E402
 class EgressAllowlistPlugin(HttpProxyBasePlugin):
     """Reject any upstream host not on the allowlist (default-deny)."""
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    # Pass-through to proxy.py's plugin constructor, whatever it takes.
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._extra_exact, self._extra_suffixes = _parse_extra(os.environ.get(_ENV_EXTRA))
 

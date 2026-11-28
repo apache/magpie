@@ -308,7 +308,7 @@ def test_override_under_a_granted_directory_is_refused(tmp_path: Path, key: str)
     lay = Layout(tmp_path)
     shared = lay.base / "shared"
     (shared / "src" / "container_gateway").mkdir(parents=True)
-    grant = ({"sandbox": {"filesystem": {"allowWrite": [f"{shared}/**"]}}} if key == "allowWrite"
+    grant: dict[str, object] = ({"sandbox": {"filesystem": {"allowWrite": [f"{shared}/**"]}}} if key == "allowWrite"
              else {"permissions": {"additionalDirectories": [str(shared)]}})
     lay.settings(grant)
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)

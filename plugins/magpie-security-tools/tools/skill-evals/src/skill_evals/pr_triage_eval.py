@@ -38,7 +38,7 @@ import time
 import urllib.error
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 # Ensure typed_decision, privacy-llm/checker, and pr-triage prefilter are importable
 _cur = Path(__file__).resolve()
@@ -55,17 +55,20 @@ for _parent in [_cur, *_cur.parents]:
     if _td_src.is_dir() and _checker_src.is_dir() and _prefilter_src.is_dir():
         break
 
+if TYPE_CHECKING:
+    # Annotation only (`from __future__ import annotations`), so no runtime
+    # fallback is needed when typed-decision is absent.
+    from typed_decision.interface import DecisionProvider
+
 try:
-    import typed_decision  # type: ignore[import-untyped,import-not-found]
-    from typed_decision.exceptions import (  # type: ignore[import-untyped,import-not-found]
+    import typed_decision
+    from typed_decision.exceptions import (
         TypedDecisionUnavailable,
     )
-    from typed_decision.interface import DecisionProvider  # type: ignore[import-untyped,import-not-found]
 except ImportError:
-    typed_decision = None  # type: ignore[assignment]
-    DecisionProvider = object  # type: ignore[misc,assignment]
+    typed_decision = None
 
-    class TypedDecisionUnavailable(Exception):  # type: ignore[misc,no-redef]
+    class TypedDecisionUnavailable(Exception):
         pass
 
 
@@ -77,7 +80,7 @@ PROVIDER_CALL_ERRORS = (
     OSError,
 )
 
-from typed_decision_prefilter import (  # type: ignore[import-untyped,import-not-found]  # noqa: E402
+from typed_decision_prefilter import (  # noqa: E402
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_TRIAGE_BUCKETS,
     build_triage_prompt,
@@ -140,9 +143,9 @@ def evaluate_dataset(
 ) -> tuple[list[EvalSampleResult], EvaluationSummary]:
     """Run typed_decision evaluation against a list of sample PRs."""
     options = list(DEFAULT_TRIAGE_BUCKETS)
-    provider_name = getattr(provider, "name", type(provider).__name__)
-    if callable(provider_name):
-        provider_name = provider_name()
+    # `name` may be an attribute or a method, depending on the provider.
+    name = getattr(provider, "name", type(provider).__name__)
+    provider_name = str(name() if callable(name) else name)
 
     results: list[EvalSampleResult] = []
     latencies: list[float] = []

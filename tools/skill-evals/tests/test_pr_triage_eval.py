@@ -40,11 +40,11 @@ for _parent in [_cur, *_cur.parents]:
     if _src.is_dir() and _td_src.is_dir():
         break
 
-import typed_decision  # type: ignore[import-untyped,import-not-found]  # noqa: E402
-from typed_decision.exceptions import (  # type: ignore[import-untyped,import-not-found]  # noqa: E402
+import typed_decision  # noqa: E402
+from typed_decision.exceptions import (  # noqa: E402
     TypedDecisionUnavailable,
 )
-from typed_decision.interface import (  # type: ignore[import-untyped,import-not-found]  # noqa: E402
+from typed_decision.interface import (  # noqa: E402
     DecisionProvider,
 )
 

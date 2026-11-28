@@ -266,7 +266,9 @@ def take_focus(root):
     keyboard.
     """
     try:
-        objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
+        # `find_library` can come back empty; libobjc's fixed system path
+        # is the same library.
+        objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc") or "/usr/lib/libobjc.dylib")
         ctypes.cdll.LoadLibrary(
             "/System/Library/Frameworks/AppKit.framework/AppKit"
         )

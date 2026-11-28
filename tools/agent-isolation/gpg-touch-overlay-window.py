@@ -35,11 +35,11 @@ import os
 import signal
 import sys
 
-import cairo
-import gi
+import cairo  # ty: ignore[import-not-found]  # the system's PyGObject / pycairo, not a pip dependency
+import gi  # ty: ignore[import-not-found]  # the system's PyGObject / pycairo, not a pip dependency
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gdk, Gtk  # noqa: E402
+from gi.repository import GLib, Gdk, Gtk  # noqa: E402  # ty: ignore[import-not-found]  # the system's PyGObject / pycairo, not a pip dependency
 
 TITLE = "Touch your security key"
 SUBTITLE = "Your security key is waiting for a touch"

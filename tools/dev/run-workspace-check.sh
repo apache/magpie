@@ -121,19 +121,6 @@ if check not in SECTION_FOR_CHECK:
     sys.exit(2)
 section_key = SECTION_FOR_CHECK[check]
 
-# Members ty does not check yet: mypy never checked them either, and ty still
-# reports findings in each. Kept here rather than as a `skip` in the member's
-# own pyproject because `tools/agent-isolation` counts toward the secure-setup
-# fingerprint (`setup_preflight/isolated.py`): editing it would send every
-# user to re-run the setup update with nothing changed on their machine.
-# Remove an entry once its findings are fixed.
-NOT_TYPE_CHECKED_YET = frozenset(
-    {
-        "tools/agent-isolation",
-        "tools/egress-gateway",
-        "tools/skill-evals",
-    }
-)
 
 with open("pyproject.toml", "rb") as f:
     root = tomllib.load(f)
@@ -160,8 +147,6 @@ for member in members:
         continue
 
     if section_key is None:
-        if check == "ty" and member in NOT_TYPE_CHECKED_YET:
-            continue
         print(member)
         continue
 

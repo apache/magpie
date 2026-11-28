@@ -816,7 +816,7 @@ def test_is_structural_expected_mention_list():
 
 
 def test_is_structural_expected_non_dict():
-    assert is_structural_expected(["a", "b"]) is False  # type: ignore[arg-type]
+    assert is_structural_expected(["a", "b"]) is False  # ty: ignore[invalid-argument-type]  # deliberately not a dict
 
 
 def test_is_structural_expected_empty_dict():
