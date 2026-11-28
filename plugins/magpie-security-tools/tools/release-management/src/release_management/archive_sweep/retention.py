@@ -27,7 +27,8 @@ Inputs:
   optional ``"keep": N`` (default 1). A strict pattern is a dotted numeric
   prefix ending in ``.x`` (``2.x``, ``2.11.x``). Any other pattern is loose:
   pass ``"versions": [...]`` for it instead, or its candidates come back
-  ``unmapped`` for the model to place.
+  ``unmapped`` for the model to place. A version listed under the
+  ``"versions"`` of several trains is ``unmapped`` too.
 
 Rule: per train, the newest ``keep`` versions stay and every earlier version
 is past retention. ``keep`` below 1 would archive the latest release of a
@@ -114,7 +115,7 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
     members: dict[str, list[str]] = {}
     keeps: dict[str, int] = {}
     strict: list[tuple[str, list[int]]] = []
-    explicit: dict[str, str] = {}
+    explicit: dict[str, list[str]] = {}
     loose: list[str] = []
     for train in trains:
         label = train.get("label")
@@ -129,7 +130,9 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
         keeps[label] = keep
         if "versions" in train:
             for v in train["versions"]:
-                explicit[str(v).strip().rstrip("/")] = label
+                labels = explicit.setdefault(str(v).strip().rstrip("/"), [])
+                if label not in labels:
+                    labels.append(label)
             continue
         match = STRICT_PATTERN_RE.match(str(train.get("pattern", "")).strip())
         if match:
@@ -140,7 +143,17 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
     orphans, unmapped = [], []
     for version in found:
         if version in explicit:
-            members[explicit[version]].append(version)
+            labels = explicit[version]
+            if len(labels) == 1:
+                members[labels[0]].append(version)
+            else:
+                unmapped.append(
+                    {
+                        "version": version,
+                        "reason": f'listed under "versions" of several trains: {", ".join(labels)}; '
+                        'keep it in one train\'s "versions" only',
+                    }
+                )
             continue
         parts = release_parts(version)
         hits = [label for label, prefix in strict if parts[: len(prefix)] == prefix]

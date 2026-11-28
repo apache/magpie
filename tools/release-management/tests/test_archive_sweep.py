@@ -157,6 +157,43 @@ class TestSweep:
         assert out["past_retention"] == ["1.0.0"]
         assert out["orphans"] == ["2.0.0"]
 
+    @pytest.mark.parametrize(
+        ("trains", "reason"),
+        [
+            (
+                [
+                    {"label": "A", "versions": ["1.0.0", "1.1.0"]},
+                    {"label": "B", "versions": ["1.1.0"]},
+                ],
+                'listed under "versions" of several trains: A, B; keep it in one train\'s "versions" only',
+            ),
+            (
+                [
+                    {"label": "B", "versions": ["1.1.0"]},
+                    {"label": "A", "versions": ["1.0.0", "1.1.0"]},
+                ],
+                'listed under "versions" of several trains: B, A; keep it in one train\'s "versions" only',
+            ),
+        ],
+    )
+    def test_overlapping_explicit_versions_go_unmapped(
+        self, trains: list[dict[str, Any]], reason: str
+    ) -> None:
+        out = retention.sweep(["1.0.0", "1.1.0"], trains)
+        assert out["unmapped"] == [{"version": "1.1.0", "reason": reason}]
+        assert not out["mapping_complete"]
+        assert out["past_retention"] == []
+        assert "1.1.0" not in out["latest_of_each_line"].values()
+
+    def test_duplicate_explicit_version_in_one_train_is_not_overlapping(self) -> None:
+        out = retention.sweep(
+            ["1.0.0", "1.1.0"],
+            [{"label": "A", "versions": ["1.0.0", "1.1.0", "1.1.0"]}],
+        )
+        assert out["unmapped"] == []
+        assert out["latest_of_each_line"] == {"A": "1.1.0"}
+        assert out["past_retention"] == ["1.0.0"]
+
     def test_overlapping_patterns_go_unmapped(self) -> None:
         trains = [*TWO_X, {"label": "2.11", "pattern": "2.11.x"}]
         out = retention.sweep(["2.11.0"], trains)
