@@ -1,4 +1,9 @@
 {
   "skill_md": "skills/setup-upgrade/SKILL.md",
-  "step_heading": "## Plan"
+  "step_heading": "## Plan",
+  "also_include": [
+    "skills/setup-upgrade/gather-fallbacks.md",
+    "skills/setup-upgrade/isolated-setup.md",
+    "skills/setup-upgrade/script-copies.md"
+  ]
 }

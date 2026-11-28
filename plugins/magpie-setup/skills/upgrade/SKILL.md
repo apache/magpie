@@ -13,9 +13,9 @@ when_to_use: >-
   saying Magpie changed since the last upgrade; the session-start
   notice that Magpie was updated.
 capability: capability:platform
-surface_hash: sha256:dca13f574cb22384
+surface_hash: sha256:08204ea743fd0337
 license: Apache-2.0
-measured_tokens: 8498
+measured_tokens: 7469
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -180,10 +180,7 @@ The plan then carries the checker refresh that `setup config` Step 2a describes.
 
 **Where the personal layer is.**
 `layers.personal_dir` is the only place this run writes personal-layer configuration files; `reconciled.json` is written in `layers.stamp_dir` (this checkout's own layer, also in a linked worktree).
-If the call fails with `ModuleNotFoundError`, no checker copy exists yet: treat the repo as not configured (below), since `setup config` installs the checker.
-A location the plan still needs is then worked out without the plugin's copy, which Bash cannot read under the sandbox.
-In a framework checkout or on a pinned snapshot, run the in-tree package inside the sandbox (`plugins/magpie-setup/skills/setup/` or `.apache-magpie/tools/setup-preflight/src/` on `PYTHONPATH`).
-On a marketplace install, apply [`setup config` Step 2](../setup/config.md#step-2--keep-the-personal-layer-invisible-to-git)'s rule by hand: `.apache-magpie-local/` when `.apache-magpie.lock` is committed, otherwise `<git-common-dir>/apache-magpie/`.
+If the call fails with `ModuleNotFoundError`, read [`gather-fallbacks.md` → No checker copy](gather-fallbacks.md#no-checker-copy).
 In a linked worktree of an adopted project that resolves to the main checkout's `.apache-magpie-local/`: name that path in the plan, and never create a `.apache-magpie-local/` in the worktree.
 
 **The sandbox write scope.**
@@ -193,23 +190,13 @@ The directories where that works make up the gathered sandbox write scope.
 A write outside them carries `[bypass]`.
 
 **Stale script copy or local edits.**
-A user-scope script copy that differs from its framework source may be an older shipped version or may carry the user's own edits.
-Where the framework's full git history is readable inside the sandbox (a framework checkout for which `git rev-parse --is-shallow-repository` prints `false`), look up the copy's blob hash (`git hash-object`) in `git log --raw --no-abbrev --format= -- <source>`.
-A match means the copy is an older shipped version: it is stale.
-No match means local edits.
-With no history to look in, or only part of it (a marketplace or snapshot install, or a shallow clone), the two cannot be told apart: record the lines only the installed copy has, for the plan to show.
+When a user-scope script copy differs from its framework source, read [`script-copies.md`](script-copies.md) for Gather, Plan and Apply.
 
-**Magpie installed but not configured here.**
-No personal layer (or no checker copy to ask), no `.apache-magpie-overrides/`, no committed lock: the plan carries one *Add* item, run [`setup config`](../setup/config.md) (personal, gitignored, needs nobody's permission).
-It mentions `/magpie-setup:setup adopt` as information only, one line saying adoption commits files for every contributor and is the project's decision; this skill never runs it.
+**Magpie installed but not configured here** (no personal layer or no checker copy, no `.apache-magpie-overrides/`, no committed lock):
+read [`gather-fallbacks.md` → Magpie installed but not configured here](gather-fallbacks.md#magpie-installed-but-not-configured-here).
 
 **No isolated setup.**
-When `isolated.state` is `unknown` (`python3 -P -m setup_preflight.isolated configured` printed `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`), the state is *not known*: inside the sandbox the user-scope settings are read-denied.
-[Plan](#plan) holds the rule: a `[bypass]` *Check* item reads `~/.claude/settings.json` for `sandbox.enabled`, and the offer waits until that read confirms absence.
-The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.
-It proposes [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) after this run, as one question folded into the plan's approval message.
-On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the `reconciled.json` in `layers.stamp_dir` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
-The summary says how to undo it: remove that key, or run `setup-isolated-setup-install`.
+When `isolated.state` is `unknown`, read [`isolated-setup.md` → No isolated setup](isolated-setup.md#no-isolated-setup) before the plan.
 
 **Probes the sandbox blocks are not run here.**
 A `~/.claude-config` diff, a `~/.zshrc` grep, the overlay `_gui_available` probe, the `~/.claude.json` MCP projection: each becomes a `[bypass]` *Check* item, so the bypass is approved before it is used.
@@ -236,14 +223,7 @@ A helper call is always `~/.claude/scripts/sandbox-add-project-root.sh`, never `
 Content copied out of a sandbox-writable source (a framework script copy, a merged settings file prepared in the scratch directory) has its SHA-256 recorded now and shown in `details <n>`.
 A `[bypass]` target the sandbox cannot read (such as `~/.claude/settings.json`) is compared and written in the item's one bypassed call; `details <n>` also names its post-apply re-check, one bypassed read covered by the same approval.
 
-**Script copies.** Only a copy listed under *Plain content diffs* in [`script-inventory.md`](../isolated-setup-update/script-inventory.md) can be a plan item.
-Anything else goes under *Run these yourself* as a re-run of the [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) step that installs it:
-the `gpg-touch-wrap-*` symlinks and `shims/` are Step K, a `~/.claude/git-hooks/` flavour is Step P.3, the `container_gateway` package is Step L, the `skill_evals` package with `magpie-run-evals.sh` is Step M, and `agent-guard.py` with `guards.d` is the agent-guard wiring of Step P.
-A copy Gather found to be an older shipped version is stale: *Update*, or *Fix* when the framework copy carries a security fix.
-A copy with local edits goes under *Still open* with its diff path.
-A copy that could not be told apart (no history to compare, or only a shallow clone's) is an *Update* or *Fix* item whose line ends `(replaces N lines only this copy has)`.
-Its `details <n>` lists those lines, and its bypassed call saves the old copy to the scratch directory before writing.
-This deliberately relaxes `setup-isolated-setup-update`'s "never re-`cp`" for plain-content copies only, under the checksum rule.
+**Script copies** are classified as [`script-copies.md` → Plan: script copies](script-copies.md#plan-script-copies) describes.
 
 **Settings items** add only entries copied verbatim from the framework template (`tools/agent-isolation/claude-settings.local.template.json`) or reference config (the framework `.claude/settings.json`), or written by the helper that owns the write; never a value taken from gathered text.
 The one other entry allowed is `"<plugin>@apache-magpie": false` under `enabledPlugins`, for a family `local_families candidates` listed in `ask` that the user chose to hide, or listed in `apply`; and the one removal allowed is that same entry, for a family it listed in `restore`, from the file its `restore_files` names.
@@ -262,8 +242,7 @@ It names the bypass explicitly, so it covers the loud sandbox-bypass rule once, 
 A decline of the isolated-setup offer given in the same reply as the approval wins: every *Isolated setup* area item is dropped.
 On `no`, apply nothing, write no stamps, and show the summary with every item under *Still open*.
 
-The isolated-setup offer is made only when absence is confirmed: the user-scope settings, read outside the sandbox, enable no sandbox, and `reconciled.json` has no `"isolated_setup": {"enabled": false}` opt-out.
-A `configured: false` read inside the sandbox means *unknown*: the plan carries a `[bypass]` *Check* item that reads those settings with the harness's file-read tool or `/usr/bin/jq` (never the personal layer's `setup_preflight` outside the sandbox) and makes no offer yet; the offer may follow in the second plan once that *Check* confirms absence.
+The isolated-setup offer, and the *Check* item that comes before it while the state is unknown: [`isolated-setup.md` → The offer in the plan](isolated-setup.md#the-offer-in-the-plan).
 `local_families candidates` answering `user-settings-unreadable` inside the sandbox is *unknown* the same way: the plan carries a `[bypass]` *Check* item that reads the file at its `path` with the harness's file-read tool, and the keep-or-hide question follows in the second plan, from `candidates --user-settings -` given only `{"enabledPlugins": {…}}` on stdin, never a copy of the file; a file that does not exist means nothing to ask.
 A pending isolated-setup offer or keep-or-hide question counts as actionable: a run whose only finding is one of them is not *nothing to do*; the plan message shows it and asks.
 Nothing is actionable only when no group has an item, nothing is under *Still open* or *Run these yourself*, and no isolated-setup offer or keep-or-hide question is pending.
@@ -282,10 +261,7 @@ Work through the approved items in plan order:
    Content copied out of a sandbox-writable source (a framework script copy, a merged settings file in the scratch directory) is written by the one bypassed call that first re-verifies its SHA-256 against the value in the plan; check and write are one call.
    On a mismatch that call writes nothing: the item is skipped and listed under *Still open* as `changed`.
    Only a plain-content script copy is ever copied; every other script entry is already under *Run these yourself*.
-3. **Local edits are never a plain overwrite.**
-   A user-scope script copy with local edits is skipped with its diff written to the scratch directory; *Still open* names the diff path.
-   Gather should already have kept such a copy out of the plan; this is the last guard.
-   An item marked `(replaces N lines only this copy has)` saves the old copy to the scratch directory in the same bypassed call, before writing, and *Done* names that path.
+3. **Local edits are never a plain overwrite**: [`script-copies.md` → Apply](script-copies.md#apply-local-edits-are-never-a-plain-overwrite).
 4. **One Bash call per item**, with `dangerouslyDisableSandbox: true` only when the item carries `[bypass]` and the harness offers the flag.
    **Settings writes have exactly two targets**: each worktree's `.claude/settings.local.json` and the user-scope `~/.claude/settings.json`.
    The committed `.claude/settings.json` is never a target (hard line 2); its changes render as a diff under *Run these yourself*.

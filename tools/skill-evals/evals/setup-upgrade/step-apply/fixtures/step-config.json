@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-upgrade/SKILL.md",
-  "step_heading": "## Apply"
+  "step_heading": "## Apply",
+  "also_include": [
+    "skills/setup-upgrade/script-copies.md"
+  ]
 }
