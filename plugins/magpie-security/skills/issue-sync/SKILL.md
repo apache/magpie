@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:6bc028c94b89b1aa
 license: Apache-2.0
-measured_tokens: 7571
+measured_tokens: 7300
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -251,11 +251,7 @@ The skill needs:
   [`<project-config>/project.md → Mail sources`](../../../../<project-config>/project.md#mail-sources),
   together covering `read_thread` (the reporter thread) and, if drafts will be proposed, `create_draft`.
   The [resolution rule](../../../../tools/mail-source/contract.md#resolution-rule--which-backend-runs-an-operation)
-  of [`tools/mail-source/contract.md`](../../../../tools/mail-source/contract.md) picks a backend per operation. Reference adapters:
-  [`gmail`](../../../../tools/gmail/tool.md),
-  [`ponymail`](../../../../tools/ponymail/tool.md),
-  [`imap`](../../../../tools/mail-source/imap/README.md),
-  [`mbox`](../../../../tools/mail-source/mbox/README.md).
+  of [`tools/mail-source/contract.md`](../../../../tools/mail-source/contract.md) picks a backend per operation and lists the reference adapters.
 - **`gh` CLI authenticated** with collaborator access to
   `<tracker>` (read + issue-write) and `<upstream>`
   (read is enough — the sync only reads PR state on that repo).
@@ -336,14 +332,8 @@ check the CVE record for reviewer comments, locate the process step, check cve.o
 and, for ASF projects with release-vote gating, detect active release-vote threads.
 The recipe for 1a–1h — search queries, PonyMail fallback, signal rules, process-step table — is in [`gather.md`](gather.md).
 
-**GHSA-sourced trackers** — when the report arrived through GitHub's *"Report a vulnerability"* flow (a `GHSA-…` advisory on `<upstream>`) and the operator is an advisory collaborator,
-the sync reconciles the advisory **record** through the *repository security advisories* REST API
-(`ghsa-fields`: mirror `cve_id`/`severity`/`cwe_ids`/`vulnerabilities`/`credits` and propose the advisory's values for empty tracker fields; record the advisory link as a clickable tracker field),
-syncs comments both ways (`ghsa-mirror`: every advisory comment copied into the tracker; only tracker comments the team marks `To reporter:` posted to the advisory, each confirmed),
-reads the reporter's messages from the advisory discussion and posts the confirmed reply through the advisory comments API instead of the email relay,
-backfills older advisories on *"sync ghsa backfill"*,
-and hands admin-only operations (collaborator management, publish) to the admins.
-Access tiers, the Step 1 reconcile and discussion read, the Step 4 writes and the reply path: [`github-advisory.md`](github-advisory.md).
+**GHSA-sourced trackers**: when the report arrived through GitHub's *"Report a vulnerability"* flow (a `GHSA-…` advisory on `<upstream>`) and the operator is an advisory collaborator,
+or on *"sync ghsa backfill"*, follow [`github-advisory.md`](github-advisory.md): it reconciles the advisory record, mirrors its comments and replies through the advisory API.
 
 ## Step 2 — Build a proposal (do not apply anything yet)
 
@@ -472,10 +462,9 @@ Fix every hit and check again; it is the floor, not the whole review, so still r
   maps to an existing scope label until it gets its own) live with the
   release-train state in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
-- **Multi-scope reports must be split into one tracking issue per
-  scope.** Never apply two scope labels to one issue: a single issue with two is a process bug, flagged as a **blocker** with the split proposed as a concrete numbered item
-  (keep the original on the scope whose release ships first; one new issue per remaining scope with the report verbatim, its own scope label, labels and milestone; cross-links on each).
-  Do **not** silently drop a scope label without splitting. The procedure: [`outcomes/scope-split.md`](outcomes/scope-split.md).
+- **Multi-scope reports must be split into one tracking issue per scope.**
+  Never apply two scope labels to one issue, and never silently drop one: flag it as a **blocker** and propose the split as a numbered item,
+  per [`outcomes/scope-split.md`](outcomes/scope-split.md).
 
 ---
 
