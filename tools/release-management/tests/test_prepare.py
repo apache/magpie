@@ -227,6 +227,30 @@ PRS = [
     (48550, "Add rate limiting to the REST API", "kind/improvement"),
 ]
 
+NON_ISO_DATES = [
+    "2026-02-30",
+    "2026-13-01",
+    "2026-04-31",
+    "2025-02-29",
+    "2026-04-30T25:00:00Z",
+    "2026-04-30T12:61Z",
+    "2026-04-30T12:00:60Z",
+    "2026-04-30T12:00:00+99:00",
+    "2026-04-30T12:00:00+2400",
+    "20260430",
+    "2026-W18-4",
+]
+
+ISO_DATES = [
+    "2026-04-30",
+    "2024-02-29",
+    "2026-04-30T12:00",
+    "2026-04-30T12:00:00",
+    "2026-04-30T12:00:00Z",
+    "2026-04-30T12:00:00+05:30",
+    "2026-04-30T12:00:00-0800",
+]
+
 
 def gh_prs(rows: list[tuple[int, str, str]] = PRS) -> list[dict[str, Any]]:
     return [
@@ -326,6 +350,84 @@ def test_step_1_title_is_quoted_in_the_create_command() -> None:
     assert "**Previous release:** (none — first release)" in out["issue_body"]
 
 
+@pytest.mark.parametrize("opened_at", [*NON_ISO_DATES, "", "   ", "yesterday", "2026-06-01\n- [x] Step 2"])
+def test_step_1_render_refuses_non_iso_opened_at(opened_at: str) -> None:
+    with pytest.raises(plan.RenderError):
+        plan.render(
+            gh_prs(PRS[:1]),
+            version="2.11.0",
+            product_name="Apache Airflow",
+            previous_tag="2.10.3",
+            base="main",
+            opened_at=opened_at,
+        )
+
+
+def test_step_1_render_refuses_non_iso_opened_at_for_empty_pr_set() -> None:
+    with pytest.raises(plan.RenderError):
+        plan.render(
+            [],
+            version="2.11.0",
+            product_name="Apache Airflow",
+            previous_tag="2.10.3",
+            base="main",
+            opened_at="2026-02-30",
+        )
+
+
+@pytest.mark.parametrize("opened_at", ISO_DATES)
+def test_step_1_render_accepts_iso_opened_at(opened_at: str) -> None:
+    out = plan.render(
+        gh_prs(PRS[:1]),
+        version="2.11.0",
+        product_name="Apache Airflow",
+        previous_tag="2.10.3",
+        base="main",
+        opened_at=opened_at,
+    )
+    assert f"- Planning issue opened: {opened_at}" in out["issue_body"]
+
+
+def test_step_1_render_strips_opened_at() -> None:
+    out = plan.render(
+        gh_prs(PRS[:1]),
+        version="2.11.0",
+        product_name="Apache Airflow",
+        previous_tag="2.10.3",
+        base="main",
+        opened_at=" 2026-06-01T00:00:00Z ",
+    )
+    assert "- Planning issue opened: 2026-06-01T00:00:00Z" in out["issue_body"]
+
+
+@pytest.mark.parametrize("opened_at", [None])
+def test_step_1_render_defaults_opened_at_to_now(opened_at: str | None) -> None:
+    out = plan.render(
+        gh_prs(PRS[:1]),
+        version="2.11.0",
+        product_name="Apache Airflow",
+        previous_tag="2.10.3",
+        base="main",
+        opened_at=opened_at,
+    )
+    assert re.search(
+        r"^- Planning issue opened: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", out["issue_body"], re.M
+    )
+
+
+def test_step_1_custom_template_uses_validated_opened_at() -> None:
+    out = plan.render(
+        gh_prs(PRS[:1]),
+        version="2.11.0",
+        product_name="Apache Airflow",
+        previous_tag="2.10.3",
+        base="main",
+        template="Opened: <ISO-8601>\n",
+        opened_at="2026-06-01T00:00:00Z",
+    )
+    assert out["issue_body"] == "Opened: 2026-06-01T00:00:00Z\n"
+
+
 def test_step_1_query_dates_the_previous_tag() -> None:
     first = plan.query(upstream="apache/airflow", base="main", previous_tag="2.10.3")
     assert first["date_command"] == "gh api repos/apache/airflow/commits/2.10.3 --jq .commit.committer.date"
@@ -341,19 +443,7 @@ def test_step_1_query_dates_the_previous_tag() -> None:
 
 @pytest.mark.parametrize(
     "tag_date",
-    [
-        "2026-02-30",
-        "2026-13-01",
-        "2026-04-31",
-        "2025-02-29",
-        "2026-04-30T25:00:00Z",
-        "2026-04-30T12:61Z",
-        "2026-04-30T12:00:60Z",
-        "2026-04-30T12:00:00+99:00",
-        "2026-04-30T12:00:00+2400",
-        "20260430",
-        "2026-W18-4",
-    ],
+    NON_ISO_DATES,
 )
 def test_step_1_query_refuses_non_iso_dates(tag_date: str) -> None:
     with pytest.raises(plan.RenderError):
@@ -362,15 +452,7 @@ def test_step_1_query_refuses_non_iso_dates(tag_date: str) -> None:
 
 @pytest.mark.parametrize(
     "tag_date",
-    [
-        "2026-04-30",
-        "2024-02-29",
-        "2026-04-30T12:00",
-        "2026-04-30T12:00:00",
-        "2026-04-30T12:00:00Z",
-        "2026-04-30T12:00:00+05:30",
-        "2026-04-30T12:00:00-0800",
-    ],
+    ISO_DATES,
 )
 def test_step_1_query_accepts_iso_dates(tag_date: str) -> None:
     out = plan.query(upstream="apache/airflow", base="main", previous_tag="2.10.3", tag_date=tag_date)
@@ -1188,6 +1270,8 @@ def test_cli_round_trip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         == 0
     )
     assert json.loads(capsys.readouterr().out)["pr_set_size"] == 12
+    assert main([*args, "--base", "main", "--opened-at", "2026-02-30"]) == 2
+    assert json.loads(capsys.readouterr().out)["ok"] is False
     assert main(["prepare", "plan-query", "--upstream", "a/b", "--base", "main", "--tag-date", "nope"]) == 2
     assert json.loads(capsys.readouterr().out)["ok"] is False
     tags = tmp_path / "tags.txt"

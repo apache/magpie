@@ -80,6 +80,16 @@ class RenderError(ValueError):
     """The draft cannot be rendered from these inputs; the skill surfaces this and stops."""
 
 
+def _check_iso(flag: str, value: str) -> None:
+    stripped = value.strip()
+    if not ISO_DATE.match(stripped):
+        raise RenderError(f"--{flag} {value!r} is not an ISO-8601 date or time")
+    try:
+        datetime.fromisoformat(stripped)
+    except ValueError:
+        raise RenderError(f"--{flag} {value!r} is not an ISO-8601 date or time") from None
+
+
 # --------------------------------------------------------------------------- Step 0
 
 
@@ -183,12 +193,7 @@ def query(
 ) -> dict[str, Any]:
     """1a: the read that dates the previous tag, then the merged-PR query with that date."""
     if tag_date is not None:
-        if not ISO_DATE.match(tag_date.strip()):
-            raise RenderError(f"--tag-date {tag_date!r} is not an ISO-8601 date or time")
-        try:
-            datetime.fromisoformat(tag_date.strip())
-        except ValueError:
-            raise RenderError(f"--tag-date {tag_date!r} is not an ISO-8601 date or time") from None
+        _check_iso("tag-date", tag_date)
     date = tag_date.strip() if tag_date else "<previous-tag-date>"
     date_command = (
         f"gh api repos/{w(upstream)}/commits/{w(previous_tag)} --jq .commit.committer.date"
@@ -308,6 +313,11 @@ def render(
 ) -> dict[str, Any]:
     """1a hand-off or 1b draft: the empty-set hand-off, else the issue title, body and `gh issue create` line."""
     tag = previous_tag or "<previous-tag>"
+    if opened_at is not None:
+        _check_iso("opened-at", opened_at)
+        opened = opened_at.strip()
+    else:
+        opened = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     if not prs and skip_empty_check is None:
         return {
             "empty_pr_set": True,
@@ -315,7 +325,6 @@ def render(
             "handoff_reason": EMPTY_HANDOFF.format(tag=tag),
             "read": ["classifications/empty-pr-set.md"],
         }
-    opened = opened_at or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     fields = {
         "product": product_name,
         "rm": rm or "<from release-trains.md or user.md>",
