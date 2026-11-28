@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8608
+measured_tokens: 8470
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -354,16 +354,14 @@ The table below says where each value comes from in the inbound report.
 | Template field | Source |
 |---|---|
 | **The issue description** | The root email body, **verbatim** (preserve paragraphs, PoC code blocks, and any quoted sections). The body is private — the triager will copy it into a public CVE description only after Step 13. |
-| **Short public summary for publish** | Leave `_No response_`. Filled by the release manager at Step 13 in sanitised form. |
 | **Affected versions** | Extract the version(s) / range the reporter states and record them in a shape `generate-cve-json` accepts: a bare `<version>`, `< Y`, `<= Y`, `>= X` or `>= X, < Y` — e.g. `>= 2.6.0, < 2.10.2`. When the reporter names several versions they tested (e.g. 2.9.0 and 2.9.3), record everything up to the highest one, `<= 2.9.3`: the range defaults to all versions affected until there is evidence an earlier one is not, and a comma-separated list is refused by the generator. **Do not prefix the product name** (the tracker is already project-scoped, so `<product> 2.9.0` is redundant — record `2.9.0`). If the reporter gave only a single version they tested on (e.g. `3.1.5`), record that verbatim; the triager can widen the range later. Leave `_No response_` if no version is mentioned. |
 | **Security mailing list thread** | The private thread handle, the PonyMail archive URL once the user pastes it back, and ``Root Message-ID: `<id>` `` (backtick-wrapped) — [how](outcomes/mailing-thread.md). **Internal-only**: `generate-cve-json` never exports it. |
-| **Public advisory URL** | `_No response_`. Populated at Step 14 by `security-issue-sync` once the advisory is archived. |
 | **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. **For a forwarder-relayed candidate** the extracted credit is a proposal only: Step 5 shows it, and the field stays `_No response_` unless the user confirms it with `NN:reporter <text>`. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
-| **PR with the fix** | `_No response_`. |
-| **Remediation developer** | `_No response_`. `security-issue-sync` fills it from the fix PR's author, under the same [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md). |
-| **CWE** | `_No response_`. The security team scores CWE independently; a reporter-supplied CWE is informational only (per the *"Reporter-supplied CVSS scores are informational only"* rule in [`AGENTS.md`](../../../../AGENTS.md)). Do **not** copy a CWE from the reporter's body into this field. |
-| **Severity** | `Unknown`. Same reason as CWE — the team scores independently. Surface a reporter-supplied CVSS / severity label in the proposal's observed-state for context, but do not use it as the field value. |
-| **CVE tool link** | `_No response_`. Filled at Step 6 once the CVE is allocated. |
+
+Leave every other template field out of `fields`: `render-body` renders it as `_No response_`, and `Severity` as `Unknown`.
+Later steps fill them: the release manager the public summary, `security-issue-sync` the advisory URL, the fix PR and the remediation developer, CVE allocation the CVE tool link.
+**Never copy a reporter-supplied CWE, CVSS score or severity label** into `CWE` or `Severity`: the team scores independently;
+show it in the proposal's observed state for context only (the *"Reporter-supplied CVSS scores are informational only"* rule in [`AGENTS.md`](../../../../AGENTS.md)).
 
 **Issue title**: the reporter's subject if descriptive, else a paraphrase as *"<Component>: <short vulnerability description>"* led by the component (`Webserver: …`, `Auth: …`).
 `<sm> title` strips the `Re:` / `Fwd:` / `[SECURITY]` prefixes; **do not prefix the product name** (`Webserver: session cookie missing Secure flag`, the tracker is project-scoped).
