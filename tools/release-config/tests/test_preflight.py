@@ -631,6 +631,28 @@ def test_verify_rc_malformed_url(project, preflight):
 # --------------------------------------------------------------------------- archive-sweep
 
 
+TRAINS_WITH_DASHES = """\
+# Apache Foo - release trains
+
+## Release branches currently in flight
+
+- **`main`** - the next minor release (3.1.0).
+- **`v3-0-test`** - patch branch for `3.0.x` - security fixes only,
+  wrapped onto a second line.
+* **`v2-9-test`** - 2 * 3 hot fixes left.
+"""
+
+
+def test_a_dash_inside_a_release_trains_bullet_stays_in_it(project, preflight):
+    result = preflight(project(trains=TRAINS_WITH_DASHES), "archive-sweep")
+    assert result["ok"], result
+    assert result["values"]["release_lines"] == [
+        "**`main`** - the next minor release (3.1.0).",
+        "**`v3-0-test`** - patch branch for `3.0.x` - security fixes only, wrapped onto a second line.",
+        "**`v2-9-test`** - 2 * 3 hot fixes left.",
+    ]
+
+
 def test_archive_sweep_passes(project, preflight):
     result = preflight(project(), "archive-sweep")
     assert result["ok"], result
