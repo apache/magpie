@@ -36,62 +36,8 @@ Group them by category:
   the release-train default used when no PR milestone is available is in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
 
-  **If the milestone does not yet exist**, the proposal says so and includes the exact `gh api` command to create it.
-  Before constructing the create call, **run the upstream-date lookup** per
-  [`<project-config>/milestones.md` § *Read the due date from upstream*](../../../../<project-config>/milestones.md#read-the-due-date-from-upstream):
-  query `<upstream>` for the matching milestone (by scope label mapping) and, if found, reuse its `due_on` verbatim.
-  Never guess a date.
-  For a provider-wave milestone the description names the release manager, so the advisory owner is visible at a glance:
-
-  **Use the Write tool** (not Bash) to write each field value verbatim
-  to a temp file, then pass via `-F`.
-  `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
-
-  *Write tool call:* `file_path: <scratch>/ms-title-<tracker>.txt`,
-  `content: <Milestone>`
-
-  *Write tool call:* `file_path: <scratch>/ms-desc-<tracker>.txt`,
-  `content: <optional>`
-
-  ```bash
-  # Core or chart (due_on mirrored from upstream when available):
-  gh api repos/<tracker>/milestones \
-    -F title=@<scratch>/ms-title-<tracker>.txt \
-    -f state=open \
-    -F description=@<scratch>/ms-desc-<tracker>.txt \
-    -f due_on='<ISO8601 from upstream, omit if upstream has none>'
-  ```
-
-  For provider waves, update the Write tool calls with:
-
-  *Write tool call:* `file_path: <scratch>/ms-title-<tracker>.txt`,
-  `content: Providers YYYY-MM-DD`
-
-  *Write tool call:* `file_path: <scratch>/ms-desc-<tracker>.txt`,
-  `content: Providers release cut on YYYY-MM-DD, RM: <Name>`
-
-  ```bash
-  # Provider wave (cut date + RM from the Release Plan wiki /
-  # dev@ [VOTE] thread; upstream does not milestone providers
-  # waves so due_on typically comes from the wiki):
-  gh api repos/<tracker>/milestones \
-    -F title=@<scratch>/ms-title-<tracker>.txt \
-    -f state=open \
-    -F description=@<scratch>/ms-desc-<tracker>.txt
-  ```
-
-  After the create call, assign the milestone via `gh issue edit <N> --milestone 'Providers YYYY-MM-DD'`
-  (or by milestone number via the REST API if the milestone is closed).
-
-  **Closing the milestone on the last close.** When a sync pass closes a tracker (the Step 15 terminal transition — cve.org reports PUBLISHED),
-  check whether it was the last open issue on its milestone; if so, **propose closing the milestone itself** in the same run,
-  as its own numbered item alongside the per-tracker close.
-  Condition set and PATCH recipe: [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
-  Concretely: after the per-tracker close lands, run
-  `gh api 'repos/<tracker>/issues?milestone=<N>&state=open&per_page=1' --jq 'length'`
-  — if it returns `0` and the milestone is still `open`, PATCH `state=closed` on `repos/<tracker>/milestones/<N>`.
-  Do not auto-close an empty milestone whose trackers were closed for other reasons than Step 15 (e.g. `duplicate` / `invalid`):
-  the closure applies only when every tracker landed through the terminal advisory flow.
+  **If the milestone does not yet exist**, or **when a sync pass closes a tracker** (the Step 15 terminal transition — cve.org reports PUBLISHED),
+  read [`milestone-create-close.md`](milestone-create-close.md) before proposing the create or close item.
 
 - **Assignees** — when a fix PR exists in `<upstream>` (found in Step 1b or named in the *"PR with the fix"* body field)
   **and the PR author is a member of the project security team**, **propose setting the tracking issue's assignee to that PR author**,
@@ -123,39 +69,8 @@ Group them by category:
   Also propose clearing a stale assignment if the person is no longer active on the issue,
   and propose self-assigning a team member only if the user explicitly asks.
 
-  **Assignee hand-off at the `fix released` transition (and its repair).** At the `fix released` transition (Step 12 — the fix has shipped to PyPI / the Helm registry),
-  ownership moves from the remediation developer to the release manager for Steps 13–15 (advisory send → URL capture → CVE record public → close).
-  **Propose swapping the assignee from the remediation developer to the release manager** in the same sync run that flips `pr merged` → `fix released`,
-  as a concrete numbered item.
-  Look up the release manager with the three-source cascade from Step 2c
-  ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker),
-  then the project's Release Plan wiki (`<project-wiki>`),
-  then the `[RESULT][VOTE] Release <product> <version>` thread on `<dev-list>`).
-  If the release manager is not yet a collaborator on `<tracker>`, surface that as a blocker and ask whether to invite them before assigning
-  — GitHub silently ignores assignee writes for non-collaborators.
-
-  The swap fires at the `fix released` transition **and on the repair path below** (a tracker already at `fix released` whose swap never landed).
-  Earlier transitions (`pr created`, `pr merged`) keep the remediation developer;
-  later ones (`announced - emails sent`, `announced`, `vendor-advisory`) keep the release manager.
-  Do **not** shuffle assignees back and forth — the swap fires once, at (or in repair of) the `fix released` hand-off.
-
-  **Hand-off presence is an invariant — repair trackers already at
-  `fix released`.** A tracker can reach `fix released` *without* a hand-off ever having been posted —
-  a prior run's POST failed, the label was applied by hand, or the CVE record reached review-ready (Vulnogram `REVIEW`) on a later run than the label flip.
-  No transition fires on those later syncs, so without a check the advisory stays with **no named owner**.
-
-  So check the hand-off on **every sync**, not only as a transition side-effect.
-  On every sync of a tracker at `fix released` whose CVE record is review-ready (Vulnogram `REVIEW`),
-  grep the tracker's comments for the marker `<!-- apache-magpie: release-manager-handoff v1 -->` (the same grep Step 5c runs).
-  If the marker is **absent**, generate the hand-off proposal item — POST the hand-off comment and propose the assignee swap — exactly as at the transition,
-  whether or not this run performed the flip.
-  If present, skip (Step 5c's PATCH path handles content drift).
-  Resolve the release manager **authoritatively — never guess a "plausible" name**:
-  for a release train that ships many packages in one wave (e.g. a providers / plugins wave),
-  the owning RM is the sender of *that specific wave's* `[RESULT][VOTE]` / release `[ANNOUNCE]`,
-  frequently a different person from the core-release RM for the same period;
-  resolve it per the release-trains data, and record the wave + RM there if missing, before posting.
-  A generic *"Action (RM): send the advisory …"* status line is **never** an acceptable substitute for the hand-off comment.
+  The assignee hand-off from the remediation developer to the release manager at the `fix released` transition,
+  and its repair on a tracker already at `fix released`, is in [`release-manager-comments.md`](release-manager-comments.md), read per the release-manager comments item below.
 - **Issue title hygiene** — the issue title ships verbatim into the CVE record's `containers.cna.title` (read by `generate-cve-json` on every regen),
   and from there into the published advisory and `cve.org`.
   **On every sync pass**, run the title-strip cascade
@@ -303,46 +218,8 @@ Group them by category:
   Empty until Step 13 — the release manager fills it in **after** the advisory email has been sent and archived.
   Every sync run must:
 
-  1. If `announced - emails sent` is set and the field is still empty, **scan the public advisory archive for the CVE ID**, using the archive the project declares in [`<project-config>/project.md`](../../../../<project-config>/project.md#archive-system) (`archive_system`):
-
-     - **PonyMail, the ASF default (`archive_system.kind: ponymail`).** If Step 0
-       recorded `ponymail_authenticated: true`, call:
-
-       ```text
-       mcp__ponymail__search_list(
-         list: "users",
-         domain: "<project>.apache.org",
-         query: "<CVE-ID>",
-         timespan: "lte=30d"
-       )
-       ```
-
-       `users@` is public, so no LDAP allowlist check is needed.
-       Call shape: [`tools/ponymail/operations.md` — Find the advisory archive thread](../../../../tools/ponymail/operations.md#find-the-advisory-archive-thread-on-usersprojectapacheorg).
-       When PonyMail MCP is disabled, unauthenticated, or errors, use the anonymous-HTTPS HTTP API + `list.html` pattern in
-       [`tools/gmail/ponymail-archive.md`](../../../../tools/gmail/ponymail-archive.md#use-case--security-issue-sync);
-       it works for every triager regardless of LDAP status.
-
-     - **Any other archive (`archive_system.kind` not `ponymail`).** Query the project's `search_url_template` with the CVE ID, open the hit's thread, and take its id. When the archive declares no `search_url_template`, or no hit resolves, ask the release manager for the archived advisory URL instead of guessing.
-
-     A single hit is the advisory thread. Build the public advisory URL with the manifest's `advisory_thread_url_template` (or the legacy `ponymail_thread_url_template` when the project declares only that key).
-     When neither key is declared, use the thread permalink the archive returned, or ask the release manager; never construct one.
-
-     **A search hit is a candidate, not the advisory.** The search matches any public post that mentions the CVE ID
-     (a user question, a reply, a forward), and capturing this URL is what moves the CVE record to `public`.
-     For each hit, fetch the thread (`mcp__ponymail__get_thread`, the HTTP API, or the archive's own thread page) for its list, root subject and root sender,
-     write `{cve_id, url, thread: {list, subject, from}, advisory_list: <users-list>, mail_archive_url, authorized_senders}` to a file and run
-     `security-management issue-sync advisory-archive --input <file>`;
-     `authorized_senders` is every release-manager and security-team address from [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
-     Only an `accepted: true` candidate may be proposed: the thread is on `<users-list>`, its root subject is the advisory's own `<CVE-ID>: <description>`
-     (the subject the CVE tool sends; never a `Re:` / `Fwd:`), its root message is from an authorized sender, and the URL is under `<mail-archive-url>`.
-     A rejected hit is listed with its `reasons` in the observed state and proposes nothing.
-     Show the accepted URL **with its list, subject and sender** to the user as its own numbered item,
-     and say that the sender comes from the archived `From:` header and is not cryptographically verified,
-     so the user should recognise the announcement itself before confirming;
-     record it — and run the close-out that follows from it — only once the user explicitly confirms that URL.
-     On that confirmation, populate the field with the thread URL (per `advisory_thread_url_template`, or the legacy `ponymail_thread_url_template`),
-     regenerate the CVE JSON attachment, and add the `announced` label.
+  1. If `announced - emails sent` is set and the field is still empty, **scan the public advisory archive for the CVE ID**:
+     read [`advisory-url-capture.md`](advisory-url-capture.md) and follow it before proposing anything for this field.
   2. If the field is already populated, treat it as authoritative — no scan.
      Regenerate the CVE JSON attachment so the URL flows into `references[]` as `vendor-advisory`.
   3. The sync's responsibility ends when the label is `announced`.
@@ -374,65 +251,9 @@ Group them by category:
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column),
   invoked from the Step 4 apply list.
 
-- **Status update to the reporter** — **whenever the issue's status has changed since our last message to the reporter, propose a Gmail draft that brings the reporter up to date.**
-  The transitions that warrant one are listed in
-  [`docs/security/roles.md` — Keeping the reporter informed](../../../../docs/security/roles.md#keeping-the-reporter-informed),
-  including the post-close *"CVE is live on cve.org"* transition surfaced by
-  [Step 1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state).
-
-  **Pick the matching canned-response template** rather than free-drafting.
-  [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
-  carries one template per lifecycle transition — *"CVE allocated"*,
-  *"Fix PR opened"*, *"Fix PR merged"*, *"Release shipped"*,
-  *"Advisory sent"*, *"CVE published on cve.org"*, *"Credit
-  correction"*.
-  Substitute the SCREAMING_SNAKE_CASE placeholders (`CVE_ID`, `PR_URL`, `VERSION`, `ADVISORY_URL`, `RELEASE_URL`)
-  with values from the tracker body and the Step 1b / Step 1g signals.
-  Draft from scratch only if the transition is not in the canned set,
-  and then offer to add the new wording to the canned-responses file as a follow-up.
-
-  Each status update follows the three-paragraph shape in
-  [*Brevity: emails state facts, not context*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context):
-  (a) one sentence on what changed, (b) one sentence on what comes next and roughly when, (c) the artifact URLs on their own line(s).
-  Nothing else: no re-introduction, no recap, no process explanation, no speculation about severity or schedule.
-
-  Always reply on the **original** Gmail thread (identified in Step 1c), not the GitHub-notifications mirror thread.
-
-  **Use full, clickable URLs for every reference in the email body.**
-  Shorthand like ``<upstream>#65346`` or ``<tracker>#261`` does **not** render as a link in mail. Concretely:
-
-  - Tracking issue (allowed on the private mail thread): the **full** URL ``https://github.com/<tracker>/issues/<N>``, never ``#<N>`` or ``<tracker>#<N>``.
-  - Fix PRs on ``<upstream>``: the **full** URL ``https://github.com/<upstream>/pull/<N>``, never ``<upstream>#<N>``.
-  - Any other GitHub reference (public issues, commits, security advisories): the full URL.
-    Markdown-link syntax (``[text](url)``) does **not** render in plain-text email — use the bare URL.
-  - CVE IDs appear as **plain ``CVE-YYYY-NNNN`` inline text only**.
-    **Never** include the CVE-tool URL (``<cve-tool-url>/cve5/CVE-YYYY-NNNN``) in a reporter email.
-    Once the CVE is **published** on ``cve.org`` (advisory sent, ``announced`` label set),
-    the ``cve.org`` URL (``https://www.cve.org/CVERecord?id=CVE-YYYY-NNNN``) is an acceptable alternative,
-    but plain text stays the default. Full rule and pre-draft self-check:
-    [*Reporter emails: CVE ID only, never the ASF CVE-tool URL*](../../../../docs/editorial-guidelines.md#reporter-emails-cve-id-only-never-the-asf-cve-tool-url).
-  - Advisory archive URLs (``<mail-archive-url>/thread/...``) are already full URLs; paste them as-is.
-
-  This applies to the **email** path only; comments on the ``<tracker>`` issue use the
-  markdown-linked ``[#<N>](url)`` / ``[<upstream>#<N>](url)`` form per Golden rule 2.
-
-  **Confidentiality:** the tracking-issue URL is a public-safe identifier and *may* go in the reporter email;
-  the tracker's content and, before the advisory ships, the security framing may not, per
-  [Confidentiality of `<tracker>`](../../../../AGENTS.md#confidentiality-of-the-tracker-repository).
-  For a reporter who cannot access the tracker, pair the URL with a one-line identifier-only note
-  (see [`docs/confidentiality.md`](../../../../docs/confidentiality.md#sharing-a-tracker-url-with-someone-who-cannot-access-it)).
-
-  **Do not re-ask questions that have already been asked.** Before drafting, scan the thread end-to-end for open questions we already put to the reporter —
-  most importantly the credit-preference question, but also technical follow-ups.
-  If one is still pending an answer, **omit it from the new draft**.
-  Restate the credit question only if (a) it has never been asked on the thread,
-  or (b) more than ~7 days have passed since it was last asked **and** publication is imminent.
-  When in doubt, ask the user before re-pinging the reporter.
-
-  Concrete check: in our previous messages on the thread, look for *"credited"*, *"credit"*, *"how would
-  you like to be"*, *"name (and, if applicable, affiliation"*, or *"prefer to
-  remain anonymous"*.
-  If any is present and the reporter has not replied, the credit question is **already pending** — do not re-ask.
+- **Draft email to the reporter** — **whenever the issue's status has changed since our last message to the reporter**,
+  or the ball is in our court on the thread for another reason (a reporter question, a triage follow-up, a negative assessment),
+  propose a Gmail draft (never a sent message): read [`reporter-drafts.md`](reporter-drafts.md) before drafting it.
 
 - **Status update on the GitHub issue (`<tracker>`)** — **every status change is also recorded on the issue itself**, not only sent by email
   (rationale: [`docs/security/roles.md` — Recording status transitions on the tracker](../../../../docs/security/roles.md#recording-status-transitions-on-the-tracker)).
@@ -543,49 +364,13 @@ Group them by category:
   Re-read [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
   before posting, and do not indent entries for "readability".
 
-- **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged`, on any open tracker labelled `pr merged` or `fix released`, even when a gate blocks the next label, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
+- **Remediation-developer fill-fields, release-manager hand-off and publication-ready comments, the `fix released` assignee hand-off, and the fix-PR backport check** — read [`release-manager-comments.md`](release-manager-comments.md) before proposing anything when this pass proposes `pr created` → `pr merged`, on any open tracker labelled `pr merged` or `fix released`, even when a gate blocks the next label, when it proposes populating the *Public advisory URL* body field, or when the tracker already carries a `remediation-developer-fill-fields`, `release-manager-handoff` or `release-manager-publication-ready` marker comment.
 
 - **Advisory-records update and security-pages reminder comment** — on a closed-`announced` tracker from the Step 1g scan, and when this pass proposes the *Advisory archived on `<users-list>`* combined apply for a project that configures `advisory_records`, read [`post-advisory-records.md`](post-advisory-records.md) before proposing anything.
 
-- **Overdue-for-disclosure escalation** — when `overdue_for_disclosure: true` (Step 1a), the tracker has passed its CVD window without the advisory being sent.
-  Propose appending a rollup entry that:
-
-  1. Notes the elapsed time and the configured `window_days` ceiling (e.g.
-     *"Tracker is {issue_age_days} days old; the project's CVD window is
-     {window_days} days — disclosure is overdue."*).
-  2. Recommends one of:
-     - Notifying the reporter of an extended timeline on the mail thread
-       (propose a Gmail draft if the acknowledgement model is `manual`); or
-     - Proceeding to disclosure with a partial or advisory-only fix if a
-       coordinated full fix cannot ship in the near term.
-  3. Does **not** override or silence any other proposal — the overdue flag
-     is additive context, not a shortcut past the normal lifecycle steps.
-
-  When `grace_period_expired: true` (fix shipped but the grace period has also lapsed),
-  promote the entry to a **separate first-class comment** (not a `<details>` entry), visible to the release manager and the team without expanding the rollup.
-  Use the RM hand-off comment's idempotency check — scan for the marker
-  ```html
-  <!-- apache-magpie: disclosure-overdue v1 -->
-  ```
-  before proposing; if it already exists, update it in-place via PATCH rather than posting a duplicate.
-
-- **Distributor pre-announcement draft** — when `distributor_notify_pending: true` (Step 1a), the project keeps an embargo distributor list and the fix is about to ship.
-  Propose a Gmail draft pre-announcement to the distributor list declared in `<project-config>/distributor-list.md`
-  (if that file is absent, surface a one-line note that the adopter should create it and document the list URL there before this proposal can be executed).
-  The draft:
-
-  - Names the CVE ID and the affected product/versions from the tracker body.
-  - States the expected public disclosure date as
-    `createdAt + window_days + grace_period_days` (or earlier if the team
-    decides to disclose sooner) — do not commit to a specific calendar date
-    unless the advisory send date has already been confirmed by the team.
-  - Omits any detail beyond what is in the advisory's *Short public summary
-    for publish* body field — the pre-announcement is not the advisory itself.
-  - Is marked **DRAFT, NEVER SEND** until the team confirms the wording, the
-    recipient list, and the timing.
-
-  Trigger condition: `distributor_notify_pending: true` AND the `announced` label is absent
-  AND no pre-announcement draft already exists in Gmail for this tracker's thread (check via the Step 1e Gmail draft-scan before proposing a new draft).
+- **Overdue-for-disclosure escalation and distributor pre-announcement draft** — when Step 1a reports
+  `overdue_for_disclosure: true`, `grace_period_expired: true` or `distributor_notify_pending: true`,
+  read [`disclosure-escalation.md`](disclosure-escalation.md) before proposing anything for them.
 
 - **Reporter unresponsiveness (proceed-without-sign-off proposal)** —
   when Step 1c's staleness check
@@ -621,81 +406,3 @@ Group them by category:
   **In bulk mode the nudges can collapse:** when at least `nudge_summary_threshold` trackers (default 5) would get one,
   no tracker gets a nudge and the run proposes one state-summary email to `<security-list>` instead,
   per [`bulk-mode.md` step 4b](bulk-mode.md#orchestrator-responsibilities).
-
-- **Draft email to reporter (other reasons)** — whenever the ball is in our court on the thread for another reason
-  (a reporter question, a triage follow-up, a negative assessment), propose a **Gmail draft** reply (not a sent message).
-  State the draft's intent in one line, and reuse a canned response from
-  [`canned-responses.md`](../../../../<project-config>/canned-responses.md) verbatim where one applies.
-  Show the exact subject, recipients, In-Reply-To, and body in the proposal.
-
-  **Brevity** applies: fresh wording carries only the facts the reporter needs (the question answered, the decision communicated) plus one artifact link,
-  per [*Brevity: emails state facts, not context*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context).
-
-  **Route through the forwarder-relay adapter when one is registered.**
-  If the parent tracker carries a forwarder-adapter marker (set by the optional
-  [`security-issue-import-via-forwarder`](../issue-import-via-forwarder/SKILL.md)
-  sub-skill when `forwarders.enabled` is non-empty in
-  [`<project-config>/project.md`](../../../../<project-config>/project.md)
-  and the inbound message matched a registered adapter),
-  route any drafted reply through that adapter's `contact_handle` and use its `reporter_addressing_block` convention.
-  Contract, including the per-event do-relay / suppress matrix that decides whether a draft is proposed at all
-  (e.g. CVE-allocated and advisory-sent events relay; routine credit-form questions and reviewer-comment relays are suppressed):
-  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md).
-  When no adapter is registered (`forwarders.enabled` is empty, or the tracker has no forwarder-adapter marker),
-  proceed in direct-reporter mode — the draft targets the reporter on the inbound thread.
-  In either of those cases do not load or invoke the sub-skill at all:
-  with `forwarders.enabled` empty its Step 0 returns no match, and the marker is the recorded result of the import-time `detect()`, so a tracker without it has no adapter to route through.
-  The sub-skill's Step 1 stays the authoritative detection for the trackers that do carry the marker.
-
-  **Never send.** Always create a draft, preferably attached to the inbound mail thread
-  (the preferred `oauth_curl` backend uses `--thread-id` directly and preserves URLs verbatim;
-  the `maildir` backend replies by `In-Reply-To` / `References` on the inbound `Message-ID`, per
-  [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend);
-  the discouraged `claude_ai_mcp` backend resolves the latest message ID from the inbound `threadId` and passes it as `replyToMessageId` but rewrites embedded URLs —
-  see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
-  If Step 1c could not resolve a `threadId` but the inbound `Message-ID` is known (PonyMail, or the tracker's recorded root `Message-ID`),
-  `oauth_curl` passes it as `in_reply_to` (and its `References` chain as `references` when known) so the draft still threads by header.
-  Otherwise fall back to a subject-matched draft (thread-attachment parameter omitted, `subject: Re: <root subject>`)
-  per [`tools/gmail/threading.md`](../../../../tools/gmail/threading.md).
-  Surface which path was taken in the proposal.
-  The Gmail MCP's no-update-no-delete limitation — corrections surface the prior `draftId` for manual discard rather than silently shadowing it —
-  is in [`tools/gmail/operations.md`](../../../../tools/gmail/operations.md#hard-limitation--no-update-no-delete).
-
-- **Signal — a fix PR merged, but not onto the branch its milestone
-  ships from.** When proposing `pr created` → `pr merged` on a tracker whose milestone is a **patch** release,
-  check that the fix is actually on that release's branch.
-  A PR merged to the main development branch reaches a patch release only if backported,
-  and the *Affected versions* upper bound claims which release contains the fix.
-
-  **Check it at `pr merged`, not at `fix released`.** Once the release is cut, the wave ships without the fix and the advisory names a version that never contained it.
-  This is the *containment* half of the [`fix released` gate](SKILL.md), moved one step earlier while it is still cheap to correct.
-
-  **How to check — content probe, not ancestry.** A cherry-pick changes the SHA, so `compare/<sha>...<branch>` reporting `diverged` is not evidence of absence.
-  Pick a distinctive string the fix introduces (a comment line, a new identifier), fetch the file on
-  each branch as a plain `gh` call, and look for the string in the output:
-
-  ```bash
-  gh api "repos/<upstream>/contents/<path>?ref=<branch>" \
-    -H "Accept: application/vnd.github.raw+json"
-  ```
-
-  Probe the development branch, the release branch the milestone ships from, and the corresponding stable branch.
-  Present the result as a table — the asymmetry is the finding.
-
-  **Corroborating signal:** projects that automate backports use a per-branch label (`backport-to-<branch>` or similar).
-  Its absence on a merged PR whose tracker is milestoned to that branch's release is a strong hint,
-  but the label is a *convention* and the content probe is the *evidence* — do not conclude either way from the label alone.
-
-  **Two ways to resolve, and they are not equivalent** — surface both and let the operator choose, because they change what ships in the published record:
-
-  1. **Backport** — apply the branch label, milestone the PR to the
-     patch release, and cherry-pick. The tracker's milestone and its
-     `< <patch>` upper bound both stay correct.
-  2. **Let it ride to the next feature release** — move the tracker
-     milestone, **and** widen *Affected versions* to that release.
-     Leaving the old bound in place is the actual danger: it tells
-     users to upgrade to a version that does not contain the fix.
-
-  Never pick silently. Option 2 changes a CVE-affecting body field,
-  so it belongs in the CVE-affecting bucket and needs explicit
-  confirmation.

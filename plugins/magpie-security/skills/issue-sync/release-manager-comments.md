@@ -197,6 +197,81 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   **Apply mechanic** — same as the hand-off comment: a fresh
   `gh issue comment`, surfaced in the recap.
 
+- **Assignee hand-off to the release manager** — the `fix released` transition and its repair, from the *Assignees* item in [`signals-to-actions.md`](signals-to-actions.md).
+
+  **Assignee hand-off at the `fix released` transition (and its repair).** At the `fix released` transition (Step 12 — the fix has shipped to PyPI / the Helm registry),
+  ownership moves from the remediation developer to the release manager for Steps 13–15 (advisory send → URL capture → CVE record public → close).
+  **Propose swapping the assignee from the remediation developer to the release manager** in the same sync run that flips `pr merged` → `fix released`,
+  as a concrete numbered item.
+  Look up the release manager with the three-source cascade from Step 2c
+  ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker),
+  then the project's Release Plan wiki (`<project-wiki>`),
+  then the `[RESULT][VOTE] Release <product> <version>` thread on `<dev-list>`).
+  If the release manager is not yet a collaborator on `<tracker>`, surface that as a blocker and ask whether to invite them before assigning
+  — GitHub silently ignores assignee writes for non-collaborators.
+
+  The swap fires at the `fix released` transition **and on the repair path below** (a tracker already at `fix released` whose swap never landed).
+  Earlier transitions (`pr created`, `pr merged`) keep the remediation developer;
+  later ones (`announced - emails sent`, `announced`, `vendor-advisory`) keep the release manager.
+  Do **not** shuffle assignees back and forth — the swap fires once, at (or in repair of) the `fix released` hand-off.
+
+  **Hand-off presence is an invariant — repair trackers already at
+  `fix released`.** A tracker can reach `fix released` *without* a hand-off ever having been posted —
+  a prior run's POST failed, the label was applied by hand, or the CVE record reached review-ready (Vulnogram `REVIEW`) on a later run than the label flip.
+  No transition fires on those later syncs, so without a check the advisory stays with **no named owner**.
+
+  So check the hand-off on **every sync**, not only as a transition side-effect.
+  On every sync of a tracker at `fix released` whose CVE record is review-ready (Vulnogram `REVIEW`),
+  grep the tracker's comments for the marker `<!-- apache-magpie: release-manager-handoff v1 -->` (the same grep Step 5c runs).
+  If the marker is **absent**, generate the hand-off proposal item — POST the hand-off comment and propose the assignee swap — exactly as at the transition,
+  whether or not this run performed the flip.
+  If present, skip (Step 5c's PATCH path handles content drift).
+  Resolve the release manager **authoritatively — never guess a "plausible" name**:
+  for a release train that ships many packages in one wave (e.g. a providers / plugins wave),
+  the owning RM is the sender of *that specific wave's* `[RESULT][VOTE]` / release `[ANNOUNCE]`,
+  frequently a different person from the core-release RM for the same period;
+  resolve it per the release-trains data, and record the wave + RM there if missing, before posting.
+  A generic *"Action (RM): send the advisory …"* status line is **never** an acceptable substitute for the hand-off comment.
+
+- **Signal — a fix PR merged, but not onto the branch its milestone
+  ships from.** When proposing `pr created` → `pr merged` on a tracker whose milestone is a **patch** release,
+  check that the fix is actually on that release's branch.
+  A PR merged to the main development branch reaches a patch release only if backported,
+  and the *Affected versions* upper bound claims which release contains the fix.
+
+  **Check it at `pr merged`, not at `fix released`.** Once the release is cut, the wave ships without the fix and the advisory names a version that never contained it.
+  This is the *containment* half of the [`fix released` gate](SKILL.md), moved one step earlier while it is still cheap to correct.
+
+  **How to check — content probe, not ancestry.** A cherry-pick changes the SHA, so `compare/<sha>...<branch>` reporting `diverged` is not evidence of absence.
+  Pick a distinctive string the fix introduces (a comment line, a new identifier), fetch the file on
+  each branch as a plain `gh` call, and look for the string in the output:
+
+  ```bash
+  gh api "repos/<upstream>/contents/<path>?ref=<branch>" \
+    -H "Accept: application/vnd.github.raw+json"
+  ```
+
+  Probe the development branch, the release branch the milestone ships from, and the corresponding stable branch.
+  Present the result as a table — the asymmetry is the finding.
+
+  **Corroborating signal:** projects that automate backports use a per-branch label (`backport-to-<branch>` or similar).
+  Its absence on a merged PR whose tracker is milestoned to that branch's release is a strong hint,
+  but the label is a *convention* and the content probe is the *evidence* — do not conclude either way from the label alone.
+
+  **Two ways to resolve, and they are not equivalent** — surface both and let the operator choose, because they change what ships in the published record:
+
+  1. **Backport** — apply the branch label, milestone the PR to the
+     patch release, and cherry-pick. The tracker's milestone and its
+     `< <patch>` upper bound both stay correct.
+  2. **Let it ride to the next feature release** — move the tracker
+     milestone, **and** widen *Affected versions* to that release.
+     Leaving the old bound in place is the actual danger: it tells
+     users to upgrade to a version that does not contain the fix.
+
+  Never pick silently. Option 2 changes a CVE-affecting body field,
+  so it belongs in the CVE-affecting bucket and needs explicit
+  confirmation.
+
 ## Step 4 — Apply the release-manager comments
 
 - **Release-manager hand-off comment:** pick the body template per the variant decision in
@@ -207,7 +282,7 @@ Part of the Step 2b lookup in [`signals-to-actions.md`](signals-to-actions.md), 
   Substitute the placeholders (per the *Release-manager hand-off comment* bullet in Step 2b; the OAuth-pushed variant also takes `PUSH_TIMESTAMP`) and write the result to a temp file.
   This fires whenever the tracker's proposal carries the hand-off item —
   at the `pr merged` → `fix released` transition **and** on the invariant-repair path for a tracker already at `fix released` with a review-ready record but no hand-off marker
-  (see *Hand-off presence is an invariant* under **Assignees** in [`signals-to-actions.md`](signals-to-actions.md)).
+  (see *Hand-off presence is an invariant* under **Assignee hand-off to the release manager** above).
   Decide POST vs PATCH by scanning the comments the [Step 1a](gather.md#1a-read-the-github-issue) fetch already returned
   for one whose body starts with `<!-- apache-magpie: release-manager-handoff v1 -->` — no extra call.
 

@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:6bc028c94b89b1aa
 license: Apache-2.0
-measured_tokens: 7567
+measured_tokens: 7571
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -156,7 +156,7 @@ A tracker merging several independent reporters gets one draft per reporter, eac
 surface it lands on.** Every issue, PR, comment, milestone and label reference this skill emits — in the observed state, the proposal, the confirmation prompt, the apply-loop and regeneration output, the recap, status-change comments and the CVE JSON reference list — is one click away:
 the link forms in [`AGENTS.md` § *Linking tracker issues and PRs*](../../../../AGENTS.md#linking-tracker-issues-and-prs) on markdown surfaces, and OSC 8 hyperlinks (`\e]8;;<URL>\e\\<tracker>#NNN\e]8;;\e\\`; bare URL as fallback) on the terminal.
 Link a comment by its `#issuecomment-<C>` anchor, and a milestone by number (`https://github.com/<tracker>/milestone/<number>`), not by its title, which can change.
-Draft emails are plain text: they carry full bare URLs (see the *Status update to the reporter* item in [`signals-to-actions.md`](signals-to-actions.md)).
+Draft emails are plain text: they carry full bare URLs (see the *Status update to the reporter* item in [`reporter-drafts.md`](reporter-drafts.md)).
 A bare `#NNN` is never acceptable; before presenting any text, grep it for bare `#\d+` / `<tracker>#\d+` tokens and wrap each, building a missing URL as `https://github.com/<tracker>/issues/<N>` with no lookup call (GitHub redirects it to `/pull/<N>` for a PR).
 Tracker URLs and numbers are public-safe; the tracker's *content* is not, per [`AGENTS.md` § *Confidentiality of the tracker repository*](../../../../AGENTS.md#confidentiality-of-the-tracker-repository).
 

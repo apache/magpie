@@ -2,3 +2,4 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 The fix shipped, and this pass proposes the `pr merged` → `fix released` label swap.
+The reporter has already been told that the release carrying the fix shipped.
