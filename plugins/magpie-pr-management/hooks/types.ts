@@ -95,3 +95,54 @@ export interface ParseTriagePayloadResult {
   state: TriageProgressState | null;
   error?: string;
 }
+
+export interface PrStatsFunnel {
+  ready: number;
+  responded: number;
+  waiting_manual: number;
+  waiting_ai: number;
+  untriaged: number;
+  other: number;
+}
+
+export interface PrStatsAreaPressure {
+  area: string;
+  score: number;
+  contribs: number;
+  age_4w: number;
+  age_1to4w: number;
+  age_rec: number;
+}
+
+export interface PrStatsWeeklyTotals {
+  merged: number;
+  closed_not_merged: number;
+}
+
+export interface PrStatsPaneState {
+  repo: string;
+  fetchedAt: string;
+  cutoff: string;
+  jsonPath: string;
+  healthRating: string;
+  openCount: number;
+  closedCount: number;
+  readyCount: number;
+  untriagedCount: number;
+  untriaged4wCount: number;
+  engagedCount: number;
+  aiTriagedCount: number;
+  recommendationCount: number;
+  funnel: PrStatsFunnel;
+  pressureAreas: PrStatsAreaPressure[];
+  weeklyVelocityTotals: PrStatsWeeklyTotals;
+  partial: boolean;
+  capNote: string | null;
+  syncError: string | null;
+  isOpen: boolean;
+  updatedAt: string;
+}
+
+export type ParsePrStatsResult =
+  | { ok: true; state: PrStatsPaneState }
+  | { ok: false; error: string };

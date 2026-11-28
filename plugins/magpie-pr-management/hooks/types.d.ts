@@ -74,6 +74,46 @@ declare module 'claude-code' {
         updatedAt?: string;
         renderCount?: number;
       } | null;
+      prStatsPaneState: {
+        repo: string;
+        fetchedAt: string;
+        cutoff: string;
+        jsonPath: string;
+        healthRating: string;
+        openCount: number;
+        closedCount: number;
+        readyCount: number;
+        untriagedCount: number;
+        untriaged4wCount: number;
+        engagedCount: number;
+        aiTriagedCount: number;
+        recommendationCount: number;
+        funnel: {
+          ready: number;
+          responded: number;
+          waiting_manual: number;
+          waiting_ai: number;
+          untriaged: number;
+          other: number;
+        };
+        pressureAreas: Array<{
+          area: string;
+          score: number;
+          contribs: number;
+          age_4w: number;
+          age_1to4w: number;
+          age_rec: number;
+        }>;
+        weeklyVelocityTotals: {
+          merged: number;
+          closed_not_merged: number;
+        };
+        partial: boolean;
+        capNote: string | null;
+        syncError: string | null;
+        isOpen: boolean;
+        updatedAt: string;
+      } | null;
     };
   }
 }

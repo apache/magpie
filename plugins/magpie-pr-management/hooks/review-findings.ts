@@ -23,6 +23,7 @@ import type {
   FindingSeverity,
   FindingSource,
   ParseFindingsResult,
+  PrStatsPaneState,
   ReviewFinding,
   ReviewFindingsState,
   ReviewFindingsSummary,
@@ -32,6 +33,12 @@ import {
   processTriageCommand,
   renderTriageProgressBandComponent,
 } from './triage-progress-band.js';
+import {
+  extractStatsJsonPathFromCommand,
+  parsePrStatsPayload,
+  renderPrStatsPane,
+  resolveConfinedStatsPath,
+} from './pr-stats-pane.js';
 
 export interface CuratedFindingsPayload {
   schema_version: 1;
@@ -1412,6 +1419,11 @@ export function parseFindings(input: string | unknown): ParseFindingsResult {
  * If no state exists or no findings are present, delegates to next hook.
  */
 export async function handleRenderPane($: any, e: any, next: any): Promise<any> {
+  const statsState = await getPrStatsState($);
+  if (statsState && statsState.isOpen) {
+    return handleRenderPrStatsPane($, e, next);
+  }
+
   let state: ReviewFindingsState | null = null;
   try {
     state = await read($, reviewFindingsState);
@@ -1420,10 +1432,7 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
   }
 
   if (!state || !state.findings || state.findings.length === 0) {
-    if (typeof next === 'function') {
-      return next(e);
-    }
-    return;
+    return handleRenderPrStatsPane($, e, next);
   }
 
   try {
@@ -1452,6 +1461,10 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
  * - next-finding: increments selectedIndex
  */
 export async function handleUiPress($: any, e: any, next: any): Promise<any> {
+  const pressId = typeof e?.element === 'string' ? e.element : typeof e?.id === 'string' ? e.id : '';
+  if (pressId.startsWith('ps:')) {
+    return handlePrStatsUiPress($, e, next);
+  }
   if (!e || typeof e.element !== 'string') {
     if (typeof next === 'function') {
       return next(e);
@@ -1788,6 +1801,10 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
                 selectedIndex: 0,
               };
               await setReviewFindingsState($, nextState);
+              const openStats = await getPrStatsState($);
+              if (openStats && openStats.isOpen) {
+                await setPrStatsState($, { ...openStats, isOpen: false });
+              }
 
               // Check if curated sidecars already exist on disk from earlier curation
               const { curatedJsonPath } = getCuratedFindingsPaths(targetFindingsFile);
@@ -1865,9 +1882,9 @@ export async function handleBashToolCall($: any, e: any, next: any): Promise<any
     }
   }
 
-  if (typeof next === 'function') {
-    return next(e);
-  }
+  const res = typeof next === 'function' ? await next(e) : undefined;
+  await maybeHydratePrStatsFromBash($, e);
+  return res;
 }
 
 export interface ParsedFindingTokens {
@@ -2211,6 +2228,15 @@ export function register(on: any): void {
     } catch {
       // Safe no-op on command register exception
     }
+    try {
+      await $.command.register({
+        name: 'magpie-pr-stats',
+        description: 'Open or refresh the PR Backlog Stats Pane (zero-token)',
+        argumentHint: '[path-to-dashboard.json]',
+      });
+    } catch {
+      // Safe no-op on command register exception
+    }
 
     if (e && e.findings) {
       try {
@@ -2253,6 +2279,184 @@ export function register(on: any): void {
   on('ui.press', handleUiPress);
   on('tool.call', { tool: 'Bash' }, handleBashToolCall);
   on('command.run', { command: 'magpie-findings' }, handleFindingsCommand);
+  on('command.run', { command: 'magpie-pr-stats' }, handlePrStatsCommand);
+}
+
+const prStatsPaneAtom = atom(
+  { plugin: 'magpie-pr-management', key: 'prStatsPaneState' },
+  null as PrStatsPaneState | null
+);
+
+export async function getPrStatsState($: any): Promise<PrStatsPaneState | null> {
+  try {
+    return (await read($, prStatsPaneAtom)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setPrStatsState($: any, nextState: PrStatsPaneState | null): Promise<void> {
+  try {
+    await update($, prStatsPaneAtom, () => nextState);
+    try {
+      $.ui.invalidate('ui.render');
+    } catch {
+      // Optional in headless contexts
+    }
+  } catch {
+    // Fail-open
+  }
+}
+
+export async function loadPrStatsFromPath($: any, rawPath: string): Promise<PrStatsPaneState | null> {
+  let cwd: string | null = null;
+  let root: string | null = null;
+  try {
+    cwd = (await $.session.cwd()) ?? null;
+  } catch {
+    cwd = null;
+  }
+  try {
+    root = (await $.session.root()) ?? null;
+  } catch {
+    root = null;
+  }
+
+  const confined = resolveConfinedStatsPath(rawPath, cwd, root);
+  const existing = await getPrStatsState($);
+  if (!confined) {
+    if (existing) {
+      await setPrStatsState($, {
+        ...existing,
+        syncError: 'Refusing to read PR stats outside allowed session or scratch roots',
+      });
+    }
+    return null;
+  }
+
+  const targetKind = await classifyWriteTarget($, confined);
+  if (targetKind === 'unsafe') {
+    if (existing) {
+      await setPrStatsState($, {
+        ...existing,
+        syncError: `Refusing to read symlink or non-regular file: ${confined}`,
+      });
+    }
+    return null;
+  }
+  if (targetKind === 'missing') {
+    return null;
+  }
+
+  let content: string;
+  try {
+    content = await $.fs.read(confined);
+  } catch {
+    return null;
+  }
+
+  const parsed = parsePrStatsPayload(content, confined);
+  if (!parsed.ok) {
+    if (existing) {
+      await setPrStatsState($, { ...existing, syncError: parsed.error });
+    }
+    return null;
+  }
+
+  await setPrStatsState($, parsed.state);
+  try {
+    await $.ui.open('Pane');
+  } catch {
+    // Optional in headless contexts
+  }
+  return parsed.state;
+}
+
+export async function maybeHydratePrStatsFromBash($: any, e: any): Promise<void> {
+  if (e && typeof e.command === 'string') {
+    try {
+      const jsonPath = extractStatsJsonPathFromCommand(e.command);
+      if (jsonPath) {
+        await loadPrStatsFromPath($, jsonPath);
+      }
+    } catch {
+      // Fail-open
+    }
+  }
+}
+
+export async function handlePrStatsCommand($: any, e: any): Promise<{ text: string }> {
+  const arg = typeof e?.args === 'string' ? e.args.trim() : '';
+  const existing = await getPrStatsState($);
+  const target = arg || existing?.jsonPath || '';
+
+  if (target) {
+    const loaded = await loadPrStatsFromPath($, target);
+    if (loaded) {
+      return {
+        text: `PR Backlog Stats (${loaded.repo}: ${loaded.healthRating}, ${loaded.openCount} open, ${loaded.untriagedCount} untriaged).`,
+      };
+    }
+  }
+
+  if (existing) {
+    await setPrStatsState($, { ...existing, isOpen: true });
+    try {
+      await $.ui.open('Pane');
+    } catch {
+      // Optional in headless contexts
+    }
+    return {
+      text: `Opened cached PR Backlog Stats (${existing.repo}: ${existing.healthRating}).`,
+    };
+  }
+
+  return {
+    text: 'No PR stats snapshot loaded yet. Run /magpie-pr-management:stats or pass a stats .json path.',
+  };
+}
+
+export async function handleRenderPrStatsPane($: any, e: any, next: any): Promise<any> {
+  const state = await getPrStatsState($);
+  if (!state || !state.isOpen) {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+  try {
+    const resolved = await $.ui.resolve(['Box', 'Text', 'Button']);
+    const { Box, Text, Button } = resolved || {};
+    if (!Box || !Text || !Button) {
+      return typeof next === 'function' ? next(e) : undefined;
+    }
+    return renderPrStatsPane(Box, Text, Button, state);
+  } catch {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+}
+
+export async function handlePrStatsUiPress($: any, e: any, next: any): Promise<any> {
+  const id = typeof e?.id === 'string' ? e.id : typeof e?.element === 'string' ? e.element : '';
+  if (!id.startsWith('ps:')) {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+
+  const state = await getPrStatsState($);
+  if (!state) {
+    return typeof next === 'function' ? next(e) : undefined;
+  }
+
+  if (id === 'ps:close') {
+    await setPrStatsState($, { ...state, isOpen: false });
+    return;
+  }
+
+  if (id === 'ps:refresh') {
+    if (state.jsonPath) {
+      await loadPrStatsFromPath($, state.jsonPath);
+    }
+    return;
+  }
+
+  return typeof next === 'function' ? next(e) : undefined;
 }
 
 export default register;

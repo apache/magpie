@@ -46,6 +46,7 @@
   - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
   - [Multi-agent review comparison pane mod (Claude Code plugin / hook)](#multi-agent-review-comparison-pane-mod-claude-code-plugin--hook)
   - [Local security triage queue pane mod (Claude Code plugin / hook)](#local-security-triage-queue-pane-mod-claude-code-plugin--hook)
+  - [PR dashboard & stats visualizer pane mod (Claude Code plugin / hook)](#pr-dashboard--stats-visualizer-pane-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2199,6 +2200,13 @@ Skill-side emission of `.magpie-security-triage-queue.json` from `security-issue
   Staged launcher action payloads contain only `{ itemId, skill, command, stagedAt }` without advisory titles.
 - **Untrusted content boundaries and command safety**: Advisory titles and IDs are sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving quotes in inert `Text` nodes.
   Launcher buttons validate `itemId` against `/^[A-Za-z0-9#._-]{1,40}$/`, allowlisted skill names, and active `state.items` membership, staging commands locally without auto-executing them.
+
+## PR dashboard & stats visualizer pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-pr-management` plugin, the PR stats pane mod ([`plugins/magpie-pr-management/hooks/pr-stats-pane.ts`](../../plugins/magpie-pr-management/hooks/pr-stats-pane.ts)) renders an in-terminal aggregate dashboard (`Pane`) after `pr-management stats build` writes its `.json` sidecar, and registers `/magpie-pr-stats` to reopen or refresh the snapshot with zero model tokens.
+
+- **Read-only and aggregate-only**: The mod never executes `$.fs.write`, `$.process`, `$.http`, or model calls; it reads only the `.json` intermediates sidecar (`out.with_suffix(".json")`) containing aggregate health rating, hero counts, triage funnel, area pressure scores, and weekly velocity totals (no author-level stats or per-PR drill-in), and surfaces `partial` / `cap_note` warning banners prominently.
+- **Path confinement and sanitization**: Reads are confined to active session roots or standard scratch/temp directories (`resolveConfinedStatsPath`), pre-checked with `$.fs.stat` (`classifyReadTarget`) to refuse symlinks and non-regular files, and sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides.
 
 ## Sandbox-error hint hook
 
