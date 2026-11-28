@@ -625,6 +625,21 @@ def test_a_copied_tool_pyproject_resolves_inside_the_plugin(tmp_path, monkeypatc
     assert "[tool.ruff]" in packaged  # only the dev group goes
 
 
+def test_a_copied_tool_drops_the_shared_ruff_base_it_cannot_ship(tmp_path, monkeypatch):
+    # `tools/dev/shared/ruff.toml` stays in the repository; ruff fails on an
+    # `extend` it cannot read, so the copy keeps only the tool's own settings.
+    (tmp_path / "tools" / "a").mkdir(parents=True)
+    (tmp_path / "tools" / "a" / "pyproject.toml").write_text(
+        '[project]\nname = "a"\n\n[tool.ruff]\nextend = "../dev/shared/ruff.toml"\nsrc = ["src"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    copies = {"tools/a/pyproject.toml": "tools/a/pyproject.toml"}
+    packaged = mod.packaged_file_bytes(Path("tools/a/pyproject.toml"), copies).decode()
+    assert "extend" not in packaged
+    assert tomllib.loads(packaged)["tool"]["ruff"] == {"src": ["src"]}
+
+
 def test_a_copied_tool_with_its_own_workspace_source_resolves_inside_the_plugin(tmp_path, monkeypatch):
     # typed-decision declares `checker = { workspace = true }` itself; shipped as is,
     # the copy names a workspace that does not exist and `uv run` refuses it.
