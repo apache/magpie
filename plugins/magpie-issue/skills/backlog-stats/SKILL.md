@@ -10,7 +10,7 @@ description: |
   Read-only maintainer dashboard for the open general-issue backlog of
   <issue-tracker>. Surfaces a health rating, prioritised recommendations,
   age and staleness breakdowns, area pressure ranking, and a triage-funnel
-  summary. Output is HTML by default; markdown fallback available.
+  summary.
 when_to_use: |
   When a maintainer asks "how is the issue queue doing", "run issue
   stats", "show me the open issue backlog", "what should I triage
@@ -24,7 +24,7 @@ argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [cle
 capability: capability:stats
 surface_hash: sha256:0f124437a9fa54f9
 license: Apache-2.0
-measured_tokens: 5772
+measured_tokens: 5762
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -5,8 +5,7 @@ name: skill-reconciler
 family: utilities
 mode: Meta
 description: |
-  Compare two near-duplicate skills — typically an ASF variant and a
-  non-ASF or multi-project variant — and classify every difference as
+  Compare two near-duplicate skills and classify every difference as
   ALLOWED, DRIFT, or SAFETY-BASELINE. Produces a structured diff and a
   reconciliation proposal; read-only, it never rewrites either skill.
 when_to_use: |
@@ -21,7 +20,7 @@ when_to_use: |
 capability: capability:reconciliation
 surface_hash: sha256:964dbda42cb402ce
 license: Apache-2.0
-measured_tokens: 5405
+measured_tokens: 5388
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

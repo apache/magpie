@@ -11,8 +11,7 @@ description: |
   Review a GitHub stacked pull request as one unit on `<upstream>`: resolve
   the stack from any member PR or its stack number, check that the chain is
   linear and current, map every file to the layers that touch it, trace
-  definitions removed in one layer and still used in another, and read code
-  by tier with a coverage table instead of line by line. Drafts one rolling
+  definitions removed in one layer and still used in another. Drafts one rolling
   `COMMENT` on the lowest open layer and names the layers that deserve a
   `pr-management-code-review` pass. Never approves.
 when_to_use: |
@@ -24,7 +23,7 @@ argument-hint: "[pr:N | stack:N] [layers:a-b] [read-budget:LINES] [no-fetch] [dr
 capability: capability:review
 surface_hash: sha256:f0872f2cf794b6d2
 license: Apache-2.0
-measured_tokens: 5195
+measured_tokens: 5178
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

@@ -13,8 +13,8 @@ description: |
   current `<default-branch>`. Per-issue: invoke
   `issue-reproducer` to extract and run the reporter's code,
   classify the runtime outcome, attach a nature analysis,
-  compose a `verdict.json`. Hand-back-on-completion contract:
-  no comments posted, no transitions, no closures.
+  compose a `verdict.json`. No comments posted, no transitions,
+  no closures.
 when_to_use: |
   Invoke when a maintainer says "re-assess old issues",
   "sweep the EOL backlog", "check whether reopened wishlists
@@ -26,7 +26,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:cb023dff6e95a57a
 license: Apache-2.0
-measured_tokens: 5978
+measured_tokens: 5971
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

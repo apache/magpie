@@ -9,8 +9,8 @@ requires_config:
   - project.md
 description: |
   Walk a maintainer through deep, sequential code review of open PRs on the
-  configured `<upstream>` repo. Defaults to the **"my reviews"** queue (five
-  maintainer signals — see the Inputs table); selectors narrow to one PR, an
+  configured `<upstream>` repo. Defaults to the **"my reviews"** queue;
+  selectors narrow to one PR, an
   area label, or a collaborator subset. Drafts an `approve` /
   `request-changes` / `comment` review per PR and posts on confirmation.
 when_to_use: |
@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:0411b3fbfc2061d9
 license: Apache-2.0
-measured_tokens: 4669
+measured_tokens: 4658
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
