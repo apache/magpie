@@ -40,4 +40,5 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-28 | `61f4ffe7` (opt/import-from-scan-intro) | `opus[1m]` | 1 | pass |  |
 | 2026-11-28 | `835d2a29` (opt/import-from-scan-split) | `opus[1m]` | 2 | pass |  |
