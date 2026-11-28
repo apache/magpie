@@ -312,6 +312,10 @@ def plus_one_hour(value: str) -> str:
     return iso(parse_time(value) + timedelta(hours=1))
 
 
+#: A list item marker at the start of a (stripped) line.
+_BULLET = re.compile(r"[-*]\s+(?=\S)")
+
+
 def render_dist_url(template: str, version: str, rc: str | None, bucket: str) -> str:
     """Render `release_dist_url_template` for staging (`rc` set) or the final release (`rc` None).
 
@@ -370,13 +374,28 @@ class Loaded:
         return "ci-automated" if self.automated_signing_offered and enabled else "rm-key"
 
     def release_lines(self) -> list[str]:
-        block = md.first_text_block(md.section_lines(self.trains_text, "Release branches currently in flight"))
+        """One entry per bullet of § Release branches currently in flight.
+
+        A bullet starts only at the beginning of a line, so a ` - ` or ` * `
+        inside a bullet's text stays in it, and a wrapped line continues the
+        bullet above it.
+        """
+        section = md.section_lines(self.trains_text, "Release branches currently in flight")
+        block = md.first_text_block(section, sep="\n")
         if block is None and self.trains_text is not None and md.section_lines(self.trains_text, "Release branches") is None:
-            block = md.first_text_block(self.trains_text.splitlines())
+            block = md.first_text_block(self.trains_text.splitlines(), sep="\n")
         if not block:
             return []
-        lines = [part.strip() for part in re.split(r"(?:^|\s)[-*]\s+(?=\S)", block) if part.strip()]
-        return lines
+        lines: list[str] = []
+        for row in block.split("\n"):
+            bullet = _BULLET.match(row)
+            if bullet:
+                lines.append(row[bullet.end() :])
+            elif lines:
+                lines[-1] = f"{lines[-1]} {row}"
+            else:
+                lines.append(row)
+        return [line.strip() for line in lines if line.strip()]
 
     def config_with_defaults(self) -> dict[str, Any]:
         merged = dict(CONFIG_DEFAULTS)
