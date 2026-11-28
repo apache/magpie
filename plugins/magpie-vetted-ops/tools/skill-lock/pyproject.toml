@@ -66,3 +66,6 @@ disallow_incomplete_defs = false
 minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
+
+[tool.uv]
+exclude-newer = "7 days"

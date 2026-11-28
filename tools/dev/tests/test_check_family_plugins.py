@@ -602,6 +602,13 @@ def test_every_copied_file_triggers_packaging_hook():
 # --- the packaged pyproject of a copied tool -------------------------------------
 
 
+def _root_pyproject(root: Path, exclude_newer: str = "7 days") -> None:
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "root"\n\n[tool.uv]\nexclude-newer = "{exclude_newer}"\n',
+        encoding="utf-8",
+    )
+
+
 def test_a_copied_tool_pyproject_resolves_inside_the_plugin(tmp_path, monkeypatch):
     # A tool depending on another copied tool, with the workspace-only dev group.
     (tmp_path / "tools" / "a").mkdir(parents=True)
@@ -614,6 +621,7 @@ def test_a_copied_tool_pyproject_resolves_inside_the_plugin(tmp_path, monkeypatc
     (tmp_path / "tools" / "nested" / "b" / "pyproject.toml").write_text(
         '[project]\nname = "b"\ndependencies = []\n', encoding="utf-8"
     )
+    _root_pyproject(tmp_path)
     monkeypatch.chdir(tmp_path)
     copies = {
         "tools/a/pyproject.toml": "tools/a/pyproject.toml",
@@ -636,6 +644,7 @@ def test_a_copied_tool_with_its_own_workspace_source_resolves_inside_the_plugin(
         encoding="utf-8",
     )
     (tmp_path / "tools" / "b" / "pyproject.toml").write_text('[project]\nname = "b"\n', encoding="utf-8")
+    _root_pyproject(tmp_path)
     monkeypatch.chdir(tmp_path)
     copies = {
         "tools/a/pyproject.toml": "tools/a/pyproject.toml",
@@ -647,6 +656,22 @@ def test_a_copied_tool_with_its_own_workspace_source_resolves_inside_the_plugin(
     assert sources["b"] == {"path": "../b"}
     assert sources["other"] == {"git": "https://example.invalid/other"}  # unrelated sources stay
     assert packaged.count("[tool.uv.sources]") == 1
+
+
+def test_a_copied_tool_pyproject_inherits_the_root_exclude_newer(tmp_path, monkeypatch):
+    (tmp_path / "tools" / "a").mkdir(parents=True)
+    (tmp_path / "tools" / "a" / "pyproject.toml").write_text(
+        '[project]\nname = "a"\n\n[tool.uv]\npackage = false\n', encoding="utf-8"
+    )
+    _root_pyproject(tmp_path, "14 days")
+    monkeypatch.chdir(tmp_path)
+    packaged = mod.packaged_file_bytes(
+        Path("tools/a/pyproject.toml"), {"tools/a/pyproject.toml": "tools/a/pyproject.toml"}
+    ).decode()
+    uv = tomllib.loads(packaged)["tool"]["uv"]
+    assert uv["exclude-newer"] == "14 days"
+    assert uv["package"] is False
+    assert packaged.count("[tool.uv]") == 1
 
 
 def _framework_tools_named_by(family_dir):

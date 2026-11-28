@@ -91,3 +91,6 @@ testpaths = ["tests"]
 # ship — a `dev` group would make every plugin invocation fail. The shared
 # toolchain still reaches the tests: CI and the workspace checks sync the root
 # `dev` group. See tools/vetted-ops/pyproject.toml.
+
+[tool.uv]
+exclude-newer = "7 days"
