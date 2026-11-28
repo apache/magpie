@@ -27,6 +27,7 @@ import {
   handleRenderSecurityQueuePane,
   handleSecurityQueueBashToolCall,
   handleSecurityQueuePress,
+  handleSecurityQueueWriteToolCall,
   isAllowedLauncherSkill,
   isConfinedQueuePath,
   isValidQueueItemId,
@@ -461,6 +462,234 @@ describe('security-triage-queue-pane mod (family:security)', () => {
       const renderedNoRoot = JSON.stringify(renderSecurityQueuePane(Box, Text, Button, afterNoRoot));
       assert(renderedNoRoot.includes('Warning: Could not write'));
       assertStrictEqual(renderedNoRoot.includes('Staged:'), false);
+    });
+
+    test('Write tool.call auto-hydrates from session.cwd() and stages action beside it', async () => {
+      const files: Record<string, string> = {};
+      let opened = false;
+      const absQueue = '/repo/subdir/.magpie-security-triage-queue.json';
+      const absAction = '/repo/subdir/.magpie-security-triage-action.json';
+      const payload = JSON.stringify({
+        items: [
+          {
+            id: '2001',
+            title: 'Path traversal in archive loader',
+            stage: 'needs-cve',
+            severity: 'high',
+            cveId: null,
+            needsCve: true,
+          },
+        ],
+      });
+
+      const mock$ = createMockEngine({
+        session: {
+          cwd: async () => '/repo/subdir',
+          root: async () => '/repo',
+        },
+        ui: {
+          open: async () => {
+            opened = true;
+          },
+        },
+        fs: {
+          stat: async (p: string) =>
+            p in files
+              ? { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false }
+              : (() => {
+                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+                })(),
+          read: async (p: string) => files[p] ?? '',
+          write: async (p: string, c: string) => {
+            files[p] = c;
+          },
+        },
+      });
+
+      await handleSecurityQueueWriteToolCall(
+        mock$,
+        { file_path: absQueue },
+        async () => {
+          files[absQueue] = payload;
+          return { ok: true };
+        }
+      );
+
+      assertStrictEqual(opened, true);
+      const state = await getSecurityTriageQueueState(mock$);
+      assert(state);
+      assertStrictEqual(state.queuePath, absQueue);
+      assertStrictEqual(state.items[0]?.id, '2001');
+
+      await handleSecurityQueuePress(mock$, { element: 'sq:launch:cve-allocate:2001' }, () => {});
+      assert(absAction in files);
+      const action = JSON.parse(files[absAction] ?? '');
+      assertStrictEqual(action.command, '/magpie-security:cve-allocate 2001');
+    });
+
+    test('Write tool.call rejects outside-workspace and symlink targets', async () => {
+      let opened = false;
+      const mock$ = createMockEngine({
+        session: {
+          cwd: async () => '/repo',
+          root: async () => '/repo',
+        },
+        ui: {
+          open: async () => {
+            opened = true;
+          },
+        },
+        fs: {
+          stat: async () => ({ kind: 'file', size: 10, mtimeMs: 0, isLink: true }),
+          read: async () => '{"items":[{"id":"1"}]}',
+        },
+      });
+
+      await handleSecurityQueueWriteToolCall(
+        mock$,
+        { file_path: '/etc/.magpie-security-triage-queue.json' },
+        async () => ({ ok: true })
+      );
+      assertStrictEqual(opened, false);
+      assertStrictEqual(await getSecurityTriageQueueState(mock$), null);
+
+      await handleSecurityQueueWriteToolCall(
+        mock$,
+        { file_path: '/repo/.magpie-security-triage-queue.json' },
+        async () => ({ ok: true })
+      );
+      assertStrictEqual(opened, false);
+      assertStrictEqual(await getSecurityTriageQueueState(mock$), null);
+    });
+
+    test('Bash tool.call auto-hydrates after next(e) and clears stale action on stage advance', async () => {
+      const files: Record<string, string> = {};
+      const qPath = '/repo/.magpie-security-triage-queue.json';
+      const mock$ = createMockEngine({
+        session: {
+          cwd: async () => '/repo',
+          root: async () => '/repo',
+        },
+        fs: {
+          stat: async (p: string) =>
+            p in files
+              ? { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false }
+              : (() => {
+                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+                })(),
+          read: async (p: string) => files[p] ?? '',
+          write: async (p: string, c: string) => {
+            files[p] = c;
+          },
+        },
+      });
+
+      await setSecurityTriageQueueState(mock$, {
+        items: [
+          {
+            id: '2001',
+            title: 'Issue A',
+            stage: 'needs-cve',
+            severity: 'high',
+            cveId: null,
+            needsCve: true,
+            updatedAt: '2026-11-27T00:00:00Z',
+          },
+        ],
+        activeFilter: 'needs-cve',
+        selectedItemId: '2001',
+        lastLaunchedAction: {
+          itemId: '2001',
+          skill: 'cve-allocate',
+          command: '/magpie-security:cve-allocate 2001',
+          stagedAt: '2026-11-27T00:00:00Z',
+        },
+        syncError: null,
+        queuePath: qPath,
+        updatedAt: '2026-11-27T00:00:00Z',
+      });
+
+      await handleSecurityQueueBashToolCall(
+        mock$,
+        { command: `cat <<'EOF' > ${QUEUE_INPUT_FILENAME}` },
+        async () => {
+          files[qPath] = JSON.stringify({
+            items: [
+              {
+                id: '2001',
+                title: 'Issue A',
+                stage: 'ready-for-fix',
+                severity: 'high',
+                cveId: 'CVE-2026-12345',
+                needsCve: false,
+              },
+            ],
+          });
+          return { exitCode: 0 };
+        }
+      );
+
+      const updated = await getSecurityTriageQueueState(mock$);
+      assert(updated);
+      assertStrictEqual(updated.activeFilter, 'needs-cve');
+      assertStrictEqual(updated.selectedItemId, '2001');
+      assertStrictEqual(updated.lastLaunchedAction, null);
+    });
+
+    test('Bash tool.call skips git check-ignore and prefers session.cwd() over session.root()', async () => {
+      let opened = false;
+      const rootQueue = '/repo/.magpie-security-triage-queue.json';
+      const cwdQueue = '/repo/subdir/.magpie-security-triage-queue.json';
+      const files: Record<string, string> = {
+        [rootQueue]: JSON.stringify({
+          items: [{ id: '1000', title: 'Stale root item', stage: 'needs-sync', severity: 'low' }],
+        }),
+        [cwdQueue]: JSON.stringify({
+          items: [{ id: '2002', title: 'Fresh cwd item', stage: 'needs-cve', severity: 'high' }],
+        }),
+      };
+
+      const mock$ = createMockEngine({
+        session: {
+          cwd: async () => '/repo/subdir',
+          root: async () => '/repo',
+        },
+        ui: {
+          open: async () => {
+            opened = true;
+          },
+        },
+        fs: {
+          stat: async (p: string) =>
+            p in files
+              ? { kind: 'file', size: (files[p] ?? '').length, mtimeMs: 0, isLink: false }
+              : (() => {
+                  throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+                })(),
+          read: async (p: string) => files[p] ?? '',
+        },
+      });
+
+      // git check-ignore must not hydrate or open the pane
+      await handleSecurityQueueBashToolCall(
+        mock$,
+        { command: `git check-ignore -q ${QUEUE_INPUT_FILENAME}` },
+        async () => ({ exitCode: 0 })
+      );
+      assertStrictEqual(opened, false);
+      assertStrictEqual(await getSecurityTriageQueueState(mock$), null);
+
+      // Write command in subdir must hydrate cwdQueue rather than stale rootQueue
+      await handleSecurityQueueBashToolCall(
+        mock$,
+        { command: `cat <<'EOF' > ${QUEUE_INPUT_FILENAME}` },
+        async () => ({ exitCode: 0 })
+      );
+      assertStrictEqual(opened, true);
+      const state = await getSecurityTriageQueueState(mock$);
+      assert(state);
+      assertStrictEqual(state.queuePath, cwdQueue);
+      assertStrictEqual(state.items[0]?.id, '2002');
     });
   });
 });

@@ -48,5 +48,6 @@ export interface SecurityTriageQueueState {
   selectedItemId: string | null;
   lastLaunchedAction: StagedLauncherAction | null;
   syncError: string | null;
+  queuePath?: string;
   updatedAt: string;
 }

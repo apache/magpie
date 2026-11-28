@@ -130,6 +130,70 @@ export function isConfinedQueuePath(filePath: string, cwd: string): boolean {
 }
 
 /**
+ * Normalizes an absolute POSIX or Windows drive path, refusing relative paths,
+ * `..` segments, trailing slashes, and non-drive backslashes.
+ */
+export function normalizeAbsolutePath(path: string): string | null {
+  if (!path || typeof path !== 'string') return null;
+  if (path.endsWith('/') || path.endsWith('\\')) return null;
+  if (path.includes('\\') && !/^[A-Za-z]:\\/.test(path)) return null;
+  const p = path.replace(/\\/g, '/');
+  const drive = /^[A-Za-z]:\//.exec(p);
+  const prefix = drive ? drive[0].slice(0, 2) : '';
+  const rest = drive ? p.slice(2) : p;
+  if (!rest.startsWith('/')) return null;
+  const parts = rest.split('/').filter((s) => s !== '' && s !== '.');
+  if (parts.includes('..')) return null;
+  return `${prefix}/${parts.join('/')}`;
+}
+
+/**
+ * Returns the deepest normalized session root that `path` sits under, or null.
+ */
+export function allowedRootFor(
+  path: string,
+  sessionRoots: readonly (string | undefined)[]
+): string | null {
+  const target = normalizeAbsolutePath(path);
+  if (!target) return null;
+  const roots = sessionRoots
+    .map((r) => (r ? normalizeAbsolutePath(r) : null))
+    .filter((r): r is string => Boolean(r) && r !== '/')
+    .filter((r) => target.startsWith(`${r}/`))
+    .sort((a, b) => b.length - a.length);
+  return roots[0] ?? null;
+}
+
+/**
+ * Resolves the session working directory and root, each undefined when unavailable.
+ */
+async function sessionRootsOf($: any): Promise<(string | undefined)[]> {
+  const roots: (string | undefined)[] = [];
+  try {
+    roots.push((await $.session.cwd()) || undefined);
+  } catch {
+    roots.push(undefined);
+  }
+  try {
+    roots.push((await $.session.root()) || undefined);
+  } catch {
+    roots.push(undefined);
+  }
+  return roots;
+}
+
+/**
+ * Derives the sibling action file path from a hydrated queue file path.
+ */
+export function getActionPathFromQueuePath(queuePath: string): string {
+  const norm = queuePath.replace(/\\/g, '/');
+  if (norm.endsWith(`/${QUEUE_INPUT_FILENAME}`)) {
+    return `${norm.slice(0, -QUEUE_INPUT_FILENAME.length)}${QUEUE_ACTION_FILENAME}`;
+  }
+  return QUEUE_ACTION_FILENAME;
+}
+
+/**
  * Classifies a file target via $.fs.stat, refusing symlinks and non-regular files.
  */
 export async function classifyWriteTarget($: any, path: string): Promise<WriteTarget> {
@@ -450,69 +514,133 @@ export function renderSecurityQueuePane(
   });
 }
 
+function shouldKeepLaunchedAction(
+  action: StagedLauncherAction | null,
+  items: ReadonlyArray<SecurityQueueItem>
+): StagedLauncherAction | null {
+  if (!action) return null;
+  const item = items.find((it) => it.id === action.itemId);
+  if (!item) return null;
+  if (action.skill === 'issue-sync' && item.stage !== 'needs-sync') return null;
+  if (action.skill === 'cve-allocate' && item.stage !== 'needs-cve') return null;
+  return action;
+}
+
+/**
+ * Validates, reads, parses, and hydrates a local `.magpie-security-triage-queue.json`
+ * file under strict workspace confinement, then opens the Pane.
+ */
+export async function loadAndHydrateQueue(
+  $: any,
+  queuePath: string,
+  normRoot: string,
+  preserveUiState: boolean = false
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  if (!isConfinedQueuePath(queuePath, normRoot)) {
+    return { ok: false, message: 'Security Triage Queue: refused unconfined queue path.' };
+  }
+
+  const queueTarget = await classifyWriteTarget($, queuePath);
+  if (queueTarget === 'missing') {
+    return { ok: false, message: `No local queue file found at ${QUEUE_INPUT_FILENAME}.` };
+  }
+  if (queueTarget === 'unsafe') {
+    return {
+      ok: false,
+      message: `Security Triage Queue: refusing to read symlink or non-regular file at ${QUEUE_INPUT_FILENAME}.`,
+    };
+  }
+
+  let rawContent: string | null = null;
+  try {
+    rawContent = await $.fs.read(queuePath);
+  } catch {
+    rawContent = null;
+  }
+
+  if (!rawContent) {
+    return { ok: false, message: `No local queue file found at ${QUEUE_INPUT_FILENAME}.` };
+  }
+
+  const parsed = parseSecurityQueuePayload(rawContent);
+  if (!parsed.ok) {
+    return { ok: false, message: `Security Triage Queue error: ${parsed.error}` };
+  }
+
+  let nextState: SecurityTriageQueueState = {
+    ...parsed.state,
+    queuePath,
+  };
+
+  if (preserveUiState) {
+    const prev = await getSecurityTriageQueueState($);
+    if (prev) {
+      const selectedStillExists =
+        prev.selectedItemId !== null &&
+        nextState.items.some((it) => it.id === prev.selectedItemId);
+      nextState = {
+        ...nextState,
+        activeFilter: prev.activeFilter,
+        selectedItemId: selectedStillExists
+          ? prev.selectedItemId
+          : nextState.selectedItemId,
+        lastLaunchedAction: shouldKeepLaunchedAction(
+          prev.lastLaunchedAction,
+          nextState.items
+        ),
+      };
+    }
+  }
+
+  await setSecurityTriageQueueState($, nextState);
+
+  try {
+    await $.ui.open({ component: 'Pane' });
+  } catch {
+    // Fail-open when $.ui.open is unavailable
+  }
+
+  const summary = summarizeQueueStages(nextState.items);
+  return {
+    ok: true,
+    message: `Security Triage Queue loaded: ${summary.all} item(s) (${summary.needsSync} sync, ${summary.needsCve} CVE, ${summary.readyForFix} ready).`,
+  };
+}
+
+/**
+ * Resolves the active workspace root directory for queue/action operations,
+ * checking `$.session.root()` and `$.session.cwd()`.
+ */
+async function resolveQueueRoot($: any, preferCwd: boolean = false): Promise<string> {
+  const roots = await sessionRootsOf($);
+  const ordered = preferCwd ? [roots[0], roots[1]] : [roots[1], roots[0]];
+  for (const r of ordered) {
+    if (!r) continue;
+    const norm = String(r).replace(/\\/g, '/').replace(/\/+$/, '');
+    if (!norm) continue;
+    const candidate = `${norm}/${QUEUE_INPUT_FILENAME}`;
+    if ((await classifyWriteTarget($, candidate)) !== 'missing') {
+      return norm;
+    }
+  }
+  const fallback = ordered[0] || ordered[1] || '';
+  return String(fallback).replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
 /**
  * Handles `/magpie-security-queue`: reads `.magpie-security-triage-queue.json`
  * under strict workspace confinement, hydrates state, and opens the Pane.
  */
 export async function handleQueueCommand($: any): Promise<string> {
   try {
-    let cwd = '';
-    try {
-      cwd = (await $.session.root()) || '';
-    } catch {
-      // Fallback to cwd below
-    }
-    if (!cwd) {
-      try {
-        cwd = (await $.session.cwd()) || '';
-      } catch {
-        cwd = '';
-      }
-    }
-    if (!cwd) {
+    const normCwd = await resolveQueueRoot($);
+    if (!normCwd) {
       return 'Security Triage Queue: unable to resolve workspace root.';
     }
 
-    const normCwd = String(cwd).replace(/\\/g, '/').replace(/\/+$/, '');
     const queuePath = `${normCwd}/${QUEUE_INPUT_FILENAME}`;
-    if (!isConfinedQueuePath(queuePath, normCwd)) {
-      return 'Security Triage Queue: refused unconfined queue path.';
-    }
-
-    const queueTarget = await classifyWriteTarget($, queuePath);
-    if (queueTarget === 'missing') {
-      return `No local queue file found at ${QUEUE_INPUT_FILENAME}.`;
-    }
-    if (queueTarget === 'unsafe') {
-      return `Security Triage Queue: refusing to read symlink or non-regular file at ${QUEUE_INPUT_FILENAME}.`;
-    }
-
-    let rawContent: string | null = null;
-    try {
-      rawContent = await $.fs.read(queuePath);
-    } catch {
-      rawContent = null;
-    }
-
-    if (!rawContent) {
-      return `No local queue file found at ${QUEUE_INPUT_FILENAME}.`;
-    }
-
-    const parsed = parseSecurityQueuePayload(rawContent);
-    if (!parsed.ok) {
-      return `Security Triage Queue error: ${parsed.error}`;
-    }
-
-    await setSecurityTriageQueueState($, parsed.state);
-
-    try {
-      await $.ui.open({ component: 'Pane' });
-    } catch {
-      // Fail-open when $.ui.open is unavailable
-    }
-
-    const summary = summarizeQueueStages(parsed.state.items);
-    return `Security Triage Queue loaded: ${summary.all} item(s) (${summary.needsSync} sync, ${summary.needsCve} CVE, ${summary.readyForFix} ready).`;
+    const res = await loadAndHydrateQueue($, queuePath, normCwd, false);
+    return res.message;
   } catch {
     return 'Security Triage Queue: failed to load local queue.';
   }
@@ -605,21 +733,12 @@ export async function handleSecurityQueuePress($: any, e: any, next: any): Promi
           if (action) {
             let syncError: string | null = null;
             try {
-              let cwd = '';
-              try {
-                cwd = (await $.session.root()) || '';
-              } catch {
-                // Fallback to cwd
-              }
-              if (!cwd) {
-                try {
-                  cwd = (await $.session.cwd()) || '';
-                } catch {
-                  cwd = '';
-                }
-              }
-              const normCwd = String(cwd).replace(/\\/g, '/').replace(/\/+$/, '');
-              const actionPath = `${normCwd}/${QUEUE_ACTION_FILENAME}`;
+              const normCwd = state.queuePath
+                ? state.queuePath.replace(/\\/g, '/').replace(/\/[^/]+$/, '')
+                : await resolveQueueRoot($);
+              const actionPath = state.queuePath
+                ? getActionPathFromQueuePath(state.queuePath)
+                : `${normCwd}/${QUEUE_ACTION_FILENAME}`;
               if (normCwd && isConfinedQueuePath(actionPath, normCwd)) {
                 if ((await classifyWriteTarget($, actionPath)) === 'unsafe') {
                   syncError = `Refusing to write to symlink or non-regular file: ${QUEUE_ACTION_FILENAME}`;
@@ -667,7 +786,50 @@ export async function clearSecurityQueueOnMutatingGit($: any, command: string): 
 }
 
 /**
- * Bash tool.call helper for unit-testing mutating git command invalidation.
+ * Write tool.call hook: auto-hydrates `.magpie-security-triage-queue.json`
+ * when written under the active session cwd or root.
+ */
+export async function handleSecurityQueueWriteToolCall(
+  $: any,
+  e: any,
+  next: any
+): Promise<any> {
+  const result = typeof next === 'function' ? await next(e) : undefined;
+  try {
+    const filePath =
+      typeof e?.file_path === 'string'
+        ? e.file_path
+        : typeof e?.path === 'string'
+          ? e.path
+          : typeof e?.filePath === 'string'
+            ? e.filePath
+            : typeof e?.input?.file_path === 'string'
+              ? e.input.file_path
+              : '';
+    if (filePath && /(?:^|\/)\.magpie-security-triage-queue\.json$/.test(filePath.replace(/\\/g, '/'))) {
+      const roots = await sessionRootsOf($);
+      const normalized = normalizeAbsolutePath(filePath);
+      if (normalized) {
+        const wsRoot = allowedRootFor(normalized, roots);
+        if (wsRoot && isConfinedQueuePath(normalized, wsRoot)) {
+          await loadAndHydrateQueue($, normalized, wsRoot, true);
+        }
+      } else if (filePath === QUEUE_INPUT_FILENAME) {
+        const normRoot = await resolveQueueRoot($);
+        if (normRoot) {
+          await loadAndHydrateQueue($, `${normRoot}/${QUEUE_INPUT_FILENAME}`, normRoot, true);
+        }
+      }
+    }
+  } catch {
+    // Fail-open
+  }
+  return result;
+}
+
+/**
+ * Bash tool.call helper: clears stale queue on mutating git before execution,
+ * and auto-hydrates `.magpie-security-triage-queue.json` after execution.
  */
 export async function handleSecurityQueueBashToolCall(
   $: any,
@@ -683,7 +845,28 @@ export async function handleSecurityQueueBashToolCall(
   if (cmd) {
     await clearSecurityQueueOnMutatingGit($, cmd);
   }
-  return typeof next === 'function' ? next(e) : undefined;
+  const result = typeof next === 'function' ? await next(e) : undefined;
+  try {
+    const isMutatingGit = /\bgit\s+(?:checkout|switch|reset|commit|merge|rebase|restore)\b/i.test(cmd);
+    const isReadOnlyGit =
+      /\bgit\s+(?:check-ignore|status|diff|log|ls-files)\b/i.test(cmd) &&
+      !/(?:>|>>|\btee\b)/i.test(cmd);
+    if (
+      cmd &&
+      cmd.includes(QUEUE_INPUT_FILENAME) &&
+      !isMutatingGit &&
+      !isReadOnlyGit &&
+      !/^\s*rm\b/i.test(cmd)
+    ) {
+      const normRoot = await resolveQueueRoot($, true);
+      if (normRoot) {
+        await loadAndHydrateQueue($, `${normRoot}/${QUEUE_INPUT_FILENAME}`, normRoot, true);
+      }
+    }
+  } catch {
+    // Fail-open
+  }
+  return result;
 }
 
 /**
@@ -718,6 +901,10 @@ export function register(on: any): void {
 
   on('ui.press', ($: any, e: any, next: any) =>
     handleSecurityQueuePress($, e, next)
+  );
+
+  on('tool.call', { tool: 'Write' }, ($: any, e: any, next: any) =>
+    handleSecurityQueueWriteToolCall($, e, next)
   );
 
   on('tool.call', { tool: 'Bash' }, ($: any, e: any, next: any) =>

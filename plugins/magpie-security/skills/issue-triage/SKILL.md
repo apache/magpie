@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 7112
+measured_tokens: 7259
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -409,6 +409,10 @@ After the post loop, write `{tracker, posted: [{number, class, comment_url, kept
 It carries the six-class distribution, one linked line per tracker with its comment URL, the *"Pre-flight skipped (awaiting reaction)"* group (never omitted when non-empty),
 the next command per class — `security-issue-invalidate <N> as defense-in-depth` *then file the public hardening PR* for DEFENSE-IN-DEPTH, `… as info-only` for INFO-ONLY, and for FIX-ALREADY-PUBLIC `security-issue-invalidate` *only after the reporter confirms the PR fixes their report* (else `--retriage`) —
 and the note that label flips and board moves stay with `security-issue-sync`. Its `bare_refs` must be empty (the Golden rule 5 self-check).
+
+**Optional local queue pane emission (additive).** If running in a workspace checkout, you may emit or update `.magpie-security-triage-queue.json` at the workspace root for triaged `VALID` items (`stage: "needs-sync"` or `"needs-cve"`, plain numeric `id`s such as `"123"`).
+Run `git check-ignore -q .magpie-security-triage-queue.json` first; if it is **not** ignored, skip writing and remind the operator to add `.magpie-security-triage-queue.json` and `.magpie-security-triage-action.json` to `.gitignore` so embargoed titles cannot be staged.
+Skip silently on non-interactive/headless runs.
 
 ---
 
