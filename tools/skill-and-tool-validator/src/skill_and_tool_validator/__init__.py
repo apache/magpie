@@ -2932,9 +2932,13 @@ def collect_doc_files(root: Path | None = None) -> set[Path]:
 # ---------------------------------------------------------------------------
 
 # Regex that matches a skill row in a per-mode section table:
-#   | [`skill-slug`](../skills/skill-slug/SKILL.md) | ... |
+#   | [`skill-slug`](../plugins/magpie-<family>/skills/<alias>/SKILL.md) | ... |
+# The real plugin path is what docs/ links (#2330: GitHub does not follow the
+# skills/ symlinks); a link through skills/<skill-slug>/ is accepted too.
 # Group 1: skill slug (the backtick-quoted identifier).
-_MODES_DOC_SKILL_ROW_RE = re.compile(r"^\|\s*\[`([a-z][a-z0-9-]*)`\]\(\.\./skills/[^)]+/SKILL\.md\)")
+_MODES_DOC_SKILL_ROW_RE = re.compile(
+    r"^\|\s*\[`([a-z][a-z0-9-]*)`\]\(\.\./(?:plugins/[^/)]+/)?skills/[^)]+/SKILL\.md\)"
+)
 
 # Regex that matches the skill-count cell in the "Modes at a glance" table:
 #   | **ModeName** | purpose text | status text | 30 |

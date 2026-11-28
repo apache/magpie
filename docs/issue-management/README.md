@@ -105,14 +105,14 @@ configured with different trackers.
 
 | Skill | Mode | Purpose |
 |---|---|---|
-| [`issue-triage`](../../skills/issue-triage/SKILL.md) | Agentic Triage | Per-issue classification + disposition proposal |
-| [`issue-reassess`](../../skills/issue-reassess/SKILL.md) | Agentic Triage | Pool-level sweep of resolved / EOL issues for re-assessment |
-| [`issue-reproducer`](../../skills/issue-reproducer/SKILL.md) | — | Per-issue extraction + execution of code examples |
-| [`issue-fix-workflow`](../../skills/issue-fix-workflow/SKILL.md) | Agentic Drafting | Drafts a fix PR for a triaged issue |
-| [`issue-stale-sweep`](../../skills/issue-stale-sweep/SKILL.md) | Agentic Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
-| [`issue-reassess-stats`](../../skills/issue-reassess-stats/SKILL.md) | — | Read-only campaign dashboard |
-| [`issue-deduplicate`](../../skills/issue-deduplicate/SKILL.md) | Triage | Merge two open issues describing the same root cause; posts notices and closes the duplicate on explicit two-step confirmation |
-| [`issue-backlog-stats`](../../skills/issue-backlog-stats/SKILL.md) | Triage | Read-only dashboard over the open issue backlog: health rating, area pressure, age breakdown, triage funnel, and staleness candidates |
+| [`issue-triage`](../../plugins/magpie-issue/skills/triage/SKILL.md) | Agentic Triage | Per-issue classification + disposition proposal |
+| [`issue-reassess`](../../plugins/magpie-issue/skills/reassess/SKILL.md) | Agentic Triage | Pool-level sweep of resolved / EOL issues for re-assessment |
+| [`issue-reproducer`](../../plugins/magpie-issue/skills/reproducer/SKILL.md) | — | Per-issue extraction + execution of code examples |
+| [`issue-fix-workflow`](../../plugins/magpie-issue/skills/fix-workflow/SKILL.md) | Agentic Drafting | Drafts a fix PR for a triaged issue |
+| [`issue-stale-sweep`](../../plugins/magpie-issue/skills/stale-sweep/SKILL.md) | Agentic Triage | Backlog hygiene: classifies dormant issues as `REQUEST-UPDATE` or `CLOSE-STALE`; posts one comment per issue on confirmation |
+| [`issue-reassess-stats`](../../plugins/magpie-issue/skills/reassess-stats/SKILL.md) | — | Read-only campaign dashboard |
+| [`issue-deduplicate`](../../plugins/magpie-issue/skills/deduplicate/SKILL.md) | Triage | Merge two open issues describing the same root cause; posts notices and closes the duplicate on explicit two-step confirmation |
+| [`issue-backlog-stats`](../../plugins/magpie-issue/skills/backlog-stats/SKILL.md) | Triage | Read-only dashboard over the open issue backlog: health rating, area pressure, age breakdown, triage funnel, and staleness candidates |
 
 `issue-reproducer` and `issue-reassess-stats` sit outside the MISSION
 mode taxonomy; they are mechanical / read-only, not classificatory or

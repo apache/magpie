@@ -31,7 +31,7 @@
 
 ## Abstract
 
-Today the [`setup`](../../skills/setup/SKILL.md) skill fetches the **whole**
+Today the [`setup`](../../plugins/magpie-setup/skills/setup/SKILL.md) skill fetches the **whole**
 `apache/magpie` framework into the gitignored `.apache-magpie/` snapshot —
 all ten skill families, every tool, the full `docs/` tree, and the
 `projects/` templates — even when the adopter opts into only one or two
@@ -204,9 +204,9 @@ steps are unchanged — they already operate per selected skill.
 
 ## References
 
-- [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md),
-  [`install.md`](../../skills/setup/install.md),
-  [`update.md`](../../skills/setup/update.md) — the flow this RFC rewires.
+- [`skills/setup/SKILL.md`](../../plugins/magpie-setup/skills/setup/SKILL.md),
+  [`install.md`](../../plugins/magpie-setup/skills/setup/install.md),
+  [`update.md`](../../plugins/magpie-setup/skills/setup/update.md) — the flow this RFC rewires.
 - [`docs/quick-start/other-install-methods.md`](../quick-start/other-install-methods.md) — the
   fetch recipes that gain the sparse variant.
 - [`PRINCIPLES.md` §14](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies) —

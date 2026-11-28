@@ -70,7 +70,7 @@ rule, carry both kinds of adopter-side content:
 The two directories:
 
 1. **The personal layer** — yours, never committed and never pushed.
-   Written by [`/magpie-setup:setup config`](../../skills/setup/config.md).
+   Written by [`/magpie-setup:setup config`](../../plugins/magpie-setup/skills/setup/config.md).
    This is where an individual configures Magpie for themselves, and it
    **works on a repo that has not adopted Magpie** — which is the
    point of it. Nothing here asks the project for permission, and
@@ -96,7 +96,7 @@ The two directories:
      gitignored by the line `adopt` adds to `.gitignore`.
 
 2. **`.apache-magpie-overrides/`** — committed, project-wide.
-   Written by [`/magpie-setup:setup adopt`](../../skills/setup/adopt.md),
+   Written by [`/magpie-setup:setup adopt`](../../plugins/magpie-setup/skills/setup/adopt.md),
    either scaffolded directly or promoted from (1). Every contributor
    who clones the repo gets these.
 
@@ -408,7 +408,7 @@ invocation with this opening protocol:
 
 A skill that does **not** yet support overrides documents
 that explicitly in its `SKILL.md`. The
-[`setup override`](../../skills/setup/overrides.md)
+[`setup override`](../../plugins/magpie-setup/skills/setup/overrides.md)
 sub-action surfaces this gap and suggests opening a
 framework-side issue requesting the hook.
 
@@ -530,12 +530,12 @@ adopters), the right move is **a PR against the framework**:
 5. The adopter's now-redundant override gets deleted.
 
 The
-[`setup override`](../../skills/setup/overrides.md)
+[`setup override`](../../plugins/magpie-setup/skills/setup/overrides.md)
 sub-action prompts the user about upstreaming on every
 override scaffold; the
-[`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
+[`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md)
 and
-[`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md)
+[`pr-management-code-review`](../../plugins/magpie-pr-management/skills/code-review/SKILL.md)
 skills know how to open a public PR — point them at the
 framework repo.
 
@@ -579,12 +579,12 @@ this by:
 
 ## Cross-references
 
-- [`setup` skill](../../skills/setup/SKILL.md) — the entry point
+- [`setup` skill](../../plugins/magpie-setup/skills/setup/SKILL.md) — the entry point
   that manages the snapshot, scaffolds overrides, and adds the
   `.gitignore` entries for both override directories. Lists
   `--no-overrides` in its Inputs table as a recognised
   framework-level flag.
-- [`overrides.md` sub-action](../../skills/setup/overrides.md) —
+- [`overrides.md` sub-action](../../plugins/magpie-setup/skills/setup/overrides.md) —
   interactive override creation (lets the user choose between the
   personal-local and committed surfaces).
 - [`delegates.md` sub-action](../../plugins/magpie-setup/skills/setup/delegates.md) —
@@ -593,6 +593,6 @@ this by:
 - [`setup-preflight`](../../tools/setup-preflight/README.md#delegation) —
   the resolver and the discovery scorer behind it.
 - [Top-level README](../../README.md) — install flow.
-- [`setup-status` skill](../../skills/setup-status/SKILL.md) —
+- [`setup-status` skill](../../plugins/magpie-setup/skills/status/SKILL.md) —
   the adoption dashboard, which reports whether both override
   directories are present.

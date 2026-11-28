@@ -176,19 +176,19 @@ the tracker.
 A typical triage sweep runs three skills in order:
 
 1. **`import new reports`** —
-   [`security-issue-import`](../../skills/security-issue-import/SKILL.md)
+   [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md)
    scans `<security-list>` for threads not yet imported,
    classifies each candidate (real report vs. automated-scan / consolidated /
    media / spam), and proposes a tracker per valid report plus a
    receipt-of-confirmation Gmail draft. See
    [Step 2](process.md#step-2--import-the-report).
 2. **`sync all`** —
-   [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md)
+   [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md)
    reconciles every open tracker against its mail thread, the fix PR, the
    release train, and the users@ archive. Proposes label / milestone /
    assignee / body changes in one pass.
 3. **`allocate CVE for issue #N`** —
-   [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) when a report has
+   [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) when a report has
    been assessed as valid. See [Step 6](process.md#step-6--allocate-the-cve).
 
 Nothing is applied without an explicit confirmation — each skill is a
@@ -214,7 +214,7 @@ If discussion stalls for about 30 days, escalate to a broader audience per
 
 ### Allocating the CVE
 
-Use [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md). The skill asks up
+Use [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md). The skill asks up
 front whether you are on the PMC; if not, it reshapes the recipe into an
 ``@``-mention relay message you forward to a PMC member on the tracker or on
 the `<security-list>` thread. Once the allocated `CVE-YYYY-NNNNN`
@@ -226,18 +226,18 @@ for the full detail.
 
 ### Tools you use most
 
-- [`security-issue-import`](../../skills/security-issue-import/SKILL.md) —
+- [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) —
   *"import new reports"* at the start of each triage sweep. The entry point
   into the process for `<security-list>` reports.
-- [`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md) —
+- [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) —
   *"import a tracker from PR <N>"* when a security-relevant fix landed
   publicly without going through `<security-list>` and the team has agreed
   it warrants a CVE. Lands directly in the `Assessed` column.
-- [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) —
+- [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) —
   *"sync <issue-ref>"* or *"sync all"*. Surfaces stalled issues, missing
   fields, credit replies, and scope-split requirements in one combined
   proposal.
-- [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) — *"allocate a CVE
+- [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) — *"allocate a CVE
   for <issue-ref>"*.
 - [`generate-cve-json`](../../tools/cve-tool-vulnogram/generate-cve-json/GUIDE.md) — to
   refresh the paste-ready JSON embedded in the issue body on demand.
@@ -246,10 +246,10 @@ for the full detail.
   [`<project-config>/project.md`](../../<project-config>/project.md#cve-authority)
   — adopters running a different CNA tool point at their own
   `<cve-tool>/` adapter.)
-- [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md) —
+- [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) —
   when two trackers describe the same root-cause bug discovered
   independently.
-- [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) —
+- [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) —
   *"close NN as invalid"* once Step 5 lands a consensus-invalid
   decision. Applies the `invalid` label, archives the project-board
   item, and (for `<security-list>`-imported trackers) drafts a reply
@@ -272,7 +272,7 @@ ownership. See [Step 7](process.md#step-7--self-assign-and-implement-the-fix).
 ### Attempting an automated fix
 
 Before writing the fix by hand, consider letting the
-[`security-issue-fix`](../../skills/security-issue-fix/SKILL.md) skill try
+[`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md) skill try
 it first. Invoked as *"try to fix issue #N"* (or *"draft a PR for #N"*), the
 skill:
 
@@ -353,12 +353,12 @@ posted until you fill them in. See
 
 ### Tools you use most
 
-- [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md) —
+- [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md) —
   *"try to fix issue #N"*. Proposes a plan, writes the code, runs local
   tests, and opens a `--web` PR with a scrubbed title/body. See
   [Attempting an automated fix](#attempting-an-automated-fix) above for
   the full flow and the cases where the skill refuses to proceed.
-- [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) — to
+- [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) — to
   keep the tracker's labels, milestone, and assignee aligned with the PR
   state as it moves through review and merge.
 
@@ -471,7 +471,7 @@ relay is the ASF security team.) See
 
 ### Tools you use most
 
-- [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) —
+- [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) —
   *"sync CVE-YYYY-NNNN"* to drill into one specific CVE before sending the
   advisory (confirms the hand-off comment was posted and reflects the
   current record state). Subsequent syncs by the security team drive the

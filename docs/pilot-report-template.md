@@ -37,7 +37,7 @@ reports are the primary feedback channel for moving a skill family from
 
 Pilot reports alone do not satisfy the contributor-sentiment gate. After
 at least two release cycles of Magpie use, also run the
-[`contributor-sentiment`](../skills/contributor-sentiment/SKILL.md) skill
+[`contributor-sentiment`](../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md) skill
 to generate a machine-readable gate report covering thread tone,
 time-to-first-reply, first-PR retention, and reviewer load. See
 [`docs/contributor-sentiment.md`](contributor-sentiment.md) for the full

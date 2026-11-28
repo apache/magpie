@@ -32,12 +32,12 @@ cross-listed:
 
 | Skill | Purpose |
 |---|---|
-| [`pr-management-thread-mentor`](../../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread. |
-| [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Draft a single net-new good first issue from a maintainer-supplied candidate. |
-| [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR. |
-| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only activity brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels; no ranking or readiness verdict. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) |
-| [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for issues that could be labelled as good first issues, scoring each against the G1–G7 suitability rubric. |
-| [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain an open good-first-issue in beginner terms and sketch a concrete approach (file pointers, done-definition, where to ask); an assessment gate declines closed, security-sensitive, or scope-unclear issues; nothing is posted without maintainer confirmation. |
+| [`pr-management-thread-mentor`](../../plugins/magpie-pr-management/skills/thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread. |
+| [`good-first-issue-author`](../../plugins/magpie-mentoring/skills/good-first-issue-author/SKILL.md) | Draft a single net-new good first issue from a maintainer-supplied candidate. |
+| [`mentoring-welcome`](../../plugins/magpie-mentoring/skills/welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR. |
+| [`contributor-to-committer`](../../plugins/magpie-contributor-growth/skills/contributor-to-committer/SKILL.md) | Read-only activity brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels; no ranking or readiness verdict. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) |
+| [`good-first-issue-sweep`](../../plugins/magpie-mentoring/skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for issues that could be labelled as good first issues, scoring each against the G1–G7 suitability rubric. |
+| [`newcomer-issue-explainer`](../../plugins/magpie-mentoring/skills/newcomer-issue-explainer/SKILL.md) | Explain an open good-first-issue in beginner terms and sketch a concrete approach (file pointers, done-definition, where to ask); an assessment gate declines closed, security-sensitive, or scope-unclear issues; nothing is posted without maintainer confirmation. |
 
 This document is the normative Agentic Mentoring spec: tone guide, hand-off
 protocol, and adopter contract. The skills implement these conventions;
@@ -70,11 +70,11 @@ useful action*. Concretely, in scope:
 Out of scope:
 
 - *Reviewing code*. That is Agentic Triage's
-  [`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md)
+  [`pr-management-code-review`](../../plugins/magpie-pr-management/skills/code-review/SKILL.md)
   skill. Agentic Mentoring does not approve, request changes, or post inline
   diff comments.
 - *Triage routing*. That is Agentic Triage's
-  [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md)
+  [`pr-management-triage`](../../plugins/magpie-pr-management/skills/pr-triage/SKILL.md)
   skill. Agentic Mentoring does not assign labels, mark draft, or close PRs.
 - *Authoring fixes*. That is Agentic Drafting. Agentic Mentoring does not open PRs or
   edit code.
@@ -92,7 +92,7 @@ paths:
    warranted, drafts the comment, and waits for the maintainer
    to confirm before posting.
 2. **First-contact filter**. After
-   [`pr-management-triage`](../../skills/pr-management-triage/SKILL.md)
+   [`pr-management-triage`](../../plugins/magpie-pr-management/skills/pr-triage/SKILL.md)
    classifies a PR as "first contributor, missing repro" (or
    equivalent triage flag), the maintainer can chain
    `/magpie-pr-management:thread-mentor` on that PR. The two skills compose;

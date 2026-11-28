@@ -249,6 +249,19 @@ repos:
         additional_dependencies: ["cli:lychee"]
         files: \.(md|rst|j2)$
         pass_filenames: false
+  # Links GitHub's web view cannot follow (#2330): it does not resolve a
+  # directory symlink, so a relative link through one (`skills/<name>/…`)
+  # 404s there, while lychee, which resolves symlinks, passes it. Flags a
+  # link through any symlinked directory, with the real path to use; `--fix`
+  # rewrites them. Covers the files converted so far; widen `files:` as the
+  # rest of #2330 lands.
+  - repo: local
+    hooks:
+      - id: check-symlink-links
+        name: check-symlink-links (no links through a symlinked directory)
+        language: system
+        entry: python3 tools/dev/check-symlink-links.py
+        files: ^docs/.*\.md$
   # Local placeholder linter — catches hardcoded references like
   # `apache/airflow` or `Apache Airflow` that should be the
   # placeholder tokens `<upstream>` / `<PROJECT>` per

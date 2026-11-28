@@ -38,7 +38,7 @@ which changes how Magpie arrives and nothing about how it behaves once there.
 
 | Magpie requirement | Kiro implementation |
 |---|---|
-| Skill discovery | Native, from `.kiro/skills/`, which the `kiro` row in [`agents.md`](../../../skills/setup/agents.md) writes as a relay into the canonical `.agents/skills/` tree. Kiro also installs a skill directly from a GitHub subdirectory on a pinned tag. |
+| Skill discovery | Native, from `.kiro/skills/`, which the `kiro` row in [`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md) writes as a relay into the canonical `.agents/skills/` tree. Kiro also installs a skill directly from a GitHub subdirectory on a pinned tag. |
 | Deterministic guard | The `preToolUse` hook. Kiro pipes the event to the hook command and **blocks** the call when it exits `2`, returning stderr to the model — the Kiro equivalent of a Claude Code `PreToolUse` deny. |
 | Spec-loop | The `kiro` profile passes the prompt positionally to `kiro-cli chat`, with `--no-interactive`. |
 | Credential isolation | `kiro-iso` launches the CLI through the clean-environment wrapper. |

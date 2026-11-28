@@ -36,14 +36,14 @@ the file change, and the version-control commands that publish it.
 
 **When the advisory is announced.** The record is public the moment the advisory is archived on the project's public list,
 so sync writes it in the same pass that records the announcement: the *Advisory archived on `<users-list>`* combined apply
-([Step 1d](../../skills/security-issue-sync/gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals))
+([Step 1d](../../plugins/magpie-security/skills/issue-sync/gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals))
 captures the archive URL, regenerates the CVE JSON with it as a `vendor-advisory` reference, and then proposes the site record
 from that just-regenerated JSON, as one more item of the same batch and under the same confirmation.
 The planner gets `--announced-url <archive URL>` and refuses unless the record carries exactly that URL as a `vendor-advisory` reference,
 so a mistaken run cannot record an embargoed CVE.
 The record is written the way the planner always writes it: sorted keys, the configured indent, without `CNA_private`.
 
-**When cve.org lists it.** In the [Step 1g](../../skills/security-issue-sync/gather.md#1g-recently-closed-trackers--check-cveorg-publication-state) closed-bucket scan,
+**When cve.org lists it.** In the [Step 1g](../../plugins/magpie-security/skills/issue-sync/gather.md#1g-recently-closed-trackers--check-cveorg-publication-state) closed-bucket scan,
 once cve.org reports the CVE `PUBLISHED` (the condition sync uses for the final *"CVE is live"* reporter email),
 a record already on the site is checked once more against the record regenerated now;
 sync proposes a refresh only when the two differ, and records the refresh with an `advisory-records-refresh v1` comment.

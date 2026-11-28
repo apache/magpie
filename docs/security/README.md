@@ -60,17 +60,17 @@ the files to configure before the first run, and the skills to try first.
 
 | Skill | Purpose |
 |---|---|
-| [`security-issue-import`](../../skills/security-issue-import/SKILL.md) | Import new reports from `<security-list>` into `<tracker>`. |
-| [`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md) | Open a tracker for a security-relevant fix opened as a public PR. |
-| [`security-issue-import-from-md`](../../skills/security-issue-import-from-md/SKILL.md) | Bulk-import findings from a markdown report. |
-| [`security-issue-import-from-scan`](../../skills/security-issue-import-from-scan/SKILL.md) | Import findings from a security scanner output (Trivy, Grype, etc.) into `<tracker>`. |
-| [`security-issue-import-via-forwarder`](../../skills/security-issue-import-via-forwarder/SKILL.md) | Import reports relayed through the ASF security forwarder when no direct reporter contact exists. |
-| [`security-issue-triage`](../../skills/security-issue-triage/SKILL.md) | Propose an initial-triage disposition (VALID / DEFENSE-IN-DEPTH / INFO-ONLY / INVALID / PROBABLE-DUP / FIX-ALREADY-PUBLIC) for each tracker still in `Needs triage`; opens a discussion comment, never flips the label. |
-| [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. |
-| [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). |
-| [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md) | Implement the fix as a public PR in `<upstream>`. |
-| [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. |
-| [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. |
+| [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) | Import new reports from `<security-list>` into `<tracker>`. |
+| [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) | Open a tracker for a security-relevant fix opened as a public PR. |
+| [`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) | Bulk-import findings from a markdown report. |
+| [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) | Import findings from a security scanner output (Trivy, Grype, etc.) into `<tracker>`. |
+| [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) | Import reports relayed through the ASF security forwarder when no direct reporter contact exists. |
+| [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) | Propose an initial-triage disposition (VALID / DEFENSE-IN-DEPTH / INFO-ONLY / INVALID / PROBABLE-DUP / FIX-ALREADY-PUBLIC) for each tracker still in `Needs triage`; opens a discussion comment, never flips the label. |
+| [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. |
+| [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). |
+| [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md) | Implement the fix as a public PR in `<upstream>`. |
+| [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. |
+| [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. |
 
 ### Security-model skills
 
@@ -83,10 +83,10 @@ the lifecycle and the rationale.
 
 | Skill | Purpose |
 |---|---|
-| [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md) | Produce a first model for a project that has none, in draft-first mode, and land it with its discoverability chain as one PR per repository. |
-| [`security-model-verify`](../../skills/security-model-verify/SKILL.md) | Pre-flight an existing model: can an agent mechanically reach it, and does it cover the minimum bar a triager depends on. Discoverability is the only hard gate. |
-| [`security-model-update`](../../skills/security-model-update/SKILL.md) | Read the decision history back into the model — new known-non-finding entries and a model-gap list, regression-checked against past valid reports. |
-| [`security-submit-to-oss-scan`](../../skills/security-submit-to-oss-scan/SKILL.md) | Prepare the enrolment (or update) PR that puts a project into Anthropic's OSS Scanner — `project.yaml`, an offline-capable `Dockerfile`, and a `threat_model.md` derived from the security model — and guide the maintainer through testing it first. |
+| [`security-model-prepare`](../../plugins/magpie-security/skills/model-prepare/SKILL.md) | Produce a first model for a project that has none, in draft-first mode, and land it with its discoverability chain as one PR per repository. |
+| [`security-model-verify`](../../plugins/magpie-security/skills/model-verify/SKILL.md) | Pre-flight an existing model: can an agent mechanically reach it, and does it cover the minimum bar a triager depends on. Discoverability is the only hard gate. |
+| [`security-model-update`](../../plugins/magpie-security/skills/model-update/SKILL.md) | Read the decision history back into the model — new known-non-finding entries and a model-gap list, regression-checked against past valid reports. |
+| [`security-submit-to-oss-scan`](../../plugins/magpie-security/skills/submit-to-oss-scan/SKILL.md) | Prepare the enrolment (or update) PR that puts a project into Anthropic's OSS Scanner — `project.yaml`, an offline-capable `Dockerfile`, and a `threat_model.md` derived from the security model — and guide the maintainer through testing it first. |
 
 The rubric these skills measure against is maintained externally by
 Alpha-Omega (<https://github.com/alpha-omega-security/threat-model>) and
@@ -96,7 +96,7 @@ referenced by URL; Magpie keeps no local copy.
 
 | Skill | Purpose |
 |---|---|
-| [`security-tracker-stats-dashboard`](../../skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` repo statistics (lifecycle bands, opened-vs-untriaged backlog, mean time to triage / first response / fix). Read-only — never modifies tracker state. |
+| [`security-tracker-stats-dashboard`](../../plugins/magpie-security/skills/tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` repo statistics (lifecycle bands, opened-vs-untriaged backlog, mean time to triage / first response / fix). Read-only — never modifies tracker state. |
 
 The tracker itself need not be a GitHub repository.
 `tracker.platform` selects one of three backends of the [security-tracker contract](../../tools/security-tracker/contract.md):

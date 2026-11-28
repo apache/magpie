@@ -42,7 +42,7 @@ it, and stage it to `dist.apache.org/repos/dist/dev/` for the
 > lifecycle, same skills, different distribution backend.
 
 This runbook is the hands-on companion to the
-[`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) skill
+[`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) skill
 (lifecycle Steps 4–5). The skill *emits* this command set tailored
 to the adopter's [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md);
 this document is the same set written out longhand so a Release
@@ -81,19 +81,19 @@ This runbook covers Steps 4–5 of the
 
 | Step | Owner skill | This runbook |
 |---|---|---|
-| 1–2 Plan + version bump | [`release-prepare`](../../skills/release-prepare/SKILL.md) | prerequisite |
-| 3 `KEYS` reconciliation | [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md) | prerequisite |
-| **4 Cut RC: tag + build + sign** | [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | **Steps 2–6 below** |
-| **5 Stage to `dist/dev/`** | [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) | **Step 7 below** |
-| 6 Pre-flight verify | [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) | downstream |
-| 7–9 Vote + tally | [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md), [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md) | downstream |
-| 10 Promote `dist/dev/ → dist/release/` | [`release-promote`](../../skills/release-promote/SKILL.md) | downstream |
+| 1–2 Plan + version bump | [`release-prepare`](../../plugins/magpie-release-management/skills/prepare/SKILL.md) | prerequisite |
+| 3 `KEYS` reconciliation | [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md) | prerequisite |
+| **4 Cut RC: tag + build + sign** | [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) | **Steps 2–6 below** |
+| **5 Stage to `dist/dev/`** | [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) | **Step 7 below** |
+| 6 Pre-flight verify | [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) | downstream |
+| 7–9 Vote + tally | [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md), [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md) | downstream |
+| 10 Promote `dist/dev/ → dist/release/` | [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md) | downstream |
 
 > [!IMPORTANT]
 > This runbook stops at `dist/dev/`. Moving the artefacts to
 > `dist/release/` is **the moment of release** and happens **only
 > after the vote passes** — see
-> [`release-promote`](../../skills/release-promote/SKILL.md). Never
+> [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md). Never
 > `svn import`/`svn mv` into a `dist/release/` path from here; that
 > path is on a hard denylist in the release skills for good reason.
 
@@ -106,14 +106,14 @@ Before you start, confirm:
   matching public key is on a keyserver
   ([release-signing FAQ](https://infra.apache.org/release-signing.html)).
   If this is your first release, run
-  [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md)
+  [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md)
   (Step 3) first.
 - **You can write to the project's SVN dist area.** ASF committers
   can write to `dist/dev/`; `dist/release/` is PMC-only (that gate
   bites at promote time, not here).
 - **The prep PR is merged** — version strings, `CHANGELOG`,
   `NOTICE`/`LICENSE` reflect `<version>`
-  ([`release-prepare prep`](../../skills/release-prepare/SKILL.md),
+  ([`release-prepare prep`](../../plugins/magpie-release-management/skills/prepare/SKILL.md),
   Step 2).
 - **`git`, `gpg`, `svn`, and a SHA-512 tool** are installed locally.
 
@@ -134,7 +134,7 @@ export STAGE_DIR="$(pwd)/stage/${RC_TAG}"
 ## Step 2: Tag the release candidate
 
 Cut a **signed** tag at the commit you are releasing, and push it.
-(If the [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md)
+(If the [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md)
 skill already emitted and you already pushed this tag, skip to Step
 3.)
 
@@ -193,7 +193,7 @@ unzip -l "${ARTIFACT}" | grep -E "apache-magpie-${VERSION}/(LICENSE|NOTICE)$"
 > release, mark them `export-ignore` in `.gitattributes` — `git
 > archive` honours it. The license-header pass
 > ([Apache RAT](https://creadur.apache.org/rat/), run by
-> [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md) in
+> [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) in
 > Step 6) is the authoritative check on what the artefact must
 > contain.
 
@@ -265,27 +265,27 @@ https://dist.apache.org/repos/dist/dev/magpie/<VERSION>-<RC>/
 > [!IMPORTANT]
 > The target URL **must** contain `dist/dev/`. Never stage to a
 > `dist/release/` path here — promotion is a separate, post-vote,
-> PMC-gated step ([`release-promote`](../../skills/release-promote/SKILL.md)).
+> PMC-gated step ([`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md)).
 
 ## What happens after staging
 
 1. **Verify** the staged RC end-to-end — signatures against the
    project `KEYS` (not your keyring), checksums, license headers,
    `NOTICE`/`LICENSE` presence:
-   [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md)
+   [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md)
    (Step 6).
 2. **Open the `[VOTE]`** thread on `dev@magpie.apache.org`:
-   [`release-vote-draft`](../../skills/release-vote-draft/SKILL.md)
+   [`release-vote-draft`](../../plugins/magpie-release-management/skills/vote-draft/SKILL.md)
    (Step 7). Voting window ≥ 72 h, needs 3 binding `+1` and more
    `+1` than `-1`
    ([release-policy § approval](https://www.apache.org/legal/release-policy.html#release-approval)).
 3. **Tally** the result:
-   [`release-vote-tally`](../../skills/release-vote-tally/SKILL.md)
+   [`release-vote-tally`](../../plugins/magpie-release-management/skills/vote-tally/SKILL.md)
    (Step 9). On failure, bump the RC number and rerun this runbook
    from Step 2.
 4. **Promote** `dist/dev/ → dist/release/` once the vote passes —
    the moment of release:
-   [`release-promote`](../../skills/release-promote/SKILL.md)
+   [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md)
    (Step 10).
 
 ## Release Manager checklist
@@ -309,12 +309,12 @@ https://dist.apache.org/repos/dist/dev/magpie/<VERSION>-<RC>/
   covers Steps 4–5 of.
 - [`spec.md`](spec.md) — the state-change boundaries (agent never
   holds the key, never publishes).
-- [`release-rc-cut`](../../skills/release-rc-cut/SKILL.md) — the
+- [`release-rc-cut`](../../plugins/magpie-release-management/skills/rc-cut/SKILL.md) — the
   skill that emits this command set from
   [`release-build.md`](../../plugins/magpie-setup/templates/release-build.md).
-- [`release-keys-sync`](../../skills/release-keys-sync/SKILL.md),
-  [`release-verify-rc`](../../skills/release-verify-rc/SKILL.md),
-  [`release-promote`](../../skills/release-promote/SKILL.md) — the
+- [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md),
+  [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md),
+  [`release-promote`](../../plugins/magpie-release-management/skills/promote/SKILL.md) — the
   upstream and downstream skills.
 - [ASF release policy](https://www.apache.org/legal/release-policy.html)
   — canonical; § [what is a release](https://www.apache.org/legal/release-policy.html#release-definition)

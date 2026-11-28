@@ -69,7 +69,7 @@ enforced as `ALLOWED_FAMILIES` by
 summarised in [`README.md` → Skill families](../README.md#skill-families).
 Two of them (`setup`, `utilities`) are the always-on families wired on
 every install; the other eight are opt-in (see
-[`skills/setup/SKILL.md`](../skills/setup/SKILL.md) Golden rule 8).
+[`skills/setup/SKILL.md`](../plugins/magpie-setup/skills/setup/SKILL.md) Golden rule 8).
 
 | Label | Type | Covers |
 |---|---|---|
@@ -529,7 +529,7 @@ capability: capability:NAME
 ```
 
 The value is a string, or a YAML list for multi-capability skills.
-The [`write-skill`](../skills/write-skill/SKILL.md) skill
+The [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) skill
 prompts for this on every new-skill scaffold.
 
 ### A new doc under `docs/`

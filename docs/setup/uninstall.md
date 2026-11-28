@@ -49,7 +49,7 @@ into your repo.
 
 > **You may not actually want this.** To **change install
 > method or version**, use
-> [`/magpie-setup:setup update`](../../skills/setup/update.md)
+> [`/magpie-setup:setup update`](../../plugins/magpie-setup/skills/setup/update.md)
 > — it keeps your overrides and re-uses the existing
 > wiring. To **temporarily detach a single skill for
 > debugging**, edit the relevant file under
@@ -113,7 +113,7 @@ The following will be PRESERVED:
 ```
 
 The framework wires every skills dir the same way per the
-[agent-target registry](../../skills/setup/agents.md):
+[agent-target registry](../../plugins/magpie-setup/skills/setup/agents.md):
 `.agents/skills/` holds the canonical `magpie-*` links into the
 snapshot; `.claude/skills/` and `.github/skills/` (and any
 holdout) hold relays into `.agents/skills/`. `uninstall` removes the
@@ -147,13 +147,13 @@ committing. On disk, `.apache-magpie/` and
 `.apache-magpie.local.lock` should no longer exist, but
 `.apache-magpie.lock` should still be there, unchanged: this flow
 leaves the project's committed floor alone. Removing the floor
-itself is [`unadopt`](../../skills/setup/adopt.md#unadopt), a
+itself is [`unadopt`](../../plugins/magpie-setup/skills/setup/adopt.md#unadopt), a
 different operation with a different blast radius.
 
 If anything is missing or unexpected — or if removal failed
 partway through — the canonical per-step plan, including
 failure modes, lives in
-[`.claude/skills/magpie-setup/uninstall.md`](../../skills/setup/uninstall.md).
+[`.claude/skills/magpie-setup/uninstall.md`](../../plugins/magpie-setup/skills/setup/uninstall.md).
 That's the procedure the agent steps through when you
 invoke `/magpie-setup:setup uninstall`.
 

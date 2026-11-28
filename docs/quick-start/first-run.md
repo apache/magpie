@@ -50,7 +50,7 @@ and, once the configuration resolves, prints nothing at all — you will not see
 it again.
 
 You did not have to run anything: the skill invokes
-[`/magpie-setup:setup config`](../../skills/setup/config.md) itself and says so.
+[`/magpie-setup:setup config`](../../plugins/magpie-setup/skills/setup/config.md) itself and says so.
 That is safe to do unasked because of what `config` touches — files
 in your clone's git directory and nothing else. It stages nothing, commits nothing, and
 changes nothing any teammate can see.

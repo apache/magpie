@@ -79,46 +79,46 @@ do not act without human review.
 
 | Skill | Domain | Status |
 |---|---|---|
-| [`pr-management-triage`](../skills/pr-management-triage/SKILL.md) | Generic PR queue triage. | experimental |
-| [`pr-management-stats`](../skills/pr-management-stats/SKILL.md) | PR-queue reporting (supports triage decisions). | experimental |
-| [`pr-management-code-review`](../skills/pr-management-code-review/SKILL.md) | Maintainer-facing deep code review. | experimental |
-| [`pr-management-stack-review`](../skills/pr-management-stack-review/SKILL.md) | Stack-level review of a GitHub stacked pull request: chain currency, cross-layer file and seam checks, code by tier with a coverage table; one rolling `COMMENT`, never an approval. | experimental |
-| [`reviewer-routing`](../skills/reviewer-routing/SKILL.md) | Suggest a primary reviewer and optional backup for an open issue or PR from the configured roster, touched areas, git-history familiarity, and current review load; waits for maintainer confirmation before any assignment or review request. | experimental |
-| [`issue-triage`](../skills/issue-triage/SKILL.md) | General-issue-tracker triage (per-issue classification + disposition proposal). | experimental |
-| [`issue-reassess`](../skills/issue-reassess/SKILL.md) | Pool-level sweep of resolved / EOL issues for re-assessment. | experimental |
-| [`issue-stale-sweep`](../skills/issue-stale-sweep/SKILL.md) | Sweep open issues for inactivity past a configurable threshold; proposes a nudge (`REQUEST-UPDATE`) or a pre-close notice (`CLOSE-STALE`); waits for maintainer confirmation before posting. | experimental |
-| [`pr-stale-sweep`](../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; proposes a nudge (`REQUEST-UPDATE`) or a pre-close notice (`CLOSE-STALE`); skips maintainer-court and ready-labelled PRs; waits for maintainer confirmation before posting. | experimental |
-| [`issue-backlog-stats`](../skills/issue-backlog-stats/SKILL.md) | Read-only maintainer dashboard for the open general-issue backlog: health rating, age/staleness breakdowns, area pressure ranking, and triage-funnel summary. | experimental |
-| [`issue-deduplicate`](../skills/issue-deduplicate/SKILL.md) | Merge two open `<issue-tracker>` issues that describe the same root cause, preserving both reporters' context; proposes closure comment on the duplicate and a cross-reference on the kept issue. | experimental |
-| [`contributor-nomination`](../skills/contributor-nomination/SKILL.md) | Nomination evidence brief for a named contributor — activity breadth, consistency, and factual evidence prose for a committer or PMC thread; never says whether they are ready. | experimental |
-| [`contributor-calibrate`](../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC threshold floors from the project's past nomination decisions; proposes numbers-only config. | experimental |
-| [`contributor-candidate-screen`](../skills/contributor-candidate-screen/SKILL.md) | Surfaces likely committer and PMC candidates — deliberately more than the PMC would consider — as an alphabetical list with a short summary, in a verified-private repository; never a ranking or a verdict. | experimental |
-| [`security-issue-import`](../skills/security-issue-import/SKILL.md) | Inbound security-report classification + initial routing. | stable |
-| [`security-issue-import-from-pr`](../skills/security-issue-import-from-pr/SKILL.md) | Open a tracker from a security-relevant public PR. | stable |
-| [`security-issue-import-from-md`](../skills/security-issue-import-from-md/SKILL.md) | Bulk-import findings from a markdown report. | stable |
-| [`security-issue-deduplicate`](../skills/security-issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. | stable |
-| [`security-issue-invalidate`](../skills/security-issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. | stable |
-| [`security-issue-sync`](../skills/security-issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. | stable |
-| [`security-cve-allocate`](../skills/security-cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
-| [`security-issue-triage`](../skills/security-issue-triage/SKILL.md) | Batch-triage open tracker issues carrying `needs triage`; classifies each into one of six dispositions and posts a proposal comment on confirmation. | experimental |
-| [`security-model-verify`](../skills/security-model-verify/SKILL.md) | Pre-flight on a published security model, per repository: discoverability chain plus completeness against the minimum-bar rubric. Remediates with a repo PR or a private-list mail; never opens a public issue. | experimental |
-| [`security-issue-import-via-forwarder`](../skills/security-issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
-| [`security-issue-import-from-scan`](../skills/security-issue-import-from-scan/SKILL.md) | Triage a security scanner's multi-finding output (via the `scan-format` adapter) into per-finding dispositions; opens tracker issues only after operator confirmation of the triage decisions. | experimental |
-| [`contributor-identity-map`](../skills/contributor-identity-map/SKILL.md) | Maps a contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; grades the evidence and records only the mappings a maintainer confirms. | experimental |
-| [`contributor-activity-sweep`](../skills/contributor-activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
-| [`contributor-sentiment`](../skills/contributor-sentiment/SKILL.md) | Measures contributor-sentiment signals (thread tone, time-to-first-reply, first-PR retention, reviewer load) and produces the structured gate report for experimental→stable advancement. | experimental |
-| [`pr-management-merge-candidates`](../skills/pr-management-merge-candidates/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
-| [`ci-runner-audit`](../skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
-| [`dependency-vulnerability-audit`](../skills/dependency-vulnerability-audit/SKILL.md) | Read-only dependency vulnerability audit: detects the project's dependency manager(s), runs the appropriate audit tool, surfaces patchable findings grouped by severity, and proposes upgrades for maintainer review. | experimental |
-| [`dependency-license-audit`](../skills/dependency-license-audit/SKILL.md) | Read-only license audit of the dependency tree: resolves each dependency's declared license, classifies against the ASF three-category model (A/B/X) or a custom allowlist, and reports forbidden, binary-only (category B), and unknown-license dependencies. | experimental |
-| [`workflow-security-audit`](../skills/workflow-security-audit/SKILL.md) | Read-only GitHub Actions workflow security audit powered by `zizmor`: surfaces injection vulnerabilities, excessive permissions, unpinned external actions, and self-hosted-runner fork-secret leaks. | experimental |
-| [`workflow-optimization`](../skills/workflow-optimization/SKILL.md) | Read-only review of one repository's GitHub Actions workflows and run history against the ASF Infra workflow-optimization practices; produces a prioritised plan to cut runner use. | experimental |
-| [`license-compliance-audit`](../skills/license-compliance-audit/SKILL.md) | Read-only license-compliance audit: LICENSE presence, NOTICE completeness when required, and SPDX-header consistency across source files; proposes remedies for maintainer review. | experimental |
-| [`flaky-test-triage`](../skills/flaky-test-triage/SKILL.md) | Read-only flaky-test detection from CI run history: per-job failure-rate analysis over a configurable window, separating intermittent (flaky) from deterministic failures. | experimental |
-| [`release-verify-rc`](../skills/release-verify-rc/SKILL.md) | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as an Agentic Pairing-mode skill voters run in their own dev loop. | experimental |
-| [`release-vote-tally`](../skills/release-vote-tally/SKILL.md) | Fetch the approval signal for an RC, classify each reply (+1 / 0 / -1) binding vs non-binding against the configured roster, produce the tally summary, and draft the `[RESULT] [VOTE]` email. Conservative on ambiguous votes, refuses to count. | experimental |
-| [`release-archive-sweep`](../skills/release-archive-sweep/SKILL.md) | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. | experimental |
-| [`release-audit-report`](../skills/release-audit-report/SKILL.md) | Per-release structured report (RM, voters with binding flags, artefacts with sigs and checksums, promote revision, `[ANNOUNCE]` archive URL) appended to the project's audit log. | experimental |
+| [`pr-management-triage`](../plugins/magpie-pr-management/skills/pr-triage/SKILL.md) | Generic PR queue triage. | experimental |
+| [`pr-management-stats`](../plugins/magpie-pr-management/skills/stats/SKILL.md) | PR-queue reporting (supports triage decisions). | experimental |
+| [`pr-management-code-review`](../plugins/magpie-pr-management/skills/code-review/SKILL.md) | Maintainer-facing deep code review. | experimental |
+| [`pr-management-stack-review`](../plugins/magpie-pr-management/skills/stack-review/SKILL.md) | Stack-level review of a GitHub stacked pull request: chain currency, cross-layer file and seam checks, code by tier with a coverage table; one rolling `COMMENT`, never an approval. | experimental |
+| [`reviewer-routing`](../plugins/magpie-pr-management/skills/reviewer-routing/SKILL.md) | Suggest a primary reviewer and optional backup for an open issue or PR from the configured roster, touched areas, git-history familiarity, and current review load; waits for maintainer confirmation before any assignment or review request. | experimental |
+| [`issue-triage`](../plugins/magpie-issue/skills/triage/SKILL.md) | General-issue-tracker triage (per-issue classification + disposition proposal). | experimental |
+| [`issue-reassess`](../plugins/magpie-issue/skills/reassess/SKILL.md) | Pool-level sweep of resolved / EOL issues for re-assessment. | experimental |
+| [`issue-stale-sweep`](../plugins/magpie-issue/skills/stale-sweep/SKILL.md) | Sweep open issues for inactivity past a configurable threshold; proposes a nudge (`REQUEST-UPDATE`) or a pre-close notice (`CLOSE-STALE`); waits for maintainer confirmation before posting. | experimental |
+| [`pr-stale-sweep`](../plugins/magpie-pr-management/skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; proposes a nudge (`REQUEST-UPDATE`) or a pre-close notice (`CLOSE-STALE`); skips maintainer-court and ready-labelled PRs; waits for maintainer confirmation before posting. | experimental |
+| [`issue-backlog-stats`](../plugins/magpie-issue/skills/backlog-stats/SKILL.md) | Read-only maintainer dashboard for the open general-issue backlog: health rating, age/staleness breakdowns, area pressure ranking, and triage-funnel summary. | experimental |
+| [`issue-deduplicate`](../plugins/magpie-issue/skills/deduplicate/SKILL.md) | Merge two open `<issue-tracker>` issues that describe the same root cause, preserving both reporters' context; proposes closure comment on the duplicate and a cross-reference on the kept issue. | experimental |
+| [`contributor-nomination`](../plugins/magpie-contributor-growth/skills/nomination/SKILL.md) | Nomination evidence brief for a named contributor — activity breadth, consistency, and factual evidence prose for a committer or PMC thread; never says whether they are ready. | experimental |
+| [`contributor-calibrate`](../plugins/magpie-contributor-growth/skills/calibrate/SKILL.md) | Derives committer and PMC threshold floors from the project's past nomination decisions; proposes numbers-only config. | experimental |
+| [`contributor-candidate-screen`](../plugins/magpie-contributor-growth/skills/candidate-screen/SKILL.md) | Surfaces likely committer and PMC candidates — deliberately more than the PMC would consider — as an alphabetical list with a short summary, in a verified-private repository; never a ranking or a verdict. | experimental |
+| [`security-issue-import`](../plugins/magpie-security/skills/issue-import/SKILL.md) | Inbound security-report classification + initial routing. | stable |
+| [`security-issue-import-from-pr`](../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) | Open a tracker from a security-relevant public PR. | stable |
+| [`security-issue-import-from-md`](../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) | Bulk-import findings from a markdown report. | stable |
+| [`security-issue-deduplicate`](../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) | Merge two trackers describing the same root-cause vulnerability. | stable |
+| [`security-issue-invalidate`](../plugins/magpie-security/skills/issue-invalidate/SKILL.md) | Close a tracker as invalid with a polite-but-firm reporter reply. | stable |
+| [`security-issue-sync`](../plugins/magpie-security/skills/issue-sync/SKILL.md) | Reconcile a tracker against its mail thread, fix PR, release train, and archives. | stable |
+| [`security-cve-allocate`](../plugins/magpie-security/skills/cve-allocate/SKILL.md) | Allocate a CVE for a tracker (Vulnogram URL + paste-ready JSON). | stable |
+| [`security-issue-triage`](../plugins/magpie-security/skills/issue-triage/SKILL.md) | Batch-triage open tracker issues carrying `needs triage`; classifies each into one of six dispositions and posts a proposal comment on confirmation. | experimental |
+| [`security-model-verify`](../plugins/magpie-security/skills/model-verify/SKILL.md) | Pre-flight on a published security model, per repository: discoverability chain plus completeness against the minimum-bar rubric. Remediates with a repo PR or a private-list mail; never opens a public issue. | experimental |
+| [`security-issue-import-via-forwarder`](../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) | Sub-skill of `security-issue-import` / `-invalidate` / `-sync` for the relay/forwarder case: reports relayed by an upstream broker (e.g. ASF security team) rather than arriving directly from the reporter. | experimental |
+| [`security-issue-import-from-scan`](../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) | Triage a security scanner's multi-finding output (via the `scan-format` adapter) into per-finding dispositions; opens tracker issues only after operator confirmation of the triage decisions. | experimental |
+| [`contributor-identity-map`](../plugins/magpie-contributor-growth/skills/identity-map/SKILL.md) | Maps a contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; grades the evidence and records only the mappings a maintainer confirms. | experimental |
+| [`contributor-activity-sweep`](../plugins/magpie-contributor-growth/skills/activity-sweep/SKILL.md) | Read-only GitHub activity card for a named contributor: PR authorship, code-review participation, issues, and comments over a configurable window. | experimental |
+| [`contributor-sentiment`](../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md) | Measures contributor-sentiment signals (thread tone, time-to-first-reply, first-PR retention, reviewer load) and produces the structured gate report for experimental→stable advancement. | experimental |
+| [`pr-management-merge-candidates`](../plugins/magpie-pr-management/skills/merge-candidates/SKILL.md) | Identify trivial, low-risk PRs in the `ready for maintainer review` queue that pass every quality gate and touch only supplementary areas (docs, changelog, translations, tests); surfaces candidates with diff summaries and the exact merge command. | experimental |
+| [`ci-runner-audit`](../plugins/magpie-repo-health/skills/ci-runner-audit/SKILL.md) | Read-only audit of GitHub Actions workflow runner compatibility across one repo, an explicit set, one Apache project's repos, or the full Apache GitHub org. | experimental |
+| [`dependency-vulnerability-audit`](../plugins/magpie-repo-health/skills/dependency-vulnerability-audit/SKILL.md) | Read-only dependency vulnerability audit: detects the project's dependency manager(s), runs the appropriate audit tool, surfaces patchable findings grouped by severity, and proposes upgrades for maintainer review. | experimental |
+| [`dependency-license-audit`](../plugins/magpie-repo-health/skills/dependency-license-audit/SKILL.md) | Read-only license audit of the dependency tree: resolves each dependency's declared license, classifies against the ASF three-category model (A/B/X) or a custom allowlist, and reports forbidden, binary-only (category B), and unknown-license dependencies. | experimental |
+| [`workflow-security-audit`](../plugins/magpie-repo-health/skills/workflow-security-audit/SKILL.md) | Read-only GitHub Actions workflow security audit powered by `zizmor`: surfaces injection vulnerabilities, excessive permissions, unpinned external actions, and self-hosted-runner fork-secret leaks. | experimental |
+| [`workflow-optimization`](../plugins/magpie-repo-health/skills/workflow-optimization/SKILL.md) | Read-only review of one repository's GitHub Actions workflows and run history against the ASF Infra workflow-optimization practices; produces a prioritised plan to cut runner use. | experimental |
+| [`license-compliance-audit`](../plugins/magpie-repo-health/skills/license-compliance-audit/SKILL.md) | Read-only license-compliance audit: LICENSE presence, NOTICE completeness when required, and SPDX-header consistency across source files; proposes remedies for maintainer review. | experimental |
+| [`flaky-test-triage`](../plugins/magpie-repo-health/skills/flaky-test-triage/SKILL.md) | Read-only flaky-test detection from CI run history: per-job failure-rate analysis over a configurable window, separating intermittent (flaky) from deterministic failures. | experimental |
+| [`release-verify-rc`](../plugins/magpie-release-management/skills/verify-rc/SKILL.md) | Read-only pre-flight on a staged RC: signatures against project KEYS, checksums, license headers (Apache RAT), NOTICE/LICENSE diff, no prohibited binaries, version-string consistency. Doubles as an Agentic Pairing-mode skill voters run in their own dev loop. | experimental |
+| [`release-vote-tally`](../plugins/magpie-release-management/skills/vote-tally/SKILL.md) | Fetch the approval signal for an RC, classify each reply (+1 / 0 / -1) binding vs non-binding against the configured roster, produce the tally summary, and draft the `[RESULT] [VOTE]` email. Conservative on ambiguous votes, refuses to count. | experimental |
+| [`release-archive-sweep`](../plugins/magpie-release-management/skills/archive-sweep/SKILL.md) | Scan `dist/release/<project>/`, identify releases past retention, propose the `svn mv` sequence to `archive.apache.org`. | experimental |
+| [`release-audit-report`](../plugins/magpie-release-management/skills/audit-report/SKILL.md) | Per-release structured report (RM, voters with binding flags, artefacts with sigs and checksums, promote revision, `[ANNOUNCE]` archive URL) appended to the project's audit log. | experimental |
 
 Three notes on the boundaries:
 
@@ -150,13 +150,13 @@ choices were reviewable independently from the runtime behaviour.
 
 | Skill | Purpose | Status |
 |---|---|---|
-| [`pr-management-thread-mentor`](../skills/pr-management-thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
-| [`good-first-issue-author`](../skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task (suitability gate + readiness checklist); waits for maintainer confirmation before filing. | experimental |
-| [`mentoring-welcome`](../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via `author_association`, drafts a welcome with contributing-guide link and expected next steps; waits for maintainer confirmation before posting. | experimental |
-| [`contributor-to-committer`](../skills/contributor-to-committer/SKILL.md) | Read-only brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels as plain numbers with the difference; surfaces information only — no ranking, status, or readiness verdict, the PMC decides. | experimental |
-| [`good-first-issue-sweep`](../skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric and classifies as READY / NEAR-MISS / SKIP; proposes labels only after explicit maintainer confirmation. | experimental |
-| [`onboarding-concierge`](../skills/onboarding-concierge/SKILL.md) | Answer a newcomer's "how do I contribute here" question by grounding the response in `CONTRIBUTING.md` and the project's own docs; classifies the question (setup / workflow / first-issue), retrieves the relevant excerpt, and drafts a concise answer; hands off to a human for design, security, or out-of-scope questions. | experimental |
-| [`newcomer-issue-explainer`](../skills/newcomer-issue-explainer/SKILL.md) | Given an open good-first-issue, explain it in beginner terms and sketch a concrete approach (file pointers, done-definition, where to ask); assessment gate declines closed, security-sensitive, or scope-unclear issues; nothing is posted without maintainer confirmation. | experimental |
+| [`pr-management-thread-mentor`](../plugins/magpie-pr-management/skills/thread-mentor/SKILL.md) | Draft a teaching-register comment on a single GitHub issue or PR thread; waits for maintainer confirmation before posting. | experimental |
+| [`good-first-issue-author`](../plugins/magpie-mentoring/skills/good-first-issue-author/SKILL.md) | Draft one net-new good first issue from a supplied gap or small task (suitability gate + readiness checklist); waits for maintainer confirmation before filing. | experimental |
+| [`mentoring-welcome`](../plugins/magpie-mentoring/skills/welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via `author_association`, drafts a welcome with contributing-guide link and expected next steps; waits for maintainer confirmation before posting. | experimental |
+| [`contributor-to-committer`](../plugins/magpie-contributor-growth/skills/contributor-to-committer/SKILL.md) | Read-only brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels as plain numbers with the difference; surfaces information only — no ranking, status, or readiness verdict, the PMC decides. | experimental |
+| [`good-first-issue-sweep`](../plugins/magpie-mentoring/skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric and classifies as READY / NEAR-MISS / SKIP; proposes labels only after explicit maintainer confirmation. | experimental |
+| [`onboarding-concierge`](../plugins/magpie-contributor-growth/skills/onboarding-concierge/SKILL.md) | Answer a newcomer's "how do I contribute here" question by grounding the response in `CONTRIBUTING.md` and the project's own docs; classifies the question (setup / workflow / first-issue), retrieves the relevant excerpt, and drafts a concise answer; hands off to a human for design, security, or out-of-scope questions. | experimental |
+| [`newcomer-issue-explainer`](../plugins/magpie-mentoring/skills/newcomer-issue-explainer/SKILL.md) | Given an open good-first-issue, explain it in beginner terms and sketch a concrete approach (file pointers, done-definition, where to ask); assessment gate declines closed, security-sensitive, or scope-unclear issues; nothing is posted without maintainer confirmation. | experimental |
 
 | Doc | Purpose |
 |---|---|
@@ -168,7 +168,7 @@ The prototype ships flagged `mode: Mentoring` + `experimental`. Shape
 may change as adopter pilots and contributor-sentiment evaluation land.
 The skill is read-only by default and never posts without explicit
 maintainer confirmation — see
-[`pr-management-thread-mentor/SKILL.md`](../skills/pr-management-thread-mentor/SKILL.md)
+[`pr-management-thread-mentor/SKILL.md`](../plugins/magpie-pr-management/skills/thread-mentor/SKILL.md)
 for the full contract.
 
 The closest existing surface is
@@ -186,27 +186,27 @@ the agent never merges its own work.
 
 | Skill | Domain | Status |
 |---|---|---|
-| [`security-issue-fix`](../skills/security-issue-fix/SKILL.md) | Draft a fix PR in `<upstream>` from a triaged, CVE-allocated tracker. | stable (security-only) |
-| [`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md) | Draft a fix for a triaged general-issue-tracker issue (BUG or FEATURE-REQUEST). | experimental |
-| [`security-submit-to-oss-scan`](../skills/security-submit-to-oss-scan/SKILL.md) | Draft the enrolment PR for an automated security scanner: `project.yaml`, an offline-capable `Dockerfile`, and a threat-model summary derived from the project's security model. | experimental |
-| [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md) | Draft fixes for non-security audit-tool findings (lint violations, type errors, CodeQL alerts, doc-coverage gaps); re-runs the tool after each batch to confirm findings are cleared. | experimental |
-| [`pr-management-shepherd`](../skills/pr-management-shepherd/SKILL.md) | Get the maintainer's own open PRs to mergeable: re-run timed-out CI, fix failures and code-scanning notes, rebase, repair a red default branch; routes others' PRs to review. Agent never merges. | experimental |
-| [`release-prepare`](../skills/release-prepare/SKILL.md) | Planning issue + version-bump / changelog / NOTICE / LICENSE prep PR (Steps 1-2). Also the post-release `-SNAPSHOT` bump (Step 14). | experimental |
-| [`release-keys-sync`](../skills/release-keys-sync/SKILL.md) | Draft the `KEYS` diff for a new Release Manager (Step 3). Agent never holds the private key. | experimental |
-| [`release-rc-cut`](../skills/release-rc-cut/SKILL.md) | Paste-ready command sequence: signed tag, build, detached signatures, checksums, `svn import` to `dist/dev/` (Steps 4-5). Agent never signs and never imports. | experimental |
-| [`release-vote-draft`](../skills/release-vote-draft/SKILL.md) | Draft the `[VOTE]` email body to `dev@<project>` (Step 7). Agent never sends. | experimental |
-| [`release-promote`](../skills/release-promote/SKILL.md) | Emit the backend-shaped promotion command set for a release that has passed its vote; proposes the `promoted` label. Agent never runs the promotion command and never publishes the release. | experimental |
-| [`release-announce-draft`](../skills/release-announce-draft/SKILL.md) | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | experimental |
-| [`security-model-prepare`](../skills/security-model-prepare/SKILL.md) | Draft a project's first security model in draft-first mode and land it, with its `AGENTS.md` → `SECURITY.md` discoverability chain, as one reviewable PR per repository. Maintainers ratify; the agent never merges. | experimental |
-| [`security-model-update`](../skills/security-model-update/SKILL.md) | Draft the model diff implied by the decision history — new known-non-finding entries and a model-gap list — regression-checked so a widened disclaimer cannot start closing real vulnerabilities. Read-only on the tracker. | experimental |
+| [`security-issue-fix`](../plugins/magpie-security/skills/issue-fix/SKILL.md) | Draft a fix PR in `<upstream>` from a triaged, CVE-allocated tracker. | stable (security-only) |
+| [`issue-fix-workflow`](../plugins/magpie-issue/skills/fix-workflow/SKILL.md) | Draft a fix for a triaged general-issue-tracker issue (BUG or FEATURE-REQUEST). | experimental |
+| [`security-submit-to-oss-scan`](../plugins/magpie-security/skills/submit-to-oss-scan/SKILL.md) | Draft the enrolment PR for an automated security scanner: `project.yaml`, an offline-capable `Dockerfile`, and a threat-model summary derived from the project's security model. | experimental |
+| [`audit-finding-fix`](../plugins/magpie-repo-health/skills/audit-finding-fix/SKILL.md) | Draft fixes for non-security audit-tool findings (lint violations, type errors, CodeQL alerts, doc-coverage gaps); re-runs the tool after each batch to confirm findings are cleared. | experimental |
+| [`pr-management-shepherd`](../plugins/magpie-pr-management/skills/shepherd/SKILL.md) | Get the maintainer's own open PRs to mergeable: re-run timed-out CI, fix failures and code-scanning notes, rebase, repair a red default branch; routes others' PRs to review. Agent never merges. | experimental |
+| [`release-prepare`](../plugins/magpie-release-management/skills/prepare/SKILL.md) | Planning issue + version-bump / changelog / NOTICE / LICENSE prep PR (Steps 1-2). Also the post-release `-SNAPSHOT` bump (Step 14). | experimental |
+| [`release-keys-sync`](../plugins/magpie-release-management/skills/keys-sync/SKILL.md) | Draft the `KEYS` diff for a new Release Manager (Step 3). Agent never holds the private key. | experimental |
+| [`release-rc-cut`](../plugins/magpie-release-management/skills/rc-cut/SKILL.md) | Paste-ready command sequence: signed tag, build, detached signatures, checksums, `svn import` to `dist/dev/` (Steps 4-5). Agent never signs and never imports. | experimental |
+| [`release-vote-draft`](../plugins/magpie-release-management/skills/vote-draft/SKILL.md) | Draft the `[VOTE]` email body to `dev@<project>` (Step 7). Agent never sends. | experimental |
+| [`release-promote`](../plugins/magpie-release-management/skills/promote/SKILL.md) | Emit the backend-shaped promotion command set for a release that has passed its vote; proposes the `promoted` label. Agent never runs the promotion command and never publishes the release. | experimental |
+| [`release-announce-draft`](../plugins/magpie-release-management/skills/announce-draft/SKILL.md) | Draft the `[ANNOUNCE]` email body for `announce@apache.org` and the site-bump PR (Step 11). Agent never sends mail and never merges the PR. | experimental |
+| [`security-model-prepare`](../plugins/magpie-security/skills/model-prepare/SKILL.md) | Draft a project's first security model in draft-first mode and land it, with its `AGENTS.md` → `SECURITY.md` discoverability chain, as one reviewable PR per repository. Maintainers ratify; the agent never merges. | experimental |
+| [`security-model-update`](../plugins/magpie-security/skills/model-update/SKILL.md) | Draft the model diff implied by the decision history — new known-non-finding entries and a model-gap list — regression-checked so a widened disclaimer cannot start closing real vulnerabilities. Read-only on the tracker. | experimental |
 
-[`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md)
+[`audit-finding-fix`](../plugins/magpie-repo-health/skills/audit-finding-fix/SKILL.md)
 extends Agentic Drafting to **non-security audit-tool findings**: lint
 violations, type errors, CodeQL alerts, and documentation-coverage
 gaps. It is the generic-Agentic Drafting companion to
-[`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md)
+[`issue-fix-workflow`](../plugins/magpie-issue/skills/fix-workflow/SKILL.md)
 (issue-tracker bugs) and
-[`security-issue-fix`](../skills/security-issue-fix/SKILL.md)
+[`security-issue-fix`](../plugins/magpie-security/skills/issue-fix/SKILL.md)
 (security-class findings). Failing tests with an obvious cause
 remain proposed.
 
@@ -253,9 +253,9 @@ write themselves.
 
 | Skill | Domain | Status |
 |---|---|---|
-| [`pairing-self-review`](../skills/pairing-self-review/SKILL.md) | Pre-flight self-review of local changes before opening a PR. Read-only; returns a structured report. | experimental |
-| [`pairing-multi-agent-review`](../skills/pairing-multi-agent-review/SKILL.md) | Fan a diff through three independent review passes (correctness, security, conventions) and merge findings. | experimental |
-| [`pre-first-pr-check`](../skills/pre-first-pr-check/SKILL.md) | Newcomer-facing pre-flight checklist: SPDX headers, commit-message shape, Generated-by trailer, placeholder convention. Read-only. | experimental |
+| [`pairing-self-review`](../plugins/magpie-pairing/skills/self-review/SKILL.md) | Pre-flight self-review of local changes before opening a PR. Read-only; returns a structured report. | experimental |
+| [`pairing-multi-agent-review`](../plugins/magpie-pairing/skills/multi-agent-review/SKILL.md) | Fan a diff through three independent review passes (correctness, security, conventions) and merge findings. | experimental |
+| [`pre-first-pr-check`](../plugins/magpie-pr-management/skills/pre-first-pr-check/SKILL.md) | Newcomer-facing pre-flight checklist: SPDX headers, commit-message shape, Generated-by trailer, placeholder convention. Read-only. | experimental |
 
 **Sequencing.** Agentic Pairing ships before Agentic Autonomous in the project's
 automation roadmap — full auto-merge of maintainer-driven changes
@@ -299,29 +299,29 @@ contributor threads on their own. The always-on `setup` and
 
 | Skill | Purpose |
 |---|---|
-| [`setup`](../skills/setup/SKILL.md) | Adopt the framework into an adopter repo; manage the snapshot, symlinks, and overrides. |
-| [`setup-upstream-fix`](../skills/setup-upstream-fix/SKILL.md) | Turn a framework bug hit while running a skill into a fix PR against `apache/magpie`. |
-| [`skill-reconciler`](../skills/skill-reconciler/SKILL.md) | Compare two near-duplicate skills and classify each difference as ALLOWED / DRIFT / SAFETY-BASELINE. Read-only. |
-| [`issue-reproducer`](../skills/issue-reproducer/SKILL.md) | Per-issue code extraction + execution; produces structured evidence. Read-only on the tracker. |
-| [`issue-reassess-stats`](../skills/issue-reassess-stats/SKILL.md) | Read-only dashboard over reassessment-campaign verdict.json files. |
-| [`setup-isolated-setup-install`](../skills/setup-isolated-setup-install/SKILL.md) | Install the credential-isolation sandbox harness. |
-| [`setup-isolated-setup-update`](../skills/setup-isolated-setup-update/SKILL.md) | Update pinned system tools (`bubblewrap`, `socat`, agent CLI) past the cooldown window. |
-| [`setup-isolated-setup-verify`](../skills/setup-isolated-setup-verify/SKILL.md) | Read-only health check of the sandbox harness. |
-| [`setup-override-upstream`](../skills/setup-override-upstream/SKILL.md) | Promote an adopter's local override into a framework PR. |
-| [`setup-shared-config-sync`](../skills/setup-shared-config-sync/SKILL.md) | Sync shared configuration across worktrees. |
-| [`setup-isolated-setup-doctor`](../skills/setup-isolated-setup-doctor/SKILL.md) | In-session functional health check of the secure-agent sandbox: probes SSH agent / Yubikey reachability, localhost port access, and filesystem restrictions. |
-| [`setup-status`](../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard: install method and pin, drift, and which skills are wired in the current repo. |
-| [`setup-welcome-guide`](../skills/setup-welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one or a family's — and turn a dismissed one back on. |
-| [`setup-upgrade`](../skills/setup-upgrade/SKILL.md) | Upgrade Magpie in one run ("upgrade magpie"): move to the new version with `setup update` when needed, check this machine and project, apply one approved plan, re-check, and print exact commands for what is out of reach. |
-| [`setup-privacy-llm`](../skills/setup-privacy-llm/SKILL.md) | Decide which LLMs may see this project's private foundation content, write `privacy-llm.md`, and prove it with the approved-model gate and the PII redactor. |
-| [`committer-onboarding`](../skills/committer-onboarding/SKILL.md) | Post-vote committer and PMC onboarding for Apache projects: walks the nominator through every step from ICLA check to welcome announcement for both podlings and TLPs. |
-| [`security-tracker-stats-dashboard`](../skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` statistics (lifecycle-band breakdowns, time-to-triage trends, velocity) without modifying any tracker state. |
-| [`optimize-skill`](../skills/optimize-skill/SKILL.md) | Optimize an existing framework skill by applying restructuring patterns: split oversized SKILL.md into linked sibling docs, trim frontmatter, improve eval alignment. |
-| [`optimize-agents-md`](../skills/optimize-agents-md/SKILL.md) | Make an agent-instruction file (`AGENTS.md`, `CLAUDE.md`) cheaper to load without losing a rule: measure its always-on cost, propose passes, and prove every normative sentence survived. |
-| [`pre-release-sweep`](../skills/pre-release-sweep/SKILL.md) | Before a release, check specs, docs, principles, shipped tools and evals against the code and find issues already resolved; one small PR per finding. |
-| [`list-skills`](../skills/list-skills/SKILL.md) | Print a live index of every skill in this repository grouped by family, with each skill's name and first-sentence description. |
-| [`write-skill`](../skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defences, Privacy-LLM gate-check, and validator sign-off. |
-| [`report-framework-issue`](../skills/report-framework-issue/SKILL.md) | File a redacted bug / change-proposal issue against `apache/magpie` when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out. The report-an-issue sibling of `setup-upstream-fix` (which opens a fix PR). |
+| [`setup`](../plugins/magpie-setup/skills/setup/SKILL.md) | Adopt the framework into an adopter repo; manage the snapshot, symlinks, and overrides. |
+| [`setup-upstream-fix`](../plugins/magpie-setup/skills/upstream-fix/SKILL.md) | Turn a framework bug hit while running a skill into a fix PR against `apache/magpie`. |
+| [`skill-reconciler`](../plugins/magpie-utilities/skills/skill-reconciler/SKILL.md) | Compare two near-duplicate skills and classify each difference as ALLOWED / DRIFT / SAFETY-BASELINE. Read-only. |
+| [`issue-reproducer`](../plugins/magpie-issue/skills/reproducer/SKILL.md) | Per-issue code extraction + execution; produces structured evidence. Read-only on the tracker. |
+| [`issue-reassess-stats`](../plugins/magpie-issue/skills/reassess-stats/SKILL.md) | Read-only dashboard over reassessment-campaign verdict.json files. |
+| [`setup-isolated-setup-install`](../plugins/magpie-setup/skills/isolated-setup-install/SKILL.md) | Install the credential-isolation sandbox harness. |
+| [`setup-isolated-setup-update`](../plugins/magpie-setup/skills/isolated-setup-update/SKILL.md) | Update pinned system tools (`bubblewrap`, `socat`, agent CLI) past the cooldown window. |
+| [`setup-isolated-setup-verify`](../plugins/magpie-setup/skills/isolated-setup-verify/SKILL.md) | Read-only health check of the sandbox harness. |
+| [`setup-override-upstream`](../plugins/magpie-setup/skills/override-upstream/SKILL.md) | Promote an adopter's local override into a framework PR. |
+| [`setup-shared-config-sync`](../plugins/magpie-setup/skills/shared-config-sync/SKILL.md) | Sync shared configuration across worktrees. |
+| [`setup-isolated-setup-doctor`](../plugins/magpie-setup/skills/isolated-setup-doctor/SKILL.md) | In-session functional health check of the secure-agent sandbox: probes SSH agent / Yubikey reachability, localhost port access, and filesystem restrictions. |
+| [`setup-status`](../plugins/magpie-setup/skills/status/SKILL.md) | Render a Markdown adoption dashboard: install method and pin, drift, and which skills are wired in the current repo. |
+| [`setup-welcome-guide`](../plugins/magpie-setup/skills/welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one or a family's — and turn a dismissed one back on. |
+| [`setup-upgrade`](../plugins/magpie-setup/skills/upgrade/SKILL.md) | Upgrade Magpie in one run ("upgrade magpie"): move to the new version with `setup update` when needed, check this machine and project, apply one approved plan, re-check, and print exact commands for what is out of reach. |
+| [`setup-privacy-llm`](../plugins/magpie-setup/skills/privacy-llm/SKILL.md) | Decide which LLMs may see this project's private foundation content, write `privacy-llm.md`, and prove it with the approved-model gate and the PII redactor. |
+| [`committer-onboarding`](../plugins/magpie-contributor-growth/skills/committer-onboarding/SKILL.md) | Post-vote committer and PMC onboarding for Apache projects: walks the nominator through every step from ICLA check to welcome announcement for both podlings and TLPs. |
+| [`security-tracker-stats-dashboard`](../plugins/magpie-security/skills/tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` statistics (lifecycle-band breakdowns, time-to-triage trends, velocity) without modifying any tracker state. |
+| [`optimize-skill`](../plugins/magpie-utilities/skills/optimize-skill/SKILL.md) | Optimize an existing framework skill by applying restructuring patterns: split oversized SKILL.md into linked sibling docs, trim frontmatter, improve eval alignment. |
+| [`optimize-agents-md`](../plugins/magpie-utilities/skills/optimize-agents-md/SKILL.md) | Make an agent-instruction file (`AGENTS.md`, `CLAUDE.md`) cheaper to load without losing a rule: measure its always-on cost, propose passes, and prove every normative sentence survived. |
+| [`pre-release-sweep`](../plugins/magpie-utilities/skills/pre-release-sweep/SKILL.md) | Before a release, check specs, docs, principles, shipped tools and evals against the code and find issues already resolved; one small PR per finding. |
+| [`list-skills`](../plugins/magpie-utilities/skills/list-skills/SKILL.md) | Print a live index of every skill in this repository grouped by family, with each skill's name and first-sentence description. |
+| [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) | Author a new framework skill or update an existing one: frontmatter, placeholder convention, injection defences, Privacy-LLM gate-check, and validator sign-off. |
+| [`report-framework-issue`](../plugins/magpie-utilities/skills/report-framework-issue/SKILL.md) | File a redacted bug / change-proposal issue against `apache/magpie` when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out. The report-an-issue sibling of `setup-upstream-fix` (which opens a fix PR). |
 
 The `setup*` skills ship as the always-on **setup family** — see
 [`docs/setup/README.md`](setup/README.md) — and `list-skills`,

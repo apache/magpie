@@ -41,7 +41,7 @@ page is the two-minute summary.
 2. **Agentic Triage.**
    A rotating triager imports new reports into the private
    `<tracker>` repository (see the
-   [`security-issue-import`](../../skills/security-issue-import/SKILL.md)
+   [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md)
    skill), classifies each candidate, and drafts a
    receipt-of-confirmation reply to the reporter. The team then
    discusses CVE-worthiness in the issue comments and — once the
@@ -51,7 +51,7 @@ page is the two-minute summary.
    For the rarer case where a security-relevant fix lands as a
    public PR on `<upstream>` without ever hitting `<security-list>`,
    the triager uses
-   [`security-issue-import-from-pr`](../../skills/security-issue-import-from-pr/SKILL.md)
+   [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md)
    instead. The skill creates the tracker directly with a scope
    label and the `Assessed` board column — the deliberate import
    implies the validity assessment has already happened informally,
@@ -60,7 +60,7 @@ page is the two-minute summary.
 
    When the team's discussion lands a *consensus-invalid* decision,
    the triager applies that decision via the
-   [`security-issue-invalidate`](../../skills/security-issue-invalidate/SKILL.md)
+   [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md)
    skill: it adds the `invalid` label, posts a short closing
    comment, archives the project-board item, and — when the
    tracker has an inbound `<security-list>` thread — drafts a
@@ -82,7 +82,7 @@ page is the two-minute summary.
    project's CVE tool (the adapter named in `cve_authority.tool`,
    with the allocation URL in `cve_authority.allocate_url`).
    Triagers who do not satisfy the gate use the
-   [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md) skill to
+   [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) skill to
    produce a relay message for a gate-passing member to click
    through. (For the airflow-s adopter, the gate is PMC membership
    and the CVE tool is Vulnogram.)
@@ -90,7 +90,7 @@ page is the two-minute summary.
 4. **Remediation.**
    A security-team member writes the fix in the public `<upstream>`
    repository (see the
-   [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
+   [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md)
    skill, which can draft the PR automatically). The public PR is
    scrubbed of CVE references, tracker-repo references, and any
    *"security fix"* signal — per the confidentiality rules in
@@ -104,7 +104,7 @@ page is the two-minute summary.
    only once the team clears it, through a commit command that runs
    the same scrub on the message and the diff before anything reaches
    the server (see
-   [`subversion-flow.md`](../../skills/security-issue-fix/subversion-flow.md)).
+   [`subversion-flow.md`](../../plugins/magpie-security/skills/issue-fix/subversion-flow.md)).
 
 5. **Release + advisory.**
    The release manager for the cut that carries the fix sends the

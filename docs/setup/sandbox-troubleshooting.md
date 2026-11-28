@@ -127,7 +127,7 @@ prediction.
 Two surfaces make these entries discoverable in-session so a
 future reader does not have to remember the catalog exists:
 
-- The [`setup-isolated-setup-doctor`](../../skills/setup-isolated-setup-doctor/SKILL.md)
+- The [`setup-isolated-setup-doctor`](../../plugins/magpie-setup/skills/isolated-setup-doctor/SKILL.md)
   skill probes each catalogued failure mode on demand and links
   back to the matching entry. Invoke it when you suspect a
   sandbox restriction; it runs the full probe set even when only

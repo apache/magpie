@@ -33,7 +33,7 @@
 ## Abstract
 
 Every Magpie skill ships in one repository — `apache/magpie` — and reaches
-adopters through one mechanism: the [`setup`](../../skills/setup/SKILL.md)
+adopters through one mechanism: the [`setup`](../../plugins/magpie-setup/skills/setup/SKILL.md)
 skill downloads the whole framework into a gitignored snapshot, pins it in a
 committed lock, and symlinks the selected skills into agent dirs. There is
 no way to pull an individual skill or skill-family from a **different**
@@ -58,7 +58,7 @@ repository/organization of every source is explicit.
 - The formats and documentation under [`docs/skill-sources/`](../skill-sources/README.md) (README, registry, and authoring guide) exist.
 - The Principle §14 amendment has landed in [`PRINCIPLES.md`](../../PRINCIPLES.md#14-one-easy-install-that-upgrades-and-reconciles-never-vendored-copies).
 - The organization `skill-sources.md` files are created.
-- The `setup` skill has its [`skill-sources.md`](../../skills/setup/skill-sources.md) action documentation.
+- The `setup` skill has its [`skill-sources.md`](../../plugins/magpie-setup/skills/setup/skill-sources.md) action documentation.
 - The `skill-and-tool-validator` support is complete.
 
 **Phase B** (the `setup`-skill fetch/lock/symlink wiring, including `.apache-magpie.sources.lock` lock files, `/magpie-setup skill-sources` action, and integration with `adopt`/`upgrade`/`verify`) landed in [#707](https://github.com/apache/magpie/pull/707).
@@ -278,5 +278,5 @@ sources and the adapter/organization indexes stay discovery-only.
 - [`docs/skill-sources/README.md`](../skill-sources/README.md) — the trust model, descriptor, and pointer formats.
 - [`docs/skill-sources/registry.md`](../skill-sources/registry.md) — the discovery index.
 - [`docs/extending.md`](../extending.md) — the extension model this generalizes.
-- [`skills/setup/SKILL.md`](../../skills/setup/SKILL.md) — the adopt/upgrade/verify flow and the framework snapshot lock model.
+- [`skills/setup/SKILL.md`](../../plugins/magpie-setup/skills/setup/SKILL.md) — the adopt/upgrade/verify flow and the framework snapshot lock model.
 - [`docs/quick-start/other-install-methods.md`](../quick-start/other-install-methods.md) — the fetch/verify recipes reused per source.

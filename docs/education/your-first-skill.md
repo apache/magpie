@@ -29,7 +29,7 @@ This is a step-by-step guide to writing your first working skill in
 You do not need any earlier experience with the framework.
 
 This is not the full authoring reference. Once you know the shape of a skill,
-the [`write-skill`](../../skills/write-skill/SKILL.md)
+the [`write-skill`](../../plugins/magpie-utilities/skills/write-skill/SKILL.md)
 skill (you run it with `/magpie-utilities:write-skill`) takes you through every check, safety
 step, and packaging detail. Come back to it after your first skill has landed
 and you want the complete checklist.
@@ -398,7 +398,7 @@ step is to make the skill safe to run against outside text:
 
 Supporting references for skill-writing:
 
-- **[magpie-write-skill](../../skills/write-skill/SKILL.md)** —
+- **[magpie-write-skill](../../plugins/magpie-utilities/skills/write-skill/SKILL.md)** —
   the full authoring reference, with the security checklist and packaging
   details. Run it with `/magpie-utilities:write-skill` once you are ready for the complete
   walk-through.

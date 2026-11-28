@@ -4073,6 +4073,16 @@ class TestParseModesDocs:
         assert section == {"Triage": ["issue-triage", "issue-reassess"]}
         assert outside == []
 
+    def test_parses_rows_that_link_the_real_plugin_path(self) -> None:
+        # docs/ links the real path, since GitHub does not follow the skills/ symlinks (#2330).
+        text = (
+            "## Triage\n"
+            "| [`pr-management-triage`](../plugins/magpie-pr-management/skills/pr-triage/SKILL.md) | d | x |\n"
+            "| [`issue-triage`](../skills/issue-triage/SKILL.md) | d | experimental |\n"
+        )
+        _, section, _ = _parse_modes_doc(text)
+        assert section == {"Triage": ["pr-management-triage", "issue-triage"]}
+
     def test_parses_outside_skills(self) -> None:
         text = (
             "## Outside the modes\n"

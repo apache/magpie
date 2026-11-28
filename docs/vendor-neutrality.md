@@ -263,7 +263,7 @@ organization profile — you author one, and you have two supported paths:
   Apache-2.0 like the rest of the framework
   ([`PRINCIPLES.md` §18](../PRINCIPLES.md#18-contributions-land-under-apache-license-20)),
   so every other adopter on that backend reuses your work. The
-  [`write-skill`](../skills/write-skill/SKILL.md) flow and
+  [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) flow and
   [`CONTRIBUTING.md`](../CONTRIBUTING.md) walk you through the conventions
   (a `**Capability:**` line, a `## Prerequisites` section, an eval); the
   step-by-step how-to is [`docs/adapters/authoring.md`](adapters/authoring.md).
@@ -499,7 +499,7 @@ implementations, and to make filling a gap an easy contribution.
   documented contract. A contributor who wants their backend supported
   implements **one adapter** against that contract — they never touch
   the workflows.
-- The [`write-skill`](../skills/write-skill/SKILL.md) meta-skill and
+- The [`write-skill`](../plugins/magpie-utilities/skills/write-skill/SKILL.md) meta-skill and
   the contributor guidelines walk a newcomer through authoring a new
   tool or skill against the contracts.
 - The built-in [eval harness](../tools/skill-evals/) lets a contributor

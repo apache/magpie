@@ -59,8 +59,8 @@ the files to configure before the first run, and the skills to try first.
 
 | Skill | Purpose | Status |
 |---|---|---|
-| [`pairing-self-review`](../../skills/pairing-self-review/SKILL.md) | Structured pre-flight self-review of local changes against a configurable base. Single-pass: correctness, security, and conventions in one report. | experimental |
-| [`pairing-multi-agent-review`](../../skills/pairing-multi-agent-review/SKILL.md) | Fan the same diff through three independent axis-focused passes (correctness, security, conventions); merge findings with deduplication and severity ranking. Higher confidence than a single pass; each axis is isolated so findings cannot cross-contaminate. | experimental |
+| [`pairing-self-review`](../../plugins/magpie-pairing/skills/self-review/SKILL.md) | Structured pre-flight self-review of local changes against a configurable base. Single-pass: correctness, security, and conventions in one report. | experimental |
+| [`pairing-multi-agent-review`](../../plugins/magpie-pairing/skills/multi-agent-review/SKILL.md) | Fan the same diff through three independent axis-focused passes (correctness, security, conventions); merge findings with deduplication and severity ranking. Higher confidence than a single pass; each axis is isolated so findings cannot cross-contaminate. | experimental |
 
 ### When to use which
 
@@ -83,7 +83,7 @@ workflow.
 `pairing-self-review` and `pairing-multi-agent-review` run **before** a
 PR is open. Once a PR is open and you want a maintainer-side deep code
 review of an incoming contribution, use
-[`pr-management-code-review`](../../skills/pr-management-code-review/SKILL.md)
+[`pr-management-code-review`](../../plugins/magpie-pr-management/skills/code-review/SKILL.md)
 instead.
 
 ---

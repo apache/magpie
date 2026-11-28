@@ -92,7 +92,7 @@ Two non-negotiable boundaries cross the lifecycle:
   Manager's private signing key.** Any step that needs a signature
   emits a paste-ready command sequence; the RM runs it on their own
   machine, as themselves. This mirrors the
-  [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md)
+  [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md)
   pattern (Vulnogram URL + paste-ready JSON, human submits) and
   satisfies [RFC-AI-0004 Principle 1](../rfcs/RFC-AI-0004.md#principle-1--human-in-the-loop-on-every-state-change).
 - **The agent never publishes the release.** Steps 10

@@ -34,7 +34,7 @@ not copy your files. They add your [source
 descriptor](README.md#source-descriptor) to their trust list, commit a
 **pin** (method + URL + ref + a verification anchor), and run
 `/magpie-setup:setup skill-sources`
-([`skills/setup/skill-sources.md`](../../skills/setup/skill-sources.md)),
+([`skills/setup/skill-sources.md`](../../plugins/magpie-setup/skills/setup/skill-sources.md)),
 which fetches a **verified, gitignored snapshot** of your repo and symlinks
 your skills in so they run exactly like in-tree Magpie skills. Your job is
 to lay the repo out the way Magpie expects and to publish a descriptor plus
@@ -197,5 +197,5 @@ installed](README.md#how-a-trusted-skill-is-installed).
 - [`README.md`](README.md) — the feature from the adopter's side (formats, trust model, security model).
 - [`registry.md`](registry.md) — the discovery index of known sources.
 - [`RFC-AI-0006`](../rfcs/RFC-AI-0006.md) — the design, trust, and threat model.
-- [`skills/setup/skill-sources.md`](../../skills/setup/skill-sources.md) — the `/magpie-setup:setup skill-sources` fetch/pin/symlink flow.
+- [`skills/setup/skill-sources.md`](../../plugins/magpie-setup/skills/setup/skill-sources.md) — the `/magpie-setup:setup skill-sources` fetch/pin/symlink flow.
 - [`docs/extending.md`](../extending.md) — the full extension model (what / where / who).

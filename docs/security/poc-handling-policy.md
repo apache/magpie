@@ -89,13 +89,13 @@ reporter for that is a normal, courteous request.
 
 Any skill that reads inbound report content, including:
 
-- [`security-issue-import`](../../skills/security-issue-import/SKILL.md)
+- [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md)
   — attachments arrive at intake.
-- [`security-issue-triage`](../../skills/security-issue-triage/SKILL.md)
+- [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md)
   — the validity assessment is where the temptation to run the PoC
   is strongest.
-- [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md)
+- [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md)
   — comparing two reports' PoCs is a static comparison.
-- [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md)
+- [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md)
   — verify the fix with a maintainer-written test, not by running the
   reporter's script on the host.

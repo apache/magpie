@@ -129,7 +129,7 @@ follow. You learn them by seeing them used, not as a list of rules to memorise:
 
 ## How this connects to the other guides
 
-- **[magpie-write-skill](../../skills/write-skill/SKILL.md)** is
+- **[magpie-write-skill](../../plugins/magpie-utilities/skills/write-skill/SKILL.md)** is
   the full reference for writing a skill, for someone who already knows the
   basic shape of one. Step 4, [your first skill](your-first-skill.md), is the
   gentle start that gets you to that point.

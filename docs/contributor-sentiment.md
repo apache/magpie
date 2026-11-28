@@ -245,7 +245,7 @@ two release cycles.
 
 ## The `contributor-sentiment` skill
 
-The [`contributor-sentiment`](../skills/contributor-sentiment/SKILL.md)
+The [`contributor-sentiment`](../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md)
 skill automates signal collection. It queries GitHub, computes the four
 signal scores, and outputs a structured JSON report that a maintainer or
 automated gate can read.
@@ -274,7 +274,7 @@ read-only.
 - [`docs/pilot-report-template.md`](pilot-report-template.md) — the
   operational feedback form that accompanies pilot runs; cross-links
   here for the sentiment gate that relies on pilot evidence.
-- [`skills/contributor-sentiment/SKILL.md`](../skills/contributor-sentiment/SKILL.md) — the
+- [`skills/contributor-sentiment/SKILL.md`](../plugins/magpie-contributor-growth/skills/sentiment/SKILL.md) — the
   skill that runs the measurement and produces the gate-readable report.
 - [`docs/contributor-growth/README.md`](contributor-growth/README.md) — the
   contributor-growth family overview; this gate is the promotion evidence
