@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:3210ccb4763beb17
 license: Apache-2.0
-measured_tokens: 8965
+measured_tokens: 8969
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -449,7 +449,7 @@ and ends with the next step per [`README.md`](../../../../README.md).
 
 ## References
 
-- [`README.md`](../../../../README.md) — the end-to-end handling process.
+- [`docs/security/process.md`](../../../../docs/security/process.md) — the end-to-end handling process.
   Step 1 (report arrives) and Step 2 (triage) are what this skill
   automates.
 - [`AGENTS.md`](../../../../AGENTS.md) — confidentiality, release managers,

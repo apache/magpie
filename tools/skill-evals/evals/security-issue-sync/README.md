@@ -59,6 +59,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (opt/issue-sync-run-cost) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `51a6a7cd` (feat/vetted-ops-unlisted-value-refusal) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `7ba04297` (fix/vulnogram-pmc-followups) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `ed5885cf` (fix/vulnogram-token-per-pmc-2) | `opus[1m]` | 1 | pass |  |

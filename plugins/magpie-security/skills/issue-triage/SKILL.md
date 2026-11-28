@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 7112
+measured_tokens: 7116
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -444,7 +444,7 @@ Symptom / cause / remediation table: [`outcomes/failure-modes.md`](outcomes/fail
 
 ## References
 
-- [`README.md`](../../../../README.md) — the end-to-end handling process; triage is its Step 3, the validity / CVE-worthiness discussion.
+- [`docs/security/process.md`](../../../../docs/security/process.md) — the end-to-end handling process; triage is its Step 3, the validity / CVE-worthiness discussion.
 - [`AGENTS.md`](../../../../AGENTS.md) — confidentiality, link and `@`-mention conventions, the reporter-supplied CVSS rule.
 - The sibling skills listed at the top, and [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md) — why proposals are standalone comments, not rollup entries.
 - [`tools/security-management`](../../../../tools/security-management/README.md) — the `issue-triage` commands.

@@ -22,7 +22,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:8cfc7395b16c2cf9
 license: Apache-2.0
-measured_tokens: 7563
+measured_tokens: 7579
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -140,7 +140,7 @@ This skill reconciles a single security issue in
 1. the **GitHub issue** itself — comments, labels, milestone, assignee, description fields;
 2. the **email thread** on `<security-list>` that originated the report (and any follow-ups);
 3. any **pull requests** in `<upstream>` or `<tracker>` that reference or fix the issue;
-4. the **handling process** documented in [`README.md`](../../../../README.md).
+4. the **handling process** documented in [`docs/security/process.md`](../../../../docs/security/process.md).
 
 **Golden rule 1 — propose before applying.** Every change this skill
 performs is a *proposal*: nothing is created, closed, edited or sent without the user's clear "yes" for that specific action.
@@ -481,7 +481,7 @@ Fix every hit and check again; it is the floor, not the whole review, so still r
 
 ## Process reference
 
-The canonical handling process lives in [`README.md`](../../../../README.md).
+The canonical handling process lives in [`docs/security/process.md`](../../../../docs/security/process.md#process-reference-the-16-steps).
 When in doubt, re-read the numbered step for the issue's state rather than improvising;
 if the process and the observed state disagree, surface it in the proposal and let the user decide.
 

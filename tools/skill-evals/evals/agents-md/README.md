@@ -41,6 +41,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-27 | `6eba5a49` (opt/issue-sync-run-cost) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `df592e66` (opt/agents-md-security-on-demand) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `2d111058` | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `06ea9fb3` (fix/asf-severity-wording) | `opus[1m]` | 1 | pass |  |

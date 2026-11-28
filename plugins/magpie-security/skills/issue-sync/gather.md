@@ -327,8 +327,7 @@ Whenever the tracking issue has a CVE ID allocated (the *CVE tool link* body fie
 
 ### 1f. Locate the process step
 
-Cross-reference the handling process in [`README.md`](../../../../README.md)
-and determine which numbered step of the process the issue is currently at:
+Determine which numbered step of the handling process the issue is currently at:
 
 | Observed state | Process step |
 |---|---|
