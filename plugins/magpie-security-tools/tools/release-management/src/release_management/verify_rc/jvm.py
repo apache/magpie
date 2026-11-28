@@ -113,6 +113,16 @@ def _pom_findings(report: dict[str, Any]) -> list[str]:
         label = pom.get("pom")
         for check in _POM_CHECKS:
             results = pom.get(check) or {}
+            if isinstance(results, str):
+                # A POM maven-artifact-verify cannot parse is reported as one status
+                # for the whole check, with the reason in the entry's `detail`.
+                if results not in ("PASS", "SKIP"):
+                    detail = pom.get("detail") or ""
+                    if results == "FAIL":
+                        out.append(f"{label}: {detail}" if detail else f"{label}: {check} FAIL")
+                    else:
+                        out.append(f"{label}: {check} {results}" + (f" — {detail}" if detail else ""))
+                continue
             for key, status in results.items():
                 if key.endswith("_detail") or status in (None, "PASS", "SKIP"):
                     continue

@@ -349,6 +349,50 @@ def test_case_1_podling_recipe_follows_the_configured_stage(tmp_path: Path) -> N
     assert not HAS_PODLING.search(out["paste_recipe"])
 
 
+def test_an_unparsable_pom_is_a_finding_not_a_crash(tmp_path: Path) -> None:
+    # maven-artifact-verify reports a POM it cannot parse with `check1` as a plain
+    # status string and the reason in `detail`; a parsed POM gets a dict.
+    report_text = json.dumps(
+        {
+            "status": "FAIL",
+            "podling": False,
+            "poms": [
+                {
+                    "pom": "foo-1.0.0.pom",
+                    "check1": "FAIL",
+                    "detail": "XML parse error: no element found: line 1, column 37",
+                },
+                {
+                    "pom": "foo-core-1.0.0.pom",
+                    "check1": {"licenses": "PASS", "developers": "PASS", "scm": "PASS"},
+                },
+            ],
+            "jars": [],
+            "findings": [],
+        }
+    )
+    out = run_jvm(vrc(jvm_companion_location="nexus-staging"), podling_tree(tmp_path, None), report_text)
+    assert out["status"] == "FAIL"
+    assert out["pom_findings"] == ["foo-1.0.0.pom: XML parse error: no element found: line 1, column 37"]
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        ({"pom": "a.pom", "check1": "FAIL"}, ["a.pom: check1 FAIL"]),
+        ({"pom": "a.pom", "check1": "WARN", "detail": "why"}, ["a.pom: check1 WARN — why"]),
+        ({"pom": "a.pom", "check1": "PASS"}, []),
+        ({"pom": "a.pom", "check1": "SKIP"}, []),
+    ],
+)
+def test_a_whole_check_status_string_is_classified(tmp_path: Path, entry: dict, expected: list[str]) -> None:
+    report_text = json.dumps(
+        {"status": "WARN", "podling": False, "poms": [entry], "jars": [], "findings": []}
+    )
+    out = run_jvm(vrc(jvm_companion_location="nexus-staging"), podling_tree(tmp_path, None), report_text)
+    assert out["pom_findings"] == expected
+
+
 def test_case_4_jar_absent_nexus_only(tmp_path: Path) -> None:
     v = vrc(jvm_companion_location="nexus-staging")
     report_text = json.dumps(
