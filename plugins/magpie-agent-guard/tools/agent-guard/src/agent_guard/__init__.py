@@ -94,6 +94,7 @@ nothing collects, copies, or syncs them.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import json
 import os
@@ -2402,6 +2403,255 @@ def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str
     )
 
 
+# --------------------------------------------------------------------------- #
+# vetted-ops-caller: --caller must be the running skill's own
+# --------------------------------------------------------------------------- #
+
+#: Lets a launch through under any caller. Read from the hook's own environment
+#: only, never from the command: an inline assignment is exactly the borrowing
+#: this rule is there to stop.
+CALLER_OVERRIDE_ENV = "MAGPIE_ALLOW_ANY_CALLER"
+#: Only this much of a transcript's tail is read; the skill that is running is
+#: near the end, and a long session can grow to many megabytes.
+_TRANSCRIPT_TAIL_BYTES = 32 * 1024 * 1024
+_CALLER_IN_DOCS = re.compile(r"--caller[ =]([A-Za-z0-9][A-Za-z0-9._-]*)")
+_COMMAND_NAME = re.compile(r"<command-name>/?([^<\s]+)</command-name>")
+
+
+def _caller_values(argv: list[str], entry: str) -> list[str]:
+    """Every ``--caller`` value after the dispatcher's entry point."""
+    rest = argv[argv.index(entry) + 1 :]
+    values: list[str] = []
+    for i, tok in enumerate(rest):
+        if tok == "--":
+            break
+        if tok == "--caller" and i + 1 < len(rest):
+            values.append(rest[i + 1])
+        elif tok.startswith("--caller="):
+            values.append(tok[len("--caller=") :])
+    return values
+
+
+def _skill_dirs() -> list[tuple[str, Path]]:
+    """``(plugin, skill_dir)`` for every skill this engine can see: the
+    framework tree it runs from, or the family plugins installed beside it."""
+    found: list[tuple[str, Path]] = []
+    if (root := framework_root()) is not None:
+        for d in sorted((root / "plugins").glob("*/skills/*")):
+            found.append((d.parent.parent.name, d))
+        for d in sorted((root / "skills").glob("*")):
+            found.append(("", d))
+        return [(plugin, d) for plugin, d in found if (d / "SKILL.md").is_file()]
+    # A marketplace install: the same cache layout installed_plugin_guard_dirs reads.
+    for plugin_root in Path(__file__).resolve().parents:
+        if (plugin_root / ".claude-plugin").is_dir():
+            break
+    else:
+        return []
+    if plugin_root.parent.name != ENGINE_PLUGIN:
+        return []
+    for plugin in sorted(plugin_root.parent.parent.iterdir()):
+        if not plugin.is_dir():
+            continue
+        same = plugin / plugin_root.name
+        installed = [v for v in plugin.iterdir() if (v / ".claude-plugin").is_dir()]
+        chosen = same if same in installed else max(installed, key=lambda v: v.stat().st_mtime, default=None)
+        if chosen is not None:
+            found.extend(
+                (plugin.name, d) for d in sorted(chosen.glob("skills/*")) if (d / "SKILL.md").is_file()
+            )
+    return found
+
+
+def _skill_names(plugin: str, skill_dir: Path) -> set[str]:
+    """The names a harness may invoke a skill by: its directory name and its
+    frontmatter ``name``, bare and prefixed with its plugin."""
+    names = {skill_dir.name}
+    try:
+        for line in (skill_dir / "SKILL.md").read_text(encoding="utf-8").splitlines()[1:40]:
+            if line.strip() == "---":
+                break
+            if line.startswith("name:"):
+                names.add(line[len("name:") :].strip().strip("\"'"))
+    except OSError:
+        # An unreadable SKILL.md: the skill is still known by its directory name.
+        pass
+    if not plugin:
+        # A ``skills/`` link; snapshot and self-adoption installs expose it to
+        # the harness as ``.claude/skills/magpie-<link name>``.
+        names.add(f"magpie-{skill_dir.name}")
+    return names | {f"{plugin}:{n}" for n in names if plugin}
+
+
+@functools.cache
+def _skill_callers(skill: str) -> frozenset[str]:
+    """The ``--caller`` names written in the files of every skill called
+    ``skill``. Empty when no skill of that name is known. Cached: the hook is
+    one short-lived process per command."""
+    callers: set[str] = set()
+    for plugin, skill_dir in _skill_dirs():
+        if skill not in _skill_names(plugin, skill_dir):
+            continue
+        for doc in skill_dir.rglob("*.md"):
+            try:
+                callers.update(_CALLER_IN_DOCS.findall(doc.read_text(encoding="utf-8")))
+            except OSError:
+                continue
+    return frozenset(callers)
+
+
+def _transcript_lines(path: Path) -> list[str]:
+    """The transcript's lines, newest first, from its tail only."""
+    with path.open("rb") as fh:
+        fh.seek(0, os.SEEK_END)
+        size = fh.tell()
+        fh.seek(max(0, size - _TRANSCRIPT_TAIL_BYTES))
+        data = fh.read()
+    lines = data.decode("utf-8", errors="replace").splitlines()
+    if size > _TRANSCRIPT_TAIL_BYTES:
+        lines = lines[1:]  # the first line is cut mid-record
+    return lines[::-1]
+
+
+def _skill_invocation(entry: dict[str, object]) -> str | None:
+    """The skill a Claude Code transcript entry invokes, or None.
+
+    A ``Skill`` tool call is an ``assistant`` entry; the same call is repeated in
+    bookkeeping entries of other types, which are not counted. A slash command
+    is a ``user`` entry whose content starts with ``<command-name>``; built-in
+    commands (``/model``, ``/clear`` …) are recorded the same way, so a slash
+    command counts only when it names a known skill.
+    """
+    message = entry.get("message")
+    if not isinstance(message, dict):
+        return None
+    content = message.get("content")
+    if entry.get("type") == "assistant" and isinstance(content, list):
+        for item in reversed(content):
+            if isinstance(item, dict) and item.get("type") == "tool_use" and item.get("name") == "Skill":
+                skill = (
+                    (item.get("input") or {}).get("skill") if isinstance(item.get("input"), dict) else None
+                )
+                if isinstance(skill, str) and skill:
+                    return skill
+    if (
+        entry.get("type") == "user"
+        and isinstance(content, str)
+        and content.lstrip().startswith("<command-name>")
+    ):
+        match = _COMMAND_NAME.search(content)
+        if match and _skill_callers(match.group(1)):
+            return match.group(1)
+    return None
+
+
+def _is_user_turn(entry: dict[str, object]) -> bool:
+    """A prompt the user sent: a ``user`` entry that is neither a tool result
+    nor an injected (``isMeta``) message."""
+    if entry.get("type") != "user" or entry.get("isMeta"):
+        return False
+    message = entry.get("message")
+    if not isinstance(message, dict):
+        return False
+    content = message.get("content")
+    if isinstance(content, str):
+        return True
+    return isinstance(content, list) and not any(
+        isinstance(item, dict) and item.get("type") == "tool_result" for item in content
+    )
+
+
+def running_skills(transcript_path: str | None) -> list[str]:
+    """The skills that may be running, newest first, from a Claude Code
+    transcript: every skill invoked in the session, back to the last prompt
+    that is a slash command starting a skill. Empty when there is none or the
+    transcript cannot be read.
+
+    One skill can run another and carry on, also after the user answers in
+    between: ``security-issue-fix`` runs ``security-issue-sync``, the user
+    confirms its corrections, and issue-fix goes on writing. So the latest
+    invocation alone is not the running skill, and a run can span any number
+    of the user's prompts. The rule catches accidental caller swaps only, so
+    the wider set is a cheaper error than refusing a skill's own caller. A
+    prompt that is itself a slash command naming a skill starts that skill,
+    and nothing before it counts.
+
+    A subagent's own transcript (``<session>/subagents/agent-*.jsonl``) holds no
+    skill invocation of its own when the skill that started it is its parent's,
+    so that parent session's transcript is read next.
+    """
+    if not transcript_path:
+        return []
+    path = Path(transcript_path)
+    candidates = [path]
+    if path.parent.name == "subagents":
+        session_dir = path.parent.parent
+        candidates.append(session_dir.parent / f"{session_dir.name}.jsonl")
+    for candidate in candidates:
+        try:
+            lines = _transcript_lines(candidate)
+        except OSError:
+            continue
+        skills: list[str] = []
+        for line in lines:
+            if '"Skill"' not in line and "<command-name>" not in line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            skill = _skill_invocation(entry)
+            if skill and skill not in skills:
+                skills.append(skill)
+            if skill and _is_user_turn(entry):
+                break  # a slash command started this skill; nothing before it counts
+        if skills:
+            return skills
+    return []
+
+
+def guard_vetted_ops_caller(seg: Segment, transcript_path: str | None) -> str | None:
+    """Refuse a ``vetted-op*`` launch whose ``--caller`` no running skill uses.
+
+    The policy grants operations per caller, but the caller is whatever the
+    agent writes. When the transcript shows which skills are running (see
+    ``running_skills``) and their files name the callers they use, any other
+    caller is refused. The agent chooses its own Skill calls, so this catches
+    an accidental caller swap, not a deliberate one. In every other case (no
+    transcript, a format this does not read, no skill invoked, or a running
+    skill it does not know or that names no caller) it allows, as before.
+    """
+    launch = _vetted_launch(seg.argv)
+    if launch is None or not launch[2].startswith("vetted-op") or not transcript_path:
+        return None
+    passed = _caller_values(seg.argv, launch[2])
+    if not passed:
+        return None  # the dispatcher itself refuses a launch with no caller
+    if _truthy(os.environ.get(GLOBAL_OFF_ENV)) or _truthy(os.environ.get(CALLER_OVERRIDE_ENV)):
+        return None
+    skills = running_skills(transcript_path)
+    if not skills:
+        return None
+    per_skill = [_skill_callers(skill) for skill in skills]
+    if not all(per_skill):
+        return None  # a running skill this cannot map to a caller
+    allowed = frozenset().union(*per_skill)
+    wrong = [c for c in passed if c not in allowed]
+    if not wrong:
+        return None
+    running = ", ".join(f"`{skill}`" for skill in skills)
+    names = ", ".join(f"`{c}`" for c in sorted(allowed))
+    return (
+        f"agent-guard[vetted-ops-caller]: this turn runs {running}, whose callers are {names}, "
+        f"but this launch passes `--caller {wrong[0]}`. A skill uses only its own caller's grants: "
+        "if its caller is refused an operation, stop and tell the user, so they can grant it in "
+        "the policy's `[callers]` table, rather than borrowing another skill's caller. "
+        f"Override (set by whoever starts the agent, not inline): {CALLER_OVERRIDE_ENV}=1."
+    )
+
+
 # The framework's bundled guards — the universal `git` hygiene rules that apply
 # to every project regardless of which skills are installed. Domain-specific
 # guards are owned and contributed by the skills that need them (e.g. the
@@ -2902,11 +3152,15 @@ def discover_guards() -> list[tuple[Callable[[GuardContext], str | None], set[st
 # --------------------------------------------------------------------------- #
 
 
-def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -> str | None:
+def dispatch(
+    command: str, cwd: str | None = None, harness: str | None = None, transcript_path: str | None = None
+) -> str | None:
     """Return a deny reason for ``command``, or None to allow it.
 
     ``harness`` names the calling adapter only where a rule must differ by
     harness (the Codex stable-path rewrite, see guard_vetted_ops_spelling).
+    ``transcript_path`` is the Claude Code session transcript, when the hook
+    has one (see guard_vetted_ops_caller).
     """
     if not command:
         return None
@@ -2951,7 +3205,9 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
         if seg.argv and seg.argv[0] in ("uv", "uvx"):
             # Checked here rather than as a guarded head: a vetted launch is the
             # only `uv` rule, and contributed guards stay on `gh` / `git`.
-            reason = guard_vetted_ops_spelling(seg, cwd, harness)
+            reason = guard_vetted_ops_spelling(seg, cwd, harness) or guard_vetted_ops_caller(
+                seg, transcript_path
+            )
             if reason:
                 return reason
             continue
@@ -3067,7 +3323,13 @@ def _claude_event(event: object, harness: str | None = None) -> int:
         return ALLOW_EXIT
     command = str(tool_input.get("command", ""))
     cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None, harness)
+    transcript = event.get("transcript_path") if harness is None else None
+    reason = dispatch(
+        command,
+        cwd if isinstance(cwd, str) else None,
+        harness,
+        transcript if isinstance(transcript, str) else None,
+    )
     if reason:
         _emit_deny(reason)
         return ALLOW_EXIT
