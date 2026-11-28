@@ -65,23 +65,15 @@ extend-exclude = ["magpie-agent-guard/tools", "magpie-vetted-ops/tools", "magpie
 # No annotation requirement here, as mypy had none for this member.
 ignore = ["ANN"]
 
-[tool.mypy]
-python_version = "3.11"
-files = ["."]
-# Same reason as pytest's `norecursedirs`: the substrate plugins' `tools/`
-# symlinks resolve into other workspace members that check themselves.
-exclude = "^magpie-(agent-guard|vetted-ops|security-tools)/tools/"
-ignore_missing_imports = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-check_untyped_defs = true
-no_implicit_optional = true
-# Helper scripts and their tests are plain functions invoked by path, not a
-# typed library surface, so the annotation requirements the `tools/` members
-# apply would be noise here. `check_untyped_defs` above still type-checks the
-# bodies, which is where the value is.
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+[tool.ty.src]
+# The tool copies are generated from workspace members that check themselves
+# (same set as ruff's `extend-exclude` above).
+exclude = ["magpie-agent-guard/tools/", "magpie-vetted-ops/tools/", "magpie-security-tools/tools/"]
+
+[tool.ty.rules]
+# Helper scripts import their siblings by path at run time, which ty cannot
+# follow; mypy ran here with `ignore_missing_imports` for the same reason.
+import-not-found = "ignore"
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -40,17 +40,9 @@ extend = "../tools/dev/shared/ruff.toml"
 # No annotation requirement here, as mypy had none for this member.
 ignore = ["ANN"]
 
-[tool.mypy]
-python_version = "3.11"
-files = ["inject-knowledge-base.py", "test_inject_knowledge_base.py"]
-warn_unused_ignores = true
-warn_redundant_casts = true
-check_untyped_defs = true
-no_implicit_optional = true
-# The injector is a standalone script and its tests are plain functions, so the
-# library-grade annotation requirements the `tools/` members use do not apply.
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
+[tool.ty.src]
+# The two Python files; the rest of the tree is prose and prompts.
+include = ["inject-knowledge-base.py", "test_inject_knowledge_base.py"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

@@ -111,7 +111,7 @@ class Mailbox:
         """Run ``UID SEARCH`` with IMAP quoted criteria and return numeric UIDs."""
         program = " ".join(_quote(part) if " " in part else part for part in criteria)
         # imaplib's documented way to omit the charset argument is None.
-        status, data = self._connection.uid("search", None, program)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        status, data = self._connection.uid("search", None, program)  # ty: ignore[invalid-argument-type]
         if status != "OK":
             raise ImapOperationError(f"UID SEARCH {program} failed")
         blobs = [chunk for chunk in data if isinstance(chunk, bytes)]

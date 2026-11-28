@@ -431,12 +431,36 @@ trustworthy as it grows.
   in parallel (`pytest -n auto`), except that its file filter leaves out the
   root `pyproject.toml` and `uv.lock`, so a dev-version bump runs nothing
   locally (#1764).
-  The `ruff`, `ruff-format` and `mypy` workspace hooks match Python and
+  The `ruff`, `ruff-format` and `ty` workspace hooks match Python and
   `pyproject.toml` anywhere under `tools/`, `plugins/` and `ai-tutors/`,
   the scope `workspace-pytest` uses, so a pull request changing Python in a
   plugin or a member-root script no longer skips them;
   `tools/dev/tests/test_workspace_hook_filters.py` runs every member path from
   `git ls-files` through each hook's pattern (#2207).
+- **Members share their static-check settings; ty type-checks the workspace.**
+  Every member's ruff config `extend`s `tools/dev/shared/ruff.toml` (line
+  length, target, rule selection including the `ANN` rules that require
+  every function to be annotated) and keeps only its path-based settings,
+  which ruff would resolve against the base's directory; tests are exempt
+  from `ANN`.
+  ty replaces mypy, pinned exactly while it is pre-1.0.
+  It runs on every member unless the member opts out with `skip = ["ty"]`,
+  with ty's default rules plus the unused-ignore, redundant-cast and
+  possibly-unbound rules, warnings failing the run, and `# type: ignore` not
+  honoured, so every suppression is an explicit `# ty: ignore[<rule>]` that
+  the unused-ignore rule checks.
+  Those shared settings live in `tools/dev/shared/ty.toml`, which
+  `run-workspace-check.sh` passes as flags, since `ty check --config-file`
+  would replace a member's own `[tool.ty]` (its path scope) instead of
+  merging with it.
+- **The required `prek` check gathers three parallel jobs.**
+  `pre-commit.yml` runs the hooks, the workspace type check, and lychee plus
+  the Claude Code mod and floor checks as separate jobs, and a `prek` job
+  that passes only when all three succeed keeps the status-check name
+  `.asf.yaml` requires.
+  The jobs share one uv cache and one prek hook-env cache, and only the hooks
+  job saves them, after building every hook's environment, so parallel jobs
+  never race to save the same key.
   The pre-PR gate is `prek run --all-files --skip workspace-pytest` then
   `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
   (`AGENTS.md` § Local setup).

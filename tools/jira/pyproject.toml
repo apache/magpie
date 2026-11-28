@@ -41,18 +41,6 @@ magpie-jira-tracker = "jira_bridge.security_tracker:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/jira_bridge"]
 
-[tool.mypy]
-python_version = "3.11"
-files = ["src", "tests"]
-warn_unused_ignores = true
-warn_redundant_casts = true
-warn_unreachable = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"

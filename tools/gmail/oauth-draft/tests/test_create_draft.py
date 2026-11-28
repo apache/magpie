@@ -22,7 +22,7 @@ import email.policy
 import io
 import json
 import urllib.error
-from email.message import EmailMessage
+from email.message import EmailMessage, Message
 from unittest.mock import patch
 
 import pytest
@@ -428,7 +428,7 @@ def test_api_get_raises_on_http_error():
         url="https://x",
         code=404,
         msg="Not Found",
-        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        hdrs=Message(),
         fp=io.BytesIO(b'{"error": "thread missing"}'),
     )
     with patch("oauth_draft.create_draft.urllib.request.urlopen", side_effect=err):
@@ -443,7 +443,7 @@ def test_api_post_raises_on_http_error():
         url="https://x",
         code=403,
         msg="Forbidden",
-        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        hdrs=Message(),
         fp=io.BytesIO(b'{"error": "forbidden"}'),
     )
     with patch("oauth_draft.create_draft.urllib.request.urlopen", side_effect=err):

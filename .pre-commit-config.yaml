@@ -694,9 +694,10 @@ repos:
   # member declared in the root `pyproject.toml`'s
   # `[tool.uv.workspace] members` list via
   # `tools/dev/run-workspace-check.sh`. The driver auto-discovers
-  # which checks apply per member (e.g. only runs `mypy` on members
-  # with a `[tool.mypy]` section in their pyproject) and honours an
-  # opt-out `[tool.magpie.checks] skip = [...]` block per member.
+  # which checks apply per member (e.g. only runs ruff on members with a
+  # `[tool.ruff]` section in their pyproject; ty runs on every member)
+  # and honours an opt-out `[tool.magpie.checks] skip = [...]` block per
+  # member. The settings members share live in `tools/dev/shared/`.
   #
   # Adding a new uv-managed tool requires NO edit here — append its
   # path to `[tool.uv.workspace] members` in the root pyproject and
@@ -707,19 +708,19 @@ repos:
         name: ruff check (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff "ruff check"
-        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh|tools/dev/shared/ruff\.toml)$
         pass_filenames: false
       - id: workspace-ruff-format
         name: ruff format (workspace)
         language: system
         entry: tools/dev/run-workspace-check.sh ruff-format "ruff format --check"
-        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh|tools/dev/shared/ruff\.toml)$
         pass_filenames: false
-      - id: workspace-mypy
-        name: mypy (workspace)
+      - id: workspace-ty
+        name: ty (workspace)
         language: system
-        entry: tools/dev/run-workspace-check.sh mypy mypy
-        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)$
+        entry: tools/dev/run-workspace-check.sh ty "ty check"
+        files: ^((tools|plugins|ai-tutors)/(.*\.py|.*pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh|tools/dev/shared/ty\.toml)$
         pass_filenames: false
       - id: workspace-pytest
         name: pytest (workspace)

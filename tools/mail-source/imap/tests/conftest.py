@@ -97,7 +97,7 @@ def make_config(**overrides: object) -> ImapConfig:
         "archive_template": None,
     }
     base.update(overrides)
-    return ImapConfig(**base)  # type: ignore[arg-type]
+    return ImapConfig(**base)
 
 
 def build_message(

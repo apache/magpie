@@ -197,8 +197,8 @@ class _CappedTarInfo(tarfile.TarInfo):
                 raise ArchiveError(
                     f"the archive's extended tar headers are over {MAX_EXTENDED_HEADERS_TOTAL} bytes"
                 )
-            tarfile_._magpie_extended = seen  # type: ignore[attr-defined]  # ty: ignore[missing-attribute]
-        return super()._proc_member(tarfile_)  # type: ignore[misc]  # ty: ignore[missing-attribute]
+            tarfile_._magpie_extended = seen  # ty: ignore[missing-attribute]
+        return super()._proc_member(tarfile_)  # ty: ignore[missing-attribute]
 
 
 def _extract(tarball: Path, out_dir: Path, max_bytes: int, max_members: int) -> tuple[int, int]:

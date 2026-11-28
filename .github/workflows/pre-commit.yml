@@ -39,13 +39,14 @@ concurrency:
 #
 # Split because one serial job made every PR wait for the sum of its parts.
 # Measured on a PR run on `ubuntu-slim` (2026-11-28): ~50s of setup before the
-# first hook, then `mypy (workspace)` alone ~140s, `check-doc-sync` ~36s, the
+# first hook, then `mypy (workspace)` alone ~140s (since replaced by ty, which
+# checks the workspace in seconds), `check-doc-sync` ~36s, the
 # ~40 other hooks ~40s together, and the Claude Code mods and floor steps ~33s.
 # Queueing for a runner was 2-3s, so the wait was never the runner. In parallel
 # the wall clock is the slowest job plus its own setup, not the total.
 #
 #   hooks           every prek hook except the type check and the link/mod steps
-#   type-check      `workspace-mypy`, the single slowest hook
+#   type-check      `workspace-ty`, the workspace type check
 #   links-and-mods  lychee over the whole repo, Claude Code mods and floor
 #
 # All three read one uv cache and one prek hook-env cache, and only `hooks`
@@ -180,7 +181,7 @@ jobs:
             github.event.pull_request.base.sha)
             || '--all-files' }}
         # Skipped here, each for its own reason:
-        #  - `workspace-mypy`: the `type-check` job.
+        #  - `workspace-ty`: the `type-check` job.
         #  - `lychee`, `check-claude-mods-local`: the `links-and-mods` job
         #    (the `-local` twin needs a local Claude Code the runner lacks).
         #  - `workspace-pytest`: the path-filtered `tests` workflow matrix
@@ -195,7 +196,7 @@ jobs:
         # `--show-diff-on-failure` shows what a fixer hook changed.
         run: >-
           prek run --show-diff-on-failure --color=always $PREK_SCOPE
-          --skip workspace-mypy --skip workspace-pytest --skip identity
+          --skip workspace-ty --skip workspace-pytest --skip identity
           --skip skill-token-count --skip lychee --skip check-claude-mods-local
       # Last, so the cache's post step saves only what this config uses.
       - name: Prune unused prek hook environments
@@ -224,7 +225,7 @@ jobs:
           save-cache: false
       - name: Sync workspace (installs the root dev group)
         run: uv sync --all-packages --group dev
-      # No hook-env cache: `workspace-mypy` is `language: system` and runs from
+      # No hook-env cache: `workspace-ty` is `language: system` and runs from
       # the synced workspace, so prek builds no environment for it.
       - name: Install prek
         run: uv tool install prek
@@ -235,7 +236,7 @@ jobs:
             && format('--from-ref {0} --to-ref HEAD',
             github.event.pull_request.base.sha)
             || '--all-files' }}
-        run: prek run workspace-mypy --show-diff-on-failure --color=always $PREK_SCOPE
+        run: prek run workspace-ty --show-diff-on-failure --color=always $PREK_SCOPE
 
   links-and-mods:
     name: prek (links, Claude Code mods)

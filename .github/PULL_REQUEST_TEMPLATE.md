@@ -33,7 +33,7 @@ decide what to spot-check vs trust. Empty "ran the tests" doesn't help.
 -->
 
 - [ ] `prek run --all-files` passes
-- [ ] For Python packages touched: `uv run pytest` / `ruff check` / `mypy` passes
+- [ ] For Python packages touched: `uv run pytest` / `ruff check` / `ty check` passes
 - [ ] For Groovy bridges touched: command-line invocation tested end-to-end
 - [ ] For skill changes: eval suite passes for the affected skill
       (`PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner tools/skill-evals/evals/<skill>/`)

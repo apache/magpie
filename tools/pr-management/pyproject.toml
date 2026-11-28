@@ -43,30 +43,6 @@ src = ["src", "tests"]
 # The rendered dashboard's typography (en dashes, ×) is intentional.
 "src/pr_management/stats/dashboard.py" = ["ANN", "RUF001", "RUF002"]
 
-[tool.mypy]
-python_version = "3.11"
-files = ["src", "tests"]
-warn_unused_ignores = true
-warn_redundant_casts = true
-warn_unreachable = true
-check_untyped_defs = true
-no_implicit_optional = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-
-# The dashboard renderer moved in from tools/pr-management-stats untyped;
-# its call sites are checked, its 2,500 lines of HTML building are not yet.
-[[tool.mypy.overrides]]
-module = ["pr_management.stats.reference", "pr_management.stats.dashboard"]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"

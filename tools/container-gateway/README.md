@@ -35,7 +35,7 @@ The contract (what / why) is in [`tool.md`](tool.md); this file is the how-to.
 - **CLIs:** `podman` and/or `docker` on the host (each optional); on macOS a running Podman machine or Docker Desktop.
 - **Credentials / auth:** None. The gateway never reads the machine ssh identity or `~/.config/containers/auth.json`, and takes only the `currentContext` name from `~/.docker/config.json` (never `auths`, `credsStore` or `credHelpers`); pulls are anonymous.
 - **Network:** None of its own. Connects only to the local daemon unix socket and, once at start, probes the egress gateway on loopback.
-- **Optional:** the `dev` dependency group (pytest, ruff, mypy); a running egress gateway for the proxy-injection mode.
+- **Optional:** the `dev` dependency group (pytest, ruff, ty); a running egress gateway for the proxy-injection mode.
 
 ## Run it
 

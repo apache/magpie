@@ -40,11 +40,9 @@ src = ["src", "tests"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN"]
 
-[tool.mypy]
-python_version = "3.11"
-files = ["src"]
-warn_unused_ignores = true
-strict = true
+[tool.ty.src]
+# The source only, as mypy checked it.
+include = ["src"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

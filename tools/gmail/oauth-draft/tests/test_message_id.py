@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import json
 import urllib.error
+from email.message import Message
 from unittest.mock import patch
 
 import pytest
@@ -115,7 +116,7 @@ def test_root_message_id_raises_on_http_error():
         url="https://x",
         code=404,
         msg="Not Found",
-        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        hdrs=Message(),
         fp=io.BytesIO(b'{"error": "missing"}'),
     )
     with patch(

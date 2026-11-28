@@ -20,6 +20,7 @@ import base64
 import io
 import json
 import urllib.error
+from email.message import Message
 from unittest.mock import patch
 
 import pytest
@@ -78,7 +79,7 @@ def test_fetch_raw_surfaces_http_errors():
         url="https://x",
         code=404,
         msg="Not Found",
-        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        hdrs=Message(),
         fp=io.BytesIO(b"no such message"),
     )
     with (

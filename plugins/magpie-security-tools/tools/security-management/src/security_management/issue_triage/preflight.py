@@ -93,7 +93,7 @@ def evaluate(
     if not dated or any(t is None for t, _ in dated):
         out["failed_rule"] = 1
         return out
-    created, newest = max(dated, key=lambda pair: pair[0])  # type: ignore[arg-type,return-value]
+    created, newest = max(dated, key=lambda pair: pair[0])
     proposed = dispositions.proposal_class(str(newest.get("body") or ""))
     if proposed is None:
         out["failed_rule"] = 1

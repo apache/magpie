@@ -101,7 +101,7 @@ def parse_required_dt(s):
 # Prefer pyyaml when available (handles every edge case). When it's not
 # installed, fall back to the pure-Python subset parser from core.
 try:
-    import yaml  # type: ignore
+    import yaml  # ty: ignore[import-not-found]  # optional: falls back to the subset parser
 
     def yaml_load(text):
         return yaml.safe_load(text)

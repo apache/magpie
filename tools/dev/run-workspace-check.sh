@@ -31,7 +31,8 @@
 #
 #   ruff          → runs only on members with `[tool.ruff]`
 #   ruff-format   → runs only on members with `[tool.ruff]`
-#   mypy          → runs only on members with `[tool.mypy]`
+#   ty            → runs on every member (opt out with the `skip` list below),
+#                   with the shared rules of `tools/dev/shared/ty.toml` as flags
 #   pytest        → runs only on members with `[tool.pytest.ini_options]`
 #
 # `check-cmd` is the actual command-line passed to `uv run`. It
@@ -48,12 +49,12 @@
 # checks by adding a `[tool.magpie.checks]` block:
 #
 #   [tool.magpie.checks]
-#   skip = ["mypy", "pytest"]
+#   skip = ["ty", "pytest"]
 #
 # Examples:
 #   tools/dev/run-workspace-check.sh ruff        "ruff check"
 #   tools/dev/run-workspace-check.sh ruff-format "ruff format --check"
-#   tools/dev/run-workspace-check.sh mypy        mypy
+#   tools/dev/run-workspace-check.sh ty          "ty check"
 #   tools/dev/run-workspace-check.sh pytest      "pytest --color=yes -n auto"
 #
 # Exit code: 0 iff the check succeeded on every applicable
@@ -85,8 +86,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
 # Every check runs through `uv` against the member's own project — never a
 # bare interpreter — so the tool version comes from that sub-project's
 # pyproject.toml + dev group (see each member's `[dependency-groups] dev`).
-# mypy and pytest are invoked as `python -m <tool>` rather than via their
-# console scripts: a console script bakes an absolute interpreter path into
+# pytest is invoked as `python -m pytest` rather than via its
+# console script: a console script bakes an absolute interpreter path into
 # its shebang, which breaks when the shared workspace venv is reused across
 # repos (a stale `#!/…/other-repo/.venv/bin/python3` fails to spawn). The
 # `-m` form resolves the tool from the live interpreter and sidesteps that.
@@ -109,14 +110,30 @@ check = sys.argv[1]
 SECTION_FOR_CHECK = {
     "ruff": "ruff",
     "ruff-format": "ruff",
-    "mypy": "mypy",
+    # `ty` is opt-out: every member is type-checked unless it skips it, so a
+    # new member cannot go unchecked by forgetting a config table.
+    "ty": None,
     "pytest": "pytest",
 }
 
-section_key = SECTION_FOR_CHECK.get(check)
-if section_key is None:
+if check not in SECTION_FOR_CHECK:
     sys.stderr.write(f"error: unknown check-key {check!r}\n")
     sys.exit(2)
+section_key = SECTION_FOR_CHECK[check]
+
+# Members ty does not check yet: mypy never checked them either, and ty still
+# reports findings in each. Kept here rather than as a `skip` in the member's
+# own pyproject because `tools/agent-isolation` counts toward the secure-setup
+# fingerprint (`setup_preflight/isolated.py`): editing it would send every
+# user to re-run the setup update with nothing changed on their machine.
+# Remove an entry once its findings are fixed.
+NOT_TYPE_CHECKED_YET = frozenset(
+    {
+        "tools/agent-isolation",
+        "tools/egress-gateway",
+        "tools/skill-evals",
+    }
+)
 
 with open("pyproject.toml", "rb") as f:
     root = tomllib.load(f)
@@ -140,6 +157,12 @@ for member in members:
     # Opt-out check.
     skip = tool.get("magpie", {}).get("checks", {}).get("skip", [])
     if check in skip:
+        continue
+
+    if section_key is None:
+        if check == "ty" and member in NOT_TYPE_CHECKED_YET:
+            continue
+        print(member)
         continue
 
     # Auto-discovery check — the [tool.<X>] block must exist.
@@ -175,25 +198,68 @@ if [ -z "$applicable" ]; then
   exit 0
 fi
 
+# ty: the workspace-wide settings in `tools/dev/shared/ty.toml`, turned into
+# flags. `ty check --config-file` would replace each member's own `[tool.ty]`
+# instead of merging with it; command-line rule flags merge. Read once, before
+# the loop, and appended after any arguments the caller passed.
+TY_FLAGS=()
+if [ "$CHECK_KEY" = "ty" ]; then
+  flags=$(python3 - tools/dev/shared/ty.toml <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as f:
+    shared = tomllib.load(f)
+unknown = set(shared) - {"rules", "analysis", "terminal"}
+if unknown:
+    sys.exit(f"error: {sys.argv[1]}: only [rules], [analysis] and [terminal] are read, not {sorted(unknown)}")
+for rule, level in shared.get("rules", {}).items():
+    if level not in ("error", "warn", "ignore"):
+        sys.exit(f"error: {sys.argv[1]}: rule {rule!r} has level {level!r}")
+    print(f"--{level}")
+    print(rule)
+for key, value in shared.get("analysis", {}).items():
+    if not isinstance(value, bool):
+        sys.exit(f"error: {sys.argv[1]}: [analysis] {key} must be true or false")
+    print("--config")
+    print(f"analysis.{key}={str(value).lower()}")
+terminal = shared.get("terminal", {})
+if set(terminal) - {"error-on-warning"}:
+    sys.exit(f"error: {sys.argv[1]}: only [terminal] error-on-warning is read")
+if terminal.get("error-on-warning"):
+    print("--error-on-warning")
+PY
+)
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    exit "$status"
+  fi
+  while IFS= read -r flag; do
+    TY_FLAGS+=("$flag")
+  done <<< "$flags"
+fi
+
 count=$(echo "$applicable" | wc -l | tr -d ' ')
 echo "→ workspace-check: ${CHECK_KEY} (${CHECK_CMD} $*) across ${count} members"
 
 # Run one member's check via uv, against the member's own project:
-#   --directory "$member"  → cwd is the member, so ruff / mypy / pytest
+#   --directory "$member"  → cwd is the member, so ruff / ty / pytest
 #                            configs resolve paths relative to the member root
 #   --project .            → the environment is that member's project (its
 #                            pyproject.toml + dev group), resolved after the
 #                            --directory chdir
-# mypy and pytest go through `python -m` to bypass console-script shebangs;
-# ruff is a native binary with no interpreter shebang, so it runs directly.
+# pytest goes through `python -m` to bypass console-script shebangs; ruff
+# and ty are native binaries with no interpreter shebang, so they run directly.
 run_member() {
   local member=$1
   shift
   # shellcheck disable=SC2086 # CHECK_CMD may legitimately be multi-token
-  if [[ "$CHECK_KEY" == "mypy" ]] || [[ "$CHECK_KEY" == "pytest" ]]; then
+  if [[ "$CHECK_KEY" == "pytest" ]]; then
     uv run --directory "$member" --project . python -m $CHECK_CMD "$@"
   else
-    uv run --directory "$member" --project . $CHECK_CMD "$@"
+    # `${a[@]+…}`: an empty array is "unbound" under `set -u` in bash 3.2
+    # (macOS), so expand it only when it has elements.
+    uv run --directory "$member" --project . $CHECK_CMD "$@" ${TY_FLAGS[@]+"${TY_FLAGS[@]}"}
   fi
 }
 

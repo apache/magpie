@@ -102,7 +102,7 @@ CLIs speak. Three properties fall out of the policy:
 ## Where it lives
 
 - `tools/container-gateway/` — the tool: `pyproject.toml` (stdlib-only
-  runtime, `dev` group for pytest / ruff / mypy), `src/container_gateway/`
+  runtime, `dev` group for pytest / ruff / ty), `src/container_gateway/`
   (`__main__.py` CLI — serve / stop / status, `daemon.py` run directory,
   pid file, sockets, process lifetime and the git-common-dir anchor check,
   `layers.py` personal-layer resolution, `relay.py` and `http.py`

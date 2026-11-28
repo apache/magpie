@@ -471,7 +471,7 @@ def eval_predicate(pred: Any, ctx: dict[str, Any]) -> bool:
     """
     if not isinstance(pred, dict):
         return False
-    scope_labels: set[str] = ctx.get("scope_labels") or set()  # type: ignore[assignment]
+    scope_labels: set[str] = ctx.get("scope_labels") or set()
     for key, val in pred.items():
         if key == "any_of":
             if not any(eval_predicate(p, ctx) for p in val):

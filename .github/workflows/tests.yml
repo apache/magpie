@@ -121,7 +121,7 @@ jobs:
         batch: ${{ fromJSON(needs.members.outputs.batches) }}
     # GitHub Actions log viewer renders ANSI colour escapes; without
     # an attached TTY most tools default to monochrome. `FORCE_COLOR`
-    # is the de-facto signal honoured by uv, ruff, mypy, and pytest's
+    # is the de-facto signal honoured by uv, ruff, ty, and pytest's
     # own auto-detection. Belt-and-braces — the explicit
     # `--color=yes` on the pytest invocation below covers tools that
     # don't read `FORCE_COLOR`.
@@ -150,7 +150,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: "24"
-      - name: Sync the batch's members (and ruff / mypy / pytest from the root dev group)
+      - name: Sync the batch's members (and ruff / ty / pytest from the root dev group)
         # Dev-group deps live in the root pyproject (`[dependency-groups]
         # dev`) and only land in the shared workspace `.venv` when an
         # explicit `--group dev` sync runs. One `--package` per member

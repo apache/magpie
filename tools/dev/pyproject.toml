@@ -17,8 +17,8 @@
 
 # Config carrier, not a package. `tools/dev/` is a directory of standalone
 # helper scripts invoked by prek and CI by path, never imported as a library.
-# Before this file existed the tree was invisible to ruff, mypy, and pytest:
-# the workspace checks iterate `[tool.uv.workspace] members`, and these gates
+# Before this file existed the tree was invisible to ruff, the type checker and
+# pytest: the workspace checks iterate `[tool.uv.workspace] members`, and these gates
 # — the ones that guard everyone else's changes — were themselves unguarded.
 #
 # Declaring the tree as one workspace member is the same lightest-fix pattern
@@ -42,10 +42,13 @@ license = { text = "Apache-2.0" }
 # root pyproject.toml. The scripts themselves are stdlib-only; these are the
 # tools that check them and everything else.
 dependencies = [
-  "mypy>=2.3.0",
   "pytest>=9.1.1",
   "pytest-xdist>=3.8.0",
   "ruff>=0.16.2",
+  # Pinned exactly, unlike the rest: ty is pre-1.0 (0.0.x) and a release can
+  # add a rule or change what one reports, so an unpinned bump would fail
+  # unrelated pull requests. Raise it deliberately, with the fixes it needs.
+  "ty==0.0.107",
 ]
 
 # Built as a metadata-only wheel: this project ships no importable module (the
@@ -63,24 +66,12 @@ extend = "shared/ruff.toml"
 
 [tool.ruff.lint]
 ignore = [
-  "ANN",    # no annotation requirement here, as mypy had none for this member
+  "ANN",    # no annotation requirement here, as mypy had none before the move to ty
   "RUF003", # ambiguous en dash in a comment — the repo's prose style uses
             # en dashes throughout; rewriting comments to hyphens to satisfy
             # a homoglyph check would make them worse, and these files carry
             # no non-ASCII identifiers, which is what the rule guards
 ]
-
-[tool.mypy]
-python_version = "3.11"
-files = ["."]
-ignore_missing_imports = true
-warn_unused_ignores = true
-check_untyped_defs = true
-no_implicit_optional = true
-# Scripts invoked by path, not a typed library surface. `check_untyped_defs`
-# above still type-checks the bodies, which is where the value is.
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 minversion = "8.0"

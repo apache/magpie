@@ -149,7 +149,7 @@ not prevented, by the re-read of each item just before its write.
 ```bash
 uv run --directory tools/skill-lock --group dev pytest
 uv run --directory tools/skill-lock --group dev ruff check src tests
-uv run --directory tools/skill-lock --group dev mypy
+tools/dev/run-workspace-check.sh ty "ty check"
 uv run --directory tools/setup-preflight --group dev pytest tests/test_layers.py
 python3 tools/dev/check-shared-blocks.py
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate

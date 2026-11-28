@@ -235,7 +235,7 @@ def test_i8_pipe_surfaces_a_copy_failure_as_http_error() -> None:
         a_r = reader_of(b"boom")
         b_r = reader_of(b"")
         with pytest.raises(HttpError):
-            await pipe(a_r, _FakeWriter(fail=True), b_r, _FakeWriter())  # type: ignore[arg-type]
+            await pipe(a_r, _FakeWriter(fail=True), b_r, _FakeWriter())
 
     run(scenario())
 
@@ -386,12 +386,12 @@ def test_i6_pump_raises_on_early_eof() -> None:
         head = await read_head(reader_of(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\n"))
         assert head is not None
         with pytest.raises(HttpError, match="truncated"):
-            await pump(reader_of(b"short"), _FakeWriter(), head)  # type: ignore[arg-type]
+            await pump(reader_of(b"short"), _FakeWriter(), head)
 
         chead = await read_head(reader_of(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"))
         assert chead is not None
         with pytest.raises(HttpError):
-            await pump(reader_of(b"3\r\nab"), _FakeWriter(), chead)  # type: ignore[arg-type]
+            await pump(reader_of(b"3\r\nab"), _FakeWriter(), chead)
 
     run(scenario())
 

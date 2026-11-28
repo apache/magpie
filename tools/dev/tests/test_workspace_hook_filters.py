@@ -36,7 +36,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-HOOKS = ("workspace-ruff-check", "workspace-ruff-format", "workspace-mypy")
+HOOKS = ("workspace-ruff-check", "workspace-ruff-format", "workspace-ty")
 
 # Markdown-only changes under the members still skip the static checks on
 # purpose; widening the filter must not start running them.

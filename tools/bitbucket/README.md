@@ -125,7 +125,7 @@ separately with narrow command surfaces and maintainer review.
 - **CLIs:** `uv` to run the bridge and its tests; no Bitbucket-specific CLI is required.
 - **Credentials / auth:** `BITBUCKET_TOKEN` is required for authenticated Bitbucket API calls. Bitbucket Cloud also needs `BITBUCKET_CLOUD_USER`; Data Center uses `BITBUCKET_AUTH_SCHEME=Bearer` by default.
 - **Network:** Bitbucket Cloud reaches `api.bitbucket.org`; Bitbucket Data Center reaches the configured `BITBUCKET_BASE_URL`. Adopters using Data Center must explicitly allow their own Bitbucket host in the secure egress configuration.
-- **Optional:** `pytest`, `ruff`, and `mypy` run through `uv` for the test/type/lint harness.
+- **Optional:** `pytest`, `ruff`, and `ty` run through `uv` for the test/type/lint harness.
 
 ## Features
 

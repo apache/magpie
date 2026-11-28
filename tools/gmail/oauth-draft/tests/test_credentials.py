@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import json
 import urllib.error
+from email.message import Message
 from unittest.mock import patch
 
 import pytest
@@ -149,7 +150,7 @@ def test_refresh_access_token_raises_on_http_error():
         url="https://oauth2.googleapis.com/token",
         code=400,
         msg="Bad Request",
-        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        hdrs=Message(),
         fp=io.BytesIO(b'{"error": "invalid_grant"}'),
     )
     with patch("oauth_draft.credentials.urllib.request.urlopen", side_effect=err):

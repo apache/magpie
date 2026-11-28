@@ -121,7 +121,7 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
         "decisions": [],
         "field_layout": {"layout": "default", "description": "no existing reports", "sample_field_names": []},
     }
-    decisions: list[str] = evidence["decisions"]  # type: ignore[assignment]
+    decisions: list[str] = evidence["decisions"]
 
     if not root.is_dir() or not [p for p in root.iterdir() if p.name != DESCRIPTOR_NAME]:
         decisions.append("no existing reports — using the default format (folder per report, front matter)")

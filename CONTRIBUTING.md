@@ -124,7 +124,7 @@ Four practical consequences:
   or a Python bridge, because the meta-level operation (state
   intent, iterate, probe edges, test) is the same. Only the
   feedback signal differs — eval suite for the English layer,
-  `pytest` / `mypy` / `ruff` for the traditional-language layer.
+  `pytest` / `ty` / `ruff` for the traditional-language layer.
 
 Read the rest of this guide with that frame in mind. When
 something looks like "just documentation", check whether it
@@ -458,7 +458,14 @@ cd tools/cve-tool-vulnogram/generate-cve-json
 uv run pytest                  # unit tests
 uv run ruff check              # lint
 uv run ruff format             # auto-format (check-only in CI)
-uv run mypy                    # type-check
+```
+
+Type-check from the repository root: the runner adds the workspace's shared
+ty rules (`tools/dev/shared/ty.toml`), which a bare `uv run ty check` in a
+package would not, and checks every package in a few seconds:
+
+```bash
+tools/dev/run-workspace-check.sh ty "ty check"
 ```
 
 To run a package's CLI from the repo root:
@@ -792,7 +799,7 @@ Python and Groovy bridges under `tools/` are written in lower-level
 languages with stronger machine-checked feedback than the English
 layer gets. Both layers are code (see
 [English as code](#english-as-code)); they differ in what *catches*
-your mistakes — `pytest` / `mypy` / `ruff` catch syntactic and type
+your mistakes — `pytest` / `ty` / `ruff` catch syntactic and type
 bugs deterministically; the eval suite catches semantic regressions
 in skill behaviour. The loop is the same — intent-first, iterate,
 probe edges — but for the Python / Groovy pieces the inner-loop
@@ -801,7 +808,7 @@ feedback is faster. When working on a Python bridge:
 - Run `uv run pytest` *between every revision*, not just at the
   end. A failing test halfway through is information; a stack of
   failing tests at the end is a mess.
-- `mypy` errors are the agent's responsibility to diagnose, not
+- `ty` errors are the agent's responsibility to diagnose, not
   yours — paste the error back into the conversation and let the
   agent reason about it.
 - Resist the temptation to hand-edit the agent's code mid-loop.
@@ -875,7 +882,7 @@ The hook set:
   framework convention is the `<PROJECT>` / `<tracker>` /
   `<upstream>` placeholder set.
 - **Per-package Python checks** — `ruff check`, `ruff format --check`,
-  `mypy`, `pytest` against each `tools/*/` Python package, scoped
+  `ty`, `pytest` against each `tools/*/` Python package, scoped
   to changes inside that package directory via the hook's `files:`
   pattern. `pytest` runs only for the packages with a changed file
   other than Markdown or a plugin manifest (also through a symlinked

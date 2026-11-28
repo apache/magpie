@@ -240,7 +240,7 @@ def test_create_draft_declines_when_server_refuses_append() -> None:
 
     config = make_config()
     box = box_with_thread()
-    box.append = refuse_append  # type: ignore[method-assign]
+    box.append = refuse_append
     with pytest.raises(CapabilityDeclined):
         create_draft(box, config, ROOT, body="x", to=["dev@example.org"], cc=[], from_address=None)
 
