@@ -66,7 +66,7 @@ NOT_NEEDED: dict[str, set[str]] = {
 
 
 def _known_ops() -> set[str]:
-    assert cli  # importing the CLI registers every operation module
+    _ = cli  # importing the CLI registers every operation module
     return set(ops_mod.OPS) | set(git_ops.OPS)
 
 

@@ -251,11 +251,7 @@ def test_malformed_tracker_issues_are_refused(bad: dict[str, Any], message: str)
 
 
 class FakeResponse(io.BytesIO):
-    def __enter__(self) -> FakeResponse:
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self.close()
+    """A response body; `BytesIO` already enters as itself and closes on exit."""
 
 
 def serve(monkeypatch: pytest.MonkeyPatch, reply: Any, status: int = 200) -> list[urllib.request.Request]:

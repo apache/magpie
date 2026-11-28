@@ -172,16 +172,18 @@ class BatchUnlisted(BatchRefused):
     """Refused only because entries name values the policy's [values] does not list.
 
     ``unlisted`` holds each such entry's index and refusal, every one in the
-    manifest, so the skill asks the user about all of them at once.
+    manifest, so the skill asks the user about all of them at once. ``config``
+    is the policy the batch was checked against, which the report names.
     """
 
-    def __init__(self, unlisted: Sequence[tuple[int, ops_mod.UnlistedValue]]) -> None:
+    def __init__(self, unlisted: Sequence[tuple[int, ops_mod.UnlistedValue]], config: Config) -> None:
         self.unlisted = tuple(unlisted)
+        self.config = config
         super().__init__("; ".join(f"entry {index} ({exc.operation}): {exc}" for index, exc in self.unlisted))
 
-    def report(self, caller: str, config: Config, single: SingleCall) -> int:
+    def report(self, caller: str, single: SingleCall) -> int:
         for index, exc in self.unlisted:
-            single.report_unlisted(exc, caller, config, entry=index)
+            single.report_unlisted(exc, caller, self.config, entry=index)
         return EXIT_UNLISTED
 
 
@@ -355,7 +357,7 @@ def check(config: Config, caller: str, manifest: str, single: SingleCall) -> Bat
         feed(_built(command))
         entries.append(Entry(index, op, list(values), params, body, command))
     if unlisted:
-        raise BatchUnlisted(unlisted)
+        raise BatchUnlisted(unlisted, config)
     return Batch(Path(manifest), tuple(entries), digest.hexdigest())
 
 
@@ -497,7 +499,7 @@ def check_main(caller: str, manifest: str, policy_from: Path | None, single: Sin
         batch = check(config, caller, manifest, single)
         where = confirm_private(config, batch)
     except BatchUnlisted as exc:
-        return exc.report(caller, config, single)
+        return exc.report(caller, single)
     except (BatchRefused, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -570,7 +572,7 @@ def main(argv: Sequence[str] | None, *, single: SingleCall, unprompted: bool = F
             )
         where = confirm_private(config, batch)
     except BatchUnlisted as exc:
-        return exc.report(args.caller, config, single)
+        return exc.report(args.caller, single)
     except (BatchRefused, ConfigError, ops_mod.ParamError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY

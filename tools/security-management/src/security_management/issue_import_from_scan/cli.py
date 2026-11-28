@@ -101,7 +101,9 @@ def add_parsers(sub: Any) -> None:
 
 
 def _scans(findings: Any, buckets: Any) -> list[dict[str, Any]]:
-    scans = findings.get("scans") if isinstance(findings, dict) else [{"name": "scan", "findings": findings}]
+    scans: list[dict[str, Any]] | None = (
+        findings.get("scans") if isinstance(findings, dict) else [{"name": "scan", "findings": findings}]
+    )
     out = []
     for entry in scans or []:
         name = str(entry.get("name") or "scan")

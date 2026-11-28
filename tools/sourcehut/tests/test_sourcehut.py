@@ -357,22 +357,24 @@ def test_map_patchset_to_pr_keeps_input_order_when_key_is_uncomparable() -> None
 
 
 def test_map_patchset_to_pr_propagates_unexpected_sort_errors() -> None:
-    class ExplodingEmail(dict[str, object]):
-        def get(self, key: str, default: object = None) -> object:
+    class ExplodingEmail(dict[object, object]):
+        def get(self, key: object, default: object = None) -> object:
             if key == "date":
                 raise RuntimeError("unexpected date failure")
             return super().get(key, default)
 
-    patchset = {
+    patchset: dict[str, Any] = {
         "thread": {
             "emails": {
                 "edges": [
                     {
                         "node": ExplodingEmail(
-                            id=1,
-                            body="Cover letter",
-                            sender={"canonicalName": "Alice"},
-                            date="2026-07-01T12:00:00Z",
+                            {
+                                "id": 1,
+                                "body": "Cover letter",
+                                "sender": {"canonicalName": "Alice"},
+                                "date": "2026-07-01T12:00:00Z",
+                            }
                         )
                     }
                 ]

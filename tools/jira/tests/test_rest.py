@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from email.message import Message
+from types import TracebackType
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
@@ -196,7 +197,7 @@ def test_a_redirect_never_forwards_the_token():
             self.end_headers()
             self.wfile.write(b"{}")
 
-        def log_message(self, *a):
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     target = HTTPServer(("127.0.0.1", 0), Target)
@@ -210,7 +211,7 @@ def test_a_redirect_never_forwards_the_token():
             )
             self.end_headers()
 
-        def log_message(self, *a):
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     origin = HTTPServer(("127.0.0.1", 0), Origin)
@@ -242,8 +243,13 @@ class _Resp(io.BytesIO):
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc):
-        return False
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        return None
 
 
 def _capture():

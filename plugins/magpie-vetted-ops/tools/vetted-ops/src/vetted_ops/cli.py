@@ -790,8 +790,13 @@ def _run_http(request_desc: dict[str, object], *, body: bytes | None, sink: byte
     # Optional request body from the descriptor
     desc_body = request_desc.get("body")
     payload: bytes | None = None
-    if desc_body is not None:
-        payload = desc_body.encode("utf-8") if isinstance(desc_body, str) else desc_body  # type: ignore[assignment]
+    if isinstance(desc_body, str):
+        payload = desc_body.encode("utf-8")
+    elif isinstance(desc_body, bytes):
+        payload = desc_body
+    elif desc_body is not None:
+        print("vetted-op: internal error: http body must be str or bytes", file=sys.stderr)
+        return EXIT_COMMAND
     elif body is not None:
         payload = body
 

@@ -17,6 +17,7 @@
 # under the License.
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -117,7 +118,7 @@ def test_antigravity_argv():
 
 
 def test_antigravity_stdin_keeps_a_multiline_prompt_on_one_ndjson_line():
-    ctx = RunContext(**{**CTX.__dict__, "prompt": "line 1\nline 2\n"})
+    ctx = dataclasses.replace(CTX, prompt="line 1\nline 2\n")
     stdin = BACKENDS["antigravity"].build(ctx).stdin
     assert stdin is not None and stdin.count("\n") == 1
     assert json.loads(stdin)["message"]["content"] == "line 1\nline 2\n" + ANTIGRAVITY_TOOL_NOTE
@@ -163,7 +164,7 @@ def test_goose_runs_from_the_brief_directory_not_the_reviewed_tree(tmp_path):
     # Goose loads project plugins, hooks and context files from its working
     # directory; a chat-only reviewer needs none of the reviewed tree's files.
     (tmp_path / ".agents" / "plugins" / "evil").mkdir(parents=True)
-    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    ctx = dataclasses.replace(CTX, repo_dir=tmp_path)
     inv = BACKENDS["goose"].build(ctx)
     assert inv.cwd == ctx.brief_path.parent
     assert inv.cwd != tmp_path
@@ -234,27 +235,27 @@ def test_claude_argv():
     ],
 )
 def test_model_override_is_passed(name, flag):
-    ctx = RunContext(**{**CTX.__dict__, "model": "some-model"})
+    ctx = dataclasses.replace(CTX, model="some-model")
     argv = BACKENDS[name].build(ctx).argv
     assert argv[argv.index(flag) + 1] == "some-model"
 
 
 @pytest.mark.parametrize("name", list(BACKENDS))
 def test_no_backend_grants_writes_or_carries_the_prompt_in_argv(name):
-    ctx = RunContext(**{**CTX.__dict__, "prompt": "DIFF-BODY-MUST-NOT-BE-IN-ARGV"})
+    ctx = dataclasses.replace(CTX, prompt="DIFF-BODY-MUST-NOT-BE-IN-ARGV")
     argv = BACKENDS[name].build(ctx).argv
     assert not WRITE_GRANTING & set(argv)
     assert not any("DIFF-BODY-MUST-NOT-BE-IN-ARGV" in a for a in argv)
 
 
 def test_codex_extract_reads_the_last_message_file(tmp_path):
-    ctx = RunContext(**{**CTX.__dict__, "last_message_path": tmp_path / "last.json"})
+    ctx = dataclasses.replace(CTX, last_message_path=tmp_path / "last.json")
     (tmp_path / "last.json").write_text('{"findings": []}', encoding="utf-8")
     assert BACKENDS["codex"].extract("ignored stdout", ctx) == '{"findings": []}'
 
 
 def test_codex_extract_without_file_is_an_output_error(tmp_path):
-    ctx = RunContext(**{**CTX.__dict__, "last_message_path": tmp_path / "missing.json"})
+    ctx = dataclasses.replace(CTX, last_message_path=tmp_path / "missing.json")
     with pytest.raises(BackendOutputError, match="no final message"):
         BACKENDS["codex"].extract("", ctx)
 
@@ -350,7 +351,7 @@ def test_antigravity_refuses_a_tree_that_carries_executable_workspace_config(tmp
     """agy runs workspace hooks and MCP servers: the change under review must not supply them."""
     (tmp_path / config).parent.mkdir(parents=True)
     (tmp_path / config).write_text("{}", encoding="utf-8")
-    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    ctx = dataclasses.replace(CTX, repo_dir=tmp_path)
     refuse = BACKENDS["antigravity"].refuse
     assert refuse is not None
     reason = refuse(ctx)
@@ -362,7 +363,7 @@ def test_antigravity_refuses_a_subdirectory_of_a_tree_with_executable_config(tmp
     (tmp_path / ".agents").mkdir()
     (tmp_path / ".agents" / "hooks.json").write_text("{}", encoding="utf-8")
     (tmp_path / "sub").mkdir()
-    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path / "sub"})
+    ctx = dataclasses.replace(CTX, repo_dir=tmp_path / "sub")
     refuse = BACKENDS["antigravity"].refuse
     assert refuse is not None
     reason = refuse(ctx)
@@ -371,7 +372,7 @@ def test_antigravity_refuses_a_subdirectory_of_a_tree_with_executable_config(tmp
 
 def test_antigravity_accepts_a_tree_without_executable_workspace_config(tmp_path):
     (tmp_path / ".agents" / "skills").mkdir(parents=True)
-    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    ctx = dataclasses.replace(CTX, repo_dir=tmp_path)
     refuse = BACKENDS["antigravity"].refuse
     assert refuse is not None and refuse(ctx) is None
 

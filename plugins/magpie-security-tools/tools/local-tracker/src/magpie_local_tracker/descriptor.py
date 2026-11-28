@@ -15,6 +15,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 DESCRIPTOR_NAME = ".magpie-tracker.json"
 SCHEMA_VERSION = 1
@@ -118,7 +119,9 @@ class Descriptor:
         id_raw = raw.pop("id", {}) or {}
         state_raw = raw.pop("state", {}) or {}
         known = set(cls.__dataclass_fields__)
-        desc = cls(**{k: v for k, v in raw.items() if k in known})  # type: ignore[arg-type]
+        # Unvalidated JSON: each field's type is checked where it is read.
+        kwargs: dict[str, Any] = {k: v for k, v in raw.items() if k in known}
+        desc = cls(**kwargs)
         if isinstance(id_raw, dict):
             desc.id = IdFormat(**{k: v for k, v in id_raw.items() if k in IdFormat.__dataclass_fields__})
         if isinstance(state_raw, dict):

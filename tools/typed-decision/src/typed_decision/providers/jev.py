@@ -141,7 +141,8 @@ def _extract_answer(resp: dict[str, Any], answer_type: str) -> dict[str, Any]:
 
 def _build_score_levels(low: float, high: float) -> list[float]:
     """Spread numeric levels evenly across a scale, within the API's level cap."""
-    span = high - low
+    # `float()`: an int is a valid `float` argument, and `int.is_integer` is 3.12+.
+    span = float(high - low)
     count = int(span) + 1 if span.is_integer() and span < MAX_SCORE_LEVELS else MAX_SCORE_LEVELS
     return [low + span * index / (count - 1) for index in range(count)]
 

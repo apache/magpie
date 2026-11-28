@@ -28,6 +28,7 @@ entries are separated by a ``----`` line.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from . import body_field_format as fields
@@ -79,7 +80,7 @@ def _content(line: str) -> str:
     return line.rstrip("\r\n")
 
 
-def find_headings(lines: list[str]) -> list[Heading]:
+def find_headings(lines: Sequence[str]) -> list[Heading]:
     """Every heading outside closed code blocks (the parser's blocks), in document order."""
     inside = fields.closed_block_lines(lines)
     headings: list[Heading] = []

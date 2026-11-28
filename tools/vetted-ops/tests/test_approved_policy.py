@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn
 
@@ -78,13 +79,13 @@ def test_an_unapproved_policy_is_refused_on_the_write_entry_points(
     approved: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    entry: object,
+    entry: Callable[[list[str]], int],
 ) -> None:
     _nothing_runs(monkeypatch)
     op = (
         ["issue-add-label", "7", "needs triage"] if entry is cli.main else ["body-field-get", "7", "Severity"]
     )
-    assert entry(["--caller", "security-issue-sync", *op]) == cli.EXIT_POLICY  # type: ignore[operator]
+    assert entry(["--caller", "security-issue-sync", *op]) == cli.EXIT_POLICY
     err = capsys.readouterr().err
     assert "not an approved copy" in err and str(approved) in err
     # The copy command names the file, as the docs do: no placeholder to fill in.

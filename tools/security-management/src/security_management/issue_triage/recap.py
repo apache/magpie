@@ -55,7 +55,7 @@ SYNC_NOTE = (
 
 def render(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
-    distribution = {c.replace("-", "_"): 0 for c in dispositions.CLASSES}
+    distribution: dict[str, int] = {c.replace("-", "_"): 0 for c in dispositions.CLASSES}
     trackers = []
     next_steps = []
     notes = []
@@ -79,7 +79,7 @@ def render(data: Mapping[str, Any]) -> dict[str, Any]:
                 notes.append({"step": step, "note": FIX_PUBLIC_NOTE})
             elif klass == "DEFENSE-IN-DEPTH":
                 notes.append({"step": step, "note": HARDENING_NOTE})
-    skipped = [
+    skipped: list[dict[str, Any]] = [
         {
             "number": int(s["number"]),
             "proposal_date": one_line(s.get("proposal_date")),

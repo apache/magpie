@@ -161,8 +161,7 @@ def pick(
         gates.append(
             secondary_ci_reason or "secondary CI confirmation failed — no real CI check runs on head commit"
         )
-        if not ci_action:
-            ci_action = "trigger or wait for real CI on head commit, then re-run disposition"
+        ci_action = "trigger or wait for real CI on head commit, then re-run disposition"
     if unresolved_threads:
         gates.append(f"{unresolved_threads} unresolved review thread(s)")
     if other_changes_requested:

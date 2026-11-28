@@ -577,7 +577,7 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
     if not isinstance(host, str) or not _HOST.fullmatch(host):
         raise ConfigError(f"[git] host must be a host name, got {host!r}")
     transport = table.get("transport", "ssh")
-    if transport not in ("ssh", "https"):
+    if not isinstance(transport, str) or transport not in ("ssh", "https"):
         raise ConfigError(f"[git] transport must be 'ssh' or 'https', got {transport!r}")
     upstream_remote = table.get("upstream_remote", "upstream")
     if not isinstance(upstream_remote, str) or not _REMOTE_NAME.fullmatch(upstream_remote):
@@ -595,7 +595,7 @@ def git_policy(config: Config, base: Path | None = None) -> GitPolicy:
         raise ConfigError("[git] published_paths applies only with published_terms")
     site_hooks = table.get("site_hooks")
     if site_hooks is not None:
-        if site_hooks != "skip":
+        if not isinstance(site_hooks, str) or site_hooks != "skip":
             raise ConfigError(f'[git] site_hooks may only be "skip", got {site_hooks!r}')
         if not published_paths:
             raise ConfigError(

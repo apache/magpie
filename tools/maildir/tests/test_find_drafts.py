@@ -16,13 +16,19 @@
 # under the License.
 
 import json
+from typing import Any
 
 from maildir_draft.create_draft import build_message, write_draft
 from maildir_draft.find_drafts import find_drafts, main
 
 
-def _draft(drafts, **kwargs):
-    defaults = {"sender": "me@example.org", "to": "you@example.org", "subject": "Hi", "body": "b\n"}
+def _draft(drafts, **kwargs: Any):
+    defaults: dict[str, Any] = {
+        "sender": "me@example.org",
+        "to": "you@example.org",
+        "subject": "Hi",
+        "body": "b\n",
+    }
     write_draft(build_message(**{**defaults, **kwargs}), drafts)
 
 

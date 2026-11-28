@@ -44,7 +44,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -105,7 +105,7 @@ def plugin_dirs(marketplace: Path = MARKETPLACE) -> list[Path]:
 
 
 @contextmanager
-def workdir() -> Iterator[Path]:
+def workdir() -> Generator[Path, None, None]:
     """A throwaway directory for the install, npm cache and configuration.
 
     Falls back to the git directory when a sandbox blocks the system temp

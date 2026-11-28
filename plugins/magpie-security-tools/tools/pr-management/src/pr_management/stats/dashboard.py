@@ -49,6 +49,7 @@ import sys
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from .reference import (
     CLOSED_PRS_QUERY,
@@ -545,7 +546,7 @@ def compute_recommendations(open_prs, weekly, pressure, hero, ready_trend_growth
     ]
     responded_no_ready = [p for p in open_prs if p["_responded"] and not p["_has_ready"]]
 
-    recs = []
+    recs: list[dict[str, Any]] = []
     if untriaged_4w:
         recs.append(
             {
@@ -939,7 +940,7 @@ def compute_triager_activity(open_prs, closed_prs, weeks, ctx):
                     if s <= fat < e:
                         activity[operator][idx]["ai"].add(pr_num)
                         break
-    rows = []
+    rows: list[dict[str, Any]] = []
     for login, per_week in activity.items():
         totals_ai = set().union(*[w["ai"] for w in per_week])
         totals_manual = set().union(*[w["manual"] for w in per_week])
@@ -1190,7 +1191,7 @@ def compute_table_final_state(closed_prs, area_prefix, ctx):
                 b["closed"] += 1
             if responded:
                 b["responded"] += 1
-    rows = []
+    rows: list[dict[str, Any]] = []
     for area, b in by_area.items():
         rows.append(
             {
@@ -1279,7 +1280,7 @@ def compute_table_still_open(open_prs, area_prefix):
                     b["responded"] += 1
                 if pr["_has_ready"]:
                     b["ready"] += 1
-    rows = []
+    rows: list[dict[str, Any]] = []
     for area, b in by_area.items():
         rows.append(
             {

@@ -245,7 +245,7 @@ def test_report_band_pair_does_not_fail() -> None:
     36-word `LONG_PARAGRAPH` (indices 0, 15, 30) lands the containment score
     at 0.4286 — precomputed once and fixed here, not re-derived per run."""
     words = LONG_PARAGRAPH.split()
-    mutated = list(words)
+    mutated: list[str] = list(words)
     for i in range(0, len(mutated), 15):
         mutated[i] = f"altered{i}"
     variant = " ".join(mutated)

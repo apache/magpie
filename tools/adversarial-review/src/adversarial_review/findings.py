@@ -34,7 +34,7 @@ import os
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, TypeGuard
 
 SEVERITIES = ("critical", "high", "medium", "low")
 
@@ -78,7 +78,7 @@ class Finding:
     evidence: str
 
 
-def _has_findings(obj: object) -> bool:
+def _has_findings(obj: object) -> TypeGuard[dict[str, Any]]:
     return isinstance(obj, dict) and "findings" in obj
 
 

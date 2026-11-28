@@ -158,7 +158,8 @@ def test_a_worktree_welcome_answer_never_hides_the_main_checkouts_others(
     assert set(own["welcome"]) == {"security"}  # the main checkout's answer is not copied
     shared.write_text(json.dumps({"welcome": {"general": {"choice": "seen", "shown": 1}}}))
     assert welcome._state(wt, "general") == {"choice": "seen", "shown": 1}
-    assert welcome._state(wt, "security")["choice"] == "dismiss"  # type: ignore[index]
+    security = welcome._state(wt, "security")
+    assert security is not None and security["choice"] == "dismiss"
 
     assert welcome.enable(wt, "general") is True
     assert welcome.reason_to_show(welcome._state(wt, "general"), "x") == "first-run"

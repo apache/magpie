@@ -78,7 +78,7 @@ def test_fetch_raw_surfaces_http_errors():
         url="https://x",
         code=404,
         msg="Not Found",
-        hdrs=None,  # type: ignore[arg-type]
+        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         fp=io.BytesIO(b"no such message"),
     )
     with (

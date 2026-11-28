@@ -499,7 +499,7 @@ def test_a_preamble_wrapped_at_72_columns_still_matches(capsys, tmp_path) -> Non
 )
 def test_cc_is_parsed_as_addresses(capsys, tmp_path, cc: object) -> None:
     message = {"from": LIST_FROM, "body": CURRENT_BODY, "cc": cc, "message_id": LIST_HEADERS["message_id"]}
-    out = detect(capsys, tmp_path, message, SHIPPED)  # type: ignore[arg-type]
+    out = detect(capsys, tmp_path, message, SHIPPED)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     assert out["match"] == "asf-security"
 
 

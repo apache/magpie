@@ -149,7 +149,7 @@ def test_refresh_access_token_raises_on_http_error():
         url="https://oauth2.googleapis.com/token",
         code=400,
         msg="Bad Request",
-        hdrs=None,  # type: ignore[arg-type]
+        hdrs=None,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         fp=io.BytesIO(b'{"error": "invalid_grant"}'),
     )
     with patch("oauth_draft.credentials.urllib.request.urlopen", side_effect=err):

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from spec_inventory import (
     _changed_path_candidates,
     extract_path_patterns,
@@ -189,18 +191,18 @@ def test_scope_map_docs_modes_md(tmp_path: Path) -> None:
     assert "tools/spec-loop/specs/triage-mode.md" in result
 
 
-def test_scope_main_cli_reads_stdin(tmp_path: Path, monkeypatch: object) -> None:
+def test_scope_main_cli_reads_stdin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """scope_main reads paths from positional arguments and prints matching specs."""
     specs_dir = tmp_path / "tools" / "spec-loop" / "specs"
     specs_dir.mkdir(parents=True)
     (specs_dir / "example.md").write_text(_spec_text("- `tools/example/`\n"))
 
-    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    monkeypatch.chdir(tmp_path)
     import io
     import sys as _sys
 
     captured = io.StringIO()
-    monkeypatch.setattr(_sys, "stdout", captured)  # type: ignore[attr-defined]
+    monkeypatch.setattr(_sys, "stdout", captured)
 
     scope_main(["tools/example/main.py", "--repo-root", str(tmp_path)])
 
