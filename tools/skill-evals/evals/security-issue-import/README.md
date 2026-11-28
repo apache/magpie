@@ -188,6 +188,18 @@ many cve-tool-bookkeeping entries were silently dropped.
 | `case-2-all-imported` | 3 candidates all imported; candidates 1 and 2 were split from one thread and share that thread's receipt draft. | Shared draft listed once under candidate 1, not duplicated for candidate 2 |
 | `case-3-all-rejected` | 0 issues created; candidate 1 skipped, candidate 2 rejected with canned (draft created), candidate 3 already tracked; 2 bookkeeping drops. | `issues_created=[]`, `drafts_waiting` length 1, `skipped` length 3, `cve_tool_bookkeeping_dropped=2` |
 
+## Pointer routing (`pointer-routing`)
+
+The whole `SKILL.md` is the prompt; each case asks which sibling the situation sends the agent to.
+`step-3-classify` includes [`forwarder-prescreen.md`](../../../../plugins/magpie-security/skills/issue-import/forwarder-prescreen.md) with `also_include`, so this suite is what proves the Step 3 pointer.
+
+| Case | Scenario | Expected |
+|------|----------|----------|
+| `case-1-forwarders-enabled` | Step 3 is about to classify a direct report; `forwarders.enabled` names an adapter. | `forwarder-prescreen.md` |
+| `case-2-no-forwarders` | The same report with `forwarders.enabled: []`. | none |
+
+Mutation check, run when the suite was added: with the pointer line deleted from `SKILL.md`, case 1 failed and case 2 still passed.
+
 ## Run history
 
 Live model runs over this whole eval directory, newest first.
@@ -197,6 +209,7 @@ Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |
 |---|---|---|---|---|---|
+| 2026-11-28 | `835d2a29` (opt/issue-import-forwarder-split) | `opus[1m]` | 2 | pass |  |
 | 2026-11-27 | `06ea9fb3` (fix/asf-severity-wording) | `opus[1m]` | 1 | pass |  |
 | 2026-11-27 | `2a482e3c` (fix/asf-security-relay-detect) | `opus[1m]` | 3 | `step-3-classify/case-6-ghsa-relay` failed 1 of 3 |  |
 | 2026-11-25 | `3ee03b24` (fix/import-affected-versions-shape) | `claude-opus-5-5` | 2 | `step-4-extract-fields/case-5-mail-body-injection` failed 1 of 2 | Affected versions shape fix |
