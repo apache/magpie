@@ -19,6 +19,8 @@
 from __future__ import annotations
 
 import base64
+import email
+import email.policy
 
 import pytest
 
@@ -145,6 +147,24 @@ def test_decode_subject_keeps_a_raw_8bit_subject_with_an_encoded_word() -> None:
     assert decode_subject("café =?utf-8?q?x?=") == "café =?utf-8?q?x?="
     assert decode_subject("=?utf-8?q?a?=中b") == "=?utf-8?q?a?=中b"
     assert "\\u" not in decode_subject("menu �� =?utf-8?q?x?=\r\n tail")
+
+
+RAW_UTF8 = (
+    "Message-ID: <r@x>\r\nFrom: Jos\u00e9 M\u00fcller <jose@example.org>\r\n"
+    "Subject: [SECURITY] RCE in Z\u00fcrich module\r\nDate: Mon, 23 Nov 2026 12:00:00 +0000\r\n\r\nbody\r\n"
+).encode("utf-8")
+
+
+def test_summarise_decodes_a_raw_utf8_subject() -> None:
+    # The IMAP backend parses with compat32 (searching.parse_message), which
+    # hands an 8-bit header back as an unknown-8bit Header.
+    msg = email.message_from_bytes(RAW_UTF8, policy=email.policy.compat32)
+    assert summarise(msg).subject == "[SECURITY] RCE in Z\u00fcrich module"
+
+
+def test_decode_subject_keeps_replacement_for_bytes_that_are_not_utf8() -> None:
+    msg = email.message_from_bytes(b"Subject: Z\xfcrich latin-1\r\n\r\nx", policy=email.policy.compat32)
+    assert decode_subject(msg.get("Subject")) == "Z\ufffdrich latin-1"
 
 
 def test_decode_subject_keeps_undecodable_text() -> None:
