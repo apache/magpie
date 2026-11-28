@@ -51,6 +51,8 @@ export interface DuplicatePickerDecision {
   kept_issue: number;
   dropped_issues: number[];
   dismissed_issues: number[];
+  source_candidates_sha256?: string | null;
+  invalidated?: boolean;
   updated_at: string;
 }
 
@@ -64,6 +66,9 @@ export interface DuplicatePickerState {
   candidates: CandidateIssue[];
   selectedKeptIssue: number | null;
   dismissedIssues: number[];
+  candidatesSha256?: string | null;
+  candidatesPath?: string;
+  syncError?: string | null;
 }
 
 /**

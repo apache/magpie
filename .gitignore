@@ -121,6 +121,8 @@ AGENTS.md
 **/scheduled_tasks.lock
 .apache-steward/
 docs/superpowers/
+.magpie-issue-candidates-*.json
+.magpie-issue-decision-*.json
 .magpie-pairing-review-*.json
 .magpie-pairing-decision-*.json
 

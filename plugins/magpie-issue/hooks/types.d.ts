@@ -39,6 +39,8 @@ declare module 'claude-code' {
         }>;
         selectedKeptIssue: number | null;
         dismissedIssues: number[];
+        candidatesSha256?: string | null;
+        syncError?: string | null;
       } | null;
       issueSweepProgressState: {
         skill: 'issue-triage' | 'issue-stale-sweep' | 'issue-backlog-stats' | (string & {});

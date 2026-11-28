@@ -68,7 +68,7 @@ Suites are currently implemented for:
 - **good-first-issue-author** — 13 cases across 2 suites (readiness-check, suitability-gate)
 - **good-first-issue-sweep** — 15 cases across 3 suites (step-2-classify, step-3-present-proposals, item-failure-budget)
 - **issue-backlog-stats** — 15 cases across 4 suites (step-2-classify, step-3-aggregate, step-4-recommend, step-5-render)
-- **issue-deduplicate** — 9 cases across 3 suites (step-0-preflight, step-2-build-proposal, step-3-confirm)
+- **issue-deduplicate** — 12 cases across 3 suites (step-0-preflight, step-2-build-proposal, step-3-confirm)
 - **issue-reassess** — 14 cases across 4 suites (headline-extraction, skip-if-resolvable, step-2-resumability, item-failure-budget)
 - **issue-stale-sweep** — 28 cases across 7 suites (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap, item-failure-budget, pointer-routing)
 - **license-compliance-audit** — 9 cases across 2 suites (step-findings-report, step-scope-selection)

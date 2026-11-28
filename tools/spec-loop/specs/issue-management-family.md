@@ -191,12 +191,9 @@ unchanged.
   the same bug reported in both a JIRA project and GitHub Issues) are out
   of scope.
 
-- **The duplicate candidate picker pane is additive.** Under Claude Code, a
-  duplicate candidate payload hydrates the mod's interactive pane above the prompt.
-  The mod renders the deduplication target and candidate issues, allowing maintainers
-  to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept)
-  before any mutation is proposed. Part 1 (#2076) provides the core UI and state
-  management; part 2 connects the file hydration and skill workflow.
+- **The duplicate candidate picker pane is additive.**
+  Under Claude Code, the mod hydrates candidate duplicates from `.magpie-issue-candidates-<target>.json` into an interactive UI pane, allowing maintainers to curate matches (Keep Target, Set as Kept, Dismiss, Restore, or Toggle Kept).
+  Staged curation choices are written to `.magpie-issue-decision-<target>.json` with a SHA-256 payload digest before any mutation is proposed.
 
 - **The issue sweep progress band is additive.**
   Under Claude Code, `hooks/issue-sweep-band.ts` keeps a session atom of sweep progress
