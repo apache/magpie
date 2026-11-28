@@ -16,8 +16,7 @@ when_to_use: |
   Invoke when a maintainer says "deduplicate #NNN and #MMM",
   "close #MMM as a duplicate of #NNN", "#MMM is the same as #NNN",
   or when `issue-triage` or `issue-stale-sweep` surfaces a likely
-  duplicate pair. Also appropriate when a triager spots two open
-  issues describing the same bug or feature from different angles.
+  duplicate pair.
   Skip when the issues describe different bugs that share a surface
   (cross-link instead) or when one issue is a security report (use
   `security-issue-deduplicate` for those).
@@ -25,7 +24,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:10a3cb1b8a2892e2
 license: Apache-2.0
-measured_tokens: 5440
+measured_tokens: 5418
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

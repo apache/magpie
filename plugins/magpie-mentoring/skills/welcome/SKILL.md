@@ -12,7 +12,7 @@ description: |
   Detects first-time authorship via the GitHub `author_association` field
   and drafts a welcome with contributing-guide link, community-norm
   pointers, and expected next steps. Waits for explicit maintainer
-  confirmation before posting. Does not post for repeat contributors.
+  confirmation before posting.
 when_to_use: |
   Invoke when a maintainer says "welcome the contributor on issue/PR NNN",
   "send the first-time contributor message on NNN", or chains this skill
@@ -24,7 +24,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 4214
+measured_tokens: 4207
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

@@ -178,11 +178,11 @@ can say so, because it is the floor everything else is managed from.
 
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
-| `magpie-security` | 16 | ~2.2k |
+| `magpie-security` | 16 | ~2.1k |
 | `magpie-setup` | 12 | ~1.6k |
 | `magpie-release-management` | 10 | ~1.5k |
 | `magpie-pr-management` | 10 | ~1.7k |
-| `magpie-issue` | 8 | ~1.5k |
+| `magpie-issue` | 8 | ~1.4k |
 | `magpie-repo-health` | 8 | ~1.4k |
 | `magpie-utilities` | 7 | ~1.0k |
 | `magpie-contributor-growth` | 9 | ~1.4k |

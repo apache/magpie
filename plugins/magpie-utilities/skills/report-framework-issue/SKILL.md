@@ -8,8 +8,7 @@ description: |
   File a clean, redacted GitHub issue against the Apache Magpie
   framework repo when a skill, tool, or doc misbehaves. Gathers the
   problem from the user — never the raw session transcript — runs a
-  mandatory public-disclosure scrub, renders the report into the
-  framework's issue template, and files via `gh issue create --web`
+  mandatory public-disclosure scrub, and files via `gh issue create --web`
   only on explicit confirmation.
 when_to_use: |
   Invoke when the user says "report this to the framework", "file a
@@ -23,7 +22,7 @@ argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 5375
+measured_tokens: 5363
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -15,7 +15,7 @@ description: |
   `<runtime>`, and compose a `verdict.json` describing the
   observed behaviour vs the expected failure. Read-only on the
   tracker — produces evidence, never posts. Invoked by
-  `issue-triage` and `issue-reassess`; can also be run standalone.
+  `issue-triage` and `issue-reassess`.
 when_to_use: |
   Invoke when the user names a single issue and says "reproduce
   this", "check whether this still fails on master", "run the
@@ -27,7 +27,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:85440f7009f84de6
 license: Apache-2.0
-measured_tokens: 6215
+measured_tokens: 6209
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

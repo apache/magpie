@@ -11,8 +11,7 @@ description: |
   Open one or more `<tracker>` tracking issues from a markdown
   file containing a batch of security findings. Each finding
   becomes one tracker landing in the `Needs triage` board
-  column. The file itself is the full report — there is no
-  inbound reporter to reply to and no PR to inspect.
+  column.
 when_to_use: |
   Invoke when a security team member says "import findings
   from <path>", "import this scan output", "load these issues
@@ -27,7 +26,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:b741b2de80b78093
 license: Apache-2.0
-measured_tokens: 6387
+measured_tokens: 6363
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
