@@ -3,14 +3,14 @@
 
 # security-issue-import-from-scan eval suite
 
-6 cases across 2 steps: disposition bucketing and pointer routing.
+9 cases across 2 steps: disposition bucketing and pointer routing.
 
 ## Steps covered
 
 | Step | Directory | Cases | Notes |
 |---|---|---|---|
 | Step C — bucket by disposition | `step-c-bucket/` | 4 | Medium-but-by-design, CVE-worthy, PR-worth (no tracker), already-fixed |
-| Pointer routing | `pointer-routing/` | 2 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case |
+| Pointer routing | `pointer-routing/` | 5 | the agent finds `pre-pr-adversarial-review.md` from the pointer alone at the review point and opens nothing before it; the output spec names no file, so removing the pointer fails the case; cases 3–5 route a scanner disclosure email to `email-scan.md`, vetted-ops reads to `vetted-reads.md` and a batch policy to `batched-apply.md` (mutation check when added: with those pointers deleted, all three failed) |
 
 ## Hard rules exercised
 
@@ -30,3 +30,14 @@ Choosing the bucket and its grounding stays the model's, so this suite stays a m
 ## Steps not covered
 
 Step A (adapter read) and Step F (gist / report-back-PR / apply loop) are procedural / tool-driven without a clean prompt-only boundary (the Step D report, Step E decision grammar and Step F scrub are pytest-tested in `tools/security-management`); Step B's trust-boundary reasoning is exercised transitively through the Step C buckets above and is covered directly in the `security-issue-triage` suite.
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-11-28 | `835d2a29` (opt/import-from-scan-split) | `opus[1m]` | 2 | pass |  |
