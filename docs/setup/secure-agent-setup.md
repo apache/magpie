@@ -46,6 +46,7 @@
   - [Duplicate candidate picker mod (Claude Code plugin / hook)](#duplicate-candidate-picker-mod-claude-code-plugin--hook)
   - [Multi-agent review comparison pane mod (Claude Code plugin / hook)](#multi-agent-review-comparison-pane-mod-claude-code-plugin--hook)
   - [Local security triage queue pane mod (Claude Code plugin / hook)](#local-security-triage-queue-pane-mod-claude-code-plugin--hook)
+  - [Contributor activity sweep pane mod (Claude Code plugin / hook)](#contributor-activity-sweep-pane-mod-claude-code-plugin--hook)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -2199,6 +2200,18 @@ Skill-side emission of `.magpie-security-triage-queue.json` from `security-issue
   Staged launcher action payloads contain only `{ itemId, skill, command, stagedAt }` without advisory titles.
 - **Untrusted content boundaries and command safety**: Advisory titles and IDs are sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving quotes in inert `Text` nodes.
   Launcher buttons validate `itemId` against `/^[A-Za-z0-9#._-]{1,40}$/`, allowlisted skill names, and active `state.items` membership, staging commands locally without auto-executing them.
+
+## Contributor activity sweep pane mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using the `magpie-contributor-growth` plugin, the contributor activity sweep pane mod ([`plugins/magpie-contributor-growth/hooks/contributor-sweep-pane.ts`](../../plugins/magpie-contributor-growth/hooks/contributor-sweep-pane.ts)) provides a `/magpie-contributor-queue` command, `Write`/`Bash` `tool.call` auto-hydration, and interactive `Pane` UI listing candidates in case-insensitive alphabetical order by GitHub handle with per-candidate launcher buttons (`[Sweep]`, `[Nominate]`) and plain activity counts (no readiness verdict, stage, or ranking).
+Part 1 ships the `/magpie-contributor-queue` reader, `Write`/`Bash` auto-hydration, session state atom (`magpie-contributor-growth.contributorSweepState`), sanitizer, strict path confinement, symlink/non-regular file checks, and launcher action staging; skill-side emission of `.magpie-contributor-sweep-queue.json` will follow in Part 2.
+
+- **Local-only personal-layer IPC and privacy boundary**: All data remains local with zero network or subprocess calls.
+  Path strings are confined by `resolvePersonalLayerDir` and `isConfinedContributorPath` to `.magpie-contributor-sweep-queue.json` and `.magpie-contributor-sweep-action.json` under `<git-common-dir>/apache-magpie/` (supporting linked worktrees via `commondir` and refusing symlinked `.git`), so neither file can be staged or committed in an adopter checkout.
+  Both reads and writes pre-check targets via `$.fs.stat` (`classifyWriteTarget`) to refuse symbolic links and non-regular files.
+  Staged launcher action payloads contain only `{ handle, skill, command, stagedAt }` without private candidate notes.
+- **Untrusted content boundaries and command safety**: Candidate handles, display names, and notes are sanitized against ANSI escapes, C0/C1 control codes, zero-width characters, and Unicode bidirectional overrides while preserving quotes in inert `Text` nodes.
+  Launcher buttons validate GitHub handles against `/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/`, allowlisted skill names (`activity-sweep`, `nomination`), and active `state.items` membership, staging commands locally without auto-executing them.
 
 ## Sandbox-error hint hook
 

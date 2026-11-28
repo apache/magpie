@@ -1,0 +1,8 @@
+{
+  "$schema": "https://code.claude.com/schemas/hooks.json",
+  "description": "Apache Magpie — Claude Code mod for the local contributor activity sweep pane.",
+  "hooks": {},
+  "modules": [
+    "./contributor-sweep-pane.ts"
+  ]
+}
