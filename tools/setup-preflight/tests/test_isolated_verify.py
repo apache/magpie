@@ -596,6 +596,19 @@ def test_check_19a_a_grant_through_a_symlink_fails(setup) -> None:
     assert part(result, "19a")[0].startswith("19a: ~/.local/share/uv writable:")
 
 
+def test_check_19a_a_symlink_followed_by_dotdot_fails(setup) -> None:
+    """`normpath` reads `~/elsewhere/link/..` as `~/elsewhere`; the OS follows `link` first."""
+    _, home, _ = setup
+    inner = home / ".local" / "share" / "uv" / "python"
+    inner.mkdir(parents=True, exist_ok=True)
+    (home / "elsewhere").mkdir()
+    (home / "elsewhere" / "link").symlink_to(inner)
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append("~/elsewhere/link/.."))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert part(result, "19a")[0].startswith("19a: ~/.local/share/uv writable:")
+
+
 def test_check_19a_a_read_grant_is_fine(setup) -> None:
     with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowRead"].append("~/.local/share/uv"))
     assert part(finding(verifier(setup), "19"), "19a")[0].startswith("19a: no allowWrite")
