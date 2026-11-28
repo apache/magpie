@@ -52,7 +52,7 @@ import re
 import sys
 import urllib.parse
 from email.errors import HeaderParseError
-from email.header import decode_header
+from email.header import Header, decode_header
 from email.message import Message
 from pathlib import Path
 from typing import Any
@@ -163,6 +163,28 @@ def _thread_key(raw: str) -> str:
     return _normalise_id(text)
 
 
+def _raw_8bit_text(header: Header) -> str:
+    """The text of a header ``compat32`` could not keep as a string.
+
+    Parsed from bytes, a header holding raw 8-bit bytes (RFC 6532 lets
+    headers carry UTF-8 unencoded) comes back as an ``unknown-8bit``
+    ``Header``, whose ``str()`` turns every such byte into U+FFFD. Its
+    bytes are decoded as UTF-8 instead; bytes that are not UTF-8 still
+    become U+FFFD, as before.
+    """
+    parts = []
+    for part, charset in decode_header(header):
+        if isinstance(part, str):
+            parts.append(part)
+            continue
+        codec = charset if charset not in (None, "unknown-8bit") else "utf-8"
+        try:
+            parts.append(part.decode(codec, "replace"))
+        except LookupError:
+            parts.append(part.decode("utf-8", "replace"))
+    return "".join(parts)
+
+
 def _header_text(msg: Message, name: str) -> str:
     """A header value with RFC-2047 encoded words decoded.
 
@@ -171,10 +193,11 @@ def _header_text(msg: Message, name: str) -> str:
     prefix, inheriting a subject for a reply, and listing participants all need
     the decoded text.
     """
-    raw = msg.get(name)
+    # Typed as object: compat32 can hand back a Header, not the str the stubs promise.
+    raw: object = msg.get(name)
     if raw is None:
         return ""
-    text = str(raw)
+    text = _raw_8bit_text(raw) if isinstance(raw, Header) else str(raw)
     # Encoded words are ASCII by definition. A raw 8-bit header is kept as it
     # is: ``decode_header`` would hand its unencoded runs back escaped.
     if "=?" in text and text.isascii():

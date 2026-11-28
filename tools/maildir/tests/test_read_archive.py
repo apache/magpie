@@ -399,6 +399,34 @@ def test_header_text_keeps_a_raw_8bit_header_with_an_encoded_word(raw):
     assert _header_text(msg, "Subject") == raw
 
 
+RAW_UTF8 = (
+    "Message-ID: <r@x>\r\nFrom: Jos\u00e9 M\u00fcller <jose@example.org>\r\n"
+    "Subject: [SECURITY] RCE in Z\u00fcrich module\r\nDate: Mon, 23 Nov 2026 12:00:00 +0000\r\n\r\nbody\r\n"
+).encode("utf-8")
+
+
+def test_header_text_decodes_raw_utf8_headers():
+    # Parsed from bytes, as iter_messages does: compat32 hands an 8-bit header
+    # back as an unknown-8bit Header whose str() is U+FFFD for every byte.
+    msg = email.message_from_bytes(RAW_UTF8)
+    assert _header_text(msg, "Subject") == "[SECURITY] RCE in Z\u00fcrich module"
+    assert _header_text(msg, "From") == "Jos\u00e9 M\u00fcller <jose@example.org>"
+
+
+def test_header_text_keeps_replacement_for_bytes_that_are_not_utf8():
+    msg = email.message_from_bytes(b"Subject: Z\xfcrich latin-1\r\n\r\nx")
+    assert _header_text(msg, "Subject") == "Z\ufffdrich latin-1"
+
+
+def test_read_thread_returns_raw_utf8_headers(tmp_path):
+    eml = tmp_path / "eml"
+    eml.mkdir()
+    (eml / "r.eml").write_bytes(RAW_UTF8)
+    thread = read_thread(eml, "<r@x>")
+    assert thread["subject"] == "[SECURITY] RCE in Z\u00fcrich module"
+    assert thread["messages"][0]["from"] == "Jos\u00e9 M\u00fcller <jose@example.org>"
+
+
 def test_an_html_only_message_still_yields_its_body(tmp_path):
     """An empty body is the worst outcome for a security report."""
     archive = _write_raw_eml(
