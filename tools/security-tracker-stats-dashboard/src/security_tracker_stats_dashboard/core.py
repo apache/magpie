@@ -280,7 +280,8 @@ def _minimal_yaml_load(text: str) -> Any:
         if s.lower() == "false":
             return False
         if s.startswith('"') and s.endswith('"') and len(s) >= 2:
-            return s[1:-1].encode().decode("unicode_escape")
+            # Preserve non-ASCII while unicode_escape decodes backslash escapes.
+            return s[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape")
         if s.startswith("'") and s.endswith("'") and len(s) >= 2:
             return s[1:-1]
         if s.startswith("[") and s.endswith("]"):
