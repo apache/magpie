@@ -564,6 +564,11 @@ def test_check_19_is_not_applicable_without_a_sandbox(setup) -> None:
         (("sandbox", "filesystem", "allowWrite"), "~/.local/share/uv/"),
         (("permissions", "additionalDirectories"), "~/.local"),
         (("sandbox", "filesystem", "allowWrite"), "$HOME/.local/share/uv"),
+        # A child of the dir: the interpreters and tool venvs under it run outside the sandbox.
+        (("sandbox", "filesystem", "allowWrite"), "~/.local/share/uv/tools"),
+        # Globs whose fixed prefix covers the dir.
+        (("sandbox", "filesystem", "allowWrite"), "~/.local/share/**"),
+        (("sandbox", "filesystem", "allowWrite"), "~/.local/*/uv"),
     ],
 )
 def test_check_19a_a_write_grant_covering_the_uv_data_dir_fails(setup, key, entry) -> None:
@@ -579,6 +584,29 @@ def test_check_19a_a_write_grant_covering_the_uv_data_dir_fails(setup, key, entr
     assert part(result, "19a") == [
         f"19a: ~/.local/share/uv writable: .claude/settings.json: {'.'.join(key)} {entry!r}"
     ]
+
+
+def test_check_19a_a_grant_through_a_symlink_fails(setup) -> None:
+    _, home, _ = setup
+    (home / ".local" / "share" / "uv").mkdir(parents=True, exist_ok=True)
+    (home / "uv-link").symlink_to(home / ".local" / "share" / "uv")
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append("~/uv-link"))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert part(result, "19a")[0].startswith("19a: ~/.local/share/uv writable:")
+
+
+def test_check_19a_a_symlink_followed_by_dotdot_fails(setup) -> None:
+    """`normpath` reads `~/elsewhere/link/..` as `~/elsewhere`; the OS follows `link` first."""
+    _, home, _ = setup
+    inner = home / ".local" / "share" / "uv" / "python"
+    inner.mkdir(parents=True, exist_ok=True)
+    (home / "elsewhere").mkdir()
+    (home / "elsewhere" / "link").symlink_to(inner)
+    with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append("~/elsewhere/link/.."))
+    result = finding(verifier(setup), "19")
+    assert result["status"] == "fail"
+    assert part(result, "19a")[0].startswith("19a: ~/.local/share/uv writable:")
 
 
 def test_check_19a_a_read_grant_is_fine(setup) -> None:
@@ -831,7 +859,10 @@ def test_check_19e_a_project_without_pnpm_needs_no_home(setup) -> None:
     assert "does not use pnpm" in part(finding(verifier(setup), "19"), "19e")[-1]
 
 
-@pytest.mark.parametrize("entry", ["~/.local/share/pnpm-sandbox/", "~/.local/share"])
+@pytest.mark.parametrize(
+    "entry",
+    ["~/.local/share/pnpm-sandbox/", "~/.local/share", "~/.local/share/pnpm-sandbox/*", "~/.local/**"],
+)
 def test_check_19e_granting_every_pnpm_home_fails_in_any_project(setup, entry) -> None:
     with_settings(setup, lambda s: s["sandbox"]["filesystem"]["allowWrite"].append(entry))
     result = finding(verifier(setup), "19")
